@@ -85,6 +85,8 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                 // we're going to display a pop up menu of forms so we set the menu title and id num of menu
                 Dao.setRightHeadingID(menuId);
                 Dao.setMenuHeader(getText("encounter.LeftNavBar.AddFrm"));
+                // Refresh the Forms module after a new form opened from this menu closes.
+                Dao.setTrackHeadingPopups(true);
                 StringBuilder url;
                 String serviceDateStr;
                 StringBuilder strTitle;

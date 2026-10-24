@@ -31,6 +31,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
@@ -40,5 +41,34 @@ public interface CtlDocumentDao extends AbstractDao<CtlDocument> {
     public CtlDocument getCtrlDocument(Integer docId);
 
     public List<CtlDocument> findByDocumentNoAndModule(Integer ctlDocNo, String module);
+
+    /**
+     * Finds every module link for the supplied document numbers.
+     * Null document numbers and duplicate values are ignored. A null, empty, or
+     * all-null collection returns an empty list. The returned list is never null
+     * and has no defined ordering.
+     *
+     * @param documentNos document numbers whose module links should be returned
+     * @return all matching module links, or an empty list when none match
+     */
+    public List<CtlDocument> findByDocumentNos(Collection<Integer> documentNos);
+
+    /**
+     * Returns the subset of {@code documentNos} that are linked to the given patient through a
+     * {@code ctl_document} row (module {@code demographic}, module_id = patient) and whose
+     * {@code document} row exists and is not deleted ({@code document.status <> 'D'}, the flag
+     * {@code EDocUtil.deleteDocument} sets).
+     *
+     * <p>Used as an ownership check before a document id supplied by a browser is attached to,
+     * or sent out with, that patient's referral. A document that is unknown, deleted, or linked
+     * to another patient is simply absent from the result.</p>
+     *
+     * @param demographicNo the patient that must own the documents; {@code null} yields an empty list
+     * @param documentNos candidate document numbers; {@code null} or empty yields an empty list
+     *                    without querying (an empty JPQL {@code IN} list is not portable)
+     * @return the owned document numbers; never {@code null}
+     * @since 2026-09-24
+     */
+    public List<Integer> findDocumentNosForDemographic(Integer demographicNo, Collection<Integer> documentNos);
 
 }

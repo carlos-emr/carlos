@@ -77,9 +77,22 @@ class BillingOnReviewDiagPersisterUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
-        if (mockitoCloseable != null) mockitoCloseable.close();
-        if (logCapture != null) {
-            logCapture.close();
+        try {
+            if (logCapture != null) {
+                assertThat(logCapture.events()).allSatisfy(event -> {
+                    assertThat(event.getThrown()).isNull();
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .doesNotContain("401", "PRIVATE_PATIENT", "duplicate key", "different object", "simulated");
+                    Object[] parameters = event.getMessage().getParameters();
+                    if (parameters != null) {
+                        assertThat(parameters).allSatisfy(parameter -> assertThat(parameter).isIn(
+                                "DataIntegrityViolationException", "NonUniqueObjectException", "IllegalStateException"));
+                    }
+                });
+            }
+        } finally {
+            try { if (mockitoCloseable != null) mockitoCloseable.close(); }
+            finally { if (logCapture != null) logCapture.close(); }
         }
     }
 
@@ -169,7 +182,7 @@ class BillingOnReviewDiagPersisterUnitTest extends CarlosUnitTestBase {
     void shouldThrow_whenDemoNoIsNonNumeric() {
         request.setParameter("addToPatientDx", "yes");
         request.setParameter("dxCode", "401");
-        request.setParameter("demographic_no", "abc");
+        request.setParameter("demographic_no", "PRIVATE_PATIENT");
 
         assertThatThrownBy(() -> persister.persistIfRequested(request, "999998"))
                 .isInstanceOf(BillingValidationException.class)

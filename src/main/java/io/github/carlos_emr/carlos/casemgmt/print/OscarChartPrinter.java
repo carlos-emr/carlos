@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.casemgmt.print;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
@@ -79,7 +81,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
 
@@ -142,7 +144,7 @@ public class OscarChartPrinter implements java.io.Closeable {
 
     /**
      * Creates a new chart printer and initialises the PDF document with Letter page size
-     * and Helvetica fonts.
+     * and embedded Unicode fonts.
      *
      * @param request HttpServletRequest providing session context and patient attributes
      * @param os OutputStream to which the finished PDF will be written
@@ -158,7 +160,7 @@ public class OscarChartPrinter implements java.io.Closeable {
         writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
         document.open();
         //Create the font we are going to print to
-        bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+        bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
         font = new Font(bf, FONTSIZE, Font.NORMAL);
         boldFont = new Font(bf, FONTSIZE, Font.BOLD);
     }
@@ -442,7 +444,7 @@ public class OscarChartPrinter implements java.io.Closeable {
         if (demographicCust != null) {
             phrase.add("Alerts: " + demographicCust.getAlert() + "\n");
             if (demographicCust.getNotes().length() > 0) {
-                phrase.add("Notes: " + SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes") + "\n");
+                phrase.add("Notes: " + DemographicXml.userNotesText(demographicCust.getNotes()) + "\n");
             }
         }
         phrase.add("\n");
@@ -482,7 +484,7 @@ public class OscarChartPrinter implements java.io.Closeable {
      */
     private String getReferralDoctor(String field) {
         if (field != null && field.length() > 0) {
-            return SxmlMisc.getXmlContent(field, "rd");
+            return DemographicXml.referralDoctor(field);
         }
         return "";
     }

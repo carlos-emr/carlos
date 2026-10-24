@@ -15,6 +15,7 @@
  * rather than silently testing a stale copy.
  *
  * Run: npm run test:eform-page-exclusion-playwright   (no Tomcat, no database)
+ * Optional: CHROME_PATH=/path/to/chrome-or-chromium
  */
 const fs = require('fs');
 const path = require('path');
@@ -121,7 +122,12 @@ function check(label, actual, expected) {
         }
     }
 
-    const browser = await chromium.launch();
+    const chromePath = process.env.CHROME_PATH || '';
+    const launchOptions = { headless: true, args: ['--no-sandbox'] };
+    if (chromePath) {
+        launchOptions.executablePath = chromePath;
+    }
+    const browser = await chromium.launch(launchOptions);
     const page = await browser.newPage();
 
     // Selenium's executeScript wraps the body in a function, so the script ends in a bare `return`.
@@ -129,7 +135,11 @@ function check(label, actual, expected) {
     const asExpression = `(() => { ${geometryJs} })()`;
 
     const run = async (html) => {
+        // html is one of the three fixed HTML fixtures in this test file.
+        // nosemgrep: javascript.playwright.security.audit.playwright-setcontent-injection.playwright-setcontent-injection
         await page.setContent(html);
+        // asExpression comes from a named constant in a fixed repository Java file.
+        // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-code-injection.playwright-evaluate-code-injection
         return page.evaluate(asExpression);
     };
 
@@ -148,6 +158,8 @@ function check(label, actual, expected) {
 
     // The page divs themselves must never be hidden — hiding them would blank the whole document.
     await page.setContent(FORM_WRAPPED);
+    // asExpression comes from a named constant in a fixed repository Java file.
+    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-code-injection.playwright-evaluate-code-injection
     await page.evaluate(asExpression);
     const hidden = await page.evaluate(() => Array.from(
         document.querySelectorAll('.carlos-render-nonpage')).map((el) => el.id));

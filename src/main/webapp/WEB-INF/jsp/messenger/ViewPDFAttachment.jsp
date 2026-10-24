@@ -143,10 +143,10 @@
             <span class="fw-semibold"><fmt:message key="messenger.CreateMessage.msgMessenger"/></span>
         </div>
         <div class="d-flex align-items-center gap-3">
-            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')" class="small text-decoration-none">
+            <a href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener" class="small text-decoration-none">
                 <fmt:message key="global.about"/>
             </a>
-            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')" class="small text-decoration-none">
+            <a href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener" class="small text-decoration-none">
                 <fmt:message key="global.license"/>
             </a>
         </div>
@@ -174,7 +174,7 @@
                             %>
                             <% for ( int i = 0 ; i < attVector.size(); i++) { %>
                     <tr>
-                        <td><%= SafeEncode.forHtml((String) attVector.get(i)) %>
+                        <td><%= SafeEncode.forHtml(org.apache.commons.text.StringEscapeUtils.unescapeXml((String) attVector.get(i))) %>
                         </td>
                         <td>
                           <button type="submit"

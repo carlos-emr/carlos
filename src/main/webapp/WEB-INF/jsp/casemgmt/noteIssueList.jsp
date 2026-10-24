@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    AJAX issue-list fragment for the active note, including encounter type and clinical flags.
+    Uses demographicNo and newNoteIdx request parameters and caseManagementEntryForm
+    (request model or patient-specific session fallback). Refresh must finish before saving.
+    @since 2026-09-27 (soft-wrap and save-order documentation)
+--%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean, io.github.carlos_emr.carlos.commn.model.Facility" %>
 <%@page import="org.owasp.encoder.Encode" %>
@@ -94,7 +100,7 @@
         <c:when test="${not empty ajaxsave}">
             <fmt:message key="encounter.encounterDate.title"/>&nbsp;
             <span id="obs${caseManagementEntryForm.caseNote.id}">
-                <fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy H:mm"/>
+                <fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy HH:mm"/>
             </span>&nbsp;
             <fmt:message key="encounter.noteRev.title"/>
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
@@ -106,7 +112,7 @@
             <img src="${ctx}/images/cal.gif" id="observationDate_cal" alt="calendar">&nbsp;
             <input type="text" id="observationDate" name="observation_date" ondblclick="this.value='';"
                    style="border: none; width: 140px;" readonly
-                   value="<fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy H:mm"/>">
+                   value="<fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy HH:mm"/>">
             rev
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
                 ${caseManagementEntryForm.caseNote.revision}
@@ -256,7 +262,7 @@
 
 
 
-<div id="noteIssues">
+<div id="noteIssues" data-saved-note-id="${carlos:forHtmlAttribute(ajaxsave)}">
     <div id="noteIssues-resolved" style="margin: 0; background-color: #CCCCFF; display: none;">
         <b><fmt:message key="encounter.referenceResolvedIssues.title"/></b>
         <% int countResolvedIssue = -1; %>
@@ -451,8 +457,17 @@
         completeChangeToView(noteTxt, newId);
 
         if (origId.substr(0, 1) == "0") {
-            $("nc" + origId).id = "nc" + numNotes;
-            ++numNotes;
+            // A first save turns a new-note container into a saved one so the print
+            // loops (nc1..maxNcId) can find it. The container is not "nc" + origId: the
+            // page renders the initial note as nc<offset><idx> ("nc00" for n0) and
+            // newNote() as nc0N, so walk up from the note div renamed above instead.
+            var savedNoteDiv = $("n" + newId);
+            var noteContainer = savedNoteDiv != null ? savedNoteDiv.parentNode : null;
+            if (noteContainer != null && noteContainer.id != null && noteContainer.id.indexOf("nc") == 0
+                    && typeof maxNcId == "number" && !isNaN(maxNcId)) {
+                maxNcId = maxNcId + 1;
+                noteContainer.id = "nc" + maxNcId;
+            }
         }
 
         <c:if test="${not empty DateError}">
@@ -540,7 +555,7 @@
         //create calendar
         Calendar.setup({
             inputField: "observationDate",
-            ifFormat: "%d-%b-%Y %H:%M ",
+            ifFormat: "%d-%b-%Y %H:%M",
             showsTime: true,
             button: "observationDate_cal",
             singleClick: true,

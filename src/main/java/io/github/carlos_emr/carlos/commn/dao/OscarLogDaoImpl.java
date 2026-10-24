@@ -170,20 +170,23 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
         return (results);
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
                                                                  int itemsToReturn) {
-        String sqlCommand = "select distinct demographicId from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != -1 order by l.created desc";
-
-        Query query = entityManager.createQuery(sqlCommand);
+        // Audit history outlives deleted/merged patient rows. Exclude missing
+        // and soft-deleted patients before pagination so a stale ID neither breaks
+        // the picker nor hides the next available patient. Group by latest access.
+        var query = entityManager.createQuery("select l.demographicId from OscarLog l"
+                + " where l.providerNo = ?1 and l.demographicId > 0"
+                + " and exists (select d.demographicNo from Demographic d where d.demographicNo = l.demographicId"
+                + " and (d.patientStatus is null or d.patientStatus <> 'DE'))"
+                + " and not exists (select m.id from DemographicMerged m where m.demographicNo = l.demographicId and m.deleted = 0)"
+                + " group by l.demographicId order by max(l.created) desc, l.demographicId", Integer.class);
         query.setParameter(1, providerNo);
         query.setFirstResult(startPosition);
         setLimit(query, itemsToReturn);
-
-        @SuppressWarnings("unchecked")
-        List<Integer> results = query.getResultList();
-
-        return (results);
+        return query.getResultList();
     }
 
     /**
@@ -232,7 +235,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     }
 
     @Override
-    public List<OscarLog> findForReport(Date startDate, Date endDate, String content, String providerNo,
+    public List<OscarLog> findForReport(Date startDate, Date endDateExclusive, String content, String providerNo,
                                         List<String> siteProviderNos) {
         if (siteProviderNos != null && siteProviderNos.isEmpty()) {
             return Collections.emptyList();
@@ -254,15 +257,15 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
         String sql;
         if (providerNo != null) {
-            sql = "select * " + fromClause + " where dateTime <= ?1 and dateTime >= ?2 and content like ?3 and provider_no = ?4 order by dateTime desc";
+            sql = "select * " + fromClause + " where dateTime < ?1 and dateTime >= ?2 and content like ?3 and provider_no = ?4 order by dateTime desc";
         } else if (siteProviderNos != null) {
-            sql = "select * " + fromClause + " where dateTime <= ?1 and dateTime >= ?2 and content like ?3 and provider_no in (?4) order by dateTime desc";
+            sql = "select * " + fromClause + " where dateTime < ?1 and dateTime >= ?2 and content like ?3 and provider_no in (?4) order by dateTime desc";
         } else {
-            sql = "select * " + fromClause + " where dateTime <= ?1 and dateTime >= ?2 and content like ?3 order by dateTime desc";
+            sql = "select * " + fromClause + " where dateTime < ?1 and dateTime >= ?2 and content like ?3 order by dateTime desc";
         }
 
         Query query = entityManager.createNativeQuery(sql, OscarLog.class);
-        query.setParameter(1, endDate);
+        query.setParameter(1, endDateExclusive);
         query.setParameter(2, startDate);
         query.setParameter(3, content);
 

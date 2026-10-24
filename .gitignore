@@ -40,6 +40,9 @@ __pycache__/
 /.smarttomcat/
 .claude/settings.local.json
 .claude/*.lock
+# transient git worktrees the agent tooling creates and removes; they are
+# checkouts of this repo, never content of it
+.claude/worktrees/
 
 
 # Docusaurus

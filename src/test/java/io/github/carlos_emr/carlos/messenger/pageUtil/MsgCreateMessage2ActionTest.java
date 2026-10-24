@@ -60,6 +60,7 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        mockRequest.setMethod("POST");
 
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(MessengerDemographicManager.class, mockDemoManager);
@@ -68,6 +69,8 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         String loggedInInfoKey = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(loggedInInfoKey, mockLoggedInInfo);
         setSessionAttribute("user", TEST_PROVIDER);
+        mockRequest.setParameter(MessengerSubmissionGuard.PARAMETER,
+                MessengerSubmissionGuard.issue(mockRequest.getSession(), TEST_PROVIDER));
 
         action = new MsgCreateMessage2Action();
 

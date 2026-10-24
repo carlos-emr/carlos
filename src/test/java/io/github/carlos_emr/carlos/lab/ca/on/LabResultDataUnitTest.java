@@ -65,6 +65,31 @@ class LabResultDataUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldSortConsistently_whenLabSourcesShareIdsOrDatesAreUnavailable() {
+        registerCommonLabResultDataMocks();
+        var labs = new java.util.ArrayList<LabResultData>();
+        for (String source : java.util.List.of("HL7", "MDS", "CML", "BCP")) {
+            for (String id : java.util.List.of("2", "10", "10", "legacy")) {
+                LabResultData lab = new LabResultData(source);
+                lab.setSegmentID(id);
+                lab.setAttachmentUnavailable(true);
+                labs.add(lab);
+            }
+        }
+        for (LabResultData left : labs) for (LabResultData right : labs) {
+            assertThat(Integer.signum(left.compareTo(right))).isEqualTo(-Integer.signum(right.compareTo(left)));
+            assertThat(left.compareTo(left)).isZero();
+        }
+        java.util.Collections.sort(labs);
+        assertThat(labs.subList(0, 8)).allMatch(lab -> "10".equals(lab.getSegmentID()));
+        assertThat(labs.getFirst().getLabType()).isEqualTo("BCP");
+        for (LabResultData lab : labs) {
+            assertThat(lab.getDateObj()).isNull();
+            assertThat(lab.getDiscipline()).isNull();
+        }
+    }
+
     private void registerCommonLabResultDataMocks() {
         registerMock(OscarLogDao.class, mock(OscarLogDao.class));
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));

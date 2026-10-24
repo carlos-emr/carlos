@@ -28,7 +28,7 @@
 
 --%>
     <%@ page import="io.github.carlos_emr.CarlosProperties"%>
-    <%@ page import="org.springframework.web.util.JavaScriptUtils"%>
+    <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode"%>
 
     <%@ page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
 
@@ -43,10 +43,10 @@
 
         var password_min_length = <%=op.getProperty("password_min_length")%>;
         var password_min_groups = <%=op.getProperty("password_min_groups")%>;
-        var password_group_lower_chars = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_lower_chars"))%>";
-        var password_group_upper_chars = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_upper_chars"))%>";
-        var password_group_digits = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_digits"))%>";
-        var password_group_special = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_special"))%>";
+        var password_group_lower_chars = "<%=SafeEncode.forJavaScript(op.getProperty("password_group_lower_chars"))%>";
+        var password_group_upper_chars = "<%=SafeEncode.forJavaScript(op.getProperty("password_group_upper_chars"))%>";
+        var password_group_digits = "<%=SafeEncode.forJavaScript(op.getProperty("password_group_digits"))%>";
+        var password_group_special = "<%=SafeEncode.forJavaScript(op.getProperty("password_group_special"))%>";
 
         <%
         if (!Boolean.parseBoolean(op.getProperty("IGNORE_PASSWORD_REQUIREMENTS")))
@@ -99,7 +99,7 @@
     function validatePin(pin) {
 
         var password_pin_min_length = <%=op.getProperty("password_pin_min_length")%>;
-        var password_group_digits = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_digits"))%>";
+        var password_group_digits = "<%=SafeEncode.forJavaScript(op.getProperty("password_group_digits"))%>";
 
         if (pin.length < password_pin_min_length) {
             alert('<fmt:message key="password.policy.violation.msgPinLengthError"/> ' +

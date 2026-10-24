@@ -80,6 +80,8 @@
 	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.OscarPropertyPlaceholderConfigurer">
 		<property name="locations">
 			<list>
+				<!-- Distribution defaults are lower priority than operator/classpath properties. -->
+				<value>classpath:jdbc-defaults.properties</value>
 				<value>classpath:carlos.properties</value>
 			</list>
 		</property>
@@ -93,6 +95,15 @@
 
 	<!-- setup CXF -->
 	<import resource="classpath:spring_ws.xml" />
+
+	<!--
+	  Patient portal integration (issue #3475). Imported explicitly rather than relying on the
+	  classpath:applicationContext*.xml pattern in web.xml: a deployed CARLOS was observed loading
+	  only a subset of the files that pattern matches, and every context that reliably loads in this
+	  application is imported here. All beans in the imported file are lazy-init, so this import does
+	  not make a deployment without portal configuration fail to start.
+	-->
+	<import resource="classpath:applicationContextPatientPortal.xml" />
 	<!-- <context:component-scan base-package="io.github.carlos_emr.carlos.commn.dao" /> -->
 	
 	<!-- hibernated DAO -->
@@ -226,6 +237,7 @@
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/ckdFlowsheet.xml</value>
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/painAssistant.xml</value>
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/periodicHealthVisit.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/healthTracker.xml</value>
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/hepCFlowsheet.xml</value>
 				
 			</list>

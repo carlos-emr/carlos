@@ -38,5 +38,8 @@ import io.github.carlos_emr.carlos.commn.model.Groups;
 
 public interface GroupsDao extends AbstractDao<Groups> {
 
+    /** Current group row under the caller's membership transaction. */
+    Groups findForUpdate(int groupId);
+
     public List<Groups> findByParentId(int groupId);
 }

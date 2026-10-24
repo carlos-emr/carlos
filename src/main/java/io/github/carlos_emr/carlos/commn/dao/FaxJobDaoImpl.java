@@ -48,6 +48,14 @@ public class FaxJobDaoImpl extends AbstractDaoImpl<FaxJob> implements FaxJobDao 
         super(FaxJob.class);
     }
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public FaxJob findForUpdate(int id) {
+        FaxJob job = entityManager.find(FaxJob.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (job != null) entityManager.refresh(job, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return job;
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public List<FaxJob> getFaxStatusByDateDemographicProviderStatusTeam(String demographic_no, String provider_no,

@@ -345,6 +345,31 @@ function existsTemplate(template) {
     return exists;
 }
 
+/** Keep saved/user-entered subjects during automatic template initialization. */
+function setLetterTemplateSubject(template, preserveExisting) {
+    var subject = document.getElementById('subject');
+    if (!subject || (preserveExisting && subject.value !== '')) { return; }
+    var templateSubject = template === 'blank.rtl' ? '' : template.substring(0, template.lastIndexOf('.'));
+    if (preserveExisting) {
+        // The default template loads only after the template catalog request completes, so a
+        // subject may already have been typed into the floating toolbar, which is copied into
+        // this field only at save time. Neither overwrite it nor echo an unchanged value back.
+        var toolbarSubject = document.getElementById('remote_eform_subject');
+        if ((toolbarSubject && toolbarSubject.value !== '') || templateSubject === subject.value) { return; }
+    }
+    subject.value = templateSubject;
+    // The floating toolbar listens for input, including programmatic template changes.
+    // Older engines this asset still declares support for have no Event constructor.
+    var inputEvent;
+    if (typeof Event === 'function') {
+        inputEvent = new Event('input', { bubbles: true });
+    } else {
+        inputEvent = document.createEvent('Event');
+        inputEvent.initEvent('input', true, false);
+    }
+    subject.dispatchEvent(inputEvent);
+}
+
 function loadDefaultTemplate() {
     // Skipping loading of default template if the letter already has content.
     if (editControlContents(cfg_editorname).trim() != '') {
@@ -353,7 +378,7 @@ function loadDefaultTemplate() {
     if (existsTemplate(cfg_template)) {
         var selected = cfg_template;
         window.frames[0].location = cfg_filesrc + selected; //FF & IE ***ASSUMES 1 iframe!
-        document.getElementById('subject').value = cfg_template == 'blank.rtl' ? "" : selected.substring(0, selected.lastIndexOf("."));
+        setLetterTemplateSubject(selected, true);
         document.getElementById('template').selectedIndex = 0;
         //need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
         var obj = document.getElementById(cfg_editorname);
@@ -381,7 +406,7 @@ function loadTemplate(selectname) {
         if (!/^[\w.\- ]+$/.test(selected)) { console.warn('loadTemplate: invalid template name:', selected); return; }
         //document.getElementById(cfg_editorname).src = cfg_filesrc + selected + '.html' ; //FF != IE
         window.frames[0].location = cfg_filesrc + selected; //FF & IE ***ASSUMES 1 iframe!
-        document.getElementById('subject').value = selected == 'blank.rtl' ? "" : selected.substring(0, selected.lastIndexOf("."));
+        setLetterTemplateSubject(selected, false);
         document.getElementById('template').selectedIndex = 0;
         //need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
         var obj = document.getElementById(cfg_editorname);

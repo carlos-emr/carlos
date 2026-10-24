@@ -96,6 +96,7 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
     @Column(name = "faxline")
     private String fax_line;
 
+    @Column(length = 32)
     private String destination;
 
     private String recipient;

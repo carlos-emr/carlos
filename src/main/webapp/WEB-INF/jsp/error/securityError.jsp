@@ -53,6 +53,10 @@
 <h5>Security Exception</h5>
 
 You tried to access a resource with insufficient privileges.
+<%-- Set by CarlosExceptionMappingInterceptor: the id on the WARN line that records this refusal. --%>
+<% Object incidentId = request.getAttribute("carlosIncidentId"); if (incidentId != null) { %>
+<p id="incident-reference">Reference: <code><carlos:encode value='<%= String.valueOf(incidentId) %>' context="html"/></code></p>
+<% } %>
 
 <%
     String[] vals = request.getParameterValues("type");

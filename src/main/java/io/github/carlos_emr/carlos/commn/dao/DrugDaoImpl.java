@@ -55,6 +55,17 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
+    public boolean discontinueIfActive(int drugId, int demographicNo, Date date, String reason) {
+        // Bulk updates bypass Drug's lifecycle callback, so advance lastUpdateDate explicitly.
+        return entityManager.createQuery("update Drug d set d.archived=true, d.archivedDate=:date, d.lastUpdateDate=:date, d.archivedReason=:reason "
+                        + "where d.id=:id and d.demographicId=:patient and d.archived=false")
+                .setParameter("date", date).setParameter("reason", StringUtils.trimToNull(reason))
+                .setParameter("id", drugId).setParameter("patient", demographicNo)
+                .executeUpdate() == 1;
+    }
+
+    @Override
     public boolean addNewDrug(Drug d) {
         try {
             entityManager.persist(d);
@@ -411,6 +422,18 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         Query query = entityManager.createQuery(
                 "SELECT d, p FROM Drug d, Prescription p WHERE d.scriptNo = p.id AND d.scriptNo = :scriptNo ORDER BY d.position DESC, d.rxDate DESC, d.id ASC");
         query.setParameter("scriptNo", scriptNumber);
+        return query.getResultList();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<Object[]> findDrugsAndPrescriptionsByScriptNumber(int scriptNumber, int demographicNo) {
+        Query query = entityManager.createQuery(
+                "SELECT d, p FROM Drug d, Prescription p WHERE d.scriptNo = p.id AND d.scriptNo = :scriptNo "
+                        + "AND d.demographicId = :demographicNo AND p.demographicId = :demographicNo "
+                        + "ORDER BY d.position DESC, d.rxDate DESC, d.id ASC");
+        query.setParameter("scriptNo", scriptNumber);
+        query.setParameter("demographicNo", demographicNo);
         return query.getResultList();
     }
 

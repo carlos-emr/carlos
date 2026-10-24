@@ -54,18 +54,34 @@ public final class RxDeleteFavorite2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
 
+    /**
+     * Deletes a favourite of the logged-in provider. POST-only (405 otherwise), needs global
+     * {@code _rx} update, and refuses a malformed id (400) and a favourite that is missing or another
+     * provider's (404; the owner-scoped lookup cannot tell them apart) before deleting (#3908).
+     *
+     * @return {@code success}, or {@code NONE} after an error response
+     */
     public String execute()
             throws IOException, ServletException {
-
+        if (RxFavoriteAccess.refuseUnlessPost(request, response)) {
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
+        RxPrescriptionData.Favorite favorite = RxFavoriteAccess.loadOwned(request, response, this.getFavoriteId());
+        if (favorite == null) {
+            return NONE;
+        }
+        // loadOwned has confirmed the caller owns the favourite; deleteFavorite re-reads the owner
+        // itself, so the check and the delete cannot race apart. A false result means the row
+        // vanished in between (#2508, #3908).
+        if (!new RxPrescriptionData().deleteFavorite(favorite.getFavoriteId(), favorite.getProviderNo())) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
 
-        int favoriteId = Integer.parseInt(this.getFavoriteId());
-        new RxPrescriptionData().deleteFavorite(favoriteId);
-
-        // Setup variables
         return SUCCESS;
     }
 

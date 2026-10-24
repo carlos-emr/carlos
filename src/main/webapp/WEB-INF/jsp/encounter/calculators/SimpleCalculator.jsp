@@ -29,6 +29,14 @@
 
 --%>
 
+<%--
+  Purpose: Display the simple arithmetic calculator from the encounter menu.
+  Features: Browser-side numeric entry, operators and clearing, with styling
+  resolved against the application context from the nested calculator route.
+  Parameters: No request parameters are consumed; button input stays in the browser.
+  @since 2026-09-17
+--%>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -40,7 +48,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="encounter.calculators.SimpleCalculator.title"/></title>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <SCRIPT LANGUAGE="JavaScript">
 
             var x = 0;
@@ -245,8 +253,8 @@
                         <td><fmt:message key="encounter.calculators.SimpleCalculator.msgTitle"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="<%= request.getContextPath() %>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="<%= request.getContextPath() %>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

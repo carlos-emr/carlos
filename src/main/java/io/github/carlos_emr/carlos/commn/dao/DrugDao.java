@@ -40,6 +40,9 @@ public interface DrugDao extends AbstractDao<Drug> {
 
     public boolean addNewDrug(Drug d);
 
+    /** Archives an active, patient-owned drug once; false means no active matching row remains. */
+    boolean discontinueIfActive(int drugId, int demographicNo, Date date, String reason);
+
     public List<Drug> findByPrescriptionId(Integer prescriptionId);
 
     public List<Drug> findByDemographicId(Integer demographicId);
@@ -87,6 +90,9 @@ public interface DrugDao extends AbstractDao<Drug> {
     public List<Object[]> findDrugsAndPrescriptions(int demographicNo);
 
     public List<Object[]> findDrugsAndPrescriptionsByScriptNumber(int scriptNumber);
+
+    /** Loads a script only when both its prescription and drug rows belong to the patient. */
+    public List<Object[]> findDrugsAndPrescriptionsByScriptNumber(int scriptNumber, int demographicNo);
 
     public int getMaxPosition(int demographicNo);
 

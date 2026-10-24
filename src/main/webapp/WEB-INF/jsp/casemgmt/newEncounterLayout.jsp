@@ -27,12 +27,24 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    E-Chart encounter layout: assembles chart modules, note editing and the print dialog.
+    Print extensions register before their controls are added and report registration failures.
+    Parameters: demographicNo, appointmentNo and encounter view preferences from the action.
+    @since 2026-07-07
+--%>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%-- The same negotiation the header and note fragments perform, so this page's own
+     <fmt:message> text, the header include and the html lang attribute all answer the
+     browser's Accept-Language with one policy (see LocaleUtils.resolveBundleLocale). --%>
+<fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="java.util.Enumeration" %>
@@ -72,14 +84,21 @@
     pageContext.setAttribute("cppPreferences", cppPreferences, PageContext.PAGE_SCOPE);
 %>
 <!DOCTYPE html>
-<html>
+<%-- lang is the negotiated chart language: assistive technology reads the page in the right
+     language (WCAG 3.1.1), and a field report of a chart "in the wrong language" can name
+     which language the server actually chose for that load (see newEncounterHeader.jsp). --%>
+<html lang="<%= SafeEncode.forHtmlAttribute(LocaleUtils.resolveBundleLocale(request).toLanguageTag()) %>">
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <title>
-            Encounter
-        </title>
+        <%-- OSCAR 19's eChart window title, "E - LAST, FIRST M 41 years": the patient's name, sex and
+             age in the popup's title bar and taskbar entry, so a provider with several charts open
+             can tell them apart. oscar:nameage encodes the text for HTML. --%>
+        <title><fmt:message key="encounter.Index.windowTitle"/> - <oscar:nameage demographicNo="${demographicNo}"/></title>
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/encounterStyles.css?v=<%= System.currentTimeMillis() %>" type="text/css">
+        <%-- Font Awesome 6 (bundled locally): the header bar's phone, cell and work-phone glyphs, the
+             same icon family OSCAR 19's header used. --%>
+        <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/fontawesome-all.min.css" type="text/css">
 
         <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/css/oscarRx.css">
@@ -95,6 +114,7 @@
         <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->
         <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/prototype-compat.js" type="text/javascript"></script>
         <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/carlos-ajax.js" type="text/javascript"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/email-compose-popup.js"></script>
         <!-- CSRFGuard must load AFTER prototype-compat.js so its XHR.send() interception
              takes final precedence for automatic CSRF token injection -->
         <script src="${carlos:forHtmlAttribute(ctx)}/csrfguard"></script>
@@ -182,6 +202,10 @@
             });
 
 
+            // Keep the draft in this chart, independent of sidebar requests rebuilding the session bean.
+            // Define even an empty value: a new chart must not inherit another tab's shared message.
+            var pendingEncounterMessage = "<carlos:encode value='<%= request.getAttribute("encounterMessage") == null ? "" : (String) request.getAttribute("encounterMessage") %>' context="javaScriptBlock"/>";
+
             function assembleMainChartParams(displayFullChart) {
 
                 var params = "method=edit&ajaxview=ajaxView&fullChart=" + displayFullChart;
@@ -258,24 +282,7 @@
             function popColumn(url, div, params, navBar, navBarObj) {
                 params = "reloadURL=" + url + "&numToDisplay=6&cmd=" + params;
 
-                CarlosAjax.request(url, {
-                    method: 'post',
-                    postBody: params,
-                    evalScripts: true,
-                    onSuccess: function (transport) {
-                        $(div).update(transport.responseText);
-
-                        if ($("leftColLoader") != null)
-                            Element.remove("leftColLoader");
-
-                        if ($("rightColLoader") != null)
-                            Element.remove("rightColLoader");
-                    },
-                    onFailure: function (transport) {
-                        var el = document.getElementById(div);
-                        if (el) el.textContent = div + " Error: " + transport.status;
-                    }
-                });
+                return requestNavbarColumn(url, div, params, navBar);
             };
 
             function addLeftNavDiv(name) {
@@ -333,15 +340,28 @@
             });
 
             function addPrintOption(name, bean) {
-                var test1Str = "<img style=\"cursor: pointer;\" title=\"Print " + name + "\" id=\"img" + name + "\" alt=\"Print " + name + "\" onclick=\"return printInfo(this, 'extPrint" + name + "');\" src=\"" + ctx + "/encounter/graphics/printer.png\">&nbsp;" + name;
-                jQuery("#printDateRow").before("<tr><td></td><td>" + test1Str + "</tr></tr>");
-                jQuery("form[name='caseManagementEntryForm']").append("<input name=\"extPrint" + name + "\" id=\"extPrint" + name + "\" value=\"false\" type=\"hidden\"/>");
                 jQuery.ajax({
                     type: 'POST',
                     url: ctx + "/casemgmt/ExtPrintRegistry",
                     data: {method: 'register', name: name, bean: bean},
                     async: false,
-                    success: function (data) {
+                    success: function () {
+                        var fieldId = "extPrint" + name;
+                        if (document.getElementById(fieldId)) return;
+                        var icon = jQuery("<img>").attr({
+                            title: "Print " + name, alt: "Print " + name, id: "img" + name,
+                            src: ctx + "/encounter/graphics/printer.png"
+                        }).css("cursor", "pointer").on("click", function () {
+                            return printInfo(this, fieldId);
+                        });
+                        jQuery("<tr>").append(jQuery("<td>"),
+                            jQuery("<td>").append(icon, document.createTextNode(" " + name)))
+                            .insertBefore("#printDateRow");
+                        jQuery("<input>").attr({name: fieldId, id: fieldId, value: "false", type: "hidden"})
+                            .appendTo("form[name='caseManagementEntryForm']");
+                    },
+                    error: function () {
+                        alert("Unable to register the print option. Please contact your administrator.");
                     }
                 });
             }
@@ -380,6 +400,9 @@
         <% } %>
 
         <!-- Instead of importing cme.js using the CME tag (as done in Oscar19/OscarPro), we are opting to directly import cme.js without utilizing the CME tag. -->
+        <%-- Matches OSCAR19's CustomInterfaceTag: cme_js alone gates the script tag. The
+             echart_show_ocean admin toggle instead gates the #ocean_placeholder div the
+             script looks for (see newCaseManagementView.jsp), same as OSCAR19. --%>
         <% if ("ocean".equals(CarlosProperties.getInstance().get("cme_js"))) {
             int randomNo = new Random().nextInt();%>
         <script id="mainScript"
@@ -388,7 +411,6 @@
         <% } %>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title><fmt:message key="encounter.Index.title"/></title>
         <script type="text/javascript">
             ctx = "${carlos:forJavaScript(ctx)}";
             demographicNo = "${carlos:forJavaScript(demographicNo)}";
@@ -609,10 +631,19 @@
         </div>
 
         <div id="content">
+            <%--
+                newCaseManagementView.jsp supplies the CPP summary boxes and the empty #notCPP
+                container. The clinical notes panel (ChartNotes.jsp) is deliberately NOT included
+                here: the window load handler above calls viewFullChart(false), which POSTs to
+                CaseManagementEntry (method=edit, chain=list) and renders ChartNotes.jsp into
+                #notCPP with the state only that path prepares (entry form bean, restored draft,
+                note lock, filter lists). Filter and save reloads replace #notCPP the same way.
+                A second, server-side include of ChartNotes.jsp outside #notCPP once lived here;
+                it rendered a duplicate Template Search / note editor panel on every chart open and
+                a second "Loading Notes..." throbber that shared an id with the first, so only one
+                of the two could ever be hidden.
+            --%>
             <jsp:include page="/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp"/>
-            <%-- Clinical notes are part of the first eChart render; CPP AJAX fragments only fill the summary boxes above. --%>
-            <c:set var="eChartLayoutIncludesDependencies" value="true" scope="request"/>
-            <jsp:include page="/WEB-INF/jsp/casemgmt/ChartNotes.jsp"/>
         </div>
     </div>
     <!-- hovering divs -->

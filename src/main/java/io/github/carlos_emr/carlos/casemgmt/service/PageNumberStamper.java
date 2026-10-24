@@ -107,7 +107,8 @@ public class PageNumberStamper extends FooterSupport {
         total.beginText();
         total.setFontAndSize(getFont(), getFontSize());
         total.setTextMatrix(0, 0);
-        total.showText(String.valueOf(writer.getPageNumber()));
+        // OpenPDF advances to the next page before its close callback.
+        total.showText(String.valueOf(writer.getPageNumber() - 1));
         total.endText();
     }
 

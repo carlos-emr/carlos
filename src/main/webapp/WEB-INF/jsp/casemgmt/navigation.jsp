@@ -99,13 +99,18 @@
         String navProviderNo = navLoggedInInfo.getLoggedInProviderNo();
         UserPropertyDAO navUserPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty navTabProp = navUserPropertyDao.getProp(navProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB);
-        openEncounterInTab = navTabProp != null && "yes".equalsIgnoreCase(navTabProp.getValue());
+        UserProperty navModeProp = navUserPropertyDao.getProp(navProviderNo, UserProperty.SCHEDULE_NAVIGATION_MODE);
+        openEncounterInTab = !UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP.equals(
+                UserProperty.resolveScheduleNavigationMode(navModeProp == null ? null : navModeProp.getValue(),
+                        navTabProp != null && "yes".equalsIgnoreCase(navTabProp.getValue())));
     }
 %>
 
 <script type="text/javascript" language=javascript>
     var openEncounterInTab = <%=openEncounterInTab%>;
 
+    // Ordinary links use a browser tab in Tab/Focused mode and a sized popup otherwise.
+    // Measurement pages keep their own popup helper because they write through window.opener.
     function popupPage(varpage) {
         var page = "" + varpage;
         if (openEncounterInTab) {
@@ -168,7 +173,7 @@
         }
     }
 
-    function popupSearchPage(vheight, vwidth, varpage) { //open a new popup window
+    function popupSearchPage(vheight, vwidth, varpage) { // Tab/Focused mode uses a browser tab.
         var page = "" + varpage;
         if (openEncounterInTab) {
             var popup = window.open(page, "_blank");
@@ -601,7 +606,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/encounter/ViewCalculators?sex=<%=bean.patientSex%>&age=<%=pAge%>'); return false;">calculators</a><br>
+                           onClick="popupPage('<carlos:encode value='<%=bsurl%>' context="javaScriptAttribute"/>/encounter/ViewCalculators?demo=<carlos:encode value='<%=bean.demographicNo%>' context="uriComponent"/>'); return false;">calculators</a><br>
                     </td>
                 </tr>
 

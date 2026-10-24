@@ -140,17 +140,48 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
         return pharmacyList;
     }
 
+    /**
+     * Searches active pharmacies using the legacy LIKE-pattern contract.
+     * Unlike {@link #searchFaxablePharmacies}, {@code %} and {@code _} retain
+     * their wildcard meaning; {@code !} is a literal character.
+     *
+     * @param name name or address pattern, matched as a substring
+     * @param city city pattern, matched as a substring
+     * @return matching active pharmacies ordered by name and address
+     */
     @Override
     @SuppressWarnings("unchecked")
     public List<PharmacyInfo> searchPharmacyByNameAddressCity(String name, String city) {
-
         String sql = "select x from PharmacyInfo x where x.status = ?1 and (x.name like ?2 or x.address like ?3) and x.city like ?4 order by x.name, x.address";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, PharmacyInfo.ACTIVE);
         query.setParameter(2, "%" + name + "%");
         query.setParameter(3, "%" + name + "%");
         query.setParameter(4, "%" + city + "%");
+        return query.getResultList();
+    }
 
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<PharmacyInfo> searchFaxablePharmacies(String keyword, String city, int maxResults) {
+        // The fax filter belongs in the query, not the caller: setMaxResults caps rows at the
+        // database, so skipping fax-less rows afterwards let a run of them eat the whole limit.
+        String sql = "select x from PharmacyInfo x where x.status = ?1"
+                + " and (x.name like ?2 escape '!' or x.address like ?3 escape '!')"
+                + " and x.city like ?4 escape '!'"
+                + " and x.fax is not null and trim(x.fax) <> ''"
+                + " order by x.name, x.address";
+        Query query = entityManager.createQuery(sql);
+        // Escape LIKE metacharacters: an unescaped % or _ typed into the recipient picker would
+        // act as a wildcard and return pharmacies the user never asked for.
+        String kw = "%" + escapeLike(keyword) + "%";
+        query.setParameter(1, PharmacyInfo.ACTIVE);
+        query.setParameter(2, kw);
+        query.setParameter(3, kw);
+        query.setParameter(4, "%" + escapeLike(city) + "%");
+        if (maxResults > 0) {
+            query.setMaxResults(maxResults);
+        }
         return query.getResultList();
     }
 
@@ -193,5 +224,9 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
     //     return this.entityManager.saveEntity(pharmacyInfo);
     // }
 
+
+    /** Neutralises LIKE metacharacters so a typed % or _ matches itself. */
+    private static String escapeLike(String raw) {
+        return raw == null ? "" : raw.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+    }
 }
- 

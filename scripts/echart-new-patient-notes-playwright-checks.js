@@ -63,7 +63,9 @@ const {
   buildFailureDetails,
   createRecorder,
   getLaunchOptions,
+  installCleanupSignalHandlers,
   login,
+  NO_PLAYWRIGHT_SIGNAL_HANDLING,
   screenshot,
   validateBaseUrl,
   wirePage,
@@ -171,7 +173,7 @@ async function createDemographic(context, schedulePage, recorder) {
     searchPage.locator("input[type='submit']").first().click(),
   ]);
   await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  await searchPage.locator("a[href*='ViewDemographicAddARecordHtm']").first().click();
+  await searchPage.locator("form[action$='/demographic/ViewDemographicAddARecordHtm'] button[type='submit']").first().click();
   await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(searchPage, 'add-demographic form');
 
@@ -219,11 +221,19 @@ async function bookAppointment(context, schedulePage, recorder, demographicNo) {
   const slotCount = await slots.count();
   assert(slotCount > 0, 'no bookable time slots on the schedule day sheet');
 
-  const apptPopup = context.waitForEvent('page');
-  await slots.nth(slotCount - 1).click();
-  const apptPage = await apptPopup;
+  const [apptPage] = await Promise.all([
+    schedulePage.waitForEvent('popup', { timeout: 30000 }),
+    slots.nth(slotCount - 1).click(),
+  ]);
   wirePage(apptPage, 'appointment', recorder);
-  await apptPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+  // A popup event can arrive while its URL is still about:blank. Wait for the
+  // actual privileged route and its form instead of treating a transient
+  // locator timeout as a blank application response.
+  await apptPage.waitForURL(
+    (url) => url.pathname.endsWith('/appointment/addappointment'),
+    { waitUntil: 'domcontentloaded', timeout: 30000 },
+  );
+  await apptPage.locator('form#addappt #keyword').waitFor({ state: 'visible', timeout: 30000 });
   await assertNotErrorPage(apptPage, 'add-appointment form');
 
   // Patient selection is the jQuery UI autocomplete on #keyword, which is what
@@ -322,19 +332,47 @@ async function assertNotesPaginationSettles(echart) {
   }
 }
 
+// Idempotent, and also run from SIGINT/SIGTERM (issue #3600): a finally does not
+// run when the process is killed, which would leave the fixture patient behind.
+let createdDemographicNo = null;
+function cleanupFixturePatient() {
+  if (!mysqlDefaults) return;
+  // Remove the fixture patient and everything the flow hung off it. Looked up
+  // by the unique per-run last name — never a bare number — so a bug can never
+  // delete a pre-existing record, and a run that failed before capturing the
+  // id still cleans up after itself.
+  const leftover = createdDemographicNo
+    || sql(`SELECT demographic_no FROM demographic WHERE last_name='${fixtureLastName}' AND first_name='${fixtureFirstName}'`);
+  if (/^\d+$/.test(leftover)) {
+    sql(`DELETE FROM appointment WHERE demographic_no=${leftover}`);
+    sql(`DELETE FROM casemgmt_note_lock WHERE demographic_no=${leftover}`);
+    sql(`DELETE FROM admission WHERE client_id=${leftover}`);
+    sql(`DELETE FROM demographicArchive WHERE demographic_no=${leftover}`);
+    sql(`DELETE FROM demographic WHERE demographic_no=${leftover} AND last_name='${fixtureLastName}'`);
+  }
+}
+
+// The password file is removed even when row cleanup throws (e.g. MySQL unreachable).
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    cleanupFixturePatient();
+  } finally {
+    cleanupMysqlDefaults();
+  }
+});
+
 (async () => {
   const recorder = createRecorder();
   // Before the browser starts: a filesystem failure here would otherwise leave a
   // launched Chromium with no finally to close it.
   initMysqlDefaults();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  let demographicNo = null;
+  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
     const schedulePage = await login(context, config, recorder);
 
-    demographicNo = await createDemographic(context, schedulePage, recorder);
-    const appointmentNo = await bookAppointment(context, schedulePage, recorder, demographicNo);
+    createdDemographicNo = await createDemographic(context, schedulePage, recorder);
+    const appointmentNo = await bookAppointment(context, schedulePage, recorder, createdDemographicNo);
     const echart = await openEchartFromAppointment(context, schedulePage, recorder, appointmentNo);
 
     // A chart with no notes still renders the new-note editor. Asserting this
@@ -356,21 +394,37 @@ async function assertNotesPaginationSettles(echart) {
     assert(!throbber.visible && throbber.display === 'none',
       `notes loading throbber stayed visible after pagination stopped: ${JSON.stringify(throbber)}`);
 
-    // An empty chart needs the initial load only. The encounter layout renders
-    // ChartNotes.jsp twice, so two are expected; anything beyond that means a
-    // poll walked the offset forward, or a second poll is still armed.
+    // An empty chart needs the initial load only. ChartNotes.jsp is rendered exactly
+    // once, into #notCPP, so exactly one fetch is expected; a second offset-0 fetch
+    // means the layout rendered the notes panel twice again, and anything at a higher
+    // offset means a poll walked the offset forward or a second poll is still armed.
     const paginationRequests = notesRequests.filter((r) => r.offset > 0);
     assert(paginationRequests.length === 0,
       `a chart with no notes paged for more: ${JSON.stringify(notesRequests)}`);
-    assert(notesRequests.length <= 2,
+    assert(notesRequests.length === 1,
       `unexpected number of notes fetches on an empty chart: ${JSON.stringify(notesRequests)}`);
+
+    // The notes panel must exist exactly once and live inside #notCPP, where the
+    // filter/save reloads replace it. Two Template Search fieldsets, two entry forms
+    // or two throbbers is the duplicate-render bug an alpha tester reported on an
+    // empty demo chart.
+    const panelCounts = await echart.evaluate(() => ({
+      templateSearch: document.querySelectorAll('#enTemplate').length,
+      entryForms: document.querySelectorAll('form[name="caseManagementEntryForm"]').length,
+      viewForms: document.querySelectorAll('form[name="caseManagementViewForm"]').length,
+      throbbers: document.querySelectorAll('#notesLoading').length,
+      noteContainers: document.querySelectorAll('#encMainDiv').length,
+      insideNotCpp: document.querySelectorAll('#notCPP #encMainDiv').length,
+    }));
+    assert(Object.values(panelCounts).every((count) => count === 1),
+      `the eChart must render the notes panel exactly once, inside #notCPP: ${JSON.stringify(panelCounts)}`);
     await screenshot(echart, config.screenshotDir, 'echart-new-patient-settled');
 
     const fatalConsole = recorder.consoleIssues.filter((issue) => /is not defined|SyntaxError|ReferenceError|Cannot read/i.test(issue.text || ''));
     assert(fatalConsole.length === 0, `fatal console errors in the eChart: ${JSON.stringify(fatalConsole)}`);
 
     await context.close();
-    console.log(`PASS new patient ${demographicNo}, appointment ${appointmentNo}: eChart rendered its note `
+    console.log(`PASS new patient ${createdDemographicNo}, appointment ${appointmentNo}: eChart rendered its note `
       + `editor, pagination settled after ${notesRequests.length} fetch(es), throbber cleared`);
   } catch (error) {
     console.error('FAIL eChart new-patient notes Playwright check');
@@ -378,20 +432,8 @@ async function assertNotesPaginationSettles(echart) {
     console.error(JSON.stringify({ notesRequests, ...buildFailureDetails(recorder) }, null, 2));
     process.exitCode = 1;
   } finally {
-    // Remove the fixture patient and everything the flow hung off it. Looked up
-    // by the unique per-run last name — never a bare number — so a bug can never
-    // delete a pre-existing record, and a run that failed before capturing the
-    // id still cleans up after itself.
     try {
-      const leftover = demographicNo
-        || sql(`SELECT demographic_no FROM demographic WHERE last_name='${fixtureLastName}' AND first_name='${fixtureFirstName}'`);
-      if (/^\d+$/.test(leftover)) {
-        sql(`DELETE FROM appointment WHERE demographic_no=${leftover}`);
-        sql(`DELETE FROM casemgmt_note_lock WHERE demographic_no=${leftover}`);
-        sql(`DELETE FROM admission WHERE client_id=${leftover}`);
-        sql(`DELETE FROM demographicArchive WHERE demographic_no=${leftover}`);
-        sql(`DELETE FROM demographic WHERE demographic_no=${leftover} AND last_name='${fixtureLastName}'`);
-      }
+      cleanupFixturePatient();
     } catch (cleanupError) {
       // A synthetic patient left in a clinical database is a failed run, not a warning:
       // the next operator has no way to tell it apart from a real record at a glance.
@@ -400,5 +442,7 @@ async function assertNotesPaginationSettles(echart) {
     }
     cleanupMysqlDefaults();
     await browser.close();
+    // Last, so a signal arriving during any step above still reaches the handler.
+    signalHandlers.dispose();
   }
 })();

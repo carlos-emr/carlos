@@ -71,6 +71,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>400 — malformed {@code data:} URI or non-Base64 {@code signatureImage}
  *       on the IPAD branch</li>
  *   <li>413 — raw-stream upload exceeds {@value #MAX_UPLOAD_BYTES} bytes</li>
+ *   <li>403 — persistence requested while the current facility is missing or
+ *       has digital signatures disabled</li>
  *   <li>500 "Upload failed" — I/O error writing the temp file</li>
  *   <li>500 "Save failed" — DB persistence failed after a successful upload
  *       (null return or propagated exception from
@@ -142,6 +144,13 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Path traversal attempt blocked for signatureKey: {}", LogSafe.sanitize(signatureKey)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid signature key");
+            return NONE;
+        }
+
+        if (saveToDB && (loggedInInfo.getCurrentFacility() == null
+                || !loggedInInfo.getCurrentFacility().isEnableDigitalSignatures())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN,
+                    "Digital signatures are disabled for this facility");
             return NONE;
         }
 

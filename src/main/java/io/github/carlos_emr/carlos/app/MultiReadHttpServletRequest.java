@@ -705,6 +705,15 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             return input.read();
         }
 
+        // Delegate bulk reads to ByteArrayInputStream.read(byte[], int, int) which does
+        // an arraycopy rather than the InputStream default which calls read() byte-by-byte.
+        // Without this, the Struts2 stream-based multipart parser reads large PDFs one
+        // byte at a time, which is several orders of magnitude slower.
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            return input.read(b, off, len);
+        }
+
         @Override
         public boolean isFinished() {
             return input.available() == 0;

@@ -39,6 +39,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO,io.github.carlos_emr.carlos.commn.model.Dxresearch,io.github.carlos_emr.carlos.commn.dao.Icd9Dao,io.github.carlos_emr.carlos.commn.model.Icd9" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 <%
     CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
@@ -144,7 +145,7 @@
                 padding: 3px;
             }
         </style>
-        <link rel="stylesheet" type="text/css" href="styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
         <script type="text/javascript">
 
             function assignPatientDxLink(id, name) {
@@ -183,8 +184,8 @@
                                 <a href="javascript:void(0);"
                                    onclick="assignPatientDxLink('<carlos:encode value='<%= dx.getDxresearchCode() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= idc9Desc %>' context="javaScriptAttribute"/>')"
                                    title="<carlos:encode value='<%= dx.getDxresearchCode() %>' context="htmlAttribute"/> - <carlos:encode value='<%= idc9Desc %>' context="htmlAttribute"/>">
-                                    <%=dx.getDxresearchCode()%>
-                                    - <%=StringUtils.maxLenString(idc9Desc, 10, 6, StringUtils.ELLIPSIS)%>
+                                    <carlos:encode value='<%= dx.getDxresearchCode() %>' context="html"/>
+                                    - <carlos:encode value='<%= StringUtils.maxLenString(idc9Desc, 10, 6, StringUtils.ELLIPSIS) %>' context="html"/>
                                 </a>
                             </td>
                         </tr>
@@ -216,7 +217,7 @@
             <td style="border-left: 2px solid #A9A9A9;">
 
                 <%if (request.getAttribute("message") != null) { %>
-                <span style="color:red;"><%=request.getAttribute("message") %></span>
+                <span style="color:red;"><carlos:encode value='<%= String.valueOf(request.getAttribute("message")) %>' context="html"/></span>
                 <%} %>
 
                 <form action="${pageContext.request.contextPath}/rx/RxReason" method="post" id="rxReasonForm">
@@ -283,9 +284,9 @@
 
                                     <%for (DrugReason drugReason : drugReasons) { %>
                                     <tr>
-                                        <td><%=drugReason.getCodingSystem() %>
+                                        <td><carlos:encode value='<%= drugReason.getCodingSystem() %>' context="html"/>
                                         </td>
-                                        <td><%=drugReason.getCode() %>
+                                        <td><carlos:encode value='<%= drugReason.getCode() %>' context="html"/>
                                         </td>
                                         <td>
                                             <%
@@ -294,16 +295,16 @@
                                             %>
                                             <carlos:encode value='<%= descr %>' context="html"/>
                                         </td>
-                                        <td><%=drugReason.getComments() %>
+                                        <td><%=SafeEncode.forHtmlContent(drugReason.getComments()) %>
                                         </td>
                                         <td>
                                             <%if (drugReason.getPrimaryReasonFlag()) { %>
                                             True
                                             <%}%>
                                         </td>
-                                        <td><%=drugReason.getProviderNo() %>
+                                        <td><carlos:encode value='<%= drugReason.getProviderNo() %>' context="html"/>
                                         </td>
-                                        <td><%=drugReason.getDateCoded() %>
+                                        <td><carlos:encode value='<%= String.valueOf(drugReason.getDateCoded()) %>' context="html"/>
                                         </td>
                                         <td>
                                             <a onclick="toggleArchiveMenu('archive<%=drugReason.getId()%>')"
@@ -317,12 +318,12 @@
                                                 <form action="${pageContext.request.contextPath}/rx/RxReason" method="post">
                                                     <fieldset>
                                                         <legend>Archive Coding
-                                                            System: <%=drugReason.getCodingSystem() %>
-                                                            Code: <%=drugReason.getCode() %>
+                                                            System: <carlos:encode value='<%= drugReason.getCodingSystem() %>' context="html"/>
+                                                            Code: <carlos:encode value='<%= drugReason.getCode() %>' context="html"/>
                                                         </legend>
                                                         <input type="hidden" name="method" value="archiveReason"/>
                                                         <input type="hidden" name="reasonId"
-                                                               value="<%=drugReason.getId()%>"/>
+                                                               value="<carlos:encode value='<%= String.valueOf(drugReason.getId()) %>' context="htmlAttribute"/>"/>
                                                         Reason: <input type="text" name="archiveReason"/>
                                                         <input type="submit" value="Archive"/>
                                                     </fieldset>

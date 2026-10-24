@@ -52,7 +52,30 @@ public class HRMDownloadFile2Action extends ActionSupport {
     private HttpServletResponse response = ServletActionContext.getResponse();
 
     private HRMDocumentDao hrmDocumentDao = SpringUtils.getBean(HRMDocumentDao.class);
+    /**
+     * Content types the report frame may render inline. Deliberately excludes {@code text/html}
+     * and {@code application/octet-stream}: an inline HTML report would run in the
+     * application's origin, and an opaque blob has no reason to render in place.
+     */
+    private static final java.util.Set<String> INLINE_SAFE_CONTENT_TYPES = java.util.Set.of(
+            "application/pdf", "image/tiff", "image/jpeg", "image/gif", "image/png");
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    /**
+     * Decides the {@code Content-Disposition} for a report body.
+     *
+     * @param requested   the caller's {@code disposition} parameter; only the exact value
+     *                    {@code "inline"} opts in, so every existing caller keeps a download
+     * @param contentType the type resolved from the report's file extension
+     * @return {@code "inline"} only for a requested, render-safe type; {@code "attachment"}
+     *         otherwise — including for {@code text/html}, which inline would execute in the
+     *         application's own origin
+     */
+    static String dispositionFor(String requested, String contentType) {
+        boolean inline = "inline".equals(requested) && INLINE_SAFE_CONTENT_TYPES.contains(contentType);
+        return inline ? "inline" : "attachment";
+    }
 
     public String execute() throws Exception {
 
@@ -115,8 +138,18 @@ public class HRMDownloadFile2Action extends ActionSupport {
         // Encode filename per RFC 5987 using UTF-8
         String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
 
+        // The report viewer frames this endpoint to show the report in place; an attachment
+        // disposition makes the browser download it from that frame instead of rendering it,
+        // leaving the preview blank and starting a download nobody asked for. Inline is opt-in
+        // (?disposition=inline) so the download link keeps its attachment behaviour.
+        //
+        // Inline is allowed only for the formats a browser renders as data. HTML in particular
+        // stays an attachment: serving attacker-influenced report HTML inline from the
+        // application's own origin would execute it in that origin.
+        String disposition = dispositionFor(request.getParameter("disposition"), contentType);
+
         // Set both headers for compatibility
-        response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"; filename*=UTF-8''" + encodedFileName);
+        response.setHeader("Content-Disposition", disposition + "; filename=\"" + fileName + "\"; filename*=UTF-8''" + encodedFileName);
 
         try (ServletOutputStream out = response.getOutputStream()) {
             out.write(data);

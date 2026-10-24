@@ -37,12 +37,24 @@ This software contains code from multiple contributors over 20+ years:
 - KAI Innovations Inc. (2014-2015)
 - The Pharmacists Clinic, University of British Columbia (2015-2019)
 - Magenta Health (2024+)
+- OpenOSP and the OpenO EMR contributors (2025-2026)
 - CARLOS Contributors (2026+)
 - And many other contributors
 
 Dates are mostly taken from the copyright notices and may not reflect contribution spans.
 All original copyright notices are preserved in source files as required by
 the GNU General Public License.
+
+## Data Attribution
+
+- Email PDF passphrase generation uses an English wordlist derived in part from
+  EFF's Long Wordlist for dice-generated passphrases, published by the
+  Electronic Frontier Foundation.
+  Source: https://www.eff.org/files/2016/07/18/eff_large_wordlist.txt
+  License: Creative Commons Attribution 3.0 United States (CC BY 3.0 US),
+  https://creativecommons.org/licenses/by/3.0/us/
+  Local changes include filtering for lowercase ASCII words, removing
+  patient-unfriendly terms, and reducing the list to 4096 entries.
 
 ## Trademark Notice
 
@@ -57,7 +69,25 @@ CARLOS has no organizational affiliation with:
 - OpenOSP organization
 - Any other organization referenced in historical copyright notices
 
+Listing OpenOSP under Copyright & Attribution above records that CARLOS
+inherits code from the OpenO EMR fork and preserves its contributors'
+attribution, as the GPL requires. It does not imply any endorsement by,
+sponsorship from, or relationship with that organization.
+
 The presence of copyright notices from these organizations reflects the
 open-source heritage of the code and compliance with GPL requirements to
 preserve attribution, not any current organizational relationship.
 
+## In-Application Notices
+
+Two authenticated pages present a user-facing summary of this file and must be
+kept in step with it when contributors or lineage change:
+
+- **About** — `src/main/webapp/WEB-INF/jsp/encounter/About.jsp`, route
+  `/encounter/ViewAbout` (eChart, prescription, fax cover page, messenger)
+- **Licence** — `src/main/webapp/WEB-INF/jsp/encounter/License.jsp`, route
+  `/encounter/ViewLicense`
+
+Those pages are summaries for clinicians, not a replacement for this file or for
+the per-file copyright headers, which remain the authoritative attribution
+record under the GPL.

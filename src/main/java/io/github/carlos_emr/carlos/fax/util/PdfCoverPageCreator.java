@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.fax.util;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -87,7 +89,7 @@ public class PdfCoverPageCreator {
     public PdfCoverPageCreator(String note) {
         this.note = note;
         try {
-            basefont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            basefont = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             body = new Font(basefont, 11, Font.NORMAL);
             footer = new Font(basefont, 10, Font.NORMAL);
             heading_bold = new Font(basefont, 11, Font.BOLD);

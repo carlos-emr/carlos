@@ -46,6 +46,7 @@ import java.util.Map;
  * Example test for Struts2 2Actions showing how to handle
  * ServletActionContext and SpringUtils.getBean() patterns.
  */
+@Tag("integration")
 @DisplayName("Struts2 2Action Modern Test")
 class Struts2ActionModernTest extends CarlosWebTestBase {
 

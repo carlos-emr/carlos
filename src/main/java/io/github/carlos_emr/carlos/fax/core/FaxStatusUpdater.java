@@ -213,8 +213,8 @@ public class FaxStatusUpdater {
                             // getInprogressFaxesByJobId (which selects only SENT/WAITING), ending status
                             // tracking after a single malformed response. Keep the current in-progress
                             // status so the job is re-polled next cycle.
-                            log.warn("Provider returned unrecognized status '{}' for fax id {} - keeping status {} for re-poll",
-                                    faxJobUpdated.getStatusString(), faxJob.getId(), faxJob.getStatus());
+                            log.warn("Provider returned unrecognized status for fax id {} - keeping status {} for re-poll",
+                                    faxJob.getId(), faxJob.getStatus());
                             continue;
                         }
                         faxJob.setStatus(faxJobUpdated.getStatus());
@@ -224,19 +224,20 @@ public class FaxStatusUpdater {
                             faxJobDao.merge(faxJob);
                         } catch (RuntimeException mergeEx) {
                             log.error("CRITICAL: Failed to persist status update for fax id {} - "
-                                    + "provider reports {} but database still shows old status",
-                                    faxJob.getId(), faxJob.getStatus(), mergeEx);
+                                    + "provider reports {} but database still shows old status (type={})",
+                                    faxJob.getId(), faxJob.getStatus(), mergeEx.getClass().getSimpleName());
                         }
                     } catch (FaxProviderException e) {
-                        log.error("Failed to update fax status for fax id {}", faxJob.getId(), e);
+                        log.error("Failed to update fax status for fax id {} (HTTP {}, type={})",
+                                faxJob.getId(), e.getHttpStatus(), e.getClass().getSimpleName());
                         // Replace rather than append to prevent unbounded growth on prolonged failures
-                        faxJob.setStatusString("Status check failed: " + e.getMessage());
+                        faxJob.setStatusString("Status check failed. Delivery status has not been confirmed.");
                         try {
                             faxJobDao.merge(faxJob);
                         } catch (RuntimeException mergeEx) {
                             log.error("CRITICAL: Failed to persist error status for fax id {} - "
-                                    + "status string update may be lost",
-                                    faxJob.getId(), mergeEx);
+                                    + "status string update may be lost ({})",
+                                    faxJob.getId(), mergeEx.getClass().getSimpleName());
                         }
                     }
                 } else {
@@ -244,12 +245,12 @@ public class FaxStatusUpdater {
                             faxJob.getId(), faxJob.getFax_line());
                 }
             } catch (IllegalStateException e) {
-                log.error("Credential decryption failed for fax id {} (fax_line {}) - re-enter password in "
-                        + "Administration > Faxes > Configure Fax. Skipping this fax.",
-                        faxJob.getId(), faxJob.getFax_line(), e);
+                log.error("Credential decryption failed for fax id {} - re-enter password in "
+                        + "Administration > Faxes > Configure Fax. Skipping this fax ({}).",
+                        faxJob.getId(), e.getClass().getSimpleName());
             } catch (RuntimeException e) {
-                log.error("Unexpected error updating status for fax id {} - continuing with remaining faxes: {}",
-                        faxJob.getId(), e.getMessage(), e);
+                log.error("Unexpected error updating status for fax id {} - continuing with remaining faxes ({})",
+                        faxJob.getId(), e.getClass().getSimpleName());
             }
         }
     }

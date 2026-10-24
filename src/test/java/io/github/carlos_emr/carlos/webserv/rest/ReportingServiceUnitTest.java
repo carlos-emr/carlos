@@ -23,6 +23,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
+import java.util.List;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -44,7 +45,9 @@ import org.mockito.quality.Strictness;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormReportToolDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionReportDao;
+import io.github.carlos_emr.carlos.commn.model.EFormReportTool;
 import io.github.carlos_emr.carlos.commn.model.PreventionReport;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DemographicSetsManager;
@@ -53,6 +56,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prev.reports.Report;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.GenericRestResponse.ResponseStatus;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormReportToolTo1;
@@ -137,6 +141,34 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
     void tearDown() {
         if (carlosPropertiesMock != null) {
             carlosPropertiesMock.close();
+        }
+    }
+
+    @Nested
+    @DisplayName("eformReportToolList")
+    class EFormReportToolList {
+
+        @Test
+        @DisplayName("should return existing report with zero records")
+        void shouldReturnExistingReport_withZeroRecords() {
+            EFormReportTool reportTool = new EFormReportTool();
+            reportTool.setId(17);
+            reportTool.setName("empty_report");
+            reportTool.setEformId(23);
+
+            when(mockEFormReportToolManager.findAll(
+                    any(), eq(0), eq(EFormReportToolDao.MAX_LIST_RETURN_SIZE)))
+                    .thenReturn(List.of(reportTool));
+            when(mockEFormReportToolManager.getNumRecords(any(), eq(reportTool))).thenReturn(0);
+
+            AbstractSearchResponse<EFormReportToolTo1> response = service.eformReportToolList();
+
+            assertThat(response.getTotal()).isEqualTo(1);
+            assertThat(response.getContent()).singleElement().satisfies(result -> {
+                assertThat(result.getName()).isEqualTo("empty_report");
+                assertThat(result.getNumRecordsInTable()).isZero();
+            });
+            verify(mockEFormReportToolManager).getNumRecords(loggedInInfo, reportTool);
         }
     }
 

@@ -24,6 +24,8 @@
  *      in the faxed PDF. The save is deliberately DELAYED here (route
  *      interception) so the race is deterministic: without the fix the fax POST
  *      won and rendered the stored (old) note; with it, the fax waits.
+ *      While that save is held, further note edits must be locked and a late
+ *      notes handler must not enqueue another write that can overtake the fax.
  *   D. clinic header — the page must submit the header as separate lines and the
  *      clinic name must render as its own line. Preview2.jsp
  *      joined the header's lines with <br> and converted them for the PDF with a
@@ -36,8 +38,8 @@
  * real CSRFGuard token exactly as the browser's own submit does.
  *
  * The check reads the generated PDF from disk (the servlet's only durable
- * output) with a small text-run extractor over the content streams; OpenPDF
- * writes each rendered line as its own `(...) Tj`, so a rendered line is a run.
+ * output) with Poppler pdftotext, including embedded Unicode fonts.
+ * Assertions compare the extracted text lines.
  * Nothing from the PDF is printed: identity is reported as present/absent.
  *
  * Fixtures this run seeds and REMOVES (keyed on per-run-unique values, never a
@@ -46,9 +48,11 @@
  * the "from" line when no active SRFAX row exists on that number, the fax job
  * rows on that line with their FaxClientLog audit rows, and the destination fax
  * number substituted on EVERY active pharmacy of the patient so no fixture can
- * leave for a real machine (each original restored exactly, NULL vs '' preserved). Files are NOT removed: two small PDFs are left under
- * DOCUMENT_DIR (prescription_<pdfId>.pdf) plus the pair each leaves in the fax
- * spool, which the fax scheduler consumes.
+ * leave for a real machine (each original restored exactly, NULL vs '' preserved;
+ * rx-fax-pharmacy-fax-fixture.js, which also journals the originals so the next
+ * Rx fax check restores them if this run is killed). Files are NOT removed: two
+ * small PDFs are left under DOCUMENT_DIR (prescription_<pdfId>.pdf) plus the pair
+ * each leaves in the fax spool, which the fax scheduler consumes.
  *
  * Prerequisites on the install (docs/ui-tests/deb-install-validation.md §6):
  *   - rx_fax_enabled=true and rx_signature_enabled=true in carlos.properties,
@@ -65,7 +69,8 @@
  * Optional:
  *   RX_FAX_DEMOGRAPHIC_NO (default 1), RX_FAX_PROVIDER_NO (default 999998),
  *   RX_FAX_NOTES_SAVE_DELAY_MS (default 2500), CHROME_PATH, ARTIFACT_DIR,
- *   ALLOW_NON_LOCAL_BASE_URL.
+ *   ALLOW_NON_LOCAL_BASE_URL, ALLOW_NON_LOCAL_MYSQL_HOST,
+ *   RX_FAX_JOURNAL_DIR (private directory for the pharmacy fixture's crash journal).
  *
  * Run: npm run test:rx-fax-record-binding-playwright
  */
@@ -73,16 +78,22 @@
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
+const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require('./rx-fax-request-guard');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const zlib = require('zlib');
+const pdf = require('./lib/export-content-helpers');
+const { SkipCheck } = require('./lib/playwright-harness');
+const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
+const { browserErrorClass } = require('./browser-error-class');
+const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
 const {
   appUrl,
   buildArtifactPath,
   getLaunchOptions,
   gotoApp,
   validateBaseUrl,
+  validateMysqlHost,
 } = require('./eform-local-playwright-utils');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -103,6 +114,10 @@ if (!Number.isInteger(faxRoundTripTimeoutMs) || faxRoundTripTimeoutMs < 1000 || 
 const artifactDir = process.env.ARTIFACT_DIR || '/tmp/carlos-playwright-artifacts';
 const documentDir = validateDocumentDir(process.env.RX_FAX_DOCUMENT_DIR);
 
+// The suite-wide guard (scripts/lib/playwright-harness.js, re-exported above), the same one
+// run-playwright-suite.js applies before spawning this check: loopback only unless
+// ALLOW_NON_LOCAL_MYSQL_HOST=true, because this check seeds and deletes prescription, signature,
+// fax and pharmacy rows.
 const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'localhost');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || '';
@@ -117,7 +132,7 @@ if (!Number.isInteger(notesSaveDelayMs) || notesSaveDelayMs < 0 || notesSaveDela
 // Per-run identifiers, same rationale as rx-fax-signature-stamp-playwright-checks.js: the "from"
 // fax number must be exactly 10 chars (fax_config.faxNumber varchar(10), matched by equality), the
 // destination must be unroutable (NPA 555), and the drug name identifies THIS run's prescription.
-const runSuffix = String(randomInt(1000000, 10000000)); // 7 digits, crypto RNG
+const runSuffix = readFaxSuffix(process.env.PR4055_RX_FAX_SUFFIX, 7, randomInt);
 const pharmacyFaxNumber = `555${runSuffix}`;
 const faxNumber = `416${runSuffix}`;
 const customDrugName = `PW FAX BIND ${Date.now()}${runSuffix}`;
@@ -153,23 +168,12 @@ const forged = {
 const findings = [];
 const visited = [];
 let expectingCustomDrugConfirm = false;
+let expectingNotesSaveFailureDialog = false;
+let notesSaveFailureDialogSeen = false;
 const mysqlBin = resolveMysqlBinary();
 const mysqlDefaultsFile = createMysqlDefaultsFile();
 
 // --- validation helpers -------------------------------------------------------
-
-function validateMysqlHost(host) {
-  if (!/^[A-Za-z0-9.\-:\[\]]+$/.test(host)) {
-    throw new Error('MYSQL_HOST contains unsupported characters');
-  }
-  // This check seeds and deletes prescription, signature, fax and pharmacy rows, so it must target
-  // a local disposable database. Same opt-in as the sibling Rx checks for an intentional remote one.
-  const loopback = new Set(['localhost', '127.0.0.1', '::1', 'carlos', 'db']);
-  if (!loopback.has(host.toLowerCase()) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
-    throw new Error(`Refusing non-local MYSQL_HOST "${host}"; set ALLOW_NON_LOCAL_MYSQL_HOST=true for an intentional test database`);
-  }
-  return host;
-}
 
 function validateDocumentDir(rawDir) {
   if (!rawDir || typeof rawDir !== 'string') {
@@ -219,7 +223,7 @@ function sql(query) {
     return execFileSync(
       mysqlBin,
       [`--defaults-extra-file=${mysqlDefaultsFile}`, '-N', '-B', mysqlDatabase, '-e', query],
-      { encoding: 'utf8', timeout: 30000 },
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 },
     ).trim();
   } catch (error) {
     // Neither the query nor raw stderr may reach the log: queries carry demographic and script
@@ -240,63 +244,9 @@ function safeUrl(rawUrl) {
 
 // --- PDF text runs --------------------------------------------------------------
 
-/**
- * Every string shown by a `Tj` / `TJ` operator in every content stream of the PDF, in stream order.
- * OpenPDF (the servlet's writer) positions each rendered line with `Tm` and shows it with one `Tj`,
- * so one rendered line is one run. Handles FlateDecode streams and the ()-string escapes; that is
- * all this writer emits. Not a general PDF text extractor and not meant to be one.
- */
+/** Rendered text lines, decoded with each embedded font's Unicode mapping. */
 function pdfTextRuns(buf) {
-  const runs = [];
-  const text = buf.toString('latin1');
-  const streamRe = /(<<(?:(?!<<)[\s\S]){0,400}?>>)\s*stream\r?\n/g;
-  let m;
-  while ((m = streamRe.exec(text))) {
-    const dict = m[1];
-    const start = m.index + m[0].length;
-    const end = text.indexOf('endstream', start);
-    if (end < 0) break;
-    let data = buf.subarray(start, end);
-    if (/FlateDecode/.test(dict)) {
-      let inflated = null;
-      // The stream may carry a trailing EOL before `endstream`; try the exact length first.
-      for (const cut of [0, 1, 2]) {
-        try { inflated = zlib.inflateSync(buf.subarray(start, end - cut)); break; } catch (error) { /* try shorter */ }
-      }
-      if (!inflated) continue;
-      data = inflated;
-    }
-    const content = data.toString('latin1');
-    if (!/\bT[jJ]\b/.test(content)) continue;
-    // The TJ array alternative keeps its two repeated branches DISJOINT: a string branch that
-    // consumes "(...)" and a filler branch that may consume anything except "]" and "(". Letting the
-    // filler also eat "(" gave the engine two ways to match every parenthesis and made a "[" with
-    // many "()" and no closing "] TJ" backtrack exponentially (CodeQL js/redos).
-    const opRe = /\((?:\\.|[^\\)])*\)\s*Tj|\[(?:\((?:\\.|[^\\)])*\)|[^\]\(])*\]\s*TJ/g;
-    let op;
-    while ((op = opRe.exec(content))) {
-      const parts = [];
-      const strRe = /\(((?:\\.|[^\\)])*)\)/g;
-      let s;
-      while ((s = strRe.exec(op[0]))) {
-        // PDF literal-string escapes (ISO 32000 7.3.4.2): \n \r \t \b \f, the three delimiters,
-        // and \ddd octal. Decoding them here keeps a run's text equal to what was rendered.
-        parts.push(s[1].replace(/\\(\d{1,3}|[nrtbf()\\])/g, (_, esc) => {
-          switch (esc) {
-            case 'n': return '\n';
-            case 'r': return '\r';
-            case 't': return '\t';
-            case 'b': return '\b';
-            case 'f': return '\f';
-            case '(': case ')': case '\\': return esc;
-            default: return String.fromCharCode(parseInt(esc, 8));
-          }
-        }));
-      }
-      runs.push(parts.join(''));
-    }
-  }
-  return runs;
+  return pdf.pdfTextBuffer(buf).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
 }
 
 /** The servlet's PDF for this pdfId, once it is fully written (exists, %PDF header, size stable). */
@@ -328,49 +278,76 @@ async function waitForPdf(pdfId, label) {
 // --- fixtures ---------------------------------------------------------------------
 
 let faxConfig = null;
-const seededPharmacyFaxes = [];
+const pharmacyFax = createPharmacyFaxFixture({
+  sql,
+  demographicNo,
+  stagedFax: pharmacyFaxNumber,
+  mysql: { host: mysqlHost, user: mysqlUser, password: mysqlPassword, database: mysqlDatabase },
+});
 
 function stageFaxConfig() {
-  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${faxNumber}' AND active=1 AND providerType='SRFAX' LIMIT 1;`).trim();
-  if (/^\d+$/.test(existing)) return { id: existing, created: false };
+  // Refuse any collision, including inactive/other-provider accounts: cleanup must
+  // never assume that pre-existing jobs on a coincidentally chosen line are ours.
+  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${faxNumber}' LIMIT 1;`).trim();
+  if (existing) throw new Error('Fixture sender number collided with an existing account; rerun with a new fixture');
+  if (sql(`SELECT id FROM faxes WHERE faxline='${faxNumber}' LIMIT 1;`).trim()) {
+    throw new Error('Fixture sender number collided with an existing fax job; rerun with a new fixture');
+  }
   const id = sql(
     `INSERT INTO fax_config (providerType, active, faxNumber, faxReply, accountName, senderEmail, faxUser, siteUser, passwd, faxPasswd, gatewayName, queue, url, download) `
-    + `VALUES ('SRFAX', 1, '${faxNumber}', '${faxNumber}', 'Playwright Fax', 'fax@example.ca', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 1); SELECT LAST_INSERT_ID();`,
+    + `VALUES ('SRFAX', 1, '${faxNumber}', '${faxNumber}', 'Playwright Fax', 'fax@example.invalid', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 0); SELECT LAST_INSERT_ID();`,
   ).trim();
+  if (!/^[1-9][0-9]*$/.test(id)) throw new Error('Owned fax sender was not created');
   return { id, created: true };
 }
 
-function seedPharmacyFax() {
-  // Same active-pharmacy predicate as the sibling stamp check. Unlike it, EVERY active destination
-  // is replaced for the run, not only blank ones: the Fax button queues a real job to whatever
-  // number the patient's pharmacy carries, and a fixture prescription must never be able to leave
-  // for a real fax machine. Each original value is remembered exactly (NULL and '' are distinct
-  // states) and restored by cleanupFixtures only while the column still holds this run's number.
-  const rows = sql(`SELECT p.recordId, IF(p.fax IS NULL, 1, 0), IFNULL(p.fax, '') FROM pharmacyInfo p
-    JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordId
-    WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1'
-      AND (p.status IS NULL OR p.status <> '0');`)
-    .split('\n').map((r) => r.split('\t')).filter((r) => /^\d+$/.test((r[0] || '').trim()));
-  for (const [rawId, rawWasNull, rawFax] of rows) {
-    const recordId = rawId.trim();
-    const wasNull = String(rawWasNull).trim() === '1';
-    const originalFax = wasNull ? null : String(rawFax || '');
-    if (originalFax !== null && !/^[0-9A-Za-z .()+-]{0,32}$/.test(originalFax)) {
-      throw new Error('a pharmacy fax value has an unexpected shape; refusing to rewrite it');
-    }
-    sql(`UPDATE pharmacyInfo SET fax = '${pharmacyFaxNumber}' WHERE recordId = ${recordId};`);
-    seededPharmacyFaxes.push({ recordId, wasNull, originalFax });
+async function selectOwnedFaxSender(modalFrame) {
+  const sender = modalFrame.locator('#faxNumber');
+  await sender.selectOption(faxNumber);
+  if (await sender.inputValue() !== faxNumber) throw new Error('Owned fax sender was not selected');
+}
+
+function assertOwnedFaxRequest(request) {
+  assertFaxDestination(request, faxNumber, pharmacyFaxNumber);
+}
+
+function cleanupOwnedFaxSender() {
+  if (!faxConfig || !faxConfig.created) return;
+  sql(`DELETE FROM fax_config WHERE id=${faxConfig.id} AND faxNumber='${faxNumber}' AND accountName='Playwright Fax';`);
+  if (sql(`SELECT COUNT(*) FROM fax_config WHERE id=${faxConfig.id};`).trim() !== '0') {
+    throw new Error('Owned fax sender cleanup failed or ownership changed');
   }
-  visited.push({ label: 'pharmacy-fax', seeded: seededPharmacyFaxes.length, active: rows.length });
-  if (!rows.length) {
+}
+
+/**
+ * Take the lock the Rx fax checks share (replaying a killed run's journal), then point EVERY active
+ * pharmacy of the patient at this run's number, not only blank ones: the Fax button queues a real
+ * job to whatever number the patient's pharmacy carries, and a fixture prescription must never be
+ * able to leave for a real fax machine.
+ */
+async function seedPharmacyFax() {
+  const recovered = await pharmacyFax.lock();
+  if (recovered.journals || recovered.kept) visited.push({ label: 'pharmacy-fax-recovery', ...recovered });
+  const staged = pharmacyFax.seed();
+  visited.push({ label: 'pharmacy-fax', ...staged });
+  if (!staged.active) {
     findings.push({ label: 'pharmacy-fax', type: 'no-active-pharmacy', text: 'the configured RX_FAX_DEMOGRAPHIC_NO patient has no active pharmacy, so a prescription for them can never be faxed' });
+  }
+}
+
+/** Release the shared fixture lock after cleanup; a lost lock is a finding, not a crash. */
+async function releaseFixtureLock() {
+  try {
+    await pharmacyFax.unlock();
+  } catch (error) {
+    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(error)}` });
   }
 }
 
 function cleanupFixtures() {
   const attempt = (label, fn) => {
     try { fn(); } catch (error) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${(error && error.message) || 'failed'}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}${fixtureErrorTag(error)}` });
     }
   };
   let ourScriptNos = [];
@@ -387,6 +364,7 @@ function cleanupFixtures() {
     });
   }
   attempt('faxes', () => {
+    if (!faxConfig || !faxConfig.created) return;
     const faxIds = sql(`SELECT id FROM faxes WHERE faxline='${faxNumber}';`)
       .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r));
     if (faxIds.length) {
@@ -394,39 +372,32 @@ function cleanupFixtures() {
     }
     sql(`DELETE FROM faxes WHERE faxline='${faxNumber}';`);
   });
-  attempt('fax_config', () => {
-    if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
+  attempt('fax_config', cleanupOwnedFaxSender);
+  attempt('pharmacy-fax', () => {
+    const { untouched } = pharmacyFax.restore();
+    if (untouched) visited.push({ label: 'pharmacy-fax-restore', untouched });
   });
-  while (seededPharmacyFaxes.length) {
-    const { recordId, wasNull, originalFax } = seededPharmacyFaxes.pop();
-    const restored = wasNull ? 'NULL' : `'${originalFax}'`; // shape-validated before the rewrite
-    attempt(`pharmacy-fax ${recordId}`, () => sql(
-      `UPDATE pharmacyInfo SET fax = ${restored} WHERE recordId = ${recordId} AND fax = '${pharmacyFaxNumber}';`));
-  }
-}
-
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => { cleanupFixtures(); removeSecretsDir(); process.exit(130); });
 }
 
 // --- browser plumbing -------------------------------------------------------------
 
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
-    const text = error.stack || error.message || '';
-    // Pre-existing, tracked by issue #3578 (expandPreview writes into the preview iframe before it
-    // has parsed on some render orders). Named so the suppression stays auditable.
-    if (/Cannot set properties of null \(setting 'innerHTML'\)/.test(text) && /expandPreview/.test(text)) return;
     // Record the error CLASS only. A page error's message or stack can quote page content -- a
     // patient name in a DOM path, a demographic number in a URL -- and this goes to stderr and the
     // artifact file, so it must never carry the text itself.
-    const errorClass = /^([A-Za-z]+Error)\b/.exec(text);
-    findings.push({ label, type: 'pageerror', text: errorClass ? errorClass[1] : 'browser page error' });
+    findings.push({ label, type: 'pageerror', text: browserErrorClass(error) });
   });
   page.on('dialog', async (dialog) => {
     // Accept only the custom-drug confirm(), and only while clicking that button. Anything else is a
     // blocking finding: the check must not pass while a dialog is dismissed unseen.
     if (dialog.type() === 'confirm' && expectingCustomDrugConfirm) {
+      await dialog.accept().catch(() => {});
+      return;
+    }
+    if (dialog.type() === 'alert' && expectingNotesSaveFailureDialog && !notesSaveFailureDialogSeen) {
+      notesSaveFailureDialogSeen = true;
+      expectingNotesSaveFailureDialog = false;
       await dialog.accept().catch(() => {});
       return;
     }
@@ -488,6 +459,12 @@ async function writeCustomRxThroughUi(page) {
   await page.locator('#saveButton').click();
   const modalFrame = page.frameLocator('#carlosModalBody iframe');
   await modalFrame.locator('#faxButton').waitFor({ state: 'attached', timeout: 30000 });
+  await selectOwnedFaxSender(modalFrame);
+  // The outer page can render its Fax button before ViewPreview2 has finished
+  // loading in the nested iframe. Both fax attempts below synchronously read
+  // #preview2Form, so establish that shared precondition before returning.
+  await modalFrame.frameLocator('#preview').locator('#preview2Form')
+    .waitFor({ state: 'attached', timeout: faxRoundTripTimeoutMs });
 
   const created = sql(`SELECT DISTINCT script_no FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo} AND script_no>${rangeStart};`)
     .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r));
@@ -512,42 +489,314 @@ function addProbeLineToRecord(scriptId) {
 let submittedClinicHeader = null;
 let headerComposedByServlet = false;
 
+async function assertFailedNotesSaveBlocksFax(page, modalFrame) {
+  let saveRequested = false;
+  let faxRequests = 0;
+  let dialogSeen = false;
+  const faxRequestListener = (request) => {
+    if (/form\/createcustomedpdf/.test(request.url()) && /__method=oscarRxFax/.test(request.url())) {
+      faxRequests += 1;
+    }
+  };
+  page.on('request', faxRequestListener);
+  notesSaveFailureDialogSeen = false;
+
+  try {
+    await page.route(/\/rx\/ViewAddRxComment/, async (route) => {
+      saveRequested = true;
+      expectingNotesSaveFailureDialog = true;
+      await route.fulfill({ status: 500, contentType: 'text/plain', body: 'fixture save failure' });
+    });
+    await modalFrame.locator('#additionalNotes').fill(`${noteText}-must-not-fax`);
+    const expectedDialog = page.waitForEvent('dialog', {
+      predicate: (dialog) => dialog.type() === 'alert',
+      timeout: 5000,
+    }).catch(() => null);
+    await modalFrame.locator('#faxButton').click();
+    await expectedDialog;
+    dialogSeen = notesSaveFailureDialogSeen;
+    await modalFrame.locator('#additionalNotes:enabled:not([readonly])').waitFor({ state: 'visible', timeout: 5000 });
+    const notesRestored = await modalFrame.locator('#additionalNotes').evaluate((notes) => !notes.readOnly && !notes.disabled);
+    const saveRestored = await modalFrame.locator('#saveAdditionalNotes').isEnabled();
+    if (!notesRestored || !saveRestored) {
+      findings.push({ label: 'notes-save-failure', type: 'notes-locked', text: 'a failed fax attempt did not restore the Additional Notes controls' });
+    }
+  } finally {
+    expectingNotesSaveFailureDialog = false;
+    page.off('request', faxRequestListener);
+    await page.unroute(/\/rx\/ViewAddRxComment/).catch(() => {});
+  }
+
+  visited.push({ label: 'notes-save-failure', saveRequested, dialogSeen, faxRequests });
+  if (!saveRequested) {
+    findings.push({ label: 'notes-save-failure', type: 'save-not-triggered', text: 'the failed-save fixture did not receive an Additional Notes request' });
+  }
+  if (!dialogSeen) {
+    findings.push({ label: 'notes-save-failure', type: 'no-warning', text: 'a failed Additional Notes save did not warn the clinician' });
+  }
+  if (faxRequests !== 0) {
+    findings.push({ label: 'notes-save-failure', type: 'fax-proceeded', text: 'the page submitted a fax after the current Additional Notes failed to save' });
+  }
+}
+
+// Exercise recovery in the installed JSP, without submitting clinical text or
+// another fax. The transport is replaced only for these deliberate failure probes.
+async function assertEncounterPasteRecovery(modalFrame) {
+  const results = await modalFrame.locator('#additionalNotes').evaluate(async (notes) => {
+    const w = notes.ownerDocument.defaultView;
+    const original = {
+      fetch: w.fetch, alert: w.alert, openEncounter: w.openEncounter,
+      consoleError: w.console.error, canRetry: w.faxPasteCanRetry,
+      queued: w.faxQueued, pending: w.faxSubmissionPending,
+      retryText: w.faxPasteRetryText, retryPending: w.faxPasteRetryPending,
+      paste: w.printPaste2Parent, setTimeout: w.setTimeout, lastText: w.lastFaxPasteText,
+      retryDisplay: w.document.getElementById('faxPasteRetryRow').style.display,
+      retryDisabled: w.document.getElementById('faxPasteRetryButton').disabled,
+    };
+    const checks = [];
+    let requests = 0;
+    try {
+      w.alert = () => {};
+      w.console.error = () => {}; // intentional failure paths, asserted below
+      w.openEncounter = () => { throw new Error('probe: post-commit window failure'); };
+      for (const probe of [
+        { name: 'committed then window failure', status: 200, outcome: 'written', saved: true, retry: false },
+        { name: 'lost response', lost: true, saved: false, retry: false },
+        { name: 'post-save server failure', status: 500, saved: false, retry: false },
+        { name: 'explicit pre-write rejection', status: 409, outcome: 'not-written', saved: false, retry: true },
+      ]) {
+        w.fetch = async () => {
+          requests += 1;
+          if (probe.lost) throw new Error('probe: response lost');
+          return new Response('', { status: probe.status,
+            headers: probe.outcome ? { 'X-Carlos-Encounter-Write': probe.outcome } : {} });
+        };
+        const saved = await w.writeToEncounter(false, 'RECOVERY PROBE - MUST NEVER REACH SERVER');
+        const safe = saved === probe.saved && w.faxPasteCanRetry === probe.retry;
+        // An uncertain append is not retryable even by a direct handler call.
+        w.faxPasteRetryText = 'RECOVERY PROBE - MUST NEVER REACH SERVER';
+        const before = requests;
+        let handlerVerified;
+        if (probe.retry) {
+          const attempts = [];
+          const scheduledCloses = [];
+          w.printPaste2Parent = (...args) => { attempts.push(args); return Promise.resolve(true); };
+          w.setTimeout = (callback) => { scheduledCloses.push(callback); };
+          const accepted = w.retryFaxPaste() === true;
+          const duplicateBlocked = w.retryFaxPaste() === false;
+          await Promise.resolve();
+          await Promise.resolve();
+          handlerVerified = accepted && duplicateBlocked && attempts.length === 1
+            && attempts[0][0] === false && attempts[0][1] === true && attempts[0][2] === true
+            && attempts[0][3] === 'RECOVERY PROBE - MUST NEVER REACH SERVER' && attempts[0][4] === true
+            && w.faxPasteRetryText === null && !w.faxPasteRetryPending
+            && w.document.getElementById('faxPasteRetryRow').style.display === 'none'
+            && scheduledCloses.length === 1 && requests === before;
+        } else {
+          handlerVerified = w.retryFaxPaste() === false && requests === before;
+        }
+        checks.push({ name: probe.name, passed: safe && handlerVerified });
+      }
+    } finally {
+      w.fetch = original.fetch;
+      w.alert = original.alert;
+      w.openEncounter = original.openEncounter;
+      w.console.error = original.consoleError;
+      w.faxPasteCanRetry = original.canRetry;
+      w.faxQueued = original.queued;
+      w.faxSubmissionPending = original.pending;
+      w.faxPasteRetryText = original.retryText;
+      w.faxPasteRetryPending = original.retryPending;
+      w.printPaste2Parent = original.paste;
+      w.setTimeout = original.setTimeout;
+      w.lastFaxPasteText = original.lastText;
+      w.document.getElementById('faxPasteRetryRow').style.display = original.retryDisplay;
+      w.document.getElementById('faxPasteRetryButton').disabled = original.retryDisabled;
+    }
+    return checks;
+  });
+  for (const result of results) {
+    visited.push({ label: 'encounter-recovery', ...result });
+    if (!result.passed) findings.push({ label: 'encounter-recovery', type: 'unsafe-retry', text: result.name });
+  }
+}
+
+// Run the installed JSP's real submit/result functions, but replace form.submit
+// so these uncertainty probes cannot create a job or send clinical data.
+async function assertFaxConfirmationRecovery(modalFrame) {
+  const results = await modalFrame.locator('#additionalNotes').evaluate(async (notes) => {
+    const w = notes.ownerDocument.defaultView;
+    const frame = w.document.getElementById('preview');
+    const previewDoc = frame.contentWindow.document;
+    const form = previewDoc.getElementById('preview2Form');
+    const originalSubmit = Object.getOwnPropertyDescriptor(form, 'submit');
+    const originalGet = Object.getOwnPropertyDescriptor(previewDoc, 'getElementById');
+    const getElement = previewDoc.getElementById;
+    const globals = ['pendingNotesSave', 'pendingFaxCancellation', 'faxSubmissionPending', 'faxSubmissionUncertain',
+      'faxPreviewReloading', 'faxQueued', 'faxPasteCanRetry', 'faxNotesState',
+      'lastFaxPasteText', 'hasPreview', 'setTimeout', 'clearTimeout', 'onbeforeunload'];
+    const saved = Object.fromEntries(globals.map((key) => [key, w[key]]));
+    const savedError = w.console.error;
+    const originalScript = form.getAttribute('data-script-id');
+    const originalAction = form.getAttribute('action');
+    const originalTarget = form.getAttribute('target');
+    const pdfId = form.querySelector('#pdfId');
+    const originalPdfId = pdfId.value;
+    const controls = ['additionalNotes', 'saveAdditionalNotes', 'faxButton', 'faxPasteButton',
+      'printPasteButton', 'faxSubmissionUncertain', 'faxSubmissionRecoveryText', 'faxPreviewChanged']
+      .map((id) => w.document.getElementById(id)).filter(Boolean)
+      .map((element) => ({ element, values: Object.fromEntries(
+        ['value', 'disabled', 'readOnly', 'hidden'].filter((key) => key in element)
+          .map((key) => [key, element[key]])) }));
+    const restore = () => {
+      for (const [key, value] of Object.entries(saved)) w[key] = value;
+      for (const { element, values } of controls) Object.assign(element, values);
+      w.console.error = savedError;
+      if (originalSubmit) Object.defineProperty(form, 'submit', originalSubmit);
+      else delete form.submit;
+      if (originalGet) Object.defineProperty(previewDoc, 'getElementById', originalGet);
+      else delete previewDoc.getElementById;
+      for (const [key, value] of [['data-script-id', originalScript], ['action', originalAction], ['target', originalTarget]]) {
+        if (value === null) form.removeAttribute(key); else form.setAttribute(key, value);
+      }
+      pdfId.value = originalPdfId;
+    };
+    const checks = [];
+    try {
+      for (const outcome of ['markerless', 'inaccessible', 'timeout', 'wrong-script', 'cancelled-on-hide']) {
+        restore();
+        let submitted = 0;
+        let timeout;
+        let timerCleared = false;
+        w.console.error = () => {};
+        w.setTimeout = (callback) => { timeout = callback; return 1; };
+        w.clearTimeout = () => { timerCleared = true; };
+        form.submit = () => { submitted += 1; };
+        let releaseNotes;
+        w.pendingNotesSave = outcome === 'cancelled-on-hide'
+          ? new Promise((resolve) => { releaseNotes = resolve; }) : Promise.resolve();
+        w.lockFaxNotes();
+        w.faxSubmissionPending = true;
+        w.setFaxControlsDisabled(true);
+        if (outcome === 'wrong-script') form.setAttribute('data-script-id', 'not-the-displayed-script');
+        w.onPrint2('oscarRxFax', w.faxScriptNo, 'NO-SUBMISSION-PROBE', true, 'RECOVERY PROBE');
+        if (outcome === 'cancelled-on-hide') {
+          // Dispatch the same lifecycle event as Bootstrap's Close/backdrop/Escape
+          // dismissal, without actually hiding or destroying this test's modal.
+          w.parent.document.getElementById('carlosModal').dispatchEvent(new w.parent.Event('hide.bs.modal'));
+          releaseNotes();
+          await Promise.resolve();
+          await Promise.resolve();
+          checks.push({ name: outcome, passed: submitted === 0 && !w.faxSubmissionPending
+            && !notes.readOnly && w.pendingFaxCancellation === null });
+          continue;
+        }
+        await Promise.resolve();
+        if (outcome === 'wrong-script') {
+          checks.push({ name: outcome, passed: submitted === 0 && !w.hasPreview
+            && !w.document.getElementById('faxPreviewChanged').hidden });
+          continue;
+        }
+        if (outcome === 'timeout') {
+          timeout();
+        } else {
+          previewDoc.getElementById = function (id) {
+            const resultRead = ['preview2Form', 'fax-success', 'fax-failure'].includes(id);
+            // Only the fax-result reads become inaccessible. setComment() also reads this document
+            // on load ('additNotes'); a stub that threw for every id escaped from that unrelated
+            // handler as an uncaught page error, which this check then counted against itself.
+            if (outcome === 'inaccessible' && resultRead) throw new Error('inaccessible fixture response');
+            if (resultRead) return null;
+            return getElement.call(this, id);
+          };
+          frame.dispatchEvent(new w.Event('load'));
+        }
+        checks.push({ name: outcome, passed: submitted === 1 && timerCleared
+          && w.faxSubmissionUncertain && !w.faxSubmissionPending && !w.faxQueued
+          && !w.faxPasteCanRetry && w.sendFax(true) === false && notes.readOnly
+          && w.document.getElementById('printPasteButton').disabled
+          && w.document.getElementById('faxSubmissionRecoveryText').value === 'RECOVERY PROBE'
+          && !w.document.getElementById('faxSubmissionUncertain').hidden });
+      }
+    } finally {
+      restore();
+    }
+    return checks;
+  });
+  for (const result of results) {
+    visited.push({ label: 'fax-confirmation-recovery', ...result });
+    if (!result.passed) findings.push({ label: 'fax-confirmation-recovery', type: 'unsafe-retry', text: result.name });
+  }
+}
+
 async function faxThroughUi(page, modalFrame, scriptId) {
   // Deterministic race: hold the notes save so the fax POST can only carry the note if the page
   // waited for it. The route covers the modal iframe's requests too.
   let saveRequested = false;
+  let saveRequestCount = 0;
+  let releaseNotesSave;
+  const notesSaveGate = new Promise((resolve) => { releaseNotesSave = resolve; });
   await page.route(/\/rx\/ViewAddRxComment/, async (route) => {
     saveRequested = true;
-    await new Promise((resolve) => setTimeout(resolve, notesSaveDelayMs));
+    saveRequestCount += 1;
+    await Promise.all([
+      notesSaveGate,
+      new Promise((resolve) => setTimeout(resolve, notesSaveDelayMs)),
+    ]);
     await route.continue();
   });
 
   await modalFrame.locator('#additionalNotes').waitFor({ state: 'visible', timeout: 30000 });
-  // The Fax button's handler writes into the preview iframe (finalFax, pdfId) before it submits the
-  // iframe's form, so a click that lands before ViewPreview2 has rendered throws inside the page and
-  // no request is ever made. A clinician cannot click that fast on a warm server; a headless run
-  // against a cold one can, so wait for the form the click needs.
-  await modalFrame.frameLocator('#preview').locator('#preview2Form').waitFor({ state: 'attached', timeout: faxRoundTripTimeoutMs });
   await modalFrame.locator('#additionalNotes').fill(noteText);
 
   const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: faxRoundTripTimeoutMs });
   const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()) && /__method=oscarRxFax/.test(res.url()), { timeout: faxRoundTripTimeoutMs });
+  const roundTrip = settleOperations([faxRequestPromise, faxResponsePromise]);
+  // Attach immediately: a click/locator failure must not leave these observers
+  // unhandled. They are still awaited below before fixture cleanup can begin.
+  roundTrip.catch(() => {});
+  let clickFailure;
   // The click moves focus off the textarea, firing its onchange (addNotes -> delayed save) before
   // the click handler faxes: the same order a clinician's click produces.
-  await modalFrame.locator('#faxButton').click();
+  try {
+    await modalFrame.locator('#faxButton').click();
+    const lock = await modalFrame.locator('#additionalNotes').evaluate((notes, attemptedNote) => {
+      const modalWindow = notes.ownerDocument.defaultView;
+      const save = notes.ownerDocument.getElementById('saveAdditionalNotes');
+      const frozenValue = notes.value;
+      const pendingSave = modalWindow.pendingNotesSave;
+      const controlsLocked = notes.readOnly && save.disabled;
+      // Exercise the handler as well as the visible lock: a queued change event must
+      // not enqueue another save after the fax captured its note.
+      notes.value = attemptedNote;
+      modalWindow.addNotes();
+      return {
+        controlsLocked,
+        writeBlocked: modalWindow.pendingNotesSave === pendingSave,
+        valueRestored: notes.value === frozenValue,
+      };
+    }, `${noteText}-late-edit-must-not-save`);
+    visited.push({ label: 'notes-pending-lock', ...lock });
+    if (!lock.controlsLocked || !lock.writeBlocked || !lock.valueRestored) {
+      findings.push({ label: 'notes-pending-lock', type: 'late-edit-accepted', text: 'Additional Notes can change or enqueue a write while the fax is waiting for its saved note' });
+    }
+  } catch (error) {
+    clickFailure = error;
+  } finally {
+    releaseNotesSave();
+  }
 
   let pdfId = null;
   let status = 0;
   let body = '';
   try {
-    // Await BOTH together. Awaiting them one after the other leaves the second promise with no
-    // handler while the first is pending; when the click produces no round trip at all, both time
-    // out at once and the un-awaited rejection is an unhandled rejection that kills the process --
-    // before the finally-block cleanup below has run, leaving the pharmacy fax numbers, the
-    // fax_config row and the fixture prescription in the database.
-    const [request, response] = await Promise.all([faxRequestPromise, faxResponsePromise]);
+    // Drain BOTH observers even when one rejects. A failed click/navigation must
+    // not trigger cleanup while the other initiated request is still pending.
+    const [request, response] = await roundTrip;
+    if (clickFailure) throw clickFailure;
     status = response.status();
     body = await response.text().catch(() => '');
+    assertOwnedFaxRequest(request);
     const post = new URLSearchParams(request.postData() || '');
     pdfId = post.get('pdfId');
     // What the page put on the wire for the clinic header, and whether the servlet will use it. A
@@ -559,7 +808,7 @@ async function faxThroughUi(page, modalFrame, scriptId) {
       findings.push({ label: 'ui-fax', type: 'wrong-script', text: 'the Fax button posted a different scriptId than the prescription just written' });
     }
   } catch (error) {
-    findings.push({ label: 'ui-fax', type: 'no-request', text: `Fax click produced no createcustomedpdf round trip: ${error.message}` });
+    findings.push({ label: 'ui-fax', type: 'no-request', text: `Fax round trip failed: ${browserErrorClass(error)}` });
   } finally {
     await page.unroute(/\/rx\/ViewAddRxComment/).catch(() => {});
   }
@@ -569,6 +818,9 @@ async function faxThroughUi(page, modalFrame, scriptId) {
     // Without a save request the race cannot be observed; say so distinctly rather than let the
     // note assertion below read as the race failing.
     findings.push({ label: 'notes-race', type: 'save-not-triggered', text: 'clicking Fax did not fire the Additional Notes save (textarea onchange); the race could not be exercised' });
+  }
+  if (saveRequestCount !== 1) {
+    findings.push({ label: 'notes-pending-lock', type: 'extra-save', text: 'the pending fax did not retain exactly one Additional Notes save' });
   }
   if (status < 200 || status >= 300) {
     findings.push({ label: 'ui-fax', type: 'http-error', status, text: `signed fax returned HTTP ${status}` });
@@ -772,18 +1024,28 @@ function assertNoteRendered(runs) {
   }
 }
 
-async function runChecks(context) {
-  const page = await login(context);
+async function runChecks(context, cancellation) {
+  const page = await cancellation.run(() => login(context));
   try {
+    await installFaxRequestGuard(page, baseUrl, faxNumber, pharmacyFaxNumber, () => {
+      findings.push({ label: 'fax-destination', type: 'blocked', text: 'Blocked a fax POST with an unowned sender or destination' });
+    });
+    await seedPharmacyFax();
     faxConfig = stageFaxConfig();
-    seedPharmacyFax();
 
-    const { modalFrame, scriptId } = await writeCustomRxThroughUi(page);
+    const { modalFrame, scriptId } = await cancellation.run(() => writeCustomRxThroughUi(page));
     visited.push({ label: 'prescription', created: true });
     addProbeLineToRecord(scriptId);
 
+    // A record-bound fax must never silently send the previously stored note when the
+    // clinician's current note failed to persist. The following successful attempt also
+    // proves that a later edit can recover the promise chain after the rejected save.
+    await cancellation.run(() => assertFailedNotesSaveBlocksFax(page, modalFrame));
+    await cancellation.run(() => assertEncounterPasteRecovery(modalFrame));
+    await cancellation.run(() => assertFaxConfirmationRecovery(modalFrame));
+
     // B + C on one real click.
-    const uiPdfId = await faxThroughUi(page, modalFrame, scriptId);
+    const uiPdfId = await cancellation.run(() => faxThroughUi(page, modalFrame, scriptId));
     if (uiPdfId) {
       const runs = pdfTextRuns(await waitForPdf(uiPdfId, 'ui-fax'));
       visited.push({ label: 'ui-fax-pdf', runs: runs.length });
@@ -794,7 +1056,7 @@ async function runChecks(context) {
     }
 
     // A: the same signed script, posted with a forged identity.
-    const forgedPdfId = await faxWithForgedIdentity(page, scriptId);
+    const forgedPdfId = await cancellation.run(() => faxWithForgedIdentity(page, scriptId));
     if (forgedPdfId) {
       const runs = pdfTextRuns(await waitForPdf(forgedPdfId, 'forged-fax'));
       visited.push({ label: 'forged-fax-pdf', runs: runs.length });
@@ -804,41 +1066,59 @@ async function runChecks(context) {
     }
   } finally {
     cleanupFixtures();
+    await releaseFixtureLock();
     await page.close().catch(() => {});
   }
 }
 
 (async () => {
-  const browser = await chromium.launch(getLaunchOptions(process.env.CHROME_PATH || ''));
+  const cancellation = createGracefulSignalCancellation({ graceMs: faxRoundTripTimeoutMs + 60000 });
+  let browser;
   let exitCode = 0;
+  let skipped;
   try {
+    pdf.requirePoppler('pdftotext');
+    browser = await chromium.launch({
+      ...getLaunchOptions(process.env.CHROME_PATH || ''),
+      handleSIGINT: false,
+      handleSIGTERM: false,
+    });
+    cancellation.throwIfCancelled();
     const host = baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase();
     const isLoopback = ['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1'].includes(host);
     const context = await browser.newContext({ ignoreHTTPSErrors: isLoopback && baseUrl.protocol === 'https:' });
-    await runChecks(context);
+    await runChecks(context, cancellation);
     await context.close();
   } catch (error) {
-    findings.push({ label: 'run', type: 'exception', text: (error && error.message) || String(error) });
+    if (error instanceof SkipCheck) {
+      exitCode = 2;
+      skipped = 'Poppler pdftotext is unavailable';
+    } else if (!cancellation.isCancellation(error)) {
+      findings.push({ label: 'run', type: 'exception', text: `${browserErrorClass(error)}${fixtureErrorTag(error)}` });
+    }
   } finally {
-    await browser.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
     removeSecretsDir();
+    cancellation.dispose();
   }
 
-  const summary = { baseUrl: `${baseUrl.origin}${baseUrl.pathname}`, visited, findings };
+  const summary = { baseUrl: `${baseUrl.origin}${baseUrl.pathname}`, visited, findings, skipped };
   try {
     const out = buildArtifactPath(artifactDir, 'rx-fax-record-binding', '.json');
     fs.writeFileSync(out, JSON.stringify(summary, null, 2));
     console.log(`artifact: ${out}`);
   } catch (error) {
-    console.log(`artifact not written: ${(error && error.message) || 'unknown error'}`);
+    console.log(`artifact not written: ${browserErrorClass(error)}`);
   }
   console.log(JSON.stringify({ visited }, null, 2));
-  if (findings.length) {
+  if (skipped) {
+    console.log(`SKIP: ${skipped}`);
+  } else if (findings.length) {
     exitCode = 1;
     console.error(`FAIL: ${findings.length} finding(s)`);
     for (const f of findings) console.error(` - [${f.label}] ${f.type}: ${f.text || ''}`);
-  } else {
+  } else if (!cancellation.exitCode) {
     console.log('PASS: identity, header (date, clinic, reprint), one-character line and notes are bound to the prescription record; the clinic header renders on its own lines');
   }
-  process.exit(exitCode);
+  process.exit(cancellation.exitCode || exitCode);
 })();

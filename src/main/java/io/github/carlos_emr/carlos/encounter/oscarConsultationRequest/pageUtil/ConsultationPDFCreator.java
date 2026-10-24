@@ -14,6 +14,8 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.*;
@@ -35,13 +37,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -102,7 +104,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     /**
      * Constructs a ConsultationPDFCreator for generating a consultation request PDF.
      *
-     * <p>Initializes fonts (Helvetica at 10pt and 12pt), loads consultation request data from
+     * <p>Initializes embedded Unicode fonts (10pt and 12pt), loads consultation request data from
      * the {@code reqId} parameter, and resolves the locale-specific resource bundle for
      * localized field labels.</p>
      *
@@ -113,7 +115,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     public ConsultationPDFCreator(HttpServletRequest request, OutputStream os) {
 
         try {
-            bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             font = new Font(bf, 10, Font.NORMAL);
             heading = new Font(bf, 12, Font.NORMAL);
             boldFontHeading = new Font(bf, 12, Font.BOLD);
@@ -123,7 +125,24 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
 
         this.os = os;
         reqFrm = new EctConsultationFormRequestUtil();
-        reqFrm.estRequestFromId(LoggedInInfo.getLoggedInInfoFromSession(request), request.getParameter("reqId") == null ? (String) request.getAttribute("reqId") : request.getParameter("reqId"));
+        // THE ATTRIBUTE WINS. Every server-side caller sets "reqId" from an id it has already
+        // authorized for this provider and demographic (EctConsultationFormRequest2Action:997 and
+        // its siblings). Reading the request PARAMETER first, as this did, let a POST that passed
+        // verification on its own requestId name a different consultation in reqId and have that
+        // record rendered instead -- another patient's referral in the returned PDF. The parameter
+        // remains as a fallback for callers that only have one, and nothing in the webapp passes it.
+        Object authorizedRequestId = request.getAttribute("reqId");
+        reqFrm.estRequestFromId(LoggedInInfo.getLoggedInInfoFromSession(request),
+                authorizedRequestId != null ? (String) authorizedRequestId : request.getParameter("reqId"));
+        // The Print button previews work in progress: it POSTs the whole form by AJAX so the
+        // clinician keeps their edits and stays on the page. Without this the preview rendered the
+        // stored record and the typed text was simply missing from it (issue #3721). Opt-in, and
+        // only for the clinical fields the clinician types here -- see ConsultationPreviewOverlay.
+        if (ConsultationPreviewOverlay.requested(request)) {
+            ConsultationPreviewOverlay.apply(reqFrm, request,
+                    ConsultationPreviewOverlay.appointmentInstructionLabelResolver(
+                            LoggedInInfo.getLoggedInInfoFromSession(request)));
+        }
         Object signatureOverride = request.getAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE);
         if (signatureOverride instanceof byte[] byteArray) {
             signatureImageOverride = byteArray;
@@ -323,7 +342,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable datelineborder = new PdfPTable(1);
         datelineborder.setWidthPercentage(100f);
         PdfPCell datecell = new PdfPCell();
-        datecell.setPhrase(new Phrase(String.format("%s %s", getResource("msgDate"), reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.referalDate)));
+        datecell.setPhrase(new Phrase(String.format("%s %s", getResource("msgDate"), "1".equals(reqFrm.pwb) ? getResource("pwb") : reqFrm.referalDate), heading));
         datecell.setBorder(0);
         datecell.setColspan(1);
         datecell.setPaddingTop(5f);
@@ -501,7 +520,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             Integer programNo = Integer.parseInt(reqFrm.letterheadName.substring(5));
             letterheadName = programDao.getProgramName(programNo);
 
-        } else if (!"-1".equals(reqFrm.letterheadName) && !reqFrm.letterheadName.equals(clinic.getClinicName())) {
+        } else if (!"-1".equals(reqFrm.letterheadName) && !StringUtils.noNull(reqFrm.letterheadName).equals(clinic.getClinicName())) {
 
             Provider letterheadNameProvider = null;
 
@@ -530,13 +549,13 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
 
         PdfPTable infoTable = new PdfPTable(1);
-        PdfPCell cell = new PdfPCell(new Phrase(letterheadName));
+        PdfPCell cell = new PdfPCell(new Phrase(letterheadName, heading));
         cell.setBorder(0);
         cell.setPadding(0);
         infoTable.addCell(cell);
 
         // add the address details
-        Phrase addressPhrase = new Phrase("");
+        Phrase addressPhrase = new Phrase("", heading);
         if (reqFrm.letterheadAddress != null && reqFrm.letterheadAddress.trim().length() > 0) {
             addressPhrase.add(reqFrm.getLetterheadAddress());
         } else {
@@ -551,7 +570,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         infoTable.addCell(cell);
 
         // add the telecom info
-        Phrase telecomPhrase = new Phrase("");
+        Phrase telecomPhrase = new Phrase("", heading);
         if (reqFrm.letterheadPhone != null && reqFrm.letterheadPhone.trim().length() > 0) {
             telecomPhrase.add(String.format("Phone: %s", reqFrm.getLetterheadPhone()));
         } else {
@@ -689,14 +708,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
                 reqFrm.patientHealthNum,
                 reqFrm.patientHealthCardVersionCode)));
 
-        if (!reqFrm.pwb.equals("1")) {
+        if (!"1".equals(reqFrm.pwb)) {
             infoTable.addCell(setInfoCell(cell, getResource("msgappDate")));
-            infoTable.addCell(setDataCell(cell, reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.appointmentDate));
+            infoTable.addCell(setDataCell(cell, reqFrm.appointmentDate));
             infoTable.addCell(setInfoCell(cell, getResource("msgTime")));
-            infoTable.addCell(setDataCell(cell, String.format("%s%s%s %s", reqFrm.appointmentHour,
-                    !reqFrm.appointmentMinute.equals("") ? ":" : "",
-                    reqFrm.appointmentMinute,
-                    reqFrm.appointmentPm)));
+            infoTable.addCell(setDataCell(cell, formatAppointmentTime(reqFrm.appointmentHour,
+                    reqFrm.appointmentMinute, reqFrm.appointmentPm)));
         }
 
         infoTable.addCell(setInfoCell(cell, getResource("msgChart")));
@@ -776,6 +793,17 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
                 logger.error("An error occurred while trying to create an image from the signature", e);
             }
         }
+    }
+
+    static String formatAppointmentTime(String appointmentHour, String appointmentMinute, String appointmentPm) {
+        String safeHour = StringUtils.noNull(appointmentHour);
+        String safeMinute = StringUtils.noNull(appointmentMinute);
+        String safePm = StringUtils.noNull(appointmentPm);
+        if (safeHour.isEmpty()) {
+            return "";
+        }
+        String separator = safeMinute.isEmpty() ? "" : ":";
+        return String.format("%s%s%s %s", safeHour, separator, safeMinute, safePm).trim();
     }
 
     static Image createScaledSignatureImage(byte[] signatureImage) throws BadElementException, IOException {
@@ -891,7 +919,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             return false;
         }
         return (signatureImageOverride != null && signatureImageOverride.length > 0)
-                || StringUtils.isNotBlank(signatureImageId);
+                || org.apache.commons.lang3.StringUtils.isNotBlank(signatureImageId);
     }
 
     /**

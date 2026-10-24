@@ -89,11 +89,9 @@ public class ServiceCodeLoader {
      *         the empty string, codes not on file are simply absent, and rows
      *         with a null code are omitted
      */
-    public Properties getCodeDescByNames(List serviceCodeNames) {
+    public Properties getCodeDescByNames(List<String> serviceCodeNames) {
         Properties ret = new Properties();
-        List<String> serviceCodeList = new ArrayList<String>();
-        serviceCodeList.addAll(serviceCodeNames);
-        List<BillingService> bs = dao.findByServiceCodes(serviceCodeList);
+        List<BillingService> bs = dao.findByServiceCodes(serviceCodeNames);
         for (BillingService b : bs) {
             String code = b.getServiceCode();
             if (code == null) {
