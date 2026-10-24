@@ -47,6 +47,8 @@ queries and exercise draft replacement rollback. Failed clinical column reads ab
 document transfer; a failed autosave reports failure and preserves the previous draft.
 Stateless chart contexts do not accumulate per-window session records or expire an
 unsaved window when the disposable legacy patient cache is bounded.
+Legacy sidebar reloads retain relative URLs while carrying the chart context, so
+the packaged WAF accepts their POST bodies without changing its protections.
 
 `chart-message-followups` drives the legacy chart owner, history/reminder saves without
 losing fields from other tabs, orphan appointments, independent mailbox searches and

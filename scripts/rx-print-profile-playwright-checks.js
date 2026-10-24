@@ -230,8 +230,9 @@ async function workflow(s) {
     for (const label of ['captured', 'default']) {
       const program = h.insertId(sql, `INSERT INTO program
         (facilityId,name,type,maxAllowed,programStatus,transgender,firstNation,alcohol,
-         physicalHealth,mentalHealth,housing,exclusiveView,ageMin,ageMax)
-        SELECT id,${q(`${marker}-rx-program-${label}`)},'service',1,'active',0,0,0,0,0,0,'none',0,150
+         physicalHealth,mentalHealth,housing,exclusiveView,ageMin,ageMax,
+         enableEncounterTime,enableEncounterTransportationTime,enableOCAN)
+        SELECT id,${q(`${marker}-rx-program-${label}`)},'service',1,'active',0,0,0,0,0,0,'none',0,150,0,0,0
         FROM Facility ORDER BY id LIMIT 1`, 'Rx program');
       h.assert(/^[1-9]\d*$/.test(program), 'An owned Rx program was not created');
       programs.push(program);
@@ -262,15 +263,15 @@ async function workflow(s) {
       tokens.push(token);
     }
     h.assert(tokens[0] !== tokens[1], 'The two program windows share one chart context');
-    const launch = await charts[0].locator('a[onclick*="/rx/choosePatient"]').first().getAttribute('onclick');
-    const launchUrl = launch && launch.match(/['"]([^'"]*\/rx\/choosePatient[^'"]*)['"]/);
-    h.assert(launchUrl, 'The chart medication heading has no Rx popup URL');
-    const rxUrl = new URL(launchUrl[1], s.config.baseUrl);
+    const launchedRx = await ui.clickOpensPopup(charts[0], charts[0].locator('a[onclick*="/rx/choosePatient"]').first(),
+      { context, recorder: s.recorder, label: 'rx-program-isolation', timeout: 30000 });
+    const rxUrl = new URL(launchedRx.url());
     h.assert(rxUrl.searchParams.get('chartContext') === tokens[0], 'Rx launch lost its originating chart context');
-    // Open the generated URL without an opener, as when the prescribing window's chart was closed.
-    // This drives the real Print & Paste server path instead of the still-open editor shortcut.
-    const isolatedRx = await context.newPage();
-    await isolatedRx.goto(rxUrl.href);
+    // Reopen the browser-observed destination in a script-opened, no-opener window. Like the
+    // Master Record entry above, it exercises the real server append instead of an editor shortcut.
+    const openedRx = context.waitForEvent('page', { timeout: 30000 });
+    await charts[0].evaluate(target => { window.open(target, '_blank', 'noopener'); }, rxUrl.href);
+    const isolatedRx = await openedRx;
     await isolatedRx.locator('#searchString').waitFor({ state: 'visible' });
     h.assert(await isolatedRx.locator('script[src*="rx-patient-context.js"]').getAttribute('data-chart-context') === tokens[0],
       'The prescribing page lost the originating chart context');
@@ -315,9 +316,14 @@ async function workflow(s) {
       AND provider_no=${owner} AND program_no=${q(defaultProgram)}`) === '0', 'Rx created a note in the other program');
     const opened = await encounter;
     h.assert(opened, 'Acknowledged Print & Paste did not open the originating chart');
+    await opened.waitForURL(url => url.searchParams.get('chartContext') === tokens[0],
+      { waitUntil: 'domcontentloaded', timeout: 20000 });
     await opened.waitForLoadState('domcontentloaded', { timeout: 20000 });
+    await waitForNavbars(opened, 30000);
     const reopenedToken = new URL(opened.url()).searchParams.get('chartContext');
-    h.assert(reopenedToken === tokens[0], 'Print & Paste reopened the chart under another program context');
+    h.assert(reopenedToken === tokens[0]
+      && await opened.locator('#caseManagementEntryForm input[name="chartContext"]').inputValue() === tokens[0],
+    'Print & Paste reopened the chart under another program context');
     const aborted = s.recorder.requestFailures.slice(failuresBefore);
     h.assert(aborted.length <= 1 && aborted.every(entry => entry.label === 'rx-program-isolation'
       && entry.errorText === 'net::ERR_ABORTED' && entry.resourceType === 'fetch'

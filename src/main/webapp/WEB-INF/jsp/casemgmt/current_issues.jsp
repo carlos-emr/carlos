@@ -25,6 +25,7 @@
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
+    Modifications by CARLOS Contributors, 2026.
 
 --%>
 
@@ -135,14 +136,14 @@
     </c:forEach>
 </table>
 <c:if test="${caseManagementViewForm.hideActiveIssue eq 'true'}">
-	<span style="text-decoration: underline; cursor: pointer; color: blue"
-          onclick="document.caseManagementViewForm.hideActiveIssue.value='false';document.caseManagementViewForm.method.value='setHideActiveIssues';document.caseManagementViewForm.submit(); return false;">show
-	resolved issues</span>
+	<button type="button" style="border: 0; padding: 0; background: transparent; font: inherit; text-decoration: underline; cursor: pointer; color: blue"
+          onclick="document.caseManagementViewForm.hideActiveIssue.value='false';document.caseManagementViewForm.elements.namedItem('method').value='setHideActiveIssues';document.caseManagementViewForm.submit(); return false;">show
+	resolved issues</button>
 </c:if>
 <c:choose>
     <c:when test="${caseManagementViewForm.hideActiveIssue ne 'true'}">
-	<span style="text-decoration: underline; cursor: pointer; color: blue"
-          onclick="document.caseManagementViewForm.hideActiveIssue.value='true';document.caseManagementViewForm.method.value='setHideActiveIssues';document.caseManagementViewForm.submit(); return false;">hide
-	resolved issues</span>
+	<button type="button" style="border: 0; padding: 0; background: transparent; font: inherit; text-decoration: underline; cursor: pointer; color: blue"
+          onclick="document.caseManagementViewForm.hideActiveIssue.value='true';document.caseManagementViewForm.elements.namedItem('method').value='setHideActiveIssues';document.caseManagementViewForm.submit(); return false;">hide
+	resolved issues</button>
     </c:when>
 </c:choose>

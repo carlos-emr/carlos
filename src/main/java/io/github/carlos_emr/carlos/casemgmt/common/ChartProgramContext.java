@@ -26,6 +26,7 @@ public final class ChartProgramContext {
     public static final String PARAMETER = "chartContext";
     private static final String PREFIX = ChartProgramContext.class.getName() + ".";
     private static final String SIGNING_KEY = PREFIX + "signingKey";
+    private static final SecureRandom RANDOM = new SecureRandom();
     private static final Base64.Encoder ENCODER = Base64.getUrlEncoder().withoutPadding();
     private static final Base64.Decoder DECODER = Base64.getUrlDecoder();
     private static final String REQUEST_CONTEXT = PREFIX + "requestContext";
@@ -127,7 +128,7 @@ public final class ChartProgramContext {
             if (existing instanceof byte[] bytes) key = bytes;
             else {
                 key = new byte[32];
-                new SecureRandom().nextBytes(key);
+                RANDOM.nextBytes(key);
                 session.setAttribute(SIGNING_KEY, key);
             }
             current = ENCODER.encodeToString(payload) + "." + ENCODER.encodeToString(sign(payload, key));

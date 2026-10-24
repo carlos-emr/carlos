@@ -26,6 +26,7 @@
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
+    Modifications by CARLOS Contributors, 2026.
 
 --%>
 
@@ -667,7 +668,8 @@ function fmtOscarMsg() {
                                     String demoKeyJs = SafeEncode.forJavaScript((String) (pageContext.getAttribute("demographicNumber")+""));
                                     %>
                                     <a href="javascript:popupViewAttach(700,960,'../demographic/DemographicEdit?demographic_no=<%=demoKeyJs%>')"><fmt:message key="global.M" /></a>
-                                    <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter?demographicNo=<%=demoKeyJs%>&curProviderNo=<carlos:encode value='<%= (String)request.getAttribute("providerNo") %>' context="javaScript"/>');return false;"><fmt:message key="global.E" /></a>
+                                    <a href="<%=request.getContextPath()%>/encounter/IncomingEncounter?demographicNo=<carlos:encode value='<%= pageContext.getAttribute("demographicNumber") %>' context="uriComponent"/>&amp;curProviderNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>"
+                                       onclick="popupViewAttach(700,960,this.href);return false;"><fmt:message key="global.E" /></a>
                                     <a href="javascript:popupViewAttach(700,960,'../rx/choosePatient?providerNo=<carlos:encode value='<%= (String)request.getAttribute("providerNo") %>' context="javaScript"/>&demographicNo=<%=demoKeyJs%>')">Rx</a>
                                 </span>
 								</td>

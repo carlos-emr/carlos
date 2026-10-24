@@ -147,8 +147,13 @@ function legacyChartUrl(url) {
         })) return url;
     }
     if (target.searchParams.has('chartContext')) return url;
-    target.searchParams.set('chartContext', encounterConfig.chartContext);
-    return target.href;
+    // Navbar requests also submit their URL as reloadURL. Preserve relative links: turning a
+    // local path into an absolute IP-address URL triggers the packaged WAF's RFI protection.
+    var hashIndex = url.indexOf('#');
+    var hash = hashIndex < 0 ? '' : url.substring(hashIndex);
+    var base = hashIndex < 0 ? url : url.substring(0, hashIndex);
+    var separator = base.indexOf('?') < 0 ? '?' : (/[?&]$/.test(base) ? '' : '&');
+    return base + separator + 'chartContext=' + encodeURIComponent(encounterConfig.chartContext) + hash;
 }
 
 function popupPage(vheight, vwidth, name, varpage) {

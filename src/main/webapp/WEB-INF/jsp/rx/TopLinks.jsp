@@ -26,22 +26,26 @@
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
+    Modifications by CARLOS Contributors, 2026.
 
 --%>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <core:set var="ctx" value="${ pageContext.servletContext.contextPath }"/>
 <script src="${pageContext.request.contextPath}/share/javascript/rx-patient-context.js"
         data-demographic-no="<%= io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver.requestedDemographicNo(request) > 0 ? String.valueOf(io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver.requestedDemographicNo(request)) : "" %>"
-        data-chart-context="<%= org.owasp.encoder.Encode.forHtmlAttribute(java.util.Objects.toString(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request), "")) %>"></script>
-<core:set var="url"
-       value="${ ctx }/demographic/DemographicEdit?demographic_no=${ param.demographicNo }&appointment="/>
+        data-chart-context="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"></script>
+<core:url var="url" value="/demographic/DemographicEdit">
+    <core:param name="demographic_no" value="${param.demographicNo}"/>
+    <core:param name="appointment" value=""/>
+</core:url>
 
-<table id="${ not empty param.tableId ? param.tableId : 'topLink' }">
+<table role="presentation" id="${carlos:forHtmlAttribute(not empty param.tableId ? param.tableId : 'topLink')}">
     <tr>
         <td id="topLinkLeftColumn">
             <h1><core:out value="${ param.title }"/></h1>
@@ -50,7 +54,7 @@
         <td id="topLinkCenterColumn">
 
             <core:if test="${ not empty param.patientName }">
-                <a href="javascript:void(0)" onClick="popupPage(700,1000,'${ url }'); return false;"
+                <a href="${carlos:forHtmlAttribute(url)}" onclick="popupPage(700,1000,this.href); return false;"
                    title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
                     <core:out value="${ param.patientName }"/>
                 </a>
