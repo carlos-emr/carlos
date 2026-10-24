@@ -345,7 +345,19 @@ public interface CaseManagementManager {
     /** The compact editor publishes its issue selection only after the complete save commits. */
     record CompactSaveResult(CaseManagementNote note, List<CaseManagementIssue> issues) { }
 
-    /** Saves the compact editor's revision, issue changes and originating draft deletion atomically. */
+    /**
+     * Saves the compact editor's revision, issue changes and originating draft deletion atomically.
+     * Submitted carriers remain unchanged so the same editor can retry a failed transaction.
+     *
+     * @param login authenticated context whose provider must match the submitted writer
+     * @param note submitted note with its selected issue instances
+     * @param issues ordered form issues, including the selected instances from {@code note}
+     * @param originatingProgram chart program owning the draft; null leaves drafts unchanged
+     * @return persisted revision and issues in their submitted order, published after commit
+     * @throws StaleNoteRevisionException when the selected source is no longer current
+     * @throws SecurityException when the writer, issue patient or chart role is invalid
+     * @since 2026-10-24
+     */
     CompactSaveResult saveCompactNoteRevision(LoggedInInfo login, CaseManagementNote note,
             List<CaseManagementIssue> issues, String originatingProgram);
 

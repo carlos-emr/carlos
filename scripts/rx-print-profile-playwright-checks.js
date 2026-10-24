@@ -31,7 +31,9 @@
  * Native New Note navigation refuses an invalid compact-save acknowledgment, then a real
  * owned-draft DELETE failure proves MariaDB rollback without losing the editor or clinical
  * state. A real retry saves the compact revision in the same Y-only context while preserving
- * the original note location, history, role and other drafts.
+ * the original note location, history, role and other drafts. Native full Save first records
+ * all four duration values; clearing those inputs on compact Save stores SQL NULL only in
+ * the new revision, with historical values and failure-recovery controls preserved.
  *
  * Fixtures: one owned `prescription` row and two `drugs` rows (customName/special carry the run
  * marker) for the owned synthetic patient; native Save And Print operations add owned rows.
@@ -411,7 +413,7 @@ async function workflow(s) {
         (facilityId,name,type,maxAllowed,programStatus,transgender,firstNation,alcohol,
          physicalHealth,mentalHealth,housing,exclusiveView,ageMin,ageMax,
          enableEncounterTime,enableEncounterTransportationTime,enableOCAN)
-        SELECT id,${q(`${marker}-rx-program-${label}`)},'service',1,'active',0,0,0,0,0,0,'none',0,150,0,0,0
+        SELECT id,${q(`${marker}-rx-program-${label}`)},'service',1,'active',0,0,0,0,0,0,'none',0,150,1,1,0
         FROM Facility ORDER BY id LIMIT 1`, 'Rx program');
       h.assert(/^[1-9]\d*$/.test(program), 'An owned Rx program was not created');
       programs.push(program);
@@ -769,6 +771,10 @@ async function workflow(s) {
     await s.step('a writer belonging only to the originating chart program can save and reread its shared note', async () => {
       const page = defaultChartAfterPaste;
       const editor = () => page.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
+      const durationNames = ['hourOfEncounterTime', 'minuteOfEncounterTime',
+        'hourOfEncTransportationTime', 'minuteOfEncTransportationTime'];
+      const savedDurations = ['2', '17', '1', '23'];
+      const durationState = () => Promise.all(durationNames.map(name => page.locator(`[name="${name}"]`).inputValue()));
       const fingerprint = text => ({ length: text.length, sha256: createHash('sha256').update(text).digest('hex') });
       const departurePhases = new Map();
       const pingRequests = new WeakMap();
@@ -883,6 +889,9 @@ async function workflow(s) {
         await expectValue(sql, `SELECT note FROM casemgmt_tmpsave WHERE demographic_no=${patient}
           AND provider_no=${owner} AND program_id=${defaultProgram} AND note_id=${source}`, text,
         'The Y-only draft did not retain its selected shared note');
+        for (let index = 0; index < durationNames.length; index++) {
+          await page.locator(`[name="${durationNames[index]}"]`).fill(savedDurations[index]);
+        }
         const [saved] = await Promise.all([
           page.waitForResponse(response => response.request().method() === 'POST'
             && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
@@ -897,6 +906,8 @@ async function workflow(s) {
           return /^[1-9]\d*$/.test(current || '') && current !== previous && !window.autoSaveXhr;
         }, source);
         const revision = await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue();
+        h.assert(JSON.stringify(sql.rows(`SELECT ${durationNames.join(',')} FROM casemgmt_note WHERE note_id=${revision}`))
+          === JSON.stringify([savedDurations]), 'The native full Save did not persist all four entered durations');
         h.assert(sql.value(`SELECT COUNT(*) FROM program_provider WHERE ${membershipWhere}`) === '0',
           'The Save did not execute while the writer lacked first-program membership');
         h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${revision}
@@ -988,6 +999,8 @@ async function workflow(s) {
         }
         h.assert(await editor().inputValue() === presentedText,
           'The Y-only note disappeared or changed on native Edit readback');
+        h.assert(JSON.stringify(await durationState()) === JSON.stringify(savedDurations),
+          'The native reloaded shared editor did not retain its saved durations');
         h.assert(sql.value(`SELECT HEX(note) FROM casemgmt_note WHERE note_id=${revision}`)
           === Buffer.from(text, 'utf8').toString('hex').toUpperCase(),
         'The Y-only readback changed the exact stored note bytes');
@@ -1022,6 +1035,8 @@ async function workflow(s) {
           h.assert(await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue() === revision
             && sql.value(`SELECT COUNT(*) FROM program_provider WHERE ${membershipWhere}`) === '0',
           'The compact switch does not start on the selected shared note in its Y-only chart');
+          for (const name of durationNames) await page.locator(`[name="${name}"]`).fill('');
+          const clearedDurations = JSON.stringify(durationNames.map(() => ''));
           const compactText = `${await editor().inputValue()}\n${marker}-compact-switch H&P + = & / # ?`;
           await editor().fill(compactText);
           const pendingDraft = page.waitForResponse(response => response.request().method() === 'POST'
@@ -1082,6 +1097,8 @@ async function workflow(s) {
             h.assert(request.method() === 'POST' && body.get('nId') === revision
               && body.get('noteTxt') === compactText && hasChartContext(request, tokens[1]),
             'The false-ack probe did not intercept the exact owned compact save');
+            h.assert(durationNames.every(name => body.has(name) && body.getAll(name).every(value => value === '')),
+              'Native Form.serialize did not submit all four cleared duration inputs');
             await route.fulfill({ status: 200, contentType: 'text/html',
               body: '<div id="noteIssues" data-saved-note-id="0"></div>' });
           };
@@ -1105,6 +1122,7 @@ async function workflow(s) {
             await page.evaluate(() => clearAutoSaveTimer());
             h.assert(await editor().inputValue() === compactText && await editor().isEnabled()
               && await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue() === revision
+              && JSON.stringify(await durationState()) === clearedDurations
               && clinicalState() === beforeRefusal,
             'The invalid compact acknowledgment lost the editor, selected note, draft or clinical state');
           } finally {
@@ -1145,6 +1163,8 @@ async function workflow(s) {
           const beforeServerFailure = clinicalState();
           const serverFailureMark = failureMark(s.recorder);
           let serverFailure;
+          let serverFailureStarted;
+          let serverFailureFinished;
           try {
             sql.execute(`DELIMITER //
 CREATE TRIGGER ${triggerName} AFTER DELETE ON casemgmt_tmpsave FOR EACH ROW
@@ -1162,10 +1182,12 @@ DELIMITER ;`);
             const failedResponse = page.waitForResponse(isCompactSave);
             const alert = page.waitForEvent('dialog', { predicate: dialog => dialog.type() === 'alert' });
             const dialogs = await h.withExpectedDialogs(page, async () => {
+              serverFailureStarted = new Date().toISOString();
               await page.locator('#newNoteImg').click();
               await alert;
               serverFailure = await failedResponse;
               await serverFailure.finished();
+              serverFailureFinished = new Date().toISOString();
               const body = await serverFailure.text();
               if (serverFailure.status() !== 500) {
                 console.error('Compact rollback refusal evidence:', JSON.stringify({
@@ -1187,6 +1209,10 @@ DELIMITER ;`);
               && await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue() === revision
               && JSON.stringify(await formState()) === controlsBeforeFailure && clinicalState() === beforeServerFailure,
             'The real compact failure changed the editor/controls, notes/issues/hash or drafts instead of rolling back');
+            console.log('  CHECK rx-print-profile: owned compact rollback ' + JSON.stringify({
+              trigger: triggerName, message: triggerMessage, marker,
+              endpoint: new URL(serverFailure.url()).pathname, status: serverFailure.status(),
+              startUTC: serverFailureStarted, endUTC: serverFailureFinished }));
           } finally {
             dropTrigger();
           }
@@ -1225,6 +1251,11 @@ DELIMITER ;`);
             && JSON.stringify(sql.rows(`SELECT program_no,reporter_program_team FROM casemgmt_note
               WHERE note_id=${compactRevision}`)) === originalLocation,
           'The compact save changed the exact text, writer role, original program or team');
+          h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${compactRevision}
+            AND ${durationNames.map(name => `${name} IS NULL`).join(' AND ')}`) === '1'
+            && JSON.stringify(sql.rows(`SELECT ${durationNames.join(',')} FROM casemgmt_note WHERE note_id=${revision}`))
+              === JSON.stringify([savedDurations]),
+          'The compact clear did not store SQL NULL or changed the historical duration values');
           h.assert(JSON.stringify(noteRows(compactRevision)) === originalNotes
             && JSON.stringify(issueRows()) === originalIssues,
           'The compact save changed a historical/other note or unchanged issue state');

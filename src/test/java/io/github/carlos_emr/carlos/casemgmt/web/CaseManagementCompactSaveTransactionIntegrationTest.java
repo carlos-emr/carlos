@@ -434,11 +434,68 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         verify(target, never()).getSignature(any(), any(), any(), any(), anyInt());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldClearExplicitlyBlankDurationsAndPreserveAbsentFields_withoutChangingTheHistoricalNote(boolean blank) throws Exception {
+        tx().executeWithoutResult(status -> {
+            CaseManagementNote stored = entityManager.find(CaseManagementNote.class, originalId);
+            stored.setHourOfEncounterTime(5);
+            stored.setMinuteOfEncounterTime(6);
+            stored.setHourOfEncTransportationTime(7);
+            stored.setMinuteOfEncTransportationTime(8);
+        });
+        original.setHourOfEncounterTime(5);
+        original.setMinuteOfEncounterTime(6);
+        original.setHourOfEncTransportationTime(7);
+        original.setMinuteOfEncTransportationTime(8);
+        for (String field : List.of("hourOfEncounterTime", "minuteOfEncounterTime",
+                "hourOfEncTransportationTime", "minuteOfEncTransportationTime")) {
+            if (blank) request.setParameter(field, "");
+            else request.removeParameter(field);
+        }
+        Snapshot before = snapshot();
+
+        assertThat(action.ajaxsave()).isEqualTo("issueList_ajax");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        CaseManagementNote saved = form.getCaseNote();
+        assertDurations(saved, blank ? null : 5, blank ? null : 6, blank ? null : 7, blank ? null : 8);
+        tx().executeWithoutResult(status -> assertDurations(caseManagementNoteDAO.getNote(saved.getId()),
+                blank ? null : 5, blank ? null : 6, blank ? null : 7, blank ? null : 8));
+        Snapshot after = snapshot();
+        assertThat(after.notes().getFirst()).isEqualTo(before.notes().getFirst());
+        assertThat(after.identities()).isEqualTo(before.identities());
+        assertThat(after.drafts()).containsExactlyElementsOf(otherDrafts(before));
+        assertDurations(original, 5, 6, 7, 8);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"hourOfEncounterTime,not-a-duration", "minuteOfEncounterTime,not-a-duration",
+            "hourOfEncTransportationTime,not-a-duration", "minuteOfEncTransportationTime,not-a-duration",
+            "hourOfEncounterTime,' '", "minuteOfEncounterTime,' 2'"})
+    void shouldRefuseMalformedDurationBeforeWrites_andKeepTheSelectedEditor(String field, String value) throws Exception {
+        request.setParameter(field, value);
+        Snapshot before = snapshot();
+
+        assertThat(action.ajaxsave()).isNull();
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(form.getIssueCheckList().getFirst().getChecked()).isEqualTo("off");
+        verify(target, never()).saveCompactNoteRevision(any(), any(), anyList(), any());
+        verify(locks, never()).merge(any());
+    }
+
     private void assertTimes(CaseManagementNote note) {
-        assertThat(note.getHourOfEncounterTime()).isEqualTo(2);
-        assertThat(note.getMinuteOfEncounterTime()).isEqualTo(17);
-        assertThat(note.getHourOfEncTransportationTime()).isEqualTo(1);
-        assertThat(note.getMinuteOfEncTransportationTime()).isEqualTo(29);
+        assertDurations(note, 2, 17, 1, 29);
+    }
+
+    private void assertDurations(CaseManagementNote note, Integer hours, Integer minutes, Integer transportHours, Integer transportMinutes) {
+        assertThat(note.getHourOfEncounterTime()).isEqualTo(hours);
+        assertThat(note.getMinuteOfEncounterTime()).isEqualTo(minutes);
+        assertThat(note.getHourOfEncTransportationTime()).isEqualTo(transportHours);
+        assertThat(note.getMinuteOfEncTransportationTime()).isEqualTo(transportMinutes);
     }
 
     private void setSigned(boolean signed) {

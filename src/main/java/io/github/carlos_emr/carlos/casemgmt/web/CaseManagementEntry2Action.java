@@ -2176,12 +2176,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         List<CheckBoxBean> checkedlist = sessionFrm.getIssueCheckList();
         int numIssues;
         Integer[] times = new Integer[4];
+        boolean[] submittedTimes = new boolean[4];
         String[] timeFields = {"hourOfEncounterTime", "minuteOfEncounterTime", "hourOfEncTransportationTime", "minuteOfEncTransportationTime"};
         try {
             numIssues = Integer.parseInt(request.getParameter("numIssues"));
             if (checkedlist == null || numIssues < 0 || numIssues > checkedlist.size()) throw new NumberFormatException();
             for (int i = 0; i < timeFields.length; i++) {
                 String value = request.getParameter(timeFields[i]);
+                submittedTimes[i] = value != null;
                 if (StringUtils.isNotEmpty(value)) times[i] = Integer.valueOf(value);
             }
         } catch (NumberFormatException invalidForm) {
@@ -2237,10 +2239,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         note.setUpdate_date(now);
         if (note.getCreate_date() == null) note.setCreate_date(now);
         note.setEncounter_type(request.getParameter("caseNote.encounter_type"));
-        if (times[0] != null) note.setHourOfEncounterTime(times[0]);
-        if (times[1] != null) note.setMinuteOfEncounterTime(times[1]);
-        if (times[2] != null) note.setHourOfEncTransportationTime(times[2]);
-        if (times[3] != null) note.setMinuteOfEncTransportationTime(times[3]);
+        if (submittedTimes[0]) note.setHourOfEncounterTime(times[0]);
+        if (submittedTimes[1]) note.setMinuteOfEncounterTime(times[1]);
+        if (submittedTimes[2]) note.setHourOfEncTransportationTime(times[2]);
+        if (submittedTimes[3]) note.setMinuteOfEncTransportationTime(times[3]);
 
         CaseManagementManager.CompactSaveResult saved;
         try {
