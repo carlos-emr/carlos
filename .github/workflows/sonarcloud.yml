@@ -271,12 +271,23 @@ jobs:
               mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
                 -Pskip-dependency-lock \
                 -Dmaven.test.failure.ignore=true \
+                -Dsonar.qualitygate.wait=true \
                 -Dsonar.host.url=https://sonarcloud.io \
                 -Dsonar.projectKey=carlos-emr_carlos \
                 \"-Dsonar.pullrequest.key=\$PR_NUMBER\" \
                 \"-Dsonar.pullrequest.branch=\$PR_BRANCH\" \
                 \"-Dsonar.pullrequest.base=\$PR_BASE\" \
                             "
+
+      - name: Report PR reliability after server processing
+        if: always() && github.event_name == 'pull_request'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if ! python3 scripts/sonar_reliability_report.py; then
+            echo "::warning::Post-analysis reliability diagnostics failed; the analysis and server quality-gate result remain authoritative."
+          fi
 
       # The dev container runs as root and leaves root-owned files in the
       # mounted workspace (.m2-cache, .sonar-cache, target/**). The post-job
