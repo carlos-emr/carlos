@@ -14,8 +14,8 @@ const lower = source.toLowerCase();
 const marker = 'function calcwhtr(';
 const first = lower.indexOf(marker);
 assert.ok(first >= 0 && lower.indexOf(marker, first + 1) < 0, 'The page must define calcWHtR exactly once');
-const open = lower.lastIndexOf('<script', first);
-const close = lower.indexOf('</script', first);
+const open = lower.lastIndexOf('<script', first); // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- offline test: indexes a checked-in JSP, builds no markup from external input
+const close = lower.indexOf('</script', first); // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- offline test: indexes a checked-in JSP, builds no markup from external input
 assert.ok(open >= 0 && close > first, 'calcWHtR must sit inside an inline script block');
 assert.ok(lower.indexOf('</script', open) === close, 'calcWHtR must sit inside a single script block');
 const calculationBlocks = [source.slice(source.indexOf('>', open) + 1, close)];
