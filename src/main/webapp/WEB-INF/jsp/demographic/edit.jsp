@@ -924,7 +924,7 @@
                         }
                         var defaultCountry = defaultProvince.split('-')[0];
                         jQuery("#country").val(defaultCountry);
-                        updateProvinces(defaultProvince);
+                        updateProvinces(defaultProvince, true);
 
                         // initialize residential province separately to avoid overwriting demo values
                         var defaultResiProvince = '<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("demographic.default_province","") %>' context="javaScriptBlock"/>';
@@ -947,7 +947,7 @@
         </script>
         <% } %>
         <script>
-            function updateProvinces(province) {
+            function updateProvinces(province, initialSelection) {
                 var country = jQuery("#country").val();
                 if(country == '') {
                     console.log('empty country');
@@ -966,6 +966,11 @@
 
                         if (province != null) {
                             jQuery("#province").val(province);
+                            // ISO selectors normalize legacy codes (ON -> CA-ON).
+                            // Remember the rendered starting value only on initialization.
+                            if (initialSelection) {
+                                document.updatedelete.postal.dataset.originalProvince = jQuery("#province").val() || '';
+                            }
                         }
                     },
                     error: function (xhr, status, error) {

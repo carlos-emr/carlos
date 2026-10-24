@@ -71,6 +71,41 @@ for (const originalProvince of ['US-NY', 'BC']) {
   });
 }
 
+test('an ISO province change revalidates an unchanged invalid postal code', () => {
+  const h = harness('UNKNOWN', 'UNKNOWN', 'CA-BC', 'CA-ON');
+  assert.equal(h.context.checkTypeInEdit(), false);
+  assert.equal(h.alerts.length, 1);
+});
+
+test('ISO initialization remembers the rendered province without resetting it on later choices', () => {
+  const h = harness('UNKNOWN', 'UNKNOWN', 'CA-ON', 'ON');
+  const edit = fs.readFileSync('src/main/webapp/WEB-INF/jsp/demographic/edit.jsp', 'utf8');
+  const start = edit.indexOf('function updateProvinces(');
+  const end = edit.indexOf('function updateResidentialProvinces(', start);
+  assert.ok(start >= 0 && end > start);
+  const fields = h.context.document.updatedelete;
+  const select = {
+    empty() { return this; },
+    val(value) {
+      if (value === undefined) return fields.province.value;
+      fields.province.value = value;
+      fields.province.options[0].value = value;
+      return this;
+    },
+  };
+  const jquery = selector => selector === '#country' ? { val: () => 'CA' } : select;
+  jquery.ajax = options => options.success([]);
+  jquery.each = () => {};
+  Object.assign(h.context, { jQuery: jquery });
+  vm.runInNewContext(edit.slice(start, end).replace(/<%[\s\S]*?%>/g, ''), h.context);
+  h.context.updateProvinces('CA-ON', true);
+  assert.equal(fields.postal.dataset.originalProvince, 'CA-ON');
+  assert.equal(h.context.checkTypeInEdit(), true, 'normalizing legacy ON must not block unrelated edits');
+  h.context.updateProvinces('CA-BC');
+  assert.equal(fields.postal.dataset.originalProvince, 'CA-ON');
+  assert.equal(h.context.checkTypeInEdit(), false, 'a later province choice must still be validated');
+});
+
 test('changing province still accepts an unchanged valid Canadian postal code', () => {
   const h = harness('K1A0B1', 'K1A0B1', 'ON', 'BC');
   assert.equal(h.context.checkTypeInEdit(), true);
