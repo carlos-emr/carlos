@@ -6,7 +6,7 @@
  *
  * User path: Schedule ▸ Master Record ▸ E-Chart ▸ Prescriptions "+" (the Rx page) ▸ Custom Drug ▸
  * dosing fields ▸ the card's "Add to Favorites" (browser prompt, POST rx/addFavorite2) ▸ the side
- * panel's Favorites list ▸ the saved favourite stages a card again (rx/useFavorite); then Search for
+ * panel's Favorites list ▸ discard the source card ▸ the saved favourite stages a card again (rx/useFavorite); then Search for
  * a drug that does not exist ▸ Custom Drug link (rx/chooseDrug) ▸ the write-script page's "Add to
  * Favorites" (rx/addFavoriteWriteScript). Cancelling the name prompt must write nothing.
  * Asserts the favorites row each save writes (provider, name, the custom drug name, the instruction
@@ -84,6 +84,10 @@ async function workflow(s) {
     // The initial stash is also loaded asynchronously. It must be present before counting new
     // cards, or that initial response could be mistaken for the favourite we are about to stage.
     await rx.locator(`#drugName_${key}`).waitFor({ state: 'attached', timeout: 30000 });
+    // Rx deliberately deduplicates the same medication in the stash. Discard the source through
+    // its own X before reusing the favourite, so a successful reuse really must insert a card.
+    await rx.locator(`#set_${key} a[onclick^='removePrescribingDrug']`).first().click();
+    await rx.locator(`#drugName_${key}`).waitFor({ state: 'detached', timeout: 30000 });
     const link = rx.locator(`a[title="${cardFavourite}"]`).first();
     await link.waitFor({ state: 'attached', timeout: 20000 });
     const before = await rx.locator("[id^='drugName_']").evaluateAll(els => els.map(el => el.id));
