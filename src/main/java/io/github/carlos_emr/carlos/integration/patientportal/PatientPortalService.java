@@ -238,6 +238,11 @@ public class PatientPortalService implements Closeable {
             throw new PortalRequestPreparationException("clinic public key inventory is required");
         }
         Caller caller = keyPublish(job);
+        try {
+            PortalMyCarlosKeyReplacementProofs.validateAll(settings.clinicId(), inventory);
+        } catch (IllegalArgumentException invalid) {
+            throw new PortalRequestPreparationException("clinic public key replacement proof is invalid");
+        }
         return fetch(PUT, CLINIC_KEYS_PATH, inventory.toJson(objectMapper).toString(), OK, caller,
                 payload -> PatientPortalClinicKeysPublishResult.fromJson(payload, settings.clinicId(), inventory));
     }
@@ -1127,6 +1132,11 @@ public class PatientPortalService implements Closeable {
         }
         return (request, method, uri, body) -> request.setHeader(JOB_ASSERTION_HEADER,
                 job.sign(PortalJob.PERMISSION_CLINIC_KEYS_PUBLISH, settings.clinicId(), method, uri, body));
+    }
+
+    /** Local acknowledgement binding uses exactly the endpoint this client will send to. */
+    PortalMyCarlosPublicationState.Target clinicKeysPublicationTarget() {
+        return new PortalMyCarlosPublicationState.Target(settings.clinicId(), resolve(CLINIC_KEYS_PATH));
     }
 
     private URI resolve(String path) {
