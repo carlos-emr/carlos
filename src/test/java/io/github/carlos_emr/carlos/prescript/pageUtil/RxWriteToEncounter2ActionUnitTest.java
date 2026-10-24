@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDao;
@@ -49,7 +51,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         request.addParameter("demographicNo", "42");
         request.addParameter("body", "exact prescription text");
         request.getSession().setAttribute("user", "999998");
-        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, "0");
+        ChartProgramContext.remember(request, "0");
         sessionBean = new RxSessionBean();
         sessionBean.setDemographicNo(42);
         RxSessionBeanResolver.register(request.getSession(), sessionBean);
@@ -170,6 +172,59 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         verify(notes).saveNoteSimple(note);
         assertThat(note.getNote()).isEqualTo("existing text\nexact prescription text");
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
+    }
+
+    @Test
+    void shouldUseCapturedChartProgram_whenProviderDefaultDiffers() throws Exception {
+        ChartProgramContext.remember(request, "7");
+        when(notes.getLastSaved("7", "42", "999998")).thenReturn(note);
+        CaseManagementTmpSave capturedDraft = mock(CaseManagementTmpSave.class);
+        when(capturedDraft.getNoteId()).thenReturn(7);
+        when(capturedDraft.getUpdateDate()).thenReturn(new Date(1));
+        when(capturedDraft.getNote()).thenReturn("captured program draft");
+        when(capturedDraft.getProviderNo()).thenReturn("999998");
+        when(capturedDraft.getDemographicNo()).thenReturn(42);
+        when(capturedDraft.getProgramId()).thenReturn(7);
+        note.setUpdate_date(new Date(2));
+        when(notes.getTmpSave("999998", "42", "7")).thenReturn(capturedDraft);
+        when(notes.getNote("7")).thenReturn(note);
+
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+
+        verify(notes).getTmpSave("999998", "42", "7");
+        verify(notes, never()).getTmpSave("999998", "42", "0");
+        verify(tmpDao).remove("999998", 42, 7);
+        assertThat(note.getNote()).isEqualTo("captured program draft\nexact prescription text");
+        assertThat(program.constructed()).isEmpty();
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
+    }
+
+    @Test
+    void shouldCreateNoteInCapturedProgram_whenNoNoteOrDraftExists() throws Exception {
+        ChartProgramContext.remember(request, "7");
+        registerMock(ProgramManager.class, mock(ProgramManager.class));
+
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+
+        verify(notes).saveNoteSimple(argThat(saved -> "7".equals(saved.getProgram_no())
+                && "42".equals(saved.getDemographic_no())
+                && saved.getNote().endsWith("exact prescription text")));
+        assertThat(program.constructed()).isEmpty();
+    }
+
+    @Test
+    void shouldRememberAuthenticatedProviderDefault_whenRxHasNoChartContext() throws Exception {
+        ChartProgramContext.remember(request, null);
+        request.getSession().setAttribute("case_program_id", "99");
+        request.getSession().setAttribute("user", "different-session-provider");
+
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+
+        verify(program.constructed().getFirst()).getProgram("999998");
+        assertThat(ChartProgramContext.resolve(request)).isEqualTo("0");
+        verify(notes).getLastSaved("0", "42", "999998");
+        verify(notes).getTmpSave("999998", "42", "0");
+        verify(notes).saveNoteSimple(note);
     }
 
     @Test

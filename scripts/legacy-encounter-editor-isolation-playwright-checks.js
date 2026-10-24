@@ -223,10 +223,12 @@ async function run(s) {
     return {
       patient: await page.locator('form[name="encForm"] input[name="demographicNo"]').inputValue(),
       revision: await revision.count() === 1 ? await revision.inputValue() : null,
+      chartContext: await page.locator('form[name="encForm"] input[name="chartContext"]').inputValue(),
       namesA: namesA(text), namesB: namesB(text),
     };
   }
   const assertOwnEditor = (owner, patient, label) => {
+    h.assert(owner.chartContext, `${label} has no bound chart program context`);
     h.assert(owner.patient === String(patient)
       && (String(patient) === String(A) ? owner.namesA && !owner.namesB : owner.namesB && !owner.namesA),
     `${label} is not headed with its own patient alone`);
@@ -264,7 +266,8 @@ async function run(s) {
       const before = snapshot(d.other);
       const editor = d.editor();
       const text = `${marker}-${d.label}-legacy-editor`;
-      const base = (await editorOwner(editor)).revision;
+      const originalOwner = await editorOwner(editor);
+      const base = originalOwner.revision;
       await editor.locator('textarea[name="enTextarea"]').fill(text);
       await press(editor, 'Save', `${d.label} legacy Save`, {redisplaysEditor: false});
       // The rows first, so that a Save which wrote the other chart says so rather than only failing
@@ -278,10 +281,11 @@ async function run(s) {
       await editorLoaded(editor, `${d.label}'s editor after its Save`);
       const owner = await editorOwner(editor);
       assertOwnEditor(owner, d.patient, `${d.label}'s editor after its Save`);
+      h.assert(owner.chartContext === originalOwner.chartContext, `${d.label}'s Save changed its chart program context`);
       h.assert(owner.revision === revision
         && norm(await editor.locator('textarea[name="enTextarea"]').inputValue()) === text,
       `${d.label}'s redisplayed editor does not show the revision it saved`);
-      saved[d.label] = {revision, text};
+      saved[d.label] = {revision, text, chartContext: owner.chartContext};
     });
   }
 
@@ -291,6 +295,8 @@ async function run(s) {
     await popup.locator('pre[name="enTextarea"]').waitFor({state: 'attached', timeout: TIMEOUT});
     h.assert(new URL(popup.url()).searchParams.get('demographicNo') === String(A)
       && new URL(popup.url()).searchParams.get('echartid') === saved.A.revision, 'Print opened another chart or revision');
+    h.assert(new URL(popup.url()).searchParams.get('chartContext') === saved.A.chartContext,
+      'Print lost the legacy editor\'s chart program context');
     const text = norm(await popup.locator('body').innerText());
     h.assert(namesA(text) && !namesB(text) && text.includes(saved.A.text) && !text.includes(saved.B.text),
       'A\'s Print did not print A\'s revision alone');
@@ -339,6 +345,7 @@ async function run(s) {
    * day sheet that opened it.
    */
   async function signAndSave(editor, button = 'Sign & Save') {
+    const chartContext = (await editorOwner(editor)).chartContext;
     const closed = editor.waitForEvent('close', {timeout: TIMEOUT});
     closed.catch(() => {});
     const refreshed = schedule.waitForEvent('framenavigated', {predicate: frame => frame === schedule.mainFrame(),
@@ -346,7 +353,10 @@ async function run(s) {
     const response = editor.waitForResponse(r => r.request().method() === 'POST'
       && new URL(r.url()).pathname.endsWith('/encounter/SaveEncounter2'), {timeout: TIMEOUT});
     await editor.locator(`form[name="encForm"] input[type="button"][value="${button}"]`).click();
-    h.assert((await response).status() === 200, `${button} did not answer its closing page`);
+    const saved = await response;
+    h.assert(saved.status() === 200, `${button} did not answer its closing page`);
+    h.assert(new URLSearchParams(saved.request().postData() || '').get('chartContext') === chartContext,
+      `${button} lost the legacy editor's chart program context`);
     await closed;
     h.assert(await refreshed, `${button} did not refresh the day sheet that opened the editor`);
     await schedule.waitForLoadState('load', {timeout: TIMEOUT});

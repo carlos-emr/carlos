@@ -231,6 +231,15 @@
     <filter-name>PMMFilter</filter-name>
     <url-pattern>/PMmodule/*</url-pattern>
   </filter-mapping>
+    <filter>
+        <filter-name>ChartProgramContextFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContextFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>ChartProgramContextFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+    </filter-mapping>
 	<filter>
 		<filter-name>struts2-execute</filter-name>
 		<filter-class>org.apache.struts2.dispatcher.filter.StrutsExecuteFilter</filter-class>

@@ -152,6 +152,8 @@
             // names it so the server resolves that patient's bean, not the most recently opened
             // chart's (per-patient Rx state, #3875).
             int viewScriptDemographicNo = bean.getDemographicNo();
+            String viewScriptChartContext = java.util.Objects.toString(
+                    io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request), "");
             Provider provider = providerManager.getProvider(bean.getProviderNo());
             String providerFax = provider.getWorkPhone();
             if (providerFax == null) {
@@ -349,6 +351,9 @@
         <script src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/rx-patient-context.js"
+                data-demographic-no="<%= viewScriptDemographicNo %>"
+                data-chart-context="<%= Encode.forHtmlAttribute(viewScriptChartContext) %>"></script>
 
         <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
              in JavaScript string literals using OWASP forJavaScript() encoding --%>
@@ -404,7 +409,7 @@
                             modal.hide();
                         }
                     } else {
-                        window.location.href = "${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>";
+                        window.location.href = RxPatientContext.withPatient("${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>");
                     }
                     return true;
                 }).catch(function() {
@@ -787,9 +792,7 @@
                     noteEditor = "noteEditor" + demographicNo;
                     var pasteResult = Promise.resolve(true);
                     if (window.parent.opener) {
-                        if (window.parent.opener.document.forms["caseManagementEntryForm"] != undefined &&
-                            window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo &&
-                            window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo.value === "<%=bean.getDemographicNo()%>") {
+                        if (matchesRxChart(window.parent.opener.document.forms["caseManagementEntryForm"])) {
                             //oscarLog("3");
                             faxPasteCanRetry = false;
                             if (window.parent.opener.pasteToEncounterNote(text) === false) {
@@ -799,16 +802,14 @@
                             if (print) {
                                 printIframe();
                             }
-                        } else if (window.parent.opener.document.encForm != undefined &&
-                            window.parent.opener.document.encForm.demographicNo &&
-                            window.parent.opener.document.encForm.demographicNo.value === "<%=bean.getDemographicNo()%>") {
+                        } else if (matchesRxChart(window.parent.opener.document.encForm)) {
                             //oscarLog("4");
                             faxPasteCanRetry = false;
                             window.parent.opener.document.encForm.enTextarea.value = window.parent.opener.document.encForm.enTextarea.value + text;
                             if (print) {
                                 printIframe();
                             }
-                        } else if (window.parent.opener.document.getElementById(noteEditor) != undefined) {
+                        } else if (<%= viewScriptChartContext.isEmpty() %> && window.parent.opener.document.getElementById(noteEditor) != undefined) {
                             faxPasteCanRetry = false;
                             window.parent.opener.document.getElementById(noteEditor).value = window.parent.opener.document.getElementById(noteEditor).value + text;
                             if (print) {
@@ -831,6 +832,12 @@
 
             }
 
+    function matchesRxChart(form) {
+        return form && form.elements.demographicNo
+            && form.elements.demographicNo.value === '<%= viewScriptDemographicNo %>'
+            && ((form.elements.chartContext && form.elements.chartContext.value) || '')
+                === '<%= Encode.forJavaScript(viewScriptChartContext) %>';
+    }
 	function writeToEncounter(print, text) {
     	try {
 			var url = "<%=request.getContextPath() %>/rx/WriteToEncounter";
@@ -842,6 +849,7 @@
 				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
 						"&expectedDemographicNo=<%= bean.getDemographicNo() %>" +
 						"&demographicNo=<%= bean.getDemographicNo() %>" +
+						"<%= viewScriptChartContext.isEmpty() ? "" : "&chartContext=" + Encode.forUriComponent(viewScriptChartContext) %>" +
 						"&additionalNotes=" +
 						"&body="+ encodeURIComponent(text)
 			};
@@ -879,14 +887,17 @@
                 var windowprops = "height=710,width=1024,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
                 var currentDate = new Date().toISOString().substring(0, 10);
                 var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<carlos:encode value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' context="uriComponent"/>&curDate=" + currentDate;
+                <% if (!viewScriptChartContext.isEmpty()) { %>
+                url += '&chartContext=<%= Encode.forJavaScript(Encode.forUriComponent(viewScriptChartContext)) %>';
+                <% } %>
 
-                if (window.parent.opener && window.parent.opener.document.forms["caseManagementEntryForm"] != undefined) {
+                if (window.parent.opener && matchesRxChart(window.parent.opener.document.forms["caseManagementEntryForm"])) {
                     // redirect if encounter window open
                     window.parent.opener.location = url;
                     return window.parent.opener;
                 }
 
-                return window.open(url, "encounter", windowprops);
+                return window.open(url, 'encounter<%= viewScriptDemographicNo %>_<%= Encode.forJavaScript(viewScriptChartContext) %>', windowprops);
             }
 
             var rxToPaste = null;
@@ -1454,7 +1465,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px onload="setComment()"
-							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/><%= viewScriptChartContext.isEmpty() ? "" : "&amp;chartContext=" + Encode.forHtmlAttribute(Encode.forUriComponent(viewScriptChartContext)) %>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                     <p id="selectedPharmacy" role="status" hidden><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/></p>

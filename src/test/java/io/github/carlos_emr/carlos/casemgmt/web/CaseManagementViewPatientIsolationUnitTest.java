@@ -157,6 +157,19 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
         verify(manager).saveCPP(submitted, "4249");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"1000000000", "2147483647", "0100000000"})
+    void shouldReachChartDomainValidation_whenPatientFitsTheDatabaseIntegerRange(String patient) throws Exception {
+        request.setParameter("demographicNo", patient);
+        String canonical = Integer.toString(Integer.parseInt(patient));
+
+        assertThat(action.view()).isEqualTo("domain-error");
+
+        verify(manager).isClientInProgramDomain("4249", canonical);
+        verify(manager).isClientReferredInProgramDomain("4249", canonical);
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
     @Test
     void shouldRefuseNoteReads_whenPatientPrivilegeIsDenied() {
         request.setParameter("demographicNo", "101");

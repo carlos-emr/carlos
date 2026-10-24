@@ -135,8 +135,24 @@ function presBoxFull()   { setPresBoxSize(full, 'presTopTable'); }
 // ============================================================
 // Window Management
 // ============================================================
+/** Keeps the originating chart program on same-patient chart and Rx requests. */
+function legacyChartUrl(url) {
+    if (!encounterConfig.chartContext) return url;
+    var target = new URL(url, document.baseURI || window.location.href);
+    if (target.origin !== window.location.origin
+            || !/\/(?:encounter\/|rx\/|casemgmt\/|CaseManagement)/.test(target.pathname)) return url;
+    for (var name of ['demographicNo', 'demographic_no']) {
+        if (target.searchParams.getAll(name).some(function (patient) {
+            return Number(patient) !== Number(encounterConfig.demographicNo);
+        })) return url;
+    }
+    if (target.searchParams.has('chartContext')) return url;
+    target.searchParams.set('chartContext', encounterConfig.chartContext);
+    return target.href;
+}
+
 function popupPage(vheight, vwidth, name, varpage) {
-    var page = "" + varpage;
+    var page = legacyChartUrl("" + varpage);
     name = name.replace(/\s+/g, "_");
     var windowprops = "height=" + vheight + ",width=" + vwidth +
         ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
@@ -153,7 +169,7 @@ function popupPage(vheight, vwidth, name, varpage) {
 function popupStart(vheight, vwidth, varpage) {
     var windowprops = "height=" + vheight + ",width=" + vwidth +
         ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-    var popup = window.open(varpage, "", windowprops);
+    var popup = window.open(legacyChartUrl(varpage), "", windowprops);
     if (popup != null && popup.opener == null) {
         popup.opener = self;
     }
@@ -162,7 +178,7 @@ function popupStart(vheight, vwidth, varpage) {
 function popupStart1(vheight, vwidth, varpage) {
     var windowprops = "height=" + vheight + ",width=" + vwidth +
         ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-    window.open(varpage, encounterConfig.i18n.title, windowprops);
+    window.open(legacyChartUrl(varpage), encounterConfig.i18n.title, windowprops);
 }
 
 function closeEncounterWindow() {
@@ -336,7 +352,7 @@ function clickLoadDiv(e) {
 }
 
 function loadDiv(div, url) {
-    CarlosAjax.request(url, {
+    CarlosAjax.request(legacyChartUrl(url), {
         method: 'post',
         postBody: 'demographicNo=' + encodeURIComponent(encounterConfig.demographicNo)
             + '&appointmentNo=' + encodeURIComponent(encounterConfig.appointmentNo || '0'),
@@ -353,7 +369,7 @@ function loadDiv(div, url) {
 function popLeftColumn(url, div, params) {
     params = "cmd=" + params + '&demographicNo=' + encodeURIComponent(encounterConfig.demographicNo)
         + '&appointmentNo=' + encodeURIComponent(encounterConfig.appointmentNo || '0');
-    CarlosAjax.request(url, {
+    CarlosAjax.request(legacyChartUrl(url), {
         method: 'post',
         postBody: params,
         onSuccess: function (request) {
@@ -467,6 +483,7 @@ function navBarLoader() {
     };
 
     this.popColumn = function (url, div, params, navBar) {
+        url = legacyChartUrl(url);
         params = "reloadURL=" + encodeURIComponent(url) + "&numToDisplay=6&cmd=" + params
             + "&demographicNo=" + encodeURIComponent(encounterConfig.demographicNo)
             + "&appointmentNo=" + encodeURIComponent(encounterConfig.appointmentNo || "0");

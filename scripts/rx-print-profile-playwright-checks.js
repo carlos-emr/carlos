@@ -29,6 +29,8 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { masterRecordLink } = require('./lib/master-record-link');
+const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
+const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
 const isEncounterWrite = response => response.request().method() === 'POST'
   && /\/rx\/WriteToEncounter(?:\?|$)/.test(h.pathOnly(response.url()));
@@ -61,24 +63,30 @@ async function workflow(s) {
   h.assert(providerName, 'The test provider has no name to look for in the print history');
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-rx-print-'));
   const noteCount = () => sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`);
-  s.cleanup(() => {
+  const cleanupRxRows = () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     const notes = sql.rows(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`).map(row => row[0]);
     h.assert(notes.every(id => /^[1-9]\d*$/.test(id)), 'Owned note ID is invalid');
     if (notes.length) {
       sql.execute(`DELETE FROM casemgmt_note_link WHERE note_id IN (${notes.join(',')});
         DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes.join(',')});
+        DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes.join(',')});
         DELETE FROM casemgmt_note WHERE demographic_no=${patient} AND note_id IN (${notes.join(',')})`);
     }
     // Save And Print stamps the script with a DigitalSignature row (FK to demographic); it must go
     // after the prescription that references it and before the owned patient.
     sql.execute(`DELETE FROM drugs WHERE demographic_no=${patient}; DELETE FROM prescription WHERE demographic_no=${patient};
-      DELETE FROM DigitalSignature WHERE demographicId=${patient} AND ModuleType='PRESCRIPTION'`);
+      DELETE FROM DigitalSignature WHERE demographicId=${patient} AND ModuleType='PRESCRIPTION';
+      DELETE FROM casemgmt_tmpsave WHERE demographic_no=${patient};
+      DELETE FROM eChart WHERE demographicNo=${patient}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM DigitalSignature WHERE demographicId=${patient})
-      + (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient})`) === '0', 'Owned Rx fixtures were not removed');
-  });
+      + (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM eChart WHERE demographicNo=${patient})`) === '0', 'Owned Rx fixtures were not removed');
+  };
+  s.cleanup(cleanupRxRows);
   // One printed and once reprinted script, with an active and an archived drug on it. The
   // `special` text is what the drug profile prints (Drug.getFullOutLine), so it carries the marker.
   const script = sql.value(`INSERT INTO prescription(provider_no,demographic_no,date_prescribed,date_printed,dates_reprinted,textView,lastUpdateDate)
@@ -191,6 +199,131 @@ async function workflow(s) {
     h.assert(rejected.status() === 405 && rejected.headers()['x-carlos-encounter-write'] === 'not-written',
       `A GET encounter write answered HTTP ${rejected.status()} instead of 405 not-written`);
     h.assert(noteCount() === before, 'A rejected GET changed the chart');
+  });
+
+  await s.step('Print & Paste keeps the originating chart program after the same patient opens in another program', async () => {
+    const q = h.sqlString;
+    const login = throwawayLoginFixture({ sql, marker, provider, testUser: s.config.testUser });
+    s.cleanup(() => login.cleanup());
+    login.create();
+    const owner = q(login.providerNo);
+    const programs = [];
+    s.cleanup(() => {
+      sql.execute(`DELETE FROM provider_default_program WHERE provider_no=${owner}`);
+      for (const program of programs) {
+        sql.execute(`DELETE FROM admission WHERE client_id=${patient} AND program_id=${program};
+          DELETE FROM program_provider WHERE provider_no=${owner} AND program_id=${program};
+          DELETE FROM program WHERE id=${program} AND name LIKE ${q(`${marker}-rx-program-%`)}`);
+        h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM program WHERE id=${program})
+          + (SELECT COUNT(*) FROM admission WHERE program_id=${program})
+          + (SELECT COUNT(*) FROM program_provider WHERE program_id=${program})`) === '0',
+        'The owned Rx program or its relationships were not removed');
+      }
+      h.assert(sql.value(`SELECT COUNT(*) FROM provider_default_program WHERE provider_no=${owner}`) === '0',
+        'The throwaway provider default was not removed');
+    });
+    // Remove the clinical rows before their owned provider/program parents during reverse cleanup.
+    s.cleanup(cleanupRxRows);
+    const role = sql.value(`SELECT role_id FROM program_provider WHERE provider_no=${q(provider)}
+      AND role_id IS NOT NULL ORDER BY id LIMIT 1`);
+    h.assert(/^[1-9]\d*$/.test(role), 'The test provider has no program role to copy');
+    for (const label of ['captured', 'default']) {
+      const program = h.insertId(sql, `INSERT INTO program
+        (facilityId,name,type,maxAllowed,programStatus,transgender,firstNation,alcohol,
+         physicalHealth,mentalHealth,housing,exclusiveView,ageMin,ageMax)
+        SELECT id,${q(`${marker}-rx-program-${label}`)},'service',1,'active',0,0,0,0,0,0,'none',0,150
+        FROM Facility ORDER BY id LIMIT 1`, 'Rx program');
+      h.assert(/^[1-9]\d*$/.test(program), 'An owned Rx program was not created');
+      programs.push(program);
+      sql.execute(`INSERT INTO program_provider (program_id,provider_no,role_id,team_id)
+        VALUES (${program},${owner},${role},0);
+        INSERT INTO admission (client_id,program_id,provider_no,admission_date,
+          admission_from_transfer,discharge_from_transfer,admission_status,lastUpdateDate)
+        VALUES (${patient},${program},${owner},NOW(),0,0,'current',NOW())`);
+    }
+    const [capturedProgram, defaultProgram] = programs;
+    sql.execute(`INSERT INTO provider_default_program (provider_no,program_id,signnote)
+      VALUES (${owner},${defaultProgram},0)`);
+    h.assert(capturedProgram !== defaultProgram, 'The program isolation fixture does not distinguish the provider default');
+    const context = await h.newContext(s.context.browser(), s.config);
+    context.setDefaultTimeout(30000);
+    context.on('page', page => h.wireStrictPage(page, 'rx-program-isolation', s.recorder));
+    await h.login(context, { ...s.config, testUser: login.username }, s.recorder);
+    const charts = [];
+    const tokens = [];
+    for (const program of programs) {
+      const chart = await context.newPage();
+      await h.gotoApp(chart, s.config.baseUrl, `/encounter/IncomingEncounter?demographicNo=${patient}
+        &providerNo=${login.providerNo}&programId=${program}`.replace(/\s+/g, ''));
+      await waitForNavbars(chart, 30000);
+      const token = await chart.locator('#caseManagementEntryForm input[name="chartContext"]').inputValue();
+      h.assert(token, 'A chart window has no bound program context');
+      charts.push(chart);
+      tokens.push(token);
+    }
+    h.assert(tokens[0] !== tokens[1], 'The two program windows share one chart context');
+    const launch = await charts[0].locator('a[onclick*="/rx/choosePatient"]').first().getAttribute('onclick');
+    const launchUrl = launch && launch.match(/['"]([^'"]*\/rx\/choosePatient[^'"]*)['"]/);
+    h.assert(launchUrl, 'The chart medication heading has no Rx popup URL');
+    const rxUrl = new URL(launchUrl[1], s.config.baseUrl);
+    h.assert(rxUrl.searchParams.get('chartContext') === tokens[0], 'Rx launch lost its originating chart context');
+    // Open the generated URL without an opener, as when the prescribing window's chart was closed.
+    // This drives the real Print & Paste server path instead of the still-open editor shortcut.
+    const isolatedRx = await context.newPage();
+    await isolatedRx.goto(rxUrl.href);
+    await isolatedRx.locator('#searchString').waitFor({ state: 'visible' });
+    h.assert(await isolatedRx.locator('script[src*="rx-patient-context.js"]').getAttribute('data-chart-context') === tokens[0],
+      'The prescribing page lost the originating chart context');
+    const capturedDraft = `${marker}-captured-program-draft`;
+    const otherDraft = `${marker}-default-program-draft-unchanged`;
+    for (const [program, text] of [[capturedProgram, capturedDraft], [defaultProgram, otherDraft]]) {
+      sql.execute(`INSERT INTO casemgmt_tmpsave (demographic_no,provider_no,program_id,note,update_date,note_id)
+        VALUES (${patient},${owner},${program},${q(text)},NOW(),0)`);
+    }
+    const otherBefore = JSON.stringify(sql.rows(`SELECT * FROM casemgmt_tmpsave
+      WHERE demographic_no=${patient} AND provider_no=${owner} AND program_id=${defaultProgram}`));
+    // The earlier ReRx archived its original source; stage the replacement that is now active.
+    const currentDrug = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient}
+      AND archived=0 AND LOCATE(${q(marker)},special)>0 ORDER BY drugid DESC LIMIT 1`);
+    h.assert(/^[1-9]\d*$/.test(currentDrug), 'The program isolation workflow has no owned active medication');
+    await isolatedRx.locator(`#reRxCheckBox_${currentDrug}`).check();
+    await isolatedRx.locator('#reRxConfirmBox input[name="stage"]').click();
+    await isolatedRx.locator('[id^="quantity_"]').first().waitFor({ state: 'attached' });
+    await isolatedRx.locator('#saveButton').click();
+    const modal = isolatedRx.frameLocator('#carlosModalBody iframe');
+    await modal.locator('#printPasteButton').waitFor({ state: 'visible' });
+    await modal.frameLocator('#preview').locator('#preview2Form').waitFor({ state: 'attached' });
+    const failuresBefore = s.recorder.requestFailures.length;
+    const encounter = context.waitForEvent('page', { timeout: 20000 }).catch(() => null);
+    const [write] = await Promise.all([
+      isolatedRx.waitForResponse(isEncounterWrite),
+      modal.locator('#printPasteButton').click(),
+    ]);
+    const posted = new URLSearchParams(write.request().postData() || '');
+    h.assert(write.status() === 200 && write.headers()['x-carlos-encounter-write'] === 'written'
+      && posted.get('chartContext') === tokens[0], 'Print & Paste lost or changed its chart context');
+    await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
+      AND provider_no=${owner} AND program_no=${q(capturedProgram)} AND LOCATE(${q(capturedDraft)},note)>0
+      AND LOCATE(${q(marker)},note)>0 AND LOCATE('one tablet daily',note)>0`, '1',
+    'Rx did not save the captured program draft and prescription in the originating program');
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+      AND provider_no=${owner} AND program_id=${capturedProgram}`) === '0', 'The consumed captured-program draft remains');
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+      AND provider_no=${owner} AND program_id=${defaultProgram}`)) === otherBefore,
+    'Rx changed or consumed the provider-default program draft');
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
+      AND provider_no=${owner} AND program_no=${q(defaultProgram)}`) === '0', 'Rx created a note in the other program');
+    const opened = await encounter;
+    h.assert(opened, 'Acknowledged Print & Paste did not open the originating chart');
+    await opened.waitForLoadState('domcontentloaded', { timeout: 20000 });
+    const reopenedToken = new URL(opened.url()).searchParams.get('chartContext');
+    h.assert(reopenedToken === tokens[0], 'Print & Paste reopened the chart under another program context');
+    const aborted = s.recorder.requestFailures.slice(failuresBefore);
+    h.assert(aborted.length <= 1 && aborted.every(entry => entry.label === 'rx-program-isolation'
+      && entry.errorText === 'net::ERR_ABORTED' && entry.resourceType === 'fetch'
+      && h.pathOnly(entry.url).endsWith('/rx/WriteToEncounter')),
+    'A request other than the acknowledged encounter write failed during program-isolated Print & Paste');
+    s.recorder.requestFailures.splice(failuresBefore, aborted.length);
   });
 }
 

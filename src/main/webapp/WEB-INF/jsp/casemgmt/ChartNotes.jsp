@@ -172,7 +172,7 @@
         SimpleDateFormat jsfmt = new SimpleDateFormat("MMM dd, yyyy");
         Date dToday = new Date();
         String strToday = jsfmt.format(dToday);
-        String frmName = "caseManagementEntryForm" + demographicNo;
+        String frmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
         CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
         if (request.getParameter("caseManagementEntryForm") == null) {
             request.setAttribute("caseManagementEntryForm", cform);
@@ -192,6 +192,13 @@
 <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/carlos-ajax.js" type="text/javascript"></script>
 <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
 <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/select.js" type="text/javascript"></script>
+<script>
+    // A standalone response needs the same initial context as the full chart layout.
+    // Fragments inserted into an existing chart retain the containing window's context.
+    if (typeof window.carlosChartContext === 'undefined') {
+        window.carlosChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+    }
+</script>
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp?v=<%= System.currentTimeMillis() %>"></script>
 <script type="text/javascript">
     ctx = "${carlos:forJavaScript(ctx)}";
@@ -238,6 +245,9 @@
 </script>
 <div id="topContent">
     <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView" method="post">
+        <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+        <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+        <% } %>
         <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="providerNo" value="<%=provNo%>"/>
         <input type="hidden" name="tab" value="Current Issues"/>
@@ -500,6 +510,9 @@
 </div>
 <%-- Insert smart note templates here --%>
 <form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath()%>/CaseManagementEntry" method="post">
+        <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+        <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+        <% } %>
     <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="includeIssue" value="off"/>
     <%

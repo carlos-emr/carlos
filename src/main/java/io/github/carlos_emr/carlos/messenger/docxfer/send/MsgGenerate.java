@@ -161,13 +161,9 @@ public class MsgGenerate {
                     if (!meta.getColumnName(i).startsWith("fld")) {
                         String name = meta.getTableName(i) + "." + meta.getColumnName(i);
 
-                        String fldData = "";
-                        try {
-                            fldData = Misc.getString(rs, i);
-                            if (fldData == null) fldData = "";
-                        } catch (Exception ex) {
-                            // Ignore exceptions and use empty string
-                        }
+                        // A failed clinical column read must fail the transfer, not export an
+                        // apparently complete document with silently erased patient information.
+                        String fldData = Misc.getString(rs, i);
 
                         Element fld = doc.createElement(name);
 

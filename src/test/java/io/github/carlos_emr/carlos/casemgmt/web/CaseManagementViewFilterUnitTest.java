@@ -122,6 +122,35 @@ class CaseManagementViewFilterUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldPreferFormProviderSelection_whenLegacyProviderHandoffsArePending() {
+        seedSessionFilters();
+        request.getSession().setAttribute(ChartSessionKeys.noteFilterHandoff("filter_providers", "101"),
+                new String[]{"202"});
+        request.setParameter("filter_providers", "203", "204");
+        request.setParameter("filter_provider", "205");
+
+        assertThat(loadNotes().getProviders()).containsExactly("203", "204");
+        assertThat(request.getSession().getAttribute(ChartSessionKeys.noteFilterHandoff("filter_providers", "101")))
+                .isNull();
+        assertThat(request.getSession().getAttribute(ChartSessionKeys.noteFilterHandoff("filter_provider", "101")))
+                .isNull();
+        request.removeParameter("filter_providers");
+        request.removeParameter("filter_provider");
+        assertUnfiltered(loadNotes());
+    }
+
+    @Test
+    void shouldClearLegacyProviderHandoff_whenFormExplicitlySelectsNoProviders() {
+        request.getSession().setAttribute(ChartSessionKeys.noteFilterHandoff("filter_provider", "101"),
+                new String[]{"200"});
+        request.setParameter("filter_providers", new String[0]);
+
+        assertThat(loadNotes().getProviders()).isEmpty();
+        request.removeParameter("filter_providers");
+        assertUnfiltered(loadNotes());
+    }
+
+    @Test
     void shouldConsumeLegacySingleIssue_whenSessionStoresAString() {
         request.getSession().setAttribute(ChartSessionKeys.noteFilterHandoff("issues", "101"), "73");
         assertThat(loadNotes().getIssues()).containsExactly("73");

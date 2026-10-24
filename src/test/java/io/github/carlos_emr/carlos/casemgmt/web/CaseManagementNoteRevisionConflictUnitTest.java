@@ -108,7 +108,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         form = new CaseManagementEntryFormBean();
         form.setCaseNote(note);
         form.setIssueCheckList(new ArrayList<>());
-        request.getSession().setAttribute("caseManagementEntryForm101", form);
+        request.getSession().setAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, "101"), form);
         WebApplicationContext context = mock(WebApplicationContext.class);
         ProgramManager programManager = mock(ProgramManager.class);
         AdmissionManager admissionManager = mock(AdmissionManager.class);
@@ -134,7 +134,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(form.getCaseNote()).isSameAs(note);
         assertThat(form.getCaseNote().getId()).isEqualTo(501L);
         assertThat(form.getCaseNote().getNote()).isEqualTo(expectedSessionText);
-        assertThat(request.getSession().getAttribute("caseManagementEntryForm101")).isSameAs(form);
+        assertThat(request.getSession().getAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, "101"))).isSameAs(form);
         assertThat(request.getSession().getAttribute("casemgmtNoteLock101")).isSameAs(lock);
         assertThat(lock.getNoteId()).isEqualTo(501L);
         verify(locks, never()).merge(any());

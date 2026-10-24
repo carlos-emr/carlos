@@ -53,7 +53,8 @@ function paginationBlock() {
   return code;
 }
 
-const CODE = paginationBlock();
+const CODE = SOURCE.slice(SOURCE.indexOf('    function chartActionUrl('), SOURCE.indexOf('    var caisiEnabled'))
+  + paginationBlock();
 const MAX_FAILED_LOADS = 3;
 
 /**
@@ -91,7 +92,7 @@ function setup() {
   const context = vm.createContext({
     $: (id) => elements[id] || null,
     jQuery: () => ({ serialize: () => '' }),
-    ctx: '/carlos',
+    ctx: '/carlos', chartContext: '',
     demographicNo: 1,
     setInterval(fn, ms) {
       assert.equal(typeof fn, 'function', 'the poll is armed with a function, not an eval string');

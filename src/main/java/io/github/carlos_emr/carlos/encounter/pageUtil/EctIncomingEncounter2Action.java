@@ -301,7 +301,6 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
         }
 
-        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.capture(request);
         EncounterPatientContext.rememberEncounter(request, bean);
         setEncounterAttributes(request, bean, loggedInInfo, request.getParameter("splitchart") != null, false);
         return "success2";

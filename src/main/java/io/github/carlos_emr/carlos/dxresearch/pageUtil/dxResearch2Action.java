@@ -76,13 +76,11 @@ public class dxResearch2Action extends ActionSupport {
         //dxResearchForm frm = (dxResearchForm) form;
         //request.getSession().setAttribute("dxResearchForm", frm);
         String codingSystem = this.getSelectedCodingSystem();
-        String demographicNo = this.getDemographicNo();
-        if (demographicNo == null || !demographicNo.matches("[0-9]{1,9}")
-                || Integer.parseInt(demographicNo) <= 0) {
+        String demographicNo = dxSetupResearch2Action.canonicalPatientNo(this.getDemographicNo());
+        if (demographicNo == null) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        demographicNo = Integer.toString(Integer.parseInt(demographicNo));
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_dxresearch", "w");
         PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_demographic", "r");
@@ -178,11 +176,9 @@ public class dxResearch2Action extends ActionSupport {
             // Re-render this form's own patient. The page used to take its patient and diagnoses
             // from the session, i.e. from the registry opened last in any window, so it could show
             // another patient, and its next submission then wrote to that patient (issue #4673).
-            if (demographicNo != null && demographicNo.matches("\\d{1,9}")) {
-                String formProvider = providerNo != null && providerNo.matches("\\d{1,10}")
-                        ? providerNo : LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
-                dxSetupResearch2Action.publishPatient(request, String.valueOf(Integer.parseInt(demographicNo)), formProvider);
-            }
+            String formProvider = providerNo != null && providerNo.matches("\\d{1,10}")
+                    ? providerNo : LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+            dxSetupResearch2Action.publishPatient(request, demographicNo, formProvider);
             return "failure";
         }
 

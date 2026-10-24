@@ -8,7 +8,7 @@ name their patient; opening another chart cannot supply that identity.
 | --- | --- |
 | 1 | Remove the unnamed Rx read fallback. Read and write requests require an explicit patient. |
 | 2 | Stop writing the login-wide encounter bean; chart notes use the named patient's immutable entry metadata. |
-| 3 | Capture the selected CAISI program for each patient at chart entry. Subsequent chart operations use that captured program. The chart context supports the full non-negative Integer range used by its DAOs. |
+| 3 | Bind the selected CAISI program to the originating chart window using a session-authenticated context. Subsequent chart, autosave and Rx operations carry that context, including two programs for the same patient. Ordinary chart entry retains the appointment provider's default; an explicit program must be available to the authenticated provider. The chart context supports the full non-negative Integer range used by its DAOs. |
 | 4–7 | Remove unused session writes and move message navigation and note-editor flags into the request. |
 | 8 | Make mailbox search and sort request-scoped; carry both through pagination, message detail, Inbox/Sent return links, and message actions. |
 | 9, 21, 22 | Retain at most 100 patients' disposable appointment, encounter and saved-note metadata per category. Unsaved clinical drafts are not evicted. |
@@ -16,7 +16,7 @@ name their patient; opening another chart cannot supply that identity.
 | 11 | Retain the intentional provider-wide appointment cut/copy clipboard. |
 | 12 | The transfer chooser no longer changes the authenticated messenger identity from `val1`. A first-use transfer initializes messaging from the authenticated provider and retains its selected attachment. |
 | 13 | Add per-patient module privilege and patient-record access checks to registry and note-list entry points. |
-| 14 | Require the local sender or a local recipient for saved attachment views/downloads, including configured clinic location IDs. |
+| 14 | Require local message participation or an explicitly authorized linked patient chart for saved message reads, quotes and attachment downloads. Shared chart reads show only the selected patient; message deletion and patient-link changes require local participation. Match legacy and configured local location IDs without mutating remote recipient rows. |
 | 15, 17, 24 | Already addressed by #4775: attachment POST/source checks, PMM selection state, and copied-note UUID handling. Retain those fixes and their regressions. |
 | 16 | An appointment whose patient was deleted still renders using its appointment name. |
 | 18 | Consume the form's `filter_providers` field and the legacy editor handoff without leaving stale filters. |
@@ -39,6 +39,15 @@ Java coverage exercises explicit Rx identity, per-patient chart programs and enc
 metadata, bounded metadata retention, CPP request/access/identity guards, registry
 access, sender/recipient attachment access, and direct POST contracts.
 
+The verification follow-up also covers signed chart-context forgery, cross-login and
+cross-patient rejection, same-patient program selection, shared-chart messaging reads,
+unrelated-patient denials, all-or-nothing unlink authorization, and local-versus-remote
+message state changes. Real database tests execute the packaged document-transfer
+queries and exercise draft replacement rollback. Failed clinical column reads abort
+document transfer; a failed autosave reports failure and preserves the previous draft.
+Stateless chart contexts do not accumulate per-window session records or expire an
+unsaved window when the disposable legacy patient cache is bounded.
+
 `chart-message-followups` drives the legacy chart owner, history/reminder saves without
 losing fields from other tabs, orphan appointments, independent mailbox searches and
 sorting, Inbox/Sent return navigation, message-position redirects, and attachment denial
@@ -48,13 +57,18 @@ the unfiltered report index, and canonical chart patient fields for both paramet
 (subject, quoted text, patient and attachments) and the packaged document-transfer
 chooser. `echart-two-patient-isolation` checks that the
 retired direct-render routes return 404 without changing either chart.
+`rx-print-profile` additionally opens two programs for one owned patient and verifies
+that Print & Paste consumes only its originating program's draft, preserves the other
+draft, and reopens the originating chart context. The chart/message follow-up also
+checks shared-chart message detail, quote reloads and actual PDF bytes, plus unrelated
+message and unlinked-patient refusals.
 
 Package validation uses an Ubuntu 26.04 systemd container, the pinned DrugRef revision
 and checksum-verified Chromium snapshot. The unreleased `carlos-ctl` 1.2.0 pin is
 built from the repository's documented fallback revision and given a local test
 version satisfying the package dependency. No CLI release is published by this work.
 
-## Validation results (Ubuntu 26.04)
+## Original validation results (Ubuntu 26.04, `ce0a12203f9`)
 
 - Full Java unit/integration run after review fixes: 25,547 tests, zero failures/errors, seven skips.
   The reply/forward reload and mailbox-navigation checks passed all 33

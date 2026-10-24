@@ -110,10 +110,12 @@
 
 <%
     String demoNo = request.getParameter("val2");
-    if (demoNo == null || !demoNo.matches("[1-9][0-9]{0,8}")) {
+    int selectedPatient = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(demoNo);
+    if (selectedPatient <= 0) {
         response.sendError(400);
         return;
     }
+    demoNo = Integer.toString(selectedPatient);
     LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
     SecurityInfoManager access = SpringUtils.getBean(SecurityInfoManager.class);
     // This export includes demographics, prescriptions, allergies and the legacy chart.

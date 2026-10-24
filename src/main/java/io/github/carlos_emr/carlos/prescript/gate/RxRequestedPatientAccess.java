@@ -27,9 +27,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * module, not that they may see the patient the URL names. When the request names a patient, the
  * caller must also hold the same privilege for that patient (patient-level
  * {@code _object$demographicNo} restrictions) and be allowed to open that patient's record. A
- * request that names no patient falls back, in the page, to the session's active Rx patient; that
- * patient is authorised the same way, and a session with no active patient is left to the page,
- * which refuses to render.</p>
+ * request that names no patient is refused; another window's patient can never supply the
+ * missing identity.</p>
  *
  * <p>It is also the one patient-level check for every Rx write (stash edits, saves, stamps,
  * re-prescribing, deletes, allergies, pharmacies, encounter text). Those actions check the
@@ -118,8 +117,8 @@ public final class RxRequestedPatientAccess {
     }
 
     /**
-     * The Rx bean a read renders ({@link RxSessionBeanResolver#resolve}: the named patient's, or the
-     * active patient's when none is named), after authorising the caller for that bean's patient.
+     * The explicitly named patient's Rx bean ({@link RxSessionBeanResolver#resolve}), after
+     * authorising the caller for that bean's patient.
      *
      * @param securityInfoManager the authorisation service
      * @param request             the current request
@@ -141,7 +140,7 @@ public final class RxRequestedPatientAccess {
     /**
      * Opens (or reuses) the named patient's Rx bean for a JSP entry point, after authorising the caller
      * for that patient. The bean the page renders is never activated first and checked later: an
-     * unauthorised request gets {@code null} and leaves the session's active patient untouched.
+     * unauthorised request gets {@code null} and leaves the patient's workspace untouched.
      *
      * @param request       the current request
      * @param demographicNo the patient the page is opened for, already parsed and positive

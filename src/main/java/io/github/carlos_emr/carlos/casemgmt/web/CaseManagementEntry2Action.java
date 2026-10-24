@@ -202,7 +202,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // Read only this session's existing form after numeric patient validation and record authorization;
         // the note/issue owners are checked below before any mutation. No request value is stored here.
         // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        CaseManagementEntryFormBean form = (CaseManagementEntryFormBean) request.getSession().getAttribute("caseManagementEntryForm" + demographicNo);
+        CaseManagementEntryFormBean form = (CaseManagementEntryFormBean) request.getSession().getAttribute(ChartProgramContext.formKey(request, demographicNo));
         if (form != null) {
             if (form.getCaseNote() != null && form.getCaseNote().getDemographic_no() != null
                     && !demographicNo.equals(form.getCaseNote().getDemographic_no())) {
@@ -598,7 +598,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         session.setAttribute("casemgmtNoteLock" + demono, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
-        String frmName = "caseManagementEntryForm" + demono;
+        String frmName = ChartProgramContext.formKey(request, demono);
         logger.debug("Stored note form id={} noteLength={}",
                 LogSafe.sanitize(String.valueOf(note.getId())),
                 cform.getCaseNote_note() == null ? 0 : cform.getCaseNote_note().length());
@@ -1230,7 +1230,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
         // update note issues
-        String sessionFrmName = "caseManagementEntryForm" + demo;
+        String sessionFrmName = ChartProgramContext.formKey(request, demo);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
         Set<CaseManagementIssue> issueSet = new HashSet<CaseManagementIssue>();
         Set<CaseManagementNote> noteSet = new HashSet<CaseManagementNote>();
@@ -1573,7 +1573,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         //Before we do anything we make sure we still have the lock on the note
         HttpSession session = request.getSession();
         String demo = getDemographicNo(request);
-        String sessionFrmName = "caseManagementEntryForm" + demo;
+        String sessionFrmName = ChartProgramContext.formKey(request, demo);
 
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
@@ -2129,7 +2129,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note.setReporter_program_team(team);
 
-        String sessionName = "caseManagementEntryForm" + demo;
+        String sessionName = ChartProgramContext.formKey(request, demo);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
         List<CaseManagementIssue> issuelist = new ArrayList<CaseManagementIssue>();
         Set<CaseManagementIssue> issueset = new HashSet<CaseManagementIssue>();
@@ -2280,7 +2280,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String noteId = request.getParameter("noteId");
         String forceRelease = request.getParameter("force");
         HttpSession session = request.getSession();
-        String sessionFrmName = "caseManagementEntryForm" + demoNo;
+        String sessionFrmName = ChartProgramContext.formKey(request, demoNo);
 
         try {
             CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by demographic scope
@@ -2450,7 +2450,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         request.setAttribute("change_flag", "true");
         String demono = getDemographicNo(request);
-        String sessionFrmName = "caseManagementEntryForm" + demono;
+        String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
         CaseManagementNote note = sessionFrm.getCaseNote();
         String noteTxt = this.getCaseNote_note();
@@ -2535,7 +2535,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             issueList[i].setIssue(issue);
         }
         logger.debug("Community issue reconciliation complete");
-        String sessionFrmName = "caseManagementEntryForm" + demono;
+        String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
         sessionFrm.setNewIssueCheckList(issueList);
         sessionFrm.setShowList("true");
@@ -2555,7 +2555,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // grab the issue we want to add
         String issueId = request.getParameter("newIssueId");
 
-        String sessionFrmName = "caseManagementEntryForm" + this.getDemographicNo(request);
+        String sessionFrmName = ChartProgramContext.formKey(request, this.getDemographicNo(request));
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
         // check to see if this issue has already been associated with this demographic
@@ -2613,7 +2613,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
 
-        String sessionFrmName = "caseManagementEntryForm" + demono;
+        String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
         if (sessionFrm != null) {
@@ -2822,7 +2822,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         int idx = Integer.parseInt(strIndex);
 
         String substitution = request.getParameter("newIssueId");
-        String sessionFrmName = "caseManagementEntryForm" + getDemographicNo(request);
+        String sessionFrmName = ChartProgramContext.formKey(request, getDemographicNo(request));
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
         List<CheckBoxBean> curIssues = sessionFrm.getIssueCheckList();
@@ -2875,7 +2875,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         String demono = getDemographicNo(request);
-        String sessionFrmName = "caseManagementEntryForm" + demono;
+        String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
         request.setAttribute("change_flag", "true");
@@ -2944,7 +2944,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("change_flag", "true");
         request.setAttribute("issueStatusChanged", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         String demono = getDemographicNo(request);
-        String sessionFrmName = "caseManagementEntryForm" + demono;
+        String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
         request.setAttribute("demoName", getDemoName(demono));
@@ -3180,11 +3180,37 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     public String autosave() {
         logger.debug("autosave");
 
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return null;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return null;
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        String demographicNo = getDemographicNo(request);
-        String programId = request.getParameter("programId");
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        String programId = ChartProgramContext.resolve(request);
+        if (programId == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "w", demographicNo)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "w", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.parseInt(demographicNo))) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return null;
+        }
         String note = request.getParameter("note");
         String noteId = request.getParameter("note_id");
 
@@ -3197,12 +3223,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
 
-        //delete from tmp save and then add another
         try {
-            caseManagementMgr.deleteTmpSave(providerNo, demographicNo, programId);
-            caseManagementMgr.tmpSave(providerNo, demographicNo, programId, noteId, note);
+            caseManagementMgr.replaceTmpSave(providerNo, demographicNo, programId, noteId, note);
         } catch (Exception e) {
             logger.warn("Encounter autosave failed ({})", e.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return null;
         }
 
         this.getCaseNote().setNote(note);
@@ -3247,7 +3273,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             // a 500 when the encounter entry was forgotten.
             return;
         }
-        String sessionFrmName = "caseManagementEntryForm" + demoNo;
+        String sessionFrmName = ChartProgramContext.formKey(request, demoNo);
 
         request.getSession().setAttribute(sessionFrmName, null); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         EncounterPatientContext.forgetEncounter(request, demoNo);
@@ -3964,7 +3990,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         
         if (demographicNo != null) {
-            String sessionName = "caseManagementEntryForm" + demographicNo;
+            String sessionName = ChartProgramContext.formKey(request, demographicNo);
             CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) mySessionMap.get(sessionName);
             if (sessionFrm != null) {
                 this.issueCheckList = sessionFrm.getIssueCheckList();

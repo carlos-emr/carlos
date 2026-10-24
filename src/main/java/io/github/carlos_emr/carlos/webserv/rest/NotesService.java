@@ -347,14 +347,12 @@ public class NotesService extends AbstractServiceImpl {
             return null;
         }
 
-        //delete from tmp save and then add another
         try {
-            caseManagementMgr.deleteTmpSave(providerNo, "" + demographicNo, programId);
-            caseManagementMgr.tmpSave(providerNo, "" + demographicNo, programId, noteId, noteStr);
+            caseManagementMgr.replaceTmpSave(providerNo, "" + demographicNo, programId, noteId, noteStr);
         } catch (Exception e) {
-            // Autosave failed. Do NOT echo the note back with HTTP 200 as if it saved: deleteTmpSave may
-            // already have removed the previous draft and the new draft was not persisted, so the client
-            // must learn the save failed and keep its dirty in-memory copy to retry. (Narrowed from
+            // Autosave failed. Do NOT echo the note back with HTTP 200 as if it saved: the client
+            // must keep its dirty in-memory copy to retry. The manager rolls back replacement of
+            // the previous draft. (Narrowed from
             // Throwable so JVM Errors are not swallowed.)
             logger.error("AutoSave failed for the draft note; returning an error so the client retains its unsaved copy", e);
             throw new WebApplicationException("Autosave failed", Response.Status.INTERNAL_SERVER_ERROR);

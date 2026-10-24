@@ -63,16 +63,10 @@ public final class dxSetupResearch2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_dxresearch)");
         }
 
-        // Validate demographicNo is a non-negative integer before crossing the trust boundary
-        String demographicNoParam = request.getParameter("demographicNo");
-        if (demographicNoParam == null || !demographicNoParam.matches("\\d{1,9}")) {
+        String demographicNo = canonicalPatientNo(request.getParameter("demographicNo"));
+        if (demographicNo == null) {
             return ERROR;
         }
-        // Parse and re-stringify to produce a canonical integer string that breaks the CodeQL
-        // taint chain: CodeQL does not treat regex matching alone as a sanitizer, but passing
-        // through Integer.parseInt() confirms the value is a safe integer before session storage.
-        String demographicNo = String.valueOf(Integer.parseInt(demographicNoParam));
-        if (Integer.parseInt(demographicNo) <= 0) return ERROR;
         PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_dxresearch", "r");
         PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_demographic", "r");
 
@@ -122,6 +116,17 @@ public final class dxSetupResearch2Action extends ActionSupport {
         publishPatient(request, demographicNo, providerNo);
 
         return SUCCESS;
+    }
+
+    /** Returns the canonical positive Integer patient key, or null for absent or invalid input. */
+    static String canonicalPatientNo(String value) {
+        if (value == null || !value.matches("[0-9]{1,10}")) return null;
+        try {
+            int patient = Integer.parseInt(value);
+            return patient > 0 ? Integer.toString(patient) : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**

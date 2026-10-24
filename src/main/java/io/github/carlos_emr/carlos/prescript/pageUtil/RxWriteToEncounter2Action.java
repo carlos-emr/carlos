@@ -108,7 +108,11 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         // Patient-level _rx write AND access to this patient's record (the shared Rx write check).
         RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
                 rxSessionBean.getDemographicNo(), "_rx", SecurityInfoManager.WRITE);
-        String programNo = new EctProgram(session).getProgram(session.getAttribute("user").toString());
+        String programNo = ChartProgramContext.resolve(request);
+        if (programNo == null) {
+            programNo = new EctProgram(session).getProgram(loggedInInfo.getLoggedInProviderNo());
+            ChartProgramContext.remember(request, programNo);
+        }
 
 
         CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
@@ -173,7 +177,6 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     }
 
     public CaseManagementNote getLastSaved(HttpServletRequest request, String demono, String providerNo, CaseManagementManager caseManagementMgr) {
-        HttpSession session = request.getSession();
         String programId = ChartProgramContext.resolve(request);
         return caseManagementMgr.getLastSaved(programId, demono, providerNo);
     }

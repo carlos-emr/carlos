@@ -16,6 +16,63 @@ test('withPatient appends demographicNo to Rx routes', () => {
     assert.equal(rx.withPatient('/carlos/rx/x?a=1#top'), '/carlos/rx/x?a=1&demographicNo=1001#top');
 });
 
+test('withPatient preserves the originating chart window independently of an explicit patient', () => {
+    const rx = context.create('1001', 'chart-alpha');
+    assert.equal(rx.withPatient('/carlos/rx/viewScript?demographicNo=1001'),
+        '/carlos/rx/viewScript?demographicNo=1001&chartContext=chart-alpha');
+    assert.equal(rx.withPatient('/carlos/rx/viewScript'),
+        '/carlos/rx/viewScript?demographicNo=1001&chartContext=chart-alpha');
+    assert.equal(rx.withPatient('/carlos/rx/viewScript?demographicNo=2002'),
+        '/carlos/rx/viewScript?demographicNo=2002');
+    assert.equal(rx.withPatient('https://evil.example/rx/viewScript'), 'https://evil.example/rx/viewScript');
+    assert.equal(rx.withPatient('/carlos/rx/viewScript?demographicNo=1001&chartContext=chart-bravo'),
+        '/carlos/rx/viewScript?demographicNo=1001&chartContext=chart-bravo');
+});
+
+test('AJAX keeps chart context when the request body already names its patient', () => {
+    const seen = [];
+    const win = {
+        CarlosAjax: {
+            request(url) { seen.push(url); },
+            updater(container, url) { seen.push(url); },
+        },
+        jQuery: { ajaxPrefilter(fn) { this.filter = fn; } },
+    };
+    context.create('1001', 'chart-alpha').install(win);
+    win.CarlosAjax.request('/carlos/rx/WriteScript', { parameters: 'demographicNo=1001' });
+    win.CarlosAjax.request('/carlos/rx/WriteScript', { parameters: 'demographicNo=1001&chartContext=chart-bravo' });
+    win.CarlosAjax.request('/carlos/rx/WriteScript', { parameters: 'demographicNo=2002' });
+    assert.deepEqual(seen, ['/carlos/rx/WriteScript?chartContext=chart-alpha',
+        '/carlos/rx/WriteScript', '/carlos/rx/WriteScript']);
+    const options = { url: '/carlos/rx/WriteScript', data: { demographicNo: '1001' } };
+    win.jQuery.filter(options);
+    assert.equal(options.url, '/carlos/rx/WriteScript?chartContext=chart-alpha');
+    context.create('1001', 'chart-bravo').install(win);
+    win.CarlosAjax.request('/carlos/rx/WriteScript', { parameters: 'demographicNo=1001' });
+    assert.equal(seen.at(-1), '/carlos/rx/WriteScript?chartContext=chart-bravo');
+});
+
+test('native submit forms receive chart context before any submit event', () => {
+    const fields = [{ name: 'demographicNo', value: '1001' }];
+    const form = {
+        getAttribute() { return '/carlos/rx/chooseDrug'; },
+        querySelector(selector) {
+            return fields.find(field => selector.includes(`[name="${field.name}"]`));
+        },
+        appendChild(field) { fields.push(field); },
+    };
+    const win = { document: {
+        querySelectorAll() { return [form]; },
+        createElement() { return {}; },
+        addEventListener() {},
+    } };
+    const rx = context.create('1001', 'chart-alpha');
+    rx.install(win);
+    rx.install(win);
+    assert.deepEqual(fields, [{ name: 'demographicNo', value: '1001' },
+        { type: 'hidden', name: 'chartContext', value: 'chart-alpha' }]);
+});
+
 test('withPatient leaves a URL that already names a patient alone', () => {
     const rx = context.create('1001');
     assert.equal(rx.withPatient('/carlos/rx/showAllergy?demographicNo=2002'), '/carlos/rx/showAllergy?demographicNo=2002');

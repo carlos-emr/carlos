@@ -165,6 +165,12 @@ public class MsgDisplayMessages2Action extends ActionSupport {
         }
         String loggedInProviderNo = loggedInInfo.getLoggedInProviderNo();
 
+        if ("3".equals(request.getParameter("boxType"))
+                && !MsgAttachmentAccess.canReadChart(loggedInInfo, request.getParameter("demographic_no"))) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+
         // Initialize forward location
         String findForward = "success";
 

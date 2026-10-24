@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
+const chartHelper = source.slice(source.indexOf('    function chartActionUrl('), source.indexOf('    var caisiEnabled'));
 
 // Run the production CPP save and its two-stage issue refresh, including the
 // barrier that keeps an encounter save from racing stale issue fields (#4699).
@@ -30,7 +31,7 @@ function harness(checked = [true], issueChange = '') {
   };
   fields.frmIssueNotes = cppForm;
   const context = {
-    caseNote: 'caseNote_note01', demographicNo: '123', ctx: '/carlos',
+    caseNote: 'caseNote_note01', demographicNo: '123', ctx: '/carlos', chartContext: '',
     savingNoteError: 'save failed', CONTROL_CHAR_PATTERN_2: /unused/,
     sanitizeElementByPattern: () => {},
     document: { forms: { frmIssueNotes: cppForm, caseManagementEntryForm: { method: {}, ajax: {}, querySelectorAll: () => [] } } },
@@ -43,6 +44,7 @@ function harness(checked = [true], issueChange = '') {
     console: { error: (...args) => errors.push(args) },
   };
   vm.createContext(context);
+  vm.runInContext(chartHelper, context);
   for (const [from, to] of [
     ['function updateCPPNote()', '    function clickLoadDiv('],
     ['    function loadDiv(', '    var expandedIssues'],

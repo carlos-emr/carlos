@@ -74,7 +74,7 @@
         <%
 
             String demographicNo = request.getParameter("demographicNo");
-            String sessionFrmName = "caseManagementEntryForm" + demographicNo;
+            String sessionFrmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
             CaseManagementEntryFormBean form=(CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
             request.setAttribute("caseManagementEntryForm", form);
 
@@ -207,7 +207,8 @@
                 var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
                 var noteId = '<carlos:encode value='<%= request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? (String) request.getAttribute("noteId") : "" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 var programId = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request)) %>';
-                XMLHttpRequestObject.send("method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + encodeURIComponent(obj.value));
+                var chartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+                XMLHttpRequestObject.send((chartContext ? "chartContext=" + encodeURIComponent(chartContext) + "&" : "") + "method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + encodeURIComponent(obj.value));
             }
 
             setTimer();
@@ -239,6 +240,9 @@
         if (pId == null) pId = "";
     %>
     <form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath() %>/CaseManagementEntry" method="post">
+        <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+        <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+        <% } %>
         <input type="hidden" name="chain" id="chain"/>
         <input type="hidden" name="demographicNo" id="demographicNo" value="${carlos:forHtmlAttribute(param.demographicNo)}"/>
         <c:if test="${param.providerNo==null}">
@@ -384,7 +388,7 @@
         } else {
         %>
         <input id="showResolved" type="button" value="Show Resolved Issues"
-               onclick="document.location='CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/>&showResolved=true'"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+               onclick="document.location='CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/>&showResolved=true<%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) == null ? "" : "&chartContext=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>'"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         <%
             }
         %>

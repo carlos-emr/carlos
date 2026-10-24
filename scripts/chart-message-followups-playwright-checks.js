@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /* Issue #4811: legacy chart tabs, independent inbox filters and private attachments on a packaged install.
- * Owns one FAKE patient, an orphaned appointment and two messages. Cleanup deletes only those messages, then the owned patient.
+ * Owns FAKE patients, an orphaned appointment and two messages. Cleanup deletes only the owned fixtures.
  * The legacy owner action is exercised before entering the modern chart, which selects its layout.
  */
 const h = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
+const {textPdf} = require('./lib/stored-pdf-documents');
 const q = h.sqlString;
 
 async function workflow(s) {
@@ -209,15 +210,121 @@ async function workflow(s) {
     } finally { await missing.dispose(); }
   });
 
-  await s.step('unrelated providers cannot view or download a saved message attachment', async () => {
-    // Remove this login's sender/recipient relationship while retaining the owned message.
-    sql.execute(`UPDATE messagetbl SET sentbyNo='0' WHERE messageid=${ids[0]};
+  await s.step('shared chart messages require their linked patient and preserve that patient through quotes and attachments', async () => {
+    let otherPatient;
+    const otherName = `${marker} other chart`;
+    s.cleanup(() => {
+      if (!otherPatient) return;
+      h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${otherPatient}
+        AND last_name=${q(otherName)}`) === '1', 'The other shared-message patient ownership changed');
+      sql.execute(`DELETE FROM msgDemoMap WHERE messageID=${ids[0]} AND demographic_no=${otherPatient};
+        DELETE FROM demographic WHERE demographic_no=${otherPatient} AND last_name=${q(otherName)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${otherPatient}`) === '0',
+        'The other shared-message patient remains after cleanup');
+    });
+    otherPatient = h.insertId(sql, `INSERT INTO demographic
+        (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
+         provider_no,hc_type,province,roster_status,lastUpdateDate)
+      VALUES(${q(otherName)},'Workflow','1980','01','02','F','AC',${q(provider)},'ON','ON','NR',NOW())`,
+    'other shared-message patient');
+    const pdf = textPdf(`${marker} shared chart attachment`);
+    const pdfXml = `<PDF><FILE_ID>0</FILE_ID><STATUS>OK</STATUS><TITLE>${marker} shared chart attachment</TITLE>`
+      + `<CONTENT>${pdf.toString('base64')}</CONTENT></PDF>`;
+    sql.execute(`UPDATE messagetbl SET sentbyNo='0',pdfattachment=${q(pdfXml)} WHERE messageid=${ids[0]};
       DELETE FROM messagelisttbl WHERE message=${ids[0]}`);
+
+    for (const route of [
+      `/messenger/ViewMessage?messageID=${ids[0]}&from=encounter&demographic_no=${otherPatient}`,
+      ...['reply', 'replyAll', 'forward'].map(operation =>
+        `/messenger/HandleMessages?messageNo=${ids[0]}&${operation}=1&chartPatientNo=${otherPatient}`),
+      `/messenger/ViewAttach?attachId=${ids[0]}&chartPatientNo=${otherPatient}`,
+      `/messenger/ViewPDFAttach?attachId=${ids[0]}&chartPatientNo=${otherPatient}`,
+      `/messenger/ViewPDFFile?attId=${ids[0]}&file_id=0&chartPatientNo=${otherPatient}`,
+    ]) {
+      const response = await context.request.get(url(route), {maxRedirects: 0});
+      try {
+        h.assert(response.status() === 404,
+          `${route.split('?')[0]} accepted a patient not linked to the message (HTTP ${response.status()})`);
+      } finally { await response.dispose(); }
+    }
+
+    // A message may be linked to several charts. The selected chart grants no access to
+    // the other patient's name and must not select that patient for the resulting quote.
+    sql.execute(`INSERT INTO msgDemoMap(messageID,demographic_no) VALUES(${ids[0]},${otherPatient})`);
+    const page = await context.newPage();
+    try {
+      const detail = `/messenger/ViewMessage?messageID=${ids[0]}&from=encounter&demographic_no=${patient}`;
+      for (const operation of ['reply', 'replyAll', 'forward']) {
+        const response = await page.goto(url(detail));
+        h.assert(response.status() === 200, `Shared chart detail returned HTTP ${response.status()}`);
+        await h.assertNotErrorPage(page, 'shared chart message detail');
+        const body = await page.locator('body').innerText();
+        h.assert(body.includes(marker + ' alpha') && !body.includes(otherName),
+          'Shared chart detail lost the message or disclosed another linked patient');
+        h.assert(await page.locator('form[action$="/messenger/HandleMessages"] input[name="chartPatientNo"]').inputValue() === patient,
+          'Shared chart detail lost the selected patient in its action form');
+        for (const attachment of ['ViewAttach', 'ViewPDFAttach']) {
+          const href = await page.locator(`a[href*="${attachment}?attachId="]`).first().getAttribute('href');
+          h.assert(href.includes(`chartPatientNo=${patient}`), `${attachment} link lost the shared chart patient`);
+        }
+        // The legacy encounter detail does not display reply buttons. Open the same
+        // read-only route that a reconstructed quote uses, retaining its explicit chart.
+        const quote = await page.goto(url(`/messenger/HandleMessages?messageNo=${ids[0]}`
+          + `&${operation}=1&chartPatientNo=${patient}`));
+        h.assert(quote.status() === 200, `${operation} from a shared chart returned HTTP ${quote.status()}`);
+        await page.locator('#subject').waitFor();
+        const expectedSubject = `${operation === 'forward' ? 'Fwd:' : 'Re:'}${marker} alpha`;
+        h.assert(await page.locator('#subject').inputValue() === expectedSubject,
+          `${operation} from a shared chart lost its subject`);
+        h.assert((await page.locator('textarea[name="message"]').inputValue()).includes('FAKE-PW content'),
+          `${operation} from a shared chart lost its quote`);
+        h.assert(await page.locator('input[name="demographic_no"]').inputValue() === patient,
+          `${operation} from a shared chart selected another linked patient`);
+        h.assert(new URL(page.url()).searchParams.get('chartPatientNo') === patient,
+          `${operation} reload URL lost the shared chart patient`);
+        await page.reload();
+        h.assert(await page.locator('#subject').inputValue() === expectedSubject
+          && await page.locator('input[name="demographic_no"]').inputValue() === patient,
+        `${operation} reload lost the shared message or its selected patient`);
+      }
+    } finally { await page.close(); }
+
     for (const route of [`/messenger/ViewAttach?attachId=${ids[0]}`,
       `/messenger/ViewPDFAttach?attachId=${ids[0]}`,
       `/messenger/ViewPDFFile?attId=${ids[0]}&file_id=0`]) {
+      const response = await context.request.get(url(`${route}&chartPatientNo=${patient}`), {maxRedirects: 0});
+      try {
+        h.assert(response.status() === 200, `${route.split('?')[0]} refused the linked chart (HTTP ${response.status()})`);
+        if (route.includes('/ViewPDFFile?')) {
+          h.assert((await response.body()).equals(pdf), 'Shared chart download returned another attachment');
+        } else if (route.includes('/ViewPDFAttach?')) {
+          const body = await response.text();
+          h.assert(body.includes(`${marker} shared chart attachment`)
+            && body.includes(`name="chartPatientNo" value="${patient}"`),
+          'Shared PDF list lost its attachment or selected-patient download field');
+        }
+      } finally { await response.dispose(); }
+    }
+  });
+
+  await s.step('unrelated providers cannot read, quote or download a saved message', async () => {
+    // Remove this login's sender/recipient relationship while retaining the owned message.
+    sql.execute(`UPDATE messagetbl SET sentbyNo='0' WHERE messageid=${ids[0]};
+      DELETE FROM messagelisttbl WHERE message=${ids[0]}`);
+    for (const route of [`/messenger/ViewMessage?messageID=${ids[0]}`,
+      ...['reply', 'replyAll', 'forward'].map(operation =>
+        `/messenger/HandleMessages?messageNo=${ids[0]}&${operation}=1`),
+      `/messenger/ViewAttach?attachId=${ids[0]}`,
+      `/messenger/ViewPDFAttach?attachId=${ids[0]}`,
+      `/messenger/ViewPDFFile?attId=${ids[0]}&file_id=0`]) {
       const response = await context.request.get(url(route), {maxRedirects: 0});
-      h.assert(response.status() === 404, `${route.split('?')[0]} disclosed an unrelated message (HTTP ${response.status()})`);
+      try {
+        h.assert(response.status() === 404,
+          `${route.split('?')[0]} disclosed an unrelated message (HTTP ${response.status()})`);
+        const body = await response.text();
+        h.assert(!body.includes(marker + ' alpha') && !body.includes('FAKE-PW content'),
+          `${route.split('?')[0]} included the denied message in its error response`);
+      } finally { await response.dispose(); }
     }
   });
 }

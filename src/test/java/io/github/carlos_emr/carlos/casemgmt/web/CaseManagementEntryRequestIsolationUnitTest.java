@@ -370,6 +370,41 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
 
     private record EditedNote(CaseManagementNote note, MockHttpServletRequest request) { }
 
+    @Test
+    void shouldRetainEachProgramsUnsavedForm_whenTheSamePatientOpensInTwoPrograms() throws Exception {
+        MockHttpServletRequest first = request("101");
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(first, "11");
+        first.setParameter("note_edit", "new");
+        try (var props = mockStatic(CarlosProperties.class);
+             var views = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(first).edit()).isEqualTo("view");
+        }
+        String firstKey = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(first, "101");
+        CaseManagementEntryFormBean firstForm = (CaseManagementEntryFormBean) forms.get(firstKey);
+        firstForm.getCaseNote().setNote("Unsaved first-program draft");
+
+        MockHttpServletRequest second = request("101");
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(second, "22");
+        second.setParameter("note_edit", "new");
+        try (var props = mockStatic(CarlosProperties.class);
+             var views = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(second).edit()).isEqualTo("view");
+        }
+        String secondKey = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(second, "101");
+        CaseManagementEntryFormBean secondForm = (CaseManagementEntryFormBean) forms.get(secondKey);
+        secondForm.getCaseNote().setNote("Unsaved second-program draft");
+
+        assertThat(secondKey).isNotEqualTo(firstKey);
+        assertThat(firstForm).isNotSameAs(secondForm);
+        assertThat(firstForm.getCaseNote().getNote()).isEqualTo("Unsaved first-program draft");
+        assertThat(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(first)).isEqualTo("11");
+        assertThat(secondForm.getCaseNote().getNote()).isEqualTo("Unsaved second-program draft");
+        assertThat(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(second)).isEqualTo("22");
+        assertThat(forms.get(firstKey)).isSameAs(firstForm);
+    }
+
     private EditedNote edit(String patient, boolean explicitNew, String encounterType) throws Exception {
         return edit(patient, explicitNew, encounterType, null);
     }

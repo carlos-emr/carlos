@@ -328,6 +328,9 @@
     <form action="${pageContext.request.contextPath}/messenger/DisplayMessages" method="post" class="page-header-search-form">
         <input name="boxType" type="hidden" value="<%=pageType%>">
         <input name="orderby" type="hidden" value="<%=SafeEncode.forHtmlAttribute(orderby)%>">
+        <% if (pageType == 3) { %>
+            <input name="demographic_no" type="hidden" value="<%=SafeEncode.forHtmlAttribute(demographic_no)%>">
+        <% } %>
         <% if (showScheduleNav) { %>
             <%-- Preserve schedule shell state after search submits; otherwise the top bar disappears on the next render. --%>
             <input name="scheduleNav" type="hidden" value="1">
@@ -359,6 +362,9 @@
                     %>
 
                     <form action="<%=SafeEncode.forHtmlAttribute(strutsAction)%>" method="post" id="msgList">
+                    <% if (pageType == 3) { %>
+                        <input name="demographic_no" type="hidden" value="<%=SafeEncode.forHtmlAttribute(demographic_no)%>">
+                    <% } %>
                     <% if (showScheduleNav) { %>
                         <%-- Bulk mailbox actions post back through Struts, so carry scheduleNav as form state. --%>
                         <input name="scheduleNav" type="hidden" value="1">
@@ -593,7 +599,7 @@
 
                                     </td>
                                     <td>
-                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&boxType=<%=pageType%>&amp;orderby=<%=SafeEncode.forUriComponent(orderby)%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>">
+                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&boxType=<%=pageType%>&amp;orderby=<%=SafeEncode.forUriComponent(orderby)%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%><%=demographicQuerySuffix%><%=pageType == 3 ? "&amp;from=encounter" : ""%>">
                                         <carlos:encode value='<%= dm.getThesubject() %>' context="html"/>
                                     </a>
                                     <%

@@ -1225,6 +1225,14 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
+    public void replaceTmpSave(String providerNo, String demographicNo, String programId, String noteId, String note) {
+        // The public manager transaction owns both operations. Calling the delete and insert
+        // separately from an action committed the deletion even when the replacement failed.
+        deleteTmpSave(providerNo, demographicNo, programId);
+        tmpSave(providerNo, demographicNo, programId, noteId, note);
+    }
+
+    @Override
     public void deleteTmpSave(String providerNo, String demographicNo, String programId) {
         Integer intDemoNo = ConversionUtils.fromIntString(demographicNo);
         Integer intProgramId = ConversionUtils.fromIntString(programId);

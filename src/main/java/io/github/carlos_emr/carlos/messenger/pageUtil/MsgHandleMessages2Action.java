@@ -166,10 +166,25 @@ public class MsgHandleMessages2Action extends ActionSupport {
             return NONE;
         }
 
+        // Module access alone does not authorize a saved message. Check before reading its
+        // linked patients or quoting its body, including a reply/forward reconstructed on GET.
+        int requestedMessageId = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(messageNo);
+        boolean sharedChart = MsgAttachmentAccess.find(loggedInInfo, requestedMessageId) == null;
+        String chartPatient = request.getParameter("chartPatientNo");
+        if (sharedChart && (deletes || MsgAttachmentAccess.find(loggedInInfo, requestedMessageId, chartPatient) == null)) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+
         String demographicNo = this.getDemographic_no();
+        if (sharedChart) {
+            demographicNo = Integer.toString(io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(chartPatient));
+            request.setAttribute("chartPatientNo", demographicNo);
+        }
 
         // Check for attached demographics and update demographicNo if found
-        List<MsgDemoMap> msgDemoMap = messengerDemographicManager.getAttachedDemographicList(loggedInInfo, Integer.parseInt(messageNo));
+        List<MsgDemoMap> msgDemoMap = sharedChart ? Collections.emptyList()
+                : messengerDemographicManager.getAttachedDemographicList(loggedInInfo, requestedMessageId);
         if (msgDemoMap != null && msgDemoMap.size() > 0) {
             // Use the first attached demographic
             demographicNo = msgDemoMap.get(0).getDemographic_no() + "";
@@ -194,7 +209,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
         // Process delete operation
         if (DELETE_FLAG.equalsIgnoreCase(delete)) {
             // Soft delete the message
-            messagingManager.deleteMessage(loggedInInfo, Integer.parseInt(messageNo));
+            messagingManager.deleteMessage(loggedInInfo, requestedMessageId);
 
         } 
         // Process reply or reply all operations
@@ -202,7 +217,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
 
             // Retrieve original message and format for quoting
             StringBuilder theSendMessage = new StringBuilder();
-            MessageTbl message = messagingManager.getMessage(loggedInInfo, Integer.parseInt(messageNo));
+            MessageTbl message = messagingManager.getMessage(loggedInInfo, requestedMessageId);
             String themessage = message.getMessage();
             // Add quote markers to each line
             themessage = themessage.replaceAll("\n", "\n>");
@@ -245,7 +260,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
             StringBuilder theSendMessage = new StringBuilder();
 
             // Retrieve original message
-            MessageTbl forwardMessage = messagingManager.getMessage(loggedInInfo, Integer.parseInt(messageNo));
+            MessageTbl forwardMessage = messagingManager.getMessage(loggedInInfo, requestedMessageId);
 
             subject.append(forwardMessage.getSubject());
             themessage = forwardMessage.getMessage();

@@ -188,7 +188,9 @@
     // operation as well as the compose key, so the action can reconstruct the quote.
     String reloadMessageNo = request.getParameter("messageNo");
     String reloadOperation = null;
-    if (reloadMessageNo != null && reloadMessageNo.matches("[1-9][0-9]{0,8}")) {
+    int reloadMessageId = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(reloadMessageNo);
+    if (reloadMessageId > 0) {
+        reloadMessageNo = Integer.toString(reloadMessageId);
         for (String operation : new String[]{"reply", "replyAll", "forward"}) {
             if (request.getParameter(operation) != null) {
                 reloadOperation = operation;
@@ -231,6 +233,9 @@
         composeUrl.searchParams.set('attachmentKey', '<%= SafeEncode.forJavaScript(attachmentKey) %>');
         <% if (reloadOperation != null) { %>
         composeUrl.searchParams.set('messageNo', '<%= SafeEncode.forJavaScript(reloadMessageNo) %>');
+        <% if (request.getAttribute("chartPatientNo") != null) { %>
+        composeUrl.searchParams.set('chartPatientNo', '<%= SafeEncode.forJavaScript((String) request.getAttribute("chartPatientNo")) %>');
+        <% } %>
         composeUrl.searchParams.set('<%= SafeEncode.forJavaScript(reloadOperation) %>', '1');
         <% } %>
         window.history.replaceState(window.history.state, '', composeUrl);

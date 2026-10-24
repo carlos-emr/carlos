@@ -335,6 +335,7 @@ function fmtOscarMsg() {
     <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
 <% } %>
 <form action="<%=request.getContextPath()%>/messenger/HandleMessages" method="post">
+    <input type="hidden" name="chartPatientNo" value="<%=SafeEncode.forHtmlAttribute((String) request.getAttribute("chartPatientNo"))%>">
     <input type="hidden" name="searchString" value="<%=SafeEncode.forHtmlAttribute(mailboxSearch)%>">
     <input type="hidden" name="orderby" value="<%=SafeEncode.forHtmlAttribute(mailboxOrder)%>">
     <input type="hidden" name="boxType" value="<%=SafeEncode.forHtmlAttribute(boxType)%>">
@@ -362,7 +363,7 @@ function fmtOscarMsg() {
 					<table>
 						<tr>
 							<!-- dont need this button from the encounter view -->
-							<c:if test="${ empty param.from or not param.from eq 'encounter' }">
+							<c:if test="${ from ne 'encounter' }">
 								<td>
 								<table class=messButtonsA >
 									<tr>
@@ -394,7 +395,7 @@ function fmtOscarMsg() {
 							<%} %>
 
 							<!-- dont need this button from the encounter view -->
-							<c:if test="${ empty param.from or not param.from eq 'encounter' }">
+							<c:if test="${ from ne 'encounter' }">
 								<td>
 								<table class=messButtonsA>
 									<tr>
@@ -470,7 +471,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewAttach?attachId=<carlos:encode value='<%= id %>' context="javaScript"/>&amp;attachmentKey=<carlos:encode value='<%= forwardKey %>' context="javaScript"/>')">
+								href="javascript:popupViewAttach(700,960,'ViewAttach?attachId=<carlos:encode value='<%= id %>' context="javaScript"/>&amp;chartPatientNo=<carlos:encode value='<%= (String) request.getAttribute("chartPatientNo") %>' context="javaScript"/>&amp;attachmentKey=<carlos:encode value='<%= forwardKey %>' context="javaScript"/>')">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -483,7 +484,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewPDFAttach?attachId=<carlos:encode value='<%= id %>' context="javaScript"/>')">
+								href="javascript:popupViewAttach(700,960,'ViewPDFAttach?attachId=<carlos:encode value='<%= id %>' context="javaScript"/>&amp;chartPatientNo=<carlos:encode value='<%= (String) request.getAttribute("chartPatientNo") %>' context="javaScript"/>')">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%

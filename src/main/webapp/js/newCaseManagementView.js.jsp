@@ -55,6 +55,20 @@
     var providerNo;
     var demographicNo;
     var case_program_id;
+    // Captured once by the containing chart. AJAX fragments must never replace it with
+    // the most recently opened window's context for the same patient.
+    var chartContext = window.carlosChartContext || '';
+
+    function chartActionUrl(path) {
+        var url = ctx + path;
+        if (!chartContext) return url;
+        var query = url.indexOf('?');
+        return query === -1
+            ? url + '?chartContext=' + encodeURIComponent(chartContext)
+            : url.substring(0, query + 1) + 'chartContext=' + encodeURIComponent(chartContext)
+                + '&' + url.substring(query + 1);
+    }
+
     var caisiEnabled = false;
     var requireIssue = true;
     var requireObsDate = true;
@@ -191,7 +205,7 @@
         var editor = document.forms['caseManagementEntryForm'];
         if (needToReleaseLock && editor && editor.noteId) {
             //release lock on note via sendBeacon (reliable on page unload)
-            var url = ctx + "/CaseManagementEntry";
+            var url = chartActionUrl("/CaseManagementEntry");
             var nId = editor.noteId.value;
             var params = "method=releaseNoteLock&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId;
             var csrfToken = CarlosAjax.getCsrfToken();
@@ -403,7 +417,7 @@
     var fullChart = "false";
     function viewFullChart(displayFullChart) {
 
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         var params = assembleMainChartParams(displayFullChart);
 
         if (displayFullChart) {
@@ -461,10 +475,10 @@
 */
     function showIssueNotes() {
         issueNoteUrls = {
-            divR1I1: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=divR1I1",
-            divR1I2: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=divR1I2",
-            divR2I1: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=divR2I1",
-            divR2I2: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=divR2I2"
+            divR1I1: chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=divR1I1",
+            divR1I2: chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=divR1I2",
+            divR2I1: chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=divR2I1",
+            divR2I2: chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=divR2I2"
         };
         var limit = 5;
 
@@ -481,16 +495,16 @@
 
         // If any position variable is empty, it means that the corresponding issue is hidden
         if (socialHistoryPositon) {
-            issueNoteUrls[socialHistoryPositon] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=div" + socialHistoryPositon;
+            issueNoteUrls[socialHistoryPositon] = chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=div" + socialHistoryPositon;
         }
         if (medicalHistoryPosition) {
-            issueNoteUrls[medicalHistoryPosition] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=div" + medicalHistoryPosition;
+            issueNoteUrls[medicalHistoryPosition] = chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=div" + medicalHistoryPosition;
         }
         if (ongoingConcernsPosition) {
-            issueNoteUrls[ongoingConcernsPosition] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=div" + ongoingConcernsPosition;
+            issueNoteUrls[ongoingConcernsPosition] = chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=div" + ongoingConcernsPosition;
         }
         if (remindersPosition) {
-            issueNoteUrls[remindersPosition] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=div" + remindersPosition;
+            issueNoteUrls[remindersPosition] = chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=div" + remindersPosition;
         }
 
         var limit = 5;
@@ -789,7 +803,7 @@
         // the chart as if it were a note. A failed fetch renders nothing; the indicator
         // below is what the clinician sees instead (issue #3609).
         CarlosAjax.updater({success: notesContainer},
-            ctx + "/CaseManagementView",
+            chartActionUrl("/CaseManagementView"),
             {
                 method: 'post',
                 postBody: params,
@@ -898,7 +912,8 @@
         // Every window owns its patient and appointment, including popup-triggered reloads.
         // A login-wide session bean cannot identify which chart issued this request.
         params = (params ? params + "&" : "") + "demographicNo=" + encodeURIComponent(demographicNo)
-            + "&appointmentNo=" + encodeURIComponent(typeof appointmentNo === "undefined" || appointmentNo == null ? "0" : appointmentNo);
+            + "&appointmentNo=" + encodeURIComponent(typeof appointmentNo === "undefined" || appointmentNo == null ? "0" : appointmentNo)
+            + (chartContext ? "&chartContext=" + encodeURIComponent(chartContext) : "");
         var previous = state.modules[div];
         var module = {column: column || (previous && previous.column), status: "loading"};
         if (module.column !== "leftNavBar" && module.column !== "rightNavBar") {
@@ -990,11 +1005,11 @@
             var leftNavBarTitles = ["preventions", "tickler", "msgs", "docs", "labs", "HRM", "measurements", "consultation", "forms", "eforms"];
             var rightNavBar = [
                 ctx + "/encounter/displayDisease?hC=" + Colour.disease,
-                ctx + "/CaseManagementView?hc=" + Colour.familyHistory + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=FamHistory&title=" + famHistoryLabel + "&cmd=FamHistory" + "&appointment_no=" + appointmentNo,
+                chartActionUrl("/CaseManagementView?hc=") + Colour.familyHistory + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=FamHistory&title=" + famHistoryLabel + "&cmd=FamHistory" + "&appointment_no=" + appointmentNo,
                 ctx + "/encounter/displayAllergy?hC=" + Colour.allergy,
                 ctx + "/encounter/displayRx?hC=" + Colour.rx + "&numToDisplay=12",
-                ctx + "/CaseManagementView?hc=" + Colour.omed + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=OMeds&title=" + oMedsLabel + "&cmd=OMeds" + "&appointment_no=" + appointmentNo,
-                ctx + "/CaseManagementView?hc=" + Colour.riskFactors + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=RiskFactors&title=" + riskFactorsLabel + "&cmd=RiskFactors" + "&appointment_no=" + appointmentNo,
+                chartActionUrl("/CaseManagementView?hc=") + Colour.omed + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=OMeds&title=" + oMedsLabel + "&cmd=OMeds" + "&appointment_no=" + appointmentNo,
+                chartActionUrl("/CaseManagementView?hc=") + Colour.riskFactors + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=RiskFactors&title=" + riskFactorsLabel + "&cmd=RiskFactors" + "&appointment_no=" + appointmentNo,
                 ctx + "/encounter/displayIssues?hC=" + Colour.unresolvedIssues,
                 ctx + "/encounter/displayResolvedIssues?hC=" + Colour.resolvedIssues,
                 ctx + "/encounter/displayDecisionSupportAlerts?hC=" + Colour.contacts + "&providerNo=" + providerNo + "&demographicNo=" + demographicNo,
@@ -1408,7 +1423,8 @@ function updateCPPNote() {
                 // ChartNotes.jsp's standalone route loads this script without the chart layout's
                 // appointmentNo global; an undeclared name must mean "no appointment", not a ReferenceError.
                 postBody: 'demographicNo=' + encodeURIComponent(demographicNo)
-                    + '&appointmentNo=' + encodeURIComponent(typeof appointmentNo === 'undefined' || appointmentNo == null ? '0' : appointmentNo),
+                    + '&appointmentNo=' + encodeURIComponent(typeof appointmentNo === 'undefined' || appointmentNo == null ? '0' : appointmentNo)
+                    + (chartContext ? '&chartContext=' + encodeURIComponent(chartContext) : ''),
                 evalScripts: true,
                 onSuccess: function (request) {
                     $(div).update(request.responseText);
@@ -1757,7 +1773,7 @@ function updateCPPNote() {
     function removeLock(id) {
         var regEx = /\d+/;
         var nId = regEx.exec(id);
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         params = "method=releaseNoteLock&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId + "&force=true";
 
         CarlosAjax.request(
@@ -2058,7 +2074,7 @@ function updateCPPNote() {
         var trigger = $("quitImg" + nId);
         if (trigger != null) Element.remove(trigger);
 
-        CarlosAjax.request(ctx + "/CaseManagementView", {
+        CarlosAjax.request(chartActionUrl("/CaseManagementView"), {
             method: 'post',
             postBody: "method=viewNote&raw=false&noteId=" + nId,
             evalScripts: true,
@@ -2127,7 +2143,7 @@ function updateCPPNote() {
     }
 
     function fetchNote(nId) {
-        var url = ctx + "/CaseManagementView";
+        var url = chartActionUrl("/CaseManagementView");
         var fullId = "full" + nId;
         var params = "method=viewNote&raw=true&noteId=" + nId;
         var noteTxtArea = "caseNote_note" + nId;
@@ -2175,7 +2191,7 @@ function updateCPPNote() {
     }
 
     function fullViewById(id) {
-        var url = ctx + "/CaseManagementView";
+        var url = chartActionUrl("/CaseManagementView");
 
         var regEx = /\d+/;
         var nId = regEx.exec(id);
@@ -2272,7 +2288,7 @@ function updateCPPNote() {
     function NoteisLocked(nId) {
 
         var noteIsLocked = "";
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         params = "method=isNoteEdited&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId;
 
         CarlosAjax.request(
@@ -2349,14 +2365,14 @@ function updateCPPNote() {
                 var params = "method=releaseNoteLock&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&noteId=" + oldNoteId + "&force=true";
                 jQuery.ajax({
                     type: "POST",
-                    url: ctx + "/CaseManagementEntry",
+                    url: chartActionUrl("/CaseManagementEntry"),
                     data: params
                 });
 
                 params = "method=updateNoteLock&demographicNo=" + demographicNo + "&noteId=" + nId;
                 jQuery.ajax({
                     type: "POST",
-                    url: ctx + "/CaseManagementEntry",
+                    url: chartActionUrl("/CaseManagementEntry"),
                     data: params
                 });
             } else {
@@ -2476,7 +2492,7 @@ function updateCPPNote() {
 
 
         //AutoCompleter for Issues
-        <%--var issueURL = ctx + "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;--%>
+        <%--var issueURL = chartActionUrl("/CaseManagementEntry?method=issueList&demographicNo=") + demographicNo + "&providerNo=" + providerNo;--%>
         <%--issueAutoCompleter = new Ajax.Autocompleter("issueAutocomplete", "issueAutocompleteList", issueURL, {minChars: 4, indicator: 'busy', afterUpdateElement: saveIssueId, onShow: autoCompleteShowMenu, onHide: autoCompleteHideMenu});--%>
 
         //if note is already signed, remove save button to force edits to be signed
@@ -2609,7 +2625,7 @@ function updateCPPNote() {
         // A filter reload replaces the editor just like opening another note.
         // Preserve unsaved text and assignments, and honor cancel/save failures.
         if (!changeToView(caseNote, function () { filter(reset, clearIssues); })) return false;
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         var params = "ajaxview=ajaxView&fullChart=" + fullChart;
         document.forms["caseManagementEntryForm"].method.value = "edit";
         document.forms["caseManagementEntryForm"].note_edit.value = "new";
@@ -2826,7 +2842,7 @@ function updateCPPNote() {
         var demoNo = demographicNo;
         var encType = "encTypeSelect" + noteId;
         var caseMgtEntryfrm = document.forms["caseManagementEntryForm"];
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         // encodeURIComponent, not encodeURI: encodeURI leaves & = + intact, so a note
         // containing "H&P" or a pasted link with "&cmd=" was cut off at the first "&"
         // on the server (ajaxsave() reads noteTxt, and the rest became stray
@@ -2959,7 +2975,7 @@ function updateCPPNote() {
         var params = Form.serialize(caseMgtEntryfrm);
         params += "&ajaxview=ajaxView&fullChart=" + fullChart;
 
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
 
         var restoreControls = beginNoteSwitchSave();
 
@@ -3150,7 +3166,7 @@ function updateCPPNote() {
                 source: function (request, response) {
                     if (pendingSearch) pendingSearch.abort();
                     pendingSearch = jQuery.ajax({
-                        url: ctx + '/CaseManagementEntry',
+                        url: chartActionUrl('/CaseManagementEntry'),
                         method: 'GET',
                         dataType: 'json',
                         data: {method: 'issueList', demographicNo: demographicNo,
@@ -3335,7 +3351,7 @@ function updateCPPNote() {
         frm.method.value = method;
         frm.ajax.value = true;
 
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         var p = Form.serialize(frm);
         if (issueUpdatesPending === 0) issueUpdateFailed = false;
         issueUpdatesPending += 1;
@@ -3534,7 +3550,7 @@ function updateCPPNote() {
     }
 
     function deleteAutoSave() {
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         var frm = document.forms["caseManagementEntryForm"];
         frm.method.value = "cancel";
 
@@ -3550,7 +3566,7 @@ var lostNoteLock = false;
 var autoSaveXhr = null;
 function autoSave() {
     sanitizeElementByPattern(document.getElementById(caseNote), CONTROL_CHAR_PATTERN_2);
-    var url = ctx + "/CaseManagementEntry";
+    var url = chartActionUrl("/CaseManagementEntry");
     var programId = case_program_id;
     var demoNo = demographicNo;
     var cmeFrm = document.forms["caseManagementEntryForm"];
@@ -3639,7 +3655,7 @@ function autoSave() {
         Event.stop(event);
         var rnd = Math.round(Math.random() * 1000);
         win = "win" + rnd;
-        var url = ctx + "/CaseManagementEntry?method=notehistory&noteId=" + encodeURIComponent(noteId)
+        var url = chartActionUrl("/CaseManagementEntry?method=notehistory&noteId=") + encodeURIComponent(noteId)
             + "&demographicNo=" + encodeURIComponent(demographicNo);
         window.open(url, win, "scrollbars=yes, location=no, width=647, height=600", "");
         return false;
@@ -3651,7 +3667,7 @@ function autoSave() {
     function showIssueHistory(demoNo, issueIds) {
         var rnd = Math.round(Math.random() * 1000);
         win = "win" + rnd;
-        var url = ctx + "/CaseManagementEntry?method=issuehistory&demographicNo=" + demoNo + "&issueIds=" + issueIds;
+        var url = chartActionUrl("/CaseManagementEntry?method=issuehistory&demographicNo=") + demoNo + "&issueIds=" + issueIds;
         window.open(url, win, "scrollbars=yes, location=no, width=647, height=600", "");
         return false;
     }
@@ -4019,7 +4035,7 @@ function autoSave() {
             return false;
         }
 
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         var frm = document.forms["caseManagementEntryForm"];
 
         frm.method.value = "print";
@@ -4148,7 +4164,8 @@ function autoSave() {
 
     function selectGroup(programId, demographicNo) {
         var noteId = document.forms["caseManagementEntryForm"].noteId.value;
-        var url = 'groupNoteSelect.jsp?programId=' + programId + '&demographicNo=' + demographicNo;
+        var url = 'groupNoteSelect.jsp?programId=' + programId + '&demographicNo=' + demographicNo
+            + (chartContext ? '&chartContext=' + encodeURIComponent(chartContext) : '');
         popupPage(600, 700, 'group', url);
 
     }
@@ -4365,7 +4382,7 @@ function autoSave() {
         var params = Form.serialize(caseMgtEntryfrm);
         params += "&ajaxview=ajaxView&fullChart=" + fullChart;
 
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
 
         destroyNoteIssueAutocomplete();
         $("notCPP").update("Loading...");

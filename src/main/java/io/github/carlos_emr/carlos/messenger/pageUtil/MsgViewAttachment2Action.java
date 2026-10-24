@@ -125,7 +125,7 @@ public class MsgViewAttachment2Action extends ActionSupport {
 
         // Retrieve message and extract attachment data
         MessageTbl m = MsgAttachmentAccess.find(LoggedInInfo.getLoggedInInfoFromSession(request),
-                ConversionUtils.fromIntString(attachId));
+                ConversionUtils.fromIntString(attachId), request.getParameter("chartPatientNo"));
         if (m == null || m.getAttachment() == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;

@@ -66,6 +66,9 @@
 </head>
 <body>
     <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView" method="post">
+        <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+        <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+        <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="${carlos:forHtmlAttribute(requestScope.demographicNo)}"/>
         <input type="hidden" name="providerNo" id="providerNo" value="${carlos:forHtmlAttribute(sessionScope.user)}"/>
         <input type="hidden" name="tab" id="tab" value="${carlos:forHtmlAttribute(param.tab)}"/>
@@ -136,8 +139,17 @@
                 document.caseManagementViewForm.submit();
             }
 
+            function chartPopupUrl(url) {
+                var token = '<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+                if (!token) return url;
+                var target = new URL(url, document.baseURI);
+                if (target.origin !== window.location.origin) return url;
+                target.searchParams.set('chartContext', token);
+                return target.href;
+            }
+
             function popupNotePage(varpage) {
-                var page = "" + varpage;
+                var page = chartPopupUrl("" + varpage);
                 windowprops = "height=800,width=800,location=no,"
                     + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
                 var popup = window.open(page, "editNote", windowprops);
@@ -150,7 +162,7 @@
             }
 
             function popupHistoryPage(varpage) {
-                var page = "" + varpage;
+                var page = chartPopupUrl("" + varpage);
                 windowprops = "location=no,"
                     + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=0,left=0";
                 window.open(page, "", windowprops);

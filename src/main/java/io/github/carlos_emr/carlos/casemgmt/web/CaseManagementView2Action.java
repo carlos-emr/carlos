@@ -327,11 +327,8 @@ public class CaseManagementView2Action extends ActionSupport {
         HttpSession se = request.getSession();
         if (se.getAttribute("userrole") == null) return "expired";
 
-        String demoNo = getDemographicNo();
-        if (demoNo == null || !demoNo.matches("\\d{1,9}")) {
-            logger.warn("Invalid demographicNo from Struts parameter: {}", LogSafe.sanitize(demoNo));
-            return "error";
-        }
+        String demoNo = requestPatientOrBadRequest();
+        if (demoNo == null) return NONE;
 
         logger.debug("is client in program");
         // need to check to see if the client is in our program domain
@@ -1151,7 +1148,9 @@ public class CaseManagementView2Action extends ActionSupport {
         }
 
         // set save Url
-        String addUrl = request.getContextPath() + "/CaseManagementEntry?method=issueNoteSave&providerNo=" + providerNo + "&demographicNo=" + demoNo + "&appointmentNo=" + appointmentNo + "&noteId=";
+        String chartToken = ChartProgramContext.token(request);
+        String addUrl = request.getContextPath() + "/CaseManagementEntry?method=issueNoteSave"
+                + (chartToken == null ? "" : "&chartContext=" + chartToken) + "&providerNo=" + providerNo + "&demographicNo=" + demoNo + "&appointmentNo=" + appointmentNo + "&noteId=";
         request.setAttribute("addUrl", addUrl);
         request.setAttribute("cppIssue", cppIssues.toString());
 

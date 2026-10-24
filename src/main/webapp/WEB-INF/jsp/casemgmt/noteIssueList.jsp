@@ -67,7 +67,7 @@
     String noteIndex = "";
     String encSelect = "encTypeSelect";
     String demoNo = request.getParameter("demographicNo");
-    String caseMgmtEntryFrm = "caseManagementEntryForm" + demoNo;
+    String caseMgmtEntryFrm = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demoNo);
     CaseManagementEntryFormBean frm = (CaseManagementEntryFormBean) request.getAttribute("caseManagementEntryForm");
     if (frm == null) {
         frm = (CaseManagementEntryFormBean) session.getAttribute(caseMgmtEntryFrm);

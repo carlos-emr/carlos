@@ -47,7 +47,8 @@ function sliceFunctions(from, to) {
   return code;
 }
 
-const CODE = sliceFunctions('notesCaptureScrollAnchor', 'notesIncrementAndLoadMore')
+const CODE = SOURCE.slice(SOURCE.indexOf('    function chartActionUrl('), SOURCE.indexOf('    var caisiEnabled'))
+  + sliceFunctions('notesCaptureScrollAnchor', 'notesIncrementAndLoadMore')
   + sliceFunctions('notesLoader', 'navBarLoader');
 
 /**
@@ -118,7 +119,7 @@ function setup(pane) {
   const context = vm.createContext({
     $: (id) => elements[id] || null,
     jQuery: () => ({ serialize: () => '' }),
-    ctx: '/carlos',
+    ctx: '/carlos', chartContext: '',
     notesLoadsInFlight: 0,
     notesLoadSequence: 0,
     notesActiveLoadId: 0,

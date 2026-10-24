@@ -28,6 +28,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -38,6 +40,7 @@ import java.util.Collection;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -45,6 +48,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @DisplayName("DxResearch2Action Unit Tests")
@@ -65,7 +69,7 @@ class DxResearch2ActionTest extends CarlosUnitTestBase {
     private dxResearch2Action action;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
@@ -100,6 +104,9 @@ class DxResearch2ActionTest extends CarlosUnitTestBase {
                 return "code not found";
             }
         };
+        java.lang.reflect.Field securityField = dxResearch2Action.class.getDeclaredField("securityInfoManager");
+        securityField.setAccessible(true);
+        securityField.set(null, mockSecurityInfoManager);
         action.setSelectedCodingSystem("icd9");
         action.setDemographicNo("12345");
         action.setProviderNo("999998");
@@ -167,5 +174,52 @@ class DxResearch2ActionTest extends CarlosUnitTestBase {
 
         assertThat(mockRequest.getAttribute("demographicNo")).isNull();
         assertThat(mockRequest.getAttribute("allDiagnostics")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1000000000", "2147483647", "0000012345"})
+    void shouldKeepAuthorizedPatient_whenValidIdentifierUsesTenDigits(String patient) throws Exception {
+        action.setDemographicNo(patient);
+        String canonicalPatient = Integer.toString(Integer.parseInt(patient));
+
+        assertThat(action.execute()).isEqualTo("failure");
+
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_dxresearch", "w", canonicalPatient);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_demographic", "r", canonicalPatient);
+        verify(mockDxresearchDao).findByDemographicNoResearchCodeAndCodingSystem(
+                Integer.valueOf(canonicalPatient), "NOT-A-REAL-CODE", "icd9");
+        assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo(canonicalPatient);
+        assertThat(mockRequest.getAttribute("allDiagnostics")).isInstanceOf(dxResearchBeanHandler.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "2147483648", "99999999999", "-1", "1.0"})
+    void shouldRejectPatient_beforeRegistryAccessForInvalidIdentifier(String patient) throws Exception {
+        action.setDemographicNo(patient);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(mockDxresearchDao, mockIcd9Dao);
+        assertThat(mockRequest.getAttribute("demographicNo")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"_dxresearch", "_demographic"})
+    void shouldDenyMutation_whenPatientPrivilegeIsMissing(String object) {
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, object,
+                "_dxresearch".equals(object) ? "w" : "r", "12345")).thenReturn(false);
+
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(mockDxresearchDao, mockIcd9Dao);
+        assertThat(mockRequest.getAttribute("demographicNo")).isNull();
+    }
+
+    @Test
+    void shouldDenyMutation_whenPatientRecordIsRestricted() {
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 12345)).thenReturn(false);
+
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(mockDxresearchDao, mockIcd9Dao);
+        assertThat(mockRequest.getAttribute("demographicNo")).isNull();
     }
 }

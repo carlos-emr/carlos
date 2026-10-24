@@ -96,6 +96,31 @@ class DxSetupResearch2ActionTest extends CarlosWebTestBase {
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("missing required sec object (_dxresearch)");
         }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"_dxresearch", "_demographic"})
+        void shouldDenyRegistry_whenPatientPrivilegeIsMissing(String object) {
+            allowPrivilege("_dxresearch", "r");
+            addRequestParameter("demographicNo", VALID_DEMO_NO);
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, object, "r", VALID_DEMO_NO))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> executeAction(action)).isInstanceOf(SecurityException.class);
+            verifyNoInteractions(quickListDao);
+            assertThat(mockRequest.getAttribute("allDiagnostics")).isNull();
+        }
+
+        @Test
+        void shouldDenyRegistry_whenPatientRecordIsRestricted() {
+            allowPrivilege("_dxresearch", "r");
+            addRequestParameter("demographicNo", VALID_DEMO_NO);
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 12345))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> executeAction(action)).isInstanceOf(SecurityException.class);
+            verifyNoInteractions(quickListDao);
+            assertThat(mockRequest.getAttribute("allDiagnostics")).isNull();
+        }
     }
 
     @Nested
@@ -155,6 +180,35 @@ class DxSetupResearch2ActionTest extends CarlosWebTestBase {
             String result = executeAction(action);
 
             assertThat(result).isEqualTo(ActionSupport.ERROR);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"0", "2147483648", "99999999999"})
+        void shouldReturnError_whenPatientIdentifierIsOutsidePositiveIntegerRange(String patient) throws Exception {
+            addRequestParameter("demographicNo", patient);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.ERROR);
+            verifyNoInteractions(quickListDao);
+            assertThat(mockRequest.getAttribute("demographicNo")).isNull();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"1000000000", "2147483647", "0000012345"})
+        void shouldRenderAuthorizedPatient_whenValidIdentifierUsesTenDigits(String patient) throws Exception {
+            addRequestParameter("demographicNo", patient);
+            String canonicalPatient = Integer.toString(Integer.parseInt(patient));
+            try (var coding = mockConstruction(dxResearchCodingSystem.class);
+                 var diagnostics = mockConstruction(dxResearchBeanHandler.class);
+                 var lists = mockConstruction(dxQuickListBeanHandler.class,
+                         (mock, context) -> when(mock.getLastUsedQuickList()).thenReturn("Default"));
+                 var items = mockConstruction(dxQuickListItemsHandler.class)) {
+                assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+                verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_dxresearch", "r", canonicalPatient);
+                verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_demographic", "r", canonicalPatient);
+                assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo(canonicalPatient);
+                assertThat(diagnostics.constructed()).hasSize(1);
+                assertThat(mockRequest.getAttribute("allDiagnostics")).isSameAs(diagnostics.constructed().getFirst());
+            }
         }
     }
 

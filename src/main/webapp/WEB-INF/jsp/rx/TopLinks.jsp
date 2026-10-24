@@ -35,6 +35,9 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <core:set var="ctx" value="${ pageContext.servletContext.contextPath }"/>
+<script src="${pageContext.request.contextPath}/share/javascript/rx-patient-context.js"
+        data-demographic-no="<%= io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver.requestedDemographicNo(request) > 0 ? String.valueOf(io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver.requestedDemographicNo(request)) : "" %>"
+        data-chart-context="<%= org.owasp.encoder.Encode.forHtmlAttribute(java.util.Objects.toString(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request), "")) %>"></script>
 <core:set var="url"
        value="${ ctx }/demographic/DemographicEdit?demographic_no=${ param.demographicNo }&appointment="/>
 

@@ -279,6 +279,18 @@ public interface CaseManagementManager {
 
     public void tmpSave(String providerNo, String demographicNo, String programId, String noteId, String note);
 
+    /**
+     * Atomically replaces the draft for one provider, patient and program. A failed replacement
+     * rolls back deletion of the previous draft.
+     *
+     * @param providerNo String identifying the provider who owns the draft
+     * @param demographicNo String containing the patient identifier
+     * @param programId String containing the program identifier
+     * @param noteId String containing the note identifier, or null/empty for a new note
+     * @param note String containing the draft text
+     */
+    void replaceTmpSave(String providerNo, String demographicNo, String programId, String noteId, String note);
+
     public void deleteTmpSave(String providerNo, String demographicNo, String programId);
 
     public CaseManagementTmpSave getTmpSave(String providerNo, String demographicNo, String programId);

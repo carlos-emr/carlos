@@ -176,7 +176,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     Date dToday = new Date();
     String strToday = jsfmt.format(dToday);
 
-    String frmName = "caseManagementEntryForm" + demographicNo;
+    String frmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
     CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
 
     if (cform == null) {
@@ -944,7 +944,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             var params = "method=updateNoteLock&demographicNo=" + demographicNo;
             jQuery.ajax({
                 type: "POST",
-                url: "<%=ctx%>/CaseManagementEntry",
+                url: chartActionUrl("/CaseManagementEntry"),
                 data: params,
                 success: function () {
                     //force save when exiting chart in case we loaded edited note in other chart

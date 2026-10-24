@@ -152,7 +152,8 @@ public class MsgViewPDF2Action extends ActionSupport {
         String pdfFile = null;
         int messageId = ConversionUtils.fromIntString(attId);
         if (messageId > 0 && fileId >= 0) {
-            MessageTbl message = MsgAttachmentAccess.find(LoggedInInfo.getLoggedInInfoFromSession(request), messageId);
+            MessageTbl message = MsgAttachmentAccess.find(LoggedInInfo.getLoggedInInfoFromSession(request), messageId,
+                    request.getParameter("chartPatientNo"));
             if (message != null && message.getPdfAttachment() != null) {
                 // Every CONTENT tag of the message's PDF list, in order; file_id is an index.
                 Vector<?> contents;
