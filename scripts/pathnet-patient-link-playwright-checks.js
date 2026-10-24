@@ -32,6 +32,7 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { submitInFrame, reopenAdminPage } = require('./lib/admin-frame');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 
 function batch(phn, dob, name, accession) {
   const obr = Array(26).fill('');
@@ -138,6 +139,7 @@ async function workflow(s) {
     // including a numerically valid identifier rejected inside the transaction.
     for (const invalid of ['invalid', '2147483647']) {
       frame = await openFrame(linkingLink, 'lab/CA/BC/ViewIndex');
+      const failure = failureMark(s.recorder);
       const rejectedPost = admin.waitForResponse(r => r.request().method() === 'POST'
         && new URL(r.url()).pathname.endsWith('/lab/CA/BC/ViewIndex'));
       await frame.locator('#patientLinkForm').evaluate((form, selection) => {
@@ -149,6 +151,8 @@ async function workflow(s) {
         form.requestSubmit();
       }, { pid: unlinked, patient, invalid });
       h.assert((await rejectedPost).status() === 400, 'Invalid later selection was accepted');
+      await frame.waitForLoadState('load');
+      consumeExpectedFailure(s.recorder, failure, { status: 400, path: /\/lab\/CA\/BC\/ViewIndex$/ });
       h.assert(sql.value(`SELECT COUNT(*) FROM hl7_link l JOIN hl7_pid p ON p.pid_id=l.pid_id
         JOIN patientLabRouting r ON r.lab_no=p.message_id AND r.lab_type='BCP'
         WHERE l.pid_id=${unlinked} AND l.demographic_no=0 AND l.status='P' AND r.demographic_no=0`) === '1',
