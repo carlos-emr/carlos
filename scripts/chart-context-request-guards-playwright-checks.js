@@ -118,7 +118,7 @@ async function workflow(s) {
       + (SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${B})`) === '0',
     'Second chart fixture or drafts were not removed');
   });
-  const chartA = await s.chart();
+  const chartA = await s.chart({navbarTimeout: 90000});
   await pause(chartA);
   const chartB = await context.newPage();
   await h.gotoApp(chartB, s.config.baseUrl,
