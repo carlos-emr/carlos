@@ -24,6 +24,29 @@ const { readPatientState } = require('./echart-two-patient-isolation-playwright-
 const { csrfToken } = require('./lib/front-door-checks');
 
 const NAME = 'get-reject-chart-notes';
+const TICKLER_NOTE_SAVE_FAILURE = 'Unable to save the note. Please try again.';
+
+function assertTicklerFailureDialog(dialogs, variant) {
+  h.assert(dialogs.length === 1 && dialogs[0].type === 'alert'
+    && dialogs[0].text === TICKLER_NOTE_SAVE_FAILURE,
+  `${variant} tickler save failed without exactly one explanatory alert`);
+}
+
+/** Attribute only the controlled HTTP 403 and its native error callback. */
+function ticklerFailureDiagnostics(entries, {variant, pageUrl, requestUrl, csrfGuardUrl}) {
+  // The synchronous XHR's browser diagnostic can point at CSRFGuard's shipping
+  // XMLHttpRequest wrapper instead of the endpoint. Its response, body and UI
+  // effects have already been proved before this diagnostic is acknowledged.
+  const resources = entries.filter(entry => entry.type === 'error'
+    && [requestUrl, csrfGuardUrl].includes(entry.location?.url)
+    && /^Failed to load resource: the server responded with a status of 403(?: \([^)]*\))?$/.test(entry.text));
+  const application = entries.filter(entry => variant === 'main' && entry.type === 'error'
+    && entry.location?.url === pageUrl
+    && /^\[ticklerMain\] Failed to save note \(HTTP 403\):/.test(entry.text));
+  h.assert(resources.length === 1 && application.length === (variant === 'main' ? 1 : 0),
+    'The controlled tickler failure emitted missing or ambiguous diagnostics');
+  return [...resources, ...application];
+}
 
 /** Replay `params` with every occurrence of `from` in a value replaced by `to`. */
 function substitute(params, from, to) {
@@ -259,8 +282,7 @@ async function workflow(s) {
           });
           h.assert(injected === 1 && failed.status === 403 && failed.method === 'POST',
             `${variant} tickler failure did not reach its patient ownership guard (HTTP ${failed?.status})`);
-          h.assert(dialogs.length === 1 && dialogs[0].type === 'alert' && /could not be saved/i.test(dialogs[0].text),
-            `${variant} tickler save failed without exactly one explanatory alert`);
+          assertTicklerFailureDialog(dialogs, variant);
           h.assert(await editor.inputValue() === text && await editor.isVisible(),
             `${variant} tickler failure closed or cleared the clinical editor`);
           h.assert(JSON.stringify([readPatientState(sql, patient), readPatientState(sql, otherPatient)]) === baseline,
@@ -269,12 +291,11 @@ async function workflow(s) {
             && entry.method === 'POST' && entry.status === 403
             && new URL(entry.url).pathname === failed.path);
           h.assert(responses.length === 1, 'The controlled tickler failure was not recorded exactly once');
-          const diagnostics = s.recorder.consoleIssues.filter(entry => !beforeConsole.has(entry)
-            && ((entry.location?.url === responses[0].url && /^Failed to load resource:.*403/.test(entry.text))
-              || (variant === 'main' && entry.location?.url === page.url()
-                && /^\[ticklerMain\] Failed to save note \(HTTP 403\):/.test(entry.text))));
-          h.assert(diagnostics.length >= 1 && diagnostics.length <= 2,
-            'The controlled tickler failure emitted unexpected diagnostics');
+          const diagnostics = ticklerFailureDiagnostics(
+            s.recorder.consoleIssues.filter(entry => !beforeConsole.has(entry)), {
+              variant, pageUrl: page.url(), requestUrl: responses[0].url,
+              csrfGuardUrl: h.appUrl(s.config.baseUrl, '/csrfguard'),
+            });
           s.recorder.badResponses = s.recorder.badResponses.filter(entry => !responses.includes(entry));
           s.recorder.consoleIssues = s.recorder.consoleIssues.filter(entry => !diagnostics.includes(entry));
         } finally { await page.unroute(matcher, fail); }
@@ -299,4 +320,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow(NAME, workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, assertTicklerFailureDialog, ticklerFailureDiagnostics };

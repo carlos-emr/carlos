@@ -25,6 +25,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const {assertTicklerFailureDialog, ticklerFailureDiagnostics} = require('./get-reject-chart-notes-playwright-checks');
+
+const english = fs.readFileSync(path.join(__dirname, '../src/main/resources/oscarResources_en.properties'), 'utf8');
+const saveFailure = english.match(/^tickler\.ticklerMain\.errorNoteSaveFailed=(.+)$/m)?.[1];
+assert.ok(saveFailure, 'The shipping tickler note failure translation is missing');
 
 function dialog(file, status) {
   const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/tickler', file), 'utf8');
@@ -34,9 +39,9 @@ function dialog(file, status) {
   assert.ok(end > start, `${file} has no complete save handler`);
   const script = source.slice(start, end + '\n            }'.length)
     .replace(/<%=\s*request.getContextPath\(\)\s*%>/g, '/carlos')
-    .replace(/<carlos:encode\b[\s\S]*?\/>/g, 'The note could not be saved. Please try again.')
-    .replace(/\$\{carlos:forJavaScriptBlock\(ticklerNoteSaveFailed\)\}/g,
-      'The note could not be saved. Please try again.');
+    .replace(/alert\('<carlos:encode\b[\s\S]*?\/>'\)/g, `alert(${JSON.stringify(saveFailure)})`)
+    .replace(/alert\('\$\{carlos:forJavaScriptBlock\(ticklerNoteSaveFailed\)\}'\)/g,
+      `alert(${JSON.stringify(saveFailure)})`);
   const inputs = {
     tickler_note: {value: 'Unsaved H&P + retained clinical text'},
     tickler_note_noteId: {value: '17'}, tickler_note_demographicNo: {value: '101'},
@@ -83,7 +88,51 @@ for (const file of ['ticklerMain.jsp', 'ticklerDemoMain.jsp']) {
       assert.equal(state.closed, 0);
       assert.equal(inputs.tickler_note.value, 'Unsaved H&P + retained clinical text');
       assert.equal(state.alerts.length, 1);
-      assert.match(state.alerts[0], /note could not be saved.*try again/i);
+      assert.equal(state.alerts[0], saveFailure);
+      assertTicklerFailureDialog([{type: 'alert', text: state.alerts[0]}], file);
     });
   }
+}
+
+for (const [label, dialogs] of [
+  ['missing', []],
+  ['duplicate', [{type: 'alert', text: saveFailure}, {type: 'alert', text: saveFailure}]],
+  ['wrong type', [{type: 'confirm', text: saveFailure}]],
+  ['wrong message', [{type: 'alert', text: 'A different error'}]],
+]) {
+  test(`the failure probe refuses a ${label} alert`, () => {
+    assert.throws(() => assertTicklerFailureDialog(dialogs, 'main'), /exactly one explanatory alert/);
+  });
+}
+
+const requestUrl = 'https://example.test/carlos/CaseManagementEntry';
+const pageUrl = 'https://example.test/carlos/tickler/ViewTicklerMain?demoview=101';
+const csrfGuardUrl = 'https://example.test/carlos/csrfguard';
+const resource = url => ({type: 'error', text: 'Failed to load resource: the server responded with a status of 403 ()',
+  location: {url}});
+const application = {type: 'error', text: '[ticklerMain] Failed to save note (HTTP 403): ', location: {url: pageUrl}};
+
+for (const variant of ['main', 'legacy']) {
+  for (const origin of [requestUrl, csrfGuardUrl]) {
+    test(`${variant} attributes its unique controlled 403 at ${new URL(origin).pathname}`, () => {
+      const own = resource(origin);
+      const unrelated = {type: 'error', text: 'Unrelated application failure', location: {url: pageUrl}};
+      const entries = [own, ...(variant === 'main' ? [application] : []), unrelated];
+      const acknowledged = ticklerFailureDiagnostics(entries, {variant, pageUrl, requestUrl, csrfGuardUrl});
+      assert.deepEqual(acknowledged, [own, ...(variant === 'main' ? [application] : [])]);
+      assert.deepEqual(entries.filter(entry => !acknowledged.includes(entry)), [unrelated]);
+    });
+  }
+}
+
+for (const [label, entries] of [
+  ['missing resource', [application]],
+  ['duplicate resources', [resource(requestUrl), resource(csrfGuardUrl), application]],
+  ['foreign resource', [resource('https://example.test/carlos/other-resource'), application]],
+  ['missing application callback', [resource(csrfGuardUrl)]],
+]) {
+  test(`the failure probe refuses ${label} diagnostics`, () => {
+    assert.throws(() => ticklerFailureDiagnostics(entries,
+      {variant: 'main', pageUrl, requestUrl, csrfGuardUrl}), /missing or ambiguous diagnostics/);
+  });
 }
