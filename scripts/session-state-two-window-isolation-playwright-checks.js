@@ -626,7 +626,7 @@ async function sendRefusals(s, A, B, messenger, chartOf) {
 }
 
 async function listsKeepAttachments(s, A, B, messenger, chartOf) {
-  const { marker } = s;
+  const { marker, context, config } = s;
   await step(s, 'the inbox and each patient\'s message list, opened before a send, leave the compose window\'s attachment', async () => {
     const compose = await composeWithPatientPdf(s, chartOf.B, 'B (lists open)', B);
     const inbox = await openPage(s, '/messenger/DisplayMessages', 'messenger inbox');
@@ -641,16 +641,21 @@ async function listsKeepAttachments(s, A, B, messenger, chartOf) {
       h.assert(text.includes(`${marker} ${label} chart PDF`) && !text.includes(`${marker} ${other} chart PDF`),
         `${label}'s message list does not list exactly the messages linked to ${label}`);
     }
-    // Without a patient the list names none, rather than the patient of another window's list.
-    const unnamed = await openPage(s, '/messenger/DisplayDemographicMessages', 'message list without a patient');
-    const unnamedText = await unnamed.locator('body').innerText();
-    h.assert(!unnamedText.includes(`${marker} A chart PDF`) && !unnamedText.includes(`${marker} B chart PDF`),
-      'The message list opened without a patient lists another window\'s patient\'s messages');
+    // A list without an explicit patient is refused, rather than borrowing another window's
+    // patient. Use the same authenticated browser context for this deliberately invalid request.
+    const unnamed = await context.request.get(h.appUrl(config.baseUrl, '/messenger/DisplayDemographicMessages'),
+      {maxRedirects: 0, failOnStatusCode: false});
+    try {
+      h.assert(unnamed.status() === 404, `A message list without a patient answered HTTP ${unnamed.status()}, not 404`);
+      const unnamedText = await unnamed.text();
+      h.assert(!unnamedText.includes(`${marker} A chart PDF`) && !unnamedText.includes(`${marker} B chart PDF`),
+        'The message list opened without a patient lists another window\'s patient\'s messages');
+    } finally { await unnamed.dispose(); }
     const id = await sendToSelf(s, compose, messenger.groupId, `${marker} B after the lists`);
     const pdfs = storedPdfs(s, id);
     h.assert(pdfs.count === 1 && pdfs.text.includes(B_FIRST_NAME),
       `Opening the inbox and the message lists left B's message with ${pdfs.count} chart PDFs instead of B's one`);
-    for (const page of [unnamed, listOf.B, listOf.A, inbox, compose]) await page.close();
+    for (const page of [listOf.B, listOf.A, inbox, compose]) await page.close();
   });
 }
 
