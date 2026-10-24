@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
 
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.service.StaleNoteRevisionException;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDao;
 import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
@@ -126,6 +127,10 @@ public class RxWriteToEncounter2Action extends ActionSupport {
             return rejectBeforeWrite(HttpServletResponse.SC_FORBIDDEN);
         }
         CaseManagementTmpSave tmpSave = caseManagementMgr.getTmpSave(loggedInInfo.getLoggedInProviderNo(), demographicNo, programNo);
+        Integer capturedDraftId = tmpSave == null ? null : tmpSave.getId();
+        if (tmpSave != null && (capturedDraftId == null || capturedDraftId <= 0)) {
+            return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
+        }
         Date today = new Date();
         if (tmpSave != null) {
             // Persist clinical text, not a JavaScript string literal. Apply output
@@ -151,21 +156,23 @@ public class RxWriteToEncounter2Action extends ActionSupport {
                         || note.getUpdate_date().after(tmpSave.getUpdateDate())) {
                     return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
                 }
-                note.setNote(tmpSave.getNote() + "\n" + noteBody);
-                note.setUpdate_date(today);
-                caseManagementMgr.saveNoteSimple(note);
+                if (!appendRevision(caseManagementMgr, note, tmpSave.getNote() + "\n" + noteBody, today)) {
+                    return NONE;
+                }
             } else {
                 createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, tmpSave.getNote() + "\n" + noteBody, request.getParameter("sign"));
             }
-            caseManagementTmpSaveDao.remove(tmpSave.getProviderNo(), tmpSave.getDemographicNo(), tmpSave.getProgramId());
+            // A newer autosave can replace this row while the revision is being saved.
+            // Consume only the captured row; never remove an unseen replacement by patient/program.
+            caseManagementTmpSaveDao.removeCaptured(capturedDraftId);
         } else {
             CaseManagementNote note = getLastSaved(request, demographicNo, loggedInInfo.getLoggedInProviderNo(), caseManagementMgr);
             if (note != null && demographicNo.equals(note.getDemographic_no())
                     && mayAppendDirectly(note, loggedInInfo.getLoggedInProviderNo())) {
                 String noteBody = generateNote(loggedInInfo, request.getParameter("body"), false);
-                note.setNote(note.getNote() + "\n" + noteBody);
-                note.setUpdate_date(today);
-                caseManagementMgr.saveNoteSimple(note);
+                if (!appendRevision(caseManagementMgr, note, note.getNote() + "\n" + noteBody, today)) {
+                    return NONE;
+                }
             } else {
                 // Automatic selection may return a protected legacy note. Prescribing still
                 // works by adding a fresh note owned by this provider in this chart program.
@@ -173,7 +180,7 @@ public class RxWriteToEncounter2Action extends ActionSupport {
                 createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, noteBody, request.getParameter("sign"));
             }
         }
-        // Never emit this for an exception after saveNoteSimple: the append may
+        // Never emit this for an exception after persistence: the append may
         // already have committed, so the client must not blindly repeat it.
         response.setHeader("X-Carlos-Encounter-Write", "written");
         return NONE;
@@ -189,6 +196,32 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     private static boolean mayAppendDirectly(CaseManagementNote note, String providerNo) {
         return providerNo.equals(note.getProviderNo()) && !note.isSigned()
                 && !note.isLocked() && !note.isArchived();
+    }
+
+    /** Saves a detached submission through the note chain's transactional optimistic-lock check. */
+    private boolean appendRevision(CaseManagementManager manager, CaseManagementNote source, String text, Date updated) {
+        CaseManagementNote revision = source.copyForRevision();
+        revision.setId(source.getId());
+        revision.setNote(text);
+        revision.setUpdate_date(updated);
+        int previousRevision;
+        try {
+            previousRevision = Integer.parseInt(source.getRevision());
+        } catch (NumberFormatException legacyRevision) {
+            previousRevision = 0;
+        }
+        revision.setRevision(String.valueOf(previousRevision + 1));
+        String previousHistory = source.getHistory();
+        if (previousHistory == null || previousHistory.isEmpty()) previousHistory = source.getNote();
+        revision.setHistory(text + "\n   ----------------History Record----------------   " + previousHistory);
+        try {
+            manager.saveNoteRevisionSimple(revision);
+            return true;
+        } catch (RuntimeException failure) {
+            if (!StaleNoteRevisionException.isConflict(failure)) throw failure;
+            rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
+            return false;
+        }
     }
 
     private String generateNote(LoggedInInfo loggedInInfo, String noteBody, boolean addDateString) {

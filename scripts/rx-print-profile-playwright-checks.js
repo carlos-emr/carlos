@@ -17,13 +17,14 @@
  * route is refused before any write. Two program windows for the same patient retain their own
  * contexts: the first paste consumes only its program draft, and a later paste with no draft
  * creates a note in its own program without modifying the first note or a protected candidate.
- * Fourteen refusal controls
+ * Fifteen refusal controls
  * replay the real pending paste with invalid patient/login/context identities or a missing or
  * cross-patient draft-note reference, a noneditable note, or a note newer than the draft;
  * exact clinical snapshots must remain unchanged. Finally,
  * explicitly editing the first program's shared note from the second program autosaves and saves
  * through the native controls: the note keeps its program, only the second program draft clears,
  * and the first window retains both its persisted draft and unsaved editor text.
+ * Replaying Rx from that older revision refuses without consuming the protected draft.
  *
  * Fixtures: one owned `prescription` row and two `drugs` rows (customName/special carry the run
  * marker) for the owned synthetic patient; native Save And Print operations add owned rows.
@@ -459,6 +460,7 @@ async function workflow(s) {
     };
     const referenceNote = referenceNoteFor(referencePatient, capturedProgram, 'foreign-note', { newer: true });
     const guardedNote = referenceNoteFor(patient, capturedProgram, 'direct-append-guard');
+    const guardedOriginal = JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${guardedNote}`));
     const capturedDraftId = sql.value(`SELECT id FROM casemgmt_tmpsave WHERE demographic_no=${patient}
       AND provider_no=${owner} AND program_id=${capturedProgram} AND note_id=0`);
     h.assert(/^[1-9]\d*$/.test(capturedDraftId), 'The original program draft fixture was not found');
@@ -513,6 +515,8 @@ async function workflow(s) {
       AND provider_no=${owner} AND program_no=${q(capturedProgram)} AND LOCATE(${q(capturedDraft)},note)>0
       AND LOCATE(${q(marker)},note)>0 AND LOCATE('one tablet daily',note)>0`, '1',
     'Rx did not save the captured program draft and prescription in the originating program');
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${guardedNote}`)) === guardedOriginal,
+      'The Rx append changed its historical source row instead of creating a new note revision');
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient}
       AND provider_no=${owner} AND program_id=${capturedProgram}`) === '0', 'The consumed captured-program draft remains');
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM casemgmt_tmpsave WHERE demographic_no=${patient}
@@ -673,6 +677,35 @@ async function workflow(s) {
       'Saving the shared note consumed or changed the other program window draft');
       h.assert(await editor(opened).inputValue() === protectedText,
         'Saving the shared note replaced the unsaved text in the other program window');
+      // The draft's source is now an older revision, although its own update timestamp
+      // still predates the draft. The transactional UUID-chain check must refuse it.
+      h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave draft JOIN casemgmt_note original_note
+        ON original_note.note_id=draft.note_id WHERE draft.demographic_no=${patient}
+        AND draft.provider_no=${owner} AND draft.program_id=${capturedProgram}
+        AND draft.note_id=${source} AND original_note.update_date<=draft.update_date`) === '1',
+      'The stale-revision control does not have a later draft with preserved time-of-day');
+      const snapshot = () => JSON.stringify([
+        sql.rows(`SELECT * FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`),
+        sql.rows(`SELECT * FROM casemgmt_tmpsave WHERE demographic_no=${patient} ORDER BY id`),
+        sql.rows(`SELECT * FROM prescription WHERE demographic_no=${patient} ORDER BY script_no`),
+        sql.rows(`SELECT * FROM drugs WHERE demographic_no=${patient} ORDER BY drugid`),
+      ]);
+      const before = snapshot();
+      const csrf = await sessionToken(defaultChartAfterPaste, s.config.baseUrl);
+      const body = new URLSearchParams(write.request().postData() || '');
+      if (body.has('CSRF-TOKEN')) body.set('CSRF-TOKEN', csrf);
+      const stale = await context.request.post(write.url(), {
+        data: body.toString(), headers: { 'content-type': 'application/x-www-form-urlencoded',
+          'x-requested-with': 'XMLHttpRequest', 'csrf-token': csrf,
+          origin: new URL(s.config.baseUrl).origin, referer: defaultChartAfterPaste.url() },
+        maxRedirects: 0, failOnStatusCode: false,
+      });
+      h.assert(stale.status() === 409 && stale.headers()['x-carlos-encounter-write'] === 'not-written',
+        'An Rx append against an older note revision did not refuse safely');
+      h.assert(snapshot() === before, 'The stale-revision refusal changed clinical rows or consumed the protected draft');
+      await stale.dispose();
+      h.assert(await editor(opened).inputValue() === protectedText,
+        'The stale-revision refusal changed the other window unsaved text');
     });
   });
 }

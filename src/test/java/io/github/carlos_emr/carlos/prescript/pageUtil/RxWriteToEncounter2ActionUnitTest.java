@@ -5,6 +5,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.casemgmt.service.StaleNoteRevisionException;
 import io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDao;
 import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
@@ -18,14 +19,18 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.Date;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -78,6 +83,10 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         note.setDemographic_no("42");
         note.setProviderNo("999998");
         note.setUpdate_date(new Date(0));
+        note.setId(7L);
+        note.setUuid("77777777-7777-4777-8777-777777777777");
+        note.setRevision("1");
+        note.setHistory("existing history");
         when(notes.filterNotes(eq(login), eq("999998"), anyCollection(), anyString()))
                 .thenAnswer(invocation -> new ArrayList<>(invocation.<Collection<CaseManagementNote>>getArgument(2)));
         when(notes.getLastSaved("0", "42", "999998")).thenReturn(note);
@@ -180,8 +189,11 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldAcknowledge_afterSavingBoundPatientNote() throws Exception {
         assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
-        verify(notes).saveNoteSimple(note);
-        assertThat(note.getNote()).isEqualTo("existing text\nexact prescription text");
+        CaseManagementNote revision = submittedRevision();
+        assertThat(revision.getNote()).isEqualTo("existing text\nexact prescription text");
+        assertThat(revision.getRevision()).isEqualTo("2");
+        assertThat(revision.getHistory()).contains("exact prescription text", "existing history");
+        assertThat(note.getNote()).isEqualTo("existing text");
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
     }
 
@@ -190,6 +202,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         ChartProgramContext.remember(request, "7");
         when(notes.getLastSaved("7", "42", "999998")).thenReturn(note);
         CaseManagementTmpSave capturedDraft = mock(CaseManagementTmpSave.class);
+        when(capturedDraft.getId()).thenReturn(17);
         when(capturedDraft.getNoteId()).thenReturn(7);
         when(capturedDraft.getUpdateDate()).thenReturn(new Date(1));
         when(capturedDraft.getNote()).thenReturn("captured program draft");
@@ -197,6 +210,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         when(capturedDraft.getDemographicNo()).thenReturn(42);
         when(capturedDraft.getProgramId()).thenReturn(7);
         note.setUpdate_date(new Date(0));
+        note.setProgram_no("7");
         when(notes.getTmpSave("999998", "42", "7")).thenReturn(capturedDraft);
         when(notes.getNote("7")).thenReturn(note);
 
@@ -204,8 +218,9 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
 
         verify(notes).getTmpSave("999998", "42", "7");
         verify(notes, never()).getTmpSave("999998", "42", "0");
-        verify(tmpDao).remove("999998", 42, 7);
-        assertThat(note.getNote()).isEqualTo("captured program draft\nexact prescription text");
+        verify(tmpDao).removeCaptured(17);
+        assertThat(submittedRevision().getNote()).isEqualTo("captured program draft\nexact prescription text");
+        assertThat(note.getNote()).isEqualTo("existing text");
         assertThat(program.constructed()).isEmpty();
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
     }
@@ -235,7 +250,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(ChartProgramContext.resolve(request)).isEqualTo("0");
         verify(notes).getLastSaved("0", "42", "999998");
         verify(notes).getTmpSave("999998", "42", "0");
-        verify(notes).saveNoteSimple(note);
+        assertThat(submittedRevision().getNote()).isEqualTo("existing text\nexact prescription text");
     }
 
     @Test
@@ -243,6 +258,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         String prescriptionText = "Take 1/2 tablet\nDon't repeat <PRN> & call \"clinic\".";
         request.setParameter("body", prescriptionText);
         CaseManagementTmpSave tmp = mock(CaseManagementTmpSave.class);
+        when(tmp.getId()).thenReturn(17);
         when(tmp.getNoteId()).thenReturn(7);
         when(tmp.getUpdateDate()).thenReturn(new Date(1));
         when(tmp.getNote()).thenReturn("draft text");
@@ -255,9 +271,9 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
 
-        assertThat(note.getNote()).isEqualTo("draft text\n" + prescriptionText);
-        verify(notes).saveNoteSimple(note);
-        verify(tmpDao).remove("999998", 42, 0);
+        assertThat(submittedRevision().getNote()).isEqualTo("draft text\n" + prescriptionText);
+        assertThat(note.getNote()).isEqualTo("existing text");
+        verify(tmpDao).removeCaptured(17);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
     }
 
@@ -274,7 +290,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
         assertThat(note.getNote()).isEqualTo("existing text");
-        verify(notes, never()).saveNoteSimple(any());
+        assertNoClinicalWrite();
         verifyNoInteractions(tmpDao);
     }
 
@@ -287,7 +303,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
-        verify(notes, never()).saveNoteSimple(any());
+        assertNoClinicalWrite();
         verifyNoInteractions(tmpDao);
     }
 
@@ -301,10 +317,11 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
 
-        assertThat(note.getProgram_no()).isEqualTo("8");
-        assertThat(note.getNote()).isEqualTo("draft text\nexact prescription text");
-        verify(notes).saveNoteSimple(note);
-        verify(tmpDao).remove("999998", 42, 0);
+        CaseManagementNote revision = submittedRevision();
+        assertThat(revision.getProgram_no()).isEqualTo("8");
+        assertThat(revision.getNote()).isEqualTo("draft text\nexact prescription text");
+        assertThat(note.getNote()).isEqualTo("existing text");
+        verify(tmpDao).removeCaptured(17);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
     }
 
@@ -321,7 +338,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
         assertThat(note.getNote()).isEqualTo("existing text");
-        verify(notes, never()).saveNoteSimple(any());
+        assertNoClinicalWrite();
         verifyNoInteractions(tmpDao);
     }
 
@@ -340,7 +357,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
         assertThat(note.getNote()).isEqualTo("newer independently saved text");
-        verify(notes, never()).saveNoteSimple(any());
+        assertNoClinicalWrite();
         verifyNoInteractions(tmpDao);
     }
 
@@ -353,9 +370,9 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
 
         new RxWriteToEncounter2Action().execute();
 
-        assertThat(note.getNote()).isEqualTo("draft text\nexact prescription text");
-        verify(notes).saveNoteSimple(note);
-        verify(tmpDao).remove("999998", 42, 0);
+        assertThat(submittedRevision().getNote()).isEqualTo("draft text\nexact prescription text");
+        assertThat(note.getNote()).isEqualTo("existing text");
+        verify(tmpDao).removeCaptured(17);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
     }
 
@@ -381,7 +398,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
         verify(notes, never()).getTmpSave(anyString(), anyString(), anyString());
         verify(notes, never()).getLastSaved(anyString(), anyString(), anyString());
-        verify(notes, never()).saveNoteSimple(any());
+        assertNoClinicalWrite();
         verifyNoInteractions(tmpDao);
     }
 
@@ -399,7 +416,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
         assertThat(note.getNote()).isEqualTo("existing text");
-        verify(notes, never()).saveNoteSimple(any());
+        assertNoClinicalWrite();
         verifyNoInteractions(tmpDao);
     }
 
@@ -421,6 +438,106 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(tmpDao);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldReturnConflictWithoutMutatingHistory_whenRevisionChangesBeforeTransactionalSave(boolean hasDraft) throws Exception {
+        if (hasDraft) {
+            CaseManagementTmpSave draft = referencedDraft();
+            when(notes.getTmpSave("999998", "42", "0")).thenReturn(draft);
+            when(notes.getNote("7")).thenReturn(note);
+        }
+        when(notes.saveNoteRevisionSimple(any())).thenThrow(new StaleNoteRevisionException());
+
+        new RxWriteToEncounter2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
+        assertThat(note.getNote()).isEqualTo("existing text");
+        assertThat(note.getHistory()).isEqualTo("existing history");
+        assertThat(note.getUpdate_date()).isEqualTo(new Date(0));
+        verify(notes, never()).saveNoteSimple(any());
+        verifyNoInteractions(tmpDao);
+    }
+
+    @Test
+    void shouldPreserveNewerAutosave_whenItReplacesTheCapturedDraftDuringRevisionSave() throws Exception {
+        CaseManagementTmpSave draft = referencedDraft();
+        when(notes.getTmpSave("999998", "42", "0")).thenReturn(draft);
+        when(notes.getNote("7")).thenReturn(note);
+        Map<Integer, String> persistedDrafts = new HashMap<>(Map.of(17, "draft text"));
+        when(notes.saveNoteRevisionSimple(any())).thenAnswer(invocation -> {
+            persistedDrafts.remove(17);
+            persistedDrafts.put(18, "newer autosaved text");
+            return invocation.getArgument(0);
+        });
+        when(tmpDao.removeCaptured(anyInt())).thenAnswer(invocation -> persistedDrafts.remove(invocation.getArgument(0)) == null ? 0 : 1);
+
+        new RxWriteToEncounter2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
+        assertThat(persistedDrafts).containsExactlyEntriesOf(Map.of(18, "newer autosaved text"));
+        assertThat(submittedRevision().getNote()).isEqualTo("draft text\nexact prescription text");
+        verify(tmpDao).removeCaptured(17);
+        verify(tmpDao, never()).remove(anyString(), anyInt(), anyInt());
+    }
+
+    @Test
+    void shouldRejectBeforeWriting_whenCapturedDraftHasNoPersistedIdentity() throws Exception {
+        CaseManagementTmpSave draft = referencedDraft();
+        when(draft.getId()).thenReturn(null);
+        when(notes.getTmpSave("999998", "42", "0")).thenReturn(draft);
+
+        new RxWriteToEncounter2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
+        assertNoClinicalWrite();
+        verifyNoInteractions(tmpDao);
+    }
+
+    @Test
+    void shouldPropagateUnrelatedRevisionFailure_withoutClaimingSafeRetry() {
+        when(notes.saveNoteRevisionSimple(any())).thenThrow(new IllegalStateException("database unavailable"));
+
+        assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute())
+                .isInstanceOf(IllegalStateException.class).hasMessage("database unavailable");
+
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isNull();
+        assertThat(note.getNote()).isEqualTo("existing text");
+        verifyNoInteractions(tmpDao);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = "legacy")
+    void shouldRetainLegacyRevisionCompatibility_withoutMutatingHistoricalSource(String revisionNumber) throws Exception {
+        note.setRevision(revisionNumber);
+
+        new RxWriteToEncounter2Action().execute();
+
+        assertThat(submittedRevision().getRevision()).isEqualTo("1");
+        assertThat(note.getRevision()).isEqualTo(revisionNumber);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
+        verifyNoInteractions(tmpDao);
+    }
+
+    private CaseManagementNote submittedRevision() {
+        ArgumentCaptor<CaseManagementNote> submitted = ArgumentCaptor.forClass(CaseManagementNote.class);
+        verify(notes).saveNoteRevisionSimple(submitted.capture());
+        assertThat(submitted.getValue()).isNotSameAs(note);
+        assertThat(submitted.getValue().getId()).isEqualTo(note.getId());
+        assertThat(submitted.getValue().getUuid()).isEqualTo(note.getUuid());
+        assertThat(note.getNote()).isEqualTo("existing text");
+        assertThat(note.getHistory()).isEqualTo("existing history");
+        return submitted.getValue();
+    }
+
+    private void assertNoClinicalWrite() {
+        verify(notes, never()).saveNoteSimple(any());
+        verify(notes, never()).saveNoteRevisionSimple(any());
+    }
+
     private void protectNote(String state) {
         switch (state) {
             case "signed" -> note.setSigned(true);
@@ -433,6 +550,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
 
     private CaseManagementTmpSave referencedDraft() {
         CaseManagementTmpSave draft = mock(CaseManagementTmpSave.class);
+        when(draft.getId()).thenReturn(17);
         when(draft.getNoteId()).thenReturn(7);
         when(draft.getUpdateDate()).thenReturn(new Date(1));
         when(draft.getNote()).thenReturn("draft text");
@@ -445,6 +563,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldNeverClaimNoWrite_whenPostSaveCleanupFails() {
         CaseManagementTmpSave tmp = mock(CaseManagementTmpSave.class);
+        when(tmp.getId()).thenReturn(17);
         when(tmp.getNoteId()).thenReturn(7);
         when(tmp.getUpdateDate()).thenReturn(new Date(1));
         when(tmp.getNote()).thenReturn("draft text");
@@ -455,10 +574,10 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         when(notes.getTmpSave("999998", "42", "0")).thenReturn(tmp);
         when(notes.getNote("7")).thenReturn(note);
         doThrow(new IllegalStateException("cleanup failed after commit"))
-                .when(tmpDao).remove("999998", 42, 0);
+                .when(tmpDao).removeCaptured(17);
         RxWriteToEncounter2Action action = new RxWriteToEncounter2Action();
         assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class);
-        verify(notes).saveNoteSimple(note);
+        assertThat(submittedRevision().getNote()).isEqualTo("draft text\nexact prescription text");
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isNull();
     }
 }
