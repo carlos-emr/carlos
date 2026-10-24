@@ -8561,7 +8561,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) with its own day sheet and the owned FAKE- patient; cleanup deletes the owned appointment and archive rows, then the throwaway, and asserts they are gone.",
-      "notes": "Expected to FAIL at the last step 'line breaks inside a full box, and a long free-text name and resources entry, are stored whole or refused' (appointment.name varchar(50) and resources varchar(255) have no maxlength and no server check)."
+      "notes": "Guards #5199: full multiline reason/notes use LF storage and survive booking, reopening and unchanged Update. Name (50) and resources (255) have browser limits matching their columns."
     },
     {
       "name": "boundary-messaging-text",

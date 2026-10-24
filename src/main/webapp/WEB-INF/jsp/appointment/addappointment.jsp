@@ -1236,7 +1236,7 @@ Ontario, Canada
                                            value='<%=(bFirstDisp && !bFromWL) ? "" : SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("demographic_no")))%>'>
                                     <fmt:message key="Appointment.formNamePlaceholder" var="formNamePlaceholderMsg"/>
                                     <fmt:message key="appointment.addappointment.btnSearch" var="btnSearchMsg"/>
-                                    <input type="text" name="keyword" id="keyword" class="form-control form-control-sm"
+                                    <input type="text" name="keyword" id="keyword" class="form-control form-control-sm" maxlength="50"
                                         value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>"
                                         placeholder="${carlos:forHtmlAttribute(formNamePlaceholderMsg)}">
                                     <button type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary btn-sm"
@@ -1406,7 +1406,7 @@ Ontario, Canada
                         <div class="mb-2 row">
                             <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formResources"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" name="resources" class="form-control form-control-sm"
+                                <input type="text" name="resources" class="form-control form-control-sm" maxlength="255"
                                        tabindex="6"
                                        value='<%=bFirstDisp?"":"".equals(request.getParameter("resources"))?"": SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("resources")))%>'>
                             </div>
