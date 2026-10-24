@@ -3,6 +3,11 @@ package io.github.carlos_emr.carlos.casemgmt.dao;
 
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramAccess;
+import io.github.carlos_emr.carlos.PMmodule.utility.ProgramAccessCache;
+import io.github.carlos_emr.carlos.PMmodule.utility.RoleCache;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl;
@@ -12,6 +17,8 @@ import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.dao.HashAuditDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
+import io.github.carlos_emr.carlos.commn.model.Admission;
+import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -19,6 +26,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.MockedStatic;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +44,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -62,6 +71,8 @@ class CaseManagementNoteDraftCleanupIntegrationTest extends CaseManagementNoteDa
     private CaseManagementManagerImpl target;
     private CaseManagementManager service;
     private MockedStatic<SpringUtils> beans;
+    private ProgramManager programs;
+    private AdmissionManager admissions;
 
     @BeforeEach
     void prepareIndependentWindows() {
@@ -72,6 +83,7 @@ class CaseManagementNoteDraftCleanupIntegrationTest extends CaseManagementNoteDa
             original.setDemographic_no("1");
             original.setProviderNo("999998");
             original.setProgram_no("8");
+            original.setReporter_caisi_role("801");
             original.setNote("Original shared assessment");
             original.setHistory("Original shared assessment");
             original.setUpdate_date(new Date(1_700_000_000_000L));
@@ -106,9 +118,14 @@ class CaseManagementNoteDraftCleanupIntegrationTest extends CaseManagementNoteDa
         proxy.addAdvice(new TransactionInterceptor(transactionManager, new AnnotationTransactionAttributeSource()));
         service = (CaseManagementManager) proxy.getProxy();
 
-        beans = mockStatic(SpringUtils.class);
-        beans.when(() -> SpringUtils.getBean(ProgramManager.class)).thenReturn(mock(ProgramManager.class));
-        beans.when(() -> SpringUtils.getBean(AdmissionManager.class)).thenReturn(mock(AdmissionManager.class));
+        programs = mock(ProgramManager.class);
+        admissions = mock(AdmissionManager.class);
+        when(programs.getProgramProvider("999998", "8")).thenReturn(membership(801L, "Stored doctor"));
+        // Leave other Spring lookups real so cache class initialization keeps the
+        // real DAO references when a readback test installs scoped cache mocks.
+        beans = mockStatic(SpringUtils.class, CALLS_REAL_METHODS);
+        beans.when(() -> SpringUtils.getBean(ProgramManager.class)).thenReturn(programs);
+        beans.when(() -> SpringUtils.getBean(AdmissionManager.class)).thenReturn(admissions);
         beans.when(() -> SpringUtils.getBean(OscarAppointmentDao.class)).thenReturn(mock(OscarAppointmentDao.class));
     }
 
@@ -144,11 +161,13 @@ class CaseManagementNoteDraftCleanupIntegrationTest extends CaseManagementNoteDa
 
     @Test
     void shouldKeepHistoricalNoteProgramCleanup_forTheExistingRestAndIntegrationSignature() throws Exception {
+        when(programs.getProgramProvider("999998", "8")).thenReturn(null);
         List<Draft> before = snapshot();
 
-        service.saveCaseManagementNote(mock(LoggedInInfo.class), submitted, List.of(), null, null,
+        CaseManagementNote saved = service.saveCaseManagementNote(mock(LoggedInInfo.class), submitted, List.of(), null, null,
                 false, Locale.ENGLISH, new Date(), "Doctor", "999998", "192.0.2.1", "");
 
+        assertThat(saved.getReporter_caisi_role()).isEqualTo("0");
         assertThat(snapshot()).containsExactlyElementsOf(before.stream().filter(d -> !ownedBy(d, "8")).toList());
         assertThat(noteTexts()).hasSize(2);
     }
@@ -231,9 +250,115 @@ class CaseManagementNoteDraftCleanupIntegrationTest extends CaseManagementNoteDa
         assertThat(noteTexts()).containsExactly("Original shared assessment", saved.getNote());
     }
 
+    @ParameterizedTest
+    @CsvSource({"false,save", "false,sign", "false,verify", "true,save", "true,sign", "true,verify"})
+    void shouldKeepSharedRevisionReadableWithTheWritersRole_whenMembershipIsOnlyInTheOriginOrInBothPrograms(
+            boolean belongsToStoredProgram, String operation) throws Exception {
+        ProgramProvider originMembership = membership(701L, "Origin nurse");
+        ProgramProvider storedMembership = membership(801L, "Stored doctor");
+        when(programs.getProgramProvider("999998", "8")).thenReturn(belongsToStoredProgram ? storedMembership : null);
+        when(programs.getProgramProvider("999998", "7")).thenReturn(originMembership);
+        Admission storedAdmission = new Admission();
+        storedAdmission.setTeamId(83);
+        when(admissions.getAdmission("8", 1)).thenReturn(storedAdmission);
+        when(programs.hasAccessBasedOnCurrentFacility(any(), eq(8))).thenReturn(true);
+        target.setProgramManager(programs);
+        ProgramProviderDAO memberships = mock(ProgramProviderDAO.class);
+        when(memberships.getProgramProviderByProviderProgramId("999998", 7L)).thenReturn(List.of(originMembership));
+        target.setProgramProviderDao(memberships);
+        target.setRoleProgramAccessDAO(mock(RoleProgramAccessDAO.class));
+        submitted.setSigned("sign".equals(operation));
+        if (submitted.isSigned()) submitted.setSigning_provider_no("999998");
+        doAnswer(call -> (call.<Integer>getArgument(4) == target.SIGNATURE_VERIFY ? "Verified as " : "Signed as ")
+                + call.<String>getArgument(2)).when(target).getSignature(any(), any(), any(), any(), anyInt());
+        String expectedRole = belongsToStoredProgram ? "801" : "701";
+        String expectedRoleName = belongsToStoredProgram ? "Stored doctor" : "Origin nurse";
+        List<Draft> before = snapshot();
+
+        try (MockedStatic<RoleCache> roles = mockStatic(RoleCache.class);
+             MockedStatic<ProgramAccessCache> access = mockStatic(ProgramAccessCache.class)) {
+            roles.when(() -> RoleCache.getRole(801L)).thenReturn(storedMembership.getRole());
+            roles.when(() -> RoleCache.getRole(701L)).thenReturn(originMembership.getRole());
+            ProgramAccess sharedRead = new ProgramAccess();
+            sharedRead.setAllRoles(true);
+            access.when(() -> ProgramAccessCache.getAccessMap(7L)).thenReturn(Map.of("read stored doctor notes", sharedRead));
+            // The Y-only provider can already read this explicitly selected X note.
+            CaseManagementNote original = tx().execute(status -> caseManagementNoteDAO.getNote(submitted.getId()));
+            assertThat(service.filterNotes(null, "999998", List.of(original), "7")).containsExactly(original);
+
+            CaseManagementNote saved = save("7", "verify".equals(operation));
+
+            CaseManagementNote readback = tx().execute(status -> caseManagementNoteDAO.getNote(saved.getId()));
+            assertThat(readback.getProgram_no()).isEqualTo("8");
+            assertThat(readback.getReporter_program_team()).isEqualTo("83");
+            assertThat(readback.getReporter_caisi_role()).isEqualTo(expectedRole);
+            assertThat(service.filterNotes(null, "999998", List.of(readback), "7")).containsExactly(readback);
+            assertThat(readback.getNote()).isEqualTo("save".equals(operation) ? "Revised shared assessment"
+                    : "Revised shared assessment\n" + ("verify".equals(operation) ? "Verified as " : "Signed as ") + expectedRoleName);
+            if (!"save".equals(operation)) verify(target).getSignature(eq("999998"), eq("Doctor"), eq(expectedRoleName),
+                    eq(Locale.ENGLISH), eq("verify".equals(operation) ? target.SIGNATURE_VERIFY : target.SIGNATURE_SIGNED));
+        }
+        assertThat(snapshot()).containsExactlyElementsOf(before.stream().filter(d -> !ownedBy(d, "7")).toList());
+        assertThat(noteTexts()).hasSize(2);
+        verify(admissions, never()).getAdmission("7", 1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"absent", "missing-role", "missing-id", "blank-name"})
+    void shouldRefuseBeforeClinicalWrites_whenNeitherProgramHasAValidWriterRole(String defect) {
+        ProgramProvider invalid = switch (defect) {
+            case "absent" -> null;
+            case "missing-role" -> new ProgramProvider();
+            case "missing-id" -> membership(null, "Invalid role");
+            default -> membership(801L, " ");
+        };
+        when(programs.getProgramProvider("999998", "8")).thenReturn(invalid);
+        when(programs.getProgramProvider("999998", "7")).thenReturn(null);
+        submitted.setSigned(true);
+        List<Draft> before = snapshot();
+
+        assertThatThrownBy(() -> save("7")).isInstanceOf(SecurityException.class);
+
+        assertThat(snapshot()).containsExactlyElementsOf(before);
+        assertThat(noteTexts()).containsExactly("Original shared assessment");
+        assertThat(submitted.getReporter_caisi_role()).isEqualTo("801");
+        assertThat(submitted.getRevision()).isEqualTo("1");
+        assertThat(submitted.getNote()).isEqualTo("Revised shared assessment");
+        verifyNoInteractions(admissions);
+        verify(target, never()).saveAndUpdateCaseIssues(anyList());
+        verify(target, never()).saveNoteRevision(any(), any(), any(), any(), any(), any());
+        verify(target, never()).getSignature(any(), any(), any(), any(), anyInt());
+    }
+
+    @Test
+    void shouldRetainHistoricalRoleFallback_forTheGlobalChartProgram() throws Exception {
+        when(programs.getProgramProvider("999998", "8")).thenReturn(null);
+        List<Draft> before = snapshot();
+
+        CaseManagementNote saved = save("0");
+
+        assertThat(saved.getReporter_caisi_role()).isEqualTo("0");
+        assertThat(saved.getProgram_no()).isEqualTo("8");
+        assertThat(snapshot()).containsExactlyElementsOf(before.stream().filter(d -> !ownedBy(d, "0")).toList());
+        assertThat(noteTexts()).hasSize(2);
+    }
+
+    private static ProgramProvider membership(Long roleId, String roleName) {
+        Secrole role = new Secrole();
+        role.setId(roleId);
+        role.setName(roleName);
+        ProgramProvider membership = new ProgramProvider();
+        membership.setRole(role);
+        return membership;
+    }
+
     private CaseManagementNote save(String origin) throws Exception {
+        return save(origin, false);
+    }
+
+    private CaseManagementNote save(String origin, boolean verify) throws Exception {
         return service.saveCaseManagementNote(mock(LoggedInInfo.class), submitted, List.of(), null, null,
-                false, Locale.ENGLISH, new Date(), "Doctor", "999998", "192.0.2.1", "", origin);
+                verify, Locale.ENGLISH, new Date(), "Doctor", "999998", "192.0.2.1", "", origin);
     }
 
     private void seed(String provider, int patient, int program, long noteId, String text) {

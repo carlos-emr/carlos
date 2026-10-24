@@ -426,6 +426,8 @@ public interface CaseManagementManager {
     /**
      * Saves a revision and clears only the draft belonging to the originating chart program.
      * The note retains its own program when an authorized chart edits a shared note.
+     * For a positive chart origin, a writer without a role in the stored program uses
+     * their origin program's role for the revision and signature; missing both refuses the save.
      * A null draft program leaves drafts intact. The original overload retains its
      * note-program cleanup for integrations that do not supply a separate chart context.
      */

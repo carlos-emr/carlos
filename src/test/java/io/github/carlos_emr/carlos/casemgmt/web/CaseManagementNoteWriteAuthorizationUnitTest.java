@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
-import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -39,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -210,13 +210,56 @@ class CaseManagementNoteWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).doesNotContain("Foreign private note");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"", "0", "bad", "2147483648"})
+    void shouldRefuseMalformedTicklerIdentityBeforeLookup(String raw) throws Exception {
+        request.setParameter("ticklerNo", raw);
+        assertThat(action.ticklerGetNote()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(ticklers, notes);
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(ints = {0, -1})
+    void shouldKeepMissingTicklerStatusWithoutLoadingClinicalRows(Integer patient) throws Exception {
+        request.setParameter("ticklerNo", "17");
+        when(ticklers.getTicklerDemographicNo(login, 17)).thenReturn(patient);
+        assertThat(action.ticklerGetNote()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(404);
+        verify(ticklers).getTicklerDemographicNo(login, 17);
+        verifyNoMoreInteractions(ticklers);
+        verifyNoInteractions(notes);
+    }
+
+    @Test
+    void shouldRefuseScalarTicklerLookupBeforeDisclosure_whenTicklerReadIsDenied() throws Exception {
+        request.setParameter("ticklerNo", "17");
+        when(security.hasPrivilege(login, "_tickler", "r", null)).thenReturn(false);
+        assertThat(action.ticklerGetNote()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(ticklers, notes);
+    }
+
+    @Test
+    void shouldDeriveReadScopeFromStoredTickler_whenNoPatientParameterIsPresent() throws Exception {
+        tickler(101);
+        request.removeParameter("demographicNo");
+        var links = createAndRegisterMock(CaseManagementNoteLinkDAO.class);
+        assertThat(action.ticklerGetNote()).isNull();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).isEqualTo("{}");
+        verify(security).isAllowedAccessToPatientRecord(login, 101);
+        verify(ticklers).getTicklerDemographicNo(login, 17);
+        verifyNoMoreInteractions(ticklers);
+        verify(links).getLastLinkByTableId(CaseManagementNoteLink.TICKLER, 17L);
+        verifyNoInteractions(notes);
+    }
+
     private void tickler(int patient) {
         request.setParameter("ticklerNo", "17");
         request.setParameter("value", "Owned tickler note");
-        var tickler = new Tickler();
-        tickler.setId(17);
-        tickler.setDemographicNo(patient);
-        when(ticklers.getTickler(login, 17)).thenReturn(tickler);
+        when(ticklers.getTicklerDemographicNo(login, 17)).thenReturn(patient);
     }
 
     private String invoke(String operation) throws Exception {

@@ -3773,9 +3773,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         Provider loggedInProvider = loggedInInfo.getLoggedInProvider();
         String demographicNo = getDemographicNo(request);
-        Tickler tickler = authorizedTickler();
+        AuthorizedTickler tickler = authorizedTickler();
         if (tickler == null) return NONE;
-        if (!Integer.valueOf(demographicNo).equals(tickler.getDemographicNo())) {
+        if (!Integer.valueOf(demographicNo).equals(tickler.demographicNo())) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return NONE;
         }
@@ -3797,7 +3797,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
             CaseManagementNoteLinkDAO links = SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
             CaseManagementNoteLink latest = links.getLastLinkByTableId(CaseManagementNoteLink.TICKLER,
-                    Long.valueOf(tickler.getId()));
+                    Long.valueOf(tickler.id()));
             if (latest == null || !existingNoteId.equals(latest.getNoteId())) {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;
@@ -3841,7 +3841,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         //save link, so we know what tickler this note is linked to
         CaseManagementNoteLink link = new CaseManagementNoteLink();
         link.setNoteId(cmn.getId());
-        link.setTableId(Long.valueOf(tickler.getId()));
+        link.setTableId(Long.valueOf(tickler.id()));
         link.setTableName(CaseManagementNoteLink.TICKLER);
 
         CaseManagementNoteLinkDAO caseManagementNoteLinkDao = (CaseManagementNoteLinkDAO) SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
@@ -3873,19 +3873,19 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String ticklerGetNote() throws IOException {
-        Tickler tickler = authorizedTickler();
+        AuthorizedTickler tickler = authorizedTickler();
         if (tickler == null) return NONE;
-        String patient = Integer.toString(tickler.getDemographicNo());
+        String patient = Integer.toString(tickler.demographicNo());
         LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(login, "_casemgmt.notes", "r", patient)
-                || !securityInfoManager.isAllowedAccessToPatientRecord(login, tickler.getDemographicNo())) {
+                || !securityInfoManager.isAllowedAccessToPatientRecord(login, tickler.demographicNo())) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return NONE;
         }
 
         CaseManagementNoteLinkDAO caseManagementNoteLinkDao = (CaseManagementNoteLinkDAO) SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
         CaseManagementNoteLink link = caseManagementNoteLinkDao.getLastLinkByTableId(CaseManagementNoteLink.TICKLER,
-                Long.valueOf(tickler.getId()));
+                Long.valueOf(tickler.id()));
         ObjectNode json = (ObjectNode) objectMapper.readTree("{}");
 
         if (link != null) {
@@ -3911,8 +3911,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return null;
     }
 
-    /** Resolves a real tickler before its patient or note links can authorize any operation. */
-    private Tickler authorizedTickler() {
+    private record AuthorizedTickler(int id, int demographicNo) { }
+
+    /** Resolves scalar identifiers before any patient entity or note link can be loaded. */
+    private AuthorizedTickler authorizedTickler() {
         String raw = request.getParameter("ticklerNo");
         Integer id;
         try {
@@ -3927,12 +3929,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return null;
         }
-        Tickler tickler = ticklerManager.getTickler(login, id);
-        if (tickler == null || tickler.getDemographicNo() == null || tickler.getDemographicNo() <= 0) {
+        Integer patient = ticklerManager.getTicklerDemographicNo(login, id);
+        if (patient == null || patient <= 0) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return null;
         }
-        return tickler;
+        return new AuthorizedTickler(id, patient);
     }
 
     public static boolean determineNoteRole(CaseManagementNote note, String providerNo, String demographicNo) {

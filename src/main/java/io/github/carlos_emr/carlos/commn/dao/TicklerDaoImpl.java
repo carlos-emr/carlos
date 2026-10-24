@@ -105,6 +105,14 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @Override
+    public List<Integer> findDemographicNos(Integer ticklerNo) {
+        return entityManager.createQuery(
+                "select t.demographicNo from Tickler t where t.id = :id", Integer.class)
+                .setParameter("id", ticklerNo)
+                .getResultList();
+    }
+
+    @Override
     public Tickler find(Integer id) {
         TypedQuery<Tickler> query = entityManager.createQuery(
                 "select distinct t from Tickler t "

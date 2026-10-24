@@ -2576,7 +2576,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         // Preserve the historical contract for REST and other integrations whose
         // originating program is the note's program.
         return saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, locale,
-                now, userName, user, remoteAddr, lastSavedNoteString, note.getProgram_no());
+                now, userName, user, remoteAddr, lastSavedNoteString, note.getProgram_no(), false);
     }
 
     @Override
@@ -2584,6 +2584,14 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
                                                      Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString, String draftProgram) throws Exception {
+        return saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, locale,
+                now, userName, user, remoteAddr, lastSavedNoteString, draftProgram, true);
+    }
+
+    private CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram, boolean explicitChartOrigin) throws Exception {
         // A failed transaction leaves the editor's submitted object available for retry.
         // Do not retain a failed attempt's added signature or revision counter on it.
         CaseManagementNote submitted = note;
@@ -2605,11 +2613,26 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             newNote = true;
         }
 
-        try {
-            role = String.valueOf(
-                    (programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
-        } catch (Exception e) {
-            role = "0";
+        String roleName;
+        if (explicitChartOrigin && isPositiveProgram(draftProgram)) {
+            // Preserve the writer's existing role in the stored note's program.
+            // A shared-note editor may instead belong only to the originating chart.
+            Secrole writerRole = writerRoleInProgram(programManager, note.getProviderNo(), note.getProgram_no());
+            if (writerRole == null && !Objects.equals(note.getProgram_no(), draftProgram)) {
+                writerRole = writerRoleInProgram(programManager, note.getProviderNo(), draftProgram);
+            }
+            if (writerRole == null) throw new SecurityException("No writer role for the chart program");
+            role = writerRole.getId().toString();
+            roleName = writerRole.getRoleName();
+        } else {
+            // Legacy integrations and the global program retain their historical policy.
+            try {
+                role = String.valueOf(
+                        (programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
+            } catch (Exception e) {
+                role = "0";
+            }
+            roleName = getRoleName(note.getProviderNo(), note.getProgram_no());
         }
         /*
          * if (!"true".equals(session.getAttribute("archiveView")))
@@ -2638,8 +2661,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         note.setReporter_program_team(team);
 
         OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
-
-        String roleName = getRoleName(note.getProviderNo(), note.getProgram_no());
 
         // Keep the version being archived stable through the note and appointment commit.
         // A lookup/lock failure must roll back, rather than masquerading as no appointment.
@@ -2788,6 +2809,23 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                 note.getDemographic_no(), note.getAuditString());
 
         return note;
+    }
+
+    private static boolean isPositiveProgram(String program) {
+        if (program == null) return false;
+        try {
+            return Long.parseLong(program) > 0;
+        } catch (NumberFormatException invalidProgram) {
+            return false;
+        }
+    }
+
+    private static Secrole writerRoleInProgram(ProgramManager programs, String provider, String program) {
+        if (!isPositiveProgram(program)) return null;
+        ProgramProvider membership = programs.getProgramProvider(provider, program);
+        Secrole role = membership == null ? null : membership.getRole();
+        return role != null && role.getId() != null && role.getId() > 0
+                && StringUtils.isNotBlank(role.getRoleName()) ? role : null;
     }
 
     @Override
