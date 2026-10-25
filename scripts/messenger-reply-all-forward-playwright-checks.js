@@ -80,7 +80,7 @@ async function workflow(s) {
   };
   const toBox = async boxType => clickAndLoad(inbox, inbox.locator(boxType
     ? `a[href*="/messenger/DisplayMessages?boxType=${boxType}"]:visible`
-    : 'a.btn[href*="/messenger/DisplayMessages"]:visible, a.nav-link[href*="/messenger/DisplayMessages"]:not([href*="boxType"]):not([href*="orderby"]):visible').first(),
+    : 'a.nav-link[href*="/messenger/DisplayMessages?boxType=0"]:visible, a.btn[href*="/messenger/DisplayMessages"]:visible, a.nav-link[href*="/messenger/DisplayMessages"]:not([href*="boxType"]):not([href*="orderby"]):visible').first(),
   '/messenger/DisplayMessages');
   const ticked = async () => (await inbox.locator('input[name="provider"][id^="0-"]:checked').evaluateAll(boxes => boxes.map(box => box.value)))
     .map(value => value.split('-')[0]).sort();

@@ -54,6 +54,7 @@ const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, csrfTokenPresent } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
+const { vascularTrackerCatalogFixture } = require('./lib/vascular-tracker-catalog-fixture');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const print = require('./lib/gap-clinical-print');
@@ -383,6 +384,9 @@ async function run(s) {
   const q = h.sqlString;
 
   // ---- Fixtures --------------------------------------------------------------------------------
+  const vtCatalog = vascularTrackerCatalogFixture(sql);
+  // Register before patient children, so definitions are released after their readings.
+  s.cleanup(() => vtCatalog.cleanup());
   prepareVascularTrackerFixture(s);
   // Two first names no page text or script contains, so a page that prints one names its patient.
   sql.execute(`UPDATE demographic SET first_name=${q(A_FIRST_NAME)}, provider_no=${q(provider)}
@@ -909,6 +913,7 @@ async function run(s) {
       const item = d.chart.locator(FORM_MENU_ITEMS).filter({hasText: /^\s*Vascular Tracker\s*$/});
       await item.waitFor({state: 'visible', timeout: TIMEOUT});
       h.assert(await item.count() === 1, 'The Forms menu must offer exactly one Vascular Tracker');
+      vtCatalog.begin();
       const formPage = await s.popup(d.chart, item, `${d.label}-vascular-tracker`);
       const setupAddress = new URL(formPage.url());
       h.assert(setupAddress.pathname.endsWith('/form/SetupForm')
@@ -918,6 +923,7 @@ async function run(s) {
       const form = formPage.locator('form[action$="/form/SubmitForm"]');
       const patientField = form.locator('input[name="demographic_no"]');
       await patientField.waitFor({state: 'attached'});
+      vtCatalog.capture();
       h.assert(await patientField.inputValue() === d.patient, 'Vascular Tracker setup chose another patient');
       for (const field of RETAINED_VT_FIELDS) {
         const carrier = form.locator(`input[name="value(${field})"]`);

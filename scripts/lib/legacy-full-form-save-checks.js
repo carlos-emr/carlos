@@ -53,6 +53,15 @@ async function nativeSave(editor) {
   return response;
 }
 
+/** Legacy init reloads its opener; wait for that next load rather than the current document's state. */
+async function withOpenerReload(opener, action) {
+  const reloaded = opener.waitForEvent('load');
+  reloaded.catch(() => {});
+  const result = await action();
+  await reloaded;
+  return result;
+}
+
 /** Two legacy windows for one patient/program must not save through the later window's session form. */
 async function checkLegacyFullFormIsolation(s, { program }) {
   const { sql, provider, marker, context, config } = s;
@@ -142,13 +151,14 @@ async function checkLegacyFullFormIsolation(s, { program }) {
       method: 'edit', noteId: ids[index], forceNote: 'true', from: 'casemgmt',
       demographicNo: patient, providerNo: provider, chartContext,
     })}`);
-    await opener.waitForLoadState('load');
-    const opened = context.waitForEvent('page');
-    opened.catch(() => {});
-    await opener.evaluate(target => { window.open(target, '_blank'); }, url);
-    const editor = await opened;
-    await prepareEditor(editor, { noteId: ids[index], text: original[index], chartContext, description });
-    await opener.waitForLoadState('load');
+    const editor = await withOpenerReload(opener, async () => {
+      const opened = context.waitForEvent('page');
+      opened.catch(() => {});
+      await opener.evaluate(target => { window.open(target, '_blank'); }, url);
+      const page = await opened;
+      await prepareEditor(page, { noteId: ids[index], text: original[index], chartContext, description });
+      return page;
+    });
     editors.push(editor);
   }
   const [first, second] = editors;
@@ -188,7 +198,7 @@ async function checkLegacyFullFormIsolation(s, { program }) {
   await s.step('window B\'s native legacy Save persists only its own new revision after the refused window A save', async () => {
     const previousRows = sql.rows(`SELECT * FROM casemgmt_note WHERE note_id IN (${ids.join(',')}) ORDER BY note_id`);
     await second.locator(NOTE).fill(draftB);
-    const response = await nativeSave(second);
+    const response = await withOpenerReload(opener, () => nativeSave(second));
     h.assert(response.status() === 200, `Authorized legacy full-form Save returned HTTP ${response.status()}`);
     h.assert(new URLSearchParams(response.request().postData() || '').get('noteId') === ids[1],
       'Authorized legacy Save submitted another window\'s note identity');
@@ -202,7 +212,6 @@ async function checkLegacyFullFormIsolation(s, { program }) {
       AND note=${q(draftB)} AND LOCATE(${q(original[1])},history)>0 AND program_no=${q(String(program))}
       AND provider_no=${q(provider)}`) === '1', 'Window B\'s saved revision lost its own history, program or author');
   });
-  await opener.waitForLoadState('load');
   await Promise.all(editors.map(editor => editor.close()));
   await opener.close();
 }
