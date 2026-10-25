@@ -24,7 +24,9 @@
  *
  * The OAuth surface (/ws/services) registers the same services and the same 403 mappers. The
  * receptionist authorizes an out-of-band OAuth 1.0a token through the consent page, and its signed
- * calls must be refused there exactly as its session calls are on /ws/rs.
+ * calls must follow the configured OAuth access mode. In scoped mode, service-level refusals
+ * must match its session calls on /ws/rs. In the default legacy-restricted mode, the OAuth
+ * allowlist refuses these routes before the service runs; that is a separate policy assertion.
  *
  * Logins: the full-privilege test login is the control; throwaway `receptionist` (holds
  * _demographic, lacks _eChart/_admin/_appDefinition/templates/_rx/_eform) and `doctor` (chart,
@@ -40,9 +42,12 @@
  * client calls them (explicit paging, an existing template name): without paging or with an
  * unknown name they fail with HTTP 500 for every caller, which says nothing about authorization.
  * Environment: the common contract (BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*).
- * Enable oauth.scope.enforcement.enabled=true on the disposable install. Both OAuth logins receive
- * app.read, recordux.read, pharmacy.read and form.read scopes; positive controls must reach each
- * service before a service-level refusal counts. Legacy-restricted mode intentionally fails this check.
+ * EXPECT_OAUTH_MODE=legacy-restricted (default), scoped or legacy-full declares the server's mode;
+ * it never changes server configuration. Legacy runs authorize scopeless tokens and prove that the
+ * legacy patient read works. The restricted run asserts exact restricted_endpoint refusals outside
+ * the allowlist. A separate scoped run grants app.read, recordux.read, pharmacy.read and form.read;
+ * positive controls must reach each service before a service-level refusal counts. Consent warnings
+ * and policy probes must match the declared mode. See docs/ui-tests/oauth-access-mode-validation.md.
  */
 const crypto = require('crypto');
 const h = require('./lib/playwright-harness');
@@ -53,6 +58,13 @@ const { oauthHeader, pct } = require('./oauth-rest-surfaces-playwright-checks');
 
 const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
 const PRINT_OPTIONS = JSON.stringify({ printType: 'all', cpp: true, selectedList: [] });
+
+function readOAuthMode(env = process.env) {
+  const mode = env.EXPECT_OAUTH_MODE || 'legacy-restricted';
+  h.assert(['legacy-restricted', 'scoped', 'legacy-full'].includes(mode),
+    'EXPECT_OAUTH_MODE must be legacy-restricted, scoped or legacy-full');
+  return mode;
+}
 
 /** One REST call through a login's browser context; never follows redirects. */
 async function rest(context, config, method, route, body) {
@@ -97,7 +109,7 @@ function assertOAuthResourceResult(who, route, result, allowed) {
   const label = describe(`${who} (OAuth)`, 'GET', route, result);
   if (allowed) {
     h.assert(result.status === 200 && result.fromApp && result.json !== null,
-      `${label}; control must reach the service (enable oauth.scope.enforcement.enabled=true)`);
+      `${label}; control must reach the service; check the declared EXPECT_OAUTH_MODE and server configuration`);
   } else {
     const expectedBody = route === 'pharmacies/' ? 'Access denied' : '';
     h.assert(result.status === 403 && result.fromApp && result.text === expectedBody,
@@ -105,7 +117,40 @@ function assertOAuthResourceResult(who, route, result, allowed) {
   }
 }
 
+function assertOAuthPolicyResult(who, route, result, reason) {
+  h.assert(result.status === 403 && result.fromApp && result.text === reason,
+    `${describe(`${who} (OAuth)`, 'GET', route, result)}; expected the OAuth policy refusal ${reason}`);
+}
+
+/** Keep allowlist refusals separate from proof that a service checked the provider's privileges. */
+async function checkOAuthAccess({ mode, patient, call }) {
+  const patientRoute = `demographics/${patient}`;
+  for (const who of ['full', 'receptionist']) {
+    const patientResult = await call(who, patientRoute);
+    if (mode === 'scoped') {
+      // Neither token requested demographic.read: a legacy-full server must not pass as scoped.
+      assertOAuthPolicyResult(who, patientRoute, patientResult, 'insufficient_scope');
+    } else {
+      h.assert(patientResult.status === 200 && patientResult.fromApp
+        && String(patientResult.json?.demographicNo) === String(patient),
+      `${describe(`${who} (OAuth)`, 'GET', patientRoute, patientResult)}; scopeless legacy control must read the owned patient`);
+    }
+    assertOAuthPolicyResult(who, 'jobs/all', await call(who, 'jobs/all'), 'blocked_endpoint');
+  }
+  for (const route of ['app/getApps/', `recordUX/${patient}/getAllergies`, 'pharmacies/', 'forms/allEForms']) {
+    if (mode === 'legacy-restricted') {
+      for (const who of ['full', 'receptionist']) {
+        assertOAuthPolicyResult(who, route, await call(who, route), 'restricted_endpoint');
+      }
+    } else {
+      assertOAuthResourceResult('full', route, await call('full', route), true);
+      assertOAuthResourceResult('receptionist', route, await call('receptionist', route), false);
+    }
+  }
+}
+
 async function workflow(s) {
+  const mode = readOAuthMode();
   const { sql, marker, provider, config, patient } = s;
   const fixture = authzReadFixture({ sql, marker, provider, testUser: config.testUser });
   s.cleanup(() => fixture.cleanup());
@@ -245,7 +290,10 @@ async function workflow(s) {
     h.assert(!wrong.length, `Expected an application 403: ${wrong.join('; ')}`);
   });
 
-  await s.step('on /ws/services scoped controls reach each service and receptionist privileges are refused', async () => {
+  const oauthStep = mode === 'legacy-restricted'
+    ? 'on /ws/services legacy-restricted scopeless tokens read the patient and are refused outside the allowlist'
+    : `on /ws/services ${mode} controls reach each service and receptionist privileges are refused`;
+  await s.step(oauthStep, async () => {
     // uri='oob': the verifier is shown on the consent page instead of redirected.
     h.insertId(sql, `INSERT INTO ServiceClient(name,clientKey,clientSecret,uri,lifetime)
         VALUES(${h.sqlString(`${marker}-oauth`)},${h.sqlString(consumerKey)},
@@ -255,8 +303,8 @@ async function workflow(s) {
       const api = anonymous.request;
       const form = async response => Object.fromEntries(new URLSearchParams((await response.text()).trim()));
       const authorize = async who => {
-        const scopes = 'app.read recordux.read pharmacy.read form.read';
-        const initiateUrl = h.appUrl(config.baseUrl, `/ws/oauth/initiate?scope=${pct(scopes)}`);
+        const scopes = mode === 'scoped' ? 'app.read recordux.read pharmacy.read form.read' : '';
+        const initiateUrl = h.appUrl(config.baseUrl, `/ws/oauth/initiate${scopes ? `?scope=${pct(scopes)}` : ''}`);
         let response = await api.post(initiateUrl, {
           failOnStatusCode: false,
           headers: { Authorization: oauthHeader({ method: 'POST', url: initiateUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' } }) },
@@ -270,6 +318,11 @@ async function workflow(s) {
           const page = await consent.goto(
             h.appUrl(config.baseUrl, `/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' });
           h.assert(page && page.status() === 200, `${who}'s consent page answered HTTP ${page && page.status()}`);
+          for (const [warningMode, selector] of [['legacy-restricted', '#legacyRestrictedWarning'], ['legacy-full', '#fullAccessWarning']]) {
+            const shown = await consent.locator(selector).count() > 0;
+            h.assert(shown === (warningMode === mode),
+              `${who}'s consent warning does not match EXPECT_OAUTH_MODE=${mode}; check the disposable install's configuration`);
+          }
           const [approval] = await Promise.all([
             consent.waitForResponse(resp => resp.request().method() === 'POST'
               && new URL(resp.url()).pathname.endsWith('/ws/oauth/authorize'), { timeout: 30000 }),
@@ -301,13 +354,10 @@ async function workflow(s) {
           `${describe(who, 'GET', 'oauth/info', info)}; expected its own provider number`);
         return signing;
       };
-      // Identical scopes and routes for both users: an outer scope-policy denial cannot pass.
-      const fullToken = await authorize('full');
-      const receptionistToken = await authorize('receptionist');
-      for (const route of ['app/getApps/', `recordUX/${patient}/getAllergies`, ...THROWING_GUARDS]) {
-        assertOAuthResourceResult('full', route, await signedRest(api, config, fullToken, route), true);
-        assertOAuthResourceResult('receptionist', route, await signedRest(api, config, receptionistToken, route), false);
-      }
+      // Identical grants for both users; policy denials never count as service privilege checks.
+      const tokens = { full: await authorize('full'), receptionist: await authorize('receptionist') };
+      await checkOAuthAccess({ mode, patient,
+        call: (who, route) => signedRest(api, config, tokens[who], route) });
     } finally {
       await anonymous.close();
     }
@@ -347,4 +397,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('authz-rest-sweep', workflow, { openMaster: false });
-module.exports = { workflow, rest, signedRest, assertOAuthResourceResult };
+module.exports = { workflow, rest, signedRest, readOAuthMode, checkOAuthAccess, assertOAuthResourceResult };
