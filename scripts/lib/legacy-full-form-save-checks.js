@@ -131,17 +131,24 @@ async function checkLegacyFullFormIsolation(s, { program }) {
     h.assert(entry.status() === 200 && destination.searchParams.get('demographicNo') === patient && chartContext,
       'Legacy full-form patient did not receive an authenticated chart context');
   } finally { await entry.dispose(); }
+  // Legacy init reloads its opener. A dedicated static document provides that
+  // real same-origin relationship without the schedule's periodic navigation.
+  const opener = await context.newPage();
+  const openerResponse = await h.gotoApp(opener, config.baseUrl, '/images/favicon.ico', 'load');
+  h.assert(openerResponse?.status() === 200, 'Legacy full-form opener did not load its static document');
   const editors = [];
   for (let index = 0; index < ids.length; index++) {
     const url = h.appUrl(config.baseUrl, `/CaseManagementEntry?${new URLSearchParams({
       method: 'edit', noteId: ids[index], forceNote: 'true', from: 'casemgmt',
       demographicNo: patient, providerNo: provider, chartContext,
     })}`);
+    await opener.waitForLoadState('load');
     const opened = context.waitForEvent('page');
     opened.catch(() => {});
-    await s.schedule.evaluate(target => { window.open(target, '_blank'); }, url);
+    await opener.evaluate(target => { window.open(target, '_blank'); }, url);
     const editor = await opened;
     await prepareEditor(editor, { noteId: ids[index], text: original[index], chartContext, description });
+    await opener.waitForLoadState('load');
     editors.push(editor);
   }
   const [first, second] = editors;
@@ -195,7 +202,9 @@ async function checkLegacyFullFormIsolation(s, { program }) {
       AND note=${q(draftB)} AND LOCATE(${q(original[1])},history)>0 AND program_no=${q(String(program))}
       AND provider_no=${q(provider)}`) === '1', 'Window B\'s saved revision lost its own history, program or author');
   });
+  await opener.waitForLoadState('load');
   await Promise.all(editors.map(editor => editor.close()));
+  await opener.close();
 }
 
 module.exports = { checkLegacyFullFormIsolation };
