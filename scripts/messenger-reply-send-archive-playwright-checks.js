@@ -7,7 +7,7 @@
  *
  * WHY THIS CHECK EXISTS. Send and Archive does two things from one click on the compose page (CreateMessage.jsp
  * XMLHttpRequestSendnArch): it takes the message being answered from the page that opened the compose window
- * (document.referrer's messageID), archives it with a background POST to messenger/DisplayMessages
+ * (the server-supplied original message ID), archives it with a background POST to messenger/DisplayMessages
  * (btnDelete=archive&messageNo=<id>), and then submits the reply. If the background archive is refused the page only
  * shows a warning for a moment and sends anyway, so a clinician who asked for the message to be archived finds it still in
  * their inbox, with nothing on screen saying why.
@@ -101,6 +101,10 @@ async function workflow(s) {
     h.assert(JSON.stringify(ticked) === JSON.stringify([SENDER]), `Reply ticked ${JSON.stringify(ticked)}, not the sender ${SENDER} alone`);
     h.assert(await inbox.locator('#subject').inputValue() === `Re:${subject}`, 'Reply did not prefix the subject with Re:');
     await inbox.locator('#sendArchive').waitFor({ state: 'visible' });
+    h.assert(await inbox.locator('#sendArchive').getAttribute('data-message-id') === messageId,
+      'The compose page lost the original message ID');
+    // Exercise the packaged privacy policy even on a development server.
+    await inbox.evaluate(() => Object.defineProperty(document, 'referrer', { configurable: true, value: '' }));
   });
 
   let archive;

@@ -247,6 +247,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
             request.setAttribute("ReText", theSendMessage.toString());
             request.setAttribute("replyList", replyList);
             request.setAttribute("ReSubject", subject.toString());
+            request.setAttribute("archiveMessageId", Integer.parseInt(messageNo));
             keepForwardedAttachments(message.getId());
 
             return "reply";
@@ -273,6 +274,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
             // Set attributes for message composition page
             request.setAttribute("ReText", theSendMessage.toString());
             request.setAttribute("ReSubject", subject.toString());
+            request.setAttribute("archiveMessageId", Integer.parseInt(messageNo));
             keepForwardedAttachments(forwardMessage.getId());
             return "reply";
         }

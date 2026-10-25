@@ -379,30 +379,15 @@ function validateFields() {
 		if (!validateFields()) {
 			return;
 		}
-		var theLink = document.referrer;
-		if (!theLink || theLink.indexOf('?') === -1) {
+		// The packaged front door deliberately sends Referrer-Policy: no-referrer.
+		// HandleMessages supplies the original ID independently of browser headers.
+		var messageNo = document.getElementById('sendArchive').dataset.messageId;
+		if (!/^[1-9]\d*$/.test(messageNo || '')) {
 			document.forms[0].submit();
 			return;
 		}
-
 		var oRequest = new XMLHttpRequest();
-		var theLinkComponents = theLink.split('?');
-		var theQueryComponents = theLinkComponents[1].split('&');
-
-		var messageNo = '';
-		for (var index = 0; index < theQueryComponents.length; ++index) {
-			var theKeyValue = theQueryComponents[index].split('=');
-			if (theKeyValue[0] == 'messageID') {
-				messageNo = theKeyValue[1];
-			}
-		}
-
-		if (!messageNo) {
-			document.forms[0].submit();
-			return;
-		}
-
-		var theArchiveLink = theLinkComponents[0].substring(0, theLinkComponents[0].lastIndexOf('/')) + '/DisplayMessages';
+		var theArchiveLink = '${pageContext.request.contextPath}/messenger/DisplayMessages';
 
 		oRequest.open('POST', theArchiveLink, true);
 		oRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
@@ -642,7 +627,7 @@ function validateFields() {
 									<td><button type="submit" class="btn btn-primary" onclick="writeToMessage();"
 										title="<fmt:message key="messenger.CreateMessage.btnSendMessage"/>"><i class="fa-solid fa-share-from-square"></i>&nbsp;<fmt:message key="messenger.CreateMessage.btnSendMessage"/></button>
 									</td>
-									<td><button type="button" class="btn btn-secondary" id="sendArchive" onclick="writeToMessage(); XMLHttpRequestSendnArch();"
+									<td><button type="button" class="btn btn-secondary" id="sendArchive" data-message-id="${carlos:forHtmlAttribute(archiveMessageId)}" onclick="writeToMessage(); XMLHttpRequestSendnArch();"
 										title="<fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/>"><i class="fa-solid fa-envelope-circle-check"></i>&nbsp;<fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/></button>
 									</td>
 								</tr>
