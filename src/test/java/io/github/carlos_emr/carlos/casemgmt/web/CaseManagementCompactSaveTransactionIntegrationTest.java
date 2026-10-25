@@ -1186,6 +1186,76 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isSameAs(selected);
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"GET,false", "HEAD,false", "PUT,false", "GET,true", "HEAD,true", "PUT,true"})
+    void shouldRefuseReleaseBeforeAnyFormOrPersistedMutation_whenMethodIsNotPost(String verb, boolean routed) {
+        CasemgmtNoteLock selected = storeLock(originalId, "999998", request.getSession().getId());
+        request.getSession().setAttribute("casemgmtNoteLock1", selected);
+        request.setMethod(verb);
+        request.setParameter("method", "releaseNoteLock");
+        request.setParameter("noteId", originalId.toString());
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", storedLocks);
+        SecurityInfoManager security = (SecurityInfoManager) ReflectionTestUtils.getField(action, "securityInfoManager");
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        when(security.hasPrivilege(login, "_demographic", "r", (String) null)).thenReturn(true);
+        CaseManagementEntryFormBean observed = spy(form);
+        request.getSession().setAttribute(ChartProgramContext.formKey(request, "1"), observed);
+        Snapshot before = snapshot();
+        List<List<String>> locksBefore = storedLockRows(selected.getId());
+        clearInvocations(observed);
+
+        String result = tx().execute(status -> {
+            try {
+                return routed ? action.execute() : action.releaseNoteLock();
+            } catch (Exception failed) {
+                throw new IllegalStateException(failed);
+            }
+        });
+
+        assertThat(storedLockRows(selected.getId())).isEqualTo(locksBefore);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isSameAs(selected);
+        assertThat(request.getSession().getAttribute(ChartProgramContext.formKey(request, "1"))).isSameAs(observed);
+        if (routed) verifyNoInteractions(observed);
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldAllowPostedOwnLockRelease_withoutClinicalWritePermissions(boolean routed) {
+        CasemgmtNoteLock selected = storeLock(originalId, "999998", request.getSession().getId());
+        CasemgmtNoteLock other = storeLock(originalId + 100L, "999998", request.getSession().getId());
+        request.getSession().setAttribute("casemgmtNoteLock1", other);
+        request.setParameter("method", "releaseNoteLock");
+        request.setParameter("noteId", originalId.toString());
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", storedLocks);
+        SecurityInfoManager security = (SecurityInfoManager) ReflectionTestUtils.getField(action, "securityInfoManager");
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        when(security.hasPrivilege(login, "_demographic", "r", (String) null)).thenReturn(true);
+        when(security.hasPrivilege(login, "_eChart", "w", "1")).thenReturn(false);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "w", "1")).thenReturn(false);
+        when(security.isAllowedAccessToPatientRecord(login, 1)).thenReturn(false);
+        Snapshot before = snapshot();
+        List<List<String>> otherBefore = storedLockRows(other.getId());
+
+        String result = tx().execute(status -> {
+            try {
+                return routed ? action.execute() : action.releaseNoteLock();
+            } catch (Exception failed) {
+                throw new IllegalStateException(failed);
+            }
+        });
+
+        assertThat(result).isNull();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(storedLockRows(selected.getId())).isEmpty();
+        assertThat(storedLockRows(other.getId())).isEqualTo(otherBefore);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isSameAs(other);
+    }
+
     private CaseManagementNote anotherStoredNote() {
         return tx().execute(status -> {
             CaseManagementNote other = original.copyForRevision();

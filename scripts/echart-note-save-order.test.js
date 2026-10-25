@@ -248,7 +248,7 @@ function durationTeardown(values) {
     document: {getElementById: get, createTextNode: value => ({nodeType: 3, textContent: value})},
     $: get, $F: id => get(id).value, caseNote: editor.id, ctx: '/carlos', editLabel: 'Edit', largeNote: () => false,
     noteIssuesChanged: true, autoSaveTimer: 41, clearTimeout: id => events.push(['clear timer', id]),
-    removeLock: id => events.push(['release lock', id]), deleteAutoSave: () => events.push(['delete draft']),
+    removeLock: id => events.push(['release lock', String(id).match(/\d+/)[0]]), deleteAutoSave: () => events.push(['delete draft']),
     jQuery: () => ({off() {}}), destroyNoteIssueAutocomplete() {}, monitorCaseNote() {}, getActiveText() {},
     Element: {remove(id) { delete fields[id]; }, stopObserving() {}},
   };
@@ -278,7 +278,7 @@ for (const values of [['1', '12', '2', '34'], ['', '', '', '']]) {
           'native full-form serialization submits exactly one current duration');
       });
       assert.equal(h.context.noteIssuesChanged, false);
-      assert.deepEqual(h.events, [['release lock', 'editor101'], ['clear timer', 41], ['delete draft']]);
+      assert.deepEqual(h.events, [['release lock', '101'], ['clear timer', 41], ['delete draft']]);
     });
   }
 }

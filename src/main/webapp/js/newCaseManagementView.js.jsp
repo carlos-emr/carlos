@@ -1776,6 +1776,8 @@ function updateCPPNote() {
     function removeLock(id) {
         var regEx = /\d+/;
         var nId = regEx.exec(id);
+        // New editor DOM counters (01, 0.1) all represent the persisted lock0.
+        if (nId && nId[0].charAt(0) === '0') nId = '0';
         var url = chartActionUrl("/CaseManagementEntry");
         params = "method=releaseNoteLock&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId + "&force=true";
 
@@ -1842,7 +1844,7 @@ function updateCPPNote() {
         }
 
         // remove lock from note
-        removeLock(id);
+        removeLock(parent);
 
         //clear auto save
         clearTimeout(autoSaveTimer);

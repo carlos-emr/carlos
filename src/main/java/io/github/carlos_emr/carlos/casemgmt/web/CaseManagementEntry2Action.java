@@ -157,6 +157,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static final String AUTHORIZED_NOTE_PROGRAM = CaseManagementEntry2Action.class.getName() + ".authorizedNoteProgram";
 
     public String execute() throws Exception {
+        String operation = request.getParameter("method") != null ? request.getParameter("method")
+                : (String) request.getAttribute("method");
+        if ("releaseNoteLock".equals(operation) && !requireNoteReleasePost()) return NONE;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             logger.error("Illegal operation! Empty user session");
@@ -167,8 +170,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             throw new SecurityException("missing required security object (_demographic)");
         }
 
-        String operation = request.getParameter("method") != null ? request.getParameter("method")
-                : (String) request.getAttribute("method");
         if (NOTE_WRITE_METHODS.contains(operation == null ? "" : operation) && !requireNoteWriteAccess()) {
             return NONE;
         }
@@ -346,6 +347,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         int id = Integer.parseInt(value);
         if (id <= 0) throw new NumberFormatException("Message ID must be positive");
         return id;
+    }
+
+    private boolean requireNoteReleasePost() {
+        if ("POST".equals(request.getMethod())) return true;
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 
     /**
@@ -2372,9 +2380,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * The native force flag retains that same persisted ownership boundary. Another editor's
      * patient-level cached lock is preserved; a matching cache is cleared only after its row is deleted.
      *
-     * @return null because the release response has no view
+     * @return null after release, or NONE after a controlled method-not-allowed response
      */
     public String releaseNoteLock() {
+        if (!requireNoteReleasePost()) return NONE;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String demoNo = getDemographicNo(request);
