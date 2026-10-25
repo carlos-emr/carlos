@@ -22,6 +22,13 @@
 package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -98,6 +105,7 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
         mockRequest.setMethod("POST");
+        mockRequest.setParameter("demographicNo", "1001");
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
@@ -110,6 +118,27 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eChart"), eq("w"), isNull()))
                 .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_edoc"), eq("w"), nullable(String.class)))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_queue.7"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 1001)).thenReturn(true);
+        CtlDocumentDao links = createAndRegisterMock(CtlDocumentDao.class);
+        when(links.findByDocumentNoAndModule(anyInt(), eq("demographic"))).thenAnswer(call -> {
+            CtlDocument link = new CtlDocument();
+            link.setId(new CtlDocumentPK("demographic", 1001, call.getArgument(0)));
+            link.setStatus("A");
+            return List.of(link);
+        });
+        DocumentDao documents = createAndRegisterMock(DocumentDao.class);
+        when(documents.find(anyInt())).thenAnswer(call -> {
+            Document document = new Document();
+            document.setDocumentNo(call.getArgument(0));
+            document.setRestrictToProgram(false);
+            return document;
+        });
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
     }
 
     @AfterEach
