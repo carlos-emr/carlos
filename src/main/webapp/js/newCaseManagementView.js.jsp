@@ -3778,8 +3778,7 @@ function autoSave() {
 
         //if we have lost the lock on the note alert the user
         if (lostNoteLock) {
-            var openAgain = confirm("You have saved/edited this note in another window\nPlease reopen the Chart if you wish to continue editing this note" +
-                "\n Do you wish to reopen the chart now?");
+            var openAgain = confirm(draftSaveConflictMessage + "\n Do you wish to reopen the chart now?");
 
             if (openAgain) {
                 window.location.reload(true);

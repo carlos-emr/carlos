@@ -52,12 +52,76 @@ test('AJAX keeps chart context when the request body already names its patient',
     assert.equal(seen.at(-1), '/carlos/rx/WriteScript?chartContext=chart-bravo');
 });
 
+test('explicit blank, malformed or conflicting URL patients never inherit chart context', () => {
+    const rx = context.create('1001', 'chart-alpha');
+    for (const query of [
+        'demographicNo=', 'demographic_no=%20', 'demographicNo=%09',
+        'demographicNo=&demographicNo=1001', 'demographicNo=1001&demographic_no=',
+        'demographicNo=1001&demographic_no=2002', 'demographicNo=1.001e3',
+        'demographicNo=1001.0', 'demographicNo=%201001%20',
+    ]) {
+        const url = '/carlos/rx/WriteScript?' + query;
+        assert.equal(rx.withPatient(url), url, query);
+    }
+    assert.equal(rx.withPatient('/carlos/rx/WriteScript?demographicNo=0001001&demographic_no=1001'),
+        '/carlos/rx/WriteScript?demographicNo=0001001&demographic_no=1001&chartContext=chart-alpha');
+    assert.equal(rx.withPatient('/carlos/rx/WriteScript?demographicNo=&chartContext=chart-bravo'),
+        '/carlos/rx/WriteScript?demographicNo=&chartContext=chart-bravo');
+});
+
+test('AJAX preserves explicit empty patient bodies without adding a patient or chart token', () => {
+    const seen = [];
+    const win = {
+        CarlosAjax: {
+            request(url) { seen.push(url); },
+            updater(container, url) { seen.push(url); },
+        },
+        jQuery: { ajaxPrefilter(fn) { this.filter = fn; } },
+    };
+    context.create('1001', 'chart-alpha').install(win);
+    const formData = new FormData();
+    formData.append('demographicNo', '');
+    const bodies = [
+        'demographicNo=', 'demographic_no=%20',
+        'demographicNo=1001&demographic_no=',
+        new URLSearchParams('demographicNo=&demographicNo=1001'), formData,
+        { demographicNo: '' }, { demographic_no: ' ' },
+        { demographicNo: null }, { demographicNo: undefined },
+        { demographicNo: [] },
+        { demographicNo: ['1001', ''] }, { demographicNo: '1001', demographic_no: '2002' },
+    ];
+    const url = '/carlos/rx/WriteScript';
+    for (const body of bodies) {
+        const options = { parameters: body };
+        win.CarlosAjax.request(url, options);
+        win.CarlosAjax.updater('rxText', url, { postBody: body });
+        const jqueryOptions = { url, data: body };
+        win.jQuery.filter(jqueryOptions);
+        assert.equal(jqueryOptions.url, url);
+        assert.equal(jqueryOptions.data, body);
+        assert.equal(options.parameters, body);
+    }
+    assert.deepEqual(seen, bodies.flatMap(() => [url, url]));
+
+    // A matching query cannot supply the identity deliberately left blank in the body, or vice versa.
+    win.CarlosAjax.request(url + '?demographicNo=1001', { parameters: 'demographic_no=' });
+    assert.equal(seen.at(-1), url + '?demographicNo=1001');
+    win.CarlosAjax.request(url + '?demographicNo=', { parameters: 'demographic_no=1001' });
+    assert.equal(seen.at(-1), url + '?demographicNo=');
+
+    win.CarlosAjax.request(url, { parameters: 'x=1' });
+    assert.equal(seen.at(-1), url + '?demographicNo=1001&chartContext=chart-alpha');
+});
+
 test('native submit forms receive chart context before any submit event', () => {
     const fields = [{ name: 'demographicNo', value: '1001' }];
     const form = {
         getAttribute() { return '/carlos/rx/chooseDrug'; },
         querySelector(selector) {
             return fields.find(field => selector.includes(`[name="${field.name}"]`));
+        },
+        querySelectorAll(selector) {
+            return fields.filter(field => selector.includes(`[name="${field.name}"]`));
         },
         appendChild(field) { fields.push(field); },
     };
@@ -71,6 +135,39 @@ test('native submit forms receive chart context before any submit event', () => 
     rx.install(win);
     assert.deepEqual(fields, [{ name: 'demographicNo', value: '1001' },
         { type: 'hidden', name: 'chartContext', value: 'chart-alpha' }]);
+});
+
+test('native forms preserve every explicit patient value before installation and submit', () => {
+    const cases = [
+        [{ name: 'demographicNo', value: '' }],
+        [{ name: 'demographic_no', value: ' ' }],
+        [{ name: 'demographicNo', value: '2002' }],
+        [{ name: 'demographicNo', value: '1001' }, { name: 'demographic_no', value: '' }],
+        [{ name: 'demographicNo', value: '1001' }, { name: 'demographicNo', value: '2002' }],
+    ];
+    for (const initial of cases) {
+        const fields = initial.map(field => ({ ...field }));
+        const listeners = {};
+        const form = {
+            getAttribute() { return '/carlos/rx/chooseDrug'; },
+            querySelector(selector) {
+                return fields.find(field => selector.includes(`[name="${field.name}"]`));
+            },
+            querySelectorAll(selector) {
+                return fields.filter(field => selector.includes(`[name="${field.name}"]`));
+            },
+            appendChild(field) { fields.push(field); },
+        };
+        const win = { document: {
+            querySelectorAll() { return [form]; },
+            createElement() { return {}; },
+            addEventListener(name, listener) { listeners[name] = listener; },
+        } };
+        context.create('1001', 'chart-alpha').install(win);
+        assert.deepEqual(fields, initial);
+        listeners.submit({ target: form });
+        assert.deepEqual(fields, initial);
+    }
 });
 
 test('withPatient leaves a URL that already names a patient alone', () => {
@@ -250,6 +347,7 @@ test('wrappers installed for one patient follow the context when a later page in
     listeners.submit({ target: {
         getAttribute: () => '/carlos/rx/deleteRx',
         querySelector: () => null,
+        querySelectorAll: () => [],
         appendChild: (el) => appended.push(el),
     } });
 
@@ -347,6 +445,7 @@ test('install tags followed Rx links and form submissions with the page patient'
     const form = {
         getAttribute: () => '/carlos/rx/deleteRx',
         querySelector: () => null,
+        querySelectorAll: () => [],
         appendChild: (el) => appended.push(el),
     };
     listeners.submit({ target: form });

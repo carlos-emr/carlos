@@ -204,3 +204,11 @@ Installed Rx checks require exactly one visible, enabled duration control per fi
 all owned by the selected note, and verify entered and cleared values through full
 Save, compact save, issue refresh and historical readback. These assertions retain
 strict native controls and database checks rather than selecting an arbitrary duplicate.
+
+Inline assignment uses the visible autocomplete and Add Issue button. Its exact owned
+checkbox is checked in the rendered model, and native Save must show the assigned issue
+visibly. The modern chart keeps the legacy reference groups and status radios hidden
+without an opening control. Their status operation is therefore tested with the real
+rendered FormData, authenticated chart context and CSRF token, followed by assertions
+on the returned duration fields and complete clinical state. No hidden radio click is
+forced or described as a native user action.

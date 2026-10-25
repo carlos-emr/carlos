@@ -36,8 +36,8 @@
  * the new revision, with historical values and failure-recovery controls preserved. A final
  * new unsigned note also records and then clears all four values through two native full
  * Saves; an actual inline issue assignment must keep those cleared inputs blank before
- * the second Save. A later native issue-status change retains newly staged duration
- * inputs without changing either saved note revision or earlier clinical fixtures.
+ * the second Save. An authenticated rendered-form request exercises the hidden legacy
+ * issue-status operation and its returned duration fields without changing saved notes.
  * Authenticated read-only NotesService responses must report this new UUID chain's
  * revisions1 and2 despite the other owned chains and second patient in the fixture.
  *
@@ -1348,7 +1348,7 @@ DELIMITER ;`);
           h.assert(!((await editor().inputValue()).includes(`${marker}-originating-program-only-edit`)),
             'The requested native new-note editor did not open after the confirmed compact save');
         });
-        await s.step('native full Save clears all four duration fields without changing historical or other clinical records', async () => {
+        await s.step('native full Save clears durations, and rendered-form issue updates preserve saved clinical records', async () => {
           await page.waitForFunction(() => document.forms.caseManagementEntryForm?.elements.noteId?.value === '0'
             && !window.autoSaveXhr && !window.autoSaveOperation && !window.noteSwitchSavePending
             && window.issueUpdatesPending === 0);
@@ -1512,13 +1512,33 @@ DELIMITER ;`);
             'Inline issue assignment failed or did not serialize the four cleared duration inputs');
             await page.waitForFunction(() => window.issueUpdatesPending === 0 && !window.issueUpdateFailed);
             await page.evaluate(() => clearAutoSaveTimer());
-            h.assert(await page.locator('#asgnIssues').isEnabled()
-              && await page.locator('#noteIssues input[name$=".checked"]:checked').count() === checkedBefore + 1
-              && (await page.locator('#noteIssues').innerText()).includes(inlineDescription)
-              && JSON.stringify(await durationState()) === JSON.stringify(durationNames.map(() => ''))
-              && await editor().inputValue() === clearedText
-              && JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${firstId}`)) === firstRow
-              && protectedClinicalState() === protectedBefore,
+            const assignedCases = sql.rows(`SELECT id,demographic_no,program_id FROM casemgmt_issue
+              WHERE issue_id=${inlineLookupId} ORDER BY id`);
+            h.assert(assignedCases.length === 1 && /^[1-9]\d*$/.test(assignedCases[0][0])
+              && assignedCases[0][1] === patient && assignedCases[0][2] === defaultProgram,
+            'The inline assignment did not create exactly one issue for its owned patient and program');
+            const ownedCheckbox = page.locator(`#noteIssues input[data-issue-id="${assignedCases[0][0]}"]`);
+            // Legacy reference groups are deliberately hidden. Verify their exact
+            // rendered selection now, then the visible assigned issue after native Save.
+            const ownedIssueModel = await ownedCheckbox.count() === 1 && await ownedCheckbox.isChecked()
+              && await ownedCheckbox.evaluate((input, description) =>
+                input.closest('tr')?.textContent.includes(description) === true, inlineDescription);
+            const protectedAfterIssue = protectedClinicalState();
+            const checks = {
+              assignmentEnabled: await page.locator('#asgnIssues').isEnabled(),
+              exactlyOneIssueAdded: await page.locator('#noteIssues input[name$=".checked"]:checked').count() === checkedBefore + 1,
+              ownedIssueModel,
+              durationsStillCleared: JSON.stringify(await durationState()) === JSON.stringify(durationNames.map(() => '')),
+              editorTextRetained: await editor().inputValue() === clearedText,
+              historicalNoteUnchanged: JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${firstId}`)) === firstRow,
+              protectedClinicalUnchanged: protectedAfterIssue === protectedBefore,
+            };
+            if (!Object.values(checks).every(Boolean)) console.error('Inline issue refresh metadata:', JSON.stringify({
+              checks,
+              protectedBefore: JSON.parse(protectedBefore).map(value => fingerprint(JSON.stringify(value))),
+              protectedAfter: JSON.parse(protectedAfterIssue).map(value => fingerprint(JSON.stringify(value))),
+            }));
+            h.assert(Object.values(checks).every(Boolean),
             'The inline issue fragment reverted cleared durations/text or changed prior clinical records');
           });
           const inlineCase = sql.rows(`SELECT id,demographic_no,program_id FROM casemgmt_issue
@@ -1528,6 +1548,10 @@ DELIMITER ;`);
             && JSON.stringify(sql.rows(`SELECT id,note_id FROM casemgmt_issue_notes WHERE id=${inlineCase[0][0]}
               ORDER BY note_id`)) === JSON.stringify([[inlineCase[0][0], secondId]]),
           'The inline issue did not persist exactly one owned case issue linked only to the new revision');
+          const visibleAssignment = page.locator(`#sig${secondId} li`).filter({hasText: inlineDescription});
+          h.assert(await visibleAssignment.count() === 1 && await visibleAssignment.isVisible()
+            && (await visibleAssignment.innerText()).trim() === inlineDescription,
+          'Native Save did not visibly retain the owned assigned issue');
           h.assert(Number(secondId) > Number(firstId)
             && sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${secondId} AND uuid=${q(firstUuid)}
               AND ${durationNames.map(name => `${name} IS NULL`).join(' AND ')}`) === '1'
@@ -1544,28 +1568,54 @@ DELIMITER ;`);
           const joinsBefore = JSON.stringify(sql.rows(`SELECT id,note_id FROM casemgmt_issue_notes
             WHERE id=${caseId} ORDER BY note_id`));
           h.assert(sql.value(`SELECT certain FROM casemgmt_issue WHERE id=${caseId}`) === '0',
-            'The owned issue must start uncertain for the native status-change probe');
+            'The owned issue must start uncertain for the rendered-form status-change probe');
           const stagedDurations = ['4', '21', '1', '37'];
           for (let index = 0; index < durationNames.length; index++) {
             await page.locator(`[name="${durationNames[index]}"]`).fill(stagedDurations[index]);
           }
-          const detailsLink = page.locator('#noteIssues').getByRole('link', { name: inlineDescription, exact: true });
-          const details = /displayIssue\('(noteIssueDetails\d+)'\)/.exec(await detailsLink.getAttribute('onclick') || '');
-          h.assert(details, 'The owned issue has no native detail control');
-          await detailsLink.click();
-          const [changed] = await Promise.all([
-            page.waitForResponse(response => response.request().method() === 'POST'
-              && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
-              && new URLSearchParams(response.request().postData() || '').get('method') === 'issueChange'),
-            page.locator(`#${details[1]} input[type="radio"][name$=".issue.certain"][value="true"]`).check(),
-          ]);
-          await changed.finished();
-          const changePost = new URLSearchParams(changed.request().postData() || '');
-          h.assert(changed.status() === 200 && hasChartContext(changed.request(), tokens[1])
+          // These legacy radios have no opening control in the modern chart. Submit
+          // the actual rendered form through its authenticated browser session.
+          const submitted = await page.evaluate(id => {
+            const form = document.forms.caseManagementEntryForm;
+            const checkbox = form.querySelector(`input[data-issue-id="${id}"]`);
+            const index = checkbox && /^issueCheckList\[(\d+)\]\.checked$/.exec(checkbox.name);
+            const radioName = index && `issueCheckList[${index[1]}].issue.certain`;
+            const radio = radioName && Array.from(form.elements).find(input => input.name === radioName && input.value === 'true');
+            const csrf = globalThis.CarlosAjax?.getCsrfToken();
+            if (!index || !checkbox.checked || !radio || radio.disabled || !csrf) {
+              throw new Error('The owned issue has no authorized rendered status control or CSRF token');
+            }
+            const body = new URLSearchParams(new FormData(form));
+            if (!body.get('chartContext')) throw new Error('The rendered issue form has no chart context');
+            body.set('method', 'issueChange');
+            body.set('lineId', index[1]);
+            body.set('ajax', 'true');
+            body.set(radioName, 'true');
+            body.set('CSRF-TOKEN', csrf);
+            return { body: body.toString(), csrf };
+          }, caseId);
+          const changePost = new URLSearchParams(submitted.body);
+          h.assert(changePost.getAll('chartContext').length > 0
+            && changePost.getAll('chartContext').every(value => value === tokens[1])
             && durationNames.every((name, index) => changePost.has(name)
               && changePost.getAll(name).every(value => value === stagedDurations[index])),
-          'The native issue status change failed or omitted the staged duration inputs');
-          await page.waitForFunction(() => window.issueUpdatesPending === 0 && !window.issueUpdateFailed);
+          'The rendered issue status request omitted its chart context or staged duration inputs');
+          const changed = await context.request.post(h.appUrl(s.config.baseUrl, '/CaseManagementEntry'), {
+            data: submitted.body, headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': submitted.csrf},
+            maxRedirects: 0,
+          });
+          try {
+            const html = await changed.text();
+            h.assert(changed.status() === 200 && Object.hasOwn(changed.headers(), h.APPLICATION_HEADER)
+              && !h.isWafPage(changed.status(), html), 'The rendered issue status request did not reach the application successfully');
+            const fragment = await page.evaluate(({ html, names, id }) => {
+              const document = new DOMParser().parseFromString(html, 'text/html');
+              return { durations: names.map(name => document.querySelector(`input[name="${name}"]`)?.value ?? null),
+                ownsIssue: Boolean(document.querySelector(`#noteIssues input[data-issue-id="${id}"]`)) };
+            }, { html, names: durationNames, id: caseId });
+            h.assert(fragment.ownsIssue && JSON.stringify(fragment.durations) === JSON.stringify(stagedDurations),
+              'The rendered issue status response lost its owned issue or staged duration values');
+          } finally { await changed.dispose(); }
           await page.evaluate(() => clearAutoSaveTimer());
           h.assert(JSON.stringify(await durationState()) === JSON.stringify(stagedDurations)
             && await editor().inputValue() === clearedText
@@ -1575,7 +1625,7 @@ DELIMITER ;`);
             && JSON.stringify(priorNotes([])) === notesBeforeIssueChange && protectedClinicalState() === protectedBefore
             && sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${secondId}
               AND ${durationNames.map(name => `${name} IS NULL`).join(' AND ')}`) === '1',
-          'The issue fragment lost staged durations or changed saved notes, unrelated issue fields/joins, or protected clinical state');
+          'The rendered-form issue update lost staged durations or changed saved notes, unrelated issue fields/joins, or protected clinical state');
         });
       } finally {
         context.off('request', observePing);

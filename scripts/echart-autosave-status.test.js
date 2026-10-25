@@ -28,8 +28,10 @@ const vm = require('node:vm');
 
 const modernSource = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
 const legacySource = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/CaseManagementEntry.jsp'), 'utf8');
+const resourceSource = fs.readFileSync(path.join(__dirname, '../src/main/resources/oscarResources_en.properties'), 'utf8');
+const recoveryMessage = /^encounter\.draftSaveConflict\.msg=(.*)$/m.exec(resourceSource)[1];
 const labels = { draftSavingLabel: 'Saving draft...', draftSaveFailedLabel: 'Draft failed; retrying.',
-  draftSaveConflictLabel: 'Reopen this chart.', draftSavedLabel: 'Draft saved' };
+  draftSaveConflictLabel: recoveryMessage, draftSavedLabel: 'Draft saved' };
 const renderLabels = source => source.replace(/\$\{carlos:forJavaScriptBlock\((\w+)\)\}/g,
   (_, key) => { assert.ok(labels[key]); return labels[key]; });
 
@@ -193,6 +195,31 @@ test('modern lock conflict stops periodic retries and keeps the text available f
   assert.equal(h.timers.length, 0);
   assert.equal(h.editor.value, 'Unsaved H&P + clinical text');
 });
+
+for (const reopen of [false, true]) {
+  test(`a lost-lock prompt warns that edits may be unsaved and says to copy before reopening (${reopen})`, () => {
+    const h = modern(); const prompts = []; let reloads = 0;
+    h.context.lostNoteLock = true;
+    h.context.confirm = message => { prompts.push(message); return reopen; };
+    h.context.window.location.reload = () => { reloads++; };
+    h.context.jQuery = () => ({val: () => h.editor.value});
+    h.context.numChars = h.editor.value.length;
+    h.context.adjustCaseNote = () => { throw new Error('unexpected resize'); };
+    const start = modernSource.indexOf('    function monitorCaseNote(');
+    const end = modernSource.indexOf('\n    function ', start + 1);
+    assert.ok(start >= 0 && end > start, 'actual note lock monitor exists');
+    vm.runInContext(modernSource.slice(start, end), h.context);
+
+    h.context.monitorCaseNote({keyCode: 65});
+
+    assert.equal(prompts.length, 1);
+    assert.ok(prompts[0].startsWith(recoveryMessage));
+    assert.match(prompts[0], /latest changes may not be saved/);
+    assert.match(prompts[0], /Copy your changes before reopening the chart/);
+    assert.equal(reloads, reopen ? 1 : 0);
+    assert.equal(h.editor.value, 'Unsaved H&P + clinical text');
+  });
+}
 
 test('modern overlapping autosaves are serialized and old editor responses cannot label another editor saved', () => {
   const h = modern(); h.context.autoSave(); h.context.autoSave();

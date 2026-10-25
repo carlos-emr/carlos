@@ -156,7 +156,7 @@ class NotesServiceDraftAccessUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRefuseForeignDraftRestorationBeforeChangingTheReferencedNote() {
+    void shouldRefuseForeignDraftRestoration_beforeChangingTheReferencedNote() {
         CaseManagementTmpSave draft = new CaseManagementTmpSave();
         draft.setNoteId(501);
         draft.setNote("Foreign replacement");
@@ -222,7 +222,7 @@ class NotesServiceDraftAccessUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRefuseExplicitForeignNoteBeforeInitializingItsHistory() {
+    void shouldRefuseExplicitForeignNote_beforeInitializingItsHistory() {
         original.setDemographic_no("202");
         refused(() -> service.getCurrentNote(101, JSON.createObjectNode().put("noteId", 501)), 403);
         assertThat(original.getHistory()).isNull();

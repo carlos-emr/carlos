@@ -27,8 +27,16 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-
+<%--
+    Purpose: Renders the legacy chart's patient profile history editor.
+    Features: Edits social and family history, medical history, past medications,
+    care-provider references, and support systems; preserves reminders and ongoing
+    concerns while submitting profile saves or print-preview requests to the chart owner.
+    Parameters: requestScope.cpp supplies the current patient's profile fields and
+    last-update date; requestScope.messages supplies save feedback. The enclosing
+    chart form supplies patient identity, chart context, and the method field.
+    @since 2006-12-16
+--%>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 

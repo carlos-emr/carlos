@@ -120,7 +120,8 @@
         if (typeof data === 'string') return new URLSearchParams(data).getAll(name);
         if (typeof data.getAll === 'function') return data.getAll(name);
         if (typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, name)) {
-            return Array.isArray(data[name]) ? data[name] : [data[name]];
+            // CarlosAjax encodes an explicitly supplied empty array as an empty parameter.
+            return Array.isArray(data[name]) && data[name].length ? data[name] : [data[name]];
         }
         return [];
     }
@@ -128,9 +129,16 @@
     function namesSamePatient(data, demographicNo) {
         return ['demographicNo', 'demographic_no'].every(function (name) {
             return parameterValues(data, name).every(function (value) {
-                return value == null || String(value).trim() === '' || Number(value) === Number(demographicNo);
+                return isSamePatient(value, demographicNo);
             });
         });
+    }
+
+    function isSamePatient(value, demographicNo) {
+        // An absent parameter can inherit this page's patient; an explicitly blank or malformed
+        // value cannot. ChartProgramContext validates every submitted value with this grammar.
+        return value != null && /^[0-9]{1,10}$/.test(String(value))
+            && Number(value) === Number(demographicNo);
     }
 
     /**
@@ -241,16 +249,17 @@
             function tagForm(form) {
                 if (!state.demographicNo || !form || !form.getAttribute
                         || !isRxUrl(form.getAttribute('action') || '')) return;
-                var namedPatient = form.querySelector('[name="demographicNo"], [name="demographic_no"]');
-                if (!namedPatient) {
+                var namedPatients = form.querySelectorAll('[name="demographicNo"], [name="demographic_no"]');
+                if (!namedPatients.length) {
                     var input = win.document.createElement('input');
                     input.type = 'hidden';
                     input.name = 'demographicNo';
                     input.value = state.demographicNo;
                     form.appendChild(input);
                 }
-                if (state.chartContext && (!namedPatient || !namedPatient.value
-                        || Number(namedPatient.value) === Number(state.demographicNo))
+                if (state.chartContext && Array.prototype.every.call(namedPatients, function (input) {
+                            return isSamePatient(input.value, state.demographicNo);
+                        })
                         && !form.querySelector('[name="chartContext"]')) {
                     var contextInput = win.document.createElement('input');
                     contextInput.type = 'hidden';

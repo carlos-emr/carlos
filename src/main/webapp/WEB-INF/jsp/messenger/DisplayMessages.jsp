@@ -49,13 +49,13 @@
     Request Parameters:
     - boxType: Type of message box to display (0=inbox, 1=sent, 2=deleted, 3=demographic)
     - demographic_no: Filter messages for specific patient
-    - orderby: Column to sort by (toggles ascending/descending on repeat click)
+    - orderby: Request-scoped sort column and direction, preserved in mailbox navigation links
+    - searchString: Request-scoped message search, preserved with sorting and pagination
     - page: Current page number for pagination
 
     Session Requirements:
     - msgSessionBean: Must be valid for page access (redirects to index.jsp if null)
     - userrole: User's role for security validation
-    - orderby: Stored sort preference (persisted across requests)
 
     Frontend Dependencies:
     - Bootstrap 5.3.3 (responsive layout, navigation tabs, table styling)
