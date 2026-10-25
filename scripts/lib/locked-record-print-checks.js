@@ -190,7 +190,10 @@ async function checkLockedRecordPrints(s, { fixture }) {
   await s.step('print patient identities reject malformed or conflicting values before any clinical read', async () => {
     const invalid = [
       ['missing', []], ['malformed', [['demographicNo', 'not-a-patient']]],
-      ['overflow', [['demographicNo', '2147483648']]],
+      // 2147483648 is a shipped CRS 942220 overflow-probe literal and is
+      // correctly blocked before CARLOS. This ordinary out-of-range value
+      // reaches the application so the strict HTTP 400 contract is exercised.
+      ['overflow', [['demographicNo', '2147483901']]],
       ['conflicting aliases', [['demographicNo', openPatient], ['demographic_no', lockedPatient]]],
       ['conflicting repeats', [['demographicNo', openPatient], ['demographicNo', lockedPatient]]],
     ];
