@@ -340,7 +340,8 @@ public final class ImageRenderingServlet extends HttpServlet {
 
         if (!canRenderStoredSignature(session, signatureMetadata)) {
             logger.warn("Denied stored signature render: provider={} moduleType={} demographicNo={}",
-                    provider.getProviderNo(), signatureMetadata.getModuleType(), signatureMetadata.getDemographicId());
+                    LogSafe.sanitize(provider.getProviderNo()), LogSafe.sanitizeObject(signatureMetadata.getModuleType()),
+                    LogSafe.sanitizeObject(signatureMetadata.getDemographicId()));
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }

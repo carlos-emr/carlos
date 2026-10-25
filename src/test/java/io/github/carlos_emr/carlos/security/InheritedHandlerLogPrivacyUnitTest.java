@@ -239,4 +239,99 @@ class InheritedHandlerLogPrivacyUnitTest extends CarlosUnitTestBase {
             assertPrivateValuesAbsent(capture);
         }
     }
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"operation,ascii", "operation,encoded", "providerNo,ascii", "providerNo,encoded",
+            "providerNums,ascii", "providerNums,encoded", "status,ascii", "status,encoded"})
+    void shouldNotEchoAnyRequestField_whenForwardingInputsContainSensitiveText(String field, String encoding) throws Exception {
+        String sensitive = encoding.equals("ascii") ? PRIVATE : "患者秘密诊断";
+        String value = sensitive + "\r\n" + FORGED;
+        request.setParameter("operation", field.equals("operation") ? value : "update");
+        request.setParameter("providerNo", field.equals("providerNo") ? value : "999998");
+        request.setParameter("status", field.equals("providerNo") ? "F" : field.equals("status") ? value : "N");
+        if (field.equals("providerNums")) request.setParameter("providerNums", value);
+        IncomingLabRules existing = new IncomingLabRules();
+        existing.setId(17); existing.setProviderNo("999998"); existing.setFrwdProviderNo("999997"); existing.setStatus("F");
+        if (field.equals("status")) {
+            Provider recipient = new Provider("999997"); recipient.setFirstName("Fixture"); recipient.setLastName("Recipient");
+            when(rules.findRules("999998")).thenReturn(Collections.singletonList(new Object[]{existing, recipient}));
+            when(rules.findCurrentByProviderNo("999998")).thenReturn(List.of(existing));
+        }
+        var inserted = new java.util.concurrent.atomic.AtomicReference<IncomingLabRules>();
+        doAnswer(call -> { IncomingLabRules row = call.getArgument(0); row.setId(81); inserted.set(row); return null; })
+                .when(rules).persist(any(IncomingLabRules.class));
+        try (var capture = LogCapture.forLogger(ForwardingRules2Action.class)) {
+            assertThat(new ForwardingRules2Action().execute()).isEqualTo("success");
+            if (field.equals("operation")) verifyNoInteractions(rules);
+            if (field.equals("providerNo")) {
+                assertThat(inserted.get().getProviderNo()).isEqualTo(value);
+                assertThat(inserted.get().getStatus()).isEqualTo("F");
+                assertThat(inserted.get().getFrwdProviderNo()).isEqualTo("0");
+            }
+            if (field.equals("providerNums")) assertThat(inserted.get().getFrwdProviderNo()).isEqualTo(value);
+            if (field.equals("status")) {
+                assertThat(existing.getStatus()).isEqualTo(value);
+                verify(rules).merge(existing);
+                verify(rules, never()).persist(any());
+            }
+            assertPrivateValuesAbsent(capture);
+            String logs = capture.messages().stream().reduce("", (a,b) -> a + "\n" + b);
+            assertThat(logs).doesNotContain(sensitive,
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(sensitive));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"providerNo", "providerNums", "status"})
+    void shouldRetainForwardingUpdateFailure_withoutLoggingRejectedInputsOrExceptionMessages(String field) throws Exception {
+        String sensitive = PRIVATE + "患者秘密诊断";
+        String value = sensitive + "\r\n" + FORGED;
+        String providerNo = field.equals("providerNo") ? value : "999998";
+        request.setParameter("operation", "update");
+        request.setParameter("providerNo", providerNo);
+        request.setParameter("status", field.equals("status") ? value : "N");
+        if (field.equals("providerNums")) {
+            request.setParameter("providerNums", value);
+            when(rules.findCurrentByProviderNoAndFrwdProvider(providerNo, "0"))
+                    .thenThrow(new IllegalStateException(value));
+        } else {
+            when(rules.findRules(providerNo)).thenThrow(new IllegalStateException(value));
+        }
+        try (var capture = LogCapture.forLogger(ForwardingRules2Action.class)) {
+            assertThat(new ForwardingRules2Action().execute()).isEqualTo("failure");
+            if (field.equals("providerNums")) verify(rules).findCurrentByProviderNoAndFrwdProvider(providerNo, "0");
+            else verify(rules).findRules(providerNo);
+            verify(rules, never()).persist(any());
+            verify(rules, never()).merge(any());
+            assertPrivateValuesAbsent(capture);
+            String logs = capture.messages().stream().reduce("", (a, b) -> a + "\n" + b);
+            assertThat(logs).contains("Could not update forwarding rules").doesNotContain(sensitive,
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(sensitive));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"F", "N"})
+    void shouldRetainValidForwardingUpdatesAndUsefulDiagnostics_whenFinalOrNewStatusIsSubmitted(String status) throws Exception {
+        request.setParameter("operation", "update"); request.setParameter("providerNo", "999998"); request.setParameter("status", status);
+        IncomingLabRules existing = new IncomingLabRules();
+        existing.setId(17); existing.setProviderNo("999998"); existing.setFrwdProviderNo("999997"); existing.setStatus("F");
+        if (status.equals("N")) {
+            request.setParameter("providerNums", "999997");
+            Provider recipient = new Provider("999997"); recipient.setFirstName("Fixture"); recipient.setLastName("Recipient");
+            when(rules.findRules("999998")).thenReturn(Collections.singletonList(new Object[]{existing, recipient}));
+            when(rules.findCurrentByProviderNo("999998")).thenReturn(List.of(existing));
+        }
+        var inserted = new java.util.concurrent.atomic.AtomicReference<IncomingLabRules>();
+        doAnswer(call -> { IncomingLabRules row = call.getArgument(0); row.setId(81); inserted.set(row); return null; })
+                .when(rules).persist(any(IncomingLabRules.class));
+        try (var capture = LogCapture.forLogger(ForwardingRules2Action.class)) {
+            assertThat(new ForwardingRules2Action().execute()).isEqualTo("success");
+            assertThat(inserted.get().getProviderNo()).isEqualTo("999998");
+            assertThat(inserted.get().getFrwdProviderNo()).isEqualTo(status.equals("F") ? "0" : "999997");
+            if (status.equals("F")) assertThat(inserted.get().getStatus()).isEqualTo("F");
+            else { assertThat(existing.getStatus()).isEqualTo("N"); verify(rules).merge(existing); }
+            assertThat(capture.messages()).anyMatch(message -> message.toLowerCase().contains("updat"));
+            assertPrivateValuesAbsent(capture);
+        }
+    }
 }
