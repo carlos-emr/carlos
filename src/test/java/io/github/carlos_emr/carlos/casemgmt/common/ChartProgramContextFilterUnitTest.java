@@ -23,9 +23,12 @@ package io.github.carlos_emr.carlos.casemgmt.common;
 
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.servlet.FilterChain;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -162,6 +165,107 @@ class ChartProgramContextFilterUnitTest extends CarlosUnitTestBase {
         assertDenied(request);
     }
 
+    static Stream<Arguments> restPrintReadRequests() {
+        return Stream.of("GET", "HEAD").flatMap(method -> Stream.of("101", "00101", "2147483647")
+                .map(patient -> Arguments.of(method, patient)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("restPrintReadRequests")
+    void shouldUseRestPrintPathPatient_whenSignedContextMatchesPathDespiteConflictingQueryAliases(String method, String pathPatient) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        String patient = Integer.toString(Integer.parseInt(pathPatient));
+        String supplied = token(session, patient, "11");
+        MockHttpServletRequest request = restPrintRequest(session, supplied, pathPatient);
+        request.setMethod(method);
+        request.setParameter("demographicNo", new String[]{"202", "303"});
+        request.setParameter("demographic_no", "malformed query patient");
+        request.setParameter(ChartProgramContext.PARAMETER, supplied, supplied);
+        Object exactDraft = new Object();
+        String draftKey = "caseManagementEntryForm" + patient + "." + supplied;
+        session.setAttribute(draftKey, exactDraft);
+        FilterChain chain = mock(FilterChain.class);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        verify(chain).doFilter(request, response);
+        assertThat(request.getParameterValues("demographicNo")).containsExactly("202", "303");
+        assertThat(request.getParameter("demographic_no")).isEqualTo("malformed query patient");
+        assertThat(session.getAttribute(draftKey)).isSameAs(exactDraft);
+    }
+
+    static Stream<Arguments> restPrintMismatchedPatients() {
+        return Stream.of("GET", "HEAD").flatMap(method -> Stream.of(false, true)
+                .map(misleading -> Arguments.of(method, misleading)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("restPrintMismatchedPatients")
+    void shouldRejectRestPrintTokenForAnotherPathPatient_evenWhenQueriesNameTheTokenPatient(String method, boolean misleadingQueries) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        MockHttpServletRequest request = restPrintRequest(session, token(session, "202", "11"), "101");
+        request.setMethod(method);
+        if (misleadingQueries) {
+            request.setParameter("demographicNo", "202");
+            request.setParameter("demographic_no", "00202");
+        }
+        assertDenied(request);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"blank", "forged", "foreign-login", "ambiguous", "missing-session"})
+    void shouldKeepAllSignedContextChecks_forRestPrint(String invalid) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        String own = token(session, "101", "11");
+        MockHttpServletRequest request = restPrintRequest(session, own, "101");
+        switch (invalid) {
+            case "blank" -> request.setParameter(ChartProgramContext.PARAMETER, "");
+            case "forged" -> request.setParameter(ChartProgramContext.PARAMETER, "forged.context");
+            case "foreign-login" -> request.setParameter(ChartProgramContext.PARAMETER,
+                    token(new MockHttpSession(), "101", "11"));
+            case "ambiguous" -> request.setParameter(ChartProgramContext.PARAMETER, own, token(session, "101", "22"));
+            case "missing-session" -> request.setSession(null);
+            default -> throw new AssertionError(invalid);
+        }
+        assertDenied(request);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0/print", "-1/print", "2147483648/print", "not-a-patient/print",
+            "101/print/extra", "101/Print", "101/summary", "101/print/"})
+    void shouldPreserveQueryValidation_forMalformedOrNonExactRestPrintPaths(String suffix) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        MockHttpServletRequest request = restPrintRequest(session, token(session, "101", "11"), "101");
+        request.setPathInfo("/rs/recordUX/" + suffix);
+        request.setRequestURI("/clinic/ws" + request.getPathInfo());
+        request.setParameter("demographicNo", "202");
+        assertDenied(request);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "other-servlet"})
+    void shouldPreserveQueryValidation_outsideTheExactGetCxfPrintMapping(String variation) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        MockHttpServletRequest request = restPrintRequest(session, token(session, "101", "11"), "101");
+        if ("POST".equals(variation)) request.setMethod("POST");
+        else request.setServletPath("/other");
+        request.setParameter("demographicNo", "202");
+        assertDenied(request);
+    }
+
+    private MockHttpServletRequest restPrintRequest(MockHttpSession session, String supplied, String pathPatient) {
+        MockHttpServletRequest request = request(session, supplied);
+        request.setMethod("GET");
+        request.setContextPath("/clinic");
+        request.setServletPath("/ws");
+        request.setPathInfo("/rs/recordUX/" + pathPatient + "/print");
+        request.setRequestURI("/clinic/ws" + request.getPathInfo());
+        return request;
+    }
+
     private void assertDenied(MockHttpServletRequest request) throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
@@ -170,6 +274,7 @@ class ChartProgramContextFilterUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(response.getErrorMessage()).isEqualTo("Invalid chart context");
+        assertThat(response.getContentAsByteArray()).isEmpty();
         verifyNoInteractions(chain);
     }
 
