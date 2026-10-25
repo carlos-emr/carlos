@@ -326,7 +326,7 @@ public final class ImageRenderingServlet extends HttpServlet {
         try {
             parsedDigitalSignatureId = Integer.parseInt(digitalSignatureId);
         } catch (NumberFormatException _) {
-            logger.warn("Digital signature id {} is non-numeric", LogSafe.sanitize(digitalSignatureId));
+            logger.warn("Invalid digital signature id");
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }

@@ -33,8 +33,10 @@ import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManagerImpl;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -43,12 +45,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -192,6 +196,27 @@ class ImageRenderingStoredSignatureAccessUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(response.getContentAsByteArray()).isEmpty();
         verifyNoInteractions(signatures);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"FAKE_PRIVATE_SIGNATURE_NOTE", "FAKE_患者秘密", "FAKE_PRIVATE_SIGNATURE_NOTE\r\nFORGED_ENTRY"})
+    void shouldOmitMalformedSignatureInput_fromRenderedWarningsAndReturnNotFound(String privateInput) throws Exception {
+        request.setParameter("digitalSignatureId", privateInput);
+        try (LogCapture capture = LogCapture.forLogger(ImageRenderingServlet.class)) {
+            new ImageRenderingServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(404);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            verifyNoInteractions(signatures);
+            assertThat(capture.events()).hasSize(1);
+            PatternLayout layout = PatternLayout.newBuilder().withPattern("%p %m%n%throwable").build();
+            String rendered = capture.events().stream().map(layout::toSerializable).reduce("", String::concat);
+            org.junit.jupiter.api.Assertions.assertAll(
+                    () -> assertThat(capture.messages()).containsExactly("Invalid digital signature id"),
+                    () -> assertThat(rendered).doesNotContain("FAKE_PRIVATE_SIGNATURE_NOTE", "患者秘密", "FORGED_ENTRY",
+                            LogSafe.sanitize(privateInput)),
+                    () -> assertThat(capture.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull()));
+        }
     }
 
     private DigitalSignature artifact(ModuleType module, Integer patient, byte[] bytes) {
