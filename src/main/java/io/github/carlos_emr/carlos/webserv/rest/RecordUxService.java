@@ -444,15 +444,18 @@ public class RecordUxService extends AbstractServiceImpl {
      * <p>The caller must hold patient-scoped demographic, chart and note read privileges and access
      * to the requested patient's record. The PDF carries notes, CPP, medications, labs, preventions
      * and allergies. These checks run before the print options are parsed.</p>
-     * <p>The stream refuses inaccessible selected notes and invalid chart contexts with HTTP 403
-     * before output; rendering failures remain HTTP 500.</p>
+     * <p>When the returned stream is written, inaccessible selected notes and invalid chart contexts
+     * raise {@link ForbiddenException} before output; rendering failures remain HTTP 500.</p>
      *
      * @param demographicNo patient identifier
      * @param jsonString JSON print options including printType, selectedList and section flags
      * @param request authenticated servlet request used for chart headers
-     * @return PDF stream; generation failures propagate as HTTP errors
-     * @throws ForbiddenException if the caller lacks {@code _eChart} read for this patient
-     * @throws BadRequestException if dates mode has missing, invalid or reversed bounds
+     * @return StreamingOutput whose write performs note/context authorization and PDF generation;
+     *         inaccessible notes or contexts produce HTTP 403 and rendering failures HTTP 500
+     * @throws ForbiddenException before returning the stream if patient-scoped {@code _eChart},
+     *         {@code _demographic} or {@code _casemgmt.notes} read, or patient-record access, is denied
+     * @throws BadRequestException before returning the stream if the patient identifier is not positive,
+     *         or dates mode has missing, invalid or reversed bounds
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")

@@ -390,7 +390,7 @@ jobs:
                   raise SystemExit(1)
               root = tree.getroot()
               # Never publish JVM/configuration properties or captured console output.
-              for parent in root.iter():
+              for parent in list(root.iter()):
                   for child in list(parent):
                       if child.tag.rsplit("}", 1)[-1] in {"properties", "system-out", "system-err"}:
                           parent.remove(child)

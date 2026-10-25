@@ -49,7 +49,8 @@ public interface TicklerDao extends AbstractDao<Tickler> {
      * Reads only the tickler's patient identifier, without materializing demographic details.
      *
      * @param ticklerNo Integer tickler identifier
-     * @return List zero or one scalar row; an existing unassigned tickler has a null patient
+     * @return {@code List<Integer>} empty when absent, or one scalar patient identifier;
+     *         an existing unassigned tickler has a single null element
      * @since 2026-10-24
      */
     public List<Integer> findDemographicNos(Integer ticklerNo);
