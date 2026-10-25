@@ -73,6 +73,7 @@ class EctSessionBeanMessageAccessUnitTest extends CarlosUnitTestBase {
         when(login.getLoggedInProviderNo()).thenReturn("101");
         security = createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(login, "_msg", "r", (String) null)).thenReturn(true);
+        when(security.hasPrivilege(login, "_msg", "r", "42")).thenReturn(true);
         when(security.hasPrivilege(login, "_eChart", "r", "42")).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(login, 42)).thenReturn(true);
         messages = createAndRegisterMock(MessageTblDao.class);
@@ -124,9 +125,13 @@ class EctSessionBeanMessageAccessUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"message-module", "chart-module", "record"})
+    @ValueSource(strings = {"message-module", "patient-message", "chart-module", "record"})
     void shouldClearOldTextWithoutClinicalLookups_whenHandoffAccessIsDenied(String boundary) {
         if ("message-module".equals(boundary)) when(security.hasPrivilege(login, "_msg", "r", (String) null)).thenReturn(false);
+        if ("patient-message".equals(boundary)) {
+            when(security.hasPrivilege(login, "_msg", "r", "42")).thenReturn(false);
+            linkTo(42);
+        }
         if ("chart-module".equals(boundary)) when(security.hasPrivilege(login, "_eChart", "r", "42")).thenReturn(false);
         if ("record".equals(boundary)) when(security.isAllowedAccessToPatientRecord(login, 42)).thenReturn(false);
 

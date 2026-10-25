@@ -54,6 +54,8 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.RoleProgramAccessDAO;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+import io.github.carlos_emr.carlos.casemgmt.common.NoteAttachContext;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
@@ -67,6 +69,7 @@ import io.github.carlos_emr.carlos.messenger.service.MessageEncounterService.Mis
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
@@ -77,6 +80,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.encounter.data.EctProviderData;
 import io.github.carlos_emr.carlos.encounter.data.EctSplitChart;
+import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
@@ -353,6 +357,13 @@ public class EctIncomingEncounter2Action extends ActionSupport {
      * issues, and only its current text as history. A successful copy redirects to the chart, so
      * reloading the chart does not copy the note again.</p>
      *
+     * <p>The source chart's signed {@code sourceChartContext} carries its reporter-role policy
+     * independently of the target patient's {@code chartContext}. A genuinely tokenless caller
+     * uses the authenticated provider's default, never a different window's session program.
+     * Both source module reads and target chart writes must be allowed, including the target
+     * program's note-read-only restriction. The source entity stays unchanged even if the copy
+     * cannot be stored.</p>
+     *
      * @return {@link #NONE} after the redirect or a refusal
      */
     // FindSecBugs UNVALIDATED_REDIRECT: the redirect goes to this application's own chart route for the
@@ -370,6 +381,22 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
+        String targetContext = ChartProgramContext.token(request);
+        EctProgram programs = new EctProgram(request.getSession());
+        String provider = loggedInInfo.getLoggedInProviderNo();
+        // A tokenless redirect opens the authenticated default, not a program
+        // remembered by another target window. Authorize that same destination.
+        String targetProgram = targetContext == null ? programs.getProgram(provider) : ChartProgramContext.resolve(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "w", client)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(client))) {
+            throw new SecurityException("missing required sec object (_casemgmt.notes)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "w", client)) {
+            throw new SecurityException("missing required sec object (_eChart)");
+        }
+        if (caseManagementMgr.hasAccessRight("note-read-only", "access", provider, client, targetProgram)) {
+            throw new SecurityException("Program does not allow note writes");
+        }
         CaseManagementNote note = caseManagementNoteDao.getNote(Long.parseLong(noteId));
         String source = note == null ? null : note.getDemographic_no();
         if (source == null || !source.matches("[1-9]\\d{0,9}")) {
@@ -377,21 +404,37 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             return NONE;
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", source)
-                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(source))
-                || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "w", client)
-                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(client))) {
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(source))) {
             throw new SecurityException("missing required sec object (_casemgmt.notes)");
         }
-        note.setId(null);
-        note.setUuid(null);
-        note.setDemographic_no(client);
-        note.setAppointmentNo(0);
-        note.setIssues(new HashSet<CaseManagementIssue>());
-        note.setHistory(note.getNote());
-        caseManagementNoteDao.saveNote(note);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", source)) {
+            throw new SecurityException("missing required sec object (_eChart)");
+        }
+        if (!"true".equals(CarlosProperties.getInstance().getProperty("program_domain.show_echart", "false"))
+                && !caseManagementMgr.isClientInProgramDomain(provider, source)
+                && !caseManagementMgr.isClientReferredInProgramDomain(provider, source)) {
+            throw new SecurityException("Source patient program domain access denied");
+        }
+        String sourceProgram = NoteAttachContext.sourceToken(request, source) == null
+                ? programs.getProgram(provider) : NoteAttachContext.sourceProgram(request, source);
+        if (sourceProgram != null && !"0".equals(sourceProgram) && caseManagementMgr.filterNotes(loggedInInfo, provider,
+                List.of(note), sourceProgram).isEmpty()) {
+            throw new SecurityException("Note is not visible in the source chart");
+        }
+        // The DAO can return an attached source entity. Copy before changing any identity or
+        // relationship so a failed insert cannot corrupt the source chart or its cached object.
+        CaseManagementNote copy = note.copyForRevision();
+        copy.setId(null);
+        copy.setUuid(null);
+        copy.setDemographic_no(client);
+        copy.setAppointmentNo(0);
+        copy.setIssues(new HashSet<CaseManagementIssue>());
+        copy.setHistory(note.getNote());
+        caseManagementNoteDao.saveNote(copy);
         // demographicNo is the validated, canonical patient number.
         response.sendRedirect(request.getContextPath() + "/encounter/IncomingEncounter?demographicNo=" + client
-                + "&appointmentNo=0");
+                + "&appointmentNo=0" + (targetContext == null ? ""
+                : "&chartContext=" + SafeEncode.forUriComponent(targetContext)));
         return NONE;
     }
 

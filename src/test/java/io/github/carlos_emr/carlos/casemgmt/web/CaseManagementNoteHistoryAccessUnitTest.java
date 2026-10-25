@@ -3,6 +3,10 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 
 import java.util.List;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.Issue;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+import io.github.carlos_emr.carlos.encounter.data.EctProgram;
+import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -174,5 +178,93 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("history")).isNull();
         assertThat(request.getAttribute("demoName")).isNull();
         logActionMock.verifyNoInteractions();
+    }
+
+    private void prepareIssueHistory() {
+        request.setParameter("issueIds", "73");
+        note.setId(501L);
+        note.setUuid("owned-issue-history-chain");
+        note.setNote("Owned issue history café 患者");
+        note.setProgram_no("8");
+        note.setUpdate_date(new java.util.Date(1000));
+        when(manager.getIssueHistory("73", "101")).thenReturn(List.of(note));
+        when(manager.getMostRecentNote(note.getUuid())).thenReturn(note);
+        Issue issue = new Issue();
+        issue.setDescription("Owned issue");
+        when(manager.getIssue("73")).thenReturn(issue);
+        doReturn("Owned patient").when(action).getDemoName("101");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"_demographic", "_casemgmt.notes", "record", "domain"})
+    void shouldRefuseIssueHistory_beforeAnyClinicalLookupWhenPatientReadAccessIsMissing(String boundary) {
+        prepareIssueHistory();
+        if ("record".equals(boundary)) when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
+        else if ("domain".equals(boundary)) when(manager.isClientInProgramDomain("4249", "101")).thenReturn(false);
+        else when(security.hasPrivilege(user, boundary, "r", "101")).thenReturn(false);
+        clearInvocations(manager);
+
+        assertThat(action.issuehistory()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(request.getAttribute("history")).isNull();
+        assertThat(request.getAttribute("demoName")).isNull();
+        verify(manager, never()).getIssueHistory(anyString(), anyString());
+        verify(manager, never()).getMostRecentNote(anyString());
+        verify(manager, never()).getIssue(anyString());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldRefuseIssueHistoryWithoutPublishingAnyRow_whenCapturedProgramHidesARequestedNote() {
+        prepareIssueHistory();
+        ChartProgramContext.remember(request, "7");
+        request.setParameter(ChartProgramContext.PARAMETER, ChartProgramContext.token(request));
+        MockHttpServletRequest later = new MockHttpServletRequest();
+        later.setSession(request.getSession());
+        later.setParameter("demographicNo", "101");
+        ChartProgramContext.remember(later, "9");
+        when(manager.filterNotes(user, "4249", List.of(note), "7")).thenReturn(List.of());
+
+        assertThat(action.issuehistory()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(request.getAttribute("history")).isNull();
+        assertThat(request.getAttribute("demoName")).isNull();
+        verify(manager).filterNotes(user, "4249", List.of(note), "7");
+        verify(manager, never()).getMostRecentNote(anyString());
+        assertThat(note.getNote()).isEqualTo("Owned issue history café 患者");
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"0", "7"})
+    void shouldPreserveAuthorizedIssueHistory_whenLegacyOrCapturedProgramCanReadTheCrossProgramNote(String program)
+            throws Exception {
+        prepareIssueHistory();
+        if ("0".equals(program)) {
+            // A genuine programless chart entry, rather than a configured reader selecting zero.
+            EctProgram programs = mock(EctProgram.class);
+            EctProgramManager available = mock(EctProgramManager.class);
+            when(programs.getProgram("4249")).thenReturn("0");
+            when(programs.getEctProgramManager()).thenReturn(available);
+            when(available.getProgramBeans("4249", null)).thenReturn(List.of());
+            ChartProgramContext.initialize(request, programs, "4249");
+            request.setParameter(ChartProgramContext.PARAMETER, ChartProgramContext.token(request));
+        } else if (program != null) {
+            ChartProgramContext.remember(request, program);
+        }
+        if ("7".equals(program)) when(manager.filterNotes(user, "4249", List.of(note), "7")).thenReturn(List.of(note));
+        when(security.hasPrivilege(user, "_demographic", "r", null)).thenReturn(true);
+        request.setParameter("method", "issuehistory");
+
+        assertThat(action.execute()).isEqualTo("showHistory");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(request.getAttribute("history")).isEqualTo(List.of(note));
+        assertThat(request.getAttribute("demoName")).isEqualTo("Owned patient");
+        assertThat(note.getDemographic_no()).isEqualTo("101");
+        assertThat(note.getProgram_no()).isEqualTo("8");
+        if (!"7".equals(program)) verify(manager, never()).filterNotes(any(), anyString(), anyCollection(), anyString());
     }
 }

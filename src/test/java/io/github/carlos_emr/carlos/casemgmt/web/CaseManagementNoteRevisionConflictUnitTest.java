@@ -350,6 +350,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"0", "01", "0.1"})
     void shouldAcceptCanonicalNewEditorIds_withoutTreatingThemAsExistingNotes(String raw) throws Exception {
         note.setId(null);
+        lock.setNoteId(0L);
         request.setParameter("nId", raw);
         when(manager.saveCompactNoteRevision(any(), any(), anyList(), any())).thenAnswer(call -> {
             CaseManagementNote saved = ((CaseManagementNote) call.getArgument(1)).copyForRevision();
@@ -379,6 +380,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         CaseManagementNote editor = new CaseManagementNote();
         editor.setDemographic_no("101");
         editor.setNote("Unsaved compact text");
+        lock.setNoteId(0L);
         form.setCaseNote(editor);
         request.getSession().setAttribute(formKey, form);
         request.setParameter("nId", "0");

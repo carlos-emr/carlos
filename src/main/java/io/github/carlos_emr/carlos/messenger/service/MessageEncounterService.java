@@ -59,7 +59,8 @@ public class MessageEncounterService {
     }
 
     /**
-     * Returns plain message text after checking message/chart access and the patient link.
+     * Returns plain message text after checking global and patient-specific message
+     * access, chart access and the patient link.
      * Callers must encode it for the rendering context; this method never saves a note.
      *
      * @param loggedInInfo authenticated caller
@@ -70,7 +71,8 @@ public class MessageEncounterService {
      * @throws IllegalArgumentException if the message no longer exists
      */
     public String load(LoggedInInfo loggedInInfo, int messageId, int demographicNo) {
-        if (!security.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
+        if (!security.hasPrivilege(loggedInInfo, "_msg", "r", null)
+                || !security.hasPrivilege(loggedInInfo, "_msg", "r", Integer.toString(demographicNo))) {
             throw new SecurityException("missing required sec object (_msg)");
         }
         if (!security.hasPrivilege(loggedInInfo, "_eChart", "r", Integer.toString(demographicNo))) {

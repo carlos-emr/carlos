@@ -86,8 +86,10 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     @Autowired @Qualifier("CaseManagementTmpSaveDao") private CaseManagementTmpSaveDao drafts;
     @Autowired @Qualifier("CaseManagementCPPDAO") private CaseManagementCPPDAO cpps;
     @Autowired private HashAuditDao hashes;
+    @Autowired private CasemgmtNoteLockDao storedLocks;
 
     private final List<Integer> draftIds = new ArrayList<>();
+    private final List<Long> ownedLockIds = new ArrayList<>();
     private final Set<Long> attemptedNoteIds = new HashSet<>();
     private String marker;
     private boolean createdProvider;
@@ -284,6 +286,8 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         if (roles != null) roles.close();
         if (beans != null) beans.close();
         tx().executeWithoutResult(status -> {
+            if (!ownedLockIds.isEmpty()) entityManager.createQuery("delete CasemgmtNoteLock l where l.id in :ids")
+                    .setParameter("ids", ownedLockIds).executeUpdate();
             for (Long id : attemptedNoteIds) entityManager.createQuery("delete HashAudit h where h.type='enc' and h.id2=:id")
                     .setParameter("id", id.toString()).executeUpdate();
             if (!draftIds.isEmpty()) entityManager.createQuery("delete CaseManagementTmpSave d where d.id in :ids")
@@ -439,6 +443,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     @CsvSource({"7,0", "7,01", "7,0.1", "0,0", "0,01", "0,0.1"})
     void shouldSaveANewCompactEditorInItsOriginProgram_forCanonicalClientIds(String origin, String id) throws Exception {
         original.setId(null);
+        lock.setNoteId(0L);
         request.setParameter("nId", id);
         ChartProgramContext.remember(request, origin);
         request.getSession().setAttribute(ChartProgramContext.formKey(request, "1"), form);
@@ -974,6 +979,132 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         assertThat(after.notes()).hasSize(before.notes().size() + 1);
         assertThat(after.notes().getFirst()).isEqualTo(before.notes().getFirst());
         assertThat(after.drafts()).containsExactlyElementsOf(otherDrafts(before));
+    }
+
+    @Test
+    void shouldAdvanceOnlyItsOwnStoredLock_whenACompactSaveRunsAfterAnotherProgramEditorOpened() throws Exception {
+        CaseManagementNote other = anotherStoredNote();
+        MockHttpServletRequest otherRequest = otherProgramEditor(other);
+        lock = storeLock(originalId, "999998", request.getSession().getId());
+        CasemgmtNoteLock otherLock = storeLock(other.getId(), "999998", request.getSession().getId());
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", storedLocks);
+        request.getSession().setAttribute("casemgmtNoteLock1", otherLock);
+        request.setParameter("numIssues", "0");
+        form.setIssueCheckList(new ArrayList<>());
+        Snapshot before = snapshot();
+        List<List<String>> otherLockBefore = storedLockRows(otherLock.getId());
+
+        assertThat(action.ajaxsave()).isEqualTo("issueList_ajax");
+
+        Long savedA = form.getCaseNote().getId();
+        assertThat(savedA).isNotEqualTo(originalId);
+        assertThat(storedLockRows(otherLock.getId())).isEqualTo(otherLockBefore);
+        Long advancedA = tx().execute(status -> storedLocks.find(lock.getId()).getNoteId());
+        assertThat(advancedA).isEqualTo(savedA);
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isSameAs(otherLock);
+        Snapshot afterA = snapshot();
+        assertThat(afterA.notes()).hasSize(before.notes().size() + 1);
+        assertThat(afterA.notes().subList(0, before.notes().size())).isEqualTo(before.notes());
+        assertThat(afterA.identities()).isEqualTo(before.identities());
+
+        // The other still-open editor must retain a usable full-save lock after A commits.
+        List<List<String>> lockABefore = storedLockRows(lock.getId());
+        request = otherRequest;
+        response = new MockHttpServletResponse();
+        action.request = request;
+        action.response = response;
+        form = (CaseManagementEntryFormBean) request.getSession().getAttribute(ChartProgramContext.formKey(request, "1"));
+        prepareFullSave(marker + " program B revision");
+
+        assertThat(action.save()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(form.getCaseNote().getId()).isNotEqualTo(other.getId());
+        assertThat(form.getCaseNote().getProgram_no()).isEqualTo("8");
+        assertThat(storedLockRows(lock.getId())).isEqualTo(lockABefore);
+        Long advancedB = tx().execute(status -> storedLocks.find(otherLock.getId()).getNoteId());
+        assertThat(advancedB).isEqualTo(form.getCaseNote().getId());
+        Snapshot afterB = snapshot();
+        assertThat(afterB.notes()).hasSize(afterA.notes().size() + 1);
+        assertThat(afterB.notes().subList(0, afterA.notes().size())).isEqualTo(afterA.notes());
+        assertThat(afterB.identities()).isEqualTo(before.identities());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "other-session", "other-provider"})
+    void shouldRefuseTheCompactWrite_whenOnlyAnotherEditorsStoredLockIsOwned(String boundary) throws Exception {
+        CaseManagementNote other = anotherStoredNote();
+        otherProgramEditor(other);
+        if (!"missing".equals(boundary)) storeLock(originalId,
+                "other-provider".equals(boundary) ? "999997" : "999998",
+                "other-session".equals(boundary) ? "another-login" : request.getSession().getId());
+        CasemgmtNoteLock otherLock = storeLock(other.getId(), "999998", request.getSession().getId());
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", storedLocks);
+        request.getSession().setAttribute("casemgmtNoteLock1", otherLock);
+        Snapshot before = snapshot();
+        List<List<String>> locksBefore = storedLockRows(ownedLockIds.toArray(Long[]::new));
+
+        assertThat(action.ajaxsave()).isNull();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(storedLockRows(ownedLockIds.toArray(Long[]::new))).isEqualTo(locksBefore);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(form.getIssueCheckList().getFirst().getChecked()).isEqualTo("off");
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isSameAs(otherLock);
+        verify(target, never()).saveCompactNoteRevision(any(), any(), anyList(), any());
+    }
+
+    private CaseManagementNote anotherStoredNote() {
+        return tx().execute(status -> {
+            CaseManagementNote other = original.copyForRevision();
+            other.setUuid(UUID.randomUUID().toString());
+            other.setNote(marker + " program B original");
+            other.setHistory("Program B stored history");
+            other.setIssues(new HashSet<>());
+            caseManagementNoteDAO.saveNote(other);
+            CaseManagementNote selected = other.copyForRevision();
+            selected.setId(other.getId());
+            return selected;
+        });
+    }
+
+    private MockHttpServletRequest otherProgramEditor(CaseManagementNote other) {
+        request.setParameter(ChartProgramContext.PARAMETER, ChartProgramContext.token(request));
+        MockHttpServletRequest otherRequest = new MockHttpServletRequest("POST", "/CaseManagementEntry");
+        otherRequest.setSession(request.getSession());
+        otherRequest.setParameter("demographicNo", "1");
+        ChartProgramContext.remember(otherRequest, "8");
+        otherRequest.setParameter(ChartProgramContext.PARAMETER, ChartProgramContext.token(otherRequest));
+        CaseManagementEntryFormBean otherForm = new CaseManagementEntryFormBean();
+        otherForm.setCaseNote(other);
+        otherForm.setIssueCheckList(new ArrayList<>());
+        otherRequest.getSession().setAttribute(ChartProgramContext.formKey(otherRequest, "1"), otherForm);
+        assertThat(ChartProgramContext.resolve(request)).isEqualTo("7");
+        assertThat(ChartProgramContext.formKey(otherRequest, "1")).isNotEqualTo(ChartProgramContext.formKey(request, "1"));
+        return otherRequest;
+    }
+
+    private CasemgmtNoteLock storeLock(Long noteId, String provider, String sessionId) {
+        return tx().execute(status -> {
+            CasemgmtNoteLock owned = new CasemgmtNoteLock();
+            owned.setDemographicNo(1);
+            owned.setNoteId(noteId);
+            owned.setProviderNo(provider);
+            owned.setSessionId(sessionId);
+            owned.setIpAddress("127.0.0.1");
+            owned.setLockAcquired(new Date());
+            storedLocks.persist(owned);
+            entityManager.flush();
+            ownedLockIds.add(owned.getId());
+            entityManager.detach(owned);
+            return owned;
+        });
+    }
+
+    private List<List<String>> storedLockRows(Long... ids) {
+        return tx().execute(status -> raw("SELECT * FROM casemgmt_note_lock WHERE id IN ("
+                + String.join(",", Arrays.stream(ids).map(String::valueOf).toList()) + ") ORDER BY id"));
     }
 
     private CheckBoxBean prepareIssueDeletion() {

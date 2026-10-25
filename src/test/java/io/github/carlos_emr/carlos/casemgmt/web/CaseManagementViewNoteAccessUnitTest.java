@@ -24,7 +24,14 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
+import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
+import io.github.carlos_emr.carlos.commn.dao.GroupNoteDao;
+import io.github.carlos_emr.carlos.commn.model.Facility;
+import io.github.carlos_emr.carlos.commn.model.GroupNoteLink;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.model.security.Secrole;
+import io.github.carlos_emr.carlos.services.security.RolesManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +43,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
@@ -69,6 +77,11 @@ class CaseManagementViewNoteAccessUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private CaseManagementNote note;
+    private GroupNoteDao groupNotes;
+    private SecUserRoleDao heldRoles;
+    private Facility facility;
+    private GroupNoteLink groupLink;
+    private SecUserRole reporterAssignment;
 
     @BeforeEach
     void prepare() {
@@ -304,5 +317,96 @@ class CaseManagementViewNoteAccessUnitTest extends CarlosUnitTestBase {
         verify(manager).isClientInProgramDomain("4249", "101");
         verify(manager).getNote("51");
         verifyNoMoreInteractions(manager);
+    }
+
+    private void prepareGroupRecipient() {
+        note.setDemographic_no("202");
+        request.setParameter("raw", "false");
+        capture("7");
+        facility = new Facility();
+        facility.setEnableGroupNotes(true);
+        when(user.getCurrentFacility()).thenReturn(facility);
+        groupNotes = mock(GroupNoteDao.class);
+        groupLink = new GroupNoteLink();
+        groupLink.setDemographicNo(101);
+        groupLink.setNoteId(51);
+        groupLink.setActive(true);
+        when(groupNotes.findLinksByDemographic(101)).thenReturn(List.of(groupLink));
+        heldRoles = mock(SecUserRoleDao.class);
+        reporterAssignment = new SecUserRole();
+        reporterAssignment.setActive(true);
+        reporterAssignment.setRoleName("doctor");
+        when(heldRoles.getUserRoles("4249")).thenReturn(List.of(reporterAssignment));
+        RolesManager reporters = mock(RolesManager.class);
+        Secrole reporter = new Secrole();
+        reporter.setRoleName("doctor");
+        when(reporters.getRole("3")).thenReturn(reporter);
+        ReflectionTestUtils.setField(action, "groupNoteDao", groupNotes);
+        ReflectionTestUtils.setField(action, "secUserRoleDao", heldRoles);
+        ReflectionTestUtils.setField(action, "roleMgr", reporters);
+    }
+
+    @Test
+    void shouldExpandTheVisibleGroupNote_underItsRecipientReadOnlyPolicy() throws Exception {
+        prepareGroupRecipient();
+        note.setHistory("Owner history stays private to its original object");
+
+        assertThat(action.execute()).isEqualTo("displayNote");
+
+        assertThat(request.getAttribute("noteStr")).isEqualTo(note.getNote());
+        assertThat(request.getAttribute("raw")).isEqualTo(false);
+        assertThat(note.getDemographic_no()).isEqualTo("202");
+        assertThat(note.getId()).isEqualTo(51L);
+        assertThat(note.getProgram_no()).isEqualTo("8");
+        assertThat(note.getHistory()).isEqualTo("Owner history stays private to its original object");
+        verify(groupNotes).findLinksByDemographic(101);
+        verify(heldRoles).getUserRoles("4249");
+        verify(manager, never()).filterNotes(eq(user), anyString(), org.mockito.ArgumentMatchers.anyList(), anyString());
+        verify(security, never()).hasPrivilege(eq(user), anyString(), anyString(), eq("202"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"record", "_eChart", "_casemgmt.notes"})
+    void shouldRefuseAnActuallyLinkedGroupNote_beforeLookupWhenRecipientReadAccessIsMissing(String boundary) {
+        prepareGroupRecipient();
+        if ("record".equals(boundary)) when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
+        else when(security.hasPrivilege(user, boundary, "r", "101")).thenReturn(false);
+
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+
+        assertThat(request.getAttribute("noteStr")).isNull();
+        assertThat(groupLink.isActive()).isTrue();
+        assertThat(groupLink.getDemographicNo()).isEqualTo(101);
+        assertThat(groupLink.getNoteId()).isEqualTo(51);
+        assertThat(note.getDemographic_no()).isEqualTo("202");
+        verifyNoInteractions(manager, groupNotes, heldRoles);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"inactive-link", "wrong-recipient", "wrong-note", "disabled-facility", "inactive-role",
+            "wrong-role", "raw-editor", "missing-raw", "mixed-raw", "malformed-owner"})
+    void shouldRefuseForeignNoteExpansion_whenTheExactGroupDisplayPolicyIsMissing(String boundary) {
+        prepareGroupRecipient();
+        switch (boundary) {
+            case "inactive-link" -> groupLink.setActive(false);
+            case "wrong-recipient" -> groupLink.setDemographicNo(303);
+            case "wrong-note" -> groupLink.setNoteId(52);
+            case "disabled-facility" -> facility.setEnableGroupNotes(false);
+            case "inactive-role" -> reporterAssignment.setActive(false);
+            case "wrong-role" -> reporterAssignment.setRoleName("nurse");
+            case "raw-editor" -> request.setParameter("raw", "true");
+            case "missing-raw" -> request.removeParameter("raw");
+            case "mixed-raw" -> request.setParameter("raw", "false", "true");
+            case "malformed-owner" -> note.setDemographic_no("invalid-owner");
+            default -> throw new AssertionError(boundary);
+        }
+        String owner = note.getDemographic_no();
+
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+
+        assertThat(request.getAttribute("noteStr")).isNull();
+        assertThat(note.getDemographic_no()).isEqualTo(owner);
+        assertThat(note.getId()).isEqualTo(51L);
+        verify(manager, never()).filterNotes(eq(user), anyString(), org.mockito.ArgumentMatchers.anyList(), anyString());
     }
 }

@@ -4398,6 +4398,7 @@ function autoSave() {
         }//else{
         var noteId = document.forms["caseManagementEntryForm"].noteId.value;
         var url = '<%=request.getContextPath()%>/PMmodule/ClientSearch2?programId=' + programId + '&noteId=' + noteId + '&method=attachForm&demographicNo=' + demographicNo;
+        if (chartContext) url += '&sourceChartContext=' + encodeURIComponent(chartContext);
         popupPage(600, 700, 'group', url);
         //}
     }

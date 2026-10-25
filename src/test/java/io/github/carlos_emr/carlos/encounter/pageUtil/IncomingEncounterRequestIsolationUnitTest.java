@@ -240,6 +240,7 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
 
     @Test
     void shouldAnswerNotFound_whenTheNoteToAttachDoesNotExist() throws Exception {
+        allowAttach();
         MockHttpServletResponse response = new MockHttpServletResponse();
         try (var props = mockStatic(CarlosProperties.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
@@ -449,6 +450,7 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
 
     private void allowAttach() {
         when(security.hasPrivilege(eq(login), eq("_casemgmt.notes"), anyString(), anyString())).thenReturn(true);
+        when(security.hasPrivilege(eq(login), eq("_eChart"), anyString(), anyString())).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(eq(login), anyInt())).thenReturn(true);
     }
 
@@ -594,7 +596,9 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
     }
 
     private String execute(MockHttpServletRequest request, MockHttpServletResponse response) throws Exception {
-        try (var servlet = mockStatic(ServletActionContext.class)) {
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var programs = mockConstruction(io.github.carlos_emr.carlos.encounter.data.EctProgram.class,
+                     (program, context) -> when(program.getProgram("999998")).thenReturn("0"))) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             return new EctIncomingEncounter2Action().execute();

@@ -25,14 +25,20 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.utility.ProgramAccessCache;
 import io.github.carlos_emr.carlos.PMmodule.utility.RoleCache;
 import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+import io.github.carlos_emr.carlos.encounter.data.EctProgram;
+import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
+import io.github.carlos_emr.carlos.encounter.data.EctProgramManagerImpl;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.commn.dao.CaisiAccessTypeDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderDefaultProgramDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.model.security.Secrole;
@@ -67,6 +73,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.Mockito.mockConstruction;
 
 /**
@@ -109,7 +116,7 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
         entityManager.createNativeQuery("MERGE INTO program(id,name,type) KEY(id)"
                         + " VALUES (?1,'FAKE-PDF-VISIBILITY','community')")
                 .setParameter(1, PROGRAM).executeUpdate();
-        entityManager.createNativeQuery("UPDATE program SET userDefined=1,holdingTank=0,allowBatchAdmission=0,"
+        entityManager.createNativeQuery("UPDATE program SET programStatus='active',userDefined=1,holdingTank=0,allowBatchAdmission=0,"
                         + "allowBatchDischarge=0,hic=0,transgender=0,firstNation=0,alcohol=0,physicalHealth=0,"
                         + "mentalHealth=0,housing=0,enableEncounterTime=0,enableEncounterTransportationTime=0 WHERE id=?1")
                 .setParameter(1, PROGRAM).executeUpdate();
@@ -209,6 +216,44 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
                 new String[]{visible.getId().toString(), hidden.getId().toString()}, false, false))
                 .isInstanceOf(CaseManagementPrint.NoteAccessDeniedException.class);
         assertThat(bytes.size()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"programId", "case_program_id"})
+    void shouldRefuseFreshNoProgramEntry_beforeItCanPrintReporterRoleHiddenNotes(String alias) throws Exception {
+        MockHttpServletRequest request = request(null);
+        // The integration context has the production DAOs but does not declare
+        // the web application's ectProgramManager alias. Use the same concrete
+        // manager with those real DAOs, without changing any global bean wiring.
+        EctProgramManager realPrograms = new EctProgramManagerImpl(
+                applicationContext.getBean(DemographicDao.class),
+                applicationContext.getBean("programProviderDAO", ProgramProviderDAO.class),
+                applicationContext.getBean(ProviderDefaultProgramDao.class),
+                applicationContext.getBean(ProgramDao.class));
+        EctProgram programs = new EctProgram(request.getSession()) {
+            @Override public EctProgramManager getEctProgramManager() { return realPrograms; }
+        };
+        assertThat(programs.getEctProgramManager().getProgramBeans(READER, null))
+                .extracting(bean -> bean.getValue()).contains(Long.toString(PROGRAM));
+        request.setParameter(alias, "0");
+        Object exactDraft = new Object();
+        request.getSession().setAttribute("caseManagementEntryForm" + patient, exactDraft);
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+        Throwable refusal = catchThrowable(() -> ChartProgramContext.initialize(request, programs, READER));
+        if (refusal == null) {
+            // A vulnerable initializer issues a genuine signed zero context. Exercise
+            // the real H2 policy, renderer and merger so this regression also exposes
+            // the clinical body that such a token would otherwise make printable.
+            print(request, bytes, true, new String[0], false, false);
+            assertThat(pdfText(bytes)).as("a fresh zero-program selection must not expose a hidden reporter role")
+                    .doesNotContain(HIDDEN);
+        }
+
+        assertThat(refusal).isInstanceOf(SecurityException.class);
+        assertThat(bytes.size()).isZero();
+        assertThat(ChartProgramContext.token(request)).isNull();
+        assertThat(request.getSession().getAttribute("caseManagementEntryForm" + patient)).isSameAs(exactDraft);
     }
 
     @Test

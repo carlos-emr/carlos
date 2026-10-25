@@ -98,12 +98,13 @@ public final class ChartProgramContext {
             selected = programs.getProgram(defaultProviderNo);
         }
         if (!validProgram(selected)) throw new SecurityException("Invalid chart program selection");
-        if (!"0".equals(selected)) {
-            String chosen = selected;
-            boolean available = programs.getEctProgramManager().getProgramBeans(providerNo, null).stream()
-                    .anyMatch(program -> chosen.equals(program.getValue()));
-            if (!available) throw new SecurityException("Unavailable chart program selection");
-        }
+        var availablePrograms = programs.getEctProgramManager().getProgramBeans(providerNo, null);
+        String chosen = selected;
+        // Zero means this caller has no available program. Letting a configured
+        // reader select it would disable the chart's reporter-role filtering.
+        boolean available = "0".equals(chosen) ? availablePrograms.isEmpty()
+                : availablePrograms.stream().anyMatch(program -> chosen.equals(program.getValue()));
+        if (!available) throw new SecurityException("Unavailable chart program selection");
         remember(request, selected);
     }
 

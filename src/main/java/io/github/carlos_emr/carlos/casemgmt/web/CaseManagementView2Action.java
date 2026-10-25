@@ -1071,7 +1071,8 @@ public class CaseManagementView2Action extends ActionSupport {
 
     /**
      * Loads a shortened note for display or editing under the originating chart's read policy.
-     * The explicit patient must match storage before the program's reporter-role filter runs.
+     * Owned notes use the program's reporter-role filter. A recipient may expand an
+     * explicitly shared group note only through its existing read-only display policy.
      *
      * @return String displayNote only for a readable note, or NONE after a 400/404 response
      * @throws SecurityException if patient, record or chart-program access is refused
@@ -1114,9 +1115,10 @@ public class CaseManagementView2Action extends ActionSupport {
             return NONE;
         }
         if (!patient.equals(note.getDemographic_no())) {
-            throw new SecurityException("Note patient context mismatch");
-        }
-        if (programId != null && !"0".equals(programId)
+            if (!canExpandGroupNote(loggedInInfo, Integer.parseInt(patient), note)) {
+                throw new SecurityException("Note patient context mismatch");
+            }
+        } else if (programId != null && !"0".equals(programId)
                 && caseManagementMgr.filterNotes(loggedInInfo, providerNo,
                 List.of(note), programId).isEmpty()) {
             throw new SecurityException("Note access denied");
@@ -1125,6 +1127,29 @@ public class CaseManagementView2Action extends ActionSupport {
         boolean raw = Boolean.parseBoolean(request.getParameter("raw"));
         request.setAttribute("raw", raw);
         return "displayNote";
+    }
+
+    /** Matches addGroupNotes eligibility without granting the raw editor path or changing the owner. */
+    private boolean canExpandGroupNote(LoggedInInfo login, int recipient, CaseManagementNote note) {
+        String[] rawValues = request.getParameterValues("raw");
+        if (rawValues == null || rawValues.length == 0) return false;
+        for (String raw : rawValues) if (!"false".equals(raw)) return false;
+        if (login.getCurrentFacility() == null || !login.getCurrentFacility().isEnableGroupNotes()
+                || groupNoteOwnerLocation(note.getDemographic_no()) == null
+                || note.getId() == null || note.getId() <= 0 || note.getId() > Integer.MAX_VALUE) return false;
+
+        boolean linked = false;
+        for (GroupNoteLink link : groupNoteDao.findLinksByDemographic(recipient)) {
+            if (link.isActive() && Integer.valueOf(recipient).equals(link.getDemographicNo())
+                    && Integer.valueOf(note.getId().intValue()).equals(link.getNoteId())) {
+                linked = true;
+                break;
+            }
+        }
+        if (!linked) return false;
+        Secrole reporter = roleMgr.getRole(note.getReporter_caisi_role());
+        return reporter != null && reporter.getRoleName() != null
+                && hasRole(secUserRoleDao.getUserRoles(login.getLoggedInProviderNo()), reporter.getRoleName());
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

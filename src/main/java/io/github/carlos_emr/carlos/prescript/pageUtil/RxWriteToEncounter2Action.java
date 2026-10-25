@@ -168,13 +168,16 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         } else {
             CaseManagementNote note = getLastSaved(request, demographicNo, loggedInInfo.getLoggedInProviderNo(), caseManagementMgr);
             if (note != null && demographicNo.equals(note.getDemographic_no())
-                    && mayAppendDirectly(note, loggedInInfo.getLoggedInProviderNo())) {
+                    && mayAppendDirectly(note, loggedInInfo.getLoggedInProviderNo())
+                    && ("0".equals(programNo) || !caseManagementMgr.filterNotes(loggedInInfo,
+                        loggedInInfo.getLoggedInProviderNo(), List.of(note), programNo).isEmpty())) {
                 String noteBody = generateNote(loggedInInfo, request.getParameter("body"), false);
                 if (!appendRevision(caseManagementMgr, note, note.getNote() + "\n" + noteBody, today)) {
                     return NONE;
                 }
             } else {
-                // Automatic selection may return a protected legacy note. Prescribing still
+                // Legacy automatic selection omits facility filtering and may return a hidden
+                // or protected note. Prescribing still
                 // works by adding a fresh note owned by this provider in this chart program.
                 String noteBody = generateNote(loggedInInfo, request.getParameter("body"), true);
                 createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, noteBody, request.getParameter("sign"));

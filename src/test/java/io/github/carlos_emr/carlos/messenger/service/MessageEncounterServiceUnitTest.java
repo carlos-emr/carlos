@@ -45,6 +45,7 @@ class MessageEncounterServiceUnitTest extends CarlosUnitTestBase {
 
     private void allow() {
         when(security.hasPrivilege(caller, "_msg", "r", null)).thenReturn(true);
+        when(security.hasPrivilege(caller, "_msg", "r", "42")).thenReturn(true);
         when(security.hasPrivilege(caller, "_eChart", "r", "42")).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(caller, 42)).thenReturn(true);
     }
@@ -64,8 +65,40 @@ class MessageEncounterServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRejectBeforeReading_whenChartPermissionMissing() {
         when(security.hasPrivilege(caller, "_msg", "r", null)).thenReturn(true);
+        when(security.hasPrivilege(caller, "_msg", "r", "42")).thenReturn(true);
         assertThatThrownBy(() -> service.load(caller, 7, 42)).isInstanceOf(SecurityException.class);
         verifyNoInteractions(links, messages);
+    }
+
+    @Test
+    void shouldRejectBeforeLinkOrBodyLookup_whenPatientMessageReadIsDenied() {
+        allow(); link(42);
+        when(security.hasPrivilege(caller, "_msg", "r", "42")).thenReturn(false);
+        when(messages.find(7)).thenReturn(message());
+
+        assertThatThrownBy(() -> service.load(caller, 7, 42)).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_msg)");
+
+        verifyNoInteractions(links, messages);
+    }
+
+    @Test
+    void shouldKeepPatientRefusalScoped_whenOneMessageLinksToAllowedAndDeniedPatients() {
+        allow();
+        when(security.hasPrivilege(caller, "_eChart", "r", "43")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(caller, 43)).thenReturn(true);
+        var allowed = new MsgDemoMap(); allowed.setDemographic_no(42);
+        var denied = new MsgDemoMap(); denied.setDemographic_no(43);
+        when(links.findByMessageId(7)).thenReturn(List.of(allowed, denied));
+        when(messages.find(7)).thenReturn(message());
+
+        assertThatThrownBy(() -> service.load(caller, 7, 43)).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_msg)");
+        verifyNoInteractions(links, messages);
+
+        assertThat(service.load(caller, 7, 42)).contains("Subject: Subject <>&", "line one\nline two </script>");
+        verify(messages, never()).merge(any());
+        verify(messages, never()).persist(any());
     }
 
     @Test
@@ -96,15 +129,19 @@ class MessageEncounterServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldReturnCompletePlainText_whenAccessAndPatientLinkMatch() {
         allow(); link(42);
+        when(messages.find(7)).thenReturn(message());
+        assertThat(service.load(caller, 7, 42)).isEqualTo("From: Sender\nTo: Recipient\nDate: 2026-10-03 12:34:56"
+                + "\nSubject: Subject <>&\nline one\nline two </script>");
+        verify(messages, never()).merge(any());
+        verify(messages, never()).persist(any());
+    }
+
+    private MessageTbl message() {
         var message = new MessageTbl();
         message.setSentBy("Sender"); message.setSentTo("Recipient");
         message.setDate(java.sql.Date.valueOf("2026-10-03"));
         message.setTime(java.sql.Time.valueOf("12:34:56"));
         message.setSubject("Subject <>&"); message.setMessage("line one\nline two </script>");
-        when(messages.find(7)).thenReturn(message);
-        assertThat(service.load(caller, 7, 42)).isEqualTo("From: Sender\nTo: Recipient\nDate: 2026-10-03 12:34:56"
-                + "\nSubject: Subject <>&\nline one\nline two </script>");
-        verify(messages, never()).merge(any());
-        verify(messages, never()).persist(any());
+        return message;
     }
 }

@@ -2122,10 +2122,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String noteTxt = StringUtils.trimToNull(request.getParameter("noteTxt"));
         if (noteTxt == null) return null;
         String demo = getDemographicNo(request);
-        if (!hasNoteLock(demo)) {
-            response.setStatus(HttpServletResponse.SC_CONFLICT);
-            return null;
-        }
 
         Date dateObserve;
         try {
@@ -2149,11 +2145,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         long selectedId = selected.getId() == null ? 0 : Math.max(0, selected.getId());
         // The client saves the old editor before asynchronously opening the next note.
-        // Bind to that editor, not the lock ID (the switch can already have acquired its next lock).
+        // Bind to that editor, then find its own lock; the patient cache can already
+        // contain the next editor's lock while this save-before-switch is in flight.
         if (selectedId != reference) {
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
         }
+        CasemgmtNoteLock selectedLock = ownedNoteLock(demo, selectedId);
+        if (selectedLock == null) return null;
         CaseManagementNote source = newNote ? null : caseManagementMgr.getNote(noteId);
         if (!newNote && (source == null || !demo.equals(source.getDemographic_no()))) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -2244,10 +2243,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         caseManagementMgr.getEditors(note);
         sessionFrm.setCaseNote(note);
         sessionFrm.setIssueCheckList(stagedCheckboxes);
-        CasemgmtNoteLock noteLock = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- own-session lock already checked above
-        if (noteLock != null) {
-            noteLock.setNoteId(note.getId());
-            casemgmtNoteLockDao.merge(noteLock);
+        selectedLock.setNoteId(note.getId());
+        casemgmtNoteLockDao.merge(selectedLock);
+        CasemgmtNoteLock cachedLock = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- own-session patient lock cache
+        if (cachedLock != null && Objects.equals(cachedLock.getId(), selectedLock.getId())) {
+            session.setAttribute("casemgmtNoteLock" + demo, selectedLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- only this saved editor's cached lock
         }
         session.setAttribute(sessionName, sessionFrm); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- publishing the committed editor under its authenticated chart context
         CaseManagementEntryFormBean newform = new CaseManagementEntryFormBean();
@@ -2295,30 +2295,35 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 }
             }
         }
+        return ownedNoteLock(patient, selectedId);
+    }
+
+    /** Resolves this editor's persisted lock without replacing another window's patient cache. */
+    private CasemgmtNoteLock ownedNoteLock(String patient, long selectedId) {
         String sessionId = request.getSession().getId();
         String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         CasemgmtNoteLock cached = (CasemgmtNoteLock) request.getSession().getAttribute("casemgmtNoteLock" + patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- authorized patient's cached lock
         try {
             if (cached != null && cached.getNoteId() != null && Math.max(0L, cached.getNoteId()) == selectedId) {
                 CasemgmtNoteLock stored = casemgmtNoteLockDao.find(cached.getId());
-                if (ownsFullFormLock(cached, patient, selectedId, provider, sessionId)
-                        && ownsFullFormLock(stored, patient, selectedId, provider, sessionId)) return stored;
+                if (ownsNoteLock(cached, patient, selectedId, provider, sessionId)
+                        && ownsNoteLock(stored, patient, selectedId, provider, sessionId)) return stored;
             } else {
                 // A separate program's editor has a separate form but shares the patient
                 // lock cache. Its own database lock remains usable by this same session.
                 for (CasemgmtNoteLock stored : casemgmtNoteLockDao.findBySession(sessionId)) {
-                    if (ownsFullFormLock(stored, patient, selectedId, provider, sessionId)) return stored;
+                    if (ownsNoteLock(stored, patient, selectedId, provider, sessionId)) return stored;
                 }
             }
         } catch (RuntimeException failedLockRead) {
-            logger.warn("Full-form note lock validation failed ({})", failedLockRead.getClass().getSimpleName());
+            logger.warn("Note lock validation failed ({})", failedLockRead.getClass().getSimpleName());
         }
         response.setStatus(HttpServletResponse.SC_CONFLICT);
         return null;
     }
 
-    private static boolean ownsFullFormLock(CasemgmtNoteLock lock, String patient, long noteId,
-                                             String provider, String sessionId) {
+    private static boolean ownsNoteLock(CasemgmtNoteLock lock, String patient, long noteId,
+                                        String provider, String sessionId) {
         return lock != null && lock.getNoteId() != null && Math.max(0L, lock.getNoteId()) == noteId
                 && patient.equals(String.valueOf(lock.getDemographicNo()))
                 && Objects.equals(provider, lock.getProviderNo()) && Objects.equals(sessionId, lock.getSessionId());
@@ -3149,27 +3154,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     /** Both revision-history entry points enforce the chart's patient, domain and program boundary. */
     private AuthorizedNoteHistory authorizedNoteHistory() {
-        String demono;
-        try {
-            demono = getDemographicNo(request);
-        } catch (IllegalArgumentException invalidPatient) {
-            return null;
-        }
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         Long noteId = parseExistingNoteId(request.getParameter("noteId"));
-        Long demographicId = parseExistingNoteId(demono);
-        if (loggedInInfo == null || demographicId == null || demographicId <= 0 || demographicId > Integer.MAX_VALUE
-                || noteId == null || noteId <= 0
-                || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demono)
-                || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demono)
-                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicId.intValue())) {
-            return null;
-        }
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-        if (!caseManagementMgr.isClientInProgramDomain(providerNo, demono)
-                && !caseManagementMgr.isClientReferredInProgramDomain(providerNo, demono)) {
-            return null;
-        }
+        if (noteId == null || noteId <= 0) return null;
+        String demono = authorizedHistoryPatient();
+        if (demono == null) return null;
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         CaseManagementNote selectedNote = caseManagementMgr.getNote(noteId.toString());
         if (selectedNote == null || parseExistingNoteId(selectedNote.getDemographic_no()) == null) {
             return null;
@@ -3182,7 +3171,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // "</p><script>" in a note execute in the history popup.
         List<CaseManagementNote> history;
         if (linkedGroupNote) {
-            history = linkedGroupNoteHistory(loggedInInfo, demographicId.intValue(), noteId, selectedNote);
+            history = linkedGroupNoteHistory(loggedInInfo, Integer.parseInt(demono), noteId, selectedNote);
         } else {
             history = caseManagementMgr.getHistory(noteId.toString());
         }
@@ -3201,6 +3190,22 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
         return new AuthorizedNoteHistory(demono, selectedNote, history, linkedGroupNote);
+    }
+
+    /** Shared patient, record and domain boundary for individual-note and issue histories. */
+    private String authorizedHistoryPatient() {
+        String patient = getDemographicNo(request);
+        Long demographicId = parseExistingNoteId(patient);
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (login == null || demographicId == null || demographicId <= 0 || demographicId > Integer.MAX_VALUE
+                || !securityInfoManager.hasPrivilege(login, "_demographic", "r", patient)
+                || !securityInfoManager.hasPrivilege(login, "_casemgmt.notes", "r", patient)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(login, demographicId.intValue())) {
+            return null;
+        }
+        String provider = login.getLoggedInProviderNo();
+        return caseManagementMgr.isClientInProgramDomain(provider, patient)
+                || caseManagementMgr.isClientReferredInProgramDomain(provider, patient) ? patient : null;
     }
 
     private record AuthorizedNoteHistory(String patient, CaseManagementNote selectedNote,
@@ -3257,12 +3262,20 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     public String issuehistory() {
         if (request.getSession().getAttribute("userrole") == null) return "expired";
 
-        String demono = getDemographicNo(request);
-        request.setAttribute("demoName", getDemoName(demono));
+        String demono = authorizedHistoryPatient();
+        if (demono == null) return refuseNoteHistory();
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String program = ChartProgramContext.resolve(request);
         String issueIds = request.getParameter("issueIds");
 
         List<CaseManagementNote> history = new ArrayList<CaseManagementNote>();
         List<CaseManagementNote> temp = caseManagementMgr.getIssueHistory(issueIds, demono);
+        if (temp == null || temp.stream().anyMatch(note -> note == null
+                || !demono.equals(note.getDemographic_no()))) return refuseNoteHistory();
+        if (program != null && !"0".equals(program)
+                && caseManagementMgr.filterNotes(login, login.getLoggedInProviderNo(), temp, program).size() != temp.size()) {
+            return refuseNoteHistory();
+        }
 
         ArrayList<Boolean> current = new ArrayList<Boolean>(history.size());
         for (Iterator<CaseManagementNote> iter = temp.listIterator(); iter.hasNext(); ) {
@@ -3277,6 +3290,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
 
+        request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("history", history);
         request.setAttribute("current", current);
 

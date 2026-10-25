@@ -401,6 +401,71 @@ class ChartProgramContextUnitTest extends CarlosUnitTestBase {
         assertThat(ChartProgramContext.resolve(request)).isNull();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"programId", "case_program_id", "chart-owner-default"})
+    void shouldRefuseNoProgramEntry_whenTheAuthenticatedProviderHasConfiguredPrograms(String selection) {
+        MockHttpSession session = new MockHttpSession();
+        MockHttpServletRequest previous = chart(session, "101");
+        ChartProgramContext.remember(previous, "11");
+        String existingToken = ChartProgramContext.token(previous);
+        Object unsaved = new Object();
+        String draftKey = ChartProgramContext.formKey(previous, "101");
+        session.setAttribute(draftKey, unsaved);
+        MockHttpServletRequest request = chart(session, "101");
+        EctProgram programs = mock(EctProgram.class);
+        EctProgramManager manager = mock(EctProgramManager.class);
+        when(programs.getEctProgramManager()).thenReturn(manager);
+        when(manager.getProgramBeans("reader", null)).thenReturn(List.of(new LabelValueBean("Restricted", "11")));
+        if ("chart-owner-default".equals(selection)) when(programs.getProgram("owner")).thenReturn("0");
+        else request.setParameter(selection, "0");
+
+        assertThatThrownBy(() -> ChartProgramContext.initialize(request, programs, "reader", "owner"))
+                .isInstanceOf(SecurityException.class);
+
+        assertThat(ChartProgramContext.token(request)).isNull();
+        assertThat(ChartProgramContext.resolve(request)).isEqualTo("11");
+        assertThat(session.getAttribute(draftKey)).isSameAs(unsaved);
+        assertThat(ChartProgramContext.resolve(reload(session, "101", existingToken))).isEqualTo("11");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"programId", "case_program_id", "default"})
+    void shouldPreserveNoProgramEntry_whenTheAuthenticatedProviderHasNoConfiguredPrograms(String selection) {
+        MockHttpServletRequest request = chart(new MockHttpSession(), "101");
+        EctProgram programs = mock(EctProgram.class);
+        EctProgramManager manager = mock(EctProgramManager.class);
+        when(programs.getEctProgramManager()).thenReturn(manager);
+        when(manager.getProgramBeans("reader", null)).thenReturn(List.of());
+        if ("default".equals(selection)) when(programs.getProgram("reader")).thenReturn("0");
+        else request.setParameter(selection, "0");
+
+        ChartProgramContext.initialize(request, programs, "reader");
+
+        assertThat(ChartProgramContext.resolve(request)).isEqualTo("0");
+        assertThat(ChartProgramContext.token(request)).isNotBlank();
+    }
+
+    @Test
+    void shouldRestoreALegitimateNoProgramWindow_whenTheProviderStillHasNoConfiguredPrograms() {
+        MockHttpSession session = new MockHttpSession();
+        MockHttpServletRequest original = chart(session, "101");
+        EctProgram programs = mock(EctProgram.class);
+        EctProgramManager manager = mock(EctProgramManager.class);
+        when(programs.getProgram("reader")).thenReturn("0");
+        when(programs.getEctProgramManager()).thenReturn(manager);
+        when(manager.getProgramBeans("reader", null)).thenReturn(List.of());
+        ChartProgramContext.initialize(original, programs, "reader");
+        String issued = ChartProgramContext.token(original);
+        MockHttpServletRequest restored = reload(session, "101", issued);
+        restored.setParameter("programId", "22");
+
+        ChartProgramContext.initialize(restored, programs, "reader");
+
+        assertThat(ChartProgramContext.resolve(restored)).isEqualTo("0");
+        assertThat(ChartProgramContext.token(restored)).isEqualTo(issued);
+        verify(programs).getProgram("reader");
+    }
+
     @Test
     void shouldRejectAmbiguousProgramAliases_beforeLookingUpAvailablePrograms() {
         MockHttpServletRequest request = chart(new MockHttpSession(), "101");
