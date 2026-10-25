@@ -27,6 +27,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <!DOCTYPE html>
-<html lang="en"><head><title>Group note saved</title></head>
+<html lang="<%= SafeEncode.forHtmlAttribute(LocaleUtils.resolveBundleLocale(request).toLanguageTag()) %>"><head><title>Group note saved</title></head>
 <body><p>Group note saved.</p><script>window.addEventListener('load', function () { window.close(); });</script></body></html>

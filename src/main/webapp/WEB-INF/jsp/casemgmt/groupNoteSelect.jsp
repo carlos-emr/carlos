@@ -29,6 +29,7 @@
 --%>
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.GroupNoteSelect2Action.Member" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     List<Member> members = (List<Member>) request.getAttribute("groupNoteMembers");
@@ -39,7 +40,7 @@
     String chartContext = (String) request.getAttribute("groupNoteContext");
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<%= SafeEncode.forHtmlAttribute(LocaleUtils.resolveBundleLocale(request).toLanguageTag()) %>">
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Group Note - Select Clients</title>
