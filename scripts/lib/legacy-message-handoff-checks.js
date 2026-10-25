@@ -17,8 +17,11 @@ async function checkLegacyMessageHandoff(s, { patient, otherPatient, trackEditor
   const fixture = authzReadFixture({ sql, marker, provider, testUser: config.testUser });
   s.cleanup(() => fixture.cleanup());
   const messages = [];
+  const quarantinedMessages = new Set();
   s.cleanup(() => {
     if (!messages.length) return;
+    h.assert(quarantinedMessages.size === 0,
+      'Legacy handoff message ownership is unconfirmed; retaining message fixtures');
     const ids = messages.map(message => message.id).join(',');
     h.assert(sql.value(`SELECT COUNT(*) FROM messagetbl WHERE messageid IN (${ids})
       AND thesubject NOT LIKE ${q(`${marker}%`)}`) === '0', 'Legacy handoff message ownership changed');
@@ -51,14 +54,6 @@ async function checkLegacyMessageHandoff(s, { patient, otherPatient, trackEditor
   const foreign = makeMessage('foreign-patient', otherPatient, true);
   const unlinked = makeMessage('unlinked-local', null, true);
   const shared = makeMessage('linked-shared', patient, false);
-  const vanished = makeMessage('linked-vanished', patient, false);
-  // The link check deliberately precedes the message-body lookup. Only a linked
-  // message whose body disappeared can reach the typed missing-message response.
-  h.assert(sql.value(`DELETE FROM messagetbl WHERE messageid=${vanished.id}
-    AND thesubject=${q(`${marker} linked-vanished`)} AND themessage=${q(vanished.body)};
-    SELECT ROW_COUNT()`) === '1', 'The owned linked-message disappearance was not staged');
-  h.assert(sql.value(`SELECT COUNT(*) FROM msgDemoMap WHERE messageID=${vanished.id}
-    AND demographic_no=${patient}`) === '1', 'The vanished message lost its owned patient link');
   const snapshot = id => ({ ...readPatientState(sql, id),
     locks: sql.rows(`SELECT * FROM casemgmt_note_lock WHERE demographic_no=${id} ORDER BY id`) });
   const before = [patient, otherPatient].map(snapshot);
@@ -114,7 +109,32 @@ async function checkLegacyMessageHandoff(s, { patient, otherPatient, trackEditor
     const missing = Number(sql.value('SELECT COALESCE(MAX(messageid),0) FROM messagetbl')) + 100;
     h.assert(Number.isSafeInteger(missing) && missing < 2147483647, 'Missing-message probe key is invalid');
     await refused(context, patient, provider, [missing], 403, 'Unlinked missing legacy message');
-    await refused(context, patient, provider, [vanished.id], 404, 'Linked vanished legacy message');
+    // Keep this deliberately dangling link inside the direct missing-message probe:
+    // native editor navbars must see ordinary linked-message fixtures.
+    const vanished = makeMessage('linked-vanished', patient, false);
+    try {
+      // The link check deliberately precedes the message-body lookup. Only a linked
+      // message whose body disappeared can reach the typed missing-message response.
+      h.assert(sql.value(`DELETE FROM messagetbl WHERE messageid=${vanished.id}
+        AND thesubject=${q(`${marker} linked-vanished`)} AND themessage=${q(vanished.body)};
+        SELECT ROW_COUNT()`) === '1', 'The owned linked-message disappearance was not staged');
+      h.assert(sql.value(`SELECT COUNT(*) FROM msgDemoMap WHERE messageID=${vanished.id}
+        AND demographic_no=${patient}`) === '1', 'The vanished message lost its owned patient link');
+      await refused(context, patient, provider, [vanished.id], 404, 'Linked vanished legacy message');
+    } finally {
+      // A refusal here must also prevent the outer registered cleanup from
+      // deleting changed links or a replacement body during workflow unwind.
+      quarantinedMessages.add(vanished.id);
+      const links = sql.rows(`SELECT demographic_no FROM msgDemoMap WHERE messageID=${vanished.id}`);
+      h.assert(links.length === 1 && links.every(row => row[0] === String(patient)),
+        'The vanished-message link disappeared or changed ownership; retaining it');
+      h.assert(sql.value(`SELECT COUNT(*) FROM messagetbl WHERE messageid=${vanished.id}`) === '0',
+        'The vanished message was replaced; retaining its link');
+      sql.execute(`DELETE FROM msgDemoMap WHERE messageID=${vanished.id} AND demographic_no=${patient}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM msgDemoMap WHERE messageID=${vanished.id}`) === '0',
+        'The owned vanished-message link survived the direct probe');
+      quarantinedMessages.delete(vanished.id);
+    }
   });
   await s.step('legacy message handoff independently enforces messaging rights and patient record access', async () => {
     const chartRole = fixture.addRole({ _demographic: 'r', _appointment: 'r', _eChart: 'r', '_casemgmt.notes': 'r' });
