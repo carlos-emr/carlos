@@ -55,6 +55,7 @@ const { clickAndAwaitReload, csrfTokenPresent } = require('./lib/playwright-ui')
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const { vascularTrackerCatalogFixture } = require('./lib/vascular-tracker-catalog-fixture');
+const { storedQuickListNames, trackQuickListPreferences } = require('./lib/quicklist-preference-fixture');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const print = require('./lib/gap-clinical-print');
@@ -778,6 +779,8 @@ async function run(s) {
     });
   }
 
+  // The native empty selector can resolve any catalog list; snapshot before either popup opens.
+  const dxPreferences = trackQuickListPreferences(s, storedQuickListNames(sql));
   for (const d of directions) {
     const bpValue = d.label === 'A' ? '128/82' : '142/86';
     const otherBpValue = d.label === 'A' ? '142/86' : '128/82';
@@ -841,20 +844,24 @@ async function run(s) {
     });
 
     await isolatedWrite(d, 'Dx Add', async () => {
-      const code = d.label === 'A' ? '250' : '401';
-      const plus = d.chart.locator('#Dx a[onclick*="setupDxResearch"]').filter({hasText: '+'}).first();
-      const registry = await s.popup(d.chart, plus, `${d.label}-dx`);
-      const form = registry.locator('form[action*="/oscarResearch/oscarDxResearch/dxResearch"]');
-      await form.locator('input[name="demographicNo"]').waitFor({state: 'attached'});
-      h.assert(await form.locator('input[name="demographicNo"]').inputValue() === d.patient, 'Dx opened for another patient');
-      await form.locator('select[name="selectedCodingSystem"]').selectOption('icd9');
-      await form.locator('input[name="xml_research1"]').fill(code);
-      await activateOther(d.otherChart);
-      await clickAndAwaitReload(registry, form.locator('input[name="codeAdd"]'), {label: 'Dx Add'});
-      const owned = `dxresearch_code=${q(code)} AND coding_system='icd9' AND demographic_no IN (${patients})`;
-      await expectValue(sql, `SELECT COUNT(*) FROM dxresearch WHERE ${owned}`, '1', 'The Dx code was not saved exactly once');
-      h.assert(sql.value(`SELECT demographic_no FROM dxresearch WHERE ${owned}`) === d.patient, 'Dx crossed patients');
-      await registry.close();
+      try {
+        const code = d.label === 'A' ? '250' : '401';
+        const plus = d.chart.locator('#Dx a[onclick*="setupDxResearch"]').filter({hasText: '+'}).first();
+        const popupProvider = ((await plus.getAttribute('onclick')) || '').match(/providerNo=([0-9]+)/)?.[1];
+        h.assert(popupProvider === provider, 'The native Dx link does not match its preference fixture provider');
+        const registry = await s.popup(d.chart, plus, `${d.label}-dx`);
+        const form = registry.locator('form[action*="/oscarResearch/oscarDxResearch/dxResearch"]');
+        await form.locator('input[name="demographicNo"]').waitFor({state: 'attached'});
+        h.assert(await form.locator('input[name="demographicNo"]').inputValue() === d.patient, 'Dx opened for another patient');
+        await form.locator('select[name="selectedCodingSystem"]').selectOption('icd9');
+        await form.locator('input[name="xml_research1"]').fill(code);
+        await activateOther(d.otherChart);
+        await clickAndAwaitReload(registry, form.locator('input[name="codeAdd"]'), {label: 'Dx Add'});
+        const owned = `dxresearch_code=${q(code)} AND coding_system='icd9' AND demographic_no IN (${patients})`;
+        await expectValue(sql, `SELECT COUNT(*) FROM dxresearch WHERE ${owned}`, '1', 'The Dx code was not saved exactly once');
+        h.assert(sql.value(`SELECT demographic_no FROM dxresearch WHERE ${owned}`) === d.patient, 'Dx crossed patients');
+        await registry.close();
+      } finally { dxPreferences.observe(); }
     });
 
     await isolatedWrite(d, 'CPP Sign & Save', async () => {

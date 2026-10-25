@@ -90,6 +90,7 @@ const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { seedOwnedBill } = require('./billing-on-invoice-third-party-playwright-checks');
 const { pdfTextBuffer, requirePoppler } = require('./lib/export-content-helpers');
+const { storedQuickListNames, trackQuickListPreferences } = require('./lib/quicklist-preference-fixture');
 
 const TIMEOUT = 30000;
 const A_FIRST_NAME = 'PatientAlpha';
@@ -1153,38 +1154,43 @@ async function diseaseRegistry(s, A, B) {
         coding_system, providerNo)
       VALUES (${patient}, CURDATE(), NOW(), 'A', ${q(code)}, 'icd9', ${q(provider)})`);
   }
+  const quickLists = storedQuickListNames(sql);
+  // A POST re-render may return to the default list, so retain all validated catalog keys.
+  const preferences = trackQuickListPreferences(s, quickLists);
   const registry = patient => `/oscarResearch/dxresearch/setupDxResearch?demographicNo=${patient}`
-    + `&providerNo=${encodeURIComponent(provider)}&quickList=`;
+    + `&providerNo=${encodeURIComponent(provider)}&quickList=${encodeURIComponent(quickLists[0])}`;
   const listed = async page => page.locator('#displayDxCodeTable').innerText();
 
-  await step(s, 'a refused registry code re-renders this window\'s own patient, whose next code is filed for it', async () => {
-    const windowA = await openPage(s, registry(A), 'A\'s Disease Registry');
-    const windowB = await openPage(s, registry(B), 'B\'s Disease Registry');
-    await windowA.locator('input[name="xml_research1"]').fill('99999');
-    await Promise.all([
-      windowA.waitForNavigation({ timeout: TIMEOUT }),
-      windowA.locator('input[name="codeAdd"]').click(),
-    ]);
-    await settle(windowA, 'A\'s Disease Registry after a refused code');
-    const shown = await listed(windowA);
-    h.assert(shown.includes(describe(codeOf.A)) && !shown.includes(describe(codeOf.B)),
-      `A's registry, re-rendered after the refusal, lists ${shown.includes(describe(codeOf.B)) ? 'B\'s' : 'no'} diagnoses`);
-    h.assert(await windowA.locator('form[action$="/oscarDxResearch/dxResearch"] input[name="demographicNo"]').inputValue() === A,
-      'A\'s re-rendered registry form names another patient');
-    await windowA.locator('input[name="xml_research1"]').fill(added);
-    await Promise.all([
-      windowA.waitForNavigation({ timeout: TIMEOUT }),
-      windowA.locator('input[name="codeAdd"]').click(),
-    ]);
-    await settle(windowA, 'A\'s Disease Registry after adding a code');
-    await expectValue(sql, `SELECT GROUP_CONCAT(dxresearch_code ORDER BY dxresearch_code) FROM dxresearch
-      WHERE demographic_no=${A} AND status='A'`, [codeOf.A, added].sort().join(','),
-    'A\'s next code was not registered for A');
-    h.assert(sql.value(`SELECT GROUP_CONCAT(dxresearch_code) FROM dxresearch WHERE demographic_no=${B}`) === codeOf.B,
-      'A\'s window changed B\'s registry');
-    await windowA.close();
-    await windowB.close();
-  });
+  try {
+    await step(s, 'a refused registry code re-renders this window\'s own patient, whose next code is filed for it', async () => {
+      const windowA = await openPage(s, registry(A), 'A\'s Disease Registry');
+      const windowB = await openPage(s, registry(B), 'B\'s Disease Registry');
+      await windowA.locator('input[name="xml_research1"]').fill('99999');
+      await Promise.all([
+        windowA.waitForNavigation({ timeout: TIMEOUT }),
+        windowA.locator('input[name="codeAdd"]').click(),
+      ]);
+      await settle(windowA, 'A\'s Disease Registry after a refused code');
+      const shown = await listed(windowA);
+      h.assert(shown.includes(describe(codeOf.A)) && !shown.includes(describe(codeOf.B)),
+        `A's registry, re-rendered after the refusal, lists ${shown.includes(describe(codeOf.B)) ? 'B\'s' : 'no'} diagnoses`);
+      h.assert(await windowA.locator('form[action$="/oscarDxResearch/dxResearch"] input[name="demographicNo"]').inputValue() === A,
+        'A\'s re-rendered registry form names another patient');
+      await windowA.locator('input[name="xml_research1"]').fill(added);
+      await Promise.all([
+        windowA.waitForNavigation({ timeout: TIMEOUT }),
+        windowA.locator('input[name="codeAdd"]').click(),
+      ]);
+      await settle(windowA, 'A\'s Disease Registry after adding a code');
+      await expectValue(sql, `SELECT GROUP_CONCAT(dxresearch_code ORDER BY dxresearch_code) FROM dxresearch
+        WHERE demographic_no=${A} AND status='A'`, [codeOf.A, added].sort().join(','),
+      'A\'s next code was not registered for A');
+      h.assert(sql.value(`SELECT GROUP_CONCAT(dxresearch_code) FROM dxresearch WHERE demographic_no=${B}`) === codeOf.B,
+        'A\'s window changed B\'s registry');
+      await windowA.close();
+      await windowB.close();
+    });
+  } finally { preferences.observe(); }
 }
 
 async function workflow(s) {
