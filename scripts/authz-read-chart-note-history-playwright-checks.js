@@ -25,6 +25,8 @@ const { authzReadFixture, cleanupAll } = require('./lib/authz-read-fixture');
 const { probe, classify, forbiddenByApp, urlFor, signIn, ledger } = require('./lib/authz-read-probe');
 const { checkLockedRecordMeasurements } = require('./lib/locked-record-measurement-checks');
 const { checkLockedRecordPrints } = require('./lib/locked-record-print-checks');
+const { checkPrintProgramVisibility } = require('./lib/print-program-visibility-checks');
+const { requirePoppler } = require('./lib/stored-pdf-documents');
 
 const isEntry = method => r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/CaseManagementEntry')
   && new URLSearchParams(r.request().postData() || '').get('method') === method;
@@ -148,7 +150,10 @@ async function workflow(s) {
   });
   await checkLockedRecordMeasurements(s, { fixture });
   await checkLockedRecordPrints(s, { fixture });
+  await checkPrintProgramVisibility(s, { fixture });
 }
 
-if (require.main === module) runWorkflow('authz-read-chart-note-history', workflow);
+if (require.main === module) runWorkflow('authz-read-chart-note-history', workflow, {
+  preflightConfig: () => requirePoppler('pdftotext'),
+});
 module.exports = { workflow };

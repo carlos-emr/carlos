@@ -9612,15 +9612,15 @@
       "provinces": [
         "ON"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 420,
       "assertsDatabase": true,
       "env": [
         "TEST_PASSWORD",
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Six owned patients with notes and numeric measurements, shared authz fixture with custom module-only readers and er_clerk/doctor logins; record-only exclusions use one demographic object per owned login. Clinical descendants, audit rows, roles and logins are removed and verified.",
-      "notes": "Both history routes enforce patient identity, record locks and notes-module access. Independent module-granted readers exercise six measurement/navbar GET routes, both measurement writer aliases and three chart print routes with record-only denials and unlocked controls. Complete clinical/draft/lock snapshots survive refusals; allowed writers persist one exact reading, HTML retains UTF-8/literal markup and PDFs contain the owned note. Malformed print identities and foreign/mixed HTML selection refuse without partial output."
+      "fixtures": "Seven owned patients with notes, numeric measurements and CPP issue links; shared authz fixture with module readers and er_clerk/doctor logins. Two owned programs use preexisting cached reporter roles and an unchanged global policy, with one existing Facility bound through the owned reader only. All clinical descendants, program memberships/admissions, audit rows, roles and logins are removed and verified; shared defaults and policies remain unchanged. Requires pdftotext; availability is checked before fixture creation.",
+      "notes": "Both history routes enforce patient identity, record locks and notes-module access. Independent module-granted readers exercise six measurement/navbar GET routes, both measurement writer aliases and three web print routes plus REST print with record-only denials and unlocked controls. Complete clinical/draft/lock snapshots survive refusals; allowed writers persist one exact reading, HTML retains UTF-8/literal markup and PDFs contain the owned note. Malformed print identities and foreign/mixed HTML selection refuse without partial output. Native chart controls establish a real reporter-role denial and readable cross-program notes before testing actual selected/ALL/date/CPP/Other Meds/full PDFs. REST signed-context checks preserve that visibility despite another program entered last, both wrong patient query aliases or program-zero hints, reject hidden selections and forged/conflicting genuine contexts, and retain an independently authorized other-program positive."
     },
     {
       "name": "authz-read-admin-objects",

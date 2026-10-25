@@ -135,6 +135,18 @@ async function checkLockedRecordPrints(s, { fixture }) {
     h.assert(!clinicalTokens.some(token => body.includes(token))
       && bytes.subarray(0, 5).toString('latin1') !== '%PDF-', `${label}: refused print leaked clinical text or PDF bytes`);
   };
+  const assertOwnPdf = (bytes, headers, index, label) => {
+    h.assert(/application\/pdf/i.test(headers['content-type'] || '') && bytes.length > 1000
+      && bytes.subarray(0, 5).toString('latin1') === '%PDF-'
+      && /%%EOF\s*$/.test(bytes.subarray(-1024).toString('latin1')),
+    `${label}: the print control is not a complete PDF`);
+    const text = execFileSync('pdftotext', ['-', '-'], {
+      input: bytes, encoding: 'utf8', timeout: 20000, maxBuffer: 8 << 20,
+    });
+    h.assert(text.includes(clinicalTokens[index]) && text.includes('café') && text.includes('中文')
+      && !text.includes(clinicalTokens[1 - index]),
+    `${label}: the actual PDF omitted its owned note or contained another patient`);
+  };
 
   await s.step('all three chart print routes require record access despite complete print module grants', async () => {
     for (const route of routes) {
@@ -162,16 +174,7 @@ async function checkLockedRecordPrints(s, { fixture }) {
               && html.includes('&amp;') && !html.includes(clinicalTokens[0]),
             'The HTML note print lost UTF-8/literal markup or included the other patient');
           } else {
-            h.assert(/application\/pdf/i.test(headers['content-type'] || '') && bytes.length > 1000
-              && bytes.subarray(0, 5).toString('latin1') === '%PDF-'
-              && /%%EOF\s*$/.test(bytes.subarray(-1024).toString('latin1')),
-            `${route.method || route.path}: the print control is not a complete PDF`);
-            const text = execFileSync('pdftotext', ['-', '-'], {
-              input: bytes, encoding: 'utf8', timeout: 20000, maxBuffer: 8 << 20,
-            });
-            h.assert(text.includes(clinicalTokens[1]) && text.includes('café') && text.includes('中文')
-              && !text.includes(clinicalTokens[0]),
-            `${route.method || route.path}: the actual PDF omitted its owned note or contained another patient`);
+            assertOwnPdf(bytes, headers, 1, route.method || route.path);
           }
         } finally { await allowed.dispose(); }
         unchanged(before, `${route.method || route.path} allowed read`);
@@ -218,6 +221,62 @@ async function checkLockedRecordPrints(s, { fixture }) {
         unchanged(before, 'Foreign/mixed HTML note selection');
       }
     } finally { await reader.context.close(); }
+  });
+
+  // The REST path patient is authoritative. Query aliases are intentionally canonicalized by
+  // the shared print service, so these requests have a different contract from the web matrix.
+  const restAddress = (patient, aliases = []) => {
+    const query = new URLSearchParams({ printOps: JSON.stringify({ printType: 'all', selectedList: [],
+      cpp: false, rx: false, labs: false, preventions: false, allergies: false }) });
+    for (const [name, value] of aliases) query.append(name, value);
+    return h.appUrl(config.baseUrl, `/ws/rs/recordUX/${encodeURIComponent(patient)}/print?${query}`);
+  };
+  await s.step('REST print uses its permitted path patient despite foreign or conflicting query aliases', async () => {
+    const reader = await signIn(s, login);
+    try {
+      const before = state();
+      for (const aliases of [[], [['demographicNo', lockedPatient], ['demographic_no', lockedPatient]],
+        [['demographicNo', lockedPatient], ['demographic_no', openPatient],
+          ['demographicNo', openPatient], ['demographic_no', lockedPatient]]]) {
+        const allowed = await read(reader, restAddress(openPatient, aliases));
+        try {
+          h.assert(allowed.status() === 200 && Object.hasOwn(allowed.headers(), h.APPLICATION_HEADER),
+            'The authorized REST path patient did not produce an application PDF');
+          assertOwnPdf(await allowed.body(), allowed.headers(), 1, 'REST path-patient print');
+        } finally { await allowed.dispose(); }
+        unchanged(before, 'REST print path-patient authority');
+      }
+      const denied = await read(reader, restAddress(lockedPatient,
+        [['demographicNo', openPatient], ['demographic_no', openPatient]]));
+      try { await refuse(denied, 403, 'REST restricted path with permitted query aliases'); }
+      finally { await denied.dispose(); }
+      unchanged(before, 'REST record exclusion');
+      for (const invalid of ['0', '-1']) {
+        const response = await read(reader, restAddress(invalid));
+        try { await refuse(response, 400, 'REST nonpositive path patient'); }
+        finally { await response.dispose(); }
+        unchanged(before, 'REST invalid path patient');
+      }
+    } finally { await reader.context.close(); }
+  });
+
+  await s.step('REST print independently requires demographic chart and note module reads', async () => {
+    for (const deniedModule of ['_demographic', '_eChart', '_casemgmt.notes']) {
+      const grants = { _demographic: 'r', _appointment: 'r', _eChart: 'r',
+        '_casemgmt.notes': 'r', _tickler: 'r' };
+      delete grants[deniedModule];
+      const restrictedRole = fixture.addRole(grants);
+      const restrictedLogin = fixture.addLogin(restrictedRole);
+      fixture.joinTestLoginPrograms(restrictedLogin);
+      const reader = await signIn(s, restrictedLogin);
+      try {
+        const before = state();
+        const response = await read(reader, restAddress(openPatient));
+        try { await refuse(response, 403, `REST print without ${deniedModule}`); }
+        finally { await response.dispose(); }
+        unchanged(before, `REST print without ${deniedModule}`);
+      } finally { await reader.context.close(); }
+    }
   });
 }
 
