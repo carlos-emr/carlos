@@ -1,11 +1,14 @@
 # Remaining encounter-bean readers — issue 4673
 
 Follow-up to [issue-4556-patient-isolation.md](issue-4556-patient-isolation.md) (#4556, #4667).
-The login-wide `EctSessionBean` is still written by `IncomingEncounter`, for whichever chart was
-entered last in any window of a login. The readers below took patient data from it, so with two
-charts open they printed, or wrote to, the other patient. Each now resolves its patient from its
-own request (`EncounterPatientContext.requireDemographicNo`) and reads patient attributes from that
+At the original issue baseline, `IncomingEncounter` wrote one login-wide `EctSessionBean` for
+whichever chart was entered last in any window of a login. The readers below took patient data
+from it, so with two charts open they printed, or wrote to, the other patient. Each now resolves its
+patient from its own request (`EncounterPatientContext.requireDemographicNo`) and reads patient attributes from that
 patient's record or from that patient's own remembered entry (`findEncounter`/`entryOrLoggedIn`).
+The later #4811/#5250 follow-up removes the login-wide write itself; current chart entry publishes
+a request-owned bean and remembers immutable patient-specific entry metadata. The verification
+counts and controls below remain the historical results of this issue's original snapshots.
 
 | Reader | Was | Now |
 |---|---|---|

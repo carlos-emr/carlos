@@ -209,7 +209,7 @@ function harness({ missingProbe = 'success' } = {}) {
 test('native editors see complete messages and only the direct typed404 probe has a dangling link', async () => {
   const fixture = harness();
   await fixture.run();
-  assert.equal(fixture.events.filter(event => event.type === 'native').length, 5);
+  assert.equal(fixture.events.filter(event => event.type === 'native').length, 6);
   assert.equal(fixture.events.filter(event => event.type === 'missing-probe').length, 1);
   assert.equal(fixture.events.filter(event => event.type === 'unlink' && event.id === fixture.vanished).length, 1);
   assert.equal(fixture.links.some(link => link.message === fixture.vanished), false);

@@ -7,6 +7,7 @@ const h = require('./playwright-harness');
 const { signIn } = require('./authz-read-probe');
 const { waitForNavbars } = require('../echart-navbar-modules-playwright-checks');
 const { readPatientState, assertPatientStateUnchanged } = require('../echart-two-patient-isolation-playwright-checks');
+const { checkChartProgramStartup } = require('./chart-program-startup-checks');
 const q = h.sqlString;
 
 /** Actual cached reporter-role policy must agree across the native chart and every PDF scope. */
@@ -317,6 +318,39 @@ async function checkPrintProgramVisibility(s, { fixture }) {
       status: proof.status, bytes: proof.bytes, sha256: proof.sha256 })}`);
     return { report, get text() { return capturedText; }, addText };
   };
+  await s.step('fresh configured charts refuse both explicit program-zero aliases before issuing a context', async () => {
+    for (const alias of ['programId', 'case_program_id']) {
+      const response = await reader.context.request.get(h.appUrl(config.baseUrl,
+        `/encounter/IncomingEncounter?${new URLSearchParams({ demographicNo: patient,
+          providerNo: login.providerNo, [alias]: '0' })}`), { maxRedirects: 0, timeout: 40000 });
+      try {
+        const bytes = await response.body();
+        const evidence = preservePrintResponse(`fresh zero ${alias}`, response, bytes, []);
+        // On an old installation preserve the actual signed-zero PDF exposure
+        // before failing the refusal assertion. Only an exact own-app native
+        // redirect and its own patient-zero token may enter this diagnostic.
+        if ([302, 303].includes(response.status()) && response.headers().location) {
+          const next = new URL(response.headers().location, config.baseUrl);
+          const expected = new URL(h.appUrl(config.baseUrl, '/casemgmt/ViewForward'));
+          const zero = next.searchParams.get('chartContext');
+          if (next.origin === expected.origin && next.pathname === expected.pathname
+              && next.searchParams.get('action') === 'view'
+              && next.searchParams.get('demographicNo') === patient && zero
+              && Buffer.from(zero.split('.')[0], 'base64url').toString('utf8') === `${patient}:0`) {
+            const exposed = await reader.context.request.get(address({ chartContext: zero }),
+              { maxRedirects: 0, timeout: 40000 });
+            try { preservePrintResponse(`admitted fresh zero ${alias} actual PDF`, exposed, await exposed.body(), []); }
+            finally { await exposed.dispose(); }
+          }
+        }
+        h.assert(response.status() === 403 && Object.hasOwn(response.headers(), h.APPLICATION_HEADER)
+          && bytes.subarray(0, 5).toString('latin1') !== '%PDF-'
+          && !bytes.toString('utf8').includes(`${marker}-ROLE-`),
+        `${alias}: fresh zero selection was admitted or returned clinical bytes; ${evidence.report}`);
+      } finally { await response.dispose(); }
+      unchanged(`fresh zero ${alias}`);
+    }
+  });
   await s.step('shortened note HTML enforces the originating role while retaining readable cross-program notes', async () => {
     const csrf = await chart.evaluate(() => window.CarlosAjax?.getCsrfToken());
     h.assert(csrf, 'The owned chart has no genuine CSRF token');
@@ -438,6 +472,9 @@ async function checkPrintProgramVisibility(s, { fixture }) {
     await checkRest('REST forged signed context', restAddress({}, undefined, [forged]), 403);
     await checkRest('REST conflicting genuine signed contexts', restAddress({}, undefined, [token, otherToken]), 403);
   });
+  await checkChartProgramStartup(s, { fixture, program: programs[0], role: readerRole, facility,
+    sharedState: () => ({ patient: snapshot(), policy: policy(), sharedDefaults: sql.rows(
+      `SELECT * FROM provider_default_program WHERE provider_no=${q(provider)} ORDER BY program_id`) }) });
   } catch (error) {
     workflowFailure = error;
     throw error;
@@ -473,8 +510,9 @@ async function checkPrintProgramVisibility(s, { fixture }) {
         h.assert(sessions.length === 1 && sessions[0].value, 'Owned chart cleanup has no unique authenticated session');
         const before = snapshot();
         const beforeLocks = lockRows();
+        const sessionIds = new Set([sessions[0].value, sessions[0].value.split('.')[0]]);
         const allowed = new Set(beforeLocks.filter(row => row[1] === login.providerNo && row[2] === patient
-          && row[3] === form.note && row[4] === sessions[0].value).map(row => row[0]));
+          && row[3] === form.note && sessionIds.has(row[4])).map(row => row[0]));
         const accessBefore = sql.rows(`SELECT * FROM program_access WHERE program_id IN (${programs.join(',')}) ORDER BY id`);
         Object.assign(proof, { note: form.note, csrfPresent: true, contextMatches: true,
           sessionLockScopeVerified: true, permittedLockIds: [...allowed] });

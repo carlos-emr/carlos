@@ -37,6 +37,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+const { checkPmmAttachSourceContext } = require('./lib/pmm-attach-source-context-checks');
 
 const TIMEOUT = 30000;
 const NOTE = '#caseManagementEntryForm textarea[name="caseNote_note"]';
@@ -350,7 +351,7 @@ async function workflow(s) {
     s.cleanup(() => fixture.cleanup());
     const grants = { _demographic: 'r', _appointment: 'r', _eChart: 'r' };
     const reader = fixture.addLogin(fixture.addRole({ ...grants, '_casemgmt.notes': 'r' }));
-    const writer = fixture.addLogin(fixture.addRole({ ...grants, '_casemgmt.notes': 'w' }));
+    const writer = fixture.addLogin(fixture.addRole({ ...grants, _eChart: 'w', '_casemgmt.notes': 'w' }));
     fixture.joinTestLoginPrograms(reader);
     fixture.joinTestLoginPrograms(writer);
     fixture.lockPatient(writer, A, ['_casemgmt.notes']);
@@ -399,6 +400,7 @@ async function workflow(s) {
       'The authorized attachment did not copy exactly one readable source note');
     for (const actor of authenticated) await actor.session.close();
   });
+  await checkPmmAttachSourceContext(s, { context, login, target: C, ownedPatient, ownChartRows, saveNote, settle });
 }
 
 if (require.main === module) runWorkflow('pmm-attach-note-two-window-isolation', workflow, { openPatient: true });

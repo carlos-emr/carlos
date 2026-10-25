@@ -388,6 +388,8 @@ async function run(s) {
   const vtCatalog = vascularTrackerCatalogFixture(sql);
   // Register before patient children, so definitions are released after their readings.
   s.cleanup(() => vtCatalog.cleanup());
+  // The first generic Add Form item can itself be VT, before the named VT scenarios.
+  vtCatalog.begin();
   prepareVascularTrackerFixture(s);
   // Two first names no page text or script contains, so a page that prints one names its patient.
   sql.execute(`UPDATE demographic SET first_name=${q(A_FIRST_NAME)}, provider_no=${q(provider)}
@@ -920,7 +922,6 @@ async function run(s) {
       const item = d.chart.locator(FORM_MENU_ITEMS).filter({hasText: /^\s*Vascular Tracker\s*$/});
       await item.waitFor({state: 'visible', timeout: TIMEOUT});
       h.assert(await item.count() === 1, 'The Forms menu must offer exactly one Vascular Tracker');
-      vtCatalog.begin();
       const formPage = await s.popup(d.chart, item, `${d.label}-vascular-tracker`);
       const setupAddress = new URL(formPage.url());
       h.assert(setupAddress.pathname.endsWith('/form/SetupForm')

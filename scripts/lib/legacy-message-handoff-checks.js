@@ -159,6 +159,16 @@ async function checkLegacyMessageHandoff(s, { patient, otherPatient, trackEditor
       await refused(recordReader.context, patient, recordLogin.providerNo, [shared.id], 403,
         'Record-restricted legacy message reader');
     } finally { await recordReader.context.close(); }
+    const patientMessageLogin = fixture.addLogin(messageRole);
+    fixture.joinTestLoginPrograms(patientMessageLogin);
+    fixture.lockPatient(patientMessageLogin, patient, ['_msg']);
+    const patientMessageReader = await signIn(s, patientMessageLogin);
+    try {
+      await nativeEditor(patientMessageReader.context, otherPatient, patientMessageLogin.providerNo, [foreign.id], foreign);
+      assertUnchanged('Unrestricted patient message handoff control');
+      await refused(patientMessageReader.context, patient, patientMessageLogin.providerNo, [shared.id], 403,
+        'Patient-specific message read refusal');
+    } finally { await patientMessageReader.context.close(); }
   });
 }
 

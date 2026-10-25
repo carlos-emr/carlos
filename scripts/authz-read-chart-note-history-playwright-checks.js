@@ -26,6 +26,9 @@ const { probe, classify, forbiddenByApp, urlFor, signIn, ledger } = require('./l
 const { checkLockedRecordMeasurements } = require('./lib/locked-record-measurement-checks');
 const { checkLockedRecordPrints } = require('./lib/locked-record-print-checks');
 const { checkPrintProgramVisibility } = require('./lib/print-program-visibility-checks');
+const { checkGroupNoteFullView } = require('./lib/group-note-full-view-checks');
+const { checkCompactSaveAndIssueHistory } = require('./lib/compact-save-history-checks');
+const { checkFormRecordMethods } = require('./lib/form-record-method-checks');
 const { requirePoppler } = require('./lib/stored-pdf-documents');
 
 const isEntry = method => r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/CaseManagementEntry')
@@ -151,6 +154,9 @@ async function workflow(s) {
   await checkLockedRecordMeasurements(s, { fixture });
   await checkLockedRecordPrints(s, { fixture });
   await checkPrintProgramVisibility(s, { fixture });
+  await checkGroupNoteFullView(s, { fixture });
+  await checkCompactSaveAndIssueHistory(s, { fixture });
+  await checkFormRecordMethods(s, { fixture });
 }
 
 if (require.main === module) runWorkflow('authz-read-chart-note-history', workflow, {

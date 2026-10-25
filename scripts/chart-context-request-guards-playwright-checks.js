@@ -35,6 +35,7 @@ const { readPatientState, assertPatientStateUnchanged } = require('./echart-two-
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const { checkLegacyAutosave, checkLegacyExistingNoteAutosave, rejectOwnedDraftInsert } = require('./lib/chart-autosave-checks');
 const { checkAutosaveTimeout } = require('./lib/chart-autosave-timeout-checks');
+const { checkModernAutosaveConflict } = require('./lib/chart-modern-conflict-checks');
 const { checkIssueDeleteAuthorization } = require('./lib/chart-issue-delete-checks');
 const { checkIssueDeleteAtomicity } = require('./lib/chart-issue-delete-atomicity-checks');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
@@ -253,7 +254,7 @@ async function workflow(s) {
     assertPatientStateUnchanged(stableB, readPatientState(sql, B), 'Registry access probes');
   });
   await checkIssueDeleteAuthorization(s, { fixture, patient: A, program, applicationStatus });
-  await checkIssueDeleteAtomicity(s, { applicationStatus });
+  const atomicChart = await checkIssueDeleteAtomicity(s, { applicationStatus });
   await s.step('a real server autosave failure preserves the previous draft and visibly recovers on retry', async () => {
     // A scoped INSERT trigger reaches the actual transaction and fails after its delete.
     // The browser submits the valid note identity and its unmodified clinical text.
@@ -355,6 +356,9 @@ async function workflow(s) {
     assertPatientStateUnchanged(stableB, readPatientState(sql, B), 'A network retry');
   });
   await checkAutosaveTimeout(s, { chart: chartA, patient: A, otherPatient: B, isAutosave, drafts, autosave, pause });
+  await checkModernAutosaveConflict(s, { chart: chartA, otherChart: chartB, patient: A, otherPatient: B,
+    program, autosave, pause, applicationStatus,
+    cleanupPages: [{ chart: chartB, patient: B, owner: marker }, atomicChart] });
   await checkLegacyAutosave(s, { patient: A, chartContext: token });
   await s.step('REST draft references refuse foreign notes and preserve intentional empty text', async () => {
     const baseline = readPatientState(sql, A);

@@ -276,6 +276,7 @@ async function checkIssueDeleteAtomicity(session, { applicationStatus }) {
   await releaseChartLocks(context, config.baseUrl, [chart]);
   // The workflow owns the browser lifetime; keep this paused page until its
   // normal teardown instead of racing an unload beacon with the next scenario.
+  return { chart, patient, owner: stamp };
 }
 
 module.exports = { checkIssueDeleteAtomicity };
