@@ -2076,6 +2076,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 String raw = request.getParameter(fields[i]);
                 supplied[i] = raw != null;
                 if (StringUtils.isNotEmpty(raw)) values[i] = Integer.valueOf(raw);
+                String[] repeated = request.getParameterValues(fields[i]);
+                if (repeated != null) {
+                    for (String value : repeated) {
+                        Integer parsed = StringUtils.isEmpty(value) ? null : Integer.valueOf(value);
+                        if (!Objects.equals(values[i], parsed)) {
+                            throw new NumberFormatException("Conflicting encounter durations");
+                        }
+                    }
+                }
             }
         } catch (NumberFormatException invalidDuration) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -4600,7 +4609,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return hourOfEncounterTime;
     }
 
-    @StrutsParameter
+    // readNoteTimes validates the raw duration fields together, including repeated blank
+    // controls. Binding their String[] to Integer here would fail before that validation.
     public void setHourOfEncounterTime(Integer hourOfEncounterTime) {
         this.hourOfEncounterTime = hourOfEncounterTime;
     }
@@ -4609,7 +4619,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return minuteOfEncounterTime;
     }
 
-    @StrutsParameter
     public void setMinuteOfEncounterTime(Integer minuteOfEncounterTime) {
         this.minuteOfEncounterTime = minuteOfEncounterTime;
     }
@@ -4618,7 +4627,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return hourOfEncTransportationTime;
     }
 
-    @StrutsParameter
     public void setHourOfEncTransportationTime(Integer hourOfEncTransportationTime) {
         this.hourOfEncTransportationTime = hourOfEncTransportationTime;
     }
@@ -4627,7 +4635,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return minuteOfEncTransportationTime;
     }
 
-    @StrutsParameter
     public void setMinuteOfEncTransportationTime(Integer minuteOfEncTransportationTime) {
         this.minuteOfEncTransportationTime = minuteOfEncTransportationTime;
     }

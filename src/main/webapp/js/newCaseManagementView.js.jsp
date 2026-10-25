@@ -1830,6 +1830,17 @@ function updateCPPNote() {
         var nId = parent.substr(1);
         var sig = 'sig' + nId;
 
+        // These inputs sit outside noteIssues and belong only to this editor.
+        // Leaving them in the retired signature duplicates the next editor's
+        // field names and IDs, so validation and Save can read another note's time.
+        var signature = document.getElementById(sig);
+        if (signature) {
+            signature.querySelectorAll('input[name="hourOfEncounterTime"], input[name="minuteOfEncounterTime"], '
+                    + 'input[name="hourOfEncTransportationTime"], input[name="minuteOfEncTransportationTime"]').forEach(function (field) {
+                field.parentNode.replaceChild(document.createTextNode(field.value), field);
+            });
+        }
+
         // remove lock from note
         removeLock(id);
 
