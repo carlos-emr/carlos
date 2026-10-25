@@ -32,7 +32,7 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class WLWaitingListConcurrencyUnitTest {
     @Test
-    void shouldNotRepositionWhileAnotherMutationIsChoosingAndPersistingItsPosition() throws Exception {
+    void shouldSerializePublicReposition_withConcurrentWaitingListInsertion() throws Exception {
         WaitingListDao dao = mock(WaitingListDao.class);
         WaitingList existing = new WaitingList(); existing.setPosition(10);
         var rows = new CopyOnWriteArrayList<WaitingList>(); rows.add(existing);

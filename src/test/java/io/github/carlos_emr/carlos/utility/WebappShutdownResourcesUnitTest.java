@@ -216,7 +216,7 @@ public class WebappShutdownResourcesUnitTest {
     }
 
     @Test
-    void shouldStopDatabaseProducersBeforeClosingTrackedConnections() {
+    void shouldStopDatabaseProducers_beforeClosingTrackedConnections() {
         java.util.List<String> calls = new java.util.ArrayList<>();
         try (MockedStatic<DbConnectionFilter> db = mockStatic(DbConnectionFilter.class);
              MockedStatic<OscarTrackingBasicDataSource> tracking = mockStatic(OscarTrackingBasicDataSource.class);

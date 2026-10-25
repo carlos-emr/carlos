@@ -198,7 +198,7 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should clear and reload the cache")
-        void shouldClearAndReloadCache() {
+        void shouldReloadCompleteCache_whenReloadIsRequested() {
             // Trigger initial load
             DrugPriceLookup.getPriceInfoForDin("02536269");
             assertThat(DrugPriceLookup.loaded).isTrue();
@@ -261,7 +261,7 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should return null for unknown din when loaded from resourceStorage")
-        void shouldReturnNull_forUnknownDin_whenLoadedFromResourceStorage() {
+        void shouldReturnNullForUnknownDin_whenLoadedFromResourceStorage() {
             String minimalXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
                     + "<extract><formulary>"
                     + "<drug id=\"99000001\"><individualPrice>5.99</individualPrice></drug>"

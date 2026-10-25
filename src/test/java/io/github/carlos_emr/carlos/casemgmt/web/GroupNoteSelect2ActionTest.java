@@ -121,7 +121,8 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
     }
     @AfterEach void closeServlet() { if (servlet != null) servlet.close(); }
 
-    @Test void shouldRenderCapturedProgramDespiteOtherWindowAndForgedProgramHint_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldRenderCapturedProgramDespiteOtherWindowAndForgedProgramHint_whenUsingNativeGroupSelection() throws Exception {
         var other = new MockHttpServletRequest(); other.setSession(session); other.setParameter("demographicNo", "101");
         ChartProgramContext.remember(other, "8");
         request.setParameter("programId", "999");
@@ -133,7 +134,8 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
         verify(admissions).getCurrentAdmissionsByProgramId("7");
         assertThat(action.saved).isNull();
     }
-    @Test void shouldSaveDetachedSelectionThenLeaveRedirectToMappedGet_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldSaveDetachedSelectionThenLeaveRedirectToMappedGet_whenUsingNativeGroupSelection() throws Exception {
         request.setMethod("POST"); request.setParameter("group_client_id", "202");
         assertThat(action.save()).isEqualTo("success");
         assertThat(action.saved).isNotSameAs(form);
@@ -142,7 +144,8 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
         assertThat(action.savedProgram).isEqualTo("7");
         assertThat(form.isGroupNote()).isTrue();
     }
-    @Test void shouldPreserveNativeUnsavedMessageWithoutLoadingAdmissionsOrNote_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldPreserveNativeUnsavedMessageWithoutLoadingAdmissionsOrNote_whenUsingNativeGroupSelection() throws Exception {
         request.setParameter("noteId","0"); form.setNoteId(null);
         assertThat(action.execute()).isEqualTo("success");
         assertThat(request.getAttribute("groupNoteUnsaved")).isEqualTo(true);
@@ -150,13 +153,15 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
         verifyNoInteractions(admissions, demographics, links);
         assertThat(action.saved).isNull();
     }
-    @Test void shouldAllowEmptySelectionToClearExistingSharing_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldAllowEmptySelectionToClearExistingSharing_whenUsingNativeGroupSelection() throws Exception {
         request.setMethod("POST");
         assertThat(action.save()).isEqualTo("success");
         assertThat(action.saved.getGroupNoteClientIds()).isEmpty();
         assertThat(action.saved.getGroupNoteTotalAnonymous()).isZero();
     }
-    @Test void shouldNotRepublishOverAnotherEditorDuringPersistence_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldNotRepublishOverAnotherEditorDuringPersistence_whenUsingNativeGroupSelection() throws Exception {
         request.setMethod("POST"); request.setParameter("group_client_id", "202");
         var replacement = new CaseManagementEntryFormBean(); replacement.setNoteId("52");
         action.duringSave = () -> session.setAttribute(key, replacement);
@@ -178,7 +183,8 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(405); assertThat(response.getHeader("Allow")).isEqualTo("GET, HEAD");
         verifyNoInteractions(security, notes, admissions, demographics, links);
     }
-    @Test void shouldAllowHeadWithoutSaving_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldAllowHeadWithoutSaving_whenUsingNativeGroupSelection() throws Exception {
         request.setMethod("HEAD"); assertThat(action.execute()).isEqualTo("success"); assertThat(action.saved).isNull();
     }
     @ParameterizedTest @NullSource @ValueSource(strings={"","0","-1","abc","2147483901"})
@@ -187,7 +193,8 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo("none"); assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(security, notes, admissions, demographics, links);
     }
-    @Test void shouldRefuseForgedOrForeignContextBeforeClinicalLookup_whenUsingNativeGroupSelection() {
+    @Test
+    void shouldRefuseForgedOrForeignContextBeforeClinicalLookup_whenUsingNativeGroupSelection() {
         request.setParameter("chartContext", token.substring(0, token.length()-1) + (token.endsWith("A") ? "B" : "A"));
         assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         verifyNoInteractions(security, notes, admissions, demographics, links);
@@ -198,48 +205,57 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
         assertThat(action.save()).isEqualTo("none"); assertThat(response.getStatus()).isEqualTo(403);
         assertThat(action.saved).isNull(); verifyNoInteractions(notes, admissions, demographics, links);
     }
-    @Test void shouldRefuseRecordExclusionBeforeClinicalLookup_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldRefuseRecordExclusionBeforeClinicalLookup_whenUsingNativeGroupSelection() throws Exception {
         when(security.isAllowedAccessToPatientRecord(login,101)).thenReturn(false);
         assertThat(action.execute()).isEqualTo("none"); assertThat(response.getStatus()).isEqualTo(403);
         verifyNoInteractions(notes, admissions, demographics, links);
     }
-    @Test void shouldRefuseMissingFacility_beforeReadingClinicalRows() throws Exception {
+    @Test
+    void shouldRefuseMissingFacility_beforeReadingClinicalRows() throws Exception {
         when(login.getCurrentFacility()).thenReturn(null);
         assertThat(action.execute()).isEqualTo("none");assertThat(response.getStatus()).isEqualTo(403);
         verifyNoInteractions(notes,admissions,demographics,links);
     }
-    @Test void shouldRefuseSourceOutsideDomain_beforeReadingAdmissions() throws Exception {
+    @Test
+    void shouldRefuseSourceOutsideDomain_beforeReadingAdmissions() throws Exception {
         when(notes.isClientInProgramDomain("4250","101")).thenReturn(false);
         assertThat(action.execute()).isEqualTo("none");assertThat(response.getStatus()).isEqualTo(403);
         verifyNoInteractions(admissions,demographics,links);
     }
-    @Test void shouldAllowSourceReferral_whenTheNativeChartUsesReferralAuthority() throws Exception {
+    @Test
+    void shouldAllowSourceReferral_whenTheNativeChartUsesReferralAuthority() throws Exception {
         when(notes.isClientInProgramDomain("4250","101")).thenReturn(false);
         when(notes.isClientReferredInProgramDomain("4250","101")).thenReturn(true);
         assertThat(action.execute()).isEqualTo("success");
     }
-    @Test void shouldRefuseRecipientOutsideDomain_beforeAnyPersistence() throws Exception {
+    @Test
+    void shouldRefuseRecipientOutsideDomain_beforeAnyPersistence() throws Exception {
         when(notes.isClientInProgramDomain("4250","202")).thenReturn(false);
         request.setMethod("POST");request.setParameter("group_client_id","202");
         assertThat(action.save()).isEqualTo("none");assertThat(response.getStatus()).isEqualTo(403);assertThat(action.saved).isNull();
     }
-    @Test void shouldRefuseReadOnlyProgramBeforeAdmissions_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldRefuseReadOnlyProgramBeforeAdmissions_whenUsingNativeGroupSelection() throws Exception {
         when(notes.hasAccessRight("note-read-only","access","4250","101","7")).thenReturn(true);
         assertThat(action.execute()).isEqualTo("none"); assertThat(response.getStatus()).isEqualTo(403);
         verifyNoInteractions(admissions, demographics, links);
     }
-    @Test void shouldRefuseStalePopupBeforeLoadingNoteOrChangingForm_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldRefuseStalePopupBeforeLoadingNoteOrChangingForm_whenUsingNativeGroupSelection() throws Exception {
         form.setNoteId("52"); request.setMethod("POST");
         assertThat(action.save()).isEqualTo("none"); assertThat(response.getStatus()).isEqualTo(409);
         assertThat(form.isGroupNote()).isFalse(); verify(notes,never()).getNote(anyString());
         verifyNoInteractions(admissions, demographics, links);
     }
-    @Test void shouldRefuseForeignOrRoleHiddenNoteBeforeAdmissions_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldRefuseForeignOrRoleHiddenNoteBeforeAdmissions_whenUsingNativeGroupSelection() throws Exception {
         note.setDemographic_no("303");
         assertThat(action.execute()).isEqualTo("none"); assertThat(response.getStatus()).isEqualTo(403);
         verifyNoInteractions(admissions, demographics, links);
     }
-    @Test void shouldRefuseRoleHiddenNoteBeforeAdmissions_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldRefuseRoleHiddenNoteBeforeAdmissions_whenUsingNativeGroupSelection() throws Exception {
         when(notes.filterNotes(eq(login),eq("4250"),anyCollection(),eq("7"))).thenReturn(List.of());
         assertThat(action.execute()).isEqualTo("none"); assertThat(response.getStatus()).isEqualTo(403);
         verifyNoInteractions(admissions, demographics, links);
@@ -250,7 +266,8 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
         assertThat(action.save()).isEqualTo("none"); assertThat(response.getStatus()).isEqualTo(403);
         assertThat(action.saved).isNull(); assertThat(form.isGroupNote()).isFalse();
     }
-    @Test void shouldOmitExcludedRecipientAndRejectForgedSelection_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldOmitExcludedRecipientAndRejectForgedSelection_whenUsingNativeGroupSelection() throws Exception {
         when(security.isAllowedAccessToPatientRecord(login,202)).thenReturn(false);
         assertThat(action.execute()).isEqualTo("success");
         assertThat((List<?>)request.getAttribute("groupNoteMembers")).isEmpty();
@@ -266,13 +283,15 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
         assertThat(action.save()).isEqualTo("none");assertThat(response.getStatus()).isEqualTo(403);
         assertThat(action.saved).isNull();assertThat(form.isGroupNote()).isFalse();
     }
-    @Test void shouldRefuseReadOnlyRecipientInCapturedProgramBeforeAnyPersistence_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldRefuseReadOnlyRecipientInCapturedProgramBeforeAnyPersistence_whenUsingNativeGroupSelection() throws Exception {
         request.setMethod("POST");request.setParameter("group_client_id","202");
         when(notes.hasAccessRight("note-read-only","access","4250","202","7")).thenReturn(true);
         assertThat(action.save()).isEqualTo("none");assertThat(response.getStatus()).isEqualTo(403);
         assertThat(action.saved).isNull();assertThat(form.isGroupNote()).isFalse();
     }
-    @Test void shouldRefuseClearingAnOldRecipientWithoutWriteAuthority_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldRefuseClearingAnOldRecipientWithoutWriteAuthority_whenUsingNativeGroupSelection() throws Exception {
         var link=new io.github.carlos_emr.carlos.commn.model.GroupNoteLink();link.setNoteId(51);link.setDemographicNo(202);link.setActive(true);
         when(links.findLinksByNoteId(51)).thenReturn(List.of(link));
         when(security.hasPrivilege(login,"_casemgmt.notes","w","202")).thenReturn(false);
@@ -286,7 +305,8 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
         assertThat(action.save()).isEqualTo("none");assertThat(response.getStatus()).isEqualTo(400);
         assertThat(action.saved).isNull();assertThat(form.isGroupNote()).isFalse();
     }
-    @Test void shouldRenderTheActual303Location_whenTheOriginatingContextIsCaptured() throws Exception {
+    @Test
+    void shouldRenderTheActual303Location_whenTheOriginatingContextIsCaptured() throws Exception {
         request.setMethod("POST");request.setContextPath("/carlos");request.setParameter("group_client_id","202");
         assertThat(action.save()).isEqualTo("success");
         var factory=DocumentBuilderFactory.newInstance();factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd",false);
@@ -320,7 +340,8 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
             if(previous==null)org.apache.struts2.ActionContext.clear();else previous.bind();
         }
     }
-    @Test void shouldKeepNativeRoutesMappedAndRedirectPostToGet_whenUsingNativeGroupSelection() throws Exception {
+    @Test
+    void shouldKeepNativeRoutesMappedAndRedirectPostToGet_whenUsingNativeGroupSelection() throws Exception {
         var factory=DocumentBuilderFactory.newInstance();factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd",false);
         var doc=factory.newDocumentBuilder().parse(Path.of("src/main/webapp/WEB-INF/classes/struts-clinical.xml").toFile());
         var xpath=XPathFactory.newInstance().newXPath();

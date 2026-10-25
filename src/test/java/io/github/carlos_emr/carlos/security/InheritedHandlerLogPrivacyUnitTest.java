@@ -137,7 +137,7 @@ class InheritedHandlerLogPrivacyUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldStillServeValidLongTermMedicationRequests() {
+    void shouldStillServeValidLongTermMedicationRequests_whenPatientIsAuthorized() {
         request.setParameter("method", "fetchLongTermMedications");
         request.setParameter("demographicNo", "101");
         when(prescriptions.getLongTermDrugs(login, 101)).thenReturn(List.of());

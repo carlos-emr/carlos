@@ -32,7 +32,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
     private Object originalRealPath;
 
     @Test
-    void shouldKeepEachConcurrentConversionInItsOwnResourceRoot(@TempDir Path tempDir) throws Exception {
+    void shouldKeepEachConcurrentConversionInItsOwnResourceRoot_whenResourceResolutionOverlaps(@TempDir Path tempDir) throws Exception {
         Path firstRoot = Files.createDirectory(tempDir.resolve("first"));
         Path secondRoot = Files.createDirectory(tempDir.resolve("second"));
         for (Path root : java.util.List.of(firstRoot, secondRoot)) {
