@@ -53,6 +53,50 @@ test('bundled VT catalog parses all declarations and preserves decoded instructi
   assert.ok(definitions.some(def => def.metadata[0] === 'MI' && def.metadata[2] === ''));
 });
 
+const measurementXml = rule => `<measurement><type>WTVT</type><typeDisplayName>Weight</typeDisplayName>
+  <typeDesc>VT weight</typeDesc><measuringInstrc>VT in kg</measuringInstrc>
+  <validationRule>${rule}</validationRule></measurement>`;
+
+test('XML comments cannot introduce measurements or override a declared numeric rule', () => {
+  const commented = measurementXml('<name>Commented rule</name><maxValue>invalid</maxValue>');
+  const actual = measurementXml(`<name>Numeric 0 to 300</name><!-- <maxValue>invalid</maxValue> -->
+    <maxValue>&#51;00</maxValue><minValue>0</minValue><isNumeric>1</isNumeric>`);
+  const definitions = readDefinitions(`<formProp><!-- ${commented} -->${actual}</formProp>`);
+  assert.equal(definitions.length, 1);
+  assert.deepEqual(definitions[0].metadata, definition.metadata);
+  assert.deepEqual(definitions[0].rule, definition.rule);
+  assert.deepEqual(definitions[0].criteria, [[2, 300], [3, 0], [6, 1]]);
+});
+
+test('the XML parser preserves self-closing fields and decodes named and numeric entities once', () => {
+  const definitions = readDefinitions(`<formProp><measurement>
+    <type>WTVT</type><typeDisplayName>V&#84;</typeDisplayName><typeDesc />
+    <measuringInstrc>&lt; &gt; &amp; &quot; &apos; &#65; &#x1f642; &amp;lt;</measuringInstrc>
+    <validationRule><name>Bounds</name><regularExp>&lt;[0-9]+&gt;</regularExp></validationRule>
+    </measurement></formProp>`);
+  assert.deepEqual(definitions[0].metadata, ['WTVT', 'VT', '', '< > & " \' A 🙂 &lt;']);
+  assert.equal(definitions[0].rule[1], '<[0-9]+>');
+  assert.equal(definitions[0].rule[4], 0, 'an omitted maxLength keeps the application default');
+  assert.deepEqual(definitions[0].criteria, [[1, '<[0-9]+>']]);
+});
+
+test('comments within scalar text preserve the surrounding declaration text', () => {
+  const xml = measurementXml('<name>Before<!-- ignored <name>fake</name> -->After</name>');
+  assert.equal(readDefinitions(`<formProp>${xml}</formProp>`)[0].rule[0], 'BeforeAfter');
+});
+
+test('malformed nested comments fail XML parsing rather than being stripped and reparsed', () => {
+  const xml = `<formProp><!-- outer <!-- inner -->${measurementXml('<name>Invalid comment</name>')}</formProp>`;
+  assert.throws(() => readDefinitions(xml));
+});
+
+for (const numeric of ['<maxValue />', '<maxValue>NaN</maxValue>', '<maxValue>Infinity</maxValue>']) {
+  test(`an explicit invalid numeric XML rule is refused: ${numeric}`, () => {
+    assert.throws(() => readDefinitions(`<formProp>${measurementXml(`<name>Invalid number</name>${numeric}`)}</formProp>`),
+      /invalid numeric rule/);
+  });
+}
+
 test('an unopened VT form does not read or modify shared catalog data', () => {
   const sql = database();
   vascularTrackerCatalogFixture(sql, [definition]).cleanup();

@@ -14,14 +14,19 @@ const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 
 /** Read only the bundled, trusted form's simple measurement declarations, including XML entities. */
 function readDefinitions(xml = fs.readFileSync(path.join(__dirname, '../../src/main/webapp/form/VTForm.xml'), 'utf8')) {
-  const entities = {lt: '<', gt: '>', amp: '&', quot: '"', apos: "'"};
-  const decode = text => text.replace(/&(#x[0-9a-f]+|#\d+|lt|gt|amp|quot|apos);/gi, (_, entity) => {
-    if (entity[0] !== '#') return entities[entity];
-    return String.fromCodePoint(entity[1].toLowerCase() === 'x' ? parseInt(entity.slice(2), 16) : Number(entity.slice(1)));
-  });
+  // The parity reader runs in the repository's locked npm test environment. Live
+  // browser fixtures use trustedCatalog directly and do not need this XML parser.
+  const { xml2js } = require('xml-js');
+  const document = xml2js(xml, { compact: false, ignoreComment: true, ignoreDeclaration: true });
+  const elements = (parent, name) => (parent?.elements || [])
+    .filter(element => element.type === 'element' && element.name === name);
+  const root = elements(document, 'formProp')[0];
   const tag = (body, name) => {
-    const match = new RegExp(`<${name}>([\\s\\S]*?)</${name}>`).exec(body);
-    return match ? decode(match[1].trim()) : new RegExp(`<${name}\\s*/>`).test(body) ? '' : null;
+    const element = elements(body, name)[0];
+    if (!element) return null;
+    h.assert((element.elements || []).every(child => child.type === 'text' || child.type === 'cdata'),
+      'VT catalog scalar definition contains nested elements');
+    return (element.elements || []).map(child => child.text ?? child.cdata).join('').trim();
   };
   const number = (body, name, fallback = null) => {
     const text = tag(body, name);
@@ -29,10 +34,11 @@ function readDefinitions(xml = fs.readFileSync(path.join(__dirname, '../../src/m
     h.assert(text !== '' && Number.isFinite(Number(text)), 'VT catalog definition has an invalid numeric rule');
     return Number(text);
   };
-  const definitions = [...xml.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<measurement>([\s\S]*?)<\/measurement>/g)].map(([, body]) => {
+  const definitions = elements(root, 'measurement').map(body => {
     const metadata = ['type', 'typeDisplayName', 'typeDesc', 'measuringInstrc'].map(name => tag(body, name));
-    const rule = /<validationRule>([\s\S]*?)<\/validationRule>/.exec(body)?.[1];
-    h.assert(metadata.every(value => typeof value === 'string') && metadata[0] !== '' && rule,
+    const rule = elements(body, 'validationRule')[0];
+    h.assert(metadata.every(value => typeof value === 'string') && metadata[0] !== ''
+      && rule?.elements?.some(child => child.type === 'element'),
       'VT catalog definition is incomplete');
     const ruleValues = [tag(rule, 'name'), tag(rule, 'regularExp'), number(rule, 'maxValue'),
       number(rule, 'minValue'), number(rule, 'maxLength', 0), number(rule, 'minLength'),
