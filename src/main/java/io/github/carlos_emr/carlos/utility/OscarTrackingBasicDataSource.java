@@ -74,10 +74,6 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             Collections.newSetFromMap(new IdentityHashMap<HashSet<Connection>, Boolean>()));
 
     private static Connection trackConnection(Connection c) {
-        c = new TrackingJdbcConnection(c);
-
-        debugMap.put(c, Thread.currentThread().getStackTrace());
-
         HashSet<Connection> threadConnections = connections.get();
         if (threadConnections == null) {
             threadConnections = new HashSet<Connection>();
@@ -85,10 +81,16 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             trackedThreadConnectionSets.add(threadConnections);
         }
 
-        threadConnections.add(c);
+        c = new TrackingJdbcConnection(c, threadConnections);
+        debugMap.put(c, Thread.currentThread().getStackTrace());
+        int count;
+        synchronized (threadConnections) {
+            threadConnections.add(c);
+            count = threadConnections.size();
+        }
 
-        if (threadConnections.size() > MAX_CONNECTION_WARN_SIZE) {
-            String msg = "Thread is currently using " + threadConnections.size() + " separate jdbc connections, it souldn't need more than " + MAX_CONNECTION_WARN_SIZE;
+        if (count > MAX_CONNECTION_WARN_SIZE) {
+            String msg = "Thread is currently using " + count + " separate jdbc connections, it souldn't need more than " + MAX_CONNECTION_WARN_SIZE;
             logger.warn(msg);
             logger.debug(msg, new Exception(msg));
         }
@@ -107,8 +109,13 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
     }
 
     private static void closeTrackedConnections(HashSet<Connection> threadConnections, String errorMessage) {
-        HashSet<Connection> connectionsToClose = new HashSet<Connection>(threadConnections);
-        threadConnections.clear();
+        HashSet<Connection> connectionsToClose;
+        synchronized (threadConnections) {
+            connectionsToClose = new HashSet<Connection>(threadConnections);
+            threadConnections.clear();
+        }
+        // Closing a connection may acquire driver locks or remove it from its owner set.
+        // Never hold that set's monitor while calling the driver.
         for (Connection c : connectionsToClose) {
             try {
                 if (!c.isClosed()) {
@@ -253,9 +260,15 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
     public static class TrackingJdbcConnection implements Connection {
 
         private final Connection connection;
+        private final HashSet<Connection> ownerConnections;
 
         public TrackingJdbcConnection(Connection connection) {
+            this(connection, connections.get());
+        }
+
+        private TrackingJdbcConnection(Connection connection, HashSet<Connection> ownerConnections) {
             this.connection = connection;
+            this.ownerConnections = ownerConnections;
         }
 
         public void clearWarnings() throws SQLException {
@@ -266,9 +279,10 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             try {
                 debugMap.remove(this);
 
-                HashSet<Connection> map = connections.get();
-                if (map != null) {
-                    map.remove(this);
+                if (ownerConnections != null) {
+                    synchronized (ownerConnections) {
+                        ownerConnections.remove(this);
+                    }
                 }
             } finally {
                 connection.close();

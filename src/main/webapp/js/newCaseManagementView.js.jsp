@@ -4260,7 +4260,8 @@ function autoSave() {
 
     function selectGroup(programId, demographicNo) {
         var noteId = document.forms["caseManagementEntryForm"].noteId.value;
-        var url = 'groupNoteSelect.jsp?programId=' + programId + '&demographicNo=' + demographicNo
+        var url = ctx + '/casemgmt/ViewGroupNoteSelect?programId=' + encodeURIComponent(programId)
+            + '&demographicNo=' + encodeURIComponent(demographicNo) + '&noteId=' + encodeURIComponent(noteId)
             + (chartContext ? '&chartContext=' + encodeURIComponent(chartContext) : '');
         popupPage(600, 700, 'group', url);
 

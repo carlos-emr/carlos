@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.data;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Collections;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
@@ -53,8 +54,11 @@ public class MeasurementTypes {
 
     private static MeasurementTypes measurementTypes;
 
-    private Map<String, EctMeasurementTypesBean> byId = new HashMap<String, EctMeasurementTypesBean>();
-    private Map<String, EctMeasurementTypesBean> byType = new HashMap<String, EctMeasurementTypesBean>();
+    private record Catalog(Map<String, EctMeasurementTypesBean> byId,
+                           Map<String, EctMeasurementTypesBean> byType) { }
+
+    // Readers see one complete catalog while a reload builds its replacement.
+    private volatile Catalog catalog = new Catalog(Collections.emptyMap(), Collections.emptyMap());
 
     /**
      * Creates a new instance of MeasurementTypes
@@ -63,11 +67,11 @@ public class MeasurementTypes {
     }
 
     public EctMeasurementTypesBean getByType(String type) {
-        return byType.get(type);
+        return catalog.byType().get(type);
     }
 
     public EctMeasurementTypesBean getById(String type) {
-        return byId.get(type);
+        return catalog.byId().get(type);
     }
 
     public static synchronized MeasurementTypes getInstance() {
@@ -79,10 +83,9 @@ public class MeasurementTypes {
     }
 
     public synchronized void reInit() {
-        byId.clear();
-        byType.clear();
-
         try {
+            Map<String, EctMeasurementTypesBean> byId = new HashMap<>();
+            Map<String, EctMeasurementTypesBean> byType = new HashMap<>();
             MeasurementTypeDao mtDao = SpringUtils.getBean(MeasurementTypeDao.class);
             ValidationsDao vDao = SpringUtils.getBean(ValidationsDao.class);
 
@@ -97,8 +100,9 @@ public class MeasurementTypes {
                 byType.put(t.getType(), ret);
 
             }
+            catalog = new Catalog(Collections.unmodifiableMap(byId), Collections.unmodifiableMap(byType));
         } catch (Exception e) {
-            log.debug(e.getMessage());
+            log.warn("Unable to refresh measurement types ({})", e.getClass().getSimpleName());
         }
     }
 }

@@ -205,12 +205,33 @@ public class WebappShutdownResourcesUnitTest {
             WebappShutdownResources.ShutdownReport report = WebappShutdownResources.releaseForContext(unrelatedClassLoader);
 
             assertThat(report.results()).hasSize(8);
-            assertThat(report.results().get(0).successful()).isFalse();
+            assertThat(report.results().stream().filter(result -> result.step()
+                    == WebappShutdownResources.ShutdownStep.DB_THREAD_RESOURCES).findFirst().orElseThrow().successful()).isFalse();
             assertThat(report.failureCount()).isEqualTo(1);
             tracking.verify(OscarTrackingBasicDataSource::clearTrackingState);
             logAction.verify(LogAction::shutdownExecutorService);
             droolsShutdown.verify(DroolsShutdownResources::shutdownExecutors);
             queueCache.verify(QueueCache::shutdownSharedTimer);
+        }
+    }
+
+    @Test
+    void shouldStopDatabaseProducersBeforeClosingTrackedConnections() {
+        java.util.List<String> calls = new java.util.ArrayList<>();
+        try (MockedStatic<DbConnectionFilter> db = mockStatic(DbConnectionFilter.class);
+             MockedStatic<OscarTrackingBasicDataSource> tracking = mockStatic(OscarTrackingBasicDataSource.class);
+             MockedStatic<LogAction> audit = mockStatic(LogAction.class);
+             MockedStatic<DroolsShutdownResources> drools = mockStatic(DroolsShutdownResources.class);
+             MockedStatic<QueueCache> queues = mockStatic(QueueCache.class)) {
+            audit.when(LogAction::shutdownExecutorService).thenAnswer(call -> { calls.add("audit"); return null; });
+            drools.when(DroolsShutdownResources::shutdownExecutors).thenAnswer(call -> { calls.add("drools"); return 0; });
+            queues.when(QueueCache::shutdownSharedTimer).thenAnswer(call -> { calls.add("queue"); return null; });
+            db.when(DbConnectionFilter::releaseAllKnownDbResources).thenAnswer(call -> { calls.add("db"); return null; });
+            tracking.when(OscarTrackingBasicDataSource::clearTrackingState).thenAnswer(call -> { calls.add("tracking"); return null; });
+
+            WebappShutdownResources.releaseForContext(new ClassLoader(null) { });
+
+            assertThat(calls).containsExactly("audit", "drools", "queue", "db", "tracking");
         }
     }
 

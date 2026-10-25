@@ -1257,11 +1257,15 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"compact-edit", "delete-edit", "compact-cleanup", "delete-cleanup", "compact-cache-edit"})
+    @ValueSource(strings = {"compact-edit", "delete-edit", "compact-cleanup", "delete-cleanup",
+            "compact-cache-edit", "save-cache-edit", "delete-cache-edit", "save-exit-cache-edit", "release-cache-edit"})
     void shouldKeepTheCurrentEditorSelection_whenAnOlderSaveCompletesAfterAnotherRequest(String scenario) throws Exception {
         boolean deleteIssue = scenario.startsWith("delete");
+        boolean fullSave = scenario.startsWith("save");
+        boolean saveAndExit = scenario.startsWith("save-exit");
+        boolean releaseOnly = scenario.startsWith("release");
         boolean cleanup = scenario.endsWith("cleanup");
-        boolean cacheInterleave = scenario.equals("compact-cache-edit");
+        boolean cacheInterleave = scenario.endsWith("cache-edit");
         var sharedSession = spy((org.springframework.mock.web.MockHttpSession) request.getSession());
         request.setSession(sharedSession);
         CaseManagementNote other = anotherStoredNote();
@@ -1272,10 +1276,12 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         request.getSession().setAttribute("newCaseManagement", "true");
         request.setParameter("ajax", "true");
         if (deleteIssue) prepareIssueDeletion();
+        else if (fullSave) prepareFullSave(submittedText);
         else {
             request.setParameter("numIssues", "0");
             form.setIssueCheckList(new ArrayList<>());
         }
+        if (releaseOnly) request.setParameter("noteId", originalId.toString());
         String token = ChartProgramContext.token(request);
         String key = ChartProgramContext.formKey(request, "1");
         request.setParameter(ChartProgramContext.PARAMETER, token);
@@ -1334,49 +1340,74 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
             stateWithB.set(snapshot());
             return null;
         };
-        var cacheArmed = new java.util.concurrent.atomic.AtomicBoolean();
+        var cacheReadsBeforeInterleave = new java.util.concurrent.atomic.AtomicInteger();
         var cacheInterleaved = new java.util.concurrent.atomic.AtomicBoolean();
         doAnswer(invocation -> {
             Object captured = invocation.callRealMethod();
-            if (cacheArmed.compareAndSet(true, false)) {
+            if (cacheReadsBeforeInterleave.getAndUpdate(count -> Math.max(0, count - 1)) == 1) {
+                assertThat(Thread.holdsLock(org.springframework.web.util.WebUtils.getSessionMutex(sharedSession))).isFalse();
                 assertThat(((CasemgmtNoteLock) captured).getId()).isEqualTo(lock.getId());
+                if (releaseOnly) assertThat(storedLockRows(lock.getId())).isEmpty();
                 replaceSelection.answer(null);
                 cacheInterleaved.set(true);
             }
             return captured;
         }).when(sharedSession).getAttribute("casemgmtNoteLock1");
+        var interleaveArmed = new java.util.concurrent.atomic.AtomicBoolean(true);
         org.mockito.stubbing.Answer<Object> interleave = invocation -> {
             assertThat(Thread.holdsLock(org.springframework.web.util.WebUtils.getSessionMutex(request.getSession()))).isFalse();
             Object committed = invocation.callRealMethod();
-            if (cacheInterleave) cacheArmed.set(true);
-            else replaceSelection.answer(null);
+            if (interleaveArmed.compareAndSet(true, false)) {
+                if (cacheInterleave) cacheReadsBeforeInterleave.set(saveAndExit ? 2 : 1);
+                else replaceSelection.answer(null);
+            }
             return committed;
         };
         if (deleteIssue) doAnswer(interleave).when(target).saveCaseManagementNote(any(), any(), anyList(), any(), any(), anyBoolean(),
                 any(), any(), any(), any(), any(), any(), any(), any(CaseManagementIssue.class));
-        else doAnswer(interleave).when(target).saveCompactNoteRevision(any(), any(), anyList(), any());
+        else if (fullSave) doAnswer(interleave).when(target).saveCaseManagementNote(any(), any(), anyList(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any());
+        else if (!releaseOnly) doAnswer(interleave).when(target).saveCompactNoteRevision(any(), any(), anyList(), any());
 
-        assertThat(deleteIssue ? action.issueDelete() : action.ajaxsave()).isEqualTo("issueList_ajax");
+        if (releaseOnly) {
+            cacheReadsBeforeInterleave.set(1);
+            assertThat(action.releaseNoteLock()).isNull();
+        } else {
+            assertThat(deleteIssue ? action.issueDelete() : saveAndExit ? action.saveAndExit() : fullSave ? action.save() : action.ajaxsave())
+                    .isEqualTo(saveAndExit ? "windowClose" : fullSave ? "view" : "issueList_ajax");
+        }
 
         if (cacheInterleave) assertThat(cacheInterleaved).isTrue();
-        CaseManagementEntryFormBean rendered = (CaseManagementEntryFormBean) request.getAttribute("caseManagementEntryForm");
-        Long savedA = rendered.getCaseNote().getId();
-        assertThat(savedA).isNotEqualTo(originalId);
-        if (!deleteIssue) assertThat(request.getAttribute("ajaxsave")).isEqualTo(savedA);
-        assertThat(((CaseManagementEntryFormBean) request.getAttribute("caseManagementEntryForm")).getCaseNote().getId()).isEqualTo(savedA);
-        Long advancedA = tx().execute(status -> storedLocks.find(lock.getId()).getNoteId());
-        assertThat(advancedA).isEqualTo(savedA);
+        CaseManagementNote rendered = releaseOnly ? original : fullSave ? action.getCaseNote()
+                : ((CaseManagementEntryFormBean) request.getAttribute("caseManagementEntryForm")).getCaseNote();
+        Long savedA = rendered.getId();
+        if (!releaseOnly) assertThat(savedA).isNotEqualTo(originalId);
+        if (!deleteIssue && !fullSave && !releaseOnly) assertThat(request.getAttribute("ajaxsave")).isEqualTo(savedA);
+        if (releaseOnly || saveAndExit) assertThat(storedLockRows(lock.getId())).isEmpty();
+        else {
+            Long advancedA = tx().execute(status -> storedLocks.find(lock.getId()).getNoteId());
+            assertThat(advancedA).isEqualTo(savedA);
+        }
         assertThat(snapshot()).isEqualTo(stateWithB.get());
         if (cleanup) {
             assertThat(request.getSession().getAttribute(key)).as("a completed save must not resurrect a cleaned editor").isNull();
             return;
         }
         assertThat(storedLockRows(otherLock.getId())).isEqualTo(lockB.get());
-        assertThat(((CasemgmtNoteLock) request.getSession().getAttribute("casemgmtNoteLock1")).getId()).isEqualTo(otherLock.getId());
+        CasemgmtNoteLock selectedCache = (CasemgmtNoteLock) request.getSession().getAttribute("casemgmtNoteLock1");
+        assertThat(selectedCache).as("the newly opened editor must retain its cached lock").isNotNull();
+        assertThat(selectedCache.getId()).isEqualTo(otherLock.getId());
         assertThat(opened.get().getCaseNote().getId()).isEqualTo(other.getId());
         boolean keptB = request.getSession().getAttribute(key) == opened.get();
         List<List<String>> lockABefore = storedLockRows(lock.getId());
         Snapshot beforeBSave = snapshot();
+        List<List<String>> bDraftScope = tx().execute(status -> raw("SELECT * FROM casemgmt_tmpsave"
+                + " WHERE provider_no='999998' AND demographic_no=1 AND program_id=7 AND note LIKE :marker ORDER BY id",
+                Map.of("marker", marker + "%")));
+        assertThat(bDraftScope).hasSize(releaseOnly ? 2 : 1)
+                .anySatisfy(row -> assertThat(row).contains(marker + " B newly opened draft"));
+        if (releaseOnly) assertThat(bDraftScope)
+                .anySatisfy(row -> assertThat(row).contains(marker + " Originating draft"));
         request = next;
         response = nextResponse;
         action.request = request;
@@ -1398,7 +1429,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         assertThat(afterB.notes()).hasSize(beforeBSave.notes().size() + 1);
         assertThat(afterB.notes().subList(0, beforeBSave.notes().size())).isEqualTo(beforeBSave.notes());
         assertThat(afterB.drafts()).containsExactlyElementsOf(beforeBSave.drafts().stream()
-                .filter(row -> !row.contains(marker + " B newly opened draft")).toList());
+                .filter(row -> !bDraftScope.contains(row)).toList());
     }
 
     private CaseManagementNote anotherStoredNote() {
@@ -1429,6 +1460,160 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         assertThat(ChartProgramContext.resolve(request)).isEqualTo("7");
         assertThat(ChartProgramContext.formKey(otherRequest, "1")).isNotEqualTo(ChartProgramContext.formKey(request, "1"));
         return otherRequest;
+    }
+
+    static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> nativeLockAccessCases() {
+        var paired = java.util.stream.Stream.of("isNoteEdited", "updateNoteLock").flatMap(operation ->
+                java.util.stream.Stream.of(false, true).flatMap(dispatch ->
+                        java.util.stream.Stream.of("record", "chart-write", "note-write", "chart-read", "note-read",
+                                "readonly", "hidden", "foreign-note", "get", "forged", "foreign-context",
+                                "allowed", "other-session", "foreign-provider", "zero", "minus-one")
+                                .map(boundary -> org.junit.jupiter.params.provider.Arguments.of(operation, dispatch, boundary))));
+        var legacy = java.util.stream.Stream.of(false, true).flatMap(dispatch -> java.util.stream.Stream.concat(
+                java.util.stream.Stream.of("cache", "cache-null", "cache-foreign-provider", "cache-foreign-patient",
+                        "cache-zero-shared", "cache-zero-foreign")
+                        .map(boundary -> org.junit.jupiter.params.provider.Arguments.of("updateNoteLock", dispatch, boundary)),
+                java.util.stream.Stream.of(org.junit.jupiter.params.provider.Arguments.of("isNoteEdited", dispatch, "zero-new"))));
+        return java.util.stream.Stream.concat(paired, legacy);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("nativeLockAccessCases")
+    void shouldAuthorizeNativeLockOperationsBeforeAnyStoredOrEditorChange_whenCalledDirectlyOrThroughDispatch(
+            String operation, boolean dispatch, String boundary) throws Exception {
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String editorKey = ChartProgramContext.formKey(request, "1");
+        SecurityInfoManager security = (SecurityInfoManager) ReflectionTestUtils.getField(action, "securityInfoManager");
+        for (String module : List.of("_demographic", "_eChart", "_casemgmt.notes")) {
+            when(security.hasPrivilege(login, module, "r", "1")).thenReturn(true);
+        }
+        when(security.hasPrivilege(login, "_demographic", "r", (String) null)).thenReturn(true);
+        when(security.hasPrivilege(login, "_demographic", "w", (String) null)).thenReturn(true);
+        target.setAdmissionManager(admissions);
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", storedLocks);
+        beans.when(() -> SpringUtils.getBean(CasemgmtNoteLockDao.class)).thenReturn(storedLocks);
+        long selectedId = originalId;
+        if ("foreign-note".equals(boundary)) {
+            CaseManagementNote foreign = anotherStoredNote();
+            selectedId = foreign.getId();
+            long id = selectedId;
+            tx().executeWithoutResult(status -> entityManager.createQuery(
+                    "update CaseManagementNote n set n.demographic_no='2' where n.id=:id")
+                    .setParameter("id", id).executeUpdate());
+        } else if ("zero".equals(boundary) || "zero-new".equals(boundary) || boundary.startsWith("cache-zero")) selectedId = 0;
+        else if ("minus-one".equals(boundary)) selectedId = -1;
+        if ("record".equals(boundary)) when(security.isAllowedAccessToPatientRecord(login, 1)).thenReturn(false);
+        if ("chart-write".equals(boundary)) when(security.hasPrivilege(login, "_eChart", "w", "1")).thenReturn(false);
+        if ("note-write".equals(boundary)) when(security.hasPrivilege(login, "_casemgmt.notes", "w", "1")).thenReturn(false);
+        if ("chart-read".equals(boundary)) when(security.hasPrivilege(login, "_eChart", "r", "1")).thenReturn(false);
+        if ("note-read".equals(boundary)) when(security.hasPrivilege(login, "_casemgmt.notes", "r", "1")).thenReturn(false);
+        if ("readonly".equals(boundary)) {
+            io.github.carlos_emr.carlos.PMmodule.model.AccessType type = new io.github.carlos_emr.carlos.PMmodule.model.AccessType();
+            type.setId(771L);
+            type.setName("note-read-only");
+            type.setType("access");
+            ProgramAccess grant = new ProgramAccess();
+            grant.setAccessType(type);
+            grant.setAllRoles(true);
+            var dao = (io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO)
+                    ReflectionTestUtils.getField(target, "programAccessDAO");
+            when(dao.getAccessListByProgramId(7L)).thenReturn(List.of(grant));
+            assertThat(manager.hasAccessRight("note-read-only", "access", "999998", "1", "7")).isTrue();
+        }
+        if ("hidden".equals(boundary)) {
+            readGrants.clear();
+            assertThat(manager.filterNotes(login, "999998", List.of(original), "7")).isEmpty();
+        }
+        boolean contextDenied = "forged".equals(boundary) || "foreign-context".equals(boundary);
+        if ("forged".equals(boundary)) request.setParameter(ChartProgramContext.PARAMETER, "forged.context");
+        if ("foreign-context".equals(boundary)) {
+            MockHttpServletRequest foreignWindow = new MockHttpServletRequest();
+            foreignWindow.setSession(request.getSession());
+            foreignWindow.setParameter("demographicNo", "2");
+            ChartProgramContext.remember(foreignWindow, "7");
+            request.setParameter(ChartProgramContext.PARAMETER, ChartProgramContext.token(foreignWindow));
+        }
+        boolean update = "updateNoteLock".equals(operation);
+        CasemgmtNoteLock sharedForeignZero = boundary.startsWith("cache-zero")
+                ? storeLock(0L, "999997", "foreign-zero-session") : null;
+        if (update || List.of("other-session", "foreign-provider", "zero", "minus-one").contains(boundary)) {
+            CasemgmtNoteLock stored = storeLock(selectedId,
+                    boundary.contains("foreign-provider") ? "999997" : "999998", "previous-owned-session");
+            if ("cache-foreign-patient".equals(boundary)) {
+                tx().executeWithoutResult(status -> entityManager.createQuery(
+                        "update CasemgmtNoteLock l set l.demographicNo=2 where l.id=:id").setParameter("id", stored.getId()).executeUpdate());
+                stored.setDemographicNo(2);
+            }
+            request.getSession().setAttribute("casemgmtNoteLock1",
+                    "cache-zero-foreign".equals(boundary) ? sharedForeignZero : stored);
+        }
+        if (boundary.startsWith("cache")) {
+            // Classic callers can omit the token as well as noteId: retain the patient's legacy capture.
+            MockHttpServletRequest legacy = new MockHttpServletRequest("POST", "/CaseManagementEntry");
+            legacy.setSession(request.getSession());
+            legacy.setParameter("demographicNo", "1");
+            request = legacy;
+            action.request = request;
+        }
+        request.setParameter("method", operation);
+        request.setParameter("noteId", Long.toString(selectedId));
+        if (boundary.startsWith("cache")) {
+            request.removeParameter("noteId");
+            if ("cache-null".equals(boundary)) request.setParameter("noteId", "null");
+        }
+        if ("get".equals(boundary)) request.setMethod("GET");
+        Object cachedBefore = request.getSession().getAttribute("casemgmtNoteLock1");
+        Snapshot clinicalBefore = snapshot();
+        List<List<String>> sharedForeignBefore = sharedForeignZero == null ? List.of() : storedLockRows(sharedForeignZero.getId());
+        List<List<String>> allLocksBefore = tx().execute(status -> raw("SELECT * FROM casemgmt_note_lock WHERE id IS NOT NULL ORDER BY id"));
+        Set<Long> existingIds = new HashSet<>(tx().execute(status -> entityManager.createQuery(
+                "select l.id from CasemgmtNoteLock l", Long.class).getResultList()));
+        Throwable failure = catchThrowable(() -> tx().executeWithoutResult(status -> {
+            try {
+                if (dispatch) action.execute();
+                else if (update) action.updateNoteLock();
+                else action.isNoteEdited();
+            } catch (RuntimeException e) { throw e; }
+            catch (Exception e) { throw new IllegalStateException(e); }
+        }));
+        // Record only newly created rows from this invocation, before any assertion can fail.
+        long exactId = selectedId;
+        tx().executeWithoutResult(status -> entityManager.createQuery(
+                "from CasemgmtNoteLock l where l.demographicNo=1 and l.noteId=:note and l.providerNo='999998'", CasemgmtNoteLock.class)
+                .setParameter("note", exactId).getResultList().stream().map(CasemgmtNoteLock::getId)
+                .filter(id -> !existingIds.contains(id)).forEach(ownedLockIds::add));
+        boolean foreignProvider = "foreign-provider".equals(boundary);
+        boolean allowed = List.of("allowed", "other-session", "zero", "minus-one", "zero-new", "cache", "cache-null", "cache-zero-shared").contains(boundary)
+                || (foreignProvider && !update);
+        if (!allowed || contextDenied || foreignProvider || "other-session".equals(boundary) && !update) {
+            List<List<String>> allLocksAfter = tx().execute(status -> raw("SELECT * FROM casemgmt_note_lock WHERE id IS NOT NULL ORDER BY id"));
+            assertThat(allLocksAfter).as("refused native operation must preserve every actual lock row").isEqualTo(allLocksBefore);
+            assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isSameAs(cachedBefore);
+        }
+        if (allowed && !update) {
+            String expected = foreignProvider ? "other" : List.of("other-session", "zero", "minus-one").contains(boundary) ? "user" : "unlocked";
+            assertThat(response.getContentAsString()).contains("\"isNoteEdited\":\"" + expected + "\"");
+        }
+        if (contextDenied) assertThat(failure).isInstanceOf(SecurityException.class);
+        else {
+            assertThat(failure).isNull();
+            assertThat(response.getStatus()).isEqualTo(allowed ? 200 : "get".equals(boundary) ? 405 : 403);
+        }
+        assertThat(snapshot()).isEqualTo(clinicalBefore);
+        if (sharedForeignZero != null) assertThat(storedLockRows(sharedForeignZero.getId())).isEqualTo(sharedForeignBefore);
+        assertThat(request.getSession().getAttribute(editorKey)).isSameAs(form);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(original.getNote()).isEqualTo(marker + " original");
+        if (allowed && !contextDenied && !foreignProvider && !("other-session".equals(boundary) && !update)) {
+            CasemgmtNoteLock stored = tx().execute(status -> "cache-zero-shared".equals(boundary)
+                    ? storedLocks.find(((CasemgmtNoteLock) cachedBefore).getId()) : storedLocks.findByNoteDemo(1, exactId));
+            assertThat(stored).isNotNull();
+            assertThat(stored.getProviderNo()).isEqualTo("999998");
+            if (update || "allowed".equals(boundary) || "zero-new".equals(boundary)) {
+                assertThat(stored.getSessionId()).isEqualTo(request.getSession().getId());
+                assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isInstanceOf(CasemgmtNoteLock.class);
+            }
+        }
     }
 
     private CasemgmtNoteLock storeLock(Long noteId, String provider, String sessionId) {

@@ -5,6 +5,7 @@ const { execFileSync } = require('node:child_process');
 const { TextDecoder } = require('node:util');
 const h = require('./playwright-harness');
 const { signIn } = require('./authz-read-probe');
+const { checkNativeNoteLocks } = require('./native-note-lock-checks');
 const { readPatientState, assertPatientStateUnchanged } = require('../echart-two-patient-isolation-playwright-checks');
 const q = h.sqlString;
 
@@ -105,6 +106,8 @@ async function checkLockedRecordPrints(s, { fixture }) {
     && sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(login.providerNo)}
       AND objectName=${q(`_demographic$${lockedPatient}`)} AND privilege='|o|'`) === '1',
   'The print restriction is not exactly one demographic exclusion');
+
+  await checkNativeNoteLocks(s, { fixture, patients, notes, readLogin: login, snapshot });
 
   const routes = [
     { path: '/CaseManagementEntry', method: 'displayNotes', type: 'html' },

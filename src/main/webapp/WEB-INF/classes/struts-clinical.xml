@@ -551,8 +551,19 @@
         <action name="casemgmt/ViewForward" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/forward.jsp</result>
         </action>
-        <action name="casemgmt/ViewGroupNoteSelect" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+        <action name="casemgmt/ViewGroupNoteSelect" class="io.github.carlos_emr.carlos.casemgmt.web.GroupNoteSelect2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/groupNoteSelect.jsp</result>
+        </action>
+        <action name="casemgmt/SaveGroupNoteSelection" class="io.github.carlos_emr.carlos.casemgmt.web.GroupNoteSelect2Action" method="save">
+            <result name="success" type="redirectAction">
+                <param name="actionName">casemgmt/ViewGroupNoteSelectAction</param>
+                <param name="statusCode">303</param>
+                <param name="demographicNo">${demographicNo}</param>
+                <param name="programId">${programId}</param>
+                <param name="chartContext">${chartContext}</param>
+                <param name="suppressEmptyParameters">true</param>
+            </result>
+            <allowed-methods>save</allowed-methods>
         </action>
         <action name="casemgmt/ViewGroupNoteSelectAction" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/groupNoteSelectAction.jsp</result>

@@ -111,6 +111,36 @@ async function checkLockedRecordMeasurements(s, { fixture }) {
         `${path} record-access check`));
     }
   });
+  await s.step('the patient photo servlet refuses the restricted record and serves its authorized fallback image', async () => {
+    const before = patients.map(patient => snapshot(sql, patient));
+    h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no IN (${patients.join(',')})`) === '0',
+      'The photo fallback controls unexpectedly acquired an uploaded portrait');
+    const reader = await signIn(s, login);
+    try {
+      // These owned patients have no uploaded portrait. Java separately proves exact
+      // stored-GIF byte protection; this installed check exercises the real JPEG fallback.
+      for (const patient of [openPatient, lockedPatient, openPatient]) {
+        const response = await reader.context.request.get(h.appUrl(config.baseUrl,
+          `/imageRenderingServlet?source=local_client&clientId=${patient}`), { maxRedirects: 0 });
+        try {
+          const body = await response.body();
+          const imageType = (response.headers()['content-type'] || '').split(';')[0];
+          h.assert(Object.hasOwn(response.headers(), h.APPLICATION_HEADER),
+            'The patient photo response did not come from the application');
+          if (patient === lockedPatient) {
+            h.assert(response.status() === 403 && !imageType.startsWith('image/')
+              && !body.toString('utf8').includes(owner), 'The record-restricted photo request was not refused before image output');
+          } else {
+            h.assert(response.status() === 200 && imageType === 'image/jpeg' && body.length > 4
+              && body[0] === 0xff && body[1] === 0xd8 && body.at(-2) === 0xff && body.at(-1) === 0xd9,
+            'The authorized patient photo control did not return the complete JPEG fallback');
+          }
+        } finally { await response.dispose(); }
+        patients.forEach((ownedPatient, index) => assertPatientStateUnchanged(before[index], snapshot(sql, ownedPatient),
+          'Patient photo record-access read'));
+      }
+    } finally { await reader.context.close(); }
+  });
   await s.step('both measurement writer aliases refuse a restricted record without writes and allow the unlocked control', async () => {
     for (const [path, value] of [['/encounter/Measurements', '79.625'], ['/encounter/Measurements2', '79.875']]) {
       const reader = await signIn(s, login);

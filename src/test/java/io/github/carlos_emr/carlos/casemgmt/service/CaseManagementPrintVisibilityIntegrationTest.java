@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAO;
+import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
@@ -41,11 +42,20 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDefaultProgramDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.webserv.rest.RecordUxService;
+import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.apache.struts2.ActionContext;
+import jakarta.ws.rs.ForbiddenException;
+import org.springframework.web.context.support.StaticWebApplicationContext;
+import org.springframework.web.context.WebApplicationContext;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.io.ByteArrayOutputStream;
@@ -75,6 +85,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyString;
 
 /**
  * Real H2 role permissions and actual PDF assembly must agree with the originating chart.
@@ -267,11 +282,160 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = {"0"})
-    void shouldPreserveLegacyPrintVisibility_whenNoProgramRestrictionIsCaptured(String program) throws Exception {
+    void shouldPreserveIssuedLegacyPrintVisibility_whenASignedContextCapturesNullOrZero(String program) throws Exception {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        print(request(program), bytes, false,
+        MockHttpServletRequest request = request(program);
+        if (program == null) ChartProgramContext.remember(request, null);
+        assertThat(ChartProgramContext.token(request)).isNotBlank();
+        print(request, bytes, false,
                 new String[]{visible.getId().toString(), hidden.getId().toString()}, false, false);
         assertThat(pdfText(bytes)).contains(VISIBLE, HIDDEN);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"all", "selected", "cpp", "other-meds", "rest-all", "rest-selected", "web-all", "web-selected"})
+    void shouldApplyTheAuthenticatedDefault_whenAConfiguredCallerOmitsChartContext(String mode) throws Exception {
+        boolean cpp = "cpp".equals(mode);
+        boolean otherMeds = "other-meds".equals(mode);
+        if (cpp || otherMeds) linkToCpp(otherMeds ? "OMeds" : "MedHistory");
+        MockHttpServletRequest request = request(null);
+        bindRealDefaultPrograms(request);
+        // Posted/global state is not an authenticated chart capture or a print authority.
+        request.setParameter("programId", "0");
+        request.setParameter("case_program_id", "0");
+        request.getSession().setAttribute("case_program_id", "0");
+        request.getSession().setAttribute("programId", "0");
+        if (otherMeds) request.setParameter("printRx", "true");
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        boolean selected = mode.endsWith("selected");
+        if (mode.startsWith("rest-")) {
+            RecordUxService rest = restWithReadGrants();
+            var stream = rest.print(patient, "{\"printType\":\"" + (selected ? "selected" : "all")
+                    + "\",\"selectedList\":[\"" + visible.getId() + "\",\"" + hidden.getId() + "\"]}", request);
+            try (var clinic = mockConstruction(ClinicData.class)) {
+                if (selected) assertThatThrownBy(() -> stream.write(bytes)).isInstanceOf(ForbiddenException.class)
+                        .satisfies(failure -> assertThat(((ForbiddenException) failure).getResponse().getStatus()).isEqualTo(403));
+                else stream.write(bytes);
+            }
+        } else if (mode.startsWith("web-")) {
+            request.setParameter("notes2print", selected ? visible.getId() + "," + hidden.getId() : "ALL_NOTES");
+            request.setParameter("printCPP", "false");
+            request.setParameter("printRx", "false");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            ActionContext previous = ActionContext.getContext();
+            try {
+                ActionContext.of(new HashMap<>()).withServletRequest(request).withServletResponse(response).bind();
+                // The integration context omits these unrelated editor-constructor dependencies.
+                try (var beans = mockStatic(SpringUtils.class, CALLS_REAL_METHODS)) {
+                    beans.when(() -> SpringUtils.getBean(ClientImageManager.class)).thenReturn(mock(ClientImageManager.class));
+                    beans.when(() -> SpringUtils.getBean(ProviderManager.class)).thenReturn(mock(ProviderManager.class));
+                    CaseManagementEntry2Action action = new CaseManagementEntry2Action();
+                    ReflectionTestUtils.setField(action, "securityInfoManager", readGrants());
+                    try (var clinic = mockConstruction(ClinicData.class)) { action.print(); }
+                }
+            } finally {
+                if (previous == null) ActionContext.clear();
+                else previous.bind();
+            }
+            assertThat(response.getStatus()).isEqualTo(selected ? 403 : 200);
+            if (selected) {
+                assertThat(response.getContentType()).isNull();
+                assertThat(response.getHeader("Content-Disposition")).isNull();
+            }
+            bytes.write(response.getContentAsByteArray());
+        } else if (selected) {
+            assertThatThrownBy(() -> print(request, bytes, false,
+                    new String[]{visible.getId().toString(), hidden.getId().toString()}, false, false))
+                    .isInstanceOf(CaseManagementPrint.NoteAccessDeniedException.class);
+        } else {
+            print(request, bytes, !cpp && !otherMeds, new String[0], cpp, false);
+        }
+        if (selected) assertThat(bytes.size()).isZero();
+        else assertThat(pdfText(bytes)).contains(VISIBLE).doesNotContain(HIDDEN);
+        assertThat(ChartProgramContext.token(request)).isNull();
+        assertThat(ChartProgramContext.resolve(request)).isNull();
+    }
+
+    @Test
+    void shouldRespectTheCurrentFacility_whenAnUncapturedConfiguredReaderPrintsNotes() throws Exception {
+        Facility current = new Facility();
+        current.setId(10);
+        login.setCurrentFacility(current);
+        for (long id : new long[]{PROGRAM + 1, PROGRAM + 2}) entityManager.createNativeQuery(
+                "MERGE INTO program(id,name,type,facilityId) KEY(id) VALUES (?1,'FAKE-PDF-FACILITY','community',?2)")
+                .setParameter(1, id).setParameter(2, id == PROGRAM + 1 ? 10 : 20).executeUpdate();
+        entityManager.createNativeQuery("UPDATE program SET programStatus='active',userDefined=1,holdingTank=0,allowBatchAdmission=0,"
+                + "allowBatchDischarge=0,hic=0,transgender=0,firstNation=0,alcohol=0,physicalHealth=0,"
+                + "mentalHealth=0,housing=0,enableEncounterTime=0,enableEncounterTransportationTime=0 WHERE id IN (?1,?2)")
+                .setParameter(1, PROGRAM + 1).setParameter(2, PROGRAM + 2).executeUpdate();
+        CaseManagementNote outside = note(Long.parseLong(visible.getReporter_caisi_role()),
+                "FAKE same-role other-facility body", PROGRAM + 2);
+        entityManager.flush();
+        // Both notes pass reporter-role access; the real facility rule removes only outside.
+        assertThat(manager.filterNotes(login, READER, List.of(visible, outside), Long.toString(PROGRAM)))
+                .extracting(CaseManagementNote::getId).containsExactly(visible.getId(), outside.getId());
+        CarlosProperties.getInstance().setProperty("FILTER_ON_FACILITY", "true");
+        assertThat(manager.filterNotes(login, READER, List.of(visible, outside), Long.toString(PROGRAM)))
+                .extracting(CaseManagementNote::getId).containsExactly(visible.getId());
+        MockHttpServletRequest request = request(null);
+        bindRealDefaultPrograms(request);
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        print(request, bytes, true, new String[0], false, false);
+        assertThat(pdfText(bytes)).contains(VISIBLE).doesNotContain(HIDDEN, outside.getNote());
+        ByteArrayOutputStream selected = new ByteArrayOutputStream();
+        assertThatThrownBy(() -> print(request, selected, false,
+                new String[]{outside.getId().toString()}, false, false))
+                .isInstanceOf(CaseManagementPrint.NoteAccessDeniedException.class);
+        assertThat(selected.size()).isZero();
+    }
+
+    @Test
+    void shouldRetainGenuinelyProgramlessPrintAccess_whenTheReaderHasNoAvailablePrograms() throws Exception {
+        ProgramProviderDAO memberships = applicationContext.getBean("programProviderDAO", ProgramProviderDAO.class);
+        for (ProgramProvider membership : memberships.getProgramProvidersByProvider(READER)) {
+            memberships.deleteProgramProvider(membership.getId());
+        }
+        entityManager.flush();
+        MockHttpServletRequest request = request(null);
+        bindRealDefaultPrograms(request, "0");
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        print(request, bytes, false, new String[]{visible.getId().toString(), hidden.getId().toString()}, false, false);
+        assertThat(pdfText(bytes)).contains(VISIBLE, HIDDEN);
+        assertThat(ChartProgramContext.token(request)).isNull();
+        assertThat(ChartProgramContext.resolve(request)).isNull();
+    }
+
+    private RecordUxService restWithReadGrants() {
+        RecordUxService rest = new RecordUxService() {
+            @Override protected LoggedInInfo getLoggedInInfo() { return login; }
+        };
+        ReflectionTestUtils.setField(rest, "securityInfoManager", readGrants());
+        return rest;
+    }
+
+    private SecurityInfoManager readGrants() {
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(org.mockito.ArgumentMatchers.eq(login), anyString(),
+                org.mockito.ArgumentMatchers.eq("r"), org.mockito.ArgumentMatchers.eq(patient))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(login, patient)).thenReturn(true);
+        when(security.hasPrivilege(org.mockito.ArgumentMatchers.eq(login), anyString(),
+                org.mockito.ArgumentMatchers.eq("r"), org.mockito.ArgumentMatchers.eq(Integer.toString(patient)))).thenReturn(true);
+        return security;
+    }
+
+    private void bindRealDefaultPrograms(MockHttpServletRequest request) {
+        bindRealDefaultPrograms(request, Long.toString(PROGRAM));
+    }
+
+    private void bindRealDefaultPrograms(MockHttpServletRequest request, String expected) {
+        EctProgramManager actual = new EctProgramManagerImpl(
+                applicationContext.getBean(DemographicDao.class),
+                applicationContext.getBean("programProviderDAO", ProgramProviderDAO.class),
+                applicationContext.getBean(ProviderDefaultProgramDao.class), applicationContext.getBean(ProgramDao.class));
+        StaticWebApplicationContext web = new StaticWebApplicationContext();
+        web.getBeanFactory().registerSingleton("ectProgramManager", actual);
+        request.getServletContext().setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, web);
+        assertThat(new EctProgram(request.getSession()).getProgram(READER)).isEqualTo(expected);
     }
 
     @Test

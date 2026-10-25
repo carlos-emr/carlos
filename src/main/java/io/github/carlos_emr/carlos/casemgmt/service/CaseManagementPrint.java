@@ -173,7 +173,7 @@ public class CaseManagementPrint {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String program;
         try {
-            program = ChartProgramContext.resolve(request);
+            program = ChartProgramContext.resolveForPrint(request, loggedInInfo);
         } catch (SecurityException invalidContext) {
             throw new NoteAccessDeniedException(invalidContext);
         }
@@ -303,14 +303,6 @@ public class CaseManagementPrint {
                     .filter(allergy -> !allergy.getArchived()).toList();
         }
 
-        SimpleDateFormat headerFormat = new SimpleDateFormat("yyyy-MM-dd.hh.mm.ss");
-        Date now = new Date();
-        String headerDate = headerFormat.format(now);
-
-        // Create new file to save form to
-        File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-        File encounterFile = PathValidationUtils.validateGeneratedChildPath("EncounterForm-" + headerDate + ".pdf", documentDir);
-        String fileName = encounterFile.getAbsolutePath();
         File file = null;
         FileOutputStream out = null;
         File file2 = null;
@@ -325,8 +317,10 @@ public class CaseManagementPrint {
 
         try {
 
-            file = PathValidationUtils.resolveTrustedPath(new File(fileName));
-            out = new FileOutputStream(file);
+            // A timestamp shared by concurrent requests can overwrite another patient's PDF.
+            // Register the unique owner-only file before opening it so every failure is cleaned up.
+            file = PathValidationUtils.createSecureTempFile("chart-print-encounter-", ".pdf");
+            out = new FileOutputStream(PathValidationUtils.resolveTrustedPath(file));
 
             CaseManagementPrintPdf printer = new CaseManagementPrintPdf(request, out);
             printer.printDocHeaderFooter();
@@ -353,7 +347,7 @@ public class CaseManagementPrint {
             }
             printer.finish();
 
-            pdfDocs.add(fileName);
+            pdfDocs.add(file.getAbsolutePath());
 
             if (printLabs) {
                 // get the labs which fall into the date range which are attached to this patient

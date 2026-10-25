@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.casemgmt.common;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.utility.BoundedSessionAttributes;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.nio.charset.StandardCharsets;
@@ -163,6 +164,27 @@ public final class ChartProgramContext {
         if (current != null) return captured(session, current).program();
         Object value = session == null ? null : session.getAttribute(PREFIX + patient);
         return value instanceof String program ? program : null;
+    }
+
+    /**
+     * Resolves print policy without treating an omitted chart context as unrestricted access.
+     * Existing authenticated window contexts, including issued legacy null/zero contexts, keep
+     * their meaning. A caller without any capture uses the authenticated provider's available
+     * default program; posted program aliases and other windows' global selections are ignored.
+     * This read does not issue a context or change the session's captured program.
+     *
+     * @param request HttpServletRequest naming the explicitly authorized printed patient
+     * @param login LoggedInInfo authenticated print reader
+     * @return String captured/default program, or null only for a signed legacy null context
+     * @throws SecurityException if a supplied context is invalid or the reader is missing
+     */
+    public static String resolveForPrint(HttpServletRequest request, LoggedInInfo login) {
+        String program = resolve(request);
+        if (program != null || token(request) != null) return program;
+        if (login == null || login.getLoggedInProviderNo() == null || login.getLoggedInProviderNo().isBlank()) {
+            throw new SecurityException("Missing chart print reader");
+        }
+        return new EctProgram(request.getSession()).getProgram(login.getLoggedInProviderNo());
     }
 
     /**

@@ -57,6 +57,10 @@ import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.ResponseDefaultsFilter;
+import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
+import io.github.carlos_emr.carlos.util.LabelValueBean;
+import org.springframework.web.context.support.StaticWebApplicationContext;
+import org.springframework.web.context.WebApplicationContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
@@ -109,6 +113,7 @@ class ChartPrintReadAccessUnitTest extends CarlosUnitTestBase {
     private DemographicDao demographics;
     private AllergyDao allergies;
     private ActionContext previousContext;
+    private EctProgramManager defaultPrograms;
 
     @BeforeEach
     void prepareOwnChart() {
@@ -141,6 +146,12 @@ class ChartPrintReadAccessUnitTest extends CarlosUnitTestBase {
         login = mock(LoggedInInfo.class);
         when(login.getLoggedInProviderNo()).thenReturn("4249");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        // Legacy positive fixtures genuinely have no configured programs unless a case says otherwise.
+        defaultPrograms = mock(EctProgramManager.class);
+        when(defaultPrograms.getProgramBeans("4249", null)).thenReturn(List.of());
+        StaticWebApplicationContext web = new StaticWebApplicationContext();
+        web.getBeanFactory().registerSingleton("ectProgramManager", defaultPrograms);
+        request.getServletContext().setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, web);
         for (String module : List.of("_demographic", "_eChart", "_casemgmt.notes")) {
             when(security.hasPrivilege(login, module, "r", "101")).thenReturn(true);
         }
@@ -550,10 +561,54 @@ class ChartPrintReadAccessUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"absent", "0"})
+    @ValueSource(strings = {"full", "cpp"})
+    void shouldApplyTheAuthenticatedDefaultBeforeRendering_whenFullChartContextIsAbsent(String mode) throws Exception {
+        when(defaultPrograms.getProgramBeans("4249", null)).thenReturn(List.of(new LabelValueBean("FAKE restricted", "7")));
+        when(defaultPrograms.getDefaultProgramId("4249")).thenReturn(7);
+        request.setParameter("programId", "0");
+        request.setParameter("case_program_id", "0");
+        request.getSession().setAttribute("case_program_id", "0");
+        rememberOtherWindow("202", "8");
+        CaseManagementNote visible = roleNote(621L, "Visible default-program body", "8", "7");
+        CaseManagementNote hidden = roleNote(622L, "Hidden default-program body", "7", "9");
+        CaseManagementNote visibleCpp = roleNote(623L, "Visible default-program CPP", "8", "7");
+        CaseManagementNote hiddenCpp = roleNote(624L, "Hidden default-program CPP", "7", "9");
+        cpp(visibleCpp);
+        cpp(hiddenCpp);
+        when(notes.getMostRecentNotes(101)).thenReturn(List.of(visible, hidden, visibleCpp, hiddenCpp));
+        when(notes.findNotesByDemographicAndIssueCode(eq(101), any(String[].class)))
+                .thenReturn(List.of(visibleCpp, hiddenCpp));
+        ownDemographic();
+        try (RealVisibility policy = new RealVisibility("same-role")) {
+            if ("full".equals(mode)) {
+                try (var renderer = mockConstruction(OscarChartPrinter.class, (mock, construction) ->
+                        rememberOtherWindow("101", "8"))) {
+                    fullChart.print();
+                    OscarChartPrinter printer = renderer.constructed().getFirst();
+                    verify(printer).printNotes(List.of(visible), true);
+                    verify(printer, times(7)).printCPPItem(anyString(), eq(List.of(visibleCpp)));
+                    verify(manager, times(8)).filterNotes(eq(login), eq("4249"), anyCollection(), eq("7"));
+                }
+            } else {
+                OscarChartPrinter printer = mock(OscarChartPrinter.class);
+                fullChart.printCppItem(printer, "Medical History", "MedHistory", 101);
+                verify(printer).printCPPItem("Medical History", List.of(visibleCpp));
+                verify(manager).filterNotes(eq(login), eq("4249"), anyCollection(), eq("7"));
+                assertThat(ChartProgramContext.resolve(request)).isNull();
+            }
+        }
+        assertThat(ChartProgramContext.token(request)).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"absent", "0", "signed-null", "signed-zero"})
     void shouldPreserveLegacyNoProgramCollections_evenIfAnotherWindowChangesFallbackDuringRendering(
             String program) throws Exception {
         if ("0".equals(program)) rememberOtherWindow("101", "0");
+        else if (program.startsWith("signed-")) {
+            request.setParameter(ChartProgramContext.PARAMETER,
+                    rememberOtherWindow("101", "signed-zero".equals(program) ? "0" : null));
+        }
         CaseManagementNote first = roleNote(611L, "Legacy first body", "7", "7");
         CaseManagementNote second = roleNote(612L, "Legacy other body", "8", "9");
         List<CaseManagementNote> all = List.of(first, second);

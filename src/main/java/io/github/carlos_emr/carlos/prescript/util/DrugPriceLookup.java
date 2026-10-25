@@ -37,7 +37,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
+import java.util.Collections;
 
 
 import org.apache.logging.log4j.Logger;
@@ -66,8 +67,8 @@ import io.github.carlos_emr.CarlosProperties;
  *   <li>Active {@link ResourceStorage} record of type {@link ResourceStorage#LU_CODES}</li>
  *   <li>Bundled classpath resource {@code oscar/oscarRx/data_extract_20250730.xml}</li>
  * </ol>
- * The map is populated lazily on first use via double-checked locking and stored in a
- * thread-safe {@link ConcurrentHashMap}.
+ * The map is populated lazily on first use via double-checked locking and
+ * published as complete immutable snapshots through a volatile reference.
  *
  * @since 2026-03-22
  */
@@ -75,7 +76,7 @@ public class DrugPriceLookup {
 
 	private static Logger log = MiscUtils.getLogger();
 
-	static final Map<String, String> costLookup = new ConcurrentHashMap<>();
+	static volatile Map<String, String> costLookup = Collections.emptyMap();
 	static volatile boolean loaded = false;
 
 	/** Utility class — not instantiable. */
@@ -104,17 +105,15 @@ public class DrugPriceLookup {
 	}
 
 	/**
-	 * Clears the internal price cache and reloads all formulary data from the configured source.
+	 * Reloads formulary data and atomically replaces the complete price cache.
 	 * <p>
-	 * This method is thread-safe; it acquires the class-level monitor before clearing and
-	 * reloading.
+	 * This method holds the class-level monitor while building a replacement. Readers
+	 * retain the previous complete snapshot, including when a reload cannot be parsed.
 	 *
 	 * @since 2026-03-22
 	 */
 	static public synchronized void reLoadLookupInformation() {
-		loaded = false;
-		costLookup.clear();
-		loadCostLookupInformation();
+		loadCostLookupInformation(true);
 	}
 
 	/**
@@ -165,15 +164,19 @@ public class DrugPriceLookup {
 	}
 
 	static private void loadCostLookupInformation() {
+		loadCostLookupInformation(false);
+	}
+
+	static private void loadCostLookupInformation(boolean force) {
 		log.debug("current price lookup size {}", costLookup.size());
-		if (!loaded) {
+		if (force || !loaded) {
 			synchronized (DrugPriceLookup.class) {
-				if (!loaded) {
+				if (force || !loaded) {
 					ResourceStorageDao resourceStorageDao = SpringUtils.getBean(ResourceStorageDao.class);
 					try (InputStream is = resolveOdbInputStream(resourceStorageDao)) {
 
 						if (is == null) {
-							log.error("Drug price formulary resource could not be resolved; pricing will be unavailable");
+							log.error("Drug price formulary resource could not be resolved; retaining the previous price cache");
 							return;
 						}
 
@@ -188,9 +191,10 @@ public class DrugPriceLookup {
 						Element root = doc.getRootElement();
 						Element formulary = root.getChild("formulary");
 						if (formulary == null) {
-							log.error("Drug price XML is missing <formulary> element; pricing will be unavailable");
+							log.error("Drug price XML is missing <formulary>; retaining the previous price cache");
 							return;
 						}
+						Map<String, String> replacement = new HashMap<>();
 						Iterator<Element> drugs = formulary.getDescendants(new ElementFilter("drug")).iterator();
 
 						while (drugs.hasNext()) {
@@ -201,11 +205,12 @@ public class DrugPriceLookup {
 							String din = drug.getAttribute("id").getValue();
 							String cost = drug.getChildText("individualPrice");
 							if (din != null && cost != null) {
-								costLookup.put(din, cost);
+								replacement.put(din, cost);
 							}
 						}
 
-						log.debug("Drug Prices loaded=true size: {}", costLookup.size());
+						costLookup = Collections.unmodifiableMap(replacement);
+						log.debug("Drug Prices loaded=true size: {}", replacement.size());
 						loaded = true;
 
 					} catch (JDOMException | IOException e) {

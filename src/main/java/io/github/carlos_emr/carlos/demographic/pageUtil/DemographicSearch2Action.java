@@ -90,7 +90,7 @@ public class DemographicSearch2Action extends ActionSupport {
             return "apptResults";
         }
         if (displaymode != null && !"Search".equals(displaymode)) {
-            logger.debug("DemographicSearch2Action: unexpected displaymode='{}', falling through to general search", displaymode);
+            logger.debug("DemographicSearch2Action: unexpected display mode; using general search");
         }
         return SUCCESS;
     }

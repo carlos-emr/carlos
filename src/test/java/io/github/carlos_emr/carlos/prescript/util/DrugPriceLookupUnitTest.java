@@ -31,16 +31,23 @@ package io.github.carlos_emr.carlos.prescript.util;
 import io.github.carlos_emr.carlos.commn.dao.ResourceStorageDao;
 import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mockStatic;
 
 /**
  * Unit tests for {@link DrugPriceLookup}.
@@ -54,9 +61,12 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("prescription")
 @DisplayName("DrugPriceLookup unit tests")
+@Isolated
 class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
 
     private ResourceStorageDao mockResourceStorageDao;
+    private Map<String, String> originalPrices;
+    private boolean originalLoaded;
 
     /**
      * Resets static cache and registers a mock ResourceStorageDao that returns null
@@ -65,8 +75,10 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         // Reset static state so each test starts with an empty, unloaded cache
+        originalPrices = DrugPriceLookup.costLookup;
+        originalLoaded = DrugPriceLookup.loaded;
         DrugPriceLookup.loaded = false;
-        DrugPriceLookup.costLookup.clear();
+        DrugPriceLookup.costLookup = java.util.Collections.emptyMap();
 
         // Default: no DB resource found → classpath fallback
         mockResourceStorageDao = mock(ResourceStorageDao.class);
@@ -79,8 +91,53 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
      */
     @AfterEach
     void tearDown() {
-        DrugPriceLookup.loaded = false;
-        DrugPriceLookup.costLookup.clear();
+        DrugPriceLookup.costLookup = originalPrices;
+        DrugPriceLookup.loaded = originalLoaded;
+    }
+
+    @Test
+    void shouldKeepThePublishedPriceSnapshotComplete_whileReloadReadsItsReplacement() throws Exception {
+        String oldPrice = DrugPriceLookup.getPriceInfoForDin("02536269");
+        assertThat(oldPrice).isNotNull();
+        Map<String, String> oldSnapshot = DrugPriceLookup.costLookup;
+        CountDownLatch loading = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        ResourceStorage replacement = mock(ResourceStorage.class);
+        when(replacement.getFileContents()).thenReturn(("<extract><formulary><drug id=\"99000001\">"
+                + "<individualPrice>5.99</individualPrice></drug></formulary></extract>").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        when(mockResourceStorageDao.findActive(ResourceStorage.LU_CODES)).thenAnswer(call -> {
+            loading.countDown();
+            if (!resume.await(5, TimeUnit.SECONDS)) throw new AssertionError("Price reload was not resumed");
+            return replacement;
+        });
+        try (var worker = Executors.newSingleThreadExecutor()) {
+            var reloaded = worker.submit(() -> {
+                try (var spring = mockStatic(SpringUtils.class)) {
+                    spring.when(() -> SpringUtils.getBean(ResourceStorageDao.class)).thenReturn(mockResourceStorageDao);
+                    DrugPriceLookup.reLoadLookupInformation();
+                }
+            });
+            try {
+                assertThat(loading.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThat(DrugPriceLookup.costLookup.get("02536269")).isEqualTo(oldPrice);
+                assertThat(oldSnapshot.get("02536269")).isEqualTo(oldPrice);
+            } finally { resume.countDown(); }
+            reloaded.get(5, TimeUnit.SECONDS);
+        }
+        assertThat(DrugPriceLookup.getPriceInfoForDin("99000001")).isEqualTo("5.99");
+        assertThat(oldSnapshot.get("02536269")).isEqualTo(oldPrice);
+    }
+
+    @Test
+    void shouldRetainTheLastKnownPrices_whenReloadCannotParseItsReplacement() {
+        String oldPrice = DrugPriceLookup.getPriceInfoForDin("02536269");
+        ResourceStorage malformed = mock(ResourceStorage.class);
+        when(malformed.getFileContents()).thenReturn("<extract><formulary>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        when(mockResourceStorageDao.findActive(ResourceStorage.LU_CODES)).thenReturn(malformed);
+
+        DrugPriceLookup.reLoadLookupInformation();
+
+        assertThat(DrugPriceLookup.getPriceInfoForDin("02536269")).isEqualTo(oldPrice).isNotNull();
     }
 
     @Nested

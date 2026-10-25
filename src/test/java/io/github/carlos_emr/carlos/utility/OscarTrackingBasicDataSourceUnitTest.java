@@ -26,11 +26,16 @@ import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Iterator;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -38,6 +43,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
+@Isolated
 class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
@@ -75,6 +81,55 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
         assertThat(retainedConnections).isEmpty();
         assertThat(trackedThreadConnectionSets()).isEmpty();
         verify(connection).close();
+    }
+
+    @Test
+    void shouldSnapshotAndClearOwnerConnectionsUnderTheirMonitor_whenShuttingDown() throws Exception {
+        HashSet<Connection> ownerConnections = new HashSet<>() {
+            @Override public Iterator<Connection> iterator() {
+                assertThat(Thread.holdsLock(this)).as("owner set must not be iterated during a concurrent mutation").isTrue();
+                return super.iterator();
+            }
+            @Override public void clear() {
+                assertThat(Thread.holdsLock(this)).as("owner set clear must share its mutation monitor").isTrue();
+                super.clear();
+            }
+        };
+        Connection connection = mock(Connection.class);
+        ownerConnections.add(connection);
+        trackedThreadConnectionSets().add(ownerConnections);
+
+        try {
+            OscarTrackingBasicDataSource.clearTrackingState();
+            assertThat(ownerConnections).isEmpty();
+            verify(connection).close();
+        } finally {
+            trackedThreadConnectionSets().remove(ownerConnections);
+            synchronized (ownerConnections) { ownerConnections.clear(); }
+        }
+    }
+
+    @Test
+    void shouldRemoveClosedConnectionFromItsOwner_whenClosedOnAnotherThread() throws Exception {
+        AtomicReference<HashSet<Connection>> ownerConnections = new AtomicReference<>();
+        Connection delegate = mock(Connection.class);
+        try (var owner = Executors.newSingleThreadExecutor()) {
+            Connection connection = owner.submit(() -> {
+                Connection tracked = track(delegate);
+                Field field = OscarTrackingBasicDataSource.class.getDeclaredField("connections");
+                field.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                var local = (ThreadLocal<HashSet<Connection>>) field.get(null);
+                ownerConnections.set(local.get());
+                return tracked;
+            }).get(5, TimeUnit.SECONDS);
+
+            connection.close();
+
+            assertThat(ownerConnections.get()).isEmpty();
+            assertThat(OscarTrackingBasicDataSource.debugMap).doesNotContainKey(connection);
+            verify(delegate).close();
+        }
     }
 
     private Connection track(Connection delegate) throws Exception {

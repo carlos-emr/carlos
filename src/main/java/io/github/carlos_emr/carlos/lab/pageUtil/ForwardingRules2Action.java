@@ -109,7 +109,7 @@ public class ForwardingRules2Action extends ActionSupport {
                     for (IncomingLabRules result : dao.findCurrentByProviderNoAndFrwdProvider(providerNo, "0")) {
                         result.setArchive("1");
                         dao.merge(result);
-                        logger.info("Archived rule: " + result);
+                        logger.info("Archived forwarding rule id={}", result.getId());
                     }
 
                     for (int i = 0; i < providerNums.length; i++) {
@@ -124,7 +124,7 @@ public class ForwardingRules2Action extends ActionSupport {
 
                 ForwardingRules fr = new ForwardingRules();
                 ArrayList<ArrayList<String>> temp = fr.getProviders(providerNo);
-                logger.info("Found providers for frwd rules: " + temp);
+                logger.info("Found {} forwarding recipients", temp == null ? 0 : temp.size());
 
                 // check if there rules are set to forward the labs
                 if (temp == null || temp.size() <= 0) {
@@ -155,7 +155,7 @@ public class ForwardingRules2Action extends ActionSupport {
                     }
                 }
             } catch (Exception e) {
-                logger.error("Could not update forwarding rules", e);
+                logger.error("Could not update forwarding rules{}", LogSafe.exceptionTrace(e));
                 return "failure";
             }
 
@@ -206,7 +206,7 @@ public class ForwardingRules2Action extends ActionSupport {
                 }
             }
         } catch (Exception e) {
-            logger.error("Could not remove providers '" + remProviderNum + "' from the forwarding rules", e);
+            logger.error("Could not remove a provider from forwarding rules{}", LogSafe.exceptionTrace(e));
             return false;
         }
         return true;

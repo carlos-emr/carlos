@@ -529,6 +529,7 @@ function validateFields() {
                     <input type="hidden" name="scheduleNav" value="1">
                     <% } %>
                     <input type="hidden" name="attachmentKey" value="<%= SafeEncode.forHtmlAttribute(attachmentKey) %>">
+                    <input type="hidden" name="archiveMessageId" value="${carlos:forHtmlAttribute(archiveMessageId)}">
 				<table class="card card-body bg-body-tertiary" style="width:100%">
 						<tr class="subheader">
 							<th><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>

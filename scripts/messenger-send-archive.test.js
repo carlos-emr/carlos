@@ -8,6 +8,22 @@ const jsp = fs.readFileSync('src/main/webapp/WEB-INF/jsp/messenger/CreateMessage
 const script = jsp.slice(jsp.indexOf('function XMLHttpRequestSendnArch()'), jsp.indexOf('// Opens demographic attachment popup'))
   .replaceAll('${pageContext.request.contextPath}', '/carlos');
 
+test('the rendered form template carries the same encoded optional ID as the archive button', () => {
+  const field = jsp.match(/<input\b[^>]*name="archiveMessageId"[^>]*>/g);
+  assert.equal(field?.length, 1);
+  assert.match(field[0], /type="hidden"/);
+  assert.match(field[0], /value="\$\{carlos:forHtmlAttribute\(archiveMessageId\)\}"/);
+  assert.match(jsp, /data-message-id="\$\{carlos:forHtmlAttribute\(archiveMessageId\)\}"/);
+});
+
+test('the actual recipient validator permits the disabled checked control used by the server-refusal probe', () => {
+  const source = jsp.slice(jsp.indexOf('function validateCheckBoxes('), jsp.indexOf('// Archives the current message'));
+  const context = vm.createContext({});
+  vm.runInContext(source, context);
+  assert.equal(context.validateCheckBoxes({ provider: { checked: true, disabled: true } }), '1');
+  assert.equal(context.validateCheckBoxes({ provider: { checked: false, disabled: true } }), '0');
+});
+
 function compose(messageId, referrer = '', valid = true) {
   let sent = 0;
   const requests = [];

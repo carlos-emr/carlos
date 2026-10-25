@@ -11624,6 +11624,25 @@
       "fixtures": "Owned recipient and separately named owner patients, canonical note revisions and exact group links, facility with group notes enabled, four throwaway logins and two temporary roles with controlled clinical read rights. Patient search must return only the recipient; the reader is denied the owner chart. Cleanup removes owned clinical children, links, facility, logins, role privileges, roles and patients by key and asserts removal. No existing clinic privileges or facility settings are changed."
     },
     {
+      "name": "group-note-selection",
+      "script": "scripts/group-note-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Three isolated synthetic patients, two owned programs and admissions, one private group-enabled facility and writer, two exact owned note rows and temporary GroupNoteLink rows. Every parent and relationship is checked before deletion; program defaults and shared roles/policy are preserved. Requires exclusive suite execution.",
+      "notes": "Native Group popup uses the mapped extensionless GET route. The same patient in program B is entered last, but A selects only its own program recipient and saved note. Native POST303 redirects to a GET close view; an empty native selection clears the exact sharing link without changing either source note. Unsaved Group retains save-first guidance. Foreign recipient/context, malformed anonymous count and non-POST saves are refused with full clinical, draft, lock and policy snapshots unchanged. Common strict browser diagnostics use baseline:[]; owned chart locks are released through the authenticated API before test-page cleanup."
+    },
+    {
       "name": "echart-note-verify-appointment-status",
       "script": "scripts/echart-note-verify-appointment-status-playwright-checks.js",
       "tiers": [
@@ -13781,7 +13800,7 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "notes": "Messenger Reply ▸ Send and Archive (CreateMessage.jsp #sendArchive): the background POST to messenger/DisplayMessages archives exactly the message replied to (btnDelete=archive, its messageNo, taken from the compose page's referrer) and is accepted, then the reply is sent: one reply from the test login, delivered to the sender only. The message replied to is 'del' for the test login only (the other recipient's row is unchanged); the inbox no longer lists it and the archive box (boxType=2) does.",
+      "notes": "Messenger Reply ▸ Send and Archive (CreateMessage.jsp #sendArchive): the background POST to messenger/DisplayMessages archives exactly the message replied to (btnDelete=archive, its messageNo, taken from the validated server-rendered compose identity) and is accepted, then the reply is sent: one reply from the test login, delivered to the sender only. The message replied to is 'del' for the test login only (the other recipient's row is unchanged); the inbox no longer lists it and the archive box (boxType=2) does. The original message identity is carried by a validated encoded compose field rather than the browser referrer. A labeled negative fixture disables only the owned checked recipient control for one native ordinary Send, observes the actual server redisplay with no stored reply or changed source rows, then enables the real recipient and uses native Send & Archive. The retry retains the original message ID, raw fields and attachment key; only the original owned recipient row is archived, and the entire other-recipient row remains exact.",
       "fixtures": "One message seeded by SQL the way a local send writes it (sender messenger contact 1; recipients the test login and contact 2; subject and lines carry the run marker). SKIP when the messenger contacts are not 1 and 2 plus the test login. Cleanup deletes every message whose subject carries the marker, with its delivery and patient-link rows, and asserts they are gone."
     },
     {

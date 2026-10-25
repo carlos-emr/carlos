@@ -129,7 +129,7 @@ public class EChartPrint2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        String program = ChartProgramContext.resolve(request);
+        String program = ChartProgramContext.resolveForPrint(request, loggedInInfo);
         PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_demographic", "r");
         PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_eChart", "r");
         PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_casemgmt.notes", "r");
@@ -224,9 +224,9 @@ public class EChartPrint2Action extends ActionSupport {
      * @throws DocumentException if an OpenPDF document error occurs
      */
     public void printCppItem(OscarChartPrinter printer, String header, String issueCode, int demographicNo) throws DocumentException {
-        String program = ChartProgramContext.resolve(request);
-        printCppItem(printer, header, issueCode, demographicNo,
-                LoggedInInfo.getLoggedInInfoFromSession(request), program);
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String program = ChartProgramContext.resolveForPrint(request, login);
+        printCppItem(printer, header, issueCode, demographicNo, login, program);
     }
 
     private void printCppItem(OscarChartPrinter printer, String header, String issueCode, int demographicNo,
