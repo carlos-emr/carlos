@@ -26,6 +26,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 
@@ -193,6 +195,62 @@ class RxSessionBeanResolverUnitTest {
         assertThat(RxSessionBeanResolver.requestedDemographicNo(conflicting)).isEqualTo(RxSessionBeanResolver.INVALID);
         assertThat(RxSessionBeanResolver.resolve(conflicting)).isNull();
         assertThat(RxSessionBeanResolver.resolve(request("demographicNo", "12abc"))).isNull();
+    }
+
+    @Test
+    void shouldResolveOnlyNamedPatient_whenRepeatedAliasesAreNumericallyEquivalent() {
+        RxSessionBean beanA = activateCompleted(PATIENT_A, PROVIDER);
+        beanA.getStashList().add(draft(11));
+        RxSessionBean beanB = activateCompleted(PATIENT_B, PROVIDER);
+        beanB.getStashList().add(draft(22));
+        MockHttpServletRequest repeated = request("demographicNo", "1001",
+                "demographicNo", "001001", "demographic_no", "0001001");
+
+        try {
+            assertThat(RxSessionBeanResolver.requestedDemographicNo(repeated)).isEqualTo(PATIENT_A);
+            assertThat(RxSessionBeanResolver.resolve(repeated)).isSameAs(beanA);
+            assertThat(RxSessionBeanResolver.resolveForWrite(repeated)).isSameAs(beanA);
+            assertThat(beanA.getStash()).extracting(RxPrescriptionData.Prescription::getRandomId)
+                    .containsExactly(11L);
+            assertThat(beanB.getStash()).extracting(RxPrescriptionData.Prescription::getRandomId)
+                    .containsExactly(22L);
+        } finally {
+            RxSessionBeanResolver.releaseRequestLeases(repeated);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"demographicNo", "demographic_no"})
+    void shouldLeaveBothDraftsUntouched_whenRepeatedPatientValuesConflict(String alias) {
+        RxSessionBean beanA = activateCompleted(PATIENT_A, PROVIDER);
+        beanA.getStashList().add(draft(11));
+        RxSessionBean beanB = activateCompleted(PATIENT_B, PROVIDER);
+        beanB.getStashList().add(draft(22));
+        MockHttpServletRequest conflicting = request(alias, "1001", alias, "2002");
+
+        assertThat(RxSessionBeanResolver.requestedDemographicNo(conflicting))
+                .isEqualTo(RxSessionBeanResolver.INVALID);
+        assertThat(RxSessionBeanResolver.resolve(conflicting)).isNull();
+        assertThat(RxSessionBeanResolver.resolveForWrite(conflicting)).isNull();
+        assertThat(RxSessionBeanResolver.resolvePatient(conflicting)).isNull();
+        assertThat(RxSessionBeanResolver.find(session, PATIENT_A)).isSameAs(beanA);
+        assertThat(RxSessionBeanResolver.find(session, PATIENT_B)).isSameAs(beanB);
+        assertThat(beanA.getStash()).extracting(RxPrescriptionData.Prescription::getRandomId)
+                .containsExactly(11L);
+        assertThat(beanB.getStash()).extracting(RxPrescriptionData.Prescription::getRandomId)
+                .containsExactly(22L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"demographicNo", "demographic_no"})
+    void shouldRefuseWithoutCreatingSession_whenRepeatedIdentityIsAmbiguous(String alias) {
+        MockHttpServletRequest conflicting = new MockHttpServletRequest();
+        conflicting.setParameter(alias, "1001", "2002");
+
+        assertThat(RxSessionBeanResolver.resolve(conflicting)).isNull();
+        assertThat(RxSessionBeanResolver.resolveForWrite(conflicting)).isNull();
+        assertThat(RxSessionBeanResolver.resolvePatient(conflicting)).isNull();
+        assertThat(conflicting.getSession(false)).isNull();
     }
 
     @Test

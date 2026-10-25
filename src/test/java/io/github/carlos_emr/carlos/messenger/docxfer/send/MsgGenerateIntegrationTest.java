@@ -140,6 +140,32 @@ public class MsgGenerateIntegrationTest {
     }
 
     @Test
+    void shouldRetainClinicalRowsAndEmptyFields_whenProviderReferenceIsMissing() throws Exception {
+        // Imported records can refer to a retired provider. The LEFT JOIN must not erase
+        // either the patient or their active prescription from a seemingly complete export.
+        jdbc.update("UPDATE demographic SET provider_no = '404' WHERE demographic_no = 101");
+        jdbc.update("INSERT INTO drugs (demographic_no, provider_no, archived, rx_date, BN) "
+                + "VALUES (101, '404', 0, '2026-01-01', 'FAKE orphan-provider prescription')");
+
+        Document document = new MsgGenerate().getDocument(101);
+
+        assertThat(value(document, "count(//table[@name='Demographic Info']/item)")).isEqualTo("1");
+        assertThat(value(document, "//table[@name='Demographic Info']//fld[@name='Name']/@value"))
+                .isEqualTo("FAKE selected, Patient");
+        // H2's MySQL mode ignores null CONCAT arguments, unlike MariaDB, so its
+        // orphan-provider display is just the trimmed separator. Direct nullable fields
+        // below still exercise the export's SQL-null to empty-value contract.
+        assertThat(value(document, "//table[@name='Demographic Info']//fld[@name='Provider']/@value")).isEqualTo(",");
+        assertThat(value(document, "count(//table[@name='Prescription Info']/item)")).isEqualTo("1");
+        assertThat(value(document, "//table[@name='Prescription Info']//fld[@name='Brand Name']/@value"))
+                .isEqualTo("FAKE orphan-provider prescription");
+        assertThat(value(document, "//table[@name='Prescription Info']//fld[@name='Provider']/@value")).isEqualTo(",");
+        assertThat(value(document, "//table[@name='Prescription Info']//fld[@name='Special Instructions']/@value")).isEmpty();
+        assertThat(value(document, "count(//table[@name='Prescription Info']//fld[@name='Special Instructions']/@value)"))
+                .isEqualTo("1");
+    }
+
+    @Test
     void shouldPropagateDatabaseFailure_whenClinicalSectionCannotBeRead() {
         jdbc.execute("DROP TABLE allergies");
 

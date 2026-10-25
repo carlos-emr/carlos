@@ -6,8 +6,15 @@ import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.utility.BoundedSessionAttributes;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -25,6 +32,62 @@ import static org.mockito.Mockito.when;
 
 @Tag("unit")
 class ChartProgramContextUnitTest extends CarlosUnitTestBase {
+    @Test
+    void shouldKeepEveryIssuedWindowContext_whenTheFirstChartsOpenConcurrently() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        int windows = 8;
+        CountDownLatch ready = new CountDownLatch(windows);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<MockHttpServletRequest>> issued = new ArrayList<>();
+        try (var workers = Executors.newFixedThreadPool(windows)) {
+            try {
+                for (int i = 0; i < windows; i++) {
+                    String program = Integer.toString(11 + i);
+                    issued.add(workers.submit(() -> {
+                        MockHttpServletRequest request = chart(session, "101");
+                        ready.countDown();
+                        if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Chart start timed out");
+                        ChartProgramContext.remember(request, program);
+                        return request;
+                    }));
+                }
+                assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                start.countDown();
+            }
+            List<String> tokens = new ArrayList<>();
+            List<String> formKeys = new ArrayList<>();
+            for (int i = 0; i < windows; i++) {
+                MockHttpServletRequest request = issued.get(i).get(10, TimeUnit.SECONDS);
+                String token = ChartProgramContext.token(request);
+                tokens.add(token);
+                MockHttpServletRequest reopened = reload(session, "101", token);
+                assertThat(ChartProgramContext.resolve(reopened)).isEqualTo(Integer.toString(11 + i));
+                formKeys.add(ChartProgramContext.formKey(reopened, "101"));
+            }
+            assertThat(tokens).doesNotHaveDuplicates();
+            assertThat(formKeys).doesNotHaveDuplicates();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"101:22", "202:11"})
+    void shouldPreserveTheExistingWindowAndLegacyProgram_whenTheSignedPayloadIsReplaced(String payload) {
+        MockHttpSession session = new MockHttpSession();
+        MockHttpServletRequest initial = chart(session, "101");
+        ChartProgramContext.remember(initial, "11");
+        String token = ChartProgramContext.token(initial);
+        String forged = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(payload.getBytes(StandardCharsets.US_ASCII)) + token.substring(token.indexOf('.'));
+        MockHttpServletRequest attempt = reload(session, "101", forged);
+
+        assertThatThrownBy(() -> ChartProgramContext.remember(attempt, "33")).isInstanceOf(SecurityException.class);
+
+        assertThat(ChartProgramContext.resolve(reload(session, "101", token))).isEqualTo("11");
+        assertThat(ChartProgramContext.resolve(chart(session, "101"))).isEqualTo("11");
+        assertThat(ChartProgramContext.resolve(chart(session, "202"))).isNull();
+    }
+
     @Test
     void shouldKeepEachChartsProgram_whenAnotherWindowChangesPmmSelection() {
         MockHttpSession session = new MockHttpSession();

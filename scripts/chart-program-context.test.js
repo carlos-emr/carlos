@@ -64,6 +64,53 @@ test('standalone chart notes initialize the captured program before loading edit
     assert.equal(fragment.window.carlosChartContext, 'patient101.program22.signature');
 });
 
+function legacyChart(token) {
+    const jsp = fs.readFileSync(path.join(__dirname,
+        '../src/main/webapp/WEB-INF/jsp/casemgmt/CaseManagementView.jsp'), 'utf8');
+    const start = jsp.indexOf('            function chartPopupUrl(');
+    const end = jsp.indexOf('            function popupNotePage(', start);
+    assert.ok(start >= 0 && end > start, 'legacy chart popup context helper exists');
+    const code = jsp.slice(start, end).replace(/var token = '<%=[\s\S]*?%>';/,
+        () => `var token = ${JSON.stringify(token)};`);
+    assert.doesNotMatch(code, /<%|%>/, 'all server-rendered popup values were supplied');
+    const sandbox = {URL, document: {baseURI: 'https://clinic.test/carlos/CaseManagementView?demographicNo=101'},
+        window: {location: {origin: 'https://clinic.test'}}};
+    vm.createContext(sandbox);
+    vm.runInContext(code, sandbox);
+    return sandbox;
+}
+
+for (const target of ['CaseManagementEntry?method=edit&demographicNo=101#note',
+    '/carlos/CaseManagementEntry?method=notehistory&demographicNo=101',
+    'https://clinic.test/carlos/CaseManagementEntry?method=edit&chartContext=other-window&demographicNo=101']) {
+    test(`legacy popup retains its owner context and patient while opening ${target}`, () => {
+        const token = 'patient101.program11.signature +&?#';
+        const page = legacyChart(token);
+        const actual = new URL(page.chartPopupUrl(target));
+        const expected = new URL(target, page.document.baseURI);
+        assert.equal(actual.origin, expected.origin);
+        assert.equal(actual.pathname, expected.pathname);
+        assert.equal(actual.hash, expected.hash);
+        assert.equal(actual.searchParams.get('demographicNo'), '101');
+        assert.equal(actual.searchParams.get('method'), expected.searchParams.get('method'));
+        assert.deepEqual(actual.searchParams.getAll('chartContext'), [token],
+            'the originating chart replaces another window token without duplicating it');
+    });
+}
+
+for (const target of ['https://other-clinic.test/carlos/CaseManagementEntry?demographicNo=101',
+    '//other-clinic.test/carlos/CaseManagementEntry', 'mailto:clinic@example.test',
+    'https://clinic.test:8443/carlos/CaseManagementEntry']) {
+    test(`legacy popup never discloses its signed chart context to ${target}`, () => {
+        assert.equal(legacyChart('patient101.program11.signature').chartPopupUrl(target), target);
+    });
+}
+
+test('a legacy popup without a signed context preserves the caller URL byte for byte', () => {
+    const target = 'CaseManagementEntry?demographicNo=101&method=edit#note';
+    assert.equal(legacyChart('').chartPopupUrl(target), target);
+});
+
 for (const [description, brokenSource, expectedMarker] of [
     ['missing URL helper', '    var caisiEnabled', 'function chartActionUrl('],
     ['missing helper boundary', '    function chartActionUrl() {}', 'var caisiEnabled'],

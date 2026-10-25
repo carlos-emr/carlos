@@ -186,6 +186,49 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"hourOfEncounterTime", "minuteOfEncounterTime",
+            "hourOfEncTransportationTime", "minuteOfEncTransportationTime"})
+    void shouldClearTheSubmittedDuration_whenEveryRepeatedValueIsBlank(String field) throws Exception {
+        note.setHourOfEncounterTime(5);
+        note.setMinuteOfEncounterTime(6);
+        note.setHourOfEncTransportationTime(7);
+        note.setMinuteOfEncTransportationTime(8);
+        request.setParameter(field, new String[]{"", ""});
+        action.setObservation_date("14-Oct-2026 10:00");
+        stubFullFormSave();
+
+        assertThat(action.save()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        CaseManagementNote submitted = savedFullFormNote();
+        assertThat(org.springframework.beans.PropertyAccessorFactory.forBeanPropertyAccess(submitted)
+                .getPropertyValue(field)).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"hourOfEncounterTime", "minuteOfEncounterTime",
+            "hourOfEncTransportationTime", "minuteOfEncTransportationTime"})
+    void shouldPreserveTheNoteAndRawDraft_whenALaterDurationValueCannotBeParsed(String field) throws Exception {
+        String rawDraft = "\nExact FAKE recovery text café  ";
+        request.setParameter("caseNote_note", rawDraft);
+        request.setParameter(field, new String[]{"1", "malformed"});
+        action.setObservation_date("14-Oct-2026 10:00");
+
+        assertThat(action.save()).isEqualTo("windowCloseError");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("noteInputRejected")).isEqualTo(Boolean.TRUE);
+        assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(rawDraft);
+        assertThat(form.getCaseNote()).isSameAs(note);
+        assertThat(note.getNote()).isEqualTo("Original FAKE note");
+        assertThat(note.getObservation_date()).isEqualTo(STORED_DATE);
+        assertThat(lock.getNoteId()).isEqualTo(501L);
+        verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any());
+        verify(locks, never()).merge(any());
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"2026-10-15 19:14:08.0", "15-Okt.-2026 19:14", "31-Feb-2026 10:00"})
     void shouldRefuseSignAndSaveWithDraft_whenEncounterDateIsUnreadable(String posted) throws Exception {
         String rawDraft = "Edited FAKE note\r\nwith an addendum  ";

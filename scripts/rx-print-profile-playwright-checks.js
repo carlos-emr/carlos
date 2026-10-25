@@ -86,6 +86,29 @@ function hasChartContext(request, expected) {
   return contexts.length > 0 && contexts.every(context => context === expected);
 }
 
+/** Only the selected editor may expose editable duration controls or successful form fields. */
+async function assertDurationEditorOwnership(page) {
+  const state = await page.evaluate(() => {
+    const names = ['hourOfEncounterTime', 'minuteOfEncounterTime',
+      'hourOfEncTransportationTime', 'minuteOfEncTransportationTime'];
+    const form = document.forms.caseManagementEntryForm;
+    const editor = document.getElementById(window.caseNote);
+    // The signature/issue section is a sibling of its note textarea, not its ancestor.
+    const owners = Array.from(editor?.parentElement?.children || []).filter(node => node.classList.contains('sig'));
+    const owner = owners.length === 1 ? owners[0] : null;
+    const controls = Array.from(form?.elements || []).filter(input => names.includes(input.name));
+    return { editorOwned: Boolean(owner && editor.form === form),
+      complete: names.every(name => controls.filter(input => input.name === name).length === 1),
+      controls: controls.map(input => ({ name: input.name, id: input.id, type: input.type,
+        disabled: input.disabled, owned: Boolean(owner?.contains(input)),
+        visible: Boolean(input.getClientRects().length) && getComputedStyle(input).visibility !== 'hidden' })) };
+  });
+  h.assert(state.editorOwned && state.complete && state.controls.length === 4
+    && state.controls.every(input => input.id === input.name && input.type === 'text'
+      && !input.disabled && input.owned && input.visible),
+  'Duration fields are duplicated, retired, hidden or owned by another note editor');
+}
+
 /** Replay the real pending paste with one invalid identity; every clinical row must survive. */
 async function verifyEncounterWriteRefusals(s, context, request, tokens, reference) {
   const original = new URLSearchParams(request.postData() || '');
@@ -713,6 +736,30 @@ async function workflow(s) {
       h.assert(sql.value(`SELECT note_id FROM casemgmt_tmpsave WHERE demographic_no=${patient}
         AND provider_no=${owner} AND program_id=${defaultProgram}`) === source,
       'The shared-note draft lost its explicitly selected source note');
+      await assertDurationEditorOwnership(defaultChartAfterPaste);
+      const saveCounts = () => ({
+        notes: sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient} AND provider_no=${owner}`),
+        originatingDrafts: sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+          AND provider_no=${owner} AND program_id=${defaultProgram}`),
+        otherProgramDrafts: sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+          AND provider_no=${owner} AND program_id=${capturedProgram}`),
+      });
+      const beforeSave = saveCounts();
+      const durationControls = await defaultChartAfterPaste.locator('#caseManagementEntryForm input').evaluateAll(inputs => {
+        const names = ['hourOfEncounterTime', 'minuteOfEncounterTime',
+          'hourOfEncTransportationTime', 'minuteOfEncTransportationTime'];
+        return inputs.filter(input => names.includes(input.name)).map(input => {
+          const parentIds = [];
+          for (let parent = input.parentElement; parent && parent !== input.form; parent = parent.parentElement) {
+            if (parent.id) parentIds.push(parent.id);
+          }
+          return { name: input.name, id: input.id, type: input.type, disabled: input.disabled,
+            formId: input.form?.id, parentIds,
+            visible: Boolean(input.getClientRects().length) && getComputedStyle(input).visibility !== 'hidden',
+            valueShape: input.value === '' ? 'empty' : /^\d+$/.test(input.value) ? 'integer'
+              : input.value === 'null' ? 'null-literal' : input.value.trim() === '' ? 'whitespace' : 'other' };
+        });
+      });
       const [saved] = await Promise.all([
         defaultChartAfterPaste.waitForResponse(response => response.request().method() === 'POST'
           && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
@@ -720,6 +767,19 @@ async function workflow(s) {
         defaultChartAfterPaste.locator('#saveImg').first().click(),
       ]);
       await saved.finished();
+      if (saved.status() !== 200 || !hasChartContext(saved.request(), tokens[1])) {
+        const fields = new URLSearchParams(saved.request().postData() || '');
+        console.error('Shared-note save refusal metadata:', JSON.stringify({
+          status: saved.status(), applicationOrigin: Object.hasOwn(saved.headers(), h.APPLICATION_HEADER),
+          fieldOccurrences: Object.fromEntries([...new Set(fields.keys())].sort().map(name => [name, fields.getAll(name).length])),
+          durationShapes: Object.fromEntries(['hourOfEncounterTime', 'minuteOfEncounterTime',
+            'hourOfEncTransportationTime', 'minuteOfEncTransportationTime'].map(name => [name,
+            fields.getAll(name).map(value => value === '' ? 'empty' : /^\d+$/.test(value) ? 'integer'
+              : value === 'null' ? 'null-literal' : value.trim() === '' ? 'whitespace' : 'other')])),
+          durationControls,
+          before: beforeSave, after: saveCounts(),
+        }));
+      }
       h.assert(saved.status() === 200 && hasChartContext(saved.request(), tokens[1]),
       'The explicit shared-note Save failed or changed its chart context');
       await defaultChartAfterPaste.waitForFunction(previous => {
@@ -895,6 +955,7 @@ async function workflow(s) {
         await expectValue(sql, `SELECT note FROM casemgmt_tmpsave WHERE demographic_no=${patient}
           AND provider_no=${owner} AND program_id=${defaultProgram} AND note_id=${source}`, text,
         'The Y-only draft did not retain its selected shared note');
+        await assertDurationEditorOwnership(page);
         for (let index = 0; index < durationNames.length; index++) {
           await page.locator(`[name="${durationNames[index]}"]`).fill(savedDurations[index]);
         }
@@ -1005,6 +1066,7 @@ async function workflow(s) {
         }
         h.assert(await editor().inputValue() === presentedText,
           'The Y-only note disappeared or changed on native Edit readback');
+        await assertDurationEditorOwnership(page);
         h.assert(JSON.stringify(await durationState()) === JSON.stringify(savedDurations),
           'The native reloaded shared editor did not retain its saved durations');
         h.assert(sql.value(`SELECT HEX(note) FROM casemgmt_note WHERE note_id=${revision}`)
@@ -1047,6 +1109,7 @@ async function workflow(s) {
             && origCaseNote === document.getElementById(caseNote).value
             && origObservationDate === document.getElementById('observationDate').value),
           'The duration-only switch does not start from an unchanged editor/date/issue state');
+          await assertDurationEditorOwnership(page);
           for (const name of durationNames) await page.locator(`[name="${name}"]`).fill('');
           const clearedDurations = JSON.stringify(durationNames.map(() => ''));
           h.assert(await editor().inputValue() === compactText && await page.evaluate(() => noteIssuesChanged
@@ -1351,6 +1414,7 @@ DELIMITER ;`);
             await page.waitForFunction(() => !window.autoSaveXhr && !window.autoSaveOperation
               && !window.noteSwitchSavePending && window.issueUpdatesPending === 0);
             await page.evaluate(() => clearAutoSaveTimer());
+            await assertDurationEditorOwnership(page);
             await editor().fill(text);
             for (let index = 0; index < durationNames.length; index++) {
               await page.locator(`[name="${durationNames[index]}"]`).fill(durations[index]);

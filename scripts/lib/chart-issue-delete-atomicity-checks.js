@@ -49,6 +49,46 @@ async function refusedDelete(s, chart, issueId, status, text, label, application
   assertPatientStateUnchanged(baseline, readPatientState(s.sql, s.patient), label);
 }
 
+/** Fail the exact issue DELETE after Hibernate has inserted this run's note revision. */
+function rejectOwnedIssueDelete(s, patient, issueId, noteId, text) {
+  h.assert(/^[1-9]\d*$/.test(patient) && /^[1-9]\d*$/.test(issueId) && /^[1-9]\d*$/.test(noteId)
+    && /^FAKE-PW[0-9a-f]{16}$/.test(s.marker)
+    && text.startsWith(s.marker), 'The issue-delete rollback probe needs an owned patient and draft');
+  const name = `pw_issue_${s.marker.slice(7)}`;
+  const message = `Owned issue-delete rollback probe ${s.marker.slice(7)}`;
+  const predicate = `TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME=${q(name)}`;
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE ${predicate}`) === '0',
+    'The issue-delete rollback trigger name is already in use');
+  let definition;
+  const drop = () => {
+    const rows = s.sql.rows(`SELECT ACTION_STATEMENT,EVENT_OBJECT_TABLE,ACTION_TIMING,EVENT_MANIPULATION
+      FROM information_schema.TRIGGERS WHERE ${predicate}`);
+    if (rows.length) {
+      h.assert(rows.length === 1 && rows[0][1] === 'casemgmt_issue' && rows[0][2] === 'AFTER'
+        && rows[0][3] === 'DELETE' && (!definition || rows[0][0] === definition)
+        && rows[0][0].includes(q(text)) && rows[0][0].includes(q(message)),
+      'The issue-delete rollback trigger ownership changed');
+      s.sql.execute(`DROP TRIGGER ${name}`);
+    }
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE ${predicate}`) === '0',
+      'The owned issue-delete rollback trigger survived cleanup');
+  };
+  s.cleanup(drop);
+  s.sql.execute(`DELIMITER //
+CREATE TRIGGER ${name} AFTER DELETE ON casemgmt_issue FOR EACH ROW
+BEGIN
+  IF OLD.id=${issueId} AND OLD.demographic_no=${patient}
+      AND EXISTS (SELECT 1 FROM casemgmt_note WHERE note_id<>${noteId} AND demographic_no=${patient}
+        AND provider_no=${q(s.provider)} AND BINARY note=BINARY ${q(text)}) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT=${q(message)};
+  END IF;
+END//
+DELIMITER ;`);
+  definition = s.sql.value(`SELECT ACTION_STATEMENT FROM information_schema.TRIGGERS WHERE ${predicate}`);
+  h.assert(definition && definition.includes(q(text)), 'The owned issue-delete rollback trigger was not installed');
+  return { drop, name, message };
+}
+
 /**
  * Exercise real editor-form HTTP requests against the packaged server and database.
  * Modern charts retain the legacy Delete link in a hidden reference fragment without
@@ -68,8 +108,12 @@ async function checkIssueDeleteAtomicity(session, { applicationStatus }) {
       AND (provider_no<>${q(provider)} OR LOCATE(${q(stamp)},note)=0)`) === '0',
     'Atomic issue-delete note ownership changed');
     const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
+    const noteIds = sql.rows(notes).map(([id]) => id);
+    h.assert(noteIds.every(id => /^[1-9]\d*$/.test(id)), 'Atomic issue-delete cleanup has an invalid owned note ID');
+    const signatures = `type='enc' AND id IN (${noteIds.join(',') || '0'})`;
     const issues = `SELECT id FROM casemgmt_issue WHERE demographic_no=${patient}`;
-    sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes}) OR id IN (${issues});
+    sql.execute(`DELETE FROM hash_audit WHERE ${signatures};
+      DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes}) OR id IN (${issues});
       DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note_link WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note WHERE demographic_no=${patient};
@@ -85,6 +129,7 @@ async function checkIssueDeleteAtomicity(session, { applicationStatus }) {
       + (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM casemgmt_cpp WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM hash_audit WHERE ${signatures})
       + (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient})`) === '0',
     'Atomic issue-delete fixture rows survived cleanup');
@@ -179,6 +224,37 @@ async function checkIssueDeleteAtomicity(session, { applicationStatus }) {
         VALUES (${restore.map(value => value === null ? 'NULL' : value).join(',')})`);
     }
   });
+  await session.step('a real database failure after issue deletion rolls back the issue, note, CPP, draft and editor lock together', async () => {
+    const saved = chart.waitForResponse(answer => answer.request().method() === 'POST'
+      && new URL(answer.url()).pathname.endsWith('/CaseManagementEntry')
+      && new URLSearchParams(answer.request().postData() || '').get('method') === 'autosave');
+    saved.catch(() => {});
+    await chart.evaluate(() => autoSave());
+    await applicationStatus(await saved, 200, 'Owned issue-delete draft autosave');
+    await settled(chart);
+    await expectValue(sql, `SELECT note FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+      AND provider_no=${q(provider)} AND program_id=${program} ORDER BY id DESC LIMIT 1`, draft,
+    'The rollback probe did not first persist its exact recoverable draft');
+    const locks = JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note_lock WHERE demographic_no=${patient} ORDER BY id`));
+    // A leaked signature for a rolled-back new note would no longer join to the
+    // patient's surviving notes. Compare the exclusive fixture's full digest list.
+    const signatureState = () => JSON.stringify(sql.rows(`SELECT
+      SHA2(JSON_ARRAY(pkid,signature,id,type,algorithm),256) FROM hash_audit ORDER BY pkid`));
+    const signaturesBefore = signatureState();
+    const failure = rejectOwnedIssueDelete(s, patient, issueId, noteId, draft);
+    try {
+      const started = new Date().toISOString();
+      await refusedDelete(s, chart, issueId, 500, draft, 'Transactional issue-delete failure', applicationStatus);
+      h.assert(JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note_lock WHERE demographic_no=${patient} ORDER BY id`)) === locks,
+        'The failed issue-delete transaction changed the editor lock');
+      h.assert(signatureState() === signaturesBefore, 'The failed issue-delete transaction leaked or changed a note signature');
+      h.assert(await issue.count() === 1 && await chart.locator('#caseManagementEntryForm input[name="noteId"]').inputValue() === noteId,
+        'The failed issue-delete transaction changed the browser issue or selected note');
+      console.log('  CHECK chart-context-request-guards: owned issue-delete rollback ' + JSON.stringify({
+        trigger: failure.name, message: failure.message, status: 500, startUTC: started, endUTC: new Date().toISOString(),
+      }));
+    } finally { failure.drop(); }
+  });
   await session.step('an authorized editor-form retry deletes the issue and stores the retained note text together', async () => {
     const response = await editorFormDelete(s, chart, issueId);
     try { await applicationStatus(response, 200, 'Authorized editor-form issue-delete retry'); }
@@ -193,6 +269,9 @@ async function checkIssueDeleteAtomicity(session, { applicationStatus }) {
       'The editor-form request changed the current typed text');
     h.assert(sql.value(`SELECT reminders FROM casemgmt_cpp WHERE id=${cppId}`) === stamp,
       'Authorized issue deletion changed unrelated CPP text');
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+      AND provider_no=${q(provider)} AND program_id=${program}`) === '0',
+    'The successful retry retained the superseded autosaved draft');
   });
   await releaseChartLocks(context, config.baseUrl, [chart]);
   // The workflow owns the browser lifetime; keep this paused page until its

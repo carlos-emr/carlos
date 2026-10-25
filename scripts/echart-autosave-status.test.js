@@ -289,6 +289,24 @@ test('a note ID switched during a request cannot receive the previous note ackno
   h.context.backup(); assert.equal(h.requests.length, 1);
 });
 
+for (const outcome of ['success', 'lock conflict', 'network failure']) {
+  test(`a replaced form with the same note and textarea ignores its predecessor's ${outcome}`, () => {
+    const h = modern(); h.context.autoSave();
+    const previous = h.requests[0];
+    h.context.document.forms.caseManagementEntryForm = { noteId: { value: '0' } };
+    if (outcome === 'success') previous.options.onSuccess(ack());
+    else previous.options.onFailure({ status: outcome === 'lock conflict' ? 409 : 0 });
+    previous.options.onComplete();
+    assert.equal(h.context.lostNoteLock, false, 'the replacement editor still owns its own lock');
+    assert.equal(h.context.acknowledgedDrafts.get(h.editor), undefined);
+    assert.deepEqual(h.diagnostics, [], 'stale requests must not label the replacement failed');
+    h.context.backup();
+    assert.equal(h.requests.length, 2, 'the replacement form can immediately back up its text');
+    h.requests[1].options.onSuccess(ack()); h.requests[1].options.onComplete();
+    assert.equal(h.status.attributes['data-autosave-state'], 'saved');
+  });
+}
+
 for (const [description, response] of unexpectedAcks('https://clinic.example/CaseManagementEntry?chartContext=valid')) {
   test(`modern HTTP200 ${description} is a visible failure, never a saved draft or a false retry baseline`, () => {
     const h = modern(); h.context.origCaseNote = '';
@@ -371,6 +389,31 @@ test('legacy lock conflict stops further autosaves and page teardown cancellatio
   const teardown = legacy(); teardown.context.autoSave(); teardown.listeners.pagehide();
   assert.equal(teardown.timers.length, 0);
   assert.notEqual(teardown.status.attributes['data-autosave-state'], 'failed');
+});
+
+test('legacy timeout retries its latest complete text once and ignores late callbacks from the failed request', () => {
+  const h = legacy(); h.context.autoSave();
+  const timedOut = h.requests[0];
+  assert.equal(timedOut.timeout, 45000);
+  timedOut.ontimeout();
+  assert.equal(h.status.attributes['data-autosave-state'], 'failed');
+  assert.equal(h.timers.length, 1);
+  h.editor.value = 'Latest H&P + 50% = 1\n\u00e9\u4e2d\u6587 & note_id=999';
+  h.timers[0]();
+  assert.equal(h.requests.length, 2);
+  const retry = h.requests[1];
+  const body = new URLSearchParams(retry.body);
+  assert.equal(body.get('note'), h.editor.value, 'clinical punctuation and Unicode remain one exact field');
+  assert.deepEqual(body.getAll('note_id'), ['0'], 'note text must never inject another draft identity');
+  timedOut.finish(409); timedOut.onerror(); timedOut.ontimeout();
+  assert.equal(h.status.attributes['data-autosave-state'], 'pending');
+  assert.equal(h.context.legacyAutosavePending, true);
+  assert.equal(h.context.legacyAutosaveStopped, false);
+  assert.equal(h.timers.length, 1, 'old transport callbacks cannot schedule another retry');
+  retry.finish(200);
+  assert.equal(h.status.attributes['data-autosave-state'], 'saved');
+  assert.equal(h.context.legacyAutosavePending, false);
+  assert.equal(h.timers.length, 2, 'the acknowledged retry schedules one next backup');
 });
 
 for (const [description, response] of unexpectedAcks('https://clinic.example/carlos/CaseManagementEntry')) {

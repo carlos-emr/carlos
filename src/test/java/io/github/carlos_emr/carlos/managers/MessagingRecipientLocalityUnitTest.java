@@ -31,6 +31,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataRetrievalFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -52,6 +53,7 @@ class MessagingRecipientLocalityUnitTest extends CarlosUnitTestBase {
     private MessagingManagerImpl manager;
     private MessageListDao recipients;
     private OscarCommLocationsDao locations;
+    private SecurityInfoManager security;
     private LoggedInInfo login;
 
     @BeforeEach
@@ -59,7 +61,7 @@ class MessagingRecipientLocalityUnitTest extends CarlosUnitTestBase {
         manager = new MessagingManagerImpl();
         recipients = createAndRegisterMock(MessageListDao.class);
         locations = createAndRegisterMock(OscarCommLocationsDao.class);
-        var security = createAndRegisterMock(SecurityInfoManager.class);
+        security = createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), eq("_msg"), eq(SecurityInfoManager.UPDATE), isNull())).thenReturn(true);
         ReflectionTestUtils.setField(manager, "messageListDao", recipients);
         ReflectionTestUtils.setField(manager, "oscarCommLocationsDao", locations);
@@ -107,6 +109,41 @@ class MessagingRecipientLocalityUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> update(operation)).isInstanceOf(DataRetrievalFailureException.class);
 
         verifyNoInteractions(recipients);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0,del", "0,DEL", "0,sent", "0,SENT", "37,del", "37,DEL", "37,sent", "37,SENT"})
+    void shouldPreserveArchivedAndSentState_whenOpeningConfiguredLocalMessage(int location, String status) {
+        OscarCommLocations clinic = new OscarCommLocations();
+        clinic.setId(37);
+        when(locations.findByCurrent1(1)).thenReturn(List.of(clinic));
+        MessageList retained = recipient(location, 0);
+        retained.setStatus(status);
+        MessageList unread = recipient(location, 0);
+        when(recipients.findByProviderNoAndMessageNo("101", 100L)).thenReturn(List.of(retained, unread));
+
+        manager.setMessageRead(login, 100L, "101");
+
+        assertThat(retained.getStatus()).isEqualTo(status);
+        assertThat(unread.getStatus()).isEqualTo(MessageList.STATUS_READ);
+        verify(recipients, never()).merge(same(retained));
+        verify(recipients).merge(same(unread));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"read", "delete"})
+    void shouldPreserveMailboxRows_whenUpdatePrivilegeIsDenied(String operation) {
+        when(security.hasPrivilege(login, "_msg", SecurityInfoManager.UPDATE, (String) null)).thenReturn(false);
+        MessageList first = recipient(0, 0);
+        MessageList second = recipient(0, 0);
+        when(recipients.findByProviderNoAndMessageNo("101", 100L)).thenReturn(List.of(first, second));
+
+        assertThatThrownBy(() -> update(operation)).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_msg)");
+
+        assertThat(first.getStatus()).isEqualTo(MessageList.STATUS_NEW);
+        assertThat(second.getStatus()).isEqualTo(MessageList.STATUS_NEW);
+        verify(recipients, never()).merge(any());
     }
 
     private void update(String operation) {

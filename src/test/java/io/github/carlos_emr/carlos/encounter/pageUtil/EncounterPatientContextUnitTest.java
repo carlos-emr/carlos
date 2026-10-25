@@ -258,6 +258,38 @@ class EncounterPatientContextUnitTest {
     }
 
     @Test
+    void shouldFallBackToLoggedInIdentity_whenEncounterMetadataWasEvicted() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EctSessionBean original = metadata("101", "A", "9001");
+        EncounterPatientContext.rememberEncounter(request, original);
+        EctSessionBean requestCopy = EncounterPatientContext.findEncounter(request, "101");
+        // Clinical editor state has a separate lifetime from disposable encounter metadata.
+        Object unsavedEditor = new Object();
+        request.getSession().setAttribute("caseManagementEntryForm101", unsavedEditor);
+        int cacheEntries = io.github.carlos_emr.carlos.utility.BoundedSessionAttributes.MAX_ENTRIES;
+        for (int patient = 1000; patient < 1000 + cacheEntries; patient++) {
+            EncounterPatientContext.rememberEncounter(request,
+                    metadata(Integer.toString(patient), "Other", "9999"));
+        }
+
+        EctSessionBean restored = EncounterPatientContext.entryOrLoggedIn(request, loggedIn("999998"), "101");
+
+        assertThat(EncounterPatientContext.findEncounter(request, "101")).isNull();
+        assertThat(EncounterPatientContext.entryProvider(request, loggedIn("999998"), "101"))
+                .isEqualTo("999998");
+        assertThat(restored.demographicNo).isEqualTo("101");
+        assertThat(restored.providerNo).isEqualTo("999998");
+        assertThat(restored.curProviderNo).isEqualTo("999998");
+        assertThat(restored.appointmentNo).isNull();
+        assertThat(restored.reason).isNull();
+        assertThat(restored.templateNames).isNullOrEmpty();
+        assertMetadata(requestCopy, "101", "A", "9001");
+        String latestPatient = Integer.toString(1000 + cacheEntries - 1);
+        assertMetadata(EncounterPatientContext.findEncounter(request, latestPatient), latestPatient, "Other", "9999");
+        assertThat(request.getSession().getAttribute("caseManagementEntryForm101")).isSameAs(unsavedEditor);
+    }
+
+    @Test
     void shouldForgetOnlyAAndRetainBAndUnrelatedSessionState() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         EncounterPatientContext.rememberEncounter(request, metadata("101", "A", "9001"));

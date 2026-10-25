@@ -874,6 +874,108 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
                 any(), any(), any(), any(), any(), any(), any());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "empty", "malformed", "conflicting"})
+    void shouldPreserveClinicalRowsAndExactDraft_whenFullSaveIdentityIsMissingOrAmbiguous(String boundary) throws Exception {
+        String rawDraft = "\n" + submittedText + "  ";
+        prepareFullSave(rawDraft);
+        switch (boundary) {
+            case "missing" -> request.removeParameter("noteId");
+            case "empty" -> request.setParameter("noteId", new String[0]);
+            case "malformed" -> request.setParameter("noteId", new String[]{originalId.toString(), "not-a-note"});
+            case "conflicting" -> request.setParameter("noteId", new String[]{originalId.toString(), "0"});
+            default -> throw new IllegalArgumentException(boundary);
+        }
+        Snapshot before = snapshot();
+
+        assertThat(action.save()).isEqualTo("windowCloseError");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(rawDraft);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(original.getNote()).isEqualTo(marker + " original");
+        assertThat(lock.getNoteId()).isEqualTo(originalId);
+        verify(locks, never()).merge(any());
+        verify(target, never()).saveCaseManagementNote(any(), any(), anyList(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldCommitOneRevision_whenRepeatedFullSaveIdentitiesAllMatchTheRenderedNote() throws Exception {
+        prepareFullSave(submittedText);
+        request.setParameter("noteId", new String[]{originalId.toString(), originalId.toString()});
+        Snapshot before = snapshot();
+
+        assertThat(action.save()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(form.getCaseNote().getId()).isNotEqualTo(originalId);
+        Snapshot after = snapshot();
+        assertThat(after.notes()).hasSize(before.notes().size() + 1);
+        assertThat(after.notes().getFirst()).isEqualTo(before.notes().getFirst());
+        assertThat(after.drafts()).containsExactlyElementsOf(otherDrafts(before));
+        verify(locks).merge(lock);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"patient", "provider", "session", "note", "missing", "unavailable"})
+    void shouldPreserveClinicalRowsAndEditor_whenTheStoredFullSaveLockNoLongerMatches(String boundary) throws Exception {
+        String rawDraft = "\n" + submittedText + "  ";
+        prepareFullSave(rawDraft);
+        CasemgmtNoteLock stored = new CasemgmtNoteLock();
+        org.springframework.beans.BeanUtils.copyProperties(lock, stored);
+        switch (boundary) {
+            case "patient" -> stored.setDemographicNo(2);
+            case "provider" -> stored.setProviderNo("999997");
+            case "session" -> stored.setSessionId("another-login");
+            case "note" -> stored.setNoteId(0L);
+            case "missing", "unavailable" -> { /* The DAO outcome below is the boundary. */ }
+            default -> throw new IllegalArgumentException(boundary);
+        }
+        if ("unavailable".equals(boundary)) when(locks.find(10L)).thenThrow(new IllegalStateException("Lock read unavailable"));
+        else when(locks.find(10L)).thenReturn("missing".equals(boundary) ? null : stored);
+        Snapshot before = snapshot();
+
+        assertThat(action.save()).isEqualTo("windowCloseError");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(rawDraft);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(original.getNote()).isEqualTo(marker + " original");
+        assertThat(lock.getNoteId()).isEqualTo(originalId);
+        verify(locks, never()).merge(any());
+        verify(target, never()).saveCaseManagementNote(any(), any(), anyList(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldUpdateOnlyTheOwnedTargetLock_whenAnotherProgramWindowReplacesThePatientLockCache() throws Exception {
+        prepareFullSave(submittedText);
+        CasemgmtNoteLock otherWindow = new CasemgmtNoteLock();
+        org.springframework.beans.BeanUtils.copyProperties(lock, otherWindow);
+        otherWindow.setId(11L);
+        otherWindow.setNoteId(originalId + 1000);
+        request.getSession().setAttribute("casemgmtNoteLock1", otherWindow);
+        when(locks.findBySession(request.getSession().getId())).thenReturn(List.of(otherWindow, lock));
+        Snapshot before = snapshot();
+
+        assertThat(action.save()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(form.getCaseNote().getId()).isNotEqualTo(originalId);
+        assertThat(lock.getNoteId()).isEqualTo(form.getCaseNote().getId());
+        assertThat(otherWindow.getNoteId()).isEqualTo(originalId + 1000);
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isSameAs(otherWindow);
+        verify(locks).merge(lock);
+        verify(locks, never()).merge(otherWindow);
+        Snapshot after = snapshot();
+        assertThat(after.notes()).hasSize(before.notes().size() + 1);
+        assertThat(after.notes().getFirst()).isEqualTo(before.notes().getFirst());
+        assertThat(after.drafts()).containsExactlyElementsOf(otherDrafts(before));
+    }
+
     private CheckBoxBean prepareIssueDeletion() {
         CheckBoxBean checkbox = prepareFullIssueSave(true, false);
         // Native Delete is offered only for an issue not referenced by any saved note.

@@ -125,7 +125,7 @@ version satisfying the package dependency. No CLI release is published by this w
   All 992 JSPs compile.
 - Full script regression run: 4,475 passed, zero failures, four skipped and one TODO.
 - Pinned DrugRef build: 74 tests passed. The documented `carlos-ctl` fallback build:
-  1,597 passed and 78 skipped.
+  1,597 tests total: 1,519 passed and 78 skipped.
 - CARLOS and DrugRef debs were built, installed and upgraded in a disposable Ubuntu
   26.04 systemd container. `carlos-ctl check` passed, including live application and
   DrugRef requests, database migrations, TLS, WAF and least-privilege reporting.
@@ -153,3 +153,46 @@ inconclusive because its prevention-print positive control failed before the swe
 These results are recorded separately from the 16 passing workflows; they are not
 claimed as fixed by this issue. The OAuth audit passed with its documented prerequisite
 enabled temporarily, and that setting was restored.
+
+## Additional full review and regression coverage (2026-10-25)
+
+A second review inspected all 237 changed paths from release base `0f2b04d` through
+`d286cce`, including the changed tests and browser helpers. The historical results
+above describe their original snapshot; current run counts, CI and package provenance
+are recorded in [PR #5250](https://github.com/carlos-emr/carlos/pull/5250).
+
+Running the additional `rx-print-profile` workflow found a native shared-note Save
+failure that was outside the previously passing 32 workflows. A retired editor left
+its four duration inputs enabled in the same form as the next editor. The resulting
+duplicate fields failed Struts Integer conversion and returned an unmapped `input`
+result before the save action ran. Exact before/after note and draft counts confirmed
+that this refusal did not commit a full save.
+
+Successful or unchanged editor teardown now replaces only that note's duration inputs
+with text nodes, preserving their display while removing their form names and IDs.
+Failed saves retain editable duration controls. The existing request parser owns
+duration validation instead of a second Struts Integer binding: repeated equal values
+and explicit blanks are supported, and every repeated value is checked before any
+field changes. Malformed or conflicting values return 400.
+
+New coverage checks concurrent first-window contexts, forged signed payloads, full-save
+note identities and database locks, metadata eviction without draft loss, repeated Rx
+patient identifiers, mailbox state and denied writes, orphan-provider exports, and
+real JDBC execution of the shipped report queries. Frontend cases exercise stale
+autosave callbacks, popup context boundaries, timeout retries and retirement of
+duration controls. All four new duration-teardown cases fail against the original
+JavaScript and pass with the fix. Struts pipeline tests cover parameter conversion
+and workflow interception in addition to direct action tests.
+
+The issue-deletion browser check also persists a recoverable draft and injects an
+owned MariaDB failure after both the new note INSERT and exact issue DELETE have
+executed. Complete clinical rows, draft text, locks and editor state must roll back;
+the same editor then retries successfully. The unique SQL signal is checked in the
+server journal, and exact trigger ownership and removal are verified. The check
+follows Hibernate's actual INSERT-before-DELETE flush order. Fixture cleanup removes
+only signature rows belonging to its verified note IDs before deleting those notes.
+
+Installed Rx checks require exactly one visible, enabled duration control per field,
+all owned by the selected note, and verify entered and cleared values through full
+Save, compact save, issue refresh and historical readback. These assertions retain
+strict native controls and database checks rather than selecting an arbitrary duplicate.
