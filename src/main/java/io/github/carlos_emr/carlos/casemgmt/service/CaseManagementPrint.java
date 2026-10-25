@@ -56,6 +56,7 @@
 package io.github.carlos_emr.carlos.casemgmt.service;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.encounter.data.EctProviderData;
 import org.openpdf.text.DocumentException;
 import org.apache.logging.log4j.Logger;
@@ -91,6 +92,19 @@ import java.util.stream.Collectors;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CaseManagementPrint {
+
+    /** The selected notes or supplied chart context fail the print read boundary. */
+    public static final class NoteAccessDeniedException extends SecurityException {
+        private static final long serialVersionUID = 1L;
+
+        public NoteAccessDeniedException() {
+            super("Selected note access denied");
+        }
+
+        public NoteAccessDeniedException(SecurityException cause) {
+            super("Chart print context access denied", cause);
+        }
+    }
 
     private static Logger logger = MiscUtils.getLogger();
 
@@ -156,6 +170,12 @@ public class CaseManagementPrint {
         // parameter view to the authorized patient so a query string cannot select a second chart.
         request = patientScopedRequest(request, demographicNo);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
+        String program;
+        try {
+            program = ChartProgramContext.resolve(request);
+        } catch (SecurityException invalidContext) {
+            throw new NoteAccessDeniedException(invalidContext);
+        }
 
         ChartPrintDateRange printRange = useDateRange ? ChartPrintDateRange.from(startDate, endDate) : null;
 
@@ -198,6 +218,11 @@ public class CaseManagementPrint {
                 }
             }
         }
+        List<CaseManagementNote> readableNotes = readableNotes(loggedInInfo, notes, program);
+        if (!printAllNotes && readableNotes.size() != notes.size()) {
+            throw new NoteAccessDeniedException();
+        }
+        notes = readableNotes;
 
         // we're not guaranteed any ordering of notes given to us, so sort by observation date
         CarlosProperties p = CarlosProperties.getInstance();
@@ -224,7 +249,7 @@ public class CaseManagementPrint {
             for (String issueCode : issueCodes) {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, issueCode);
                 String[] issueIds = getIssueIds(issues);
-                tmpNotes = caseManagementMgr.getNotes(demono, issueIds);
+                tmpNotes = readableNotes(loggedInInfo, caseManagementMgr.getNotes(demono, issueIds), program);
                 issueNotes = new ArrayList<>();
                 for (CaseManagementNote tmpNote : tmpNotes) {
                     if (!tmpNote.isLocked() && !tmpNote.isArchived()) {
@@ -256,7 +281,7 @@ public class CaseManagementPrint {
             if (cpp == null) {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, "OMeds");
                 String[] issueIds = getIssueIds(issues); // new String[issues.size()];
-                othermeds = caseManagementMgr.getNotes(demono, issueIds);
+                othermeds = readableNotes(loggedInInfo, caseManagementMgr.getNotes(demono, issueIds), program);
                 // Rx-only printing renders Other Meds here, so omit those notes from the body.
                 Set<Long> printedMedicationIds = othermeds.stream().map(CaseManagementNote::getId)
                         .collect(Collectors.toSet());
@@ -437,29 +462,41 @@ public class CaseManagementPrint {
 
     }
 
+    /** Preserve legacy no-program visibility; configured charts use the same role/facility policy as their list. */
+    private List<CaseManagementNote> readableNotes(LoggedInInfo login, Collection<CaseManagementNote> notes,
+                                                  String program) {
+        if (program == null || "0".equals(program)) return new ArrayList<>(notes);
+        return new ArrayList<>(caseManagementMgr.filterNotes(login, login.getLoggedInProviderNo(), notes, program));
+    }
+
     private static HttpServletRequest patientScopedRequest(HttpServletRequest request, Integer demographicNo) {
         String patient = String.valueOf(demographicNo);
         return new HttpServletRequestWrapper(request) {
             @Override
             public String getParameter(String name) {
-                return "demographicNo".equals(name) ? patient : super.getParameter(name);
+                return isPatientParameter(name) ? patient : super.getParameter(name);
             }
 
             @Override
             public String[] getParameterValues(String name) {
-                return "demographicNo".equals(name) ? new String[]{patient} : super.getParameterValues(name);
+                return isPatientParameter(name) ? new String[]{patient} : super.getParameterValues(name);
             }
 
             @Override
             public Map<String, String[]> getParameterMap() {
                 Map<String, String[]> parameters = new HashMap<>(super.getParameterMap());
                 parameters.put("demographicNo", new String[]{patient});
+                parameters.put("demographic_no", new String[]{patient});
                 return Collections.unmodifiableMap(parameters);
             }
 
             @Override
             public Enumeration<String> getParameterNames() {
                 return Collections.enumeration(getParameterMap().keySet());
+            }
+
+            private boolean isPatientParameter(String name) {
+                return "demographicNo".equals(name) || "demographic_no".equals(name);
             }
         };
     }

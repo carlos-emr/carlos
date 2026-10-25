@@ -21,24 +21,39 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAO;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramAccess;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.PMmodule.utility.ProgramAccessCache;
+import io.github.carlos_emr.carlos.PMmodule.utility.RoleCache;
 import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.RoleProgramAccessDAO;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.print.OscarChartPrinter;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
+import io.github.carlos_emr.carlos.commn.dao.CaisiAccessTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.daos.security.SecroleDao;
+import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.io.PrintWriter;
@@ -47,6 +62,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.struts2.ActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -57,6 +73,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -344,6 +361,242 @@ class ChartPrintReadAccessUnitTest extends CarlosUnitTestBase {
         verify(demographics, never()).getClientByDemographicNo(202);
         verify(notes).getMostRecentNotes(101);
         assertThat(response.getHeader("Content-Disposition")).contains("101.pdf");
+    }
+
+    static Stream<Arguments> invalidPrintContexts() {
+        return Stream.of("selectedPdf", "fullPdf").flatMap(operation ->
+                Stream.of("forged", "ambiguous", "foreign", "blank")
+                        .map(context -> Arguments.of(operation, context)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidPrintContexts")
+    void shouldRefuseInvalidChartContext_beforeClinicalReadsHeadersOrPdfConstruction(
+            String operation, String invalid) {
+        invalidContext(invalid);
+        try (var selected = mockConstruction(CaseManagementPrint.class);
+             var complete = mockConstruction(OscarChartPrinter.class)) {
+            assertThatThrownBy(() -> read(operation)).isInstanceOf(SecurityException.class);
+            assertThat(selected.constructed()).isEmpty();
+            assertThat(complete.constructed()).isEmpty();
+        }
+        verifyNoInteractions(manager, notes, demographics, allergies);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+        logActionMock.verifyNoInteractions();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"forged", "ambiguous", "foreign", "blank"})
+    void shouldRefuseInvalidContext_beforeStandaloneCppReadsOrRendering(String invalid) {
+        invalidContext(invalid);
+        OscarChartPrinter printer = mock(OscarChartPrinter.class);
+        assertThatThrownBy(() -> fullChart.printCppItem(printer, "Medical History", "MedHistory", 101))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(manager, notes, demographics, allergies, printer);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentType()).isNull();
+    }
+
+    @Test
+    void shouldReturnControlledForbiddenWithoutPdfHeaders_whenSelectedNotesAreChartHidden() throws Exception {
+        String token = rememberOtherWindow("101", "7");
+        request.setParameter(ChartProgramContext.PARAMETER, token);
+        CaseManagementEntryFormBean draft = new CaseManagementEntryFormBean();
+        CaseManagementNote unsaved = note(501L, "101", "Keep exact unsaved draft café 中文");
+        draft.setCaseNote(unsaved);
+        String formKey = ChartProgramContext.formKey(request, "101");
+        request.getSession().setAttribute(formKey, draft);
+        try (var renderer = mockConstruction(CaseManagementPrint.class, (mock, context) ->
+                doThrow(new CaseManagementPrint.NoteAccessDeniedException()).when(mock).doPrint(
+                        eq(login), eq(101), anyBoolean(), any(String[].class), anyBoolean(), anyBoolean(),
+                        anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any(), eq(request), any()))) {
+            entry.print();
+            assertThat(renderer.constructed()).hasSize(1);
+        }
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getErrorMessage()).isEqualTo("Selected note access denied");
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+        assertThat(request.getSession().getAttribute(formKey)).isSameAs(draft);
+        assertThat(draft.getCaseNote()).isSameAs(unsaved);
+        assertThat(unsaved.getNote()).isEqualTo("Keep exact unsaved draft café 中文");
+        verifyNoInteractions(manager, notes, demographics, allergies);
+        logActionMock.verifyNoInteractions();
+    }
+
+    static Stream<Arguments> readableFullChartContexts() {
+        return Stream.of("signed", "legacy").flatMap(context ->
+                Stream.of("same-role", "program-grant", "default-grant")
+                        .map(grant -> Arguments.of(context, grant)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("readableFullChartContexts")
+    void shouldFilterEveryFullChartCollectionWithOneCapturedProgram_whileKeepingAllowedSharedNotes(
+            String context, String grant) throws Exception {
+        String original = rememberOtherWindow("101", "7");
+        if ("signed".equals(context)) {
+            request.setParameter(ChartProgramContext.PARAMETER, original);
+            rememberOtherWindow("101", "8");
+        }
+        String readableRole = "same-role".equals(grant) ? "7" : "8";
+        CaseManagementNote visible = roleNote(601L, "Allowed other-program body", "8", readableRole);
+        CaseManagementNote hidden = roleNote(602L, "Hidden originating-program body", "7", "9");
+        CaseManagementNote visibleCpp = roleNote(603L, "Allowed shared CPP", "8", readableRole);
+        CaseManagementNote hiddenCpp = roleNote(604L, "Hidden originating CPP", "7", "9");
+        cpp(visibleCpp);
+        cpp(hiddenCpp);
+        List<CaseManagementNote> allNotes = List.of(visible, hidden, visibleCpp, hiddenCpp);
+        List<CaseManagementNote> allCpp = List.of(visibleCpp, hiddenCpp);
+        when(notes.getMostRecentNotes(101)).thenReturn(allNotes);
+        when(notes.findNotesByDemographicAndIssueCode(eq(101), any(String[].class))).thenReturn(allCpp);
+        ownDemographic();
+        try (RealVisibility policy = new RealVisibility(grant);
+             var contexts = mockStatic(ChartProgramContext.class, CALLS_REAL_METHODS);
+             var renderer = mockConstruction(OscarChartPrinter.class, (mock, construction) -> {
+                 // A second same-patient chart changes compatibility state after capture.
+                 rememberOtherWindow("101", "8");
+             })) {
+            fullChart.print();
+            OscarChartPrinter printer = renderer.constructed().getFirst();
+            verify(printer).printNotes(List.of(visible), true);
+            for (String header : List.of("Social History", "Medical History", "Ongoing Concerns", "Reminders",
+                    "Family History", "Risk Factors", "Other Medications")) {
+                verify(printer).printCPPItem(header, List.of(visibleCpp));
+            }
+            verify(manager, times(8)).filterNotes(eq(login), eq("4249"), anyCollection(), eq("7"));
+            verify(manager, never()).filterNotes(any(), anyString(), anyCollection(), eq("8"));
+            contexts.verify(() -> ChartProgramContext.resolve(request), times(1));
+        }
+        assertThat(allNotes).containsExactly(visible, hidden, visibleCpp, hiddenCpp);
+        assertThat(allCpp).containsExactly(visibleCpp, hiddenCpp);
+        assertThat(visible.getProgram_no()).isEqualTo("8");
+        assertThat(hidden.getNote()).isEqualTo("Hidden originating-program body");
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"absent", "0"})
+    void shouldPreserveLegacyNoProgramCollections_evenIfAnotherWindowChangesFallbackDuringRendering(
+            String program) throws Exception {
+        if ("0".equals(program)) rememberOtherWindow("101", "0");
+        CaseManagementNote first = roleNote(611L, "Legacy first body", "7", "7");
+        CaseManagementNote second = roleNote(612L, "Legacy other body", "8", "9");
+        List<CaseManagementNote> all = List.of(first, second);
+        when(notes.getMostRecentNotes(101)).thenReturn(all);
+        when(notes.findNotesByDemographicAndIssueCode(eq(101), any(String[].class))).thenReturn(all);
+        ownDemographic();
+        try (var contexts = mockStatic(ChartProgramContext.class, CALLS_REAL_METHODS);
+             var renderer = mockConstruction(OscarChartPrinter.class, (mock, construction) ->
+                     rememberOtherWindow("101", "8"))) {
+            fullChart.print();
+            OscarChartPrinter printer = renderer.constructed().getFirst();
+            verify(printer).printNotes(all, true);
+            verify(printer, times(7)).printCPPItem(anyString(), eq(all));
+            contexts.verify(() -> ChartProgramContext.resolve(request), times(1));
+        }
+        verifyNoInteractions(manager);
+        assertThat(all).containsExactly(first, second);
+    }
+
+    private void invalidContext(String invalid) {
+        String original = rememberOtherWindow("101", "7");
+        switch (invalid) {
+            case "forged" -> request.setParameter(ChartProgramContext.PARAMETER, "MTAxOjc." + "A".repeat(43));
+            case "ambiguous" -> request.setParameter(ChartProgramContext.PARAMETER,
+                    original, rememberOtherWindow("101", "8"));
+            case "foreign" -> request.setParameter(ChartProgramContext.PARAMETER, rememberOtherWindow("202", "7"));
+            case "blank" -> request.setParameter(ChartProgramContext.PARAMETER, "");
+            default -> throw new IllegalArgumentException(invalid);
+        }
+    }
+
+    private String rememberOtherWindow(String patient, String program) {
+        MockHttpServletRequest window = new MockHttpServletRequest();
+        window.setSession(request.getSession());
+        window.setParameter("demographicNo", patient);
+        ChartProgramContext.remember(window, program);
+        return ChartProgramContext.token(window);
+    }
+
+    private void ownDemographic() {
+        Demographic patient = new Demographic();
+        patient.setDemographicNo(101);
+        when(demographics.getClientByDemographicNo(101)).thenReturn(patient);
+    }
+
+    private static CaseManagementNote roleNote(long id, String text, String program, String role) {
+        CaseManagementNote note = note(id, "101", text);
+        note.setProgram_no(program);
+        note.setReporter_caisi_role(role);
+        note.setIssues(Set.of());
+        return note;
+    }
+
+    private static void cpp(CaseManagementNote note) {
+        Issue issue = new Issue();
+        issue.setCode("MedHistory");
+        CaseManagementIssue link = new CaseManagementIssue();
+        link.setIssue(issue);
+        note.setIssues(Set.of(link));
+    }
+
+    /** Uses the real role filter; only persisted memberships, grants and caches are test doubles. */
+    private final class RealVisibility implements AutoCloseable {
+        private final MockedStatic<RoleCache> roles;
+        private final MockedStatic<ProgramAccessCache> access;
+        private final MockedStatic<CarlosProperties> properties;
+
+        RealVisibility(String grant) {
+            createAndRegisterMock(SecroleDao.class);
+            createAndRegisterMock(DefaultRoleAccessDAO.class);
+            createAndRegisterMock(CaisiAccessTypeDao.class);
+            createAndRegisterMock(ProgramAccessDAO.class);
+            roles = mockStatic(RoleCache.class);
+            access = mockStatic(ProgramAccessCache.class);
+            properties = mockStatic(CarlosProperties.class);
+            CarlosProperties settings = mock(CarlosProperties.class);
+            properties.when(CarlosProperties::getInstance).thenReturn(settings);
+            when(settings.getBooleanProperty("FILTER_ON_FACILITY", "true")).thenReturn(false);
+            CaseManagementManagerImpl actual = new CaseManagementManagerImpl();
+            ProgramProviderDAO memberships = mock(ProgramProviderDAO.class);
+            RoleProgramAccessDAO defaults = mock(RoleProgramAccessDAO.class);
+            actual.setProgramProviderDao(memberships);
+            actual.setRoleProgramAccessDAO(defaults);
+            ProgramProvider membership = new ProgramProvider();
+            membership.setRole(role(7L, "Doctor"));
+            when(memberships.getProgramProviderByProviderProgramId("4249", 7L)).thenReturn(List.of(membership));
+            roles.when(() -> RoleCache.getRole(7L)).thenReturn(membership.getRole());
+            roles.when(() -> RoleCache.getRole(8L)).thenReturn(role(8L, "Nurse"));
+            roles.when(() -> RoleCache.getRole(9L)).thenReturn(role(9L, "Restricted"));
+            var permissions = new HashMap<String, ProgramAccess>();
+            if ("program-grant".equals(grant)) {
+                ProgramAccess permission = new ProgramAccess();
+                permission.setAllRoles(true);
+                permissions.put("read nurse notes", permission);
+            }
+            if ("default-grant".equals(grant)) when(defaults.hasAccess("read nurse notes", 7L)).thenReturn(true);
+            access.when(() -> ProgramAccessCache.getAccessMap(7L)).thenReturn(permissions);
+            when(manager.filterNotes(eq(login), eq("4249"), anyCollection(), anyString())).thenAnswer(call ->
+                    actual.filterNotes(call.getArgument(0), call.getArgument(1), call.getArgument(2), call.getArgument(3)));
+        }
+
+        @Override
+        public void close() {
+            properties.close();
+            access.close();
+            roles.close();
+        }
+    }
+
+    private static Secrole role(long id, String name) {
+        Secrole role = new Secrole();
+        role.setId(id);
+        role.setName(name);
+        return role;
     }
 
     private void useCanonicalAliases() {

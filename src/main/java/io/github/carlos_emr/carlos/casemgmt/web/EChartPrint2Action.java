@@ -39,6 +39,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.print.OscarChartPrinter;
@@ -89,6 +91,7 @@ public class EChartPrint2Action extends ActionSupport {
     /** Issue codes for Cumulative Patient Profile sections that are printed separately from notes. */
     static String[] cppIssues = {"MedHistory", "OMeds", "SocHistory", "FamHistory", "Reminders", "Concerns", "RiskFactors"};
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
 
 
     /**
@@ -126,6 +129,7 @@ public class EChartPrint2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
+        String program = ChartProgramContext.resolve(request);
         PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_demographic", "r");
         PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_eChart", "r");
         PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_casemgmt.notes", "r");
@@ -146,13 +150,13 @@ public class EChartPrint2Action extends ActionSupport {
             printer.printAppointmentHistory();
             printer.setNewPage(true);
 
-            printCppItem(printer, "Social History", "SocHistory", demographic.getDemographicNo());
-            printCppItem(printer, "Medical History", "MedHistory", demographic.getDemographicNo());
-            printCppItem(printer, "Ongoing Concerns", "Concerns", demographic.getDemographicNo());
-            printCppItem(printer, "Reminders", "Reminders", demographic.getDemographicNo());
-            printCppItem(printer, "Family History", "FamHistory", demographic.getDemographicNo());
-            printCppItem(printer, "Risk Factors", "RiskFactors", demographic.getDemographicNo());
-            printCppItem(printer, "Other Medications", "OMeds", demographic.getDemographicNo());
+            printCppItem(printer, "Social History", "SocHistory", demographic.getDemographicNo(), loggedInInfo, program);
+            printCppItem(printer, "Medical History", "MedHistory", demographic.getDemographicNo(), loggedInInfo, program);
+            printCppItem(printer, "Ongoing Concerns", "Concerns", demographic.getDemographicNo(), loggedInInfo, program);
+            printCppItem(printer, "Reminders", "Reminders", demographic.getDemographicNo(), loggedInInfo, program);
+            printCppItem(printer, "Family History", "FamHistory", demographic.getDemographicNo(), loggedInInfo, program);
+            printCppItem(printer, "Risk Factors", "RiskFactors", demographic.getDemographicNo(), loggedInInfo, program);
+            printCppItem(printer, "Other Medications", "OMeds", demographic.getDemographicNo(), loggedInInfo, program);
             printer.setNewPage(true);
 
             List<Allergy> allergies = allergyDao.findAllergies(demographic.getDemographicNo());
@@ -172,6 +176,7 @@ public class EChartPrint2Action extends ActionSupport {
 
 
             List<CaseManagementNote> notes = this.caseManagementNoteDao.getMostRecentNotes(demographic.getDemographicNo());
+            notes = readableNotes(loggedInInfo, notes, program);
             notes = filterOutCpp(notes);
             if (notes.size() > 0)
                 printer.printNotes(notes, true);
@@ -219,13 +224,28 @@ public class EChartPrint2Action extends ActionSupport {
      * @throws DocumentException if an OpenPDF document error occurs
      */
     public void printCppItem(OscarChartPrinter printer, String header, String issueCode, int demographicNo) throws DocumentException {
+        String program = ChartProgramContext.resolve(request);
+        printCppItem(printer, header, issueCode, demographicNo,
+                LoggedInInfo.getLoggedInInfoFromSession(request), program);
+    }
+
+    private void printCppItem(OscarChartPrinter printer, String header, String issueCode, int demographicNo,
+                              LoggedInInfo login, String program) throws DocumentException {
         Collection<CaseManagementNote> notes = null;
         notes = caseManagementNoteDao.findNotesByDemographicAndIssueCode(demographicNo, new String[]{issueCode});
+        notes = readableNotes(login, notes, program);
 
         if (notes.size() > 0) {
             printer.printCPPItem(header, notes);
             printer.printBlankLine();
         }
+    }
+
+    /** Apply the originating chart's role/facility policy without restricting legitimate shared-program notes. */
+    private List<CaseManagementNote> readableNotes(LoggedInInfo login, Collection<CaseManagementNote> notes,
+                                                 String program) {
+        if (program == null || "0".equals(program)) return new ArrayList<>(notes);
+        return caseManagementManager.filterNotes(login, login.getLoggedInProviderNo(), notes, program);
     }
 
 }

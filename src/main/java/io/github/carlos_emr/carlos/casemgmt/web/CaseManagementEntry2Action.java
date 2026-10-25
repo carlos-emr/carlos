@@ -3591,6 +3591,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         CaseManagementPrint cmp = new CaseManagementPrint();
         try {
             cmp.doPrint(loggedInInfo, demographicNo, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, (pType != null && "dates".equals(pType)) ? true : false, cStartDate, cEndDate, request, response.getOutputStream());
+        } catch (CaseManagementPrint.NoteAccessDeniedException deniedNote) {
+            if (!response.isCommitted()) {
+                response.reset();
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Selected note access denied");
+            }
         } catch (Exception e) {
             // Direct-response action: doPrint fails before writing any bytes (DocumentException/
             // IOException/SecurityException all fire pre-write), so the response is still uncommitted
@@ -3619,6 +3624,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         PatientRecordAccess.require(securityInfoManager, login, patient, "_demographic", "r");
         PatientRecordAccess.require(securityInfoManager, login, patient, "_eChart", "r");
         PatientRecordAccess.require(securityInfoManager, login, patient, "_casemgmt.notes", "r");
+        ChartProgramContext.resolve(printRequest);
         return patient;
     }
 
