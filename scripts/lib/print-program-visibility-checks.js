@@ -277,20 +277,88 @@ async function checkPrintProgramVisibility(s, { fixture }) {
     ...(route === '/CaseManagementEntry' ? { method: 'print', notes2print: 'ALL_NOTES', printCPP: 'false', printRx: 'false' } : {}),
     demographicNo: patient, chartContext: token, ...extra,
   })}`);
+  const printArtifactDir = fs.mkdtempSync('/tmp/carlos-role-print-evidence-');
+  let printArtifactIndex = 0;
+  const preservePrintResponse = (label, response, bytes, expectedKeys) => {
+    const basename = `${printArtifactDir}/response-${++printArtifactIndex}`;
+    const proof = { label, status: response.status(),
+      fromApplication: Object.hasOwn(response.headers(), h.APPLICATION_HEADER),
+      contentType: response.headers()['content-type'] || '', bytes: bytes.length,
+      sha256: createHash('sha256').update(bytes).digest('hex'), expectedKeys };
+    const artifact = `${basename}.${bytes.subarray(0, 5).toString('latin1') === '%PDF-' ? 'pdf' : 'bin'}`;
+    fs.writeFileSync(artifact, bytes, { mode: 0o600 });
+    const report = `${basename}.json`;
+    const save = () => fs.writeFileSync(report, JSON.stringify(proof, null, 2) + '\n', { mode: 0o600 });
+    save();
+    let capturedText;
+    const addText = text => {
+        capturedText = text;
+        fs.writeFileSync(`${basename}.txt`, text, { mode: 0o600 });
+        proof.textSHA256 = createHash('sha256').update(text).digest('hex');
+        proof.cafe = text.includes('café');
+        proof.chinese = text.includes('中文');
+        proof.tokens = Object.fromEntries(Object.entries(bodies).map(([key, body]) => [key, {
+          exact: text.includes(clinicalToken(body)),
+          withoutWhitespace: text.replace(/\s+/g, '').includes(clinicalToken(body)),
+        }]));
+        save();
+        return JSON.stringify({ cafe: proof.cafe, chinese: proof.chinese, tokens: proof.tokens, report });
+    };
+    // Preserve an unexpected or malformed PDF before its status/header check
+    // can fail. Diagnostic extraction never changes the exact pass criteria.
+    if (bytes.subarray(0, 5).toString('latin1') === '%PDF-') {
+      try { addText(execFileSync('pdftotext', ['-', '-'], { input: bytes, encoding: 'utf8', timeout: 20000 })); }
+      catch (error) {
+        proof.extractionError = { name: error.name, status: Number.isInteger(error.status) ? error.status : null };
+        save();
+      }
+    }
+    console.log(`  Print response evidence ${JSON.stringify({ label, artifact, report,
+      status: proof.status, bytes: proof.bytes, sha256: proof.sha256 })}`);
+    return { report, get text() { return capturedText; }, addText };
+  };
+  await s.step('shortened note HTML enforces the originating role while retaining readable cross-program notes', async () => {
+    const csrf = await chart.evaluate(() => window.CarlosAjax?.getCsrfToken());
+    h.assert(csrf, 'The owned chart has no genuine CSRF token');
+    for (const [label, selected, context, expected, key] of [
+      ['shared note under origin', shared, token, 200, 'SHARED'],
+      ['hidden note under origin', hidden, token, 403, null],
+      ['hidden note under its readable program', hidden, otherToken, 200, 'HIDDEN'],
+    ]) {
+      const response = await reader.context.request.get(address({ method: 'viewNote', noteId: selected,
+        raw: 'true', chartContext: context, 'CSRF-TOKEN': csrf }, '/CaseManagementView'), { maxRedirects: 0 });
+      try {
+        const bytes = await response.body();
+        const body = bytes.toString('utf8');
+        const evidence = preservePrintResponse(label, response, bytes, key ? [key] : []);
+        const diagnostic = evidence.addText(evidence.text ?? body);
+        h.assert(response.status() === expected && Object.hasOwn(response.headers(), h.APPLICATION_HEADER),
+          `${label}: HTTP ${response.status()}, expected ${expected}; ${diagnostic}`);
+        if (key) h.assert(body.includes(clinicalToken(bodies[key])) && body.includes('café') && body.includes('中文')
+          && !Object.keys(bodies).filter(other => other !== key).some(other => body.includes(clinicalToken(bodies[other]))),
+        `${label}: shortened HTML changed the note scope; ${diagnostic}`);
+        else h.assert(!body.includes(`${marker}-ROLE-`) && bytes.subarray(0, 5).toString('latin1') !== '%PDF-',
+          `${label}: refused HTML returned clinical bytes; ${diagnostic}`);
+      } finally { await response.dispose(); }
+      unchanged(label);
+    }
+  });
   const actualPdf = async (label, extra, expectedKeys, route) => {
     const response = await reader.context.request.get(address(extra, route), { maxRedirects: 0, timeout: 40000 });
     try {
       const bytes = await response.body();
+      const evidence = preservePrintResponse(label, response, bytes, expectedKeys);
       h.assert(response.status() === 200 && Object.hasOwn(response.headers(), h.APPLICATION_HEADER)
         && /application\/pdf/i.test(response.headers()['content-type'] || '') && bytes.length > 1000
         && bytes.subarray(0, 5).toString('latin1') === '%PDF-'
-        && /%%EOF\s*$/.test(bytes.subarray(-1024).toString('latin1')), `${label}: no complete application PDF`);
-      const text = execFileSync('pdftotext', ['-', '-'], { input: bytes, encoding: 'utf8', timeout: 20000 });
+        && /%%EOF\s*$/.test(bytes.subarray(-1024).toString('latin1')), `${label}: no complete application PDF; ${evidence.report}`);
+      const text = evidence.text ?? execFileSync('pdftotext', ['-', '-'], { input: bytes, encoding: 'utf8', timeout: 20000 });
+      const diagnostic = evidence.addText(text);
       const unexpectedKeys = Object.keys(bodies).filter(key => !expectedKeys.includes(key));
       h.assert(expectedKeys.every(key => text.includes(clinicalToken(bodies[key])))
         && !unexpectedKeys.some(key => text.includes(clinicalToken(bodies[key])))
         && text.includes('café') && text.includes('中文'),
-      `${label}: PDF visibility disagrees with the native chart`);
+      `${label}: PDF visibility disagrees with the native chart; ${diagnostic}`);
       console.log(`  PDF role policy ${label}: ${bytes.length} bytes SHA256 ${createHash('sha256').update(bytes).digest('hex')}`);
     } finally { await response.dispose(); }
     unchanged(label);
@@ -301,11 +369,13 @@ async function checkPrintProgramVisibility(s, { fixture }) {
       try {
         const bytes = await response.body();
         const body = bytes.toString('utf8');
+        const evidence = preservePrintResponse('explicit hidden selection under origin', response, bytes, []);
+        if (evidence.text === undefined && bytes.subarray(0, 5).toString('latin1') !== '%PDF-') evidence.addText(body);
         const fromApplication = Object.hasOwn(response.headers(), h.APPLICATION_HEADER);
         const isPdf = bytes.subarray(0, 5).toString('latin1') === '%PDF-';
         const hasClinicalText = Object.values(bodies).some(text => body.includes(clinicalToken(text)));
         h.assert(response.status() === 403 && fromApplication && !isPdf && !hasClinicalText,
-          `Hidden explicit selection: HTTP ${response.status()}, application=${fromApplication}, PDF=${isPdf}, clinical=${hasClinicalText}`);
+          `Hidden explicit selection: HTTP ${response.status()}, application=${fromApplication}, PDF=${isPdf}, clinical=${hasClinicalText}; ${evidence.report}`);
       } finally { await response.dispose(); }
       unchanged('Refused explicit selection');
     }
@@ -330,17 +400,19 @@ async function checkPrintProgramVisibility(s, { fixture }) {
       const response = await reader.context.request.get(url, { maxRedirects: 0, timeout: 40000 });
       try {
         const bytes = await response.body();
+        const evidence = preservePrintResponse(label, response, bytes, expected === 200 ? allowedKeys : []);
         h.assert(response.status() === expected && Object.hasOwn(response.headers(), h.APPLICATION_HEADER),
-          `${label}: REST print answered HTTP ${response.status()}, expected ${expected}`);
+          `${label}: REST print answered HTTP ${response.status()}, expected ${expected}; ${evidence.report}`);
         if (expected === 200) {
           h.assert(/application\/pdf/i.test(response.headers()['content-type'] || '') && bytes.length > 1000
             && bytes.subarray(0, 5).toString('latin1') === '%PDF-'
             && /%%EOF\s*$/.test(bytes.subarray(-1024).toString('latin1')), `${label}: no complete REST PDF`);
-          const text = execFileSync('pdftotext', ['-', '-'], { input: bytes, encoding: 'utf8', timeout: 20000 });
+          const text = evidence.text ?? execFileSync('pdftotext', ['-', '-'], { input: bytes, encoding: 'utf8', timeout: 20000 });
+          const diagnostic = evidence.addText(text);
           const unexpectedKeys = Object.keys(bodies).filter(key => !allowedKeys.includes(key));
           h.assert(allowedKeys.every(key => text.includes(clinicalToken(bodies[key])))
             && !unexpectedKeys.some(key => text.includes(clinicalToken(bodies[key]))),
-          `${label}: REST PDF used another visibility context or note selection`);
+          `${label}: REST PDF used another visibility context or note selection; ${diagnostic}`);
         } else {
           h.assert(bytes.subarray(0, 5).toString('latin1') !== '%PDF-'
             && !Object.values(bodies).some(text => bytes.toString('utf8').includes(clinicalToken(text))),
@@ -421,9 +493,7 @@ async function checkPrintProgramVisibility(s, { fixture }) {
       const endpoint = new URL(h.appUrl(config.baseUrl, '/CaseManagementEntry'));
       const routePattern = url => url.origin === endpoint.origin && url.pathname === endpoint.pathname;
       let routeHandler;
-      let expectedBeacons = 0;
-      let allAppeared;
-      let appeared;
+      let requiresBeacon = false;
       page.on('requestfailed', observeFailure); // Core strict page wiring was installed first.
       page.on('requestfinished', observeFinished);
       try {
@@ -442,10 +512,9 @@ async function checkPrintProgramVisibility(s, { fixture }) {
             && Buffer.from(form.token.split('.')[0], 'base64url').toString('utf8') === `${patient}:${program}`
             && /^-?\d+$/.test(form.note) && [1, 2].includes(form.registrations),
           'Native PDF chart cleanup identity or handler count changed');
-          // Both baseline script inclusions registered a handler, even after
-          // an AJAX note refresh removed one of their original script tags.
-          expectedBeacons = form.release ? 2 : 0;
-          appeared = new Promise(resolve => { allAppeared = resolve; });
+          // The two inherited registrations are a maximum. Chromium can omit
+          // a duplicate keepalive transmission after the document departs.
+          requiresBeacon = form.release;
           routeHandler = async route => {
             const request = route.request();
             const url = new URL(request.url());
@@ -476,8 +545,9 @@ async function checkPrintProgramVisibility(s, { fixture }) {
               csrfMatches: true, contextMatches: true,
               bodySHA256: createHash('sha256').update(request.postData()).digest('hex') };
             matched.set(request, proof);
-            const forwarding = (async () => {
-              h.assert(matched.size <= expectedBeacons && matched.size <= 2,
+            const completed = (async () => {
+              try {
+              h.assert(matched.size <= 2,
                 'More than the captured baseline native lock-release handlers ran');
               const response = await route.fetch({ maxRedirects: 0, timeout: 15000 });
               try {
@@ -488,30 +558,31 @@ async function checkPrintProgramVisibility(s, { fixture }) {
                 // No request URL, body, headers, cookies or CSRF value is changed.
                 await route.fulfill({ response });
               } finally { await response.dispose(); }
+              } catch (error) { failures.push(error); await route.abort().catch(() => {}); }
             })();
-            pending.push(forwarding);
-            if (matched.size === expectedBeacons) allAppeared();
-            try { await forwarding; } catch (error) { failures.push(error); await route.abort().catch(() => {}); }
+            // Include failure/abort handling in the admitted operation: the
+            // Playwright wait behavior skips a route whose operation threw.
+            pending.push(completed);
+            await completed;
           };
           await reader.context.route(routePattern, routeHandler);
           routeInstalled = true;
         }
         // A known existing same-origin static image avoids extra clinical reads.
         await page.goto(h.appUrl(config.baseUrl, '/images/empty.gif'));
-        if (expectedBeacons) {
-          let timer;
-          try {
-            await Promise.race([appeared, new Promise((_, reject) => {
-              timer = setTimeout(() => reject(new Error('Not all owned native lock-release handlers were observed')), 15000);
-            })]);
-          } finally { clearTimeout(timer); }
+        if (routeInstalled) {
+          // This context belongs only to this helper. In Playwright 1.60 this
+          // removes route admission before waiting for active handlers. Keep
+          // the page open until then: closing first drops late beacon routes.
+          await reader.context.unrouteAll({ behavior: 'wait' });
+          routeInstalled = false;
         }
         capturing = false;
         await Promise.allSettled(pending);
         await page.close();
         await Promise.allSettled(pending);
         await waitForTerminals();
-        h.assert(matched.size === expectedBeacons && matched.size <= 2,
+        h.assert((requiresBeacon ? matched.size >= 1 : matched.size === 0) && matched.size <= 2,
           'The owned native chart did not send its expected lock-release beacon');
         h.assert(!associationErrors.length, associationErrors.join('; '));
         for (const proof of matched.values()) {
@@ -540,13 +611,16 @@ async function checkPrintProgramVisibility(s, { fixture }) {
         }
       } catch (error) { failures.push(error); }
       finally {
+        try {
+          if (routeInstalled) await reader.context.unrouteAll({ behavior: 'wait' });
+        } catch (error) { failures.push(error); }
         capturing = false;
         await Promise.allSettled(pending);
+        if (!page.isClosed()) {
+          try { await page.close(); } catch (error) { failures.push(error); }
+        }
         try { await waitForTerminals(); } catch (error) { failures.push(error); }
         active = false;
-        try {
-          if (routeInstalled) await reader.context.unroute(routePattern, routeHandler);
-        } catch (error) { failures.push(error); }
         page.off('requestfailed', observeFailure);
         page.off('requestfinished', observeFinished);
       }
