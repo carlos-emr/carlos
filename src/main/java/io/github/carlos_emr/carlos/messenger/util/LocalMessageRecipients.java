@@ -37,6 +37,8 @@ public final class LocalMessageRecipients {
     /**
      * Resolves all currently configured clinic locations and the legacy local location zero.
      * Call before changing recipient rows so a configuration lookup failure leaves them intact.
+     * Non-current locations can describe remote address books; the schema does not distinguish
+     * them from former clinic locations, so they must not confer local mailbox ownership.
      *
      * @param locations OscarCommLocationsDao the clinic location repository
      * @return Set of Integer location identifiers belonging to the local clinic
