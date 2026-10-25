@@ -56,6 +56,12 @@ import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.ResponseDefaultsFilter;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
@@ -76,6 +82,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockFilterConfig;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -425,6 +432,70 @@ class ChartPrintReadAccessUnitTest extends CarlosUnitTestBase {
         assertThat(unsaved.getNote()).isEqualTo("Keep exact unsaved draft café 中文");
         verifyNoInteractions(manager, notes, demographics, allergies);
         logActionMock.verifyNoInteractions();
+    }
+
+    static Stream<Arguments> printErrorsWithCharsetWarnings() {
+        return Stream.of(400, 403, 500).flatMap(status -> Stream.of(false, true)
+                .map(warnings -> Arguments.of(status, warnings)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("printErrorsWithCharsetWarnings")
+    void shouldPreserveResponseDefaults_whenPrintErrorsDiscardPdfOutput(int status, boolean warnings) throws Exception {
+        ResponseDefaultsFilter filter = new ResponseDefaultsFilter();
+        MockFilterConfig configuration = new MockFilterConfig();
+        configuration.addInitParameter("warnCharsetCacheChange", Boolean.toString(warnings));
+        filter.init(configuration);
+        response.addCookie(new Cookie("FAKE-print-session", "retained"));
+        response.setHeader("Content-Encoding", "gzip");
+        CaseManagementEntryFormBean draft = new CaseManagementEntryFormBean();
+        CaseManagementNote unsaved = note(501L, "101", "Keep exact draft\n  H&P café 中文 ");
+        draft.setCaseNote(unsaved);
+        String formKey = ChartProgramContext.formKey(request, "101");
+        request.getSession().setAttribute(formKey, draft);
+        if (status == 400) {
+            request.setParameter("pType", "dates");
+            request.setParameter("pStartDate", "not-a-date");
+            request.setParameter("pEndDate", "not-a-date");
+        }
+        try (var renderer = mockConstruction(CaseManagementPrint.class, (mock, context) ->
+                doAnswer(call -> {
+                    if (status == 403) throw new CaseManagementPrint.NoteAccessDeniedException();
+                    // A failed merge can leave uncommitted PDF bytes, which must be discarded.
+                    call.<OutputStream>getArgument(13).write("%PDF-FAKE partial clinical bytes".getBytes(StandardCharsets.UTF_8));
+                    throw new IOException("FAKE PDF rendering failure");
+                }).when(mock).doPrint(eq(login), eq(101), anyBoolean(), any(String[].class),
+                        anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(),
+                        any(), any(), eq(request), any()))) {
+            filter.doFilter(request, response, (filteredRequest, filteredResponse) -> {
+                entry.response = (HttpServletResponse) filteredResponse;
+                try {
+                    entry.print();
+                } catch (Exception failure) {
+                    throw new ServletException(failure);
+                }
+            });
+            assertThat(renderer.constructed()).hasSize(status == 400 ? 0 : 1);
+        }
+        assertThat(response.getStatus()).isEqualTo(status);
+        assertThat(response.isCommitted()).as("sendError prevents post-chain header repair").isTrue();
+        assertThat(response.getHeader("X-Permitted-Cross-Domain-Policies")).isEqualTo("none");
+        assertThat(response.getHeader("X-Frame-Options")).isEqualTo("SAMEORIGIN");
+        assertThat(response.getHeader("Permissions-Policy")).isEqualTo("camera=(), microphone=(), geolocation=()");
+        assertThat(response.getHeader("Referrer-Policy")).isEqualTo("same-origin");
+        assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store, no-cache, must-revalidate");
+        assertThat(response.getCookie("FAKE-print-session")).isNotNull();
+        assertThat(response.getCookie("FAKE-print-session").getValue()).isEqualTo("retained");
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+        assertThat(response.getHeader("Content-Length")).isNull();
+        assertThat(response.getHeader("Content-Encoding")).isNull();
+        assertThat(request.getSession().getAttribute(formKey)).isSameAs(draft);
+        assertThat(draft.getCaseNote()).isSameAs(unsaved);
+        assertThat(unsaved.getNote()).isEqualTo("Keep exact draft\n  H&P café 中文 ");
+        verifyNoInteractions(manager, notes, demographics, allergies);
     }
 
     static Stream<Arguments> readableFullChartContexts() {

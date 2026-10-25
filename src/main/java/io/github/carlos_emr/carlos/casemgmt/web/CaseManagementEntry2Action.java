@@ -3570,8 +3570,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 ChartPrintDateRange.from(cStartDate, cEndDate);
             }
         } catch (IllegalArgumentException _) {
-            response.reset();
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid print date range");
+            sendPrintError(HttpServletResponse.SC_BAD_REQUEST, "Invalid print date range");
             return null;
         }
 
@@ -3592,23 +3591,27 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             cmp.doPrint(loggedInInfo, demographicNo, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, (pType != null && "dates".equals(pType)) ? true : false, cStartDate, cEndDate, request, response.getOutputStream());
         } catch (CaseManagementPrint.NoteAccessDeniedException deniedNote) {
-            if (!response.isCommitted()) {
-                response.reset();
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Selected note access denied");
-            }
+            sendPrintError(HttpServletResponse.SC_FORBIDDEN, "Selected note access denied");
         } catch (Exception e) {
-            // Direct-response action: doPrint fails before writing any bytes (DocumentException/
-            // IOException/SecurityException all fire pre-write), so the response is still uncommitted
-            // here. Surface a real error instead of an empty HTTP-200 PDF (CLAUDE.md Direct-Response
-            // Actions). If the merge failed mid-stream the response is committed and we can only log.
+            // Replace an uncommitted PDF with the container error page. A merge that has already
+            // committed bytes can only be logged; an error page would corrupt the partial PDF.
             logger.error("Encounter chart print failed ({})", e.getClass().getSimpleName());
-            if (!response.isCommitted()) {
-                response.reset();
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate the chart print");
-            }
+            sendPrintError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate the chart print");
         }
 
         return null;
+    }
+
+    /** Clears failed PDF output while retaining the request's security, cache and session headers. */
+    private void sendPrintError(int status, String message) throws IOException {
+        if (response.isCommitted()) return;
+        response.resetBuffer();
+        for (String header : List.of("Content-Type", "Content-Disposition", "Content-Length", "Content-Encoding")) {
+            // Tomcat 11 removes null headers. Header removal also avoids charset-monitor wrappers
+            // that expect a non-null argument to setContentType.
+            response.setHeader(header, null);
+        }
+        response.sendError(status, message);
     }
 
     /** Direct print routes need the same patient boundary as the chart that normally opens them. */
