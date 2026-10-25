@@ -75,10 +75,10 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         // Reset static state so each test starts with an empty, unloaded cache
-        originalPrices = DrugPriceLookup.costLookup;
+        originalPrices = DrugPriceLookup.costLookup.get();
         originalLoaded = DrugPriceLookup.loaded;
         DrugPriceLookup.loaded = false;
-        DrugPriceLookup.costLookup = java.util.Collections.emptyMap();
+        DrugPriceLookup.costLookup.set(java.util.Collections.emptyMap());
 
         // Default: no DB resource found → classpath fallback
         mockResourceStorageDao = mock(ResourceStorageDao.class);
@@ -91,7 +91,7 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
      */
     @AfterEach
     void tearDown() {
-        DrugPriceLookup.costLookup = originalPrices;
+        DrugPriceLookup.costLookup.set(originalPrices);
         DrugPriceLookup.loaded = originalLoaded;
     }
 
@@ -99,7 +99,7 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
     void shouldKeepThePublishedPriceSnapshotComplete_whileReloadReadsItsReplacement() throws Exception {
         String oldPrice = DrugPriceLookup.getPriceInfoForDin("02536269");
         assertThat(oldPrice).isNotNull();
-        Map<String, String> oldSnapshot = DrugPriceLookup.costLookup;
+        Map<String, String> oldSnapshot = DrugPriceLookup.costLookup.get();
         CountDownLatch loading = new CountDownLatch(1);
         CountDownLatch resume = new CountDownLatch(1);
         ResourceStorage replacement = mock(ResourceStorage.class);
@@ -119,12 +119,13 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
             });
             try {
                 assertThat(loading.await(5, TimeUnit.SECONDS)).isTrue();
-                assertThat(DrugPriceLookup.costLookup.get("02536269")).isEqualTo(oldPrice);
+                assertThat(DrugPriceLookup.costLookup.get().get("02536269")).isEqualTo(oldPrice);
                 assertThat(oldSnapshot.get("02536269")).isEqualTo(oldPrice);
             } finally { resume.countDown(); }
             reloaded.get(5, TimeUnit.SECONDS);
         }
         assertThat(DrugPriceLookup.getPriceInfoForDin("99000001")).isEqualTo("5.99");
+        assertThat(DrugPriceLookup.getPriceInfoForDin("02536269")).isNull();
         assertThat(oldSnapshot.get("02536269")).isEqualTo(oldPrice);
     }
 
@@ -138,6 +139,19 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
         DrugPriceLookup.reLoadLookupInformation();
 
         assertThat(DrugPriceLookup.getPriceInfoForDin("02536269")).isEqualTo(oldPrice).isNotNull();
+    }
+
+    @Test
+    void shouldRetainTheLastKnownPrices_whenParsedReplacementHasNoFormulary() {
+        String oldPrice = DrugPriceLookup.getPriceInfoForDin("02536269");
+        ResourceStorage incomplete = mock(ResourceStorage.class);
+        when(incomplete.getFileContents()).thenReturn("<extract/>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        when(mockResourceStorageDao.findActive(ResourceStorage.LU_CODES)).thenReturn(incomplete);
+
+        DrugPriceLookup.reLoadLookupInformation();
+
+        assertThat(DrugPriceLookup.getPriceInfoForDin("02536269")).isEqualTo(oldPrice).isNotNull();
+        assertThat(DrugPriceLookup.loaded).isTrue();
     }
 
     @Nested
@@ -186,9 +200,9 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should populate costLookup map after first lookup")
         void shouldPopulateCostLookupMap_afterFirstLookup() {
-            assertThat(DrugPriceLookup.costLookup).isEmpty();
+            assertThat(DrugPriceLookup.costLookup.get()).isEmpty();
             DrugPriceLookup.getPriceInfoForDin("02536269");
-            assertThat(DrugPriceLookup.costLookup).isNotEmpty();
+            assertThat(DrugPriceLookup.costLookup.get()).isNotEmpty();
         }
     }
 
@@ -202,7 +216,7 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
             // Trigger initial load
             DrugPriceLookup.getPriceInfoForDin("02536269");
             assertThat(DrugPriceLookup.loaded).isTrue();
-            int initialSize = DrugPriceLookup.costLookup.size();
+            int initialSize = DrugPriceLookup.costLookup.get().size();
             assertThat(initialSize).isGreaterThan(0);
 
             // Reload
@@ -210,7 +224,7 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
 
             // Should be reloaded with same content
             assertThat(DrugPriceLookup.loaded).isTrue();
-            assertThat(DrugPriceLookup.costLookup).hasSize(initialSize);
+            assertThat(DrugPriceLookup.costLookup.get()).hasSize(initialSize);
         }
 
         @Test

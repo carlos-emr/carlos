@@ -39,6 +39,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 import org.apache.logging.log4j.Logger;
@@ -68,7 +69,7 @@ import io.github.carlos_emr.CarlosProperties;
  *   <li>Bundled classpath resource {@code oscar/oscarRx/data_extract_20250730.xml}</li>
  * </ol>
  * The map is populated lazily on first use via double-checked locking and
- * published as complete immutable snapshots through a volatile reference.
+ * published as complete immutable snapshots through an atomic reference.
  *
  * @since 2026-03-22
  */
@@ -76,7 +77,7 @@ public class DrugPriceLookup {
 
 	private static Logger log = MiscUtils.getLogger();
 
-	static volatile Map<String, String> costLookup = Collections.emptyMap();
+	static final AtomicReference<Map<String, String>> costLookup = new AtomicReference<>(Collections.emptyMap());
 	static volatile boolean loaded = false;
 
 	/** Utility class — not instantiable. */
@@ -100,8 +101,9 @@ public class DrugPriceLookup {
 			return null;
 		}
 		loadCostLookupInformation();
-		log.debug("current lookup for din {} yields {}", din, costLookup.get(din));
-		return costLookup.get(din);
+		Map<String, String> prices = costLookup.get();
+		log.debug("current lookup for din {} yields {}", din, prices.get(din));
+		return prices.get(din);
 	}
 
 	/**
@@ -168,7 +170,7 @@ public class DrugPriceLookup {
 	}
 
 	static private void loadCostLookupInformation(boolean force) {
-		log.debug("current price lookup size {}", costLookup.size());
+		log.debug("current price lookup size {}", costLookup.get().size());
 		if (force || !loaded) {
 			synchronized (DrugPriceLookup.class) {
 				if (force || !loaded) {
@@ -209,7 +211,7 @@ public class DrugPriceLookup {
 							}
 						}
 
-						costLookup = Collections.unmodifiableMap(replacement);
+						costLookup.set(Collections.unmodifiableMap(replacement));
 						log.debug("Drug Prices loaded=true size: {}", replacement.size());
 						loaded = true;
 

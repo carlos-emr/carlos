@@ -56,7 +56,7 @@ import static org.mockito.Mockito.*;
  * @since 2026-10-25
  */
 @Tag("unit") @Tag("casemgmt")
-class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
+class GroupNoteSelect2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private MockHttpSession session;
@@ -195,7 +195,9 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
     }
     @Test
     void shouldRefuseForgedOrForeignContextBeforeClinicalLookup_whenUsingNativeGroupSelection() {
-        request.setParameter("chartContext", token.substring(0, token.length()-1) + (token.endsWith("A") ? "B" : "A"));
+        int signature = token.indexOf('.') + 1;
+        request.setParameter("chartContext", token.substring(0, signature)
+                + (token.charAt(signature) == 'A' ? "B" : "A") + token.substring(signature + 1));
         assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         verifyNoInteractions(security, notes, admissions, demographics, links);
     }
@@ -355,4 +357,24 @@ class GroupNoteSelect2ActionTest extends CarlosUnitTestBase {
         assertThat(xpath.evaluate("//action[@name='casemgmt/ViewGroupNoteSelectAction']/@class",doc)).endsWith(".ViewClinical2Action");
         assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/groupNoteSelectAction.jsp"))).doesNotContain("saveGroupNote","setGroupNote","SpringUtils");
     }
+    @ParameterizedTest @ValueSource(strings={"0","00","000","0000000000","02"})
+    void shouldAcceptNativeNonnegativeCount_whenDigitsContainLeadingZeros(String count) throws Exception {
+        request.setMethod("POST");request.setParameter("num_anonymous",count);
+        assertThat(action.save()).isEqualTo("success");
+        assertThat(action.saved.getGroupNoteTotalAnonymous()).isEqualTo(Integer.parseInt(count));
+    }
+    @Test void shouldAcceptMatchingZeroAliases_whenCountsRepeat() throws Exception {
+        request.setMethod("POST");request.setParameter("num_anonymous",new String[]{"0","00","000"});
+        assertThat(action.save()).isEqualTo("success");assertThat(action.saved.getGroupNoteTotalAnonymous()).isZero();
+    }
+    @Test void shouldAcceptMatchingPositiveAliases_whenCountsRepeat() throws Exception {
+        request.setMethod("POST");request.setParameter("num_anonymous",new String[]{"02","2"});
+        assertThat(action.save()).isEqualTo("success");assertThat(action.saved.getGroupNoteTotalAnonymous()).isEqualTo(2);
+    }
+    @ParameterizedTest @ValueSource(strings={"-0","+0","0.0","0e0"})
+    void shouldKeepNonDecimalCountsRefused_whenZeroCompatibilityIsAllowed(String count) throws Exception {
+        request.setMethod("POST");request.setParameter("num_anonymous",count);
+        assertThat(action.save()).isEqualTo("none");assertThat(response.getStatus()).isEqualTo(400);assertThat(action.saved).isNull();
+    }
+
 }

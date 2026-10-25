@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.data;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
@@ -58,7 +59,8 @@ public class MeasurementTypes {
                            Map<String, EctMeasurementTypesBean> byType) { }
 
     // Readers see one complete catalog while a reload builds its replacement.
-    private volatile Catalog catalog = new Catalog(Collections.emptyMap(), Collections.emptyMap());
+    private final AtomicReference<Catalog> catalog = new AtomicReference<>(
+            new Catalog(Collections.emptyMap(), Collections.emptyMap()));
 
     /**
      * Creates a new instance of MeasurementTypes
@@ -67,11 +69,11 @@ public class MeasurementTypes {
     }
 
     public EctMeasurementTypesBean getByType(String type) {
-        return catalog.byType().get(type);
+        return catalog.get().byType().get(type);
     }
 
     public EctMeasurementTypesBean getById(String type) {
-        return catalog.byId().get(type);
+        return catalog.get().byId().get(type);
     }
 
     public static synchronized MeasurementTypes getInstance() {
@@ -100,7 +102,7 @@ public class MeasurementTypes {
                 byType.put(t.getType(), ret);
 
             }
-            catalog = new Catalog(Collections.unmodifiableMap(byId), Collections.unmodifiableMap(byType));
+            catalog.set(new Catalog(Collections.unmodifiableMap(byId), Collections.unmodifiableMap(byType)));
         } catch (Exception e) {
             log.warn("Unable to refresh measurement types ({})", e.getClass().getSimpleName());
         }

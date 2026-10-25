@@ -39,7 +39,7 @@
     String chartContext = (String) request.getAttribute("groupNoteContext");
 %>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Group Note - Select Clients</title>
@@ -69,12 +69,12 @@
     <table>
         <% for (Member member : members) { %>
         <tr>
-            <td><input type="checkbox" name="group_client_id" value="<%= SafeEncode.forHtmlAttribute(member.id()) %>"/></td>
-            <td><%= SafeEncode.forHtml(member.name()) %></td>
+            <td><input type="checkbox" id="groupClient<%= SafeEncode.forHtmlAttribute(member.id()) %>" name="group_client_id" value="<%= SafeEncode.forHtmlAttribute(member.id()) %>"/></td>
+            <td><label for="groupClient<%= SafeEncode.forHtmlAttribute(member.id()) %>"><%= SafeEncode.forHtml(member.name()) %></label></td>
         </tr>
         <% } %>
     </table>
-    <p><input type="number" name="num_anonymous" value="0" min="0" max="999" size="3"/> Anonymous Clients</p>
+    <p><input type="number" id="anonymousClientCount" name="num_anonymous" value="0" min="0" max="999" size="3"/> <label for="anonymousClientCount">Anonymous Clients</label></p>
     <script>
         function confirmGroupNote() {
             return <%= current.isEmpty() %> || confirm('This will cause all previously associated clients to be disassociated with group note, and all previously associated anonymous clients to be set inactive');

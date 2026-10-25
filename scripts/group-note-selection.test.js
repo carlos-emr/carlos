@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const { assertSelectionRequest, assertSelectionRedirect } = require('./group-note-selection-playwright-checks');
+const { assertSelectionRequest, assertSelectionRedirect, assertParallelSelectionDelta, assertClearedSelectionDelta } = require('./group-note-selection-playwright-checks');
 const expected = { baseUrl: new URL('https://example.test/carlos'), patient: '101', program: '7', note: '51', token: 'issued.context', recipient: '202' };
 function nativeRequest(change = {}) {
   const body = new URLSearchParams({ demographicNo: expected.patient, programId: expected.program, noteId: expected.note,
@@ -61,4 +61,43 @@ test('actual native unsaved group click retains zero and genuine tokenless calle
     popupPage:(_h,_w,_name,url)=>{address=new URL(url,'https://example.test');}};
   vm.runInNewContext(source.slice(start,end),scope);scope.selectGroup('7','101');
   assert.equal(address.searchParams.get('noteId'),'0');assert.equal(address.searchParams.has('chartContext'),false);
+});
+
+
+const linkColumns = ['id','noteId','demographicNo','anonymous','active','created'];
+const priorLinks = [['10','51','202','0','0','old'],['11','52','303','0','1','bystander']];
+const parallelLinks = () => [...priorLinks.map(row=>row.slice()),
+  ['12','51','202','0','0','first-retired'],['13','51','404','0','1','second-active']];
+const parallelExpected = {columns:linkColumns,note:'51',recipients:['202','404']};
+test('parallel native group replacements retain exactly one complete set and preserve all existing/bystander bytes',()=>{
+  assert.deepEqual(assertParallelSelectionDelta(priorLinks,parallelLinks(),parallelExpected),['404']);
+  const opposite=parallelLinks();opposite[2][4]='1';opposite[3][4]='0';
+  assert.deepEqual(assertParallelSelectionDelta(priorLinks,opposite,parallelExpected),['202']);
+});
+for(const [label,alter]of Object.entries({
+  union:rows=>{rows[2][4]='1';}, lostBoth:rows=>{rows[3][4]='0';},
+  wrongNote:rows=>{rows[3][1]='52';}, foreignRecipient:rows=>{rows[3][2]='999';},
+  sameRecipientTwice:rows=>{rows[3][2]='202';}, anonymous:rows=>{rows[3][3]='1';}, missingTimestamp:rows=>{rows[3][5]='NULL';},
+  changedPriorMetadata:rows=>{rows[0][5]='rewritten';}, changedBystander:rows=>{rows[1][4]='0';},
+  missingPriorRow:rows=>{rows.splice(0,1);}, extraNewRow:rows=>{rows.push(['14','51','404','0','0','extra']);},
+  reusedIdentity:rows=>{rows[3][0]='10';}, adoptedOlderId:rows=>{rows[3][0]='9';},
+}))test(`parallel group snapshot rejects ${label}`,()=>{
+  const rows=parallelLinks();alter(rows);assert.throws(()=>assertParallelSelectionDelta(priorLinks,rows,parallelExpected));
+});
+test('parallel snapshot refuses a nonempty starting group or incomplete schema',()=>{
+  const before=priorLinks.map(row=>row.slice());before[0][4]='1';
+  assert.throws(()=>assertParallelSelectionDelta(before,parallelLinks(),parallelExpected));
+  assert.throws(()=>assertParallelSelectionDelta(priorLinks,parallelLinks(),{...parallelExpected,columns:linkColumns.slice(1)}));
+});
+function clearedLinks(){const rows=parallelLinks();rows[3][4]='0';rows[3][5]='cleared-now';return rows;}
+test('native clear changes only its exact active source link flag and ORM retirement timestamp',()=>{
+  assert.doesNotThrow(()=>assertClearedSelectionDelta(parallelLinks(),clearedLinks(),{columns:linkColumns,note:'51'}));
+});
+for(const [label,alter]of Object.entries({
+  activeNotCleared:rows=>{rows[3][4]='1';}, changedOwner:rows=>{rows[3][1]='52';},
+  changedRecipient:rows=>{rows[3][2]='202';}, changedAnonymous:rows=>{rows[3][3]='1';},
+  changedPriorTimestamp:rows=>{rows[0][5]='rewritten';}, changedBystander:rows=>{rows[1][4]='0';}, missingRetirementTimestamp:rows=>{rows[3][5]='';},
+  addedRow:rows=>{rows.push(['14','51','202','0','0','extra']);}, removedRow:rows=>{rows.pop();},
+}))test(`native clear snapshot refuses ${label}`,()=>{
+  const rows=clearedLinks();alter(rows);assert.throws(()=>assertClearedSelectionDelta(parallelLinks(),rows,{columns:linkColumns,note:'51'}));
 });

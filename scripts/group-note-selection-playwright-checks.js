@@ -37,12 +37,64 @@ function assertSelectionRedirect(response, { baseUrl, patient, program, token })
   return address;
 }
 
+/** Compare complete sharing rows; only ORM's retirement timestamp may accompany the intended active flag change. */
+function linkIndex(rows, columns) {
+  const required = ['id', 'noteId', 'demographicNo', 'anonymous', 'active', 'created'];
+  h.assert(new Set(columns).size === columns.length && required.every(name => columns.includes(name)), 'Group row schema is incomplete');
+  const fields = Object.fromEntries(required.map(name => [name, columns.indexOf(name)]));
+  h.assert(rows.every(row => row.length === columns.length && positive(row[fields.id])), 'Group row shape or identity changed');
+  const indexed = new Map(rows.map(row => [row[fields.id], row]));
+  h.assert(indexed.size === rows.length, 'Group row identities are duplicated');
+  return { fields, indexed };
+}
+
+function assertParallelSelectionDelta(before, after, { columns, note, recipients }) {
+  const { fields: f, indexed: original } = linkIndex(before, columns);
+  const { indexed: current } = linkIndex(after, columns);
+  const wanted = new Set(recipients.map(String));
+  h.assert(wanted.size === 2 && [...wanted].every(positive)
+    && before.filter(row => row[f.noteId] === note).every(row => row[f.active] === '0'),
+  'Parallel native selection requires two owned recipients and an initially empty group');
+  for (const [id, row] of original) h.assert(same(current.get(id), row), 'Parallel group replacement changed a preexisting or bystander row');
+  const added = after.filter(row => !original.has(row[f.id]));
+  const floor = Math.max(0, ...before.map(row => Number(row[f.id])));
+  h.assert(added.length === 2 && current.size === original.size + 2
+    && added.every(row => Number(row[f.id]) > floor && row[f.noteId] === note && wanted.has(row[f.demographicNo])
+      && row[f.anonymous] === '0' && ['0', '1'].includes(row[f.active])
+      && typeof row[f.created] === 'string' && row[f.created] !== '' && row[f.created] !== 'NULL' && row[f.created] !== '\\N')
+    && new Set(added.map(row => row[f.demographicNo])).size === 2,
+  'Parallel native posts did not each add exactly their own recipient to the same source note');
+  const active = after.filter(row => row[f.noteId] === note && row[f.active] === '1');
+  h.assert(active.length === 1 && wanted.has(active[0][f.demographicNo]), 'Parallel selection left a union or lost both complete replacement sets');
+  return active.map(row => row[f.demographicNo]);
+}
+
+function assertClearedSelectionDelta(before, after, { columns, note }) {
+  const { fields: f, indexed: original } = linkIndex(before, columns);
+  const { indexed: current } = linkIndex(after, columns);
+  h.assert(current.size === original.size && [...original.keys()].every(id => current.has(id))
+    && before.filter(row => row[f.noteId] === note && row[f.active] === '1').length === 1,
+  'Native clearing changed sharing row identities or lacks its one active source link');
+  for (const [id, row] of original) {
+    const expected = row.slice();
+    if (row[f.noteId] === note && row[f.active] === '1') {
+      expected[f.active] = '0';
+      // GroupNoteLink's @PreUpdate refreshes created when the active link is retired.
+      const created = current.get(id)[f.created];
+      h.assert(typeof created === 'string' && created !== '' && created !== 'NULL' && created !== '\\N',
+        'Native clearing lost its retirement timestamp');
+      expected[f.created] = created;
+    }
+    h.assert(same(current.get(id), expected), 'Native clearing changed a bystander or unexpected sharing field');
+  }
+}
+
 async function workflow(s) {
   const { sql, provider, marker, config, recorder } = s;
   const fixture = authzReadFixture({ sql, provider, marker, testUser: config.testUser });
   let childrenRemoved=false;
   s.cleanup(() => {h.assert(childrenRemoved,'Retaining group authentication/facility because child cleanup failed');fixture.cleanup();});
-  const patients = ['Owner', 'Recipient <b>患者</b>', 'OtherProgram'].map((first, index) => ({ first, name: `${marker}-GS${index}` }));
+  const patients = ['Owner', 'Recipient <b>患者</b>', 'OtherProgram', 'SecondRecipient'].map((first, index) => ({ first, name: `${marker}-GS${index}` }));
   const programs = ['A', 'B'].map(label => ({ name: `${marker}-group-select-${label}` }));
   const notes = [];
   const pages = [];
@@ -87,7 +139,7 @@ async function workflow(s) {
     h.assert(currentNotes.every(([id]) => noteIds.includes(id)), 'A group selection patient acquired an unowned note');
     const links = sql.rows(`SELECT id,noteId,demographicNo,anonymous FROM GroupNoteLink
       WHERE noteId IN (${set(noteIds)}) OR demographicNo IN (${set(ids())})`);
-    h.assert(links.every(row => row[1] === notes[0]?.id && row[2] === patients[1].id && row[3] === '0'),
+    h.assert(links.every(row => row[1] === notes[0]?.id && [patients[1].id, patients[3].id].includes(row[2]) && row[3] === '0'),
       'Group selection acquired a foreign sharing relationship; retaining all rows');
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no IN (${set(ids())})
       AND (provider_no IS NULL OR provider_no<>${q(login?.providerNo || '')} OR note_id NOT IN (0,${set(noteIds)})))
@@ -182,7 +234,7 @@ async function workflow(s) {
   defaultIntended=true;
   sql.execute(`INSERT INTO provider_default_program(provider_no,program_id) VALUES (${q(login.providerNo)},${programs[0].id})`);
   defaultRows = sql.rows(`SELECT * FROM provider_default_program WHERE provider_no=${q(login.providerNo)} ORDER BY id`);
-  for (const [patient, program] of [[patients[0], programs[0]], [patients[0], programs[1]], [patients[1], programs[0]], [patients[2], programs[1]]]) {
+  for (const [patient, program] of [[patients[0], programs[0]], [patients[0], programs[1]], [patients[1], programs[0]], [patients[2], programs[1]], [patients[3], programs[0]]]) {
     sql.execute(`INSERT INTO admission(client_id,program_id,provider_no,admission_date,admission_from_transfer,discharge_from_transfer,
       admission_status,lastUpdateDate) VALUES (${patient.id},${program.id},${q(login.providerNo)},NOW(),0,0,'current',NOW())`);
   }
@@ -209,6 +261,7 @@ async function workflow(s) {
     members: sql.rows(`SELECT * FROM program_provider WHERE program_id IN (${set(programIds())}) ORDER BY id`),
     admissions: sql.rows(`SELECT * FROM admission WHERE client_id IN (${set(ids())}) ORDER BY am_id`),
     defaults: sql.rows(`SELECT * FROM provider_default_program WHERE provider_no=${q(login.providerNo)} ORDER BY id`), shared: shared() });
+  const linkColumns = sql.rows('SHOW COLUMNS FROM GroupNoteLink').map(row => row[0]);
   const linkRows = () => sql.rows(`SELECT * FROM GroupNoteLink WHERE noteId IN (${notes.map(note => note.id).join(',')}) ORDER BY id`);
   const open = async note => {
     const page = await context.newPage();pages.push(page);
@@ -275,7 +328,7 @@ async function workflow(s) {
         && await form.locator('input[name="programId"]').inputValue() === programs[0].id
         && await form.locator('input[name="noteId"]').inputValue() === notes[0].id,
       'Native selection rendered another program, note or signed context');
-      h.assert(same(await selected.locator('input[name="group_client_id"]').evaluateAll(nodes => nodes.map(node=>node.value)),[patients[1].id])
+      h.assert(same((await selected.locator('input[name="group_client_id"]').evaluateAll(nodes => nodes.map(node=>node.value))).sort(),[patients[1].id,patients[3].id].sort())
         && (await selected.locator('body').innerText()).includes(patients[1].first) && await selected.locator('b').count() === 0,
       'Selection exposed another program recipient or failed to encode a literal patient name');
       await selected.locator(`input[name="group_client_id"][value="${patients[1].id}"]`).check();
@@ -331,7 +384,78 @@ async function workflow(s) {
       h.assert(messages.length===1&&messages[0].type==='confirm'&&messages[0].text.startsWith('This will cause all previously associated clients'),'Group clearing lost its native confirmation');
       h.assert(same(clinical(),before)&&sql.value(`SELECT COUNT(*) FROM GroupNoteLink WHERE noteId=${notes[0].id} AND active=1`)==='0'
         &&sql.value(`SELECT COUNT(*) FROM GroupNoteLink WHERE noteId=${notes[1].id}`)==='0','Clearing group selection changed another note or clinical state');
+      assertClearedSelectionDelta(beforeLinks,linkRows(),{columns:linkColumns,note:notes[0].id});
       evidence.nativeFlow.push({cleared:true,post:303,redirectGet:200});saveEvidence();
+    });
+    await s.step('two native group popups in one context each replace the complete recipient set, then clear natively', async () => {
+      const before = clinical(), beforeLinks = linkRows();
+      const first = await popup(primary);
+      const topology = await first.evaluate(name => {
+        const form = document.querySelector('form');
+        const before = { url: location.href, fields: [...new FormData(form)] };
+        const originalName = window.name;
+        // Fixture topology only: the native control otherwise reuses its fixed "group" window.
+        window.name = name;
+        return { originalName, renamed: window.name === name,
+          unchanged: JSON.stringify(before) === JSON.stringify({ url: location.href, fields: [...new FormData(form)] }) };
+      }, `${marker}-parallel-group-first`);
+      h.assert(topology.renamed && topology.unchanged, 'Renaming the first fixture popup changed its URL or business form');
+      const second = await popup(primary);
+      h.assert(first !== second && await first.opener() === primary && await second.opener() === primary,
+        'The parallel native Group clicks did not create two distinct owned popup windows');
+      const choices = [patients[1].id, patients[3].id];
+      for (const [index, page] of [first, second].entries()) {
+        h.assert(same((await page.locator('input[name="group_client_id"]').evaluateAll(nodes => nodes.map(node => node.value))).sort(), [...choices].sort()),
+          'A parallel popup exposed a recipient outside the captured program');
+        await page.locator(`input[name="group_client_id"][value="${choices[index]}"]`).check();
+        fs.writeFileSync(`${evidenceDirectory}/parallel-${index}.html`, await page.content(), { mode: 0o600 });
+      }
+      const submit = async (page, recipient) => {
+        let proof;
+        const dialogs = await h.withExpectedDialogs(page, async () => {
+          const save = page.waitForResponse(response => response.request().method() === 'POST'
+            && new URL(response.url()).pathname.endsWith('/casemgmt/SaveGroupNoteSelection'));
+          const target = page.waitForResponse(response => response.request().method() === 'GET'
+            && new URL(response.url()).pathname.endsWith('/casemgmt/ViewGroupNoteSelectAction'));
+          const closed = page.waitForEvent('close');
+          await page.locator('input[type="submit"]').click();
+          const response = await save;
+          assertSelectionRequest(response.request(), { baseUrl: config.baseUrl, patient: patients[0].id,
+            program: programs[0].id, note: notes[0].id, token, recipient });
+          assertSelectionRedirect(response, { baseUrl: config.baseUrl, patient: patients[0].id, program: programs[0].id, token });
+          const get = await target;
+          h.assert(get.status() === 200 && Object.hasOwn(get.headers(), h.APPLICATION_HEADER), 'A parallel group close GET failed');
+          await closed; proof = { recipient, actualPost: response.status(), closeGet: get.status() };
+        });
+        h.assert(dialogs.length === 0, 'An initially empty parallel popup unexpectedly requested confirmation');
+        return proof;
+      };
+      // Parallel submission is an end-to-end check, not a claim of deterministic server overlap.
+      const posts = await Promise.all([submit(first, choices[0]), submit(second, choices[1])]);
+      const afterLinks = linkRows();
+      const active = assertParallelSelectionDelta(beforeLinks, afterLinks, { columns: linkColumns, note: notes[0].id, recipients: choices });
+      h.assert(same(clinical(), before), 'Parallel group posts changed source/bystander clinical, draft, lock or policy rows');
+      evidence.nativeFlow.push({ parallelNativePosts: posts, fixtureWindowNameOnly: topology, serverOverlapClaimed: false,
+        beforeLinks, afterLinks, activeRecipients: active }); saveEvidence();
+      const clear = await popup(primary);
+      const beforeClear = clinical(), linksBeforeClear = linkRows();
+      const dialogs = await h.withExpectedDialogs(clear, async () => {
+        const save = clear.waitForResponse(response => response.request().method() === 'POST'
+          && new URL(response.url()).pathname.endsWith('/casemgmt/SaveGroupNoteSelection'));
+        const target = clear.waitForResponse(response => response.request().method() === 'GET'
+          && new URL(response.url()).pathname.endsWith('/casemgmt/ViewGroupNoteSelectAction'));
+        const closed = clear.waitForEvent('close');
+        await clear.locator('input[type="submit"]').click(); const response = await save;
+        assertSelectionRequest(response.request(), { baseUrl: config.baseUrl, patient: patients[0].id, program: programs[0].id, note: notes[0].id, token });
+        assertSelectionRedirect(response, { baseUrl: config.baseUrl, patient: patients[0].id, program: programs[0].id, token });
+        const get = await target; h.assert(get.status() === 200 && Object.hasOwn(get.headers(), h.APPLICATION_HEADER), 'Parallel group cleanup close GET failed');
+        await closed;
+      });
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm'
+        && dialogs[0].text.startsWith('This will cause all previously associated clients'), 'Parallel group clearing lost its native confirmation');
+      assertClearedSelectionDelta(linksBeforeClear, linkRows(), { columns: linkColumns, note: notes[0].id });
+      h.assert(same(clinical(), beforeClear), 'Clearing the parallel result changed clinical/draft/lock/policy state');
+      evidence.nativeFlow.push({ parallelResultClearedNatively: true }); saveEvidence(); h.assertStrictPage(recorder);
     });
   } catch(error) {primaryFailure=error;} finally {
     const cleanupFailures=[];
@@ -363,5 +487,5 @@ async function workflow(s) {
   if(primaryFailure)throw primaryFailure;
   h.assertStrictPage(recorder);
 }
-module.exports={workflow,assertSelectionRequest,assertSelectionRedirect};
+module.exports={workflow,assertSelectionRequest,assertSelectionRedirect,assertParallelSelectionDelta,assertClearedSelectionDelta};
 if(require.main===module)runWorkflow('group-note-selection',workflow,{openPatient:false,openMaster:false});

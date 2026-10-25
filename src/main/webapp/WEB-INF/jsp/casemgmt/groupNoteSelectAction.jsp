@@ -28,5 +28,5 @@
 
 --%>
 <!DOCTYPE html>
-<html><head><title>Group note saved</title></head>
+<html lang="en"><head><title>Group note saved</title></head>
 <body><p>Group note saved.</p><script>window.addEventListener('load', function () { window.close(); });</script></body></html>

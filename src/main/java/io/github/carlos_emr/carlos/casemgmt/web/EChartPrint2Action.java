@@ -91,7 +91,7 @@ public class EChartPrint2Action extends ActionSupport {
     /** Issue codes for Cumulative Patient Profile sections that are printed separately from notes. */
     static String[] cppIssues = {"MedHistory", "OMeds", "SocHistory", "FamHistory", "Reminders", "Concerns", "RiskFactors"};
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
+    private final CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
 
 
     /**

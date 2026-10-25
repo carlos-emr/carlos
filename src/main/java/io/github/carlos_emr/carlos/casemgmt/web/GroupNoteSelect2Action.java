@@ -152,6 +152,9 @@ public class GroupNoteSelect2Action extends ActionSupport {
         // replacement must not leave the old recipients partially retired.
         new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
                 .executeWithoutResult(status -> {
+                    if (!links.lockNoteForGroupUpdate(Integer.valueOf(form.getNoteId()))) {
+                        throw new SecurityException("Group source note is unavailable");
+                    }
                     // Repeat recipient checks at the actual persistence boundary, then
                     // pass exactly these links/admissions to the legacy implementation.
                     Set<Integer> enrolled = new LinkedHashSet<>();
@@ -257,7 +260,7 @@ public class GroupNoteSelect2Action extends ActionSupport {
         if (values == null || values.length == 0) throw new IllegalArgumentException();
         String result = null;
         for (String value : values) {
-            String next = zero && "0".equals(value) ? "0" : positive(value);
+            String next = zero && value != null && value.matches("0{1,10}") ? "0" : positive(value);
             if (result != null && !result.equals(next)) throw new IllegalArgumentException();
             result = next;
         }

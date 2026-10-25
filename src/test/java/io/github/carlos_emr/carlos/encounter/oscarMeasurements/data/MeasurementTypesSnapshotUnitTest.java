@@ -108,4 +108,26 @@ class MeasurementTypesSnapshotUnitTest {
         assertThat(catalog.getByType("OLD")).isSameAs(old);
         assertThat(catalog.getById("101")).isSameAs(old);
     }
+
+    @Test
+    void shouldRetainBothPreviousIndexes_whenValidationFailsAfterBuildingPartOfTheReplacement() {
+        MeasurementTypes catalog = initial();
+        var old = catalog.getByType("OLD");
+        MeasurementTypeDao replacement = mock(MeasurementTypeDao.class);
+        when(replacement.findAll()).thenReturn(List.of(type(202, "NEW"), type(303, "LATER")));
+        ValidationsDao validations = mock(ValidationsDao.class);
+        when(validations.find((Object) Integer.valueOf(1))).thenReturn(null).thenThrow(new IllegalStateException("FAKE validation unavailable"));
+        try (var spring = mockStatic(SpringUtils.class)) {
+            spring.when(() -> SpringUtils.getBean(MeasurementTypeDao.class)).thenReturn(replacement);
+            spring.when(() -> SpringUtils.getBean(ValidationsDao.class)).thenReturn(validations);
+            catalog.reInit();
+        }
+        verify(validations, times(2)).find((Object) Integer.valueOf(1));
+        assertThat(catalog.getByType("OLD")).isSameAs(old);
+        assertThat(catalog.getById("101")).isSameAs(old);
+        assertThat(catalog.getByType("NEW")).isNull();
+        assertThat(catalog.getById("202")).isNull();
+        assertThat(catalog.getByType("LATER")).isNull();
+        assertThat(catalog.getById("303")).isNull();
+    }
 }
