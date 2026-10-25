@@ -206,6 +206,9 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         private final AtomicReference<String> sentItems = new AtomicReference<>();
         private final AtomicReference<String> sentPdfs = new AtomicReference<>();
         private final java.util.concurrent.atomic.AtomicInteger sends = new java.util.concurrent.atomic.AtomicInteger();
+        private Runnable duringSend = () -> { };
+        private String sentMessageId = "77";
+        private RuntimeException sendFailure;
         private boolean noRecipients;
         private String thisWindow;
         private String otherWindow;
@@ -238,7 +241,11 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
                             sends.incrementAndGet();
                             sentItems.set(invocation.getArgument(6));
                             sentPdfs.set(invocation.getArgument(7));
-                            return "77";
+                            duringSend.run();
+                            if (sendFailure != null) {
+                                throw sendFailure;
+                            }
+                            return sentMessageId;
                         });
             })) {
                 return executeAction(action);
@@ -371,6 +378,68 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
                     .isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
             assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+        }
+
+        @Test
+        void shouldKeepTheChooserClear_whenTheInflightSendReturnsNoMessageId() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            duringSend = () -> MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, null);
+            sentMessageId = null;
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("FAKE subject");
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+            assertThat((String) getMockRequest().getAttribute("createMessageError")).contains("Failed to send");
+        }
+
+        @Test
+        void shouldKeepDiscardedAttachmentsAbsent_whenTheInflightSendThrows() {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            duringSend = () -> MsgAttachmentStaging.discard(getMockSession(), thisWindow);
+            sendFailure = new IllegalStateException("FAKE transport failure");
+
+            assertThatThrownBy(this::send).isSameAs(sendFailure);
+
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+        }
+
+        @Test
+        void shouldKeepTheNewerReplacement_whenTheInflightSendFails() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            duringSend = () -> MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 202, "<PDF>FAKE replacement</PDF>");
+            sentMessageId = "";
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE replacement</PDF>");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfDemographicNo()).isEqualTo(202);
+        }
+
+        @Test
+        void shouldKeepTheNewerSendRestorable_whenTheOlderSendSucceeds() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            AtomicReference<MsgAttachmentStaging.Staged> newerSend = new AtomicReference<>();
+            duringSend = () -> {
+                MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 202, "<PDF>FAKE newer send</PDF>");
+                newerSend.set(MsgAttachmentStaging.take(getMockSession(), thisWindow));
+            };
+
+            assertThat(send()).isEqualTo("success");
+            MsgAttachmentStaging.restore(getMockSession(), thisWindow, newerSend.get());
+
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE newer send</PDF>");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfDemographicNo()).isEqualTo(202);
         }
     }
 }

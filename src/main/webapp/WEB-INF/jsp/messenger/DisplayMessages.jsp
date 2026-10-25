@@ -396,13 +396,13 @@
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 1) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>&amp;orderby=<%=SafeEncode.forUriComponent(orderby)%>">
                                          <fmt:message key="messenger.DisplayMessages.btnSent"/></a><!-- sentMessage link-->
 
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 2) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=2<%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=2<%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>&amp;orderby=<%=SafeEncode.forUriComponent(orderby)%>">
                                          <fmt:message key="messenger.DisplayMessages.btnDeletedMessage"/></a><!--deletedMessage link-->
 
                                     </li>
