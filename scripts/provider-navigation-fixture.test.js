@@ -45,9 +45,9 @@ function fixtureSql(name = 'schedule-links') {
   };
   const fixture = providerNavigationFixture(sql, 'fixture', name);
   return {fixture, writes, reads, tamper() { current.ProviderPreference[0][0] = hex('77'); },
-    addForm() { current.ProviderPreferenceAppointmentScreenForm.push(['999998', 'unexpected form'].map(hex)); }, change() {
+    addForm() { current.ProviderPreferenceAppointmentScreenForm.push(['999998', 'unexpected form'].map(hex)); }, change(group = '123456') {
     current.property = [row(3, 'cpp_single_line', 'no'), row(6, 'incoming_document_default_queue', '1')];
-    current.ProviderPreference[0][1] = hex('123456');
+    current.ProviderPreference[0][1] = hex(group);
     current.ProviderPreferenceAppointmentScreenForm = [];
     current.ProviderPreferenceAppointmentScreenEForm = [];
   }};
@@ -76,6 +76,22 @@ test('restores scalar preferences and cleared form collections with all ownershi
 test('does not access the database for unrelated suite entries', () => {
   assert.equal(providerNavigationFixture({}, 'fixture', 'drug-search'), null);
 });
+
+test('restores the original preference after native selection of the seeded system provider', () => {
+  const f = fixtureSql(); f.change('-1'); f.fixture.cleanup();
+  assert.equal(f.writes.length, 1);
+  assert.match(f.writes[0], /UPDATE `ProviderPreference` SET/);
+  assert.ok(f.writes[0].lastIndexOf('INSERT INTO carlos_navigation_restore_guard')
+    < f.writes[0].indexOf('UPDATE property SET value='));
+});
+
+for (const value of ['-2', '-01', '-1suffix', '--1']) {
+  test(`retains all preferences without SQL mutation for unrecognized provider selection ${value}`, () => {
+    const f = fixtureSql(); f.change(value);
+    assert.throws(() => f.fixture.cleanup(), /Unexpected provider preference change; refusing cleanup/);
+    assert.equal(f.writes.length, 0);
+  });
+}
 
 test('does not mutate a matching baseline', () => {
   const f = fixtureSql(); f.fixture.cleanup(); assert.equal(f.writes.length, 0);

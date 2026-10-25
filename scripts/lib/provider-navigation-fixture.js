@@ -52,7 +52,8 @@ function validatePreference(snapshot) {
   for (let i = 0; i < columns.length; i++) {
     if (before[0][i] === after[0][i]) continue;
     const name = columns[i], value = hexText(after[0][i]);
-    const expected = name === 'myGroupNo' ? /^\d+$/.test(value || '')
+    // The native provider search also offers the seeded active system provider -1.
+    const expected = name === 'myGroupNo' ? value === '-1' || /^\d+$/.test(value || '')
       : name === 'lastUpdated' ? /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(value || '')
         : Object.hasOwn(defaults, name) && value === defaults[name];
     assert(expected, 'Unexpected provider preference change; refusing cleanup');
