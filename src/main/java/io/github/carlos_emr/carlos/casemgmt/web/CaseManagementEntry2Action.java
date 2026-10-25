@@ -176,7 +176,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 "submitChangeDiagnosis", "ajaxChangeDiagnosis").contains(operation == null ? "" : operation)) {
             if (!requireIssueWriteAccess()) return NONE;
         }
-        restoreFromSession();
+        if (!restoreFromSession()) return NONE;
 
         String result = dispatchRequest();
         if ("view".equals(result)) {
@@ -4027,18 +4027,22 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     protected CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
     protected ClientImageManager clientImageMgr = SpringUtils.getBean(ClientImageManager.class);
     protected ProviderManager providerMgr = SpringUtils.getBean(ProviderManager.class);
+    /** Canonical explicit patient, null when invalid, or a trusted internal-forward attribute when absent. */
     protected String getDemographicNo(HttpServletRequest request) {
-        String demono = request.getParameter("demographicNo");
-        if (demono == null || "".equals(demono)) {
-            demono = (String) request.getAttribute("casemgmt_DemoNo");
-        } else if (!demono.matches("\\d+")) {
-            // Reject tainted value but fall back to request attribute to avoid crashing callers
-            logger.error("Invalid non-numeric demographicNo rejected, falling back to request attribute: {}", LogSafe.sanitize(demono)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-            demono = (String) request.getAttribute("casemgmt_DemoNo");
-        } else {
-            request.setAttribute("casemgmt_DemoNo", demono);
+        if (request.getParameterValues("demographicNo") == null
+                && request.getParameterValues("demographic_no") == null) {
+            // Legacy internal forwards may carry an already authorized request attribute.
+            return (String) request.getAttribute("casemgmt_DemoNo");
         }
-        return demono;
+        try {
+            String patient = EncounterPatientContext.requireDemographicNo(request);
+            demographicNo = patient;
+            request.setAttribute("casemgmt_DemoNo", patient);
+            return patient;
+        } catch (IllegalArgumentException invalidPatient) {
+            // An explicit invalid identity must never fall back to an earlier chart value.
+            return null;
+        }
     }
 
     protected String getDemoName(String demoNo) {
@@ -4234,19 +4238,40 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         this.mySessionMap = session;
     }
 
-    private void restoreFromSession() {
+    private boolean restoreFromSession() {
+        String patient = null;
+        if (request.getParameterValues("demographicNo") != null
+                || request.getParameterValues("demographic_no") != null) {
+            try {
+                // Struts can join repeated String values with commas. Identity comes from
+                // the raw request, using the same canonicalization as write authorization.
+                patient = EncounterPatientContext.requireDemographicNo(request);
+            } catch (IllegalArgumentException invalidPatient) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return false;
+            }
+            demographicNo = patient;
+            request.setAttribute("casemgmt_DemoNo", patient);
+        }
         if (this.caseNote == null) {
             this.caseNote = new CaseManagementNote();
         }
-        
-        if (demographicNo != null) {
-            String sessionName = ChartProgramContext.formKey(request, demographicNo);
-            CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) mySessionMap.get(sessionName);
+
+        if (patient != null) {
+            String sessionName = ChartProgramContext.formKey(request, patient);
+            HttpSession session = request.getSession(false);
+            CaseManagementEntryFormBean sessionFrm = null;
+            if (mySessionMap != null) {
+                sessionFrm = (CaseManagementEntryFormBean) mySessionMap.get(sessionName);
+            } else if (session != null) {
+                sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionName);
+            }
             if (sessionFrm != null) {
                 this.issueCheckList = sessionFrm.getIssueCheckList();
                 this.newIssueCheckList = sessionFrm.getNewIssueCheckList();
             }
         }
+        return true;
     }
 
     private CaseManagementNote caseNote;

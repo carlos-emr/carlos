@@ -175,6 +175,14 @@ duration validation instead of a second Struts Integer binding: repeated equal v
 and explicit blanks are supported, and every repeated value is checked before any
 field changes. Malformed or conflicting values return 400.
 
+The next compact-save stage also exposed patient identity binding: the native request
+prefix and serialized form both submit the same `demographicNo`, which Struts joins
+into a comma-separated action property. Editor restoration and patient lookup now
+read the validated raw request and normalize that action property. Repeated equal
+values, leading-zero equivalents and both patient aliases restore the same owned
+editor; malformed or conflicting identities refuse before restoration. The real
+Struts tests use the servlet session map and assert the exact restored issue list.
+
 New coverage checks concurrent first-window contexts, forged signed payloads, full-save
 note identities and database locks, metadata eviction without draft loss, repeated Rx
 patient identifiers, mailbox state and denied writes, orphan-provider exports, and

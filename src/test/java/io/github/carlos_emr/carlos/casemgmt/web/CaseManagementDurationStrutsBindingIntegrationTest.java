@@ -21,6 +21,7 @@ import org.apache.struts2.ActionProxy;
 import org.apache.struts2.ActionProxyFactory;
 import org.apache.struts2.dispatcher.Dispatcher;
 import org.apache.struts2.dispatcher.HttpParameters;
+import org.apache.struts2.dispatcher.SessionMap;
 import org.apache.struts2.inject.Container;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -206,6 +207,75 @@ class CaseManagementDurationStrutsBindingIntegrationTest extends CarlosWebTestBa
         assertActualResultExists(result.code());
     }
 
+    static Stream<Arguments> equivalentPatientParameters() {
+        return Stream.of(
+                Arguments.of(new String[]{"101", "101"}, null),
+                Arguments.of(new String[]{"00101", "101"}, null),
+                Arguments.of(new String[]{"101"}, new String[]{"000101"}),
+                Arguments.of(new String[]{"00101", "101"}, new String[]{"101", "000101"}),
+                Arguments.of(null, new String[]{"00101", "101"}));
+    }
+
+    @ParameterizedTest
+    @MethodSource("equivalentPatientParameters")
+    void shouldRestoreTheCanonicalEditorThroughStruts_whenEquivalentPatientParametersAreRepeated(
+            String[] camelCase, String[] legacy) throws Exception {
+        setPatientParameters(camelCase, legacy);
+        var selectedIssues = form.getIssueCheckList();
+
+        BoundSave result = executeFullSave();
+
+        assertThat(result.code()).isEqualTo("list");
+        assertThat(result.action().getDemographicNo()).isEqualTo("101");
+        assertThat(result.action().getIssueCheckList()).isSameAs(selectedIssues);
+        assertThat(result.action().hasFieldErrors()).isFalse();
+        assertThat(result.conversionErrors()).isEmpty();
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        assertThat(form.getCaseNote().getId()).isEqualTo(600L);
+        assertThat(form.getCaseNote().getDemographic_no()).isEqualTo("101");
+        assertThat(form.getCaseNote().getNote()).isEqualTo(DRAFT.trim());
+        verify(manager).saveCaseManagementNote(any(), any(), anyList(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any());
+        assertActualResultExists(result.code());
+    }
+
+    static Stream<Arguments> conflictingPatientParameters() {
+        return Stream.of(
+                Arguments.of(new String[]{"101", "202"}, null),
+                Arguments.of(new String[]{"101"}, new String[]{"202"}),
+                Arguments.of(null, new String[]{"101", "202"}),
+                Arguments.of(new String[]{"101", "bad"}, null));
+    }
+
+    @ParameterizedTest
+    @MethodSource("conflictingPatientParameters")
+    void shouldRefuseBeforeRestoringOrSavingThroughStruts_whenPatientParametersConflict(
+            String[] camelCase, String[] legacy) throws Exception {
+        setPatientParameters(camelCase, legacy);
+
+        BoundSave result = executeFullSave();
+
+        assertThat(result.code()).isEqualTo("none");
+        assertThat(result.action().hasFieldErrors()).isFalse();
+        assertThat(result.conversionErrors()).isEmpty();
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockRequest.getParameter("caseNote_note")).isEqualTo(DRAFT);
+        assertThat(form.getCaseNote()).isSameAs(note);
+        assertThat(note.getNote()).isEqualTo("Original FAKE note");
+        assertThat(note.getHistory()).isEqualTo("Original history");
+        assertThat(FIELDS.stream().map(name -> duration(note, name)).toList()).containsExactly(5, 6, 7, 8);
+        assertThat(lock.getNoteId()).isEqualTo(501L);
+        verifyNoInteractions(manager);
+        verify(locks, never()).merge(any());
+    }
+
+    private void setPatientParameters(String[] camelCase, String[] legacy) {
+        requestParameters.remove("demographicNo");
+        mockRequest.removeParameter("demographicNo");
+        if (camelCase != null) add("demographicNo", camelCase);
+        if (legacy != null) add("demographic_no", legacy);
+    }
+
     private void add(String field, String... values) {
         requestParameters.put(field, values);
         mockRequest.setParameter(field, values);
@@ -222,7 +292,7 @@ class CaseManagementDurationStrutsBindingIntegrationTest extends CarlosWebTestBa
             ActionContext bindingContext = ActionContext.of(new HashMap<>(ActionContext.getContext().getContextMap()))
                     .withContainer(container).withServletContext(mockRequest.getServletContext())
                     .withServletRequest(mockRequest).withServletResponse(mockResponse)
-                    .withSession(new HashMap<>()).withParameters(HttpParameters.create(requestParameters).build());
+                    .withSession(new SessionMap(mockRequest)).withParameters(HttpParameters.create(requestParameters).build());
             bindingContext.bind();
             ActionProxy proxy = container.getInstance(ActionProxyFactory.class).createActionProxy(
                     "/", "chart-duration-binding-test", null, bindingContext.getContextMap(), false, true);
