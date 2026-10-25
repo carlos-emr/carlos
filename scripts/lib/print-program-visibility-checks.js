@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
 const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
 const { createHash } = require('node:crypto');
 const h = require('./playwright-harness');
 const { signIn } = require('./authz-read-probe');
@@ -221,6 +222,7 @@ async function checkPrintProgramVisibility(s, { fixture }) {
   s.cleanup(() => reader.context.close());
   reader.context.on('page', page => h.wireStrictPage(page, 'print-program-role-policy', s.recorder));
   const chart = await reader.context.newPage();
+  const nativeCharts = [{ page: chart, program: programs[0] }];
   let token;
   let otherToken;
   const clinicalToken = text => text.split(' café')[0];
@@ -233,6 +235,7 @@ async function checkPrintProgramVisibility(s, { fixture }) {
     admissions: sql.rows(`SELECT * FROM admission WHERE client_id=${patient} ORDER BY am_id`),
     defaults: sql.rows(`SELECT * FROM provider_default_program WHERE provider_no=${q(login.providerNo)} ORDER BY program_id`),
   });
+  try {
   await s.step('the native chart actually shows allowed shared-program notes and hides the other reporter role', async () => {
     await h.gotoApp(chart, config.baseUrl, `/encounter/IncomingEncounter?${new URLSearchParams({
       demographicNo: patient, providerNo: login.providerNo, programId: programs[0],
@@ -250,6 +253,7 @@ async function checkPrintProgramVisibility(s, { fixture }) {
     h.assert(sql.value(`SELECT program_no FROM casemgmt_note WHERE note_id=${shared}`) === programs[1]
       && programs[0] !== programs[1], 'The allowed shared note does not distinguish stored and chart programs');
     const otherChart = await reader.context.newPage();
+    nativeCharts.push({ page: otherChart, program: programs[1] });
     await h.gotoApp(otherChart, config.baseUrl, `/encounter/IncomingEncounter?${new URLSearchParams({
       demographicNo: patient, providerNo: login.providerNo, programId: programs[1],
     })}`);
@@ -296,10 +300,11 @@ async function checkPrintProgramVisibility(s, { fixture }) {
       try {
         const bytes = await response.body();
         const body = bytes.toString('utf8');
-        h.assert(response.status() === 403 && Object.hasOwn(response.headers(), h.APPLICATION_HEADER)
-          && bytes.subarray(0, 5).toString('latin1') !== '%PDF-'
-          && !Object.values(bodies).some(text => body.includes(clinicalToken(text))),
-        'A hidden explicit selection printed data or did not return403');
+        const fromApplication = Object.hasOwn(response.headers(), h.APPLICATION_HEADER);
+        const isPdf = bytes.subarray(0, 5).toString('latin1') === '%PDF-';
+        const hasClinicalText = Object.values(bodies).some(text => body.includes(clinicalToken(text)));
+        h.assert(response.status() === 403 && fromApplication && !isPdf && !hasClinicalText,
+          `Hidden explicit selection: HTTP ${response.status()}, application=${fromApplication}, PDF=${isPdf}, clinical=${hasClinicalText}`);
       } finally { await response.dispose(); }
       unchanged('Refused explicit selection');
     }
@@ -360,6 +365,188 @@ async function checkPrintProgramVisibility(s, { fixture }) {
     await checkRest('REST forged signed context', restAddress({}, undefined, [forged]), 403);
     await checkRest('REST conflicting genuine signed contexts', restAddress({}, undefined, [token, otherToken]), 403);
   });
+  } finally {
+    // Logout broadcasts navigation to open charts. Retire only these owned
+    // documents while their session still exists. Chromium abandons keepalive
+    // ping responses on navigation: forward the exact original native request
+    // and retain its real server acknowledgment before classifying that abort.
+    const failures = [];
+    const auditDir = fs.mkdtempSync('/tmp/carlos-pdf-native-retirement-');
+    for (const [chartIndex, { page, program }] of nativeCharts.entries()) {
+      if (page.isClosed()) continue;
+      let active = true;
+      let capturing = true;
+      let routeInstalled = false;
+      const matched = new Map();
+      const pending = [];
+      const associationErrors = [];
+      let previousFailureCount = s.recorder.requestFailures.length;
+      const mappedEntries = new Set();
+      let terminalWait;
+      const waitForTerminals = () => {
+        if (!terminalWait) terminalWait = (async () => {
+          let timer;
+          try {
+            await Promise.race([Promise.all([...matched.values()].map(proof => proof.waitForTerminal)),
+              new Promise((_, reject) => {
+                timer = setTimeout(() => reject(new Error('An owned native request has no terminal browser event')), 15000);
+              })]);
+          } finally { clearTimeout(timer); }
+        })();
+        return terminalWait;
+      };
+      const observeFinished = request => {
+        const proof = matched.get(request);
+        if (active && proof) { proof.terminal = 'finished'; proof.resolveTerminal(); }
+      };
+      const observeFailure = request => {
+        const count = s.recorder.requestFailures.length;
+        const match = matched.get(request);
+        if (active && match) {
+          const entry = s.recorder.requestFailures[count - 1];
+          if (count !== previousFailureCount + 1 || !entry || mappedEntries.has(entry)
+              || entry.url !== request.url() || entry.resourceType !== request.resourceType()
+              || entry.errorText !== request.failure()?.errorText) {
+            associationErrors.push('Native request failure could not be uniquely associated with its strict recorder entry');
+          } else { match.entry = entry; mappedEntries.add(entry); }
+          match.terminal = 'failed';
+          match.resolveTerminal();
+        }
+        previousFailureCount = count;
+      };
+      const endpoint = new URL(h.appUrl(config.baseUrl, '/CaseManagementEntry'));
+      const routePattern = url => url.origin === endpoint.origin && url.pathname === endpoint.pathname;
+      let routeHandler;
+      let expectedBeacons = 0;
+      let allAppeared;
+      let appeared;
+      page.on('requestfailed', observeFailure); // Core strict page wiring was installed first.
+      page.on('requestfinished', observeFinished);
+      try {
+        const form = await page.evaluate(() => {
+          const editor = document.forms.caseManagementEntryForm;
+          if (!editor) return null;
+          return { patient: String(window.demographicNo), provider: String(window.providerNo),
+            note: String(editor.elements.noteId?.value), token: String(editor.elements.chartContext?.value || ''),
+            csrf: window.CarlosAjax?.getCsrfToken(),
+            registrations: [...document.scripts].filter(script => script.src
+              && new URL(script.src, location.href).pathname.endsWith('/js/newCaseManagementView.js.jsp')).length,
+            release: Boolean(window.needToReleaseLock && editor.elements.noteId) };
+        });
+        if (form) {
+          h.assert(form.patient === patient && form.provider === login.providerNo && form.csrf
+            && Buffer.from(form.token.split('.')[0], 'base64url').toString('utf8') === `${patient}:${program}`
+            && /^-?\d+$/.test(form.note) && [1, 2].includes(form.registrations),
+          'Native PDF chart cleanup identity or handler count changed');
+          expectedBeacons = form.release ? form.registrations : 0;
+          appeared = new Promise(resolve => { allAppeared = resolve; });
+          routeHandler = async route => {
+            const request = route.request();
+            const url = new URL(request.url());
+            const body = new URLSearchParams(request.postData() || '');
+            let ownPage = false;
+            try { ownPage = request.frame().page() === page; } catch { /* Unknown origin stays strict. */ }
+            const exact = form.release && ownPage && request.method() === 'POST'
+              && request.resourceType() === 'ping'
+              && /^application\/x-www-form-urlencoded(?:;|$)/i.test(request.headers()['content-type'] || '')
+              && [...url.searchParams.keys()].length === 1
+              && url.searchParams.getAll('chartContext').length === 1
+              && url.searchParams.get('chartContext') === form.token
+              && [...body.keys()].length === 5
+              && ['method', 'demographicNo', 'providerNo', 'noteId', 'CSRF-TOKEN'].every(name => body.getAll(name).length === 1)
+              && body.get('method') === 'releaseNoteLock' && body.get('demographicNo') === patient
+              && body.get('providerNo') === login.providerNo && body.get('noteId') === form.note
+              && body.get('CSRF-TOKEN') === form.csrf;
+            if (!exact) { await route.continue(); return; }
+            if (!capturing) {
+              failures.push(new Error('An additional owned native beacon arrived after the captured handler count was sealed'));
+              await route.continue(); return;
+            }
+            let resolveTerminal;
+            const waitForTerminal = new Promise(resolve => { resolveTerminal = resolve; });
+            const proof = { request, entry: null, serverStatus: null, fromApplication: false,
+              terminal: null, waitForTerminal, resolveTerminal,
+              method: 'releaseNoteLock', patient, program, provider: login.providerNo, note: form.note,
+              csrfMatches: true, contextMatches: true,
+              bodySHA256: createHash('sha256').update(request.postData()).digest('hex') };
+            matched.set(request, proof);
+            const forwarding = (async () => {
+              h.assert(matched.size <= expectedBeacons && matched.size <= 2,
+                'More than the captured baseline native lock-release handlers ran');
+              const response = await route.fetch({ maxRedirects: 0, timeout: 15000 });
+              try {
+                proof.serverStatus = response.status();
+                proof.fromApplication = Object.hasOwn(response.headers(), h.APPLICATION_HEADER);
+                h.assert(proof.serverStatus === 200 && proof.fromApplication,
+                  `Owned native chart unload returned HTTP ${proof.serverStatus}`);
+                // No request URL, body, headers, cookies or CSRF value is changed.
+                await route.fulfill({ response });
+              } finally { await response.dispose(); }
+            })();
+            pending.push(forwarding);
+            if (matched.size === expectedBeacons) allAppeared();
+            try { await forwarding; } catch (error) { failures.push(error); await route.abort().catch(() => {}); }
+          };
+          await reader.context.route(routePattern, routeHandler);
+          routeInstalled = true;
+        }
+        // A known existing same-origin static image avoids extra clinical reads.
+        await page.goto(h.appUrl(config.baseUrl, '/images/empty.gif'));
+        if (expectedBeacons) {
+          let timer;
+          try {
+            await Promise.race([appeared, new Promise((_, reject) => {
+              timer = setTimeout(() => reject(new Error('Not all owned native lock-release handlers were observed')), 15000);
+            })]);
+          } finally { clearTimeout(timer); }
+        }
+        capturing = false;
+        await Promise.allSettled(pending);
+        await page.close();
+        await Promise.allSettled(pending);
+        await waitForTerminals();
+        h.assert(matched.size === expectedBeacons && matched.size <= 2,
+          'The owned native chart did not send its expected lock-release beacon');
+        h.assert(!associationErrors.length, associationErrors.join('; '));
+        for (const proof of matched.values()) {
+          h.assert(proof.serverStatus === 200 && proof.fromApplication
+            && ['finished', 'failed'].includes(proof.terminal),
+            'Native retirement has no successful application acknowledgment');
+          const entry = proof.entry;
+          const classified = Boolean(entry);
+          if (entry) h.assert(proof.request.resourceType() === 'ping'
+            && entry.errorText === 'net::ERR_ABORTED' && typeof entry.navigatedAway === 'function'
+            && entry.navigatedAway(), 'An owned native request failed without proven document abandonment');
+          const { request, entry: rawStrictEntry, waitForTerminal, resolveTerminal, ...safeProof } = proof;
+          const audit = { phase: 'authenticated owned chart retirement', ...safeProof,
+            classified, rawStrictEntry: rawStrictEntry || null };
+          // Preserve the complete strict entry privately BEFORE removing only
+          // that exact object from active findings. Console/HTTP errors remain.
+          const artifact = `${auditDir}/chart-${chartIndex}-request-${[...matched.keys()].indexOf(request)}.json`;
+          fs.writeFileSync(artifact, JSON.stringify(audit, null, 2) + '\n', { mode: 0o600 });
+          (s.recorder.classifiedNativeChartDepartures ||= []).push({ artifact, ...safeProof, classified });
+          console.log(`  Native chart retirement ${JSON.stringify({ ...safeProof, classified, artifact })}`);
+          if (entry) {
+            const index = s.recorder.requestFailures.indexOf(entry);
+            h.assert(index >= 0, 'The exact native strict failure entry disappeared before classification');
+            s.recorder.requestFailures.splice(index, 1);
+          }
+        }
+      } catch (error) { failures.push(error); }
+      finally {
+        capturing = false;
+        await Promise.allSettled(pending);
+        try { await waitForTerminals(); } catch (error) { failures.push(error); }
+        active = false;
+        try {
+          if (routeInstalled) await reader.context.unroute(routePattern, routeHandler);
+        } catch (error) { failures.push(error); }
+        page.off('requestfailed', observeFailure);
+        page.off('requestfinished', observeFinished);
+      }
+    }
+    h.assert(!failures.length, failures.map(error => error.message).join('; '));
+  }
 }
 
 module.exports = { checkPrintProgramVisibility };
