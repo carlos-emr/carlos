@@ -235,6 +235,7 @@ async function checkPrintProgramVisibility(s, { fixture }) {
     admissions: sql.rows(`SELECT * FROM admission WHERE client_id=${patient} ORDER BY am_id`),
     defaults: sql.rows(`SELECT * FROM provider_default_program WHERE provider_no=${q(login.providerNo)} ORDER BY program_id`),
   });
+  let workflowFailure;
   try {
   await s.step('the native chart actually shows allowed shared-program notes and hides the other reporter role', async () => {
     await h.gotoApp(chart, config.baseUrl, `/encounter/IncomingEncounter?${new URLSearchParams({
@@ -365,6 +366,9 @@ async function checkPrintProgramVisibility(s, { fixture }) {
     await checkRest('REST forged signed context', restAddress({}, undefined, [forged]), 403);
     await checkRest('REST conflicting genuine signed contexts', restAddress({}, undefined, [token, otherToken]), 403);
   });
+  } catch (error) {
+    workflowFailure = error;
+    throw error;
   } finally {
     // Logout broadcasts navigation to open charts. Retire only these owned
     // documents while their session still exists. Chromium abandons keepalive
@@ -438,7 +442,9 @@ async function checkPrintProgramVisibility(s, { fixture }) {
             && Buffer.from(form.token.split('.')[0], 'base64url').toString('utf8') === `${patient}:${program}`
             && /^-?\d+$/.test(form.note) && [1, 2].includes(form.registrations),
           'Native PDF chart cleanup identity or handler count changed');
-          expectedBeacons = form.release ? form.registrations : 0;
+          // Both baseline script inclusions registered a handler, even after
+          // an AJAX note refresh removed one of their original script tags.
+          expectedBeacons = form.release ? 2 : 0;
           appeared = new Promise(resolve => { allAppeared = resolve; });
           routeHandler = async route => {
             const request = route.request();
@@ -544,6 +550,10 @@ async function checkPrintProgramVisibility(s, { fixture }) {
         page.off('requestfailed', observeFailure);
         page.off('requestfinished', observeFinished);
       }
+    }
+    if (failures.length && workflowFailure) {
+      workflowFailure.message += `; Native chart cleanup: ${failures.map(error => error.message).join('; ')}`;
+      throw workflowFailure;
     }
     h.assert(!failures.length, failures.map(error => error.message).join('; '));
   }
