@@ -47,14 +47,16 @@
  *
  * Security Requirements:
  * - Requires "_msg" object write permissions via security taglib
+ * - Requires patient-specific read access to "_demographic", "_rx", "_allergy" and "_eChart"
+ * - Requires access to the selected patient's record
  * - User session validation and role-based access control
  *
  * Request Parameters:
- * - val2: Demographic number for patient context
+ * - val2: Positive Integer demographic number; invalid values return HTTP 400
  *
  * Processing Flow:
- * 1. Creates new MsgSessionBean with provider context
- * 2. Generates XML document structure for patient using MsgGenerate
+ * 1. Validates val2 and checks the patient's module and record read permissions
+ * 2. Generates a request-owned XML document structure for that patient using MsgGenerate
  * 3. Renders hierarchical tree interface using JSP scriptlet methods
  * 4. Allows user selection of items for transfer
  * 5. Submits selected items to PostItems.jsp for processing

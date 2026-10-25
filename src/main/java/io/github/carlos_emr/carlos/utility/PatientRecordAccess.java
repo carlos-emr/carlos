@@ -34,6 +34,14 @@ public final class PatientRecordAccess {
     /**
      * Requires both the operation's privilege and access to this patient's record. Callers
      * validate and canonicalize the patient identifier before calling this method.
+     *
+     * @param security SecurityInfoManager the authorization service
+     * @param login LoggedInInfo the authenticated provider; null is refused
+     * @param patient String the canonical positive Integer patient identifier
+     * @param object String the security object required for the operation
+     * @param right String the required privilege, such as {@code r} or {@code w}
+     * @throws SecurityException if the login, privilege or patient record access is missing
+     * @throws NumberFormatException if patient is not a valid Integer
      */
     public static void require(SecurityInfoManager security, LoggedInInfo login, String patient,
                                String object, String right) {

@@ -84,7 +84,7 @@
 
     <tr>
         <td bgcolor="white">Updated Last</td>
-        <td bgcolor="white"><c:out
+        <td bgcolor="white"><carlos:encode
                 value="${requestScope.cpp.update_date}"/></td>
     </tr>
 
@@ -94,8 +94,8 @@
         <td><label for="cpp.familyHistory">Family History</label></td>
     </tr>
     <tr>
-        <td bgcolor="white"><textarea id="cpp.socialHistory" name="cpp.socialHistory" rows="5" cols="45"><c:out value="${requestScope.cpp.socialHistory}"/></textarea></td>
-        <td bgcolor="white"><textarea id="cpp.familyHistory" name="cpp.familyHistory" rows="5" cols="45"><c:out value="${requestScope.cpp.familyHistory}"/></textarea></td>
+        <td bgcolor="white"><textarea id="cpp.socialHistory" name="cpp.socialHistory" rows="5" cols="45"><carlos:encode value="${requestScope.cpp.socialHistory}"/></textarea></td>
+        <td bgcolor="white"><textarea id="cpp.familyHistory" name="cpp.familyHistory" rows="5" cols="45"><carlos:encode value="${requestScope.cpp.familyHistory}"/></textarea></td>
     </tr>
 
     <tr class="title">
@@ -104,9 +104,9 @@
     </tr>
     <tr>
         <td bgcolor="white"><textarea id="cpp.medicalHistory" name="cpp.medicalHistory"
-                                      rows="5" cols="45"><c:out value="${requestScope.cpp.medicalHistory}"/></textarea></td>
+                                      rows="5" cols="45"><carlos:encode value="${requestScope.cpp.medicalHistory}"/></textarea></td>
         <td bgcolor="white"><textarea id="cpp.pastMedications" name="cpp.pastMedications"
-                                      rows="5" cols="45"><c:out value="${requestScope.cpp.pastMedications}"/></textarea></td>
+                                      rows="5" cols="45"><carlos:encode value="${requestScope.cpp.pastMedications}"/></textarea></td>
     </tr>
 
     <tr class="title">
@@ -114,13 +114,13 @@
     </tr>
     <tr>
         <td colspan="2" bgcolor="white"><textarea
-                id="cpp.otherSupportSystems" name="cpp.otherSupportSystems" rows="2" cols="95"><c:out value="${requestScope.cpp.otherSupportSystems}"/></textarea></td>
+                id="cpp.otherSupportSystems" name="cpp.otherSupportSystems" rows="2" cols="95"><carlos:encode value="${requestScope.cpp.otherSupportSystems}"/></textarea></td>
     </tr>
 </table>
 <input type="submit" value="Save" onclick="this.form.elements.namedItem('method').value='patientCPPSave'"/>
 <input type="submit" value="Print Preview" onclick="this.form.elements.namedItem('method').value='patientCppPrintPreview'" />
 <c:if test="${not empty requestScope.messages}">
     <c:forEach var="message" items="${requestScope.messages}">
-        <div style="color: blue"><I><c:out value="${message}"/></I></div>
+        <div style="color: blue"><I><carlos:encode value="${message}"/></I></div>
     </c:forEach>
 </c:if>

@@ -449,13 +449,48 @@ public interface CaseManagementManager {
      * their origin program's role for the revision and signature; missing both refuses the save.
      * A null draft program leaves drafts intact. The original overload retains its
      * note-program cleanup for integrations that do not supply a separate chart context.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context
+     * @param note CaseManagementNote the note revision to save
+     * @param issuelist List&lt;CaseManagementIssue&gt; issues associated with the revision
+     * @param cpp CaseManagementCPP the patient's CPP entry
+     * @param ongoing String the ongoing-concerns text
+     * @param verify boolean whether to verify the revision
+     * @param locale Locale used to format the saved note
+     * @param now Date the save timestamp
+     * @param userName String the saving user's display name
+     * @param user String the saving provider identifier
+     * @param remoteAddr String the client address used for auditing
+     * @param lastSavedNoteString String the previously saved note text
+     * @param draftProgram String the originating chart program; null preserves drafts
+     * @return CaseManagementNote the saved revision
+     * @throws Exception if any part of the transactional note, issue or CPP save fails
      */
     public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
                                                      Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString, String draftProgram) throws Exception;
 
-    /** Removes an unused chart issue and its CPP entry in the same transaction as the required note revision. */
+    /**
+     * Removes an unused chart issue and its CPP entry in the same transaction as the required note revision.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context
+     * @param note CaseManagementNote the required note revision to save
+     * @param issuelist List&lt;CaseManagementIssue&gt; issues associated with the revision
+     * @param cpp CaseManagementCPP the patient's CPP entry
+     * @param ongoing String the ongoing-concerns text
+     * @param verify boolean whether to verify the revision
+     * @param locale Locale used to format the saved note
+     * @param now Date the save timestamp
+     * @param userName String the saving user's display name
+     * @param user String the saving provider identifier
+     * @param remoteAddr String the client address used for auditing
+     * @param lastSavedNoteString String the previously saved note text
+     * @param draftProgram String the originating chart program; null preserves drafts
+     * @param removedIssue CaseManagementIssue the required persisted, unused issue belonging to the note patient
+     * @return CaseManagementNote the saved revision
+     * @throws Exception if the issue is invalid or any part of the transactional note, issue or CPP update fails
+     */
     public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
                                                      Date now, String userName, String user, String remoteAddr,

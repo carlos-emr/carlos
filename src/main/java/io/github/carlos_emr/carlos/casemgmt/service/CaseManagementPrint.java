@@ -160,6 +160,7 @@ public class CaseManagementPrint {
      *
      * @throws IOException if file I/O operations fail during PDF generation or cleanup
      * @throws DocumentException if PDF document creation or manipulation fails
+     * @throws NoteAccessDeniedException if the chart context is invalid or a selected note is not readable
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
