@@ -23,6 +23,8 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { authzReadFixture, cleanupAll } = require('./lib/authz-read-fixture');
 const { probe, classify, forbiddenByApp, urlFor, signIn, ledger } = require('./lib/authz-read-probe');
+const { checkLockedRecordMeasurements } = require('./lib/locked-record-measurement-checks');
+const { checkLockedRecordPrints } = require('./lib/locked-record-print-checks');
 
 const isEntry = method => r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/CaseManagementEntry')
   && new URLSearchParams(r.request().postData() || '').get('method') === method;
@@ -144,6 +146,8 @@ async function workflow(s) {
     }
     open.assertEmpty('Note history was served outside its patient');
   });
+  await checkLockedRecordMeasurements(s, { fixture });
+  await checkLockedRecordPrints(s, { fixture });
 }
 
 if (require.main === module) runWorkflow('authz-read-chart-note-history', workflow);

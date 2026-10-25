@@ -49,6 +49,7 @@ const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { readPatientState, assertPatientStateUnchanged } = require('./echart-two-patient-isolation-playwright-checks');
+const { checkLegacyMessageHandoff } = require('./lib/legacy-message-handoff-checks');
 
 const TIMEOUT = 20000;
 const OBSERVED = '2026-02-03';
@@ -545,6 +546,7 @@ async function run(s) {
     assertOwnEditor(owner, B, 'B\'s editor after a double-clicked Save');
     h.assert(owner.revision === after.at(-1), 'B\'s editor after a double-clicked Save does not show the revision it saved');
   });
+  await checkLegacyMessageHandoff(s, { patient: A, otherPatient: B, trackEditorModules });
 }
 
 if (require.main === module) runWorkflow('legacy-encounter-editor-isolation', run, { openPatient: true, openMaster: false });
