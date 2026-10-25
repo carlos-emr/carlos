@@ -364,6 +364,7 @@ function legacy() {
   const editor = { value: 'Legacy H&P + clinical text' };
   const requests = [];
   const timers = [];
+  const activeTimers = new Map();
   const listeners = {};
   class FakeXhr {
     constructor() { this.readyState = 0; this.status = 0; this.responseText = '';
@@ -372,11 +373,12 @@ function legacy() {
     setRequestHeader() {}
     send(body) { this.body = body; }
     finish(code) { this.status = code; this.readyState = 4; this.onreadystatechange(); }
-    abort() { this.onabort(); }
+    abort() { this.aborted = true; this.onabort(); }
   }
   const context = {
     document: { getElementById: id => id === 'legacyAutosaveStatus' ? status : editor },
-    XMLHttpRequest: FakeXhr, clearTimeout() {}, setTimeout: fn => { timers.push(fn); return timers.length; },
+    XMLHttpRequest: FakeXhr, clearTimeout: id => activeTimers.delete(id),
+    setTimeout: fn => { timers.push(fn); activeTimers.set(timers.length, fn); return timers.length; },
     URL, window: { XMLHttpRequest: FakeXhr, location: { href: 'https://clinic.example/carlos/CaseManagementEntry' },
       addEventListener: (name, callback) => { listeners[name] = callback; } },
   };
@@ -387,7 +389,7 @@ function legacy() {
     .replace(/var demographicNo = [\s\S]+?XMLHttpRequestObject.send\(/,
       "var demographicNo = '101'; var noteId = '0'; var programId = '11'; var chartContext = 'valid'; XMLHttpRequestObject.send(");
   vm.createContext(context); vm.runInContext(renderLabels(source), context);
-  return { context, status, editor, requests, timers, listeners };
+  return { context, status, editor, requests, timers, activeTimers, listeners };
 }
 
 for (const code of [0, 403, 500]) {
@@ -417,6 +419,58 @@ test('legacy lock conflict stops further autosaves and page teardown cancellatio
   assert.equal(teardown.timers.length, 0);
   assert.notEqual(teardown.status.attributes['data-autosave-state'], 'failed');
 });
+
+test('legacy persisted page restoration resumes one timer and saves the latest text after aborting the old transport', () => {
+  const h = legacy(); h.context.autoSave();
+  const abandoned = h.requests[0];
+  h.listeners.pagehide();
+  assert.equal(abandoned.aborted, true);
+  assert.equal(h.context.legacyAutosavePending, false);
+  assert.equal(h.activeTimers.size, 0);
+  h.editor.value = 'Restored exact H&P + café 中文\n  50% & note_id=999';
+  h.listeners.pageshow({ persisted: true });
+  assert.equal(h.context.legacyAutosaveStopped, false);
+  assert.equal(h.activeTimers.size, 1);
+  h.listeners.pageshow({ persisted: true });
+  assert.equal(h.timers.length, 1, 'the same restore cannot schedule a duplicate timer');
+  h.timers.at(-1)();
+  assert.equal(h.requests.length, 2);
+  assert.equal(new URLSearchParams(h.requests[1].body).get('note'), h.editor.value);
+  assert.deepEqual(new URLSearchParams(h.requests[1].body).getAll('note_id'), ['0']);
+  abandoned.finish(409); abandoned.onerror(); abandoned.ontimeout();
+  assert.equal(h.context.legacyAutosavePending, true);
+  assert.equal(h.context.legacyAutosaveStopped, false);
+  h.requests[1].finish(200);
+  assert.equal(h.status.attributes['data-autosave-state'], 'saved');
+  assert.equal(h.activeTimers.size, 1);
+});
+
+test('legacy ordinary pageshow never restarts a hidden editor or replaces an existing timer', () => {
+  const h = legacy(); h.context.setTimer();
+  h.listeners.pageshow({ persisted: false });
+  h.listeners.pageshow({ persisted: true });
+  assert.equal(h.timers.length, 1, 'pageshow without pagehide does not replace the active timer');
+  h.listeners.pagehide();
+  h.listeners.pageshow({ persisted: false });
+  assert.equal(h.context.legacyAutosaveStopped, true);
+  assert.equal(h.activeTimers.size, 0);
+  assert.equal(h.requests.length, 0);
+});
+
+for (const hide of [false, true]) {
+  test(`legacy conflict remains stopped on persisted pageshow ${hide ? 'after pagehide' : 'without pagehide'}`, () => {
+    const h = legacy(); h.context.autoSave(); h.requests[0].finish(409);
+    if (hide) h.listeners.pagehide();
+    h.listeners.pageshow({ persisted: true });
+    h.context.autoSave();
+    assert.equal(h.context.legacyAutosaveStopped, true);
+    assert.equal(h.activeTimers.size, 0);
+    assert.equal(h.requests.length, 1);
+    assert.equal(h.status.attributes['data-autosave-state'], 'conflict');
+    assert.equal(h.status.textContent, labels.draftSaveConflictLabel);
+    assert.equal(h.editor.value, 'Legacy H&P + clinical text');
+  });
+}
 
 test('legacy timeout retries its latest complete text once and ignores late callbacks from the failed request', () => {
   const h = legacy(); h.context.autoSave();

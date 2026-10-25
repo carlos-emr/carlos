@@ -194,6 +194,7 @@
         var legacyAutosaveTimer = null;
         var legacyAutosavePending = false;
         var legacyAutosaveStopped = false;
+        var legacyAutosaveSuspended = false;
 
         function showLegacyAutosaveStatus(state, text) {
             var status = document.getElementById('legacyAutosaveStatus');
@@ -267,9 +268,16 @@
         }
 
         window.addEventListener('pagehide', function () {
+            if (!legacyAutosaveStopped) legacyAutosaveSuspended = true;
             legacyAutosaveStopped = true;
             clearTimeout(legacyAutosaveTimer);
             if (legacyAutosavePending && XMLHttpRequestObject) XMLHttpRequestObject.abort();
+        });
+        window.addEventListener('pageshow', function (event) {
+            if (!event.persisted || !legacyAutosaveSuspended) return;
+            legacyAutosaveSuspended = false;
+            legacyAutosaveStopped = false;
+            setTimer();
         });
 
         function init() {
