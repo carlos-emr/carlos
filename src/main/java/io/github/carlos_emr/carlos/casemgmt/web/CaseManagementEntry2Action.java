@@ -2367,28 +2367,37 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         casemgmtNoteLockDao.removeForSession(providerNo, demographicNo, noteId, request.getSession().getId());
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /**
+     * Idempotently releases only the requested provider/patient/note lock owned by this HTTP session.
+     * The native force flag retains that same persisted ownership boundary. Another editor's
+     * patient-level cached lock is preserved; a matching cache is cleared only after its row is deleted.
+     *
+     * @return null because the release response has no view
+     */
     public String releaseNoteLock() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String demoNo = getDemographicNo(request);
         String noteId = request.getParameter("noteId");
-        String forceRelease = request.getParameter("force");
         HttpSession session = request.getSession();
-        String sessionFrmName = ChartProgramContext.formKey(request, demoNo);
+        ChartProgramContext.formKey(request, demoNo);
 
         try {
+            int selectedPatient = Integer.parseInt(demoNo);
+            long selectedNote = Long.parseLong(noteId);
+            // A different program window may own this patient's cached lock. The
+            // persisted delete binds all four identities, including the actual
+            // HTTP session, so releasing an older editor does not depend on that
+            // cache or broaden the native force=true operation's ownership.
+            int released = casemgmtNoteLockDao.removeForSession(providerNo, selectedPatient,
+                    selectedNote, session.getId());
             CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by demographic scope
-            //If browser is exiting check to see if we should release lock.  It may be held by same user in another window so we check
-            if (request.getSession().getId().equals(casemgmtNoteLockSession.getSessionId()) && casemgmtNoteLockSession.getNoteId() == Long.parseLong(noteId)) {
-                releaseNoteLock(providerNo, Integer.parseInt(demoNo), Long.parseLong(noteId));
+            if (released > 0 && casemgmtNoteLockSession != null
+                    && Objects.equals(casemgmtNoteLockSession.getDemographicNo(), selectedPatient)
+                    && Objects.equals(casemgmtNoteLockSession.getNoteId(), selectedNote)
+                    && Objects.equals(casemgmtNoteLockSession.getProviderNo(), providerNo)
+                    && Objects.equals(casemgmtNoteLockSession.getSessionId(), session.getId())) {
                 session.removeAttribute("casemgmtNoteLock" + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): release of own-session lock keyed by demographic scope
-            }
-            //If we clicked on a note to edit we want to release old note's lock.  Session lock has already been updated with new note id
-            //so we force removal of old note lock
-            else if (forceRelease != null && forceRelease.equalsIgnoreCase("true")) {
-                releaseNoteLock(providerNo, Integer.parseInt(demoNo), Long.parseLong(noteId));
             }
 
         } catch (Exception e) {

@@ -1055,6 +1055,137 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         verify(target, never()).saveCompactNoteRevision(any(), any(), anyList(), any());
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"missing,false", "missing,true", "other-note,false", "other-note,true",
+            "matching,false", "foreign-session,false", "foreign-provider,false", "foreign-patient,false"})
+    void shouldReleaseOnlyItsPersistedSessionLock_whenAnotherWindowOwnsThePatientCache(String cache, boolean force) {
+        CaseManagementNote other = anotherStoredNote();
+        CasemgmtNoteLock selected = storeLock(originalId, "999998", request.getSession().getId());
+        CasemgmtNoteLock otherLock = storeLock(other.getId(), "999998", request.getSession().getId());
+        CasemgmtNoteLock foreignSession = storeLock(originalId, "999998", "foreign-login-session");
+        CasemgmtNoteLock foreignProvider = storeLock(originalId, "999997", request.getSession().getId());
+        CasemgmtNoteLock foreignPatientCache = new CasemgmtNoteLock();
+        foreignPatientCache.setId(999L);
+        foreignPatientCache.setDemographicNo(2);
+        foreignPatientCache.setProviderNo("999998");
+        foreignPatientCache.setNoteId(originalId);
+        foreignPatientCache.setSessionId(request.getSession().getId());
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", storedLocks);
+        Object cached = switch (cache) {
+            case "missing" -> null;
+            case "matching" -> selected;
+            case "foreign-session" -> foreignSession;
+            case "foreign-provider" -> foreignProvider;
+            case "foreign-patient" -> foreignPatientCache;
+            default -> otherLock;
+        };
+        request.getSession().setAttribute("casemgmtNoteLock1", cached);
+        request.setParameter("noteId", originalId.toString());
+        if (force) request.setParameter("force", "true");
+        Snapshot before = snapshot();
+        List<List<String>> controlsBefore = storedLockRows(otherLock.getId(), foreignSession.getId(), foreignProvider.getId());
+
+        String result = tx().execute(status -> action.releaseNoteLock());
+
+        assertThat(result).isNull();
+        assertThat(storedLockRows(selected.getId())).as("requested own-session lock must be released").isEmpty();
+        assertThat(storedLockRows(otherLock.getId(), foreignSession.getId(), foreignProvider.getId())).isEqualTo(controlsBefore);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock1"))
+                .isSameAs("matching".equals(cache) ? null : cached);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepForeignPersistedLocksAndCache_whenThisSessionOwnsNoRequestedLock(boolean force) {
+        CasemgmtNoteLock foreignSession = storeLock(originalId, "999998", "foreign-login-session");
+        CasemgmtNoteLock foreignProvider = storeLock(originalId, "999997", request.getSession().getId());
+        request.getSession().setAttribute("casemgmtNoteLock1", foreignSession);
+        request.setParameter("noteId", originalId.toString());
+        if (force) request.setParameter("force", "true");
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", storedLocks);
+        Snapshot before = snapshot();
+        List<List<String>> locksBefore = storedLockRows(foreignSession.getId(), foreignProvider.getId());
+
+        String result = tx().execute(status -> action.releaseNoteLock());
+
+        assertThat(result).isNull();
+        assertThat(storedLockRows(foreignSession.getId(), foreignProvider.getId())).isEqualTo(locksBefore);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isSameAs(foreignSession);
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0L, -1L})
+    void shouldClearOnlyTheExactDeletedUnsavedEditorCache_whenReleasingLegacySentinels(long noteId) {
+        CasemgmtNoteLock selected = storeLock(noteId, "999998", request.getSession().getId());
+        request.getSession().setAttribute("casemgmtNoteLock1", selected);
+        request.setParameter("noteId", Long.toString(noteId));
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", storedLocks);
+        Snapshot before = snapshot();
+
+        String result = tx().execute(status -> action.releaseNoteLock());
+
+        assertThat(result).isNull();
+        assertThat(storedLockRows(selected.getId())).isEmpty();
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isNull();
+        assertThat(snapshot()).isEqualTo(before);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,-1", "-1,0"})
+    void shouldNotConflateDistinctUnsavedLockTuples_whenAnotherSentinelIsCached(long selectedId, long cachedId) {
+        CasemgmtNoteLock selected = storeLock(selectedId, "999998", request.getSession().getId());
+        CasemgmtNoteLock cached = storeLock(cachedId, "999998", request.getSession().getId());
+        request.getSession().setAttribute("casemgmtNoteLock1", cached);
+        request.setParameter("noteId", Long.toString(selectedId));
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", storedLocks);
+        List<List<String>> cachedBefore = storedLockRows(cached.getId());
+        Snapshot before = snapshot();
+
+        String result = tx().execute(status -> action.releaseNoteLock());
+
+        assertThat(result).isNull();
+        assertThat(storedLockRows(selected.getId())).isEmpty();
+        assertThat(storedLockRows(cached.getId())).isEqualTo(cachedBefore);
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isSameAs(cached);
+        assertThat(snapshot()).isEqualTo(before);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"forged", "foreign-patient"})
+    void shouldPreserveEveryLockAndCache_whenSuppliedReleaseContextIsUnauthorized(String boundary) {
+        CasemgmtNoteLock selected = storeLock(originalId, "999998", request.getSession().getId());
+        request.getSession().setAttribute("casemgmtNoteLock1", selected);
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", storedLocks);
+        String context = ChartProgramContext.token(request);
+        if ("foreign-patient".equals(boundary)) {
+            MockHttpServletRequest otherPatient = new MockHttpServletRequest("POST", "/CaseManagementEntry");
+            otherPatient.setSession(request.getSession());
+            otherPatient.setParameter("demographicNo", "2");
+            ChartProgramContext.remember(otherPatient, "7");
+            context = ChartProgramContext.token(otherPatient);
+        } else {
+            int signature = context.indexOf('.') + 1;
+            context = context.substring(0, signature) + (context.charAt(signature) == 'A' ? 'B' : 'A')
+                    + context.substring(signature + 1);
+        }
+        MockHttpServletRequest refused = new MockHttpServletRequest("POST", "/CaseManagementEntry");
+        refused.setSession(request.getSession());
+        refused.setParameter("demographicNo", "1");
+        refused.setParameter("noteId", originalId.toString());
+        refused.setParameter(ChartProgramContext.PARAMETER, context);
+        action.request = refused;
+        List<List<String>> locksBefore = storedLockRows(selected.getId());
+        Snapshot before = snapshot();
+
+        assertThatThrownBy(action::releaseNoteLock).isInstanceOf(SecurityException.class);
+
+        assertThat(storedLockRows(selected.getId())).isEqualTo(locksBefore);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isSameAs(selected);
+    }
+
     private CaseManagementNote anotherStoredNote() {
         return tx().execute(status -> {
             CaseManagementNote other = original.copyForRevision();
