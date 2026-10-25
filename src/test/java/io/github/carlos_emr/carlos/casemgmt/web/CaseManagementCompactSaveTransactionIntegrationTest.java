@@ -1256,6 +1256,151 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         assertThat(request.getSession().getAttribute("casemgmtNoteLock1")).isSameAs(other);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"compact-edit", "delete-edit", "compact-cleanup", "delete-cleanup", "compact-cache-edit"})
+    void shouldKeepTheCurrentEditorSelection_whenAnOlderSaveCompletesAfterAnotherRequest(String scenario) throws Exception {
+        boolean deleteIssue = scenario.startsWith("delete");
+        boolean cleanup = scenario.endsWith("cleanup");
+        boolean cacheInterleave = scenario.equals("compact-cache-edit");
+        var sharedSession = spy((org.springframework.mock.web.MockHttpSession) request.getSession());
+        request.setSession(sharedSession);
+        CaseManagementNote other = anotherStoredNote();
+        lock = storeLock(originalId, "999998", request.getSession().getId());
+        CasemgmtNoteLock otherLock = storeLock(other.getId(), "999998", request.getSession().getId());
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", storedLocks);
+        request.getSession().setAttribute("casemgmtNoteLock1", lock);
+        request.getSession().setAttribute("newCaseManagement", "true");
+        request.setParameter("ajax", "true");
+        if (deleteIssue) prepareIssueDeletion();
+        else {
+            request.setParameter("numIssues", "0");
+            form.setIssueCheckList(new ArrayList<>());
+        }
+        String token = ChartProgramContext.token(request);
+        String key = ChartProgramContext.formKey(request, "1");
+        request.setParameter(ChartProgramContext.PARAMETER, token);
+        MockHttpServletRequest next = new MockHttpServletRequest("POST", "/CaseManagementEntry");
+        next.setSession(request.getSession());
+        next.setParameter("demographicNo", "1");
+        next.setParameter("noteId", other.getId().toString());
+        next.setParameter("forceNote", "true");
+        next.setParameter("from", "casemgmt");
+        next.setParameter("ajax", "true");
+        next.setParameter(ChartProgramContext.PARAMETER, token);
+        assertThat(ChartProgramContext.formKey(next, "1")).isEqualTo(key);
+        CaseManagementEntry2Action editor = mock(CaseManagementEntry2Action.class, CALLS_REAL_METHODS);
+        editor.request = next;
+        MockHttpServletResponse nextResponse = new MockHttpServletResponse();
+        editor.response = nextResponse;
+        editor.caseManagementMgr = manager;
+        editor.withSession(new org.apache.struts2.dispatcher.SessionMap(next));
+        SecurityInfoManager security = (SecurityInfoManager) ReflectionTestUtils.getField(action, "securityInfoManager");
+        ReflectionTestUtils.setField(editor, "securityInfoManager", security);
+        ReflectionTestUtils.setField(editor, "casemgmtNoteLockDao", storedLocks);
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        when(security.hasPrivilege(login, "_eChart", "r", "1")).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "r", "1")).thenReturn(true);
+        doReturn(true).when(target).isClientInProgramDomain("999998", "1");
+        doReturn("Owned patient").when(editor).getDemoName("1");
+        doReturn("46").when(editor).getDemoAge("1");
+        doReturn("1980-01-02").when(editor).getDemoDOB("1");
+        beans.when(() -> SpringUtils.getBean(CasemgmtNoteLockDao.class)).thenReturn(storedLocks);
+        var encounter = new io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean();
+        encounter.demographicNo = "1";
+        encounter.patientFirstName = "Owned";
+        encounter.patientLastName = "Patient";
+        encounter.appointmentNo = "0";
+        io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext.rememberEncounter(next, encounter);
+        var opened = new java.util.concurrent.atomic.AtomicReference<CaseManagementEntryFormBean>();
+        var lockB = new java.util.concurrent.atomic.AtomicReference<List<List<String>>>();
+        var stateWithB = new java.util.concurrent.atomic.AtomicReference<Snapshot>();
+        org.mockito.stubbing.Answer<Object> replaceSelection = invocation -> {
+            if (cleanup) {
+                assertThat(editor.cleanup()).isEqualTo("none");
+                assertThat(next.getSession().getAttribute(key)).isNull();
+                stateWithB.set(snapshot());
+                return null;
+            }
+            try (var views = mockConstruction(CaseManagementView2Action.class)) {
+                assertThat(editor.edit()).isEqualTo("issueList_ajax");
+            }
+            opened.set((CaseManagementEntryFormBean) next.getSession().getAttribute(key));
+            assertThat(opened.get()).isNotSameAs(form);
+            assertThat(opened.get().getCaseNote().getId()).isEqualTo(other.getId());
+            assertThat(next.getSession().getAttribute("casemgmtNoteLock1")).isInstanceOf(CasemgmtNoteLock.class);
+            assertThat(((CasemgmtNoteLock) next.getSession().getAttribute("casemgmtNoteLock1")).getId()).isEqualTo(otherLock.getId());
+            tx().executeWithoutResult(status -> seedDraft("999998", 1, 7, "B newly opened draft"));
+            lockB.set(storedLockRows(otherLock.getId()));
+            stateWithB.set(snapshot());
+            return null;
+        };
+        var cacheArmed = new java.util.concurrent.atomic.AtomicBoolean();
+        var cacheInterleaved = new java.util.concurrent.atomic.AtomicBoolean();
+        doAnswer(invocation -> {
+            Object captured = invocation.callRealMethod();
+            if (cacheArmed.compareAndSet(true, false)) {
+                assertThat(((CasemgmtNoteLock) captured).getId()).isEqualTo(lock.getId());
+                replaceSelection.answer(null);
+                cacheInterleaved.set(true);
+            }
+            return captured;
+        }).when(sharedSession).getAttribute("casemgmtNoteLock1");
+        org.mockito.stubbing.Answer<Object> interleave = invocation -> {
+            assertThat(Thread.holdsLock(org.springframework.web.util.WebUtils.getSessionMutex(request.getSession()))).isFalse();
+            Object committed = invocation.callRealMethod();
+            if (cacheInterleave) cacheArmed.set(true);
+            else replaceSelection.answer(null);
+            return committed;
+        };
+        if (deleteIssue) doAnswer(interleave).when(target).saveCaseManagementNote(any(), any(), anyList(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any(), any(CaseManagementIssue.class));
+        else doAnswer(interleave).when(target).saveCompactNoteRevision(any(), any(), anyList(), any());
+
+        assertThat(deleteIssue ? action.issueDelete() : action.ajaxsave()).isEqualTo("issueList_ajax");
+
+        if (cacheInterleave) assertThat(cacheInterleaved).isTrue();
+        CaseManagementEntryFormBean rendered = (CaseManagementEntryFormBean) request.getAttribute("caseManagementEntryForm");
+        Long savedA = rendered.getCaseNote().getId();
+        assertThat(savedA).isNotEqualTo(originalId);
+        if (!deleteIssue) assertThat(request.getAttribute("ajaxsave")).isEqualTo(savedA);
+        assertThat(((CaseManagementEntryFormBean) request.getAttribute("caseManagementEntryForm")).getCaseNote().getId()).isEqualTo(savedA);
+        Long advancedA = tx().execute(status -> storedLocks.find(lock.getId()).getNoteId());
+        assertThat(advancedA).isEqualTo(savedA);
+        assertThat(snapshot()).isEqualTo(stateWithB.get());
+        if (cleanup) {
+            assertThat(request.getSession().getAttribute(key)).as("a completed save must not resurrect a cleaned editor").isNull();
+            return;
+        }
+        assertThat(storedLockRows(otherLock.getId())).isEqualTo(lockB.get());
+        assertThat(((CasemgmtNoteLock) request.getSession().getAttribute("casemgmtNoteLock1")).getId()).isEqualTo(otherLock.getId());
+        assertThat(opened.get().getCaseNote().getId()).isEqualTo(other.getId());
+        boolean keptB = request.getSession().getAttribute(key) == opened.get();
+        List<List<String>> lockABefore = storedLockRows(lock.getId());
+        Snapshot beforeBSave = snapshot();
+        request = next;
+        response = nextResponse;
+        action.request = request;
+        action.response = response;
+        form = opened.get();
+        prepareFullSave(marker + " B full save after A");
+        String bResult = action.save();
+        org.assertj.core.api.SoftAssertions.assertSoftly(soft -> {
+            soft.assertThat(keptB).as("actual edit(B) must remain the selected form after A publishes").isTrue();
+            soft.assertThat(bResult).as("B native full Save remains usable").isEqualTo("view");
+            soft.assertThat(response.getStatus()).isEqualTo(200);
+            soft.assertThat(form.getCaseNote().getId()).isNotEqualTo(other.getId());
+            soft.assertThat(form.getCaseNote().getNote()).isEqualTo(marker + " B full save after A");
+        });
+        assertThat(storedLockRows(lock.getId())).isEqualTo(lockABefore);
+        Long advancedB = tx().execute(status -> storedLocks.find(otherLock.getId()).getNoteId());
+        assertThat(advancedB).isEqualTo(form.getCaseNote().getId());
+        Snapshot afterB = snapshot();
+        assertThat(afterB.notes()).hasSize(beforeBSave.notes().size() + 1);
+        assertThat(afterB.notes().subList(0, beforeBSave.notes().size())).isEqualTo(beforeBSave.notes());
+        assertThat(afterB.drafts()).containsExactlyElementsOf(beforeBSave.drafts().stream()
+                .filter(row -> !row.contains(marker + " B newly opened draft")).toList());
+    }
+
     private CaseManagementNote anotherStoredNote() {
         return tx().execute(status -> {
             CaseManagementNote other = original.copyForRevision();

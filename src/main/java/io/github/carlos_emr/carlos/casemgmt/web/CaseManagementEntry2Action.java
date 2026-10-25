@@ -678,7 +678,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         logger.debug("Stored note form id={} noteLength={}",
                 LogSafe.sanitize(String.valueOf(note.getId())),
                 cform.getCaseNote_note() == null ? 0 : cform.getCaseNote_note().length());
-        mySessionMap.put(frmName, cform);
+        synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
+            mySessionMap.put(frmName, cform);
+        }
 
         String fwd, finalFwd = null;
         String chainResult = sanitizeChainResultName(chain);
@@ -2255,9 +2257,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         casemgmtNoteLockDao.merge(selectedLock);
         CasemgmtNoteLock cachedLock = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- own-session patient lock cache
         if (cachedLock != null && Objects.equals(cachedLock.getId(), selectedLock.getId())) {
-            session.setAttribute("casemgmtNoteLock" + demo, selectedLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- only this saved editor's cached lock
+            // Update the captured cache object without reinstalling it over a newer editor's cache.
+            cachedLock.setNoteId(note.getId());
         }
-        session.setAttribute(sessionName, sessionFrm); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- publishing the committed editor under its authenticated chart context
+        publishCommittedEditor(session, sessionName, sessionFrm, sessionFrm);
         CaseManagementEntryFormBean newform = new CaseManagementEntryFormBean();
         newform.setCaseNote(note);
         newform.setIssueCheckList(stagedCheckboxes);
@@ -2269,6 +2272,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         LogAction.addLog(providerNo, newNote ? LogConst.ADD : LogConst.UPDATE, LogConst.CON_CME_NOTE,
                 String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
         return ISSUE_LIST_AJAX_RESULT;
+    }
+
+    /** Publishes a committed editor only while it is still selected, without holding database locks. */
+    private static void publishCommittedEditor(HttpSession session, String key,
+                                              CaseManagementEntryFormBean expected,
+                                              CaseManagementEntryFormBean committed) {
+        synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
+            if (session.getAttribute(key) == expected) {
+                session.setAttribute(key, committed); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- committed form retains its authenticated chart context and current editor identity
+            }
+        }
     }
 
     /** New editor DOM IDs are zero-prefixed counters (01) or legacy decimal IDs (0.1). */
@@ -3048,7 +3062,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 return Boolean.parseBoolean(request.getParameter("ajax")) ? NONE
                         : rejectedFullFormSave(request.getParameter("caseNote_note"), "view");
             }
-            session.setAttribute(sessionFrmName, staged); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- committed editor under its authenticated chart context
+            publishCommittedEditor(session, sessionFrmName, sessionFrm, staged);
             sessionFrm = staged;
         } else {
             // An issue-only editor has no note revision to save and retains its own grants.
@@ -3496,7 +3510,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         String sessionFrmName = ChartProgramContext.formKey(request, demoNo);
 
-        request.getSession().setAttribute(sessionFrmName, null); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        HttpSession session = request.getSession();
+        synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
+            session.removeAttribute(sessionFrmName);
+        }
         EncounterPatientContext.forgetEncounter(request, demoNo);
         // The text this chart's last save wrote into the legacy eChart record, and a pending draft
         // restore: kept per patient (issue #4673). Opening the editor again starts without them,

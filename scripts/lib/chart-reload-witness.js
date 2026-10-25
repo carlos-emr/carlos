@@ -64,11 +64,8 @@ async function observeOwnedReload(page, form) {
   };
 }
 
-/** Validate the complete witness before selecting any exact recorder entry. */
-function provenReloadAborts(recorder, { page, form, reopened, requests, witness, recovered }) {
-  h.assert(recovered && reopened.timeOrigin !== form.timeOrigin && reopened.url === form.url
-    && reopened.patient === form.patient && reopened.program === form.program && reopened.token === form.token,
-  'Native reload acknowledgment requires successful same-context raw-draft recovery in a new document');
+/** Select only exact native abort entries after their shared transport proof. */
+function selectProvenAbortEntries(recorder, { page, form, requests, witness }) {
   h.assert(witness.oldFrame === witness.newFrame && witness.oldLoader && witness.newLoader
     && witness.oldLoader !== witness.newLoader && requests.length >= 1 && requests.length <= 2
     && witness.operations.length === requests.length
@@ -103,6 +100,15 @@ function provenReloadAborts(recorder, { page, form, reopened, requests, witness,
     'Only the uniquely associated original native navigation-abort entry may be acknowledged');
     entries.push(entry);
   }
+  return entries;
+}
+
+/** Validate the complete witness before selecting any exact recorder entry. */
+function provenReloadAborts(recorder, { page, form, reopened, requests, witness, recovered }) {
+  h.assert(recovered && reopened.timeOrigin !== form.timeOrigin && reopened.url === form.url
+    && reopened.patient === form.patient && reopened.program === form.program && reopened.token === form.token,
+  'Native reload acknowledgment requires successful same-context raw-draft recovery in a new document');
+  const entries = selectProvenAbortEntries(recorder, { page, form, requests, witness });
   return { entries, audit: { phase: 'owned same-URL native reload', blobBytesUnavailable: witness.operations.some(op => !op.bodyAvailable),
     endpointSha256: hash(form.endpoint), oldTimeOrigin: form.timeOrigin, newTimeOrigin: reopened.timeOrigin,
     rawFailures: entries.map(entry => ({ ...entry })), witness } };
@@ -132,40 +138,7 @@ function provenPrintNavigationAborts(recorder, { page, form, arrived, requests, 
     && same(state.beforeLocks.filter(row => row !== owned[0]), state.afterLocks)
     && new Set(requests.map(item => item.request)).size === requests.length,
   'Print completion changed clinical state, failed to remove exactly its authenticated lock, or changed another lock');
-  h.assert(witness.oldFrame === witness.newFrame && witness.oldLoader && witness.newLoader
-    && witness.oldLoader !== witness.newLoader && requests.length >= 1 && requests.length <= 2
-    && witness.operations.length === requests.length
-    && new Set(witness.operations.map(operation => operation.requestId)).size === requests.length,
-  'Native reload witness is missing, ambiguous or not a new owned document');
-  for (const operation of witness.operations) {
-    h.assert(operation.frameId === witness.oldFrame && operation.loaderId === witness.oldLoader
-      && operation.endpoint === form.endpoint && operation.method === 'POST' && operation.type === 'Ping'
-      && !operation.duplicateRequest && operation.bodyMatches !== false && operation.terminal
-      && operation.terminalCount === 1 && operation.ackCount === 1
-      && operation.acknowledgment?.requestId === operation.requestId
-      && operation.acknowledgment.status === 200 && operation.acknowledgment.application,
-    'A native old-document operation lacks its exact application200 acknowledgment');
-  }
-  const canceled = witness.operations.filter(operation => operation.terminal.kind === 'failed');
-  const failed = requests.filter(item => item.terminal === 'failed');
-  h.assert(failed.length === canceled.length && failed.length <= 1
-    && requests.every(item => ['finished', 'failed'].includes(item.terminal)),
-  'Native terminal events are missing or cannot be associated uniquely');
-  const entries = [];
-  for (const item of requests) {
-    h.assert(item.request.frame().page() === page && item.request.method() === 'POST'
-      && item.request.resourceType() === 'ping' && item.request.url() === form.endpoint,
-    'Native reload Request lost its exact owned page, method or signed endpoint');
-  }
-  for (const item of failed) {
-    const op = canceled[0]; const entry = item.rawFailure;
-    h.assert(op.terminal.errorText === 'net::ERR_ABORTED' && op.terminal.canceled === true
-      && op.terminal.blockedReason === null && item.request.failure()?.errorText === 'net::ERR_ABORTED'
-      && entry && recorder.requestFailures.filter(value => value === entry).length === 1
-      && entry.url === form.endpoint && entry.resourceType === 'ping' && entry.errorText === 'net::ERR_ABORTED',
-    'Only the uniquely associated original native navigation-abort entry may be acknowledged');
-    entries.push(entry);
-  }
+  const entries = selectProvenAbortEntries(recorder, { page, form, requests, witness });
   return { entries, audit: { phase: 'owned print completion navigation', blobBytesUnavailable: witness.operations.some(op => !op.bodyAvailable),
     endpointSha256: hash(form.endpoint), oldTimeOrigin: form.timeOrigin, newTimeOrigin: arrived.timeOrigin,
     rawFailures: entries.map(entry => ({ ...entry })), witness } };
