@@ -209,11 +209,41 @@ async function workflow(s) {
   const fixture = authzReadFixture({ sql, marker, provider, testUser: s.config.testUser });
   s.cleanup(() => fixture.cleanup());
   await s.step('registry and draft service access boundaries refuse reads and writes without clinical changes', async () => {
+    const quickList = sql.value('SELECT quickListName FROM quickList GROUP BY quickListName ORDER BY quickListName LIMIT 1');
+    h.assert(quickList, 'The registry control needs one stored quicklist name');
+    // The authorized read records a last-used preference. Its legacy handler
+    // truncates the stored preference name to ten characters.
+    const preferenceName = quickList.slice(0, 10);
+    const preferenceKey = `providerNo=${q(provider)} AND quickListName=${q(preferenceName)}`;
+    const preferences = () => sql.rows(`SELECT id,providerNo,quickListName,
+      COALESCE(DATE_FORMAT(lastUsed,'%Y-%m-%d %H:%i:%s.%f'),''),lastUsed IS NULL
+      FROM quickListUser WHERE ${preferenceKey} ORDER BY id`);
+    const preferenceBefore = preferences();
+    let preferenceObserved = preferenceBefore;
+    s.cleanup(() => {
+      h.assert(JSON.stringify(preferences()) === JSON.stringify(preferenceObserved),
+        'The registry preference changed after its observed read; retaining it');
+      h.assert(preferenceBefore.every(old => preferenceObserved.some(row => row[0] === old[0]))
+        && (preferenceBefore.length ? preferenceObserved.length === preferenceBefore.length : preferenceObserved.length <= 1)
+        && preferenceObserved.every(row => /^[1-9]\d*$/.test(row[0]) && row[1] === provider && row[2] === preferenceName),
+      'The registry preference ownership or expected delta changed; retaining it');
+      const stamp = row => row[4] === '1' ? 'NULL' : q(row[3]);
+      const added = [];
+      for (const row of preferenceObserved) {
+        const original = preferenceBefore.find(old => old[0] === row[0]);
+        const exact = `id=${row[0]} AND ${preferenceKey} AND lastUsed <=> ${stamp(row)}`;
+        if (original) sql.execute(`UPDATE quickListUser SET lastUsed=${stamp(original)} WHERE ${exact}`);
+        else { sql.execute(`DELETE FROM quickListUser WHERE ${exact}`); added.push(row[0]); }
+      }
+      h.assert(JSON.stringify(preferences()) === JSON.stringify(preferenceBefore)
+        && (!added.length || sql.value(`SELECT COUNT(*) FROM quickListUser WHERE id IN (${added.join(',')})`) === '0'),
+      'The registry control did not restore its exact preference snapshot');
+    });
     const limited = fixture.addLogin(fixture.addRole({ _demographic: 'r', _appointment: 'r', _eChart: 'r' }));
     const locked = fixture.addLogin('doctor');
     fixture.lockPatient(locked, A);
     const read = h.appUrl(s.config.baseUrl,
-      `/oscarResearch/oscarDxResearch/setupDxResearch?demographicNo=${A}`);
+      `/oscarResearch/oscarDxResearch/setupDxResearch?${new URLSearchParams({ demographicNo: A, quickList })}`);
     const write = h.appUrl(s.config.baseUrl, '/oscarResearch/oscarDxResearch/dxResearch');
     for (const [login, label] of [[limited, 'Missing registry module'], [locked, 'Locked patient']]) {
       const signed = await signIn(s, login);
@@ -238,9 +268,14 @@ async function workflow(s) {
         finally { await draft.dispose(); }
       } finally { await signed.context.close(); }
     }
-    const control = await context.request.get(read, { maxRedirects: 0 });
-    try { await applicationStatus(control, 200, 'Authorized registry read'); }
-    finally { await control.dispose(); }
+    let control;
+    try {
+      control = await context.request.get(read, { maxRedirects: 0 });
+      await applicationStatus(control, 200, 'Authorized registry read');
+    } finally {
+      try { if (control) await control.dispose(); }
+      finally { preferenceObserved = preferences(); }
+    }
     assertPatientStateUnchanged(stableA, readPatientState(sql, A), 'Registry access probes');
     assertPatientStateUnchanged(stableB, readPatientState(sql, B), 'Registry access probes');
   });
