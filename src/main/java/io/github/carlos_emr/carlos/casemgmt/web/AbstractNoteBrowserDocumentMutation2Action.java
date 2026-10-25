@@ -28,6 +28,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -42,6 +43,7 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
     private String view;
     private String viewstatus;
     private String sortorder;
+    private String chartContext;
     private String mutationErrorMessage = "";
 
     @Override
@@ -59,6 +61,8 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
             return METHOD_NOT_ALLOWED;
         }
 
+        // Validate before any document change and preserve this window across the redirect.
+        chartContext = ChartProgramContext.token(request);
         mutationErrorMessage = "";
         if (!hasMutationParameter()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidParameterMessage());
@@ -118,6 +122,7 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
     public String getSortorder() { return sortorder; }
     @StrutsParameter public void setSortorder(String v) { this.sortorder = v; }
     public String getMutationErrorMessage() { return mutationErrorMessage; }
+    public String getChartContext() { return chartContext; }
 
     protected static class DocumentMutationException extends Exception {
         private static final long serialVersionUID = 1L;

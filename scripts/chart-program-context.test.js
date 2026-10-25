@@ -210,3 +210,44 @@ for (const token of ['', 'patient101.program7.signature +&?#', 'patient101.progr
         assert.equal(new URL(page.printed, 'https://clinic.test').searchParams.get('method'), 'print');
     });
 }
+
+for (const [handler, operation, documentField] of [
+    ['DeleteDoc', 'Delete', 'delDocumentNo'],
+    ['UnDeleteDoc', 'Undelete', 'undelDocumentNo'],
+    ['RefileDoc', 'Refile', 'refileDocumentNo'],
+]) {
+    for (const token of [null, 'patient101.program7.signature']) {
+        test(`native ${operation} submits its original optional chart context ${JSON.stringify(token)}`, () => {
+            const jsp = fs.readFileSync(path.join(__dirname,
+                '../src/main/webapp/WEB-INF/jsp/casemgmt/noteBrowser.jsp'), 'utf8');
+            const form = jsp.slice(jsp.indexOf('<form name="DisplayDoc"'), jsp.indexOf('</form>'));
+            assert.match(form, /method="post"/);
+            assert.match(form, /String mutationChartContext = io\.github\.carlos_emr\.carlos\.casemgmt\.common\.ChartProgramContext\.token\(request\);\s*if \(mutationChartContext != null\) \{ %>\s*<input type="hidden" name="chartContext" value="<%= SafeEncode\.forHtmlAttribute\(mutationChartContext\) %>">\s*<% \} %>/,
+                'only the validated nonempty server context becomes a form field');
+            assert.equal((form.match(/name="chartContext"/g) || []).length, 1);
+            const fields = {demographicNo: {value: '101'}, demographic_no: {value: '101'},
+                viewstatus: {value: 'active'}, selviewstatus: {selectedIndex: 0, options: [{value: 'active'}]},
+                delDocumentNo: {value: ''}, undelDocumentNo: {value: ''}, refileDocumentNo: {value: ''},
+                queueId: {value: '7'}};
+            if (token !== null) fields.chartContext = {value: token};
+            let submitted;
+            fields.submit = () => {
+                submitted = new URLSearchParams(Object.entries(fields)
+                    .filter(([, field]) => field && Object.hasOwn(field, 'value'))
+                    .map(([name, field]) => [name, field.value]));
+            };
+            const start = jsp.indexOf('        function DeleteDoc(');
+            const end = jsp.indexOf('        function setQueue(', start);
+            assert.ok(start > 0 && end > start, 'native document mutation handlers exist');
+            const page = {document: {DisplayDoc: fields}, docid: '42',
+                case_program_id: '8', window: {carlosChartContext: 'another-window-program8'}};
+            vm.runInNewContext(jsp.slice(start, end).replaceAll('<%= request.getContextPath() %>', '/carlos'), page);
+            page[handler]();
+            assert.equal(fields.action, `/carlos/casemgmt/NoteBrowserDocument${operation}`);
+            assert.equal(submitted.get(documentField), '42');
+            assert.equal(submitted.get('demographicNo'), '101');
+            assert.equal(submitted.get('queueId'), '7');
+            assert.deepEqual(submitted.getAll('chartContext'), token === null ? [] : [token]);
+        });
+    }
+}

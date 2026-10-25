@@ -1,6 +1,7 @@
 <%--
 
     Copyright (c) 2012- Centre de Medecine Integree
+    Modifications by CARLOS Contributors, 2026.
 
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
@@ -40,6 +41,7 @@
 
     Parameters:
         demographic_no  the patient (required; _eChart r and the _eChart$<demo> lock apply).
+        chartContext    optional authenticated chart-window program, retained through document mutations.
         view            document type filter, raw ("all" for every type).
         viewstatus      active | deleted | all.
         sortorder       Content | Observation | Update.
@@ -504,6 +506,10 @@
 </head>
 <body onload="OnLoad();">
 <form name="DisplayDoc" method="post" action="<%= request.getContextPath() %>/casemgmt/ViewNoteBrowser">
+    <% String mutationChartContext = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request);
+       if (mutationChartContext != null) { %>
+    <input type="hidden" name="chartContext" value="<%= SafeEncode.forHtmlAttribute(mutationChartContext) %>">
+    <% } %>
 
     <table>
         <%if (errorMessage.length() > 0) {%>

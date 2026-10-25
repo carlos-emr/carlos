@@ -591,6 +591,7 @@
             <result name="success" type="redirectAction">
                 <param name="actionName">casemgmt/ViewNoteBrowser</param>
                 <param name="demographic_no">${demographicNo}</param>
+                <param name="chartContext">${chartContext}</param>
                 <param name="view">${view}</param>
                 <param name="viewstatus">${viewstatus}</param>
                 <param name="sortorder">${sortorder}</param>
@@ -605,6 +606,7 @@
             <result name="success" type="redirectAction">
                 <param name="actionName">casemgmt/ViewNoteBrowser</param>
                 <param name="demographic_no">${demographicNo}</param>
+                <param name="chartContext">${chartContext}</param>
                 <param name="view">${view}</param>
                 <param name="viewstatus">${viewstatus}</param>
                 <param name="sortorder">${sortorder}</param>
@@ -619,6 +621,7 @@
             <result name="success" type="redirectAction">
                 <param name="actionName">casemgmt/ViewNoteBrowser</param>
                 <param name="demographic_no">${demographicNo}</param>
+                <param name="chartContext">${chartContext}</param>
                 <param name="view">${view}</param>
                 <param name="viewstatus">${viewstatus}</param>
                 <param name="sortorder">${sortorder}</param>
