@@ -246,6 +246,8 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         lock = new CasemgmtNoteLock();
         lock.setId(10L);
         lock.setNoteId(originalId);
+        lock.setDemographicNo(1);
+        lock.setProviderNo("999998");
         lock.setSessionId(request.getSession().getId());
         when(locks.find(10L)).thenReturn(lock);
         request.getSession().setAttribute("casemgmtNoteLock1", lock);
@@ -840,6 +842,38 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         assertThat(form.getIssueCheckList()).hasSize(1);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"save", "saveAndExit"})
+    void shouldPreserveBothStoredNotesAndDrafts_whenAStaleFullFormTargetsAnotherWindowsEditor(String operation) throws Exception {
+        String rawDraft = marker + " Window A unsaved draft\n  Exact spacing ";
+        prepareFullSave(rawDraft);
+        Long windowANoteId = tx().execute(status -> {
+            CaseManagementNote other = original.copyForRevision();
+            other.setUuid(UUID.randomUUID().toString());
+            other.setNote(marker + " Window A stored note");
+            other.setHistory("Window A stored history");
+            other.setIssues(new HashSet<>());
+            caseManagementNoteDAO.saveNote(other);
+            return other.getId();
+        });
+        // Window B owns the current same-patient/program form and its lock; Window A
+        // still submits the identity it rendered before that form was replaced.
+        request.setParameter("noteId", windowANoteId.toString());
+        Snapshot before = snapshot();
+
+        assertThat("save".equals(operation) ? action.save() : action.saveAndExit()).isEqualTo("windowCloseError");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(rawDraft);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(original.getNote()).isEqualTo(marker + " original");
+        assertThat(lock.getNoteId()).isEqualTo(originalId);
+        verify(locks, never()).merge(any());
+        verify(target, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any());
+    }
+
     private CheckBoxBean prepareIssueDeletion() {
         CheckBoxBean checkbox = prepareFullIssueSave(true, false);
         // Native Delete is offered only for an issue not referenced by any saved note.
@@ -1028,6 +1062,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     }
 
     private void prepareFullSave(String rawNote) {
+        request.setParameter("noteId", form.getCaseNote().getId() == null ? "0" : form.getCaseNote().getId().toString());
         form.setIssueCheckList(new ArrayList<>());
         request.getSession().setAttribute("newCaseManagement", "true");
         request.setParameter("caseNote_note", rawNote);

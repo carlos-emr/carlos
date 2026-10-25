@@ -311,6 +311,7 @@
         </c:if>
         <input type="hidden" name="caseNote.program_no" value="<carlos:encode value='<%= pId %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="method" value="save"/>
+        <input type="hidden" name="noteId" value="<carlos:encode value='<%= String.valueOf(form.getCaseNote().getId() == null || form.getCaseNote().getId() <= 0 ? 0 : form.getCaseNote().getId()) %>' context="htmlAttribute"/>"/>
         <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
             <input type="hidden" name="from" value="casemgmt"/>
         </c:if>

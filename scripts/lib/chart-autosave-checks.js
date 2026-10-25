@@ -22,6 +22,7 @@
 'use strict';
 const h = require('./playwright-harness');
 const { expectValue } = require('./workflow-session');
+const { checkLegacyFullFormIsolation } = require('./legacy-full-form-save-checks');
 
 const NOTE = '#caseManagementEntryForm textarea[name="caseNote_note"]';
 const isAutosave = request => request.method() === 'POST'
@@ -207,6 +208,7 @@ async function checkLegacyExistingNoteAutosave(s, { patient, chartContext, progr
       'Autosaving the existing note mutated its saved clinical text');
     await editor.close();
   });
+  await checkLegacyFullFormIsolation(s, { program });
 }
 
 module.exports = { checkLegacyAutosave, checkLegacyExistingNoteAutosave, rejectOwnedDraftInsert };

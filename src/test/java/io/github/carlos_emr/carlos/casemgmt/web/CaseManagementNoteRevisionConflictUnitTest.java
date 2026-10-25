@@ -82,6 +82,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         action.response = response;
         request.setParameter("demographicNo", "101");
         request.setParameter("nId", "501");
+        request.setParameter("noteId", "501");
         request.setParameter("noteTxt", "Unsaved draft");
         request.setParameter("numIssues", "0");
         request.getSession().setAttribute("userrole", "doctor");
@@ -103,6 +104,8 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         lock = new CasemgmtNoteLock();
         lock.setId(10L);
         lock.setNoteId(501L);
+        lock.setDemographicNo(101);
+        lock.setProviderNo("999998");
         lock.setSessionId(request.getSession().getId());
         request.getSession().setAttribute("casemgmtNoteLock101", lock);
         when(locks.find(10L)).thenReturn(lock);
@@ -364,13 +367,68 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         verify(manager).saveCompactNoteRevision(any(), any(), anyList(), eq("7"));
     }
 
+    @ParameterizedTest
+    @CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void shouldUseTheAuthorizedProgramForNewCompactNotes_whenTheEditorIsLegacyOrCaptured(
+            boolean captured, boolean readOnly) throws Exception {
+        if (!captured) {
+            request.removeAttribute(ChartProgramContext.class.getName() + ".requestContext");
+            request.getSession().removeAttribute(ChartProgramContext.class.getName() + ".101");
+        }
+        String formKey = ChartProgramContext.formKey(request, "101");
+        CaseManagementNote editor = new CaseManagementNote();
+        editor.setDemographic_no("101");
+        editor.setNote("Unsaved compact text");
+        form.setCaseNote(editor);
+        request.getSession().setAttribute(formKey, form);
+        request.setParameter("nId", "0");
+        request.setParameter("programId", "22");
+        request.setParameter("providerNo", "another-provider");
+        EctProgramManager programs = mock(EctProgramManager.class);
+        when(programs.getProgramBeans("999998", null)).thenReturn(List.of(
+                new LabelValueBean("Authenticated default", "11"), new LabelValueBean("Other program", "22")));
+        when(programs.getDefaultProgramId("999998")).thenReturn(11);
+        WebApplicationContext context = action.getSpringContext();
+        when(context.getBean("ectProgramManager")).thenReturn(programs);
+        request.getServletContext().setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, context);
+        String expectedProgram = captured ? "7" : "11";
+        when(manager.hasAccessRight("note-read-only", "access", "999998", "101", expectedProgram)).thenReturn(readOnly);
+        when(manager.saveCompactNoteRevision(any(), any(), anyList(), any())).thenAnswer(call -> {
+            CaseManagementNote submitted = call.getArgument(1);
+            assertThat(submitted.getId()).isNull();
+            assertThat(submitted.getProgram_no()).isEqualTo(expectedProgram);
+            assertThat(call.<String>getArgument(3)).isEqualTo(expectedProgram);
+            CaseManagementNote saved = submitted.copyForRevision();
+            saved.setId(600L);
+            return new CaseManagementManager.CompactSaveResult(saved, call.getArgument(2));
+        });
+
+        assertThat(action.ajaxsave()).isEqualTo(readOnly ? "none" : "issueList_ajax");
+
+        assertThat(response.getStatus()).isEqualTo(readOnly ? 403 : 200);
+        assertThat(ChartProgramContext.formKey(request, "101")).isEqualTo(formKey);
+        assertThat(request.getSession().getAttribute(formKey)).isSameAs(form);
+        if (!captured) assertThat(ChartProgramContext.resolve(request)).isNull();
+        else verifyNoInteractions(programs);
+        if (readOnly) {
+            assertThat(form.getCaseNote()).isSameAs(editor);
+            assertThat(editor.getNote()).isEqualTo("Unsaved compact text");
+            verify(manager, never()).saveCompactNoteRevision(any(), any(), anyList(), any());
+            verifyNoInteractions(locks);
+        } else {
+            assertThat(form.getCaseNote().getId()).isEqualTo(600L);
+            assertThat(form.getCaseNote().getProgram_no()).isEqualTo(expectedProgram);
+            verify(manager).saveCompactNoteRevision(any(), any(), anyList(), eq(expectedProgram));
+        }
+    }
+
     @Test
     void shouldReturnWindowCloseError_whenSaveAndExitHasLostItsSessionLock() throws Exception {
         when(locks.find(10L)).thenReturn(null);
         assertThat(action.saveAndExit()).isEqualTo("windowCloseError");
-        assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(request.getAttribute("noteRevisionConflict")).isNull();
-        assertThat(request.getAttribute("unsavedNoteText")).isNull();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(request.getAttribute("noteRevisionConflict")).isEqualTo(Boolean.TRUE);
+        assertThat(request.getAttribute("unsavedNoteText")).isEqualTo("Unsaved draft");
         verify(manager, times(2)).hasAccessRight("note-read-only", "access", "999998", "101", "7");
         verifyNoMoreInteractions(manager);
     }
@@ -846,5 +904,159 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(note.getNote()).isEqualTo("Original");
         assertThat(note.isSigned()).isFalse();
         verify(manager, never()).saveNoteRevision(any(), any(), any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"save", "saveAndExit"})
+    void shouldRefuseStaleFullForm_beforeChangingAnotherWindowsSelectedNote(String operation) throws Exception {
+        String draft = "Window A clinical draft\n  Preserve exact spacing ";
+        request.setParameter("caseNote_note", draft);
+        doReturn(draft).when(action).getCaseNote_note();
+        note.setId(502L);
+        note.setUuid(UUID.randomUUID().toString());
+        note.setNote("Window B existing note");
+        lock.setNoteId(502L);
+
+        assertThat("save".equals(operation) ? action.save() : action.saveAndExit()).isEqualTo("windowCloseError");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(draft);
+        assertThat(form.getCaseNote()).isSameAs(note);
+        assertThat(note.getId()).isEqualTo(502L);
+        assertThat(note.getNote()).isEqualTo("Window B existing note");
+        assertThat(lock.getNoteId()).isEqualTo(502L);
+        verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any());
+        verify(locks, never()).merge(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"staleSelection", "expiredLock", "ajaxStaleSelection"})
+    void shouldRetainIssueDeletionDraft_beforeAnyMutationOfAnotherWindowsEditor(String scenario) throws Exception {
+        var permissions = (io.github.carlos_emr.carlos.managers.SecurityInfoManager)
+                org.springframework.test.util.ReflectionTestUtils.getField(action, "securityInfoManager");
+        var login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        when(permissions.hasPrivilege(login, "_demographic", "r", "101")).thenReturn(true);
+        when(permissions.hasPrivilege(login, "_casemgmt.issues", "w", "101")).thenReturn(true);
+        String draft = "Window A issue-deletion draft\n  Exact spacing ";
+        request.setParameter("caseNote_note", draft);
+        doReturn(draft).when(action).getCaseNote_note();
+        note.setId(502L);
+        note.setNote("Window B existing note");
+        lock.setNoteId(502L);
+        if ("expiredLock".equals(scenario)) when(locks.find(10L)).thenReturn(null);
+        if ("ajaxStaleSelection".equals(scenario)) request.setParameter("ajax", "true");
+        var issue = new CaseManagementIssue();
+        issue.setId(71L);
+        issue.setDemographic_no(101);
+        var checkbox = new CheckBoxBean();
+        checkbox.setIssue(issue);
+        form.getIssueCheckList().add(checkbox);
+        var originalIssues = form.getIssueCheckList();
+        action.setDeleteId("0");
+
+        assertThat(action.issueDelete()).isEqualTo("ajaxStaleSelection".equals(scenario) ? "none" : "windowCloseError");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        if (!"ajaxStaleSelection".equals(scenario)) assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(draft);
+        assertThat(note.getNote()).isEqualTo("Window B existing note");
+        assertThat(form.getCaseNote()).isSameAs(note);
+        assertThat(form.getIssueCheckList()).isSameAs(originalIssues).containsExactly(checkbox);
+        verify(manager, never()).deleteIssueById(any());
+        verify(manager, never()).removeIssueFromCPP(any(), any());
+        verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any(), any());
+        verify(locks, never()).merge(any());
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"", "invalid", "0", "01", "9223372036854775808"})
+    void shouldRefuseFullForm_beforeChangingAPersistedNoteWithMissingOrInvalidIdentity(String identity) throws Exception {
+        if (identity == null) request.removeParameter("noteId");
+        else request.setParameter("noteId", identity);
+
+        assertThat(action.save()).isEqualTo("windowCloseError");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(request.getAttribute("unsavedNoteText")).isEqualTo("Unsaved draft");
+        assertThat(note.getNote()).isEqualTo("Original");
+        verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any());
+        verify(locks, never()).merge(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"note", "patient", "provider", "session"})
+    void shouldRefuseFullForm_whenTheDatabaseLockDoesNotOwnTheSelectedNote(String mismatch) throws Exception {
+        CasemgmtNoteLock stored = new CasemgmtNoteLock();
+        stored.setId(10L);
+        stored.setNoteId("note".equals(mismatch) ? 502L : 501L);
+        stored.setDemographicNo("patient".equals(mismatch) ? 202 : 101);
+        stored.setProviderNo("provider".equals(mismatch) ? "999997" : "999998");
+        stored.setSessionId("session".equals(mismatch) ? "another-session" : request.getSession().getId());
+        when(locks.find(10L)).thenReturn(stored);
+
+        assertThat(action.save()).isEqualTo("windowCloseError");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(request.getAttribute("unsavedNoteText")).isEqualTo("Unsaved draft");
+        assertThat(note.getNote()).isEqualTo("Original");
+        verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any());
+        verify(locks, never()).merge(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"save", "saveAndExit"})
+    void shouldKeepAnotherProgramsCachedLock_whenSavingTheOwnedSelectedNote(String operation) throws Exception {
+        CasemgmtNoteLock other = new CasemgmtNoteLock();
+        other.setId(11L);
+        other.setNoteId(502L);
+        other.setDemographicNo(101);
+        other.setProviderNo("999998");
+        other.setSessionId(request.getSession().getId());
+        request.getSession().setAttribute("casemgmtNoteLock101", other);
+        when(locks.findBySession(request.getSession().getId())).thenReturn(List.of(other, lock));
+        when(manager.saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
+            CaseManagementNote saved = ((CaseManagementNote) call.getArgument(1)).copyForRevision();
+            saved.setId(600L);
+            return saved;
+        });
+
+        if ("save".equals(operation)) action.save(); else action.saveAndExit();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(form.getCaseNote().getId()).isEqualTo(600L);
+        assertThat(lock.getNoteId()).isEqualTo(600L);
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock101")).isSameAs(other);
+        assertThat(other.getNoteId()).isEqualTo(502L);
+        verify(locks).merge(lock);
+        verify(locks, never()).merge(other);
+        if ("saveAndExit".equals(operation)) verify(locks).removeForSession("999998", 101, 600L, request.getSession().getId());
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"0", "01", "0.1"})
+    void shouldSaveANewFullForm_withCanonicalNewNoteReferences(String identity) throws Exception {
+        note.setId(null);
+        note.setUuid(null);
+        lock.setNoteId(0L);
+        if (identity == null) request.removeParameter("noteId");
+        else request.setParameter("noteId", identity);
+        when(manager.saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
+            CaseManagementNote saved = ((CaseManagementNote) call.getArgument(1)).copyForRevision();
+            saved.setId(600L);
+            return saved;
+        });
+
+        assertThat(action.save()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(form.getCaseNote().getId()).isEqualTo(600L);
+        assertThat(form.getCaseNote().getNote()).isEqualTo("Unsaved draft");
     }
 }

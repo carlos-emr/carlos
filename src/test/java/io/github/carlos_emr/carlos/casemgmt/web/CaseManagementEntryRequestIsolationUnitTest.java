@@ -20,10 +20,12 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
+import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.util.LabelValueBean;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
@@ -47,6 +49,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.context.WebApplicationContext;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -90,6 +93,12 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         session.setAttribute("case_program_id", "7");
         session.setAttribute("casemgmt_oscar_baseurl", "https://clinic.example");
         LoggedInInfo.setLoggedInInfoIntoSession(session, login);
+        EctProgramManager defaults = mock(EctProgramManager.class);
+        when(defaults.getProgramBeans("999998", null)).thenReturn(List.of(new LabelValueBean("Default", "7")));
+        when(defaults.getDefaultProgramId("999998")).thenReturn(7);
+        WebApplicationContext context = mock(WebApplicationContext.class);
+        when(context.getBean("ectProgramManager")).thenReturn(defaults);
+        session.getServletContext().setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, context);
         forms = new HashMap<>();
         properties = mock(CarlosProperties.class);
         when(properties.getProperty(anyString(), anyString())).thenAnswer(call -> call.getArgument(1));
@@ -632,6 +641,56 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
 
     private EditedNote edit(String patient, boolean explicitNew, String encounterType) throws Exception {
         return edit(patient, explicitNew, encounterType, null);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldSelectTheCorrectUnsignedNoteWithoutRestoringUncapturedDrafts_whenTheEditorHasNoExplicitNote(
+            boolean captured) throws Exception {
+        MockHttpServletRequest request = request("101");
+        String expectedProgram = captured ? "22" : "11";
+        if (captured) ChartProgramContext.remember(request, "22");
+        String formKey = ChartProgramContext.formKey(request, "101");
+        request.setParameter("programId", "7");
+        request.setParameter("providerNo", "888888");
+        EctProgramManager programs = mock(EctProgramManager.class);
+        when(programs.getProgramBeans("999998", null)).thenReturn(List.of(
+                new LabelValueBean("Authenticated default", "11"), new LabelValueBean("Captured program", "22")));
+        when(programs.getDefaultProgramId("999998")).thenReturn(11);
+        WebApplicationContext context = mock(WebApplicationContext.class);
+        when(context.getBean("ectProgramManager")).thenReturn(programs);
+        session.getServletContext().setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, context);
+        CaseManagementNote original = new CaseManagementNote();
+        original.setId(501L);
+        original.setDemographic_no("101");
+        original.setProgram_no(expectedProgram);
+        original.setNote("Existing unsigned clinical note");
+        original.setHistory("Existing clinical history");
+        when(manager.getLastSaved(expectedProgram, "101", "999998")).thenReturn(original);
+        when(manager.isClientInProgramDomain("999998", "101")).thenReturn(true);
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "r", "101")).thenReturn(true);
+        when(manager.filterNotes(login, "999998", List.of(original), expectedProgram)).thenReturn(List.of(original));
+
+        try (var props = mockStatic(CarlosProperties.class);
+             var views = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+
+        verify(manager).getLastSaved(expectedProgram, "101", "999998");
+        assertThat(ChartProgramContext.formKey(request, "101")).isEqualTo(formKey);
+        CaseManagementEntryFormBean rendered = (CaseManagementEntryFormBean) forms.get(formKey);
+        assertThat(rendered.getCaseNote().getId()).isEqualTo(501L);
+        assertThat(rendered.getCaseNote().getProgram_no()).isEqualTo(expectedProgram);
+        assertThat(request.getAttribute("noteId")).isEqualTo("501");
+        if (captured) {
+            verifyNoInteractions(programs);
+        } else {
+            assertThat(ChartProgramContext.resolve(request)).isNull();
+            verify(manager).restoreTmpSave("999998", "101", null);
+            verify(manager, never()).restoreTmpSave("999998", "101", "11");
+        }
     }
 
     @ParameterizedTest

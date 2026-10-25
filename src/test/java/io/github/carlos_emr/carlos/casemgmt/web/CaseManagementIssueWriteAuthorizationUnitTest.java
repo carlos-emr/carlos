@@ -211,7 +211,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
             when(locks.find(75L)).thenReturn(stored);
         }
 
-        assertThat(fixture.action.issueDelete()).isEqualTo("none");
+        assertThat(fixture.action.issueDelete()).isEqualTo("windowCloseError");
 
         assertThat(fixture.action.response.getStatus()).isEqualTo(409);
         verify(fixture.manager).hasAccessRight("note-read-only", "access", "999998", "101", "0");

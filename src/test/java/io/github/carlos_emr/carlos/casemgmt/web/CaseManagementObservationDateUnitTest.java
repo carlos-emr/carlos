@@ -93,6 +93,7 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         action.response = response;
         request.setParameter("demographicNo", "101");
         request.setParameter("nId", "501");
+        request.setParameter("noteId", "501");
         request.setParameter("noteTxt", "Edited FAKE note");
         request.setParameter("numIssues", "0");
         request.setParameter("sign", "on");
@@ -118,6 +119,8 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         lock = new CasemgmtNoteLock();
         lock.setId(10L);
         lock.setNoteId(501L);
+        lock.setDemographicNo(101);
+        lock.setProviderNo("999998");
         lock.setSessionId(request.getSession().getId());
         request.getSession().setAttribute("casemgmtNoteLock101", lock);
         when(locks.find(10L)).thenReturn(lock);

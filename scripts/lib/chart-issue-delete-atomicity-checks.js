@@ -11,56 +11,55 @@ const { releaseChartLocks } = require('./chart-lock-cleanup');
 
 const q = h.sqlString;
 const NOTE = '#caseManagementEntryForm textarea[name="caseNote_note"]';
-const isDelete = response => response.request().method() === 'POST'
-  && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
-  && new URLSearchParams(response.request().postData() || '').get('method') === 'issueDelete';
-
 async function settled(chart) {
   await chart.waitForFunction(() => !window.autoSaveXhr && window.issueUpdatesPending === 0);
   await chart.evaluate(() => clearAutoSaveTimer());
 }
 
-/** A rejected native Delete must not report success, replace the editor or touch clinical rows. */
-async function refusedDelete(s, chart, link, status, text, label, applicationStatus) {
-  const baseline = readPatientState(s.sql, s.patient);
-  const issueMarkup = await chart.locator('#noteIssues').innerHTML();
-  const failureMessage = await chart.evaluate(() => updateIssueError);
-  const before = { responses: new Set(s.recorder.badResponses), console: new Set(s.recorder.consoleIssues) };
-  let response;
-  const dialogs = await h.withExpectedDialogs(chart, async () => {
-    const answer = chart.waitForResponse(isDelete);
-    answer.catch(() => {});
-    await link.click();
-    response = await answer;
-    await response.finished();
-    await settled(chart);
+/** Submit the rendered editor form through its authenticated browser session. */
+async function editorFormDelete(s, chart, issueId) {
+  const submitted = await chart.evaluate(id => {
+    const form = document.forms.caseManagementEntryForm;
+    const issue = form.querySelector(`input[data-issue-id="${id}"]`);
+    const index = issue && /^issueCheckList\[(\d+)\]\.checked$/.exec(issue.name);
+    if (!index) throw new Error('The owned issue has no rendered editor-form index');
+    const body = new URLSearchParams(new FormData(form));
+    const token = globalThis.CarlosAjax?.getCsrfToken();
+    if (!body.get('chartContext') || !token) throw new Error('The editor form has no authenticated chart context or CSRF token');
+    body.set('method', 'issueDelete');
+    body.set('deleteId', index[1]);
+    body.set('ajax', 'true');
+    body.set('CSRF-TOKEN', token);
+    return { body: body.toString(), token };
+  }, issueId);
+  return s.context.request.post(h.appUrl(s.config.baseUrl, '/CaseManagementEntry'), {
+    data: submitted.body,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': submitted.token },
+    maxRedirects: 0,
   });
-  await applicationStatus(response, status, label);
-  h.assert(dialogs.length === 1 && dialogs[0].type === 'alert'
-    && dialogs[0].text === `${status} ${failureMessage}`, `${label} did not show its exact refusal alert`);
-  h.assert(await chart.locator(NOTE).inputValue() === text, `${label} discarded the current editor text`);
-  h.assert(await chart.locator('#noteIssues').innerHTML() === issueMarkup,
-    `${label} replaced or removed the current issue controls`);
-  assertPatientStateUnchanged(baseline, readPatientState(s.sql, s.patient), label);
-  // Excuse only the controlled browser POST and its resource diagnostic after proving
-  // its response, UI and database effects. Unrelated failures remain strict findings.
-  const responses = s.recorder.badResponses.filter(entry => !before.responses.has(entry)
-    && entry.url === response.url() && entry.method === 'POST' && entry.status === status);
-  h.assert(responses.length === 1, `${label} did not record exactly one refused POST`);
-  const resources = s.recorder.consoleIssues.filter(entry => !before.console.has(entry)
-    && entry.location?.url === response.url()
-    && entry.type === 'error'
-    && new RegExp(`^Failed to load resource: the server responded with a status of ${status}(?: \\([^)]*\\))?$`).test(entry.text));
-  h.assert(resources.length <= 1, `${label} recorded duplicate resource errors`);
-  s.recorder.badResponses = s.recorder.badResponses.filter(entry => !responses.includes(entry));
-  s.recorder.consoleIssues = s.recorder.consoleIssues.filter(entry => !resources.includes(entry));
 }
 
-/** Drive actual issue deletion against a saved note, including lock loss and blank text. */
+/** A refused editor-form request preserves clinical rows and the current typed text. */
+async function refusedDelete(s, chart, issueId, status, text, label, applicationStatus) {
+  const baseline = readPatientState(s.sql, s.patient);
+  const response = await editorFormDelete(s, chart, issueId);
+  try { await applicationStatus(response, status, label); }
+  finally { await response.dispose(); }
+  h.assert(await chart.locator(NOTE).inputValue() === text, `${label} discarded the current editor text`);
+  assertPatientStateUnchanged(baseline, readPatientState(s.sql, s.patient), label);
+}
+
+/**
+ * Exercise real editor-form HTTP requests against the packaged server and database.
+ * Modern charts retain the legacy Delete link in a hidden reference fragment without
+ * an opening control. Do not force that hidden link or claim native alert coverage.
+ */
 async function checkIssueDeleteAtomicity(session, { applicationStatus }) {
   const { sql, provider, marker, context, config } = session;
   let patient;
-  const stamp = `${marker}-issue-delete-atomicity`;
+  // demographic.last_name is VARCHAR(30); retain the complete unique run marker.
+  const stamp = `${marker}-ida`;
+  h.assert(stamp.length <= 30, 'Atomic issue-delete fixture name exceeds the patient schema');
   session.cleanup(() => {
     if (!patient) return;
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}
@@ -96,12 +95,10 @@ async function checkIssueDeleteAtomicity(session, { applicationStatus }) {
     VALUES (${q(stamp)},'IssueDelete','1980','01','02','F','AC',${q(provider)},'ON','ON','NR',NOW())`,
   'atomic issue-delete patient');
   const s = { ...session, patient };
-  const chart = await context.newPage();
-  await h.gotoApp(chart, config.baseUrl,
-    `/encounter/IncomingEncounter?demographicNo=${patient}&providerNo=${provider}`);
-  await waitForNavbars(chart, 90000);
-  await settled(chart);
-  const program = await chart.evaluate(() => String(case_program_id));
+  // Seed this isolated patient before opening its chart. Reuse the originating
+  // chart's authorized program, without navigating an editor away during setup.
+  const origin = await session.chart();
+  const program = await origin.evaluate(() => String(case_program_id));
   h.assert(/^(?:0|[1-9]\d*)$/.test(program), 'Atomic issue-delete chart program is invalid');
   const role = sql.value(`SELECT role_id FROM program_provider WHERE provider_no=${q(provider)}
     AND program_id=${program} ORDER BY id LIMIT 1`) || '0';
@@ -112,9 +109,9 @@ async function checkIssueDeleteAtomicity(session, { applicationStatus }) {
   const original = `${stamp}-saved-note`;
   const noteId = h.insertId(sql, `INSERT INTO casemgmt_note
     (update_date,observation_date,demographic_no,provider_no,note,signed,history,uuid,locked,archived,
-     program_no,reporter_caisi_role,revision)
+     program_no,reporter_caisi_role)
     VALUES (NOW(),'2026-10-14 10:00:00',${patient},${q(provider)},${q(original)},0,${q(original)},
-      UUID(),'0',0,${q(program)},${q(role)},'1')`, 'atomic issue-delete note');
+      UUID(),'0',0,${q(program)},${q(role)})`, 'atomic issue-delete note');
   // This issue is intentionally unlinked: the native UI offers Delete only for unused issues.
   // Deletion while any saved note is edited still saves that note, so these failures must be atomic.
   const issueId = h.insertId(sql, `INSERT INTO casemgmt_issue
@@ -122,25 +119,38 @@ async function checkIssueDeleteAtomicity(session, { applicationStatus }) {
     VALUES (${patient},${catalogId},0,0,0,0,${program},${q(issueType)},NOW())`, 'atomic issue-delete issue');
   const cppId = h.insertId(sql, `INSERT INTO casemgmt_cpp (demographic_no,provider_no,reminders,ongoingConcerns)
     VALUES (${patient},${q(provider)},${q(stamp)},${q(description)})`, 'atomic issue-delete CPP');
-  await chart.reload();
+  const chart = await context.newPage();
+  await h.gotoApp(chart, config.baseUrl,
+    `/encounter/IncomingEncounter?demographicNo=${patient}&providerNo=${provider}&programId=${program}`);
   await waitForNavbars(chart, 90000);
   await settled(chart);
-  await chart.locator(`#edit${noteId}`).click();
-  await chart.locator(`#caseNote_note${noteId}`).waitFor({ state: 'visible' });
+  const savedEditor = chart.locator(`#caseNote_note${noteId}`);
+  // Reopening an owned unsigned note selects its editor automatically. A note
+  // shown as a card has an Edit link; drive it when the editor is absent.
+  if (!(await savedEditor.isVisible())) {
+    const [response] = await Promise.all([
+      chart.waitForResponse(answer => answer.request().method() === 'POST'
+        && new URL(answer.url()).pathname.endsWith('/CaseManagementEntry')
+        && new URLSearchParams(answer.request().postData() || '').get('method') === 'edit'),
+      chart.locator(`#edit${noteId}`).click(),
+    ]);
+    await applicationStatus(response, 200, 'Opening the saved note editor');
+  }
+  await savedEditor.waitFor({ state: 'visible' });
   await settled(chart);
+  h.assert((await savedEditor.inputValue()).trimEnd() === original,
+    'Atomic issue-delete did not load the exact saved note text');
   h.assert(await chart.locator('#caseManagementEntryForm input[name="noteId"]').inputValue() === noteId,
     'Atomic issue-delete did not open its saved note');
   const issue = chart.locator(`#noteIssues input[data-issue-id="${issueId}"]`);
   h.assert(await issue.count() === 1, 'Atomic issue-delete editor did not list its own issue');
-  const link = issue.locator('..').getByRole('link', { name: 'Delete', exact: true });
-  h.assert(await link.count() === 1, 'Atomic issue-delete has no native unused-issue Delete control');
-  await session.step('blank saved-note text refuses native issue deletion without changing the issue, CPP or note', async () => {
+  await session.step('blank saved-note text refuses an authenticated editor-form delete without changing clinical rows', async () => {
     await chart.locator(NOTE).fill('');
     await settled(chart);
-    await refusedDelete(s, chart, link, 400, '', 'Blank-text issue deletion', applicationStatus);
+    await refusedDelete(s, chart, issueId, 400, '', 'Blank-text issue deletion', applicationStatus);
   });
   const draft = `${stamp}-retained-clinical-draft H&P + follow-up`;
-  await session.step('a disappeared editor lock refuses native issue deletion and retains all clinical data and typed text', async () => {
+  await session.step('a disappeared editor lock refuses an authenticated editor-form delete and retains all clinical data and typed text', async () => {
     await chart.locator(NOTE).fill(draft);
     await settled(chart);
     const lockWhere = `demographic_no=${patient} AND provider_no=${q(provider)} AND note_id=${noteId}`;
@@ -158,7 +168,7 @@ async function checkIssueDeleteAtomicity(session, { applicationStatus }) {
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE id=${lock[0]}`) === '0',
       'The exact owned lock did not disappear');
     try {
-      await refusedDelete(s, chart, link, 409, draft, 'Expired-lock issue deletion', applicationStatus);
+      await refusedDelete(s, chart, issueId, 409, draft, 'Expired-lock issue deletion', applicationStatus);
     } finally {
       // Restore only the exact owned lock to prove a normal retry, without opening a new
       // form that would mask an in-memory checklist mutation by the refused operation.
@@ -169,27 +179,24 @@ async function checkIssueDeleteAtomicity(session, { applicationStatus }) {
         VALUES (${restore.map(value => value === null ? 'NULL' : value).join(',')})`);
     }
   });
-  await session.step('an authorized retry deletes the issue and stores the retained note text together', async () => {
-    const answer = chart.waitForResponse(isDelete);
-    answer.catch(() => {});
-    await link.click();
-    const response = await answer;
-    await response.finished();
-    await applicationStatus(response, 200, 'Authorized issue-delete retry');
-    await settled(chart);
+  await session.step('an authorized editor-form retry deletes the issue and stores the retained note text together', async () => {
+    const response = await editorFormDelete(s, chart, issueId);
+    try { await applicationStatus(response, 200, 'Authorized editor-form issue-delete retry'); }
+    finally { await response.dispose(); }
     await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_issue WHERE id=${issueId}`, '0',
       'Authorized retry did not remove its issue');
     await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
       AND provider_no=${q(provider)} AND note=${q(draft)}`, '1', 'Authorized retry lost or duplicated the retained clinical text');
     h.assert(sql.value(`SELECT note FROM casemgmt_note WHERE note_id=${noteId}`) === original,
       'Authorized retry overwrote the previous saved note revision');
-    h.assert(await chart.locator(`#noteIssues input[data-issue-id="${issueId}"]`).count() === 0,
-      'Authorized deletion did not refresh the issue checklist');
+    h.assert(await chart.locator(NOTE).inputValue() === draft,
+      'The editor-form request changed the current typed text');
     h.assert(sql.value(`SELECT reminders FROM casemgmt_cpp WHERE id=${cppId}`) === stamp,
       'Authorized issue deletion changed unrelated CPP text');
   });
   await releaseChartLocks(context, config.baseUrl, [chart]);
-  await chart.close();
+  // The workflow owns the browser lifetime; keep this paused page until its
+  // normal teardown instead of racing an unload beacon with the next scenario.
 }
 
 module.exports = { checkIssueDeleteAtomicity };
