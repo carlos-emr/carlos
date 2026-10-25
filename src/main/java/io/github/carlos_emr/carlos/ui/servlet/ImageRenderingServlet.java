@@ -374,7 +374,8 @@ public final class ImageRenderingServlet extends HttpServlet {
 
         SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         return securityInfoManager.hasPrivilege(
-                loggedInInfo, securityObjectName, SecurityInfoManager.READ, String.valueOf(demographicId));
+                loggedInInfo, securityObjectName, SecurityInfoManager.READ, String.valueOf(demographicId))
+                && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicId);
     }
 
     private static String getStoredSignatureReadSecurityObject(ModuleType moduleType) {
