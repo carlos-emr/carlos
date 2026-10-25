@@ -63,6 +63,7 @@ const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 const { sessionToken } = require('./lib/mutation-replay');
 const { waitUntil, failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+const { checkNoteBrowserProgramContext, requireNoteBrowserDocuments } = require('./lib/note-browser-program-context-checks');
 
 const isEncounterWrite = response => response.request().method() === 'POST'
   && /\/rx\/WriteToEncounter(?:\?|$)/.test(h.pathOnly(response.url()));
@@ -473,6 +474,9 @@ async function workflow(s) {
       tokens.push(token);
     }
     h.assert(tokens[0] !== tokens[1], 'The two program windows share one chart context');
+    await checkNoteBrowserProgramContext(s, {
+      context, charts, tokens, programs, provider: login.providerNo, role,
+    });
     const launchedRx = await ui.clickOpensPopup(charts[0], charts[0].locator('a[onclick*="/rx/choosePatient"]').first(),
       { context, recorder: s.recorder, label: 'rx-program-isolation', timeout: 30000 });
     const rxUrl = new URL(launchedRx.url());
@@ -1643,5 +1647,7 @@ DELIMITER ;`);
   });
 }
 
-if (require.main === module) runWorkflow('rx-print-profile', workflow, { openPatient: true });
+if (require.main === module) runWorkflow('rx-print-profile', workflow, {
+  openPatient: true, preflightConfig: requireNoteBrowserDocuments,
+});
 module.exports = { workflow };
