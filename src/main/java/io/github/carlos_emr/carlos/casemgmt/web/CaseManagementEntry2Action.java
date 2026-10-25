@@ -23,6 +23,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.casemgmt.web;
@@ -87,7 +88,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
-import java.lang.reflect.Array;
 import java.text.ParseException;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -3484,29 +3484,48 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     public String displayNotes() throws Exception {
-        response.setContentType("text/html;charset=UTF-8");
+        response.setCharacterEncoding(java.nio.charset.StandardCharsets.UTF_8.name());
         doDisplayNotes(request, response.getWriter());
         return null;
     }
 
     public void doDisplayNotes(HttpServletRequest request, PrintWriter out) throws Exception {
+        String patient = requirePrintReadAccess(request);
+        if (patient == null) return;
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
         String ids = request.getParameter("notes2print");
-        String[] noteIds;
+        String[] noteIds = StringUtils.isEmpty(ids) ? new String[0] : ids.split(",", -1);
+        List<Long> selectedIds = new ArrayList<>();
+        for (String id : noteIds) {
+            Long selectedId = parseExistingNoteId(id);
+            if (selectedId == null || selectedId <= 0) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return;
+            }
+            selectedIds.add(selectedId);
+        }
+        List<CaseManagementNote> selectedNotes = new ArrayList<>();
+        String program = ChartProgramContext.resolve(request);
+        for (Long id : selectedIds) {
+            CaseManagementNote note = caseManagementMgr.getNote(id.toString());
+            if (note == null || !authorizeEditorNoteReference(login, patient, program, note)) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+            selectedNotes.add(note);
+        }
         String textStr;
 
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
-        if (ids.length() > 0) noteIds = ids.split(",");
-        else noteIds = (String[]) Array.newInstance(String.class, 0);
-
+        response.setContentType("text/html;charset=UTF-8");
         out.println("<!DOCTYPE html><html><head><meta http-equiv='Content-Type' content='text/html; charset=UTF-8'></head><body>");
 
-        for (int idx = 0; idx < noteIds.length; ++idx) {
-            if (this.caseManagementMgr.getNote(noteIds[idx]).isLocked()) {
-                textStr = this.caseManagementMgr.getNote(noteIds[idx]).getObservation_date().toString() + " " + this.caseManagementMgr.getNote(noteIds[idx]).getProviderName() + " " + props.getString("encounter.noteBrowser.msgNoteLocked");
+        for (CaseManagementNote note : selectedNotes) {
+            if (note.isLocked()) {
+                textStr = note.getObservation_date().toString() + " " + note.getProviderName() + " " + props.getString("encounter.noteBrowser.msgNoteLocked");
             } else {
-
-                textStr = this.caseManagementMgr.getNote(noteIds[idx]).getNote();
+                textStr = note.getNote();
             }
             textStr = SafeEncode.forHtmlContent(textStr).replace("\n", "<br>");
             // textStr is SafeEncode.forHtmlContent output followed only by fixed br tags.
@@ -3521,6 +3540,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String print() throws Exception {
+        String patient = requirePrintReadAccess(request);
+        if (patient == null) return NONE;
         Date now = new Date();
         String headerDate = CachedDateFormats.format(now, HEADER_PATTERN);
 
@@ -3528,7 +3549,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         response.setHeader("Content-Disposition", "attachment; filename=\"Encounter-" + headerDate + ".pdf\"");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        Integer demographicNo = Integer.parseInt(getDemographicNo(request));
+        Integer demographicNo = Integer.valueOf(patient);
         String ids = request.getParameter("notes2print");
 
         String pStartDate = null;
@@ -3583,6 +3604,22 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         return null;
+    }
+
+    /** Direct print routes need the same patient boundary as the chart that normally opens them. */
+    private String requirePrintReadAccess(HttpServletRequest printRequest) {
+        String patient;
+        try {
+            patient = EncounterPatientContext.requireDemographicNo(printRequest);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(printRequest);
+        PatientRecordAccess.require(securityInfoManager, login, patient, "_demographic", "r");
+        PatientRecordAccess.require(securityInfoManager, login, patient, "_eChart", "r");
+        PatientRecordAccess.require(securityInfoManager, login, patient, "_casemgmt.notes", "r");
+        return patient;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

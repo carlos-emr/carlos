@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -48,6 +49,8 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
@@ -68,9 +71,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p>Uses {@link OscarChartPrinter} with try-with-resources for safe PDF resource
  * management. The printer is closed automatically after all sections are rendered.
  *
- * <p><strong>Security:</strong> Requires {@code _demographic} read privilege via
- * {@link SecurityInfoManager#hasPrivilege}. Throws {@link SecurityException} if the
- * logged-in provider lacks access to the requested patient record.
+ * <p><strong>Security:</strong> Requires demographic, chart and note read privileges,
+ * and access to the explicitly requested patient's record before loading clinical data.
  *
  * @see io.github.carlos_emr.carlos.casemgmt.print.OscarChartPrinter
  * @see io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintPdf
@@ -111,27 +113,24 @@ public class EChartPrint2Action extends ActionSupport {
      *
      * @return String always {@code null} since the response is written directly
      * @throws Exception if PDF generation or database access fails
-     * @throws SecurityException if the provider lacks {@code _demographic} read privilege
+     * @throws SecurityException if the provider lacks patient chart/note read access
      */
-    // FindSecBugs HRS_REQUEST_PARAMETER_TO_HTTP_HEADER: demographicNo reaches the Content-Disposition filename, but
-    // the digits-only guard below rejects anything else first, so CR/LF can never reach the header.
-    @SuppressFBWarnings(value = "HRS_REQUEST_PARAMETER_TO_HTTP_HEADER", justification = "demographicNo is rejected unless it matches \\d+ before it is used in the Content-Disposition filename, so it cannot carry CR/LF")
+    // Canonical patient parsing rejects CR/LF before demographicNo reaches the download filename.
+    @SuppressFBWarnings(value = "HRS_REQUEST_PARAMETER_TO_HTTP_HEADER", justification = "EncounterPatientContext requires one canonical positive Integer patient before it reaches the filename")
     public String print() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String demographicNo = request.getParameter("demographicNo");
-
-        // Validate numeric to prevent HTTP response splitting (CRLF injection)
-        if (demographicNo == null || !demographicNo.matches("\\d+")) {
-            throw new IllegalArgumentException("Invalid demographicNo: must contain only digits");
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
+        PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_demographic", "r");
+        PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_eChart", "r");
+        PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_casemgmt.notes", "r");
 
         DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
-        }
-
-
         Demographic demographic = demographicDao.getClientByDemographicNo(Integer.parseInt(demographicNo));
 
         response.setContentType("application/pdf"); // octet-stream

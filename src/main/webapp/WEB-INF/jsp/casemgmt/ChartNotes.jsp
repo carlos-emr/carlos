@@ -685,7 +685,7 @@
             <div id="note-control-panel">
                 <c:if test="${not empty chartPatientNo}">
                 <button type="button"
-                        onclick="popupPage(500,200,'noteBrowser${carlos:forJavaScriptAttribute(chartPatientNo)}','casemgmt/ViewNoteBrowser?demographic_no=${carlos:forJavaScriptAttribute(carlos:forUriComponent(chartPatientNo))}&FirstTime=1');">
+                        onclick="popupPage(500,200,'noteBrowser${carlos:forJavaScriptAttribute(chartPatientNo)}',chartActionUrl('/casemgmt/ViewNoteBrowser?demographic_no=${carlos:forJavaScriptAttribute(carlos:forUriComponent(chartPatientNo))}&FirstTime=1'));">
                     <fmt:message key="encounter.Index.BrowseNotes"/></button>
                 </c:if>
                 <button type="button" onclick="notesLoadAll();"><fmt:message key="encounter.Index.btnLoadAllNotes"/></button>

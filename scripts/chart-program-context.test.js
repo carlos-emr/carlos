@@ -126,3 +126,87 @@ test('chart initialization extraction reports a missing initialization marker', 
     assert.throws(() => chartActionUrlSource(source.replace('    var ctx;', ''), { includeInitialization: true }),
         /var ctx;/);
 });
+
+test('the native Browse Notes button carries its containing chart context after another program opens', () => {
+    const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/ChartNotes.jsp'), 'utf8');
+    const target = jsp.indexOf('ViewNoteBrowser?');
+    const button = jsp.slice(jsp.lastIndexOf('<button', target), jsp.indexOf('>', target) + 1);
+    const handler = /onclick="([^"]+)"/.exec(button)?.[1];
+    assert.ok(handler, 'the native Browse Notes button exists');
+    for (const token of ['patient101.program7.signature +&?#', 'patient101.program8.signature']) {
+        const page = chart(token);
+        page.window.carlosChartContext = 'another-program-opened-later';
+        let opened;
+        page.popupPage = (...args) => { opened = args[3]; };
+        vm.runInContext(handler.replace(/\$\{[^}]+\}/g, '101'), page);
+        const url = new URL(opened, 'https://clinic.test');
+        assert.equal(url.pathname, '/carlos/casemgmt/ViewNoteBrowser');
+        assert.equal(url.searchParams.get('demographic_no'), '101');
+        assert.equal(url.searchParams.get('FirstTime'), '1');
+        assert.deepEqual(url.searchParams.getAll('chartContext'), [token]);
+    }
+});
+
+function noteBrowser(token) {
+    const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/noteBrowser.jsp'), 'utf8');
+    const block = (from, to) => {
+        const start = jsp.indexOf(from);
+        const end = jsp.indexOf(to, start);
+        assert.ok(start >= 0 && end > start, `note browser source markers exist: ${from} -> ${to}`);
+        return jsp.slice(start, end);
+    };
+    let code = block('        var noteBrowserPatient =', '        function popup(')
+        + block('        function reloadNoteBrowser(', '        function ReLoadDoc(')
+        + block('        function showEncounter(', '        function getSelected(')
+        + block('        function PrintEncounter(', '        function AddTickler(');
+    assert.match(code, /SafeEncode\.forJavaScript\(demographicID\)/);
+    assert.match(code, /SafeEncode\.forJavaScript\(io\.github\.carlos_emr\.carlos\.casemgmt\.common\.ChartProgramContext\.token\(request\)\)/);
+    code = code.replace(/var noteBrowserPatient = '[^\n]+';/,
+        () => `var noteBrowserPatient = ${JSON.stringify('101')};`)
+        .replace(/var noteBrowserChartContext = '[^\n]+';/,
+            () => `var noteBrowserChartContext = ${JSON.stringify(token)};`)
+        .replaceAll('<%= SafeEncode.forJavaScript(request.getContextPath()) %>', '/carlos')
+        .replaceAll('<%= request.getContextPath() %>', '/carlos');
+    assert.doesNotMatch(code, /<%|\$\{/, 'all server values are supplied before actual browser functions execute');
+    const fields = {
+        encounterlist: [{value: '501'}, {value: '502'}], doclist: {selectedIndex: 0},
+        docdisp: {replaceChildren(iframe) { this.iframe = iframe; }}, docinfo: {}, docextrainfo: {},
+        printnotesbutton: {style: {}},
+    };
+    const form = Object.fromEntries(Object.entries({demographic_no: '101', view: 'type + & /',
+        viewstatus: 'active', sortorder: 'Observation', 'CSRF-TOKEN': 'must-not-enter-a-GET'})
+        .map(([name, value]) => [name, {value}]));
+    const page = {
+        URLSearchParams, encodeURIComponent, window: {location: {href: ''}}, getWidth: () => 1024, getHeight: () => 768,
+        document: {DisplayDoc: form, getElementById: id => fields[id],
+            createElement: () => ({addEventListener() {}})},
+        getSelected: options => options, getDoc() {},
+    };
+    page.popup = (...args) => { page.printed = args[2]; };
+    vm.createContext(page);
+    vm.runInContext(code, page);
+    return {page, fields};
+}
+
+for (const token of ['', 'patient101.program7.signature +&?#', 'patient101.program8.signature']) {
+    test(`native note browser preview print and filter reload retain the originating context ${JSON.stringify(token)}`, () => {
+        const {page, fields} = noteBrowser(token);
+        // A later chart may replace compatibility state; this popup owns its captured token.
+        page.case_program_id = 'another-program-opened-later';
+        page.showEncounter('&notes2print=501,502');
+        page.PrintEncounter();
+        page.reloadNoteBrowser();
+        for (const [address, route] of [[fields.docdisp.iframe.src, 'CaseManagementEntry'],
+            [page.printed, 'CaseManagementEntry'], [page.window.location.href, 'casemgmt/ViewNoteBrowser']]) {
+            const url = new URL(address, 'https://clinic.test');
+            assert.equal(url.pathname, `/carlos/${route}`);
+            assert.deepEqual(url.searchParams.getAll('chartContext'), token ? [token] : []);
+            assert.equal(url.searchParams.get(route === 'CaseManagementEntry' ? 'demographicNo' : 'demographic_no'), '101');
+            assert.equal(url.searchParams.has('CSRF-TOKEN'), false);
+            if (route === 'CaseManagementEntry') assert.equal(url.searchParams.get('notes2print'), '501,502');
+            else assert.equal(url.searchParams.get('view'), 'type + & /');
+        }
+        assert.equal(new URL(fields.docdisp.iframe.src, 'https://clinic.test').searchParams.get('method'), 'displayNotes');
+        assert.equal(new URL(page.printed, 'https://clinic.test').searchParams.get('method'), 'print');
+    });
+}
