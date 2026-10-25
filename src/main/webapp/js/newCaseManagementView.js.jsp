@@ -2090,7 +2090,7 @@ function updateCPPNote() {
 
         CarlosAjax.request(chartActionUrl("/CaseManagementView"), {
             method: 'post',
-            postBody: "method=viewNote&raw=false&noteId=" + nId,
+            postBody: "method=viewNote&raw=false&noteId=" + nId + "&demographicNo=" + encodeURIComponent(demographicNo),
             evalScripts: true,
             onSuccess: function (response) {
                 $("txt" + nId).update(response.responseText.trim());
@@ -2159,7 +2159,7 @@ function updateCPPNote() {
     function fetchNote(nId) {
         var url = chartActionUrl("/CaseManagementView");
         var fullId = "full" + nId;
-        var params = "method=viewNote&raw=true&noteId=" + nId;
+        var params = "method=viewNote&raw=true&noteId=" + nId + "&demographicNo=" + encodeURIComponent(demographicNo);
         var noteTxtArea = "caseNote_note" + nId;
 
         CarlosAjax.request(
@@ -2214,7 +2214,7 @@ function updateCPPNote() {
         var txt = "n" + nId;
         var img = "fullImg" + nId;
         var fullId = "full" + nId;
-        var params = "method=viewNote&raw=false&noteId=" + nId;
+        var params = "method=viewNote&raw=false&noteId=" + nId + "&demographicNo=" + encodeURIComponent(demographicNo);
         var noteTxtId = "txt" + nId;
         Element.stopObserving(txt, 'click', fullView);
 

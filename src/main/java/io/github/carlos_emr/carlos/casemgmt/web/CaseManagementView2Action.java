@@ -1069,13 +1069,60 @@ public class CaseManagementView2Action extends ActionSupport {
         return issueDisplay;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public String viewNote() {
-        String nId = request.getParameter("noteId");
+    /**
+     * Loads a shortened note for display or editing under the originating chart's read policy.
+     * The explicit patient must match storage before the program's reporter-role filter runs.
+     *
+     * @return String displayNote only for a readable note, or NONE after a 400/404 response
+     * @throws SecurityException if patient, record or chart-program access is refused
+     * @throws IOException if an invalid or missing note response cannot be written
+     */
+    public String viewNote() throws IOException {
+        String patient = requestPatientOrBadRequest();
+        if (patient == null) return NONE;
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        PatientRecordAccess.require(securityInfoManager(), loggedInInfo, patient, "_eChart", "r");
+        PatientRecordAccess.require(securityInfoManager(), loggedInInfo, patient, "_casemgmt.notes", "r");
+        String programId = ChartProgramContext.resolve(request);
+
+        String nId = null;
+        try {
+            String[] ids = request.getParameterValues("noteId");
+            if (ids == null || ids.length == 0) throw new IllegalArgumentException("Missing note ID");
+            for (String id : ids) {
+                if (id == null || !id.matches("[0-9]{1,19}") || Long.parseLong(id) <= 0) {
+                    throw new IllegalArgumentException("Invalid note ID");
+                }
+                String canonical = Long.toString(Long.parseLong(id));
+                if (nId != null && !nId.equals(canonical)) {
+                    throw new IllegalArgumentException("Conflicting note IDs");
+                }
+                nId = canonical;
+            }
+        } catch (IllegalArgumentException invalidNote) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        if (!caseManagementMgr.isClientInProgramDomain(providerNo, patient)
+                && !caseManagementMgr.isClientReferredInProgramDomain(providerNo, patient)) {
+            throw new SecurityException("Patient program domain access denied");
+        }
         CaseManagementNote note = this.caseManagementMgr.getNote(nId);
+        if (note == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+        if (!patient.equals(note.getDemographic_no())) {
+            throw new SecurityException("Note patient context mismatch");
+        }
+        if (programId != null && !"0".equals(programId)
+                && caseManagementMgr.filterNotes(loggedInInfo, providerNo,
+                List.of(note), programId).isEmpty()) {
+            throw new SecurityException("Note access denied");
+        }
         request.setAttribute("noteStr", note.getNote());
-        boolean raw = request.getParameter("raw").equalsIgnoreCase("true");
+        boolean raw = Boolean.parseBoolean(request.getParameter("raw"));
         request.setAttribute("raw", raw);
         return "displayNote";
     }
