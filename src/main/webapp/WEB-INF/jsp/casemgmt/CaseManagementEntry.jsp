@@ -63,7 +63,6 @@
     } catch (NullPointerException e) {
         // do nothing it's okay to not have this parameter
     }
-    int count_issues_display = 0;
 %>
 <html>
 <head>
@@ -125,16 +124,13 @@
             }
         }
 
-        function validateIssuecheck(issueSize) {
-            for (let i = 0; i < issueSize; i++) {
-                //alert("checked="+document.caseManagementEntryForm.elements["issueCheckList["+i+"].checked"].checked);
-                if (document.caseManagementEntryForm.elements["issueCheckList[" + i + "].checked"].checked) {
-                    //alert("issue check return true");
-                    return true;
-                }
-            }
-            return false;
-
+        function validateIssuecheck() {
+            // Resolved issues can leave gaps in rendered indexes. Inspect the actual
+            // controls rather than a separate server-side display counter.
+            return Array.prototype.some.call(document.caseManagementEntryForm.elements, function (field) {
+                return field.type === 'checkbox' && /^issueCheckList\[\d+\]\.checked$/.test(field.name)
+                    && field.checked;
+            });
         }
 
         function validateEnounter() {
@@ -165,7 +161,7 @@
                 return false;
         }
 
-        function validateSave(count_issues_display) {
+        function validateSave() {
 
             var str1 = "You cannot save a note when there is no issue checked, please add an issue or check a currently available issue before save.";
             var str2 = "Are you sure that you want to sign and save without changing the status of any of the issues?";
@@ -175,7 +171,7 @@
                 alert(str3);
                 return false;
             }
-            if (!validateIssuecheck(count_issues_display)) {
+            if (!validateIssuecheck()) {
                 alert(str1);
                 return false;
             }
@@ -373,7 +369,6 @@
     <c:set var="resolved" value="${cbb.issueDisplay.resolved eq 'resolved'}" />
 
     <c:if test="${!resolved or showResolved}">
-        <c:set var="countIssuesDisplay" value="${countIssuesDisplay + 1}" />
         <c:set var="counter" value="${status.count}" />
 
         <tr style="background-color: ${counter % 2 == 0 ? '#EEEEFF' : 'white'}; text-align: center;">
@@ -528,10 +523,10 @@
             <tr>
                 <td class="fieldValue" colspan="2">
                     <input type="submit" value="Save"
-                           onclick="this.form.method.value='save';return validateSave(<%=count_issues_display%>);">
+                           onclick="this.form.method.value='save';return validateSave();">
                     <input type="submit"
                            value="Save and Exit"
-                           onclick="this.form.method.value='saveAndExit';if (validateSave(<%=count_issues_display%>)) {return true;}else return false;">
+                           onclick="this.form.method.value='saveAndExit';if (validateSave()) {return true;}else return false;">
                     <input type="submit"
                            value="cancel" onclick="this.form.method.value='cancel';return true;">
                 </td>
