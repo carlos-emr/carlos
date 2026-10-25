@@ -46,6 +46,7 @@ class MessageEncounterServiceUnitTest extends CarlosUnitTestBase {
     private void allow() {
         when(security.hasPrivilege(caller, "_msg", "r", null)).thenReturn(true);
         when(security.hasPrivilege(caller, "_eChart", "r", "42")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(caller, 42)).thenReturn(true);
     }
 
     private void link(int demographic) {
@@ -72,6 +73,17 @@ class MessageEncounterServiceUnitTest extends CarlosUnitTestBase {
         allow(); link(43);
         assertThatThrownBy(() -> service.load(caller, 7, 42)).isInstanceOf(SecurityException.class);
         verifyNoInteractions(messages);
+    }
+
+    @Test
+    void shouldRejectBeforeLinkOrBodyLookup_whenPatientRecordIsExcluded() {
+        allow();
+        when(security.isAllowedAccessToPatientRecord(caller, 42)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.load(caller, 7, 42)).isInstanceOf(SecurityException.class)
+                .hasMessage("Patient record access denied");
+
+        verifyNoInteractions(links, messages);
     }
 
     @Test

@@ -36,6 +36,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
@@ -60,9 +61,8 @@ public final class EctSetupHistoryIndex2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
             return NONE;
         }
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", demographicNo)) {
-            throw new SecurityException("missing required sec object (_measurement)");
-        }
+        PatientRecordAccess.require(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                demographicNo, "_measurement", "r");
 
         Integer demo = Integer.valueOf(demographicNo);
         request.setAttribute("demographicNo", demo);

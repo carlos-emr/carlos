@@ -63,6 +63,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.messenger.service.MessageEncounterService.MissingMessageException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
@@ -155,6 +156,13 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demoNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
+        }
+        final String messageId;
+        try {
+            messageId = requestedMessageId(request);
+        } catch (IllegalArgumentException invalidMessage) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid encounter message ID");
+            return NONE;
         }
 
         if (!"true".equals(CarlosProperties.getInstance().getProperty("program_domain.show_echart", "false"))) {
@@ -274,16 +282,17 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             String dateParam = request.getParameter("date");
             bean.date = (dateParam != null && SAFE_DATE.matcher(dateParam).matches()) ? dateParam : null;
             bean.check = "myCheck";
-            bean.oscarMsgID = request.getParameter("msgId");
-            if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d+")) {
-                log.warn("Invalid msgId");
-                return "failure";
-            }
+            bean.oscarMsgID = messageId;
             String sourceParam = request.getParameter("source");
             if (sourceParam != null) {
                 bean.source = VALID_SOURCES.contains(sourceParam) ? sourceParam : null;
             }
-            bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
+            try {
+                bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
+            } catch (MissingMessageException missingMessage) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Message no longer exists");
+                return NONE;
+            }
             // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- demographicNo/appointmentNo/curProviderNo validated as numeric/alphanumeric;
             // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; times validated HH:MM; encType validated alphanumeric;
             // source whitelisted to {"encounter","messenger"}; reason/userName sanitized for control chars and length-capped;
@@ -304,6 +313,29 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         EncounterPatientContext.rememberEncounter(request, bean);
         setEncounterAttributes(request, bean, loggedInInfo, request.getParameter("splitchart") != null, false);
         return "success2";
+    }
+
+    /** Validates every handoff value before any clinical loader sees a selected message. */
+    static String requestedMessageId(HttpServletRequest request) {
+        String[] values = request.getParameterValues("msgId");
+        if (values == null) return null;
+        if (values.length == 0) throw new IllegalArgumentException("Missing message ID");
+        String selected = null;
+        boolean blank = false;
+        for (String value : values) {
+            if (value == null || value.isBlank()) {
+                if (selected != null) throw new IllegalArgumentException("Conflicting message IDs");
+                blank = true;
+                continue;
+            }
+            if (blank || !value.matches("[0-9]{1,10}")) throw new IllegalArgumentException("Invalid message ID");
+            int id = Integer.parseInt(value);
+            if (id <= 0) throw new IllegalArgumentException("Invalid message ID");
+            String canonical = Integer.toString(id);
+            if (selected != null && !selected.equals(canonical)) throw new IllegalArgumentException("Conflicting message IDs");
+            selected = canonical;
+        }
+        return selected;
     }
 
     /**

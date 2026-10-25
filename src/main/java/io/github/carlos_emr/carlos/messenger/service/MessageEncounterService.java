@@ -34,6 +34,15 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class MessageEncounterService {
+    /** A linked message disappeared before the handoff could read it. */
+    public static final class MissingMessageException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+
+        public MissingMessageException() {
+            super("Message no longer exists");
+        }
+    }
+
     private final MessageTblDao messages;
     private final MsgDemoMapDao links;
     private final SecurityInfoManager security;
@@ -67,13 +76,16 @@ public class MessageEncounterService {
         if (!security.hasPrivilege(loggedInInfo, "_eChart", "r", Integer.toString(demographicNo))) {
             throw new SecurityException("missing required sec object (_eChart)");
         }
+        if (!security.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("Patient record access denied");
+        }
         if (links.findByMessageId(messageId).stream()
                 .noneMatch(link -> Integer.valueOf(demographicNo).equals(link.getDemographic_no()))) {
             throw new SecurityException("Message is not linked to this patient");
         }
         var message = messages.find(messageId);
         if (message == null) {
-            throw new IllegalArgumentException("Message no longer exists");
+            throw new MissingMessageException();
         }
         return "From: " + message.getSentBy() + "\nTo: " + message.getSentTo()
                 + "\nDate: " + ConversionUtils.toDateString(message.getDate()) + " "
