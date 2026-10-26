@@ -68,7 +68,17 @@ class RxPreviewClinicHeaderAssetRegressionTest {
     }
 
     @Test
-    void shouldPreserveEncodedSatelliteFieldsOnThePrintAndFaxWire() throws IOException {
+    @DisplayName("should resolve both satellite address label bundles from the supported browser language")
+    void shouldResolveSatelliteLabels_whenPrimaryBrowserLanguageIsUnsupported() throws IOException {
+        String page = executableJsp(read(Path.of("src/main/webapp/WEB-INF/jsp/rx/ViewScript2.jsp")));
+        assertThat(page).doesNotContain("getBundle(\"oscarResources\", request.getLocale())");
+        assertThat(page.split(java.util.regex.Pattern.quote(
+                "io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)"), -1))
+                .hasSize(3);
+    }
+
+    @Test
+    void shouldPreserveEncodedSatelliteFields_onPrintAndFaxWire() throws IOException {
         String page = executableJsp(read(PREVIEW2_JSP.resolveSibling("ViewScript2.jsp")));
         assertThat(page).contains("scAddress = \"<carlos:encode value='<%= (String)vecAddress.get(i) %>' context=\"uriComponent\"/>");
         assertThat(page).doesNotContain("StringEscapeUtils.unescapeHtml4((String)vecAddress.get(i))");

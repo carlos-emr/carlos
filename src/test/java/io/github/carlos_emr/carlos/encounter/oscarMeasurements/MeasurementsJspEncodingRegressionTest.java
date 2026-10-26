@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 @DisplayName("Measurements.jsp output encoding regressions")
 @Tag("unit")
 @Tag("clinical")
-class MeasurementsJspEncodingRegressionTest {
+class MeasurementsJspEncodingRegressionTest extends io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase {
 
     private static final int MAX_PARENT_SEARCH_DEPTH = 8;
     private static final Pattern EL_EXPRESSION = Pattern.compile("\\$\\{([^}]*)}");
@@ -43,7 +43,7 @@ class MeasurementsJspEncodingRegressionTest {
             Pattern.compile("<%=\\s*+((?:[^%]++|%(?!>))*+)%>");
     private static final Pattern ATTRIBUTE_START = Pattern.compile("([\\w:-]+)\\s*=\\s*([\"'])");
     private static final Pattern CONTROL_EXPRESSION = Pattern.compile(
-            "(?:empty css|not empty css|not empty groupName|not empty measurementType\\.lastMInstrc"
+            "(?:empty css|not empty css|not empty groupName|not empty measurementType\\.lastData"
                     + "|fn:split\\(measurementType\\.measuringInstrc\\.substring\\(12\\), ','\\)"
                     + "|measurementType\\.measuringInstrc\\.startsWith\\('Choose radio'\\)"
                     + "|measurementTypes\\.measurementTypeVector|sessionScope\\[attributeName]\\.measuringInstructionList)");
@@ -65,6 +65,29 @@ class MeasurementsJspEncodingRegressionTest {
             .toList();
     private static final String PARENT_CHANGED_KEY =
             "encounter.oscarMeasurements.Measurements.msgParentChanged";
+
+    @Test
+    @DisplayName("should ignore a second Submit while a save is out and re-enable it for a retry (issue #4410)")
+    void shouldGuardSubmit_whileMeasurementSaveIsInFlight() throws Exception {
+        String jsp = readJsp();
+        int check = jsp.indexOf("function check() {");
+        int fetch = jsp.indexOf("fetch(", check);
+        int errors = jsp.indexOf("if (data.errors && data.errors.length > 0) {", fetch);
+        int failure = jsp.indexOf(".catch(error => {", fetch);
+
+        assertThat(check).isPositive();
+        assertThat(fetch).isGreaterThan(check);
+        assertThat(errors).isGreaterThan(fetch);
+        assertThat(failure).isGreaterThan(fetch);
+        // The guard is the first thing check() does, and the save is marked out before it is sent.
+        assertThat(jsp.substring(check, check + 120)).contains("if (measurementSaveInFlight) {");
+        assertThat(jsp.lastIndexOf("setMeasurementSaving(true);", fetch)).isGreaterThan(check);
+        // Validation errors and failures hand the button back; only a stored save closes the window.
+        assertThat(jsp.indexOf("setMeasurementSaving(false);", errors)).isBetween(errors, errors + 120);
+        assertThat(jsp.indexOf("setMeasurementSaving(false);", failure)).isBetween(failure, failure + 120);
+        assertThat(jsp).contains("id=\"measurementSubmit\"")
+                .contains("var submit = document.getElementById('measurementSubmit');");
+    }
 
     @Test
     @DisplayName("should canonicalize the demographic identifier before rendering patient data")

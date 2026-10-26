@@ -10,7 +10,17 @@ case "$1" in
         rm -f "${CONF_DIR}/tomcat/Catalina/localhost/drugref2.xml"
         rm -f "${STATE}/drugref2.properties"
         # Tomcat keeps a deployed context alive until it is told otherwise.
-        if [ -d /run/systemd/system ] && systemctl is-active --quiet carlos-emr.service; then
+        # Under dpkg, activate carlos-emr's carlos-emr-restart trigger instead of
+        # restarting here: a transaction that also upgrades carlos-emr then
+        # redeploys the application once, at the end, not once from this script
+        # and again from carlos-emr's configure. The triggered postinst restarts
+        # only a unit that is active or failed, as this did. If carlos-emr is not
+        # installed there is nothing to restart and the activation is a no-op.
+        # Outside dpkg, or if the activation fails, restart directly as before.
+        if [ -n "${DPKG_RUNNING_VERSION:-}" ] \
+            && dpkg-trigger --no-await carlos-emr-restart 2>/dev/null; then
+            :
+        elif [ -d /run/systemd/system ] && systemctl is-active --quiet carlos-emr.service; then
             deb-systemd-invoke restart carlos-emr.service || true
         fi
         if [ "$1" = purge ]; then

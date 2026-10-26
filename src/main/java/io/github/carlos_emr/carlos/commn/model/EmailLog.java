@@ -47,6 +47,10 @@ import java.util.List;
 @Table(name = "emailLog")
 public class EmailLog extends AbstractModel<Integer> implements Comparable<EmailLog> {
 
+    /** Body retained after a portal invitation send finishes; the activation code is discarded. */
+    public static final String PORTAL_INVITE_BODY_FORGOTTEN =
+            "This invitation's code is not kept by CARLOS. Resend the invitation to issue a new code.";
+
     /**
      * Enumeration of possible email delivery statuses.
      * Used for tracking the lifecycle and delivery state of email communications.
@@ -67,15 +71,35 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
          *
          * @since 2026-08-20
          */
-        PENDING,
-        /** The configured transport accepted the send without a synchronous error */
-        SUCCESS,
+        PENDING("admin.manageEmails.pending"),
+        /**
+         * The configured transport accepted the send without a synchronous error.
+         *
+         * <p>Acceptance is not delivery: a relay or API can still bounce or drop the message, and
+         * nothing writes that back. User-facing views therefore label this status "Accepted by
+         * mail server" rather than presenting it as a completed send (issue #3834).</p>
+         */
+        SUCCESS("admin.manageEmails.acceptedByMailServer"),
         /** Email failed to send due to an error */
-        FAILED,
+        FAILED("admin.manageEmails.failed"),
         /** A failed or unconfirmed email was manually reviewed and resolved */
-        RESOLVED,
+        RESOLVED("admin.manageEmails.resolved"),
         /** Email was blocked before transmission by a compliance control */
-        BLOCKED
+        BLOCKED("admin.manageEmails.blocked");
+
+        private final String messageKey;
+
+        EmailStatus(String messageKey) {
+            this.messageKey = messageKey;
+        }
+
+        /**
+         * @return the resource-bundle key for the status tag shown to staff; the stored value and
+         *         the Manage Emails filter value stay the enum name
+         */
+        public String getMessageKey() {
+            return messageKey;
+        }
     }
 
     /**
@@ -141,7 +165,12 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
         /** Email generated from a tickler or reminder notification */
         TICKLER,
         /** Direct email communication not tied to a specific transaction type */
-        DIRECT
+        DIRECT,
+        /**
+         * A patient portal invitation sent by the invite delivery workflow. Deliberately absent from
+         * {@code EmailData.parseTransactionType}, so a compose request cannot claim to be an invitation.
+         */
+        PORTAL_INVITE
     }
 
     @Id
@@ -157,6 +186,14 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     @Lob
     @Column(columnDefinition = "BLOB")
     private byte[] body;
+
+    /**
+     * Text sent below the body (issue #3981). Kept apart from {@link #body} because the chart
+     * note is built from the body, and the footer is never charted.
+     */
+    @Lob
+    @Column(columnDefinition = "BLOB")
+    private byte[] footer;
 
     @Convert(converter = EmailLogStatusConverter.class)
     private EmailStatus status;
@@ -401,6 +438,26 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      */
     public void setBody(String body) {
         this.body = body == null ? null : Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Gets the footer sent below the body. Stored Base64-encoded like the body.
+     *
+     * @return String the decoded footer, or empty for a row written before the footer existed
+     * @since 2026-09-29
+     */
+    public String getFooter() {
+        return footer == null ? "" : new String(Base64.decodeBase64(footer), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Sets the footer sent below the body. It is Base64-encoded before storage.
+     *
+     * @param footer String the footer to encode and store
+     * @since 2026-09-29
+     */
+    public void setFooter(String footer) {
+        this.footer = footer == null ? null : Base64.encodeBase64(footer.getBytes(StandardCharsets.UTF_8));
     }
 
     /**

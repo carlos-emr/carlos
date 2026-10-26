@@ -40,6 +40,8 @@ public interface ConsultResponseDao extends AbstractDao<ConsultationResponse> {
     /** Complete patient-scoped history, including completed records and records without a linked provider. */
     List<ConsultationResponse> findByDemographicNo(Integer demographicNo);
 
+    ConsultationResponse lockForAttachmentSync(Integer id);
+
     int getConsultationCount(ConsultationResponseSearchFilter filter);
 
     List<Object[]> search(ConsultationResponseSearchFilter filter);

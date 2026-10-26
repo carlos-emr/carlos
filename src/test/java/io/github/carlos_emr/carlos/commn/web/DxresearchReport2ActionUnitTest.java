@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.commn.web;
 
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
+import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
+import io.github.carlos_emr.carlos.managers.CodingSystemManager;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -30,6 +32,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.*;
 
 import static org.assertj.core.api.Assertions.*;
@@ -62,6 +66,7 @@ class DxresearchReport2ActionUnitTest extends CarlosWebTestBase {
     private MyGroupDao mockMyGroupDao;
 
     private DxresearchReport2Action action;
+    private CodingSystemManager codingSystemManager;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -74,6 +79,8 @@ class DxresearchReport2ActionUnitTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(DxresearchDAO.class, mockDxresearchDAO);
         replaceSpringUtilsBean(MyGroupDao.class, mockMyGroupDao);
+        codingSystemManager = mock(CodingSystemManager.class);
+        replaceSpringUtilsBean(CodingSystemManager.class, codingSystemManager);
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
@@ -395,4 +402,81 @@ class DxresearchReport2ActionUnitTest extends CarlosWebTestBase {
             assertThat(result).isEqualTo(ActionSupport.ERROR);
         }
     }
+    @Nested
+    @DisplayName("Named quick-list report criteria")
+    class QuickListCriteria {
+        @Test
+        void shouldAddEveryNamedListCodeOnce_acrossRepeatedApplications() throws Exception {
+            addRequestParameter("method", "addSearchCode");
+            action.setQuickListName("Clinic \"A\"&");
+            List<dxCodeSearchBean> stored = List.of(code("icd9", "250"), code("icd9", "401"), code("icd9", "250"));
+            when(mockDxresearchDAO.getQuickListItems("Clinic \"A\"&")).thenReturn(stored);
+            setSessionAttribute("codeSearch", List.of(code("icd9", "401")));
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat((List<?>) mockSession.getAttribute("codeSearch"))
+                    .extracting("type", "dxSearchCode").containsExactly(tuple("icd9", "250"), tuple("icd9", "401"));
+            assertThat(stored).hasSize(3);
+            verify(mockDxresearchDAO, times(2)).getQuickListItems("Clinic \"A\"&");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"icd9", " ICD9 "})
+        void shouldPreserveSameNumberInDifferentCodingSystems_whenMergingManualAndListCodes(String system) throws Exception {
+            addRequestParameter("method", "addSearchCode");
+            addRequestParameter("codesystem", system);
+            addRequestParameter("codesearch", "250");
+            action.setQuickListName("Diabetes");
+            when(mockDxresearchDAO.getQuickListItems("Diabetes")).thenReturn(List.of(code("icd9", "250")));
+            when(codingSystemManager.getCodeDescription("icd9", "250")).thenReturn("Diabetes mellitus");
+            setSessionAttribute("codeSearch", List.of(code("icd10", "250")));
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat((List<?>) mockSession.getAttribute("codeSearch"))
+                    .extracting("type", "dxSearchCode").containsExactly(tuple("icd9", "250"), tuple("icd10", "250"));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"abc", "AbC", "ABC"})
+        void shouldMergeAlphabeticCodeIgnoringCase_withoutMergingCodingSystems(String manualCode) throws Exception {
+            addRequestParameter("method", "addSearchCode");
+            addRequestParameter("codesystem", "ichppccode");
+            addRequestParameter("codesearch", manualCode);
+            action.setQuickListName("Alphabetic");
+            when(mockDxresearchDAO.getQuickListItems("Alphabetic"))
+                    .thenReturn(List.of(code("ichppccode", "ABC")));
+            when(codingSystemManager.getCodeDescription("ichppccode", manualCode)).thenReturn("Alphabetic code");
+            setSessionAttribute("codeSearch", List.of(code("ichppccode", "abc"), code("icd10", "ABC")));
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat((List<?>) mockSession.getAttribute("codeSearch"))
+                    .extracting("type", "dxSearchCode")
+                    .containsExactly(tuple("ichppccode", "ABC"), tuple("icd10", "ABC"));
+        }
+
+        @Test
+        void shouldRetainExistingCriteria_whenSelectedListHasNoItems() throws Exception {
+            addRequestParameter("method", "addSearchCode");
+            action.setQuickListName("retired");
+            when(mockDxresearchDAO.getQuickListItems("retired")).thenReturn(List.of());
+            setSessionAttribute("codeSearch", List.of(code("icd9", "401")));
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat((List<?>) mockSession.getAttribute("codeSearch"))
+                    .extracting("type", "dxSearchCode").containsExactly(tuple("icd9", "401"));
+        }
+
+        private dxCodeSearchBean code(String system, String value) {
+            dxCodeSearchBean result = new dxCodeSearchBean("Description " + value, value);
+            result.setType(system);
+            return result;
+        }
+    }
+
 }

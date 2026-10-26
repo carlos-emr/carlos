@@ -32,7 +32,32 @@
      I2/35 settle mutation (with Q-code allow-list) via OnRaSettlementService
      — the 3 inline DAO lookups (RaHeaderDao, BillingDao, RaDetailDao)
      the JSP body used to perform are now in the assembler. --%>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%-- Opened as a popup (the legacy admin menu), refresh the opener and close.
+     Opened in the Administration panel's frame or a tab there is no opener,
+     the unguarded self.opener.refresh() threw and left a blank page after a
+     settle that had already succeeded (issue #4130); return to the RA list --
+     the RA_FORWORD route the admin menus open, when it is a root-relative path
+     -- which now shows the remittance's new status. --%>
+<%
+    String raListRoute = io.github.carlos_emr.CarlosProperties.getInstance()
+            .getProperty("RA_FORWORD", "/billing/CA/ON/ViewGenRA");
+    if (raListRoute == null || !raListRoute.startsWith("/") || raListRoute.startsWith("//")) {
+        raListRoute = "/billing/CA/ON/ViewGenRA";
+    }
+%>
 <script LANGUAGE="JavaScript">
-    self.close();
-    self.opener.refresh();
+    (function () {
+        var raList = '${carlos:forJavaScript(pageContext.request.contextPath)}<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(raListRoute) %>';
+        try {
+            if (self.opener && !self.opener.closed && typeof self.opener.refresh === 'function') {
+                self.opener.refresh();
+                self.close();
+                return;
+            }
+        } catch (e) {
+            // A closed, cross-origin or failing opener: fall through to the RA list.
+        }
+        location.replace(raList);
+    })();
 </script>

@@ -60,6 +60,9 @@ public class EFormDocs extends AbstractModel<Integer> {
     @Column(name = "doctype")
     private String docType;
 
+    @Column(name = "lab_type")
+    private String labType;
+
     private String deleted;
 
     @Column(name = "attach_date")
@@ -102,6 +105,14 @@ public class EFormDocs extends AbstractModel<Integer> {
 
     public void setDocumentNo(int documentNo) {
         this.documentNo = documentNo;
+    }
+
+    public String getLabType() {
+        return labType;
+    }
+
+    public void setLabType(String labType) {
+        this.labType = labType;
     }
 
     public String getDocType() {

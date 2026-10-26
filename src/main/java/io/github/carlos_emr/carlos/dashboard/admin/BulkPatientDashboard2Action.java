@@ -100,6 +100,8 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             return "unauthorized";
         }
 
+        if (!isPostRequest()) return NONE;
+
         excludeDemographicHandler.setLoggedinInfo(loggedInInfo);
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -119,10 +121,11 @@ public class BulkPatientDashboard2Action extends ActionSupport {
                 indicatorId);
 
         List<Integer> patientIdList = parsePatientIds(patientIdsParam);
-        excludeDemographicHandler.excludeDemoIds(patientIdList, indicatorName);
+        List<Integer> excludedPatientIds = excludeDemographicHandler.excludeDemoIds(patientIdList, indicatorName);
+        if (excludedPatientIds.isEmpty()) return null;
 
         String subject = "Patient exclusion report.";
-        String message = "Excluded patient demographic_no {" + patientIdList +
+        String message = "Excluded patient demographic_no {" + excludedPatientIds +
                 "} from indicator {" + indicatorName + "}";
 
         messageHandler.notifyProvider(
@@ -157,6 +160,8 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             return "unauthorized";
         }
 
+        if (!isPostRequest()) return NONE;
+
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String icd9code = getICD9Code(request);
 
@@ -164,6 +169,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         List<Integer> patientIdList = parsePatientIds(patientIdsParam);
 
         String ip = request.getRemoteAddr();
+        List<Integer> addedPatientIds = new ArrayList<>();
         for (int patientId : patientIdList) {
 
             Integer drId = diseaseRegistryHandler.addToDiseaseRegistry(
@@ -171,12 +177,17 @@ public class BulkPatientDashboard2Action extends ActionSupport {
                     icd9code,
                     providerNo
             );
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, "DX", "" + drId, ip, "");
+            if (drId != null) {
+                addedPatientIds.add(patientId);
+                LogAction.addLog(providerNo, LogConst.ADD, "DX", drId.toString(), ip, "");
+            }
         }
+
+        if (addedPatientIds.isEmpty()) return null;
 
         String subject = "Bulk addition to disease registry report.";
         String message = "Added ICD9 code {" + icd9code +
-                "} to disease registry for patient demographic_no {" + patientIdList + "}" +
+                "} to disease registry for patient demographic_no {" + addedPatientIds + "}" +
                 " with provider no {" + providerNo + "}";
 
         messageHandler.notifyProvider(subject, message, providerNo, null); //patientIdList);
@@ -225,30 +236,47 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             return "unauthorized";
         }
 
+        if (!isPostRequest()) return NONE;
+
         demographicPatientStatusRosterStatusHandler.setLoggedinInfo(loggedInInfo);
 
         String patientIdsParam = request.getParameter("patientIds");
         List<Integer> patientIdList = parsePatientIds(patientIdsParam);
 
         String ip = request.getRemoteAddr();
+        List<Integer> inactivePatientIds = new ArrayList<>();
+        boolean allUpdated = true;
         for (int patientId : patientIdList) {
-            demographicPatientStatusRosterStatusHandler.setPatientStatusInactive("" + patientId);
+            if (!Boolean.TRUE.equals(demographicPatientStatusRosterStatusHandler.setPatientStatusInactive("" + patientId))) {
+                allUpdated = false;
+                continue;
+            }
+            inactivePatientIds.add(patientId);
             LogAction.addLog(providerNo, LogConst.UPDATE, LogConst.CON_DEMOGRAPHIC, "" + patientId, ip, "" + patientId, "patient_status: IN");
         }
 
-        String subject = "Report on bulk setting of patients to inactive.";
-        String message = "Patient charts with demographic_no(s) {" + patientIdList +
-                "} have been set inactive by: " + loggedInInfo.getLoggedInProvider().getFormattedName();
-
-        messageHandler.notifyProvider(subject, message, providerNo);
-        String mrp = getMRP(loggedInInfo);
-        if (mrp != null && !providerNo.equals(mrp)) {  // operation done by MOA for doctor
-            messageHandler.notifyProvider(subject, message, mrp);
+        if (!inactivePatientIds.isEmpty()) {
+            String subject = "Report on bulk setting of patients to inactive.";
+            String message = "Patient charts with demographic_no(s) {" + inactivePatientIds +
+                    "} have been set inactive by: " + loggedInInfo.getLoggedInProvider().getFormattedName();
+            messageHandler.notifyProvider(subject, message, providerNo);
+            String mrp = getMRP(loggedInInfo);
+            if (mrp != null && !providerNo.equals(mrp)) {
+                messageHandler.notifyProvider(subject, message, mrp);
+            }
+            logger.info("Bulk patient status change notification sent, {} patients affected", inactivePatientIds.size());
         }
-
-        logger.info("Bulk patient status change (inactive) notification sent to provider(s), {} patients affected", patientIdList.size());
+        if (!allUpdated) response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 
         return null;
+    }
+
+    /** Refuses unsupported methods before any selected-patient mutation. */
+    private boolean isPostRequest() {
+        if ("POST".equals(request.getMethod())) return true;
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 
     /**
@@ -280,7 +308,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             }
             try {
                 ids.add(Integer.parseInt(trimmed));
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 logger.warn("Skipping non-integer patient ID: {}", LogSafe.sanitize(trimmed));
             }
         }

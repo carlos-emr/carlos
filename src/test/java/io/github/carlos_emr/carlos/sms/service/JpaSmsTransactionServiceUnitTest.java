@@ -188,6 +188,61 @@ class JpaSmsTransactionServiceUnitTest {
     }
 
     @Test
+    @DisplayName("renewClaim restarts the stale-send clock of a claimed row without counting another attempt")
+    void shouldRestartStaleClock_whenRenewingClaim() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction claimed = claimedRowWithConsentSnapshot(42L, 3L);
+        SmsTransaction current = claimedRowWithConsentSnapshot(42L, 3L);
+        when(smsTransactionDao.find(42L)).thenReturn(current);
+        Date renewedAt = Date.from(Instant.parse("2026-09-10T09:12:00Z"));
+
+        SmsTransaction renewed = recorder.renewClaim(claimed, renewedAt);
+
+        assertThat(renewed).isSameAs(current);
+        assertThat(current)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getLastAttemptAt)
+                .containsExactly(SmsStatus.SENDING, 1, renewedAt);
+        verify(smsTransactionDao).flush();
+    }
+
+    @Test
+    @DisplayName("renewClaim refuses when stale recovery or another writer changed the row under the claim")
+    void shouldRejectRenewal_whenRowChangedUnderClaim() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction claimed = claimedRowWithConsentSnapshot(42L, 3L);
+        SmsTransaction current = claimedRowWithConsentSnapshot(42L, 4L);
+        Date recoveryClaimedAt = current.getLastAttemptAt();
+        when(smsTransactionDao.find(42L)).thenReturn(current);
+        Date renewedAt = Date.from(Instant.parse("2026-09-10T09:12:00Z"));
+
+        assertThatThrownBy(() -> recorder.renewClaim(claimed, renewedAt))
+                .isInstanceOf(SmsTransactionClaimConflictException.class);
+
+        assertThat(current.getLastAttemptAt()).isEqualTo(recoveryClaimedAt);
+        verify(smsTransactionDao, never()).flush();
+    }
+
+    @Test
+    @DisplayName("renewClaim refuses a row that is no longer sending or no longer exists")
+    void shouldRejectRenewal_whenRowIsNotSendingOrMissing() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction claimed = claimedRowWithConsentSnapshot(42L, 3L);
+        SmsTransaction released = claimedRowWithConsentSnapshot(42L, 3L);
+        released.markClaimReleased(Date.from(Instant.parse("2026-09-10T09:06:00Z")));
+        Date renewedAt = Date.from(Instant.parse("2026-09-10T09:12:00Z"));
+
+        when(smsTransactionDao.find(42L)).thenReturn(released);
+        assertThatThrownBy(() -> recorder.renewClaim(claimed, renewedAt))
+                .isInstanceOf(SmsTransactionClaimConflictException.class);
+        assertThat(released.getStatus()).isEqualTo(SmsStatus.QUEUED);
+
+        when(smsTransactionDao.find(42L)).thenReturn(null);
+        assertThatThrownBy(() -> recorder.renewClaim(claimed, renewedAt))
+                .isInstanceOf(SmsTransactionClaimConflictException.class);
+        verify(smsTransactionDao, never()).flush();
+    }
+
+    @Test
     @DisplayName("markConsentBlocked merges the blocked transaction state")
     void shouldMergeTransaction_whenConsentIsBlocked() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);

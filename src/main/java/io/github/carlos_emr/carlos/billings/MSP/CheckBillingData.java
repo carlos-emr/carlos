@@ -82,7 +82,7 @@ public class CheckBillingData {
     public String printErrorMsg(String billingNo, String m) {
         String billingNoForJsUrl = SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(billingNo));
         String ret = "<tr bgcolor='red'><td colspan='11'>"
-                + "<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no="
+                + "<a href='#' onClick=\"openBrWindow('reprocessBill?billingmaster_no="
                 + billingNoForJsUrl
                 + "','','resizable=yes, scrollbars=yes, top=0, left=0, width=900, height=600'); return false;\">"
                 + SafeEncode.forHtmlContent(m) + "</a>" + "</td></tr>";

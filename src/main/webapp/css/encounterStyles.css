@@ -64,6 +64,19 @@ body.encounter-layout {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* The rule above forces Arial on every element, which would turn Font Awesome glyphs (the header
+   bar's phone icons, the Documents panel's folders) into empty boxes. Icons keep their icon font;
+   the higher specificity wins between the two !important declarations, so !important stays.
+   Only Font Awesome 6 class names: pages on an older Font Awesome use .fa/.fas with its own family. */
+:root .fa-solid,
+:root .fa-regular {
+    font-family: "Font Awesome 6 Free", sans-serif !important;
+}
+
+:root .fa-brands {
+    font-family: "Font Awesome 6 Brands", sans-serif !important;
+}
+
 #noteEditTxt {
     font-size: larger;
 }
@@ -144,21 +157,104 @@ div#userSettings ul#userSettingsMenu li .fa-solid {
     width: 100%;
 }
 
-#header-top-row, #header-top-row #left-column {
+/* eChart header bar, OSCAR 19 format (casemgmt/newEncounterHeader.jsp). One compact line in the
+   viewer's provider colour; background, text and link colours arrive as inline styles from
+   EchartHeaderViewModelAssembler (validated #RRGGBB). Items wrap rather than overflow. */
+/* The bar fills the chart's sticky header edge to edge, as OSCAR 19's did. */
+body.encounter-layout div#header {
+    padding: 0;
+}
+
+/* OSCAR 19's eChart bar, at the sizes OSCAR 19's encounterStyles.css and casemgmt.css gave it:
+   the MRP in the table font (11pt, normal weight), the patient's details bold at 80% of that
+   (span.Header), "Next Appt" a bold 11px link, and links in OSCAR's #0088CC without underline,
+   darkened per provider colour to 4.5:1 (white on a dark one; see EchartHeaderViewModelAssembler). */
+#header-top-row.echart-header-bar {
     display: flex;
-}
-
-#header-top-row {
     width: 100%;
-    justify-content: space-between;
+    box-sizing: border-box;
     align-items: center;
+    padding: 0 2px 0 2px;
+    font-size: 11pt;
+    line-height: normal;
 }
 
-#header-top-row #left-column #branding-logo {
-    margin: 5px 5px auto 5px;
-    position: relative;
-    top: 0;
-    left: 0;
+/* The page-wide ":root * { font-size: 12px }" would pin every item to 12px; inside the bar each
+   element inherits instead, so OSCAR 19's 11pt / 80% / 11px sizes below cascade as they did. */
+#header-top-row.echart-header-bar * {
+    font-size: inherit;
+}
+
+#header-top-row.echart-header-bar #left-column {
+    min-width: 0;
+}
+
+#header-top-row.echart-header-bar a {
+    color: var(--echart-header-link, #0088CC);
+    text-decoration: none;
+}
+
+#header-top-row.echart-header-bar .echart-header-mrp {
+    border-bottom: medium solid transparent;
+    margin-right: 0.6em;
+    white-space: nowrap;
+}
+
+#header-top-row.echart-header-bar .echart-header-mrp-name {
+    text-transform: uppercase;
+}
+
+#header-top-row.echart-header-bar .echart-header-details {
+    font-size: 80%;
+    font-weight: bold;
+}
+
+#header-top-row.echart-header-bar .echart-header-item {
+    margin-right: 0.45em;
+    white-space: nowrap;
+}
+
+#header-top-row.echart-header-bar .echart-header-next-appt {
+    font-size: 11px;
+    margin-left: 20px;
+}
+
+#header-top-row.echart-header-bar button.copyable {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
+    cursor: pointer;
+}
+
+#header-top-row.echart-header-bar button.copyable:hover,
+#header-top-row.echart-header-bar button.copyable:focus-visible {
+    text-decoration: underline;
+}
+
+/* Captions take their item's weight and size (OSCAR 19's "HIN:" and "Next Appt:" are bold);
+   !important because a global .label rule would otherwise restyle them. */
+#header-top-row.echart-header-bar .label {
+    margin: 0;
+    padding: 0;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    text-decoration: none;
+    display: inline;
+    color: inherit;
+}
+
+#header-top-row.echart-header-bar .label::after {
+    content: ':\00a0';
+}
+
+/* OSCAR 19 wrote "MRP" without a colon. */
+#header-top-row.echart-header-bar .echart-header-mrp-label::after {
+    content: none;
 }
 
 .noteRounded {
@@ -184,15 +280,6 @@ fieldset legend {
 }
 
 
-div#patient-label {
-    display: flex;
-    align-items: baseline;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    padding: 3px 0;
-    width: 100%;
-}
 
 .boxsizingBorder {
     -webkit-box-sizing: border-box;
@@ -214,69 +301,6 @@ textarea.unsigned-textarea, textarea.edit-textarea {
     border-radius: unset;
 }
 
-div#patient-label > button.copyable {
-    appearance: none;
-    background: transparent;
-    border: 0;
-    border-radius: 0;
-    color: inherit;
-    font: inherit;
-    text-align: inherit;
-}
-
-div#patient-label > div,
-div#patient-label > button.copyable {
-    margin: 2px 0;
-    padding: 0 6px;
-    font-size: 11px;
-    border-right: 1px solid #ccc;
-    white-space: nowrap;
-}
-
-div#patient-label > div:last-child {
-    border-right: none;
-}
-
-div#patient-label > div#patient-mrp {
-    margin-left: auto;
-}
-
-div#patient-label div#patient-full-name, div#patient-label div#patient-full-name h1, div#patient-label div#patient-full-name h1 a {
-    margin: 0;
-    font-size: 12px;
-    font-weight: bold;
-    display: inline;
-}
-
-div#patient-full-name a {
-    text-decoration: none;
-    color: blue;
-}
-
-div#patient-label div#header-top-row {
-    width: 100%;
-}
-
-div#patient-label .label {
-    margin: 0;
-    font-weight: normal !important;
-    font-size: 10px;
-    text-decoration: none;
-    display: inline;
-    color: #666;
-}
-
-div#patient-label .label::after {
-    content: ':\00a0';
-}
-
-div#patient-label .copyable {
-    cursor: pointer;
-}
-
-div#patient-label .copyable:hover {
-    text-decoration: underline;
-}
 
 
 .float-end {
@@ -934,6 +958,47 @@ div.leftBox li:nth-of-type(even) {
     background-color: whitesmoke !important;
 }
 
+/* Documents filed in folders by type (provider eChart preference; LeftNavBarDisplay.jsp
+   displayFolders). The leftBox list rule above sets display:flex, which would override the
+   hidden attribute of a closed folder, so the closed state is restated here. */
+div.leftBox ul.nav-folder-items {
+    padding-left: 14px;
+}
+
+div.leftBox ul.nav-folder-items[hidden] {
+    display: none;
+}
+
+div.leftBox button.nav-folder-toggle {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 0 2px;
+    margin: 0;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+div.leftBox button.nav-folder-toggle::before {
+    content: '\25B8';
+    display: inline-block;
+    width: 1em;
+}
+
+div.leftBox button.nav-folder-toggle[aria-expanded="true"]::before {
+    content: '\25BE';
+}
+
+div.leftBox button.nav-folder-toggle .fa-folder {
+    color: #c9a227;
+}
+
 div.leftBox li a, div.leftBox li span {
     display: -webkit-box;
     display: inline-block;
@@ -1135,6 +1200,30 @@ div.passwdErr {
 
 #notesLoading img {
     margin-right: 5px;
+}
+
+/* Issue #3609: a notes fetch that rendered nothing. Sits where the throbber sits. */
+#notesLoadFailed {
+    position: absolute;
+    background-color: #fff3cd;
+    border: 1px solid #d9a800;
+    border-radius: 4px;
+    box-shadow: 2px 3px 5px #999;
+    padding: 4px 8px;
+    text-align: center;
+    z-index: 4000;
+}
+
+#notesLoadFailed button {
+    margin-left: 4px;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-weight: bold;
+    color: #0645ad;
+    text-decoration: underline;
+    cursor: pointer;
 }
 
 /*Note format */

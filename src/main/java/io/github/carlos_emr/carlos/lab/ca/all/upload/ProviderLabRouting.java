@@ -44,6 +44,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
@@ -105,25 +108,87 @@ public class ProviderLabRouting {
         });
     }
 
-    private void routeInTransaction(int labId, String provider_no, String labType) {
-        List<ProviderLabRoutingModel> routings = providerLabRoutingDao.findRoutingForUpdate(labId, labType, provider_no);
-        // Delivery is idempotent, not a request to reopen an acknowledged/filed report.
-        // The current locking read also sees a concurrent acknowledgement after waiting.
-        if (!routings.isEmpty()) return;
-        ForwardingRules fr = new ForwardingRules();
-        String status = fr.getStatus(provider_no);
-        ArrayList<ArrayList<String>> forwardProviders = fr.getProviders(provider_no);
+    private void routeInTransaction(int labId, String providerNo, String labType) {
+        routeInTransaction(labId, providerNo, labType, null, new LinkedHashSet<>());
+    }
 
-        ProviderLabRoutingModel p = new ProviderLabRoutingModel();
-        p.setProviderNo(provider_no);
-        p.setLabNo(labId);
-        p.setStatus(status);
-        p.setLabType(labType);
-        providerLabRoutingDao.persist(p);
+    private boolean routeInTransaction(int labId, String providerNo, String labType,
+                                       Integer demographicNo, Set<String> visited) {
+        if (!visited.add(providerNo)) return false;
+        List<ProviderLabRoutingModel> routings = providerLabRoutingDao.findRoutingForUpdate(labId, labType, providerNo);
+        boolean created = routings.isEmpty();
+        boolean promoted = false;
+        if (!created && demographicNo == null) {
+            for (ProviderLabRoutingModel row : routings) {
+                if (row.getMrpDemographicNo() != null) {
+                    row.setMrpDemographicNo(null);
+                    providerLabRoutingDao.merge(row);
+                    promoted = true;
+                }
+            }
+        }
+        if (!created && !promoted) return false;
+        ForwardingRules rules = new ForwardingRules();
+        if (created) {
+            ProviderLabRoutingModel row = new ProviderLabRoutingModel();
+            row.setProviderNo(providerNo);
+            row.setLabNo(labId);
+            row.setStatus(rules.getStatus(providerNo, labType));
+            row.setLabType(labType);
+            row.setMrpDemographicNo(demographicNo);
+            providerLabRoutingDao.persist(row);
+        }
+        // Explicit visited state also terminates cycles when promoting automatic assignments.
+        for (ArrayList<String> recipient : rules.getProviders(providerNo, labType)) {
+            routeInTransaction(labId, recipient.get(0), labType, demographicNo, visited);
+        }
+        return created;
+    }
 
-        // All forwarded providers share this report lock and outer transaction.
-        for (ArrayList<String> forwardedProvider : forwardProviders) {
-            routeInTransaction(labId, forwardedProvider.get(0), labType);
+    /**
+     * Revokes obsolete rule-owned access and adds the current patient's MRP under the report lock.
+     * Callers matching multiple versions must hold all report locks in numeric order first.
+     * @return whether the direct MRP routing was created
+     */
+    public boolean reconcileMrpRouting(int labId, String labType, Integer demographicNo, String providerNo) {
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return Boolean.TRUE.equals(transaction.execute(status -> {
+            providerLabRoutingDao.lockRoutingReport(labId);
+            Set<String> desired = new LinkedHashSet<>();
+            if (demographicNo != null && providerNo != null) collectRecipients(providerNo, labType, desired);
+            for (ProviderLabRoutingModel row : providerLabRoutingDao.findAllLabRoutingByIdandType(labId, labType)) {
+                if (row.getMrpDemographicNo() != null
+                        && (!Objects.equals(demographicNo, row.getMrpDemographicNo())
+                            || !desired.contains(row.getProviderNo()))) {
+                    providerLabRoutingDao.remove(row.getId());
+                }
+            }
+            boolean created = false;
+            if (!desired.isEmpty()) {
+                Set<String> visited = new LinkedHashSet<>();
+                for (String recipient : desired) {
+                    boolean added = routeInTransaction(labId, recipient, labType, demographicNo, visited);
+                    if (recipient.equals(providerNo)) created = added;
+                }
+                // An existing direct MRP assignment must not prevent a newly configured
+                // forwarding recipient from receiving this matched report. Existing rows
+                // retain their acknowledgement and independent-assignment provenance.
+                for (ProviderLabRoutingModel row : providerLabRoutingDao.findRoutingForUpdate(labId, labType, "0")) {
+                    providerLabRoutingDao.remove(row.getId());
+                }
+            } else if (providerLabRoutingDao.findAllLabRoutingByIdandType(labId, labType).isEmpty()) {
+                routeInTransaction(labId, "0", labType);
+            }
+            return created;
+        }));
+    }
+
+    private void collectRecipients(String providerNo, String labType, Set<String> recipients) {
+        if (!recipients.add(providerNo)) return;
+        for (ArrayList<String> recipient : new ForwardingRules().getProviders(providerNo, labType)) {
+            collectRecipients(recipient.get(0), labType, recipients);
         }
     }
 

@@ -10,7 +10,9 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,7 +23,10 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionState;
@@ -48,7 +53,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>Sending emails directly with healthcare data and attachments</li>
  *   <li>Sending electronic forms (EForms) via email with optional deletion after send</li>
  *   <li>Handling email encryption and password protection for PHI compliance</li>
- *   <li>Managing email attachments from session storage</li>
+ *   <li>Sending exactly the attachments its own compose window staged, and only when every one
+ *       belongs to the email's patient (#4425)</li>
  *   <li>Canceling email operations and redirecting to source contexts</li>
  * </ul>
  *
@@ -89,6 +95,7 @@ public class EmailSend2Action extends ActionSupport {
     private static final String PARAM_RECEIVER_EMAIL_ADDRESS = "receiverEmailAddress";
     private static final String PARAM_PATIENT_CHART_OPTION = "patientChartOption";
     private static final String PARAM_MESSAGE = "message";
+    private static final String PARAM_FOOTER_EMAIL = "footerEmail";
     private static final String PARAM_IS_EMAIL_ENCRYPTED = "isEmailEncrypted";
     private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
     private static final String PARAM_DELETE_EFORM_AFTER_EMAIL = "deleteEFormAfterEmail";
@@ -105,6 +112,32 @@ public class EmailSend2Action extends ActionSupport {
     private transient EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
     private transient PdfPreviewCapabilityService pdfPreviewCapabilityService = SpringUtils.getBean(PdfPreviewCapabilityService.class);
     private static final int MAXIMUM_MESSAGE_LENGTH = 10_000;
+
+    private final transient AttachmentOwnershipService attachmentOwnershipService;
+
+    /**
+     * Shown when the send is refused because an attachment bound to this window's compose state
+     * does not belong to that state's patient (#4425). A window whose state is gone (already sent,
+     * cancelled or expired) is reported with
+     * {@link EmailCompose2Action#EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE} instead. Either way nothing
+     * is sent and nothing is logged as sent.
+     */
+    static final String ATTACHMENTS_REFUSED_MESSAGE = "This email was not sent: this window has expired,"
+            + " or its attachments do not belong to this patient. Close it and start the email again.";
+
+    /** Struts-created: resolves the ownership check from Spring. */
+    public EmailSend2Action() {
+        this(SpringUtils.getBean(AttachmentOwnershipService.class));
+    }
+
+    /**
+     * Test constructor.
+     *
+     * @param attachmentOwnershipService re-reads each attachment's owning patient before a send
+     */
+    EmailSend2Action(AttachmentOwnershipService attachmentOwnershipService) {
+        this.attachmentOwnershipService = attachmentOwnershipService;
+    }
 
     /**
      * Main execution method that routes to specific email handling methods based on the "method" request parameter.
@@ -217,6 +250,7 @@ public class EmailSend2Action extends ActionSupport {
         EmailSendResult sendResult;
         try {
             validateMessageRequirement(request);
+            validateFooterLength(request);
             validateEncryptionRequirements(request);
             validateConsentOverrideReason(request);
             int senderConfigId = validateSubmittedEmailFields(request);
@@ -225,6 +259,7 @@ public class EmailSend2Action extends ActionSupport {
                 context = composeState.context();
                 ensureSendCapable(composeState);
                 ensureTransactionType(composeState, EmailLog.TransactionType.EFORM);
+                verifyAttachmentOwnership(composeState);
                 sendResult = sendEmail(request, composeState);
                 if (!sendResult.isTransportAccepted() && !sendResult.isDeliveryUnconfirmed()) {
                     prepareRetry(composeState, sendResult.getEmailLog());
@@ -237,6 +272,7 @@ public class EmailSend2Action extends ActionSupport {
 
         boolean isEmailSuccessful = sendResult.isTransportAccepted();
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
+        saveFooterAsMineIfAsked(LoggedInInfo.getLoggedInInfoFromSession(request), isEmailSuccessful);
         request.setAttribute("isEmailDeliveryUnconfirmed", sendResult.isDeliveryUnconfirmed());
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
         request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
@@ -276,6 +312,7 @@ public class EmailSend2Action extends ActionSupport {
         EmailSendResult sendResult;
         try {
             validateMessageRequirement(request);
+            validateFooterLength(request);
             validateEncryptionRequirements(request);
             validateConsentOverrideReason(request);
             int senderConfigId = validateSubmittedEmailFields(request);
@@ -284,6 +321,7 @@ public class EmailSend2Action extends ActionSupport {
                 context = composeState.context();
                 ensureSendCapable(composeState);
                 ensureTransactionType(composeState, EmailLog.TransactionType.DIRECT);
+                verifyAttachmentOwnership(composeState);
                 sendResult = sendEmail(request, composeState);
                 if (!sendResult.isTransportAccepted() && !sendResult.isDeliveryUnconfirmed()) {
                     prepareRetry(composeState, sendResult.getEmailLog());
@@ -295,12 +333,42 @@ public class EmailSend2Action extends ActionSupport {
         EmailLog emailLog = sendResult.getEmailLog();
         boolean isEmailSuccessful = sendResult.isTransportAccepted();
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
+        saveFooterAsMineIfAsked(LoggedInInfo.getLoggedInInfoFromSession(request), isEmailSuccessful);
         request.setAttribute("isEmailDeliveryUnconfirmed", sendResult.isDeliveryUnconfirmed());
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
         request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
         request.setAttribute(EMAIL_REFUSAL, sendResult.getRefusal().name());
         request.setAttribute("emailLog", emailLog);
         return SUCCESS;
+    }
+
+    /** Optional personal-default update never changes this attempt's frozen combined footer. */
+    void saveFooterAsMineIfAsked(LoggedInInfo user, boolean accepted) {
+        if (!"true".equals(request.getParameter("saveFooterAsMine"))) {
+            return;
+        }
+        if (!accepted) {
+            request.setAttribute("footerSaveAsMineNotDone", true);
+            return;
+        }
+        try {
+            if (!securityInfoManager.hasPrivilege(user, "_email", SecurityInfoManager.WRITE, null)) {
+                throw new SecurityException("missing required sec object (_email)");
+            }
+            // Missing personal input is a deliberately empty layer, never the combined EmailLog footer.
+            String personal = EmailFooterHtml.clean(request.getParameter(PARAM_FOOTER_EMAIL));
+            SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
+                    .saveOwnFooter(user.getLoggedInProviderNo(), personal, request.getParameter("personalFooterRevision"));
+            io.github.carlos_emr.carlos.log.LogAction.addLog(user.getLoggedInProviderNo(),
+                    io.github.carlos_emr.carlos.log.LogConst.UPDATE, "emailFooterOwn", "", request.getRemoteAddr());
+            request.setAttribute(personal.isEmpty() ? "footerSavedEmpty" : "footerSavedAsMine", true);
+        } catch (io.github.carlos_emr.carlos.email.core.EmailFooterService.StaleFooterException failure) {
+            request.setAttribute("footerSaveAsMineStale", true);
+        } catch (RuntimeException failure) {
+            logger.warn("Email accepted; personal footer update could not be confirmed; cause={}",
+                    failure.getClass().getSimpleName());
+            request.setAttribute("footerSaveAsMineFailed", true);
+        }
     }
 
     /** Replaces a consumed attempt with fresh secret state only after a definite failure. */
@@ -316,8 +384,11 @@ public class EmailSend2Action extends ActionSupport {
                 attachment.setFilePath(owned.toString());
                 attachment.setPreviewToken(pdfPreviewCapabilityService.issue(request, loggedInInfo, owned));
             }
+            var clinic = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class).snapshot();
+            var retryContext = previous.context().withClinicFooter(clinic);
+            io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, clinic);
             var state = emailComposeSubmissionStateService.preparePdfPasswordSubmissionState(
-                    request, emailPdfPasswordService, attachments, previous.context(), retryDirectory);
+                    request, emailPdfPasswordService, attachments, retryContext, retryDirectory);
             retryDirectory = null; // The cache now owns the replacement files.
             request.setAttribute(PARAM_EMAIL_PDF_PASSWORD, state.emailPDFPassword());
             request.setAttribute(PARAM_EMAIL_PDF_PASSWORD_CLUE, state.emailPDFPasswordClue());
@@ -379,6 +450,8 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute(PARAM_SENDER_CONFIG_ID, request.getParameter(PARAM_SENDER_CONFIG_ID));
         request.setAttribute(PARAM_SUBJECT_EMAIL, request.getParameter(PARAM_SUBJECT_EMAIL));
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
+        request.setAttribute("personalFooterRevision", request.getParameter("personalFooterRevision"));
+        request.setAttribute(PARAM_FOOTER_EMAIL, EmailFooterHtml.clean(request.getParameter(PARAM_FOOTER_EMAIL)));
         request.setAttribute("emailPatientChartOption", request.getParameter(PARAM_PATIENT_CHART_OPTION));
         request.setAttribute(
                 PARAM_DEMOGRAPHIC_ID,
@@ -423,6 +496,9 @@ public class EmailSend2Action extends ActionSupport {
      */
     private void preserveComposeInputsForReRender(EmailLog emailLog) {
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
+        request.setAttribute("personalFooterRevision", request.getParameter("personalFooterRevision"));
+        // The footer as submitted, cleaned as it would be sent: a retry keeps what staff sent.
+        request.setAttribute(PARAM_FOOTER_EMAIL, EmailFooterHtml.clean(request.getParameter(PARAM_FOOTER_EMAIL)));
         // Fail closed on both encryption flags, matching prepareEmailFields: only an explicit
         // "false" re-renders a toggle OFF, so a failed draft cannot silently lose protection.
         request.setAttribute(PARAM_IS_EMAIL_ENCRYPTED,
@@ -580,6 +656,39 @@ public class EmailSend2Action extends ActionSupport {
     }
 
     /**
+     * Enforces the footer's length limits at the server boundary, as the message's is: the editor's
+     * counter can be bypassed by a direct POST (issue #3981). The footer counts the characters of
+     * its plain-text version, as the editor does; its cleaned HTML may not exceed
+     * {@link EmailFooterHtml#MAX_HTML_LENGTH}.
+     *
+     * @param request request containing the optional footer
+     * @throws EmailSendValidationException when the footer is longer than a limit
+     */
+    private void validateFooterLength(HttpServletRequest request) {
+        String footer = request.getParameter(PARAM_FOOTER_EMAIL);
+        if (footer == null || footer.isEmpty()) {
+            return;
+        }
+        // Refused before it is parsed: no footer within the limits posts more than this.
+        if (footer.length() > 4 * EmailFooterHtml.MAX_HTML_LENGTH) {
+            throw new EmailSendValidationException(
+                    getText("email.compose.footer.errorFormattingLength",
+                            List.of(String.valueOf(EmailFooterHtml.MAX_HTML_LENGTH))));
+        }
+        String cleaned = EmailFooterHtml.clean(footer);
+        if (EmailFooterHtml.visibleLength(cleaned) > EmailData.FOOTER_MAX_LENGTH) {
+            throw new EmailSendValidationException(
+                    getText("email.compose.footer.errorTextLength",
+                            List.of(String.valueOf(EmailData.FOOTER_MAX_LENGTH))));
+        }
+        if (cleaned.length() > EmailFooterHtml.MAX_HTML_LENGTH) {
+            throw new EmailSendValidationException(
+                    getText("email.compose.footer.errorFormattingLength",
+                            List.of(String.valueOf(EmailFooterHtml.MAX_HTML_LENGTH))));
+        }
+    }
+
+    /**
      * Enforces the compose form's encryption requirements at the server boundary. Client-side
      * validation is only a usability aid and can be bypassed by a direct POST. The passphrase
      * itself is resolved exclusively from server-owned submission state.
@@ -633,17 +742,79 @@ public class EmailSend2Action extends ActionSupport {
     }
 
     /**
+     * Verifies that every attachment bound to this window's compose state belongs to the patient
+     * that state was prepared for (#4425).
+     *
+     * <p>The attachments and the patient both come from the one-time submission state, never from
+     * the request, so a compose or resend in another window cannot change what this one sends, and
+     * a forged {@code demographicId} cannot redirect them. This re-reads each eForm, document, lab
+     * and HRM attachment's owner through {@link AttachmentOwnershipService} immediately before the
+     * send, so a record that no longer belongs to the patient is never disclosed. Encounter-form
+     * ({@link DocumentType#FORM}) attachments have no common owner column to check; they were
+     * rendered server-side for the bound patient.</p>
+     *
+     * <p>The caller has already consumed the state, so a refused window cannot be retried into
+     * sending. Nothing is sent and no {@link EmailLog} is written.</p>
+     *
+     * @param composeState the consumed compose state whose attachments are about to be sent
+     * @throws EmailComposeStateException with {@link #ATTACHMENTS_REFUSED_MESSAGE} when an
+     *         attachment has no document type, the bound patient cannot be read, or any record
+     *         belongs to another patient
+     */
+    private void verifyAttachmentOwnership(EmailComposeSubmissionState composeState) {
+        List<EmailAttachment> attachments = composeState.emailAttachmentList();
+        if (attachments == null || attachments.isEmpty()) {
+            return;
+        }
+        Map<DocumentType, List<Integer>> idsByType = new EnumMap<>(DocumentType.class);
+        for (EmailAttachment attachment : attachments) {
+            DocumentType type = attachment.getDocumentType();
+            if (type == null) {
+                logger.warn("Email send refused: an attachment has no document type");
+                throw new EmailComposeStateException(ATTACHMENTS_REFUSED_MESSAGE);
+            }
+            if (type != DocumentType.FORM) {
+                idsByType.computeIfAbsent(type, t -> new ArrayList<>()).add(attachment.getDocumentId());
+            }
+        }
+        if (idsByType.isEmpty()) {
+            return;
+        }
+        Integer demographicNo = parseDemographicNo(composeState.context().demographicId());
+        if (demographicNo == null) {
+            logger.warn("Email send refused: the compose state has no patient to verify its attachments against");
+            throw new EmailComposeStateException(ATTACHMENTS_REFUSED_MESSAGE);
+        }
+        if (!attachmentOwnershipService.allBelongToDemographic(idsByType, demographicNo)) {
+            logger.warn("Email send refused: an attachment does not belong to the email's patient");
+            throw new EmailComposeStateException(ATTACHMENTS_REFUSED_MESSAGE);
+        }
+    }
+
+    private static Integer parseDemographicNo(String demographicId) {
+        if (demographicId == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(demographicId.trim());
+        } catch (NumberFormatException _) {
+            return null;
+        }
+    }
+
+    /**
      * Extracts and prepares email data from HTTP request parameters and session attributes.
      *
      * <p>This private helper method performs comprehensive email data preparation including:</p>
      * <ul>
      *   <li>Extracting sender and recipient email addresses</li>
-     *   <li>Retrieving subject, body, and internal comment fields</li>
+     *   <li>Retrieving subject, body, footer, and internal comment fields</li>
      *   <li>Processing encryption settings (email body and attachment encryption)</li>
      *   <li>Resolving server-generated PDF password protection values</li>
      *   <li>Retrieving patient chart display options and demographic information</li>
      *   <li>Extracting transaction type and additional URL parameters</li>
-     *   <li>Retrieving email attachments from tokenized server-side compose state</li>
+     *   <li>Retrieving email attachments from tokenized server-side compose state, after
+     *       {@link #verifyAttachmentOwnership} has checked them against its patient (#4425)</li>
      *   <li>Consuming the compose submission token so draft secrets are not reused</li>
      * </ul>
      *
@@ -651,6 +822,8 @@ public class EmailSend2Action extends ActionSupport {
      * emails with specific healthcare providers and patients for audit trail purposes.</p>
      *
      * @param request HttpServletRequest containing email form parameters and session data
+     * @param composeState the consumed compose state; its attachments, password and patient context
+     *        are never read from the request or a session-wide attribute
      * @return EmailData populated data transfer object containing all email parameters
      *         ready for processing by EmailManager
      */
@@ -698,6 +871,9 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setRecipients(receiverEmails);
         emailData.setSubject(subject);
         emailData.setBody(body);
+        // Sent below the body in clear, even when encryption is on; never charted (issue #3981).
+        emailData.setFooter(request.getParameter(PARAM_FOOTER_EMAIL));
+        emailData.setClinicFooterSnapshot(context.clinicFooter());
         emailData.setEncryptedMessage(encryptedMessage);
         emailData.setPassword(password);
         emailData.setPasswordClue(passwordClue);

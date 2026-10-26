@@ -29,6 +29,8 @@ import io.github.carlos_emr.carlos.integration.patientportal.PortalRequestPrepar
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteException;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -73,12 +75,20 @@ public abstract class PortalJsonAction extends ActionSupport {
     /** Non-null only when a test supplied the client directly. */
     private final transient PatientPortalService injectedService;
 
+    /** Non-null only when a test supplied the invitation workflow directly. */
+    private final transient PortalInviteDeliveryService injectedInviteService;
+
     PortalJsonAction() {
         this(null);
     }
 
     PortalJsonAction(PatientPortalService injectedService) {
+        this(injectedService, null);
+    }
+
+    PortalJsonAction(PatientPortalService injectedService, PortalInviteDeliveryService injectedInviteService) {
         this.injectedService = injectedService;
+        this.injectedInviteService = injectedInviteService;
     }
 
     /** All JSON actions translate only known access/configuration failures at the same boundary. */
@@ -109,6 +119,25 @@ public abstract class PortalJsonAction extends ActionSupport {
     }
 
     protected abstract String handleRequest() throws IOException;
+
+    /** Zero-width non-joiner, zero-width joiner and soft hyphen: the formatting characters the portal allows. */
+    private static final Set<Integer> ALLOWED_FORMAT_CHARACTERS = Set.of(0x200C, 0x200D, 0x00AD);
+
+    /**
+     * Whether text has no control character, line or paragraph separator, or hidden formatting character.
+     * Mirrors the portal's {@code StaffText} rule ({@code is_hidden_character} in its {@code identity.py}),
+     * which keeps three formatting characters ordinary text needs: the zero-width non-joiner and joiner,
+     * which shape Persian, Indic and other scripts and build emoji sequences, and the soft hyphen.
+     */
+    static boolean isPlainText(String text) {
+        return text.codePoints().noneMatch(codePoint -> {
+            int type = Character.getType(codePoint);
+            return Character.isISOControl(codePoint)
+                    || (type == Character.FORMAT && !ALLOWED_FORMAT_CHARACTERS.contains(codePoint))
+                    || type == Character.LINE_SEPARATOR
+                    || type == Character.PARAGRAPH_SEPARATOR;
+        });
+    }
 
     private String configurationFailure(HttpServletResponse response, Exception exception)
             throws IOException {
@@ -249,8 +278,8 @@ public abstract class PortalJsonAction extends ActionSupport {
             "This action must be requested with POST.";
     private static final String NOT_CONFIGURED =
             """
-            The patient portal is not configured on this CARLOS server. An administrator needs to \
-            set the portal connection before these actions can be used.""";
+            The patient portal is not switched on for this CARLOS server. An administrator can turn \
+            it on with the patient_portal.enabled setting.""";
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -259,17 +288,17 @@ public abstract class PortalJsonAction extends ActionSupport {
     }
 
     /**
-     * Resolves the portal client, or {@code null} when this deployment has no portal.
+     * Resolves the portal client, or {@code null} when this deployment has the portal switched off.
      *
-     * <p>Resolved here rather than in a constructor so an unconfigured portal is answerable. The
-     * bean is lazy and its factory throws when the portal is unconfigured, so a constructor lookup
+     * <p>Resolved here rather than in a constructor so a switched-off portal is answerable. The
+     * bean is lazy and its factory throws when the portal is off, so a constructor lookup
      * would blow up while Struts was still instantiating the action — producing a stack trace where
      * a sentence would do, and giving the action no chance to say what is actually wrong.
      *
-     * <p>Absence is checked before construction is attempted. "No portal on this server" is the
+     * <p>The switch is checked before construction is attempted. "Portal off on this server" is the
      * normal state for most CARLOS deployments and must not be reported as a fault; a portal that
-     * <em>is</em> configured but invalid still throws, because a half-configured portal must not
-     * look like an absent one.
+     * <em>is</em> switched on but misconfigured still throws, because a half-configured portal must
+     * not look like an absent one.
      */
     PatientPortalService portalService() {
         if (injectedService != null) {
@@ -281,10 +310,24 @@ public abstract class PortalJsonAction extends ActionSupport {
         return SpringUtils.getBean(PatientPortalService.class);
     }
 
-    String invitationUnavailable(HttpServletResponse response) throws IOException {
-        return failure(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
-                "portal_invitation_unavailable",
-                "Sending patient portal invitations is not available yet. No invitation was issued.");
+    /**
+     * Resolves the invitation workflow, or {@code null} when this deployment has the portal switched off. It holds the
+     * portal client, so it follows the same rule as {@link #portalService()}.
+     */
+    PortalInviteDeliveryService inviteDeliveryService() {
+        if (injectedInviteService != null) {
+            return injectedInviteService;
+        }
+        if (!PatientPortalSettings.isConfigured()) {
+            return null;
+        }
+        return SpringUtils.getBean(PortalInviteDeliveryService.class);
+    }
+
+    /** Answers an invitation the workflow refused, with the reason's code and fixed message. */
+    String inviteRefused(HttpServletResponse response, PortalInviteException exception) throws IOException {
+        return failure(response, InviteDeliveryJson.statusFor(exception.reason()), exception.reason().code(),
+                exception.getMessage());
     }
 
     /** Answers a request made against a CARLOS server that has no portal configured. */

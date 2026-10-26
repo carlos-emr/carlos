@@ -39,9 +39,15 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   EFORM_CONSULT_DEMOGRAPHIC_NO=1
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (the owned patient and its cleanup)
  *   EFORM_CONSULT_SCREENSHOT_DIR=/tmp
+ *   LIBRARY_EFORM_NAME='Signature trick' (optional stored form with BGImage1/BGImage2)
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *
+ * FIXTURE. The eForm is saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker). It
+ * used to save it for DEMO patient 1 and never removed the imported template, so every run left an active template, an instance
+ * and twelve values behind. The instance, its values and the patient are now deleted by the patient's key, and the template by its
+ * unique name, and each is asserted gone.
  */
 
 const fs = require('fs');
@@ -49,13 +55,17 @@ const os = require('os');
 const path = require('path');
 const { chromium, request } = require('playwright');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const h = require('./lib/playwright-harness');
+const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const { storedBackgroundSnapshot, expectedBackgrounds, imageIdentity, assertLibraryBackgrounds } = require('./eform-library-background-probe');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const demographicNo = process.env.EFORM_CONSULT_DEMOGRAPHIC_NO || '1';
+// The owned patient the eForm is saved for, created in main (never a demo patient).
+let demographicNo = null;
 const screenshotDir = process.env.EFORM_CONSULT_SCREENSHOT_DIR || '/tmp';
 
 const bgImageName = 'playwright_consult_acceptance_bg.png';
@@ -65,10 +75,6 @@ const transparentPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0
 // a different form; when the named form is absent the probe is skipped (with a
 // note) so the main documented acceptance workflow still runs everywhere.
 const libraryEformName = process.env.LIBRARY_EFORM_NAME || 'Signature trick';
-const libraryEformExpectedTemplateImages = [
-  '2025_06_12_PCXX108060A_Regional_Community_Pain_Self_Management_Program_Referral__Form_NWM11.png',
-  '2025_06_12_PCXX108060A_Regional_Community_Pain_Self_Management_Program_Referral__Form_NWM21.png',
-];
 
 const badResponses = [];
 const consoleIssues = [];
@@ -226,7 +232,7 @@ function wirePage(page, label) {
     const responseUrl = response.url();
     const status = response.status();
     const contentType = response.headers()['content-type'] || '';
-    if (/\/eform\/displayImage(?:\.do)?\?imagefile=/.test(responseUrl)) {
+    if (imageIdentity(responseUrl, baseUrl.href) !== null) {
       displayImageResponses.push({ label, status, url: responseUrl, contentType });
     }
     // getPdf() POSTs to /previewDocs with method=renderEFormPDF in the body
@@ -353,8 +359,9 @@ async function findExistingLibraryEform(context, formName) {
       const body = await page.locator('body').innerText().catch(() => '');
       throw new Error(`eForm manager page did not render its table (#eformTbl absent) — not a form-absent condition. body: ${body.slice(0, 200).replace(/\s+/g, ' ')}`);
     }
-    const row = page.locator('#eformTbl tbody tr', { hasText: formName }).first();
+    const row = page.locator('#eformTbl tbody tr').filter({ has: page.getByRole('link', { name: formName, exact: true }) });
     await row.waitFor({ state: 'visible', timeout: 15000 });
+    assert(await row.count() === 1, `Expected one exact library form named ${formName}`);
     const editHref = await row.locator('a[href*="efmformmanageredit?fid="]').first().getAttribute('href');
     const match = editHref && editHref.match(/fid=([^&'"]+)/);
     assert(match && match[1], `Could not extract existing library fid for ${formName}`);
@@ -364,7 +371,7 @@ async function findExistingLibraryEform(context, formName) {
   }
 }
 
-async function readManagerTemplateHtml(context, fid) {
+async function readManagerTemplateBackgrounds(context, fid) {
   const requestContext = await request.newContext({
     storageState: await context.storageState(),
     ignoreHTTPSErrors: true,
@@ -372,30 +379,42 @@ async function readManagerTemplateHtml(context, fid) {
   try {
     const response = await requestContext.get(appUrl(`/eform/efmformmanageredit?fid=${encodeURIComponent(fid)}`));
     assert(response.ok(), `Could not fetch manager template HTML for fid ${fid}: ${response.status()}`);
-    return await response.text();
+    const editorHtml = await response.text();
+    const parserPage = await context.newPage();
+    try {
+      // DOMParser keeps the editor response and stored template inert. The
+      // textarea value is HTML-decoded by the browser before parsing the form.
+      // The callback is a fixed local function; HTML is a serialized argument parsed as inert DOM, never executable source.
+      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-code-injection.playwright-evaluate-code-injection
+      const snapshot = await parserPage.evaluate(storedBackgroundSnapshot, editorHtml);
+      return expectedBackgrounds(snapshot);
+    } finally {
+      await parserPage.close();
+    }
   } finally {
     await requestContext.dispose();
   }
 }
 
-async function probeExistingLibraryEform(context, fid) {
+async function probeExistingLibraryEform(context, fid, expected) {
+  const responseStart = displayImageResponses.length;
   const page = await openAddEform(context, fid);
   try {
     await assertNotErrorPage(page, 'existing library eForm add page');
-    const bodyHtml = await page.locator('body').innerHTML();
-    const bgImageCount = await page.locator('#BGImage1, #BGImage2').count();
     const fieldCount = await page.locator('#FormName input, #FormName textarea, #FormName select').count();
-    assert(bgImageCount >= 2, `Existing library eForm fid=${fid} did not render both background images`);
-    await assertImageLoaded(page, '#BGImage1', `existing library eForm fid=${fid} background image 1`);
-    await assertImageLoaded(page, '#BGImage2', `existing library eForm fid=${fid} background image 2`);
+    await page.waitForFunction(() => ['BGImage1', 'BGImage2'].every((id) => {
+      const image = document.getElementById(id);
+      return image && image.complete && image.naturalWidth > 100 && image.naturalHeight > 100;
+    }), null, { timeout: 30000 });
+    const actual = await page.evaluate(() => ['BGImage1', 'BGImage2'].map((id) => {
+      const images = document.querySelectorAll(`[id="${id}"]`);
+      const image = images[0];
+      return { id, count: images.length, complete: image?.complete, width: image?.naturalWidth,
+        height: image?.naturalHeight, src: image?.currentSrc || image?.src };
+    }));
+    const proof = assertLibraryBackgrounds(expected, actual, displayImageResponses.slice(responseStart), baseUrl.href);
     await screenshot(page, 'consult-acceptance-library-eform-runtime');
-    return {
-      bgImageCount,
-      fieldCount,
-      bodyHasPainBackground: /Regional_Community_Pain/i.test(bodyHtml),
-      bodyHasDisplayImage: bodyHtml.includes('displayImage'),
-      renderSurfaceUsable: bgImageCount >= 2 && bodyHtml.includes('displayImage'),
-    };
+    return { ...proof, fieldCount };
   } finally {
     await page.close();
   }
@@ -599,6 +618,10 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   let libraryFid = null;
   let libraryRuntimeProbe = null;
   let browser = null;
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
+  const ownedRows = eformRows(sql);
 
   const launchOptions = {
     headless: true,
@@ -609,6 +632,9 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   }
 
   try {
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
     browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1600 } });
     const landingPage = await login(context);
@@ -623,12 +649,8 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
         throw error;
       });
     if (libraryFid) {
-      const libraryTemplateHtml = await readManagerTemplateHtml(context, libraryFid);
-      assert(libraryTemplateHtml.includes('${oscar_image_path}'), `Existing library eForm ${libraryEformName} did not retain oscar_image_path image references`);
-      for (const imageName of libraryEformExpectedTemplateImages) {
-        assert(libraryTemplateHtml.includes(imageName), `Existing library eForm ${libraryEformName} template did not retain expected background image ${imageName}`);
-      }
-      libraryRuntimeProbe = await probeExistingLibraryEform(context, libraryFid);
+      const backgrounds = await readManagerTemplateBackgrounds(context, libraryFid);
+      libraryRuntimeProbe = await probeExistingLibraryEform(context, libraryFid, backgrounds);
     } else {
       console.log(`[skip] Library eForm "${libraryEformName}" is not in this database's eForm library; skipping the stored image-layer template probe (set LIBRARY_EFORM_NAME to probe a different form).`);
     }
@@ -674,17 +696,47 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
         && issue.location && issue.location.url === `${baseUrl.origin}/favicon.ico`));
     assert(renderConsoleIssues.length === 0, `unexpected render-surface browser console failures: ${JSON.stringify(renderConsoleIssues, null, 2)}`);
 
-    console.log('PASS eForm consultation acceptance workflow preserved saved values, reopened the saved fdid, reused that same saved eForm in the consultation attachment workflow, and probed the existing Signature trick library form for its stored image-layer template');
+    console.log('PASS eForm consultation acceptance workflow preserved saved values, reopened the saved fdid, and reused that same saved eForm in the consultation attachment workflow');
+    if (libraryRuntimeProbe) console.log(`PASS stored library form ${libraryEformName} rendered both exact background images from its template`);
     console.log(`Imported fid=${importedFid}, saved fdid=${fdid}, consultation request id=n/a (consultation attachment fallback), library fid=${libraryFid}, library runtime probe=${JSON.stringify(libraryRuntimeProbe)}, synthetic background responses=${JSON.stringify(syntheticBackgroundResponses)}`);
     console.log(`Screenshots written under ${screenshotDir}`);
   } finally {
     if (managerPage && !managerPage.isClosed()) {
       await managerPage.close().catch(() => {});
     }
-    if (browser) {
-      await browser.close();
+    // Every step runs whatever the one before it did, and a failure is reported, not thrown: a throw out of this
+    // `finally` would replace the failure of the check itself.
+    const cleanupErrors = [];
+    try {
+      if (browser) {
+        await browser.close();
+      }
+    } catch (error) {
+      cleanupErrors.push(error);
     }
     cleanupFixtureFiles(fixture);
+    try {
+      // The imported template by its unique name, then the instance, its values and the patient by the patient's key.
+      try {
+        sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
+        if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${h.sqlString(formName)}`) !== '0') {
+          throw new Error('The imported eForm template was not removed');
+        }
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+      try {
+        if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker, ownedRows);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    } finally {
+      sql.dispose();
+    }
+    if (cleanupErrors.length) {
+      console.error(`cleanup problems: ${cleanupErrors.map((error) => String(error.message).split('\n')[0]).join('; ')}`);
+      process.exitCode = 1;
+    }
   }
 })().catch((error) => {
   console.error('FAIL eForm consultation acceptance Playwright check');

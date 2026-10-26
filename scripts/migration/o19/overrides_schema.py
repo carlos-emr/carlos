@@ -828,6 +828,21 @@ VALUE_EXPRS = {
     # property merges on (name, provider_no); O19 writes '' where CARLOS
     # writes NULL for a global key, so both spell the key the same way
     "property": {"provider_no": "NULLIF(s.`provider_no`, '')"},
+    # CARLOS keeps one LIVE Consent row per patient and consent type
+    # (uq_consent_live_type, #3845); an OSCAR 19 clinic can hold several,
+    # and NULL flags. `deleted` is read from the o19_archive helper the
+    # ETL builds before this copy (o19etl.consent_live_statements), which
+    # ranks the live rows by the application's own rule and retires the
+    # rest; `{archive}` is filled by o19etl.source_expr. A NULL optout is
+    # no recorded decision: the helper retires the row and it is stored
+    # as an opt-out, so a row restored by hand later fails safe. So does
+    # the lookup: a row the helper does not know arrives retired (the
+    # ETL refuses to copy at all when there is one).
+    "Consent": {
+        "optout": "IFNULL(s.`optout`, 1)",
+        "deleted": "IFNULL((SELECT r.`deleted` FROM "
+                   "{archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)",
+    },
 }
 
 SEED_PROVIDER_NO = "999998"

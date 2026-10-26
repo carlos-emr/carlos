@@ -42,10 +42,16 @@ It runs with fake defaults anywhere; export the same `SRFAX_*` variables and
 `SRFAX_LIVE=true` to assert the live connection test succeeds against a real
 development account. Its save step overwrites the single fax account row, so by
 default it only saves when no account is configured yet or the stored account is
-its own fake test account (otherwise the step is reported as SKIP).
-`SRFAX_LIVE=true` saves the real values you supplied and, like any save, leaves the
-gateway enabled with inbound polling on; set
+its own fake test account (otherwise the step is reported as SKIP); set
 `FAX_CONFIG_ALLOW_OVERWRITE=true` to force the save on a shared dev instance.
+The save enables the gateway with inbound polling on and starts the fax scheduler,
+which would poll the account every minute (and log an ERROR each time when it is
+unreachable), so the check snapshots the whole `fax_config` table first (it needs
+`MYSQL_PASSWORD`; without it the save step is SKIP), puts it back byte-exact however
+the run ends, and asserts polling is as it was afterwards. That holds for
+`SRFAX_LIVE=true` too: nothing the run saves is kept, so configure a real account
+through the UI. Run it with `node scripts/run-playwright-suite.js --only fax-configure
+--residue-audit` to prove the table was left unchanged.
 Screenshots follow the same rule, and additionally require that the values the
 run types are the built-in fake ones; they are never captured in live mode or
 with real `SRFAX_*` values exported unless `FAX_CONFIG_SCREENSHOTS=always` is
@@ -93,8 +99,8 @@ Run them in this order against a freshly provisioned deployment with
 2. **`inbox-lifecycle.js`** — picks up an imported inbound fax left UNCLAIMED by
    the backbone test and drives the provider workflow through the real server
    actions, asserting each DB transition: redirected-to-inbox → attached to a
-   patient (`documentUpdate`, `demog`) → attached to a provider
-   (`documentUpdate`, `flagproviders`) → provider files it (`fileLabAjax`,
+   patient (`documentUpdateAjax`, `demog`) → attached to a provider
+   (`documentUpdateAjax`, `flagproviders`, unclaimed routing removed) → provider files it (`fileLabAjax`,
    status → `F`). *No SRFax credentials needed.*
 
 3. **`dedup-no-reimport.js`** — the live counterpart to

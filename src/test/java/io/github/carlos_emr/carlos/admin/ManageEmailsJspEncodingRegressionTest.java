@@ -79,7 +79,7 @@ class ManageEmailsJspEncodingRegressionTest {
                 .contains("emailStatusResult.status ne 'PENDING' or emailStatusResult.resolvable")
                 .contains("admin.manageEmails.pendingDetail")
                 .contains("emailStatusResult.status eq 'PENDING' and empty emailStatusDetail")
-                .contains("<i class=\"fa-solid fa-lock\"></i> Encrypted")
+                .contains("<i class=\"fa-solid fa-lock\"></i> <fmt:message key=\"admin.manageEmails.card.encrypted\"/>")
                 .doesNotContain("emailStatusResult.password");
         assertThat(manageJsp)
                 .contains(".status-tag-pending")
@@ -97,6 +97,18 @@ class ManageEmailsJspEncodingRegressionTest {
                 .contains("<c:when test=\"${ isEmailDeliveryUnconfirmed }\">")
                 .contains("document.getElementById('isEmailStatusRecorded').value === 'true'")
                 .doesNotContain("alert(resendWarning.value)");
+    }
+
+    @Test
+    void shouldSendPortalInvitations_toThePatientsPortalPage() throws Exception {
+        String resultsJsp = Files.readString(resolveProjectPath(EMAIL_STATUS_RESULTS_JSP_PATH));
+
+        // The copy-and-resend button would only reach a refusal: an invitation's code is never reopened.
+        assertThat(resultsJsp)
+                .contains("/demographic/portalManage?demographicNo=${carlos:forUriComponent("
+                        + "emailStatusResult.portalInviteDemographicNo)}")
+                .contains("<c:if test=\"${empty emailStatusResult.portalInviteDemographicNo and "
+                        + "(emailStatusResult.status ne 'PENDING' or emailStatusResult.resolvable)}\">");
     }
 
     /**

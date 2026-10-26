@@ -70,6 +70,10 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
 <%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferences" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow" %>
 <%!
     // DAOs declared at class level -- thread-safe Spring singletons shared across all requests
@@ -134,6 +138,11 @@
 
     // ── Bulk-load all UserProperty values into a map for efficient access ──
     Map<String, String> props = propertyDao.getProviderPropertiesAsMap(providerNo);
+
+    // eChart display settings (section "eChart"): stored value or the setting's default, read through
+    // the same resolver the chart uses so a provider with duplicate legacy rows sees what the chart
+    // applies (the bulk map above keeps an arbitrary duplicate).
+    EchartDisplayPreferences echartPrefs = SpringUtils.getBean(EchartDisplayPreferenceResolver.class).resolve(providerNo);
 
     // Prescription preferences
     String rxPageSize = props.getOrDefault(UserProperty.RX_PAGE_SIZE, "");
@@ -358,6 +367,18 @@
             line-height: 1.4;
         }
         .pref-value { flex: 1; }
+
+        /* ─── Yes/No radio pairs (eChart section, OSCAR 19 layout) ─── */
+        .pref-yesno {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-right: 18px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .pref-yesno input[type="radio"] { cursor: pointer; margin: 0; }
+        .echart-intro { margin: 0 0 6px 0; }
 
         /* ─── Form inputs (schedule page cream style) ─── */
         .pref-input {
@@ -1077,6 +1098,91 @@
 </div>
 
 <%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 6b: ECHART
+     OSCAR 19's eChart Display Settings, made personal, plus CARLOS's click-to-dial
+     phone links: what this provider's eChart header, note panel and left navigation
+     show. Yes/No radios post "true"/"false" under each EchartDisplayPreference
+     property name; the defaults (everything on except click-to-dial, Referring
+     Doctor and Ocean) live in that enum.
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<fmt:message key="global.yes" var="echartYesLabel"/>
+<fmt:message key="global.no" var="echartNoLabel"/>
+<%
+    String echartYes = (String) pageContext.getAttribute("echartYesLabel");
+    String echartNo = (String) pageContext.getAttribute("echartNoLabel");
+%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secEchart" aria-expanded="false" aria-controls="secEchart">
+            <i class="fas fa-notes-medical section-icon"></i> <fmt:message key="provider.providerpreference.section.echart"/>
+        </button>
+    </h2>
+    <div id="secEchart" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+            <p class="hint echart-intro"><fmt:message key="provider.providerpreference.echart.intro"/></p>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_timer-label"><fmt:message key="provider.providerpreference.echart.echart_show_timer"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_timer-label"><%= echartYesNo(EchartDisplayPreference.SHOW_TIMER, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_group_document_by_type-label"><fmt:message key="provider.providerpreference.echart.echart_show_group_document_by_type"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_group_document_by_type-label"><%= echartYesNo(EchartDisplayPreference.GROUP_DOCUMENTS_BY_TYPE, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_DOB-label"><fmt:message key="provider.providerpreference.echart.echart_show_DOB"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_DOB-label"><%= echartYesNo(EchartDisplayPreference.SHOW_DOB, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_cell-label"><fmt:message key="provider.providerpreference.echart.echart_show_cell"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_cell-label"><%= echartYesNo(EchartDisplayPreference.SHOW_CELL, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_phone_tel_links-label"><fmt:message key="provider.providerpreference.echart.echart_phone_tel_links"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_phone_tel_links-label"><%= echartYesNo(EchartDisplayPreference.PHONE_TEL_LINKS, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_HIN-label"><fmt:message key="provider.providerpreference.echart.echart_show_HIN"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_HIN-label"><%= echartYesNo(EchartDisplayPreference.SHOW_HIN, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_email_indicator-label"><fmt:message key="provider.providerpreference.echart.echart_email_indicator"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_email_indicator-label"><%= echartYesNo(EchartDisplayPreference.SHOW_EMAIL, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_fam_doc_widget-label"><fmt:message key="provider.providerpreference.echart.echart_show_fam_doc_widget"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_fam_doc_widget-label"><%= echartYesNo(EchartDisplayPreference.SHOW_FAMILY_DOCTOR, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_ref_doc_widget-label"><fmt:message key="provider.providerpreference.echart.echart_show_ref_doc_widget"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_ref_doc_widget-label"><%= echartYesNo(EchartDisplayPreference.SHOW_REFERRING_DOCTOR, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_ocean-label"><fmt:message key="provider.providerpreference.echart.echart_show_ocean"/>:
+                    <span class="hint"><fmt:message key="provider.providerpreference.echart.oceanHint"/></span></div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_ocean-label"><%= echartYesNo(EchartDisplayPreference.SHOW_OCEAN, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+        </div>
+    </div>
+</div>
+<%!
+    /**
+     * One Yes/No radio pair, OSCAR 19's eChart Display Settings markup (ids "<key>-true"/"<key>-false",
+     * values "true"/"false"). The labels are already-resolved bundle text and are encoded here.
+     */
+    String echartYesNo(EchartDisplayPreference preference, EchartDisplayPreferences current, String yes, String no) {
+        String name = preference.propertyName();
+        boolean on = current.isEnabled(preference);
+        return "<label class=\"pref-yesno\" for=\"" + name + "-true\"><input type=\"radio\" id=\"" + name
+                + "-true\" name=\"" + name + "\" value=\"true\"" + (on ? " checked" : "") + "> "
+                + SafeEncode.forHtmlContent(yes) + "</label>"
+                + "<label class=\"pref-yesno\" for=\"" + name + "-false\"><input type=\"radio\" id=\"" + name
+                + "-false\" name=\"" + name + "\" value=\"false\"" + (on ? "" : " checked") + "> "
+                + SafeEncode.forHtmlContent(no) + "</label>";
+    }
+%>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
      SECTION 7: LAB, PREVENTION & MESSAGING
      Lab acknowledgement, prevention warnings, dashboard
      ═══════════════════════════════════════════════════════════════════════ --%>
@@ -1358,6 +1464,18 @@
                 <a href="${pageContext.request.contextPath}/provider/ViewEditSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
+                <%-- Only users who can send patient email (_email write) have an email footer to set. It
+                     opens the footer editor window here, which reads and saves the footer itself (Ben's demo
+                     of 15 Oct 2026); without the window's scripts it is a plain link to My Email Footer. --%>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_email" rights="w" reverse="<%=false%>">
+                <a href="${pageContext.request.contextPath}/email/myEmailFooter" class="pref-link" target="_blank" rel="noopener noreferrer"
+                   id="myEmailFooterLink" data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                   data-footer-editor-load="${carlos:forHtmlAttribute(ctx)}/email/myEmailFooter"
+                   data-footer-editor-remote-save="${carlos:forHtmlAttribute(ctx)}/email/saveMyEmailFooter"
+                   data-footer-editor-status="myEmailFooterSaved">
+                    <i class="fas fa-envelope-open-text"></i> <fmt:message key="provider.providerpreference.link.myEmailFooter"/>
+                </a>
+                </security:oscarSec>
                 <a href="<%= request.getContextPath() %>/EditPrinter" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-print"></i> <fmt:message key="provider.providerpreference.link.setDefaultPrinter"/>
                 </a>
@@ -1371,11 +1489,14 @@
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-file-alt"></i> <fmt:message key="provider.providerpreference.link.docDescTemplate"/>
                 </a>
-                <a href="<%=request.getContextPath()%>/setProviderStaleDate?method=viewTicklerTaskAssignee"
+                <a href="<%=request.getContextPath()%>/setTicklerPreferences?method=viewTicklerTaskAssignee"
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-tasks"></i> <fmt:message key="provider.providerpreference.link.ticklerPrefs"/>
                 </a>
             </div>
+            <security:oscarSec roleName="<%=roleName$%>" objectName="_email" rights="w" reverse="<%=false%>">
+            <div class="alert alert-success d-none mt-2 mb-0 py-2" role="status" id="myEmailFooterSaved"></div>
+            </security:oscarSec>
         </div>
     </div>
 </div>
@@ -1509,7 +1630,7 @@ function checkTypeInAll() {
  * Submits a quick link action (add/remove) via POST form.
  * @param {string} action - The action to perform ('add' or 'remove')
  * @param {string} name - The quick link name
- * @param {string} url - The quick link URL; omitted from form when falsy (e.g., for 'remove')
+ * @param {string} url - The quick link URL; always submitted, or an empty string when falsy
  */
 function submitQuickLinkAction(action, name, url) {
     var form = document.getElementById('quickLinkActionForm');
@@ -1618,36 +1739,41 @@ function isValidAutoSaveResponse(status, body) {
 
 // ── Dx Code Search Modal ─────────────────────────────────────────────
 // Loads billingDigSearch.jsp in an iframe when the modal opens.
-// Overrides the iframe's CodeAttach() so selecting a code writes back
-// to the dxCode input and closes the modal (no popup needed).
+// Register before loading the iframe: a single search result selects during document parsing.
+var dxSearchModalShown = false;
+var dxSearchSelectionPending = false;
+function selectDefaultDiagnosticCode(file) {
+    if (typeof file !== 'string' || !file) return;
+    document.getElementById('dxCode').value = file.split('|')[0];
+    var modal = bootstrap.Modal.getInstance(document.getElementById('dxSearchModal'));
+    if (dxSearchModalShown) {
+        if (modal) modal.hide();
+    } else {
+        // Bootstrap ignores hide() while a fading modal is opening.
+        dxSearchSelectionPending = true;
+    }
+}
+
+document.getElementById('dxSearchModal').addEventListener('shown.bs.modal', function() {
+    dxSearchModalShown = true;
+    if (dxSearchSelectionPending) {
+        dxSearchSelectionPending = false;
+        var modal = bootstrap.Modal.getInstance(this);
+        if (modal) modal.hide();
+    }
+});
 
 document.getElementById('dxSearchModal').addEventListener('show.bs.modal', function() {
+    dxSearchModalShown = false;
+    dxSearchSelectionPending = false;
     var code = document.getElementById('dxCode').value;
-    var frame = document.getElementById('dxSearchFrame');
-    frame.src = '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name='
+    document.getElementById('dxSearchFrame').src = '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name='
         + encodeURIComponent(code) + '&search=';
-    frame.onload = function() {
-        try {
-            frame.contentWindow.CodeAttach = function(file) {
-                if (typeof file === 'string' && file.length >= 3) {
-                    document.getElementById('dxCode').value = file.substring(0, 3);
-                } else if (typeof file === 'string' && file.length > 0) {
-                    document.getElementById('dxCode').value = file;
-                }
-                var modal = bootstrap.Modal.getInstance(document.getElementById('dxSearchModal'));
-                if (modal) { modal.hide(); }
-            };
-        } catch(e) {
-            if (e.name === 'SecurityError') {
-                console.warn('Dx code search: cross-origin iframe, code selection may not work automatically.');
-            } else {
-                console.error('Dx code search: failed to attach code handler:', e);
-            }
-        }
-    };
 });
 
 document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', function() {
+    dxSearchModalShown = false;
+    dxSearchSelectionPending = false;
     document.getElementById('dxSearchFrame').src = 'about:blank';
 });
 </script>
@@ -1899,6 +2025,14 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
     };
 })();
 </script>
+<%-- The personal email footer window, for "Personal email footer" above (_email write only). Last on
+     the page: the fragment sets the message bundle for what follows it. --%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_email" rights="w" reverse="<%=false%>">
+<c:set var="footerEditorPersonalOnly" value="${true}"/>
+<c:set var="footerEditorScopeKey" value="email.footerEditor.scopeMine"/>
+<c:set var="footerEditorApplyKey" value="email.footerEditor.save"/>
+<%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>
+</security:oscarSec>
 </body>
 
 </html>

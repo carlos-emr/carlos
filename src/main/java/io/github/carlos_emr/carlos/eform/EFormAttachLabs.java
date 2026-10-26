@@ -30,19 +30,22 @@
 
 package io.github.carlos_emr.carlos.eform;
 
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+import io.github.carlos_emr.carlos.documentManager.DocumentAttach;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
-import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
-import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
 /**
  * @author rjonasz
@@ -65,7 +68,8 @@ public class EFormAttachLabs {
         providerNo = provNo;
         demoNo = demo;
         reqId = req;
-        docs = new ArrayList<String>(d.length);
+        docs = new ArrayList<>();
+        if (d == null || d.length == 0) return;
 
         if (CarlosProperties.getInstance().isPropertyActive("consultation_indivica_attachment_enabled")) {
             for (int idx = 0; idx < d.length; ++idx) {
@@ -73,9 +77,9 @@ public class EFormAttachLabs {
             }
         } else {
             //if dummy entry skip
-            if (!d[0].equals("0")) {
+            if (!"0".equals(d[0])) {
                 for (int idx = 0; idx < d.length; ++idx) {
-                    if (d[idx].charAt(0) == 'L')
+                    if (d[idx] != null && d[idx].length() > 1 && d[idx].charAt(0) == 'L')
                         docs.add(d[idx].substring(1));
                 }
             }
@@ -83,57 +87,37 @@ public class EFormAttachLabs {
     }
 
     public void attach(LoggedInInfo loggedInInfo) {
+        new DocumentAttach(Integer.valueOf(demoNo), false)
+                .attachToEForm(docs.toArray(new String[0]),
+                        DocumentType.LAB, providerNo, Integer.valueOf(reqId));
+    }
 
-        //first we get a list of currently attached labs
-        CommonLabResultData labResData = new CommonLabResultData();
-        ArrayList<LabResultData> oldlist = labResData.populateLabResultsDataEForm(loggedInInfo, demoNo, reqId, CommonLabResultData.ATTACHED);
-        ArrayList<String> newlist = new ArrayList<String>();
-        ArrayList<LabResultData> keeplist = new ArrayList<LabResultData>();
-        boolean alreadyAttached;
-        //add new documents to list and get ids of docs to keep attached
-        for (int i = 0; i < docs.size(); ++i) {
-            alreadyAttached = false;
-            for (int j = 0; j < oldlist.size(); ++j) {
-                if ((oldlist.get(j)).labPatientId.equals(docs.get(i))) {
-                    alreadyAttached = true;
-                    keeplist.add(oldlist.get(j));
-                    break;
-                }
+    public static void detachLabConsult(String labNo, String formId) {
+        changeLabSelection(null, labNo, Integer.valueOf(formId), false);
+    }
+
+    public static void attachLabConsult(String providerNo, String labNo, String formId) {
+        changeLabSelection(providerNo, labNo, Integer.valueOf(formId), true);
+    }
+
+    private static void changeLabSelection(String providerNo, String selection, int formId, boolean add) {
+        new TransactionTemplate(
+                SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
+            var owner = SpringUtils.getBean(EFormDataDao.class)
+                    .lockForAttachmentSync(formId);
+            if (owner == null || owner.getDemographicId() == null) throw new IllegalArgumentException("Missing eForm");
+            var reference = LabAttachmentReference.resolve(
+                    selection, owner.getDemographicId(), SpringUtils.getBean(PatientLabRoutingDao.class));
+            java.util.Set<String> selected = new java.util.LinkedHashSet<>();
+            for (EFormDocs row : eformDocsDao.findByFdidIdDocTypeForUpdate(formId, "L")) {
+                selected.add(LabAttachmentReference
+                        .stored(row.getLabType(), row.getDocumentNo()).key());
             }
-            if (!alreadyAttached)
-                newlist.add(docs.get(i));
-        }
-
-        //now compare what we need to keep with what we have and remove association
-        for (int i = 0; i < oldlist.size(); ++i) {
-            if (keeplist.contains(oldlist.get(i)))
-                continue;
-
-            detachLabConsult((oldlist.get(i)).labPatientId, reqId);
-        }
-
-        //now we can add association to new list
-        for (int i = 0; i < newlist.size(); ++i)
-            attachLabConsult(providerNo, newlist.get(i), reqId);
+            if (add) selected.add(reference.key());
+            else selected.remove(reference.key());
+            new DocumentAttach(owner.getDemographicId(), false)
+                    .attachToEForm(selected.toArray(new String[0]),
+                            DocumentType.LAB, providerNo, formId);
+        });
     }
-
-    public static void detachLabConsult(String LabNo, String consultId) {
-        List<EFormDocs> consultDocs = eformDocsDao.findByFdidIdDocNoDocType(Integer.parseInt(consultId), Integer.parseInt(LabNo), ConsultDocs.DOCTYPE_LAB);
-        for (EFormDocs consultDoc : consultDocs) {
-            consultDoc.setDeleted("Y");
-            eformDocsDao.merge(consultDoc);
-        }
-    }
-
-    public static void attachLabConsult(String providerNo, String LabNo, String consultId) {
-        EFormDocs consultDoc = new EFormDocs();
-        consultDoc.setFdid(Integer.parseInt(consultId));
-        consultDoc.setDocumentNo(Integer.parseInt(LabNo));
-        consultDoc.setDocType(ConsultDocs.DOCTYPE_LAB);
-        consultDoc.setAttachDate(new Date());
-        consultDoc.setProviderNo(providerNo);
-        eformDocsDao.persist(consultDoc);
-    }
-
-
 }

@@ -33,18 +33,23 @@
  *      Ontario bill form for the appointment (/billing?...bNewForm=1), which
  *      renders.
  *
- * Fixture: one appointment for NOTE_DEMOGRAPHIC_NO with NOTE_PROVIDER_NO on
- * today's day sheet; the appointment, the notes it created, and their locks
- * are deleted in a finally.
+ * Fixture: a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW
+ * run marker) and one appointment for it with NOTE_PROVIDER_NO on today's day sheet; the
+ * appointment (and the archive rows its status changes write), the notes it created, their
+ * locks and drafts, the chart's eChart rows and the patient are deleted by key in a finally.
+ * It used to run on a DEMO patient: saving a note makes the application delete that
+ * patient's stored encounter-note draft, so demo patient 2 lost its draft on every run, and
+ * the appointment archive and eChart rows stayed behind.
  *
  * Environment (docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
- * Optional: NOTE_DEMOGRAPHIC_NO (1), NOTE_PROVIDER_NO (999998, must be the
- *   logged-in provider so the day sheet shows the appointment).
+ * Optional: NOTE_PROVIDER_NO (999998, must be the logged-in provider so the day
+ *   sheet shows the appointment).
  */
 
 const { chromium } = require('playwright');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -74,9 +79,11 @@ const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
-const demographicNo = process.env.NOTE_DEMOGRAPHIC_NO || '1';
+// The owned patient the notes are written for, created in main (never a demo patient).
+let demographicNo = null;
+const ownedMarker = newOwnedMarker();
 const providerNo = process.env.NOTE_PROVIDER_NO || '999998';
-assert(/^\d+$/.test(demographicNo) && /^\d+$/.test(providerNo), 'NOTE_DEMOGRAPHIC_NO and NOTE_PROVIDER_NO must be numeric');
+assert(/^\d+$/.test(providerNo), 'NOTE_PROVIDER_NO must be numeric');
 
 const stamp = `PW_NOTE_${Date.now()}`;
 const savedText = `${stamp} saved note`;
@@ -135,7 +142,11 @@ function latestNoteWith(text) {
   const rows = noteRows().filter((row) => row.note.includes(text));
   return rows.length ? rows[rows.length - 1] : null;
 }
+// sql() adapted to the value()/execute() client lib/owned-patient.js takes.
+const ownedSql = { value: (query) => sql(query), execute: (query) => { sql(query); } };
+
 function cleanupRows() {
+  if (demographicNo === null) return;
   const ids = noteRows().map((row) => row.noteId);
   for (const id of ids) {
     sql(`DELETE FROM casemgmt_issue_notes WHERE note_id=${Number(id)}`);
@@ -146,7 +157,11 @@ function cleanupRows() {
     sql(`DELETE FROM casemgmt_note_lock WHERE demographic_no=${Number(demographicNo)} AND provider_no='${escapeSql(providerNo)}' AND session_id='${escapeSql(browserSessionId)}'`);
   }
   sql(`DELETE FROM casemgmt_tmpsave WHERE demographic_no=${Number(demographicNo)} AND provider_no='${escapeSql(providerNo)}' AND note LIKE '%${escapeSql(stamp)}%'`);
+  // Each status change files an archive row of the appointment; the application never removes them.
+  if (appointmentNo) sql(`DELETE FROM appointmentArchive WHERE appointment_no=${Number(appointmentNo)}`);
   sql(`DELETE FROM appointment WHERE notes='${escapeSql(stamp)}'`);
+  // Last: every chart row left for the patient (the eChart rows, a draft, a lock) and the patient, by its key.
+  removeOwnedPatient(ownedSql, demographicNo, ownedMarker);
 }
 
 async function openDaySheet(context, recorder) {
@@ -252,7 +267,10 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   // Staging and the browser launch sit inside the protected scope so a failure in
   // either still reaches the fixture cleanup below.
   try {
-    cleanupRows();
+    // The patient first, so a failure anywhere below still reaches cleanupRows() through runCleanup().
+    const provider = sql(`SELECT provider_no FROM security WHERE user_name='${escapeSql(config.testUser)}'`);
+    assert(provider, 'the configured test login has no provider');
+    demographicNo = createOwnedPatient(ownedSql, { marker: ownedMarker, provider });
     createAppointment();
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1600, height: 1100 } });

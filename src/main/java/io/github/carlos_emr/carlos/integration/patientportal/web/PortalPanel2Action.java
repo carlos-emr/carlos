@@ -23,11 +23,13 @@ package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalInviteDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -36,6 +38,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -63,10 +67,12 @@ import org.apache.struts2.ServletActionContext;
  *
  * <p>Absence is therefore overloaded, and a caller has to read the error markers to disambiguate: a
  * section is also dropped when the portal read failed, in which case {@code invitesError} and
- * {@code invitesErrorKind} (or the account equivalents) are present alongside. Treating a missing
- * key as "no data" — the natural {@code payload.invites || []} idiom — would report an outage as an
- * empty list, which is why {@code ok} is the guard against that: it is {@code false} whenever a
- * section the caller asked for could not be read. It used to be hardcoded {@code true}, so the one
+ * {@code invitesErrorKind} (or the account equivalents) are present alongside, plus
+ * {@code invitesErrorReason} (or {@code accountErrorReason}) set to {@code portal_unavailable} when the
+ * portal could not be reached, or answered with a server error (5xx). Treating a missing key as "no data" — the natural
+ * {@code payload.invites || []} idiom — would report an outage as an empty list, which is why
+ * {@code ok} is the guard against that: it is {@code false} whenever a section the caller asked for
+ * could not be read. It used to be hardcoded {@code true}, so the one
  * field a client would reasonably branch on was the one field that could not be wrong.
  *
  * <p>One portal failure does not blank the panel. If invitations load and the account lookup fails,
@@ -80,6 +86,8 @@ public class PortalPanel2Action extends PortalJsonAction {
     private static final long serialVersionUID = 1L;
 
     private static final String SECTION_UNAVAILABLE = "unavailable";
+    /** Set beside a section's error when the portal could not be reached at all, so the page can say so. */
+    private static final String PORTAL_UNAVAILABLE = "portal_unavailable";
     private static final String SECTION_FAILED_LOG =
             "patient portal panel section {} could not be read: kind={}";
 
@@ -100,7 +108,15 @@ public class PortalPanel2Action extends PortalJsonAction {
             SecurityInfoManager securityInfoManager,
             PatientPortalService patientPortalService,
             PortalStaffContextResolver staffContextResolver) {
-        super(patientPortalService);
+        this(securityInfoManager, patientPortalService, staffContextResolver, null);
+    }
+
+    PortalPanel2Action(
+            SecurityInfoManager securityInfoManager,
+            PatientPortalService patientPortalService,
+            PortalStaffContextResolver staffContextResolver,
+            PortalInviteDeliveryService inviteService) {
+        super(patientPortalService, inviteService);
         this.securityInfoManager = securityInfoManager;
         this.staffContextResolver = staffContextResolver;
     }
@@ -160,7 +176,14 @@ public class PortalPanel2Action extends PortalJsonAction {
         PatientPortalStaffContext staff = staffContextResolver.resolveForPatient(loggedInInfo, scope, demographicNo);
         ObjectNode payload = newPayload();
         boolean complete = true;
-        if (mayReadInvites && !addInvites(portal, payload, demographicNo, staff)) {
+        // The invitations as the portal lists them now; the delivery section reads which codes are dead.
+        List<PatientPortalInviteDto> invitesNow = new ArrayList<>();
+        boolean invitesRead = mayReadInvites && addInvites(portal, payload, demographicNo, staff, invitesNow);
+        if (mayReadInvites && !invitesRead) {
+            complete = false;
+        }
+        // Null rather than empty after a failed read, which would make every unlisted code look deleted.
+        if (mayReadInvites && !addDeliveries(payload, demographicNo, invitesRead ? invitesNow : null)) {
             complete = false;
         }
         if (mayReadAccount && !addAccount(portal, payload, demographicNo, staff)) {
@@ -183,10 +206,11 @@ public class PortalPanel2Action extends PortalJsonAction {
      */
     private boolean addInvites(
             PatientPortalService portal, ObjectNode payload, int demographicNo,
-            PatientPortalStaffContext staff) {
+            PatientPortalStaffContext staff, List<PatientPortalInviteDto> listed) {
         ArrayNode invites = payload.putArray("invites");
         try {
             List<PatientPortalInviteDto> found = portal.listInvites(demographicNo, staff);
+            listed.addAll(found);
             for (PatientPortalInviteDto invite : found) {
                 ObjectNode node = invites.addObject();
                 node.put("inviteId", invite.id());
@@ -205,6 +229,7 @@ public class PortalPanel2Action extends PortalJsonAction {
             payload.remove("invites");
             payload.put("invitesError", SECTION_UNAVAILABLE);
             payload.put("invitesErrorKind", exception.kind().name().toLowerCase(Locale.ROOT));
+            putUnavailableReason(payload, "invitesErrorReason", exception);
             logger.log(
                     failureLogLevel(exception),
                     SECTION_FAILED_LOG,
@@ -213,6 +238,65 @@ public class PortalPanel2Action extends PortalJsonAction {
                     exception);
             return false;
         }
+    }
+
+    /**
+     * Adds the patient's recent invitation delivery attempts, newest first. They are read from CARLOS,
+     * not the portal, so an unfinished delivery stays visible, with its recovery options, while the portal
+     * is unreachable. {@code invitesNow} is the portal's list from this same request, or null when it could
+     * not be read; an activated attempt is offered "it did not arrive" only when that list shows its code
+     * dead, so with the portal unreachable the choice is not offered.
+     */
+    private boolean addDeliveries(ObjectNode payload, int demographicNo, List<PatientPortalInviteDto> invitesNow) {
+        try {
+            // Resolved inside the try: the invite settings are validated when their bean is created, so a
+            // mistyped public URL must cost this section rather than the account and invitation sections.
+            PortalInviteDeliveryService invites = inviteDeliveryService();
+            if (invites == null) {
+                return true;
+            }
+            List<PatientPortalInviteDelivery> rows = invites.recentFor(demographicNo);
+            Set<Long> deadCodeDeliveryIds = new HashSet<>();
+            if (invitesNow != null) {
+                for (PatientPortalInviteDelivery row : rows) {
+                    if (invites.isCodeDead(row, invitesNow)) {
+                        deadCodeDeliveryIds.add(row.getId());
+                    }
+                }
+            }
+            ArrayNode deliveries = payload.putArray("deliveries");
+            for (PatientPortalInviteDelivery row : rows) {
+                InviteDeliveryJson.write(deliveries.addObject(), row, invites, deadCodeDeliveryIds);
+            }
+            return true;
+        } catch (RuntimeException exception) {
+            payload.remove("deliveries");
+            payload.put("deliveriesError", SECTION_UNAVAILABLE);
+            logger.warn(SECTION_FAILED_LOG, "deliveries", exception.getClass().getSimpleName());
+            return false;
+        }
+    }
+
+    /**
+     * Marks a section whose portal call never got an answer the portal meant: no complete response
+     * (connection refused, timeout, TLS or pin failure) or a server error (5xx). The page then says the
+     * portal cannot be reached, instead of asking staff to refresh. A request CARLOS itself did not send
+     * (its transport busy) and any other refusal keep the generic message. Only a fixed code is sent:
+     * never the host, the status or the exception's text.
+     */
+    private static void putUnavailableReason(ObjectNode payload, String field, PatientPortalException exception) {
+        if (isPortalUnreachable(exception)) {
+            payload.put(field, PORTAL_UNAVAILABLE);
+        }
+    }
+
+    /** @return whether the portal could not be reached: no complete answer to a request that left CARLOS, or a 5xx */
+    private static boolean isPortalUnreachable(PatientPortalException exception) {
+        if (exception.isRequestNotSent()) {
+            return false;
+        }
+        return exception.kind() == PatientPortalException.Kind.TRANSPORT_FAILURE
+                || (exception.kind() == PatientPortalException.Kind.UNEXPECTED_STATUS && exception.statusCode() >= 500);
     }
 
     /**
@@ -243,6 +327,7 @@ public class PortalPanel2Action extends PortalJsonAction {
             }
             payload.put("accountError", SECTION_UNAVAILABLE);
             payload.put("accountErrorKind", exception.kind().name().toLowerCase(Locale.ROOT));
+            putUnavailableReason(payload, "accountErrorReason", exception);
             logger.log(
                     failureLogLevel(exception),
                     SECTION_FAILED_LOG,
