@@ -96,6 +96,7 @@ const {
   EXIT_FAIL, EXIT_PASS, EXIT_SKIP, createSqlRunner, isLocalTlsTarget, readConfig, validateBaseUrl, validateMysqlHost,
 } = require('./lib/playwright-harness');
 const { auditResidueDetailed, captureBaseline, describeResidue, formatResidue } = require('./lib/residue-audit');
+const { providerNavigationFixture } = require('./lib/provider-navigation-fixture');
 
 const MANIFEST_PATH = path.join(__dirname, 'playwright-suite.json');
 
@@ -621,6 +622,7 @@ const databaseResidueAudit = Object.freeze({
       throw error;
     }
     return {
+      preserveNavigation: check => providerNavigationFixture(sql, readConfig({env}).testUser, check.name),
       finish: () => auditResidueDetailed({ sql, since }),
       dispose: () => sql.dispose(),
     };
@@ -734,7 +736,18 @@ function main(argv = process.argv.slice(2), env = process.env, out = console, de
       // `env`, not process.env: main() validated BASE_URL and MYSQL_HOST out of
       // the environment it was HANDED, so the child has to receive that same one
       // or the gate and the run are about different deployments.
-      results.push(runOne(check, { ...options, env }, run));
+      let navigation;
+      try {
+        navigation = audit?.preserveNavigation?.(check);
+        results.push(runOne(check, { ...options, env }, run));
+      } catch (error) {
+        results.push({name: `${check.name}-navigation-fixture`, outcome: 'FAIL', detail: error.message, durationMs: 0});
+      } finally {
+        try { navigation?.cleanup(); }
+        catch (error) {
+          results.push({name: `${check.name}-navigation-cleanup`, outcome: 'FAIL', detail: error.message, durationMs: 0});
+        }
+      }
     }
     const identityAfter = probeIdentity(env);
 

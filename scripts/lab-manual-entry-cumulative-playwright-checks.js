@@ -293,8 +293,17 @@ async function workflow(s) {
     const shown = (await procedure.locator('p').innerText()).replace(/\s+/g, ' ').trim();
     h.assert(shown.startsWith(poison(POISON_FIELD.result)),
       'Row Display does not show the markup in the result as the literal text');
-    // scanBO moved the row's title into these properties when the page loaded; they are what boxover draws.
-    const source = await procedure.evaluate((el) => ({ header: el.boHDR, body: el.boBDY }));
+    // scanBO moved the row's title into these properties when the page loaded. A safe boxover
+    // source HTML-encodes the text before innerHTML renders it, so compare the decoded text.
+    // An unattached textarea decodes one entity layer without constructing markup elements.
+    const source = await procedure.evaluate((el) => {
+      const decode = (text) => {
+        const field = document.createElement('textarea');
+        field.innerHTML = text;
+        return field.value;
+      };
+      return { header: decode(el.boHDR), body: decode(el.boBDY) };
+    });
     h.assert(source.header === poison(POISON_FIELD.result)
       && source.body === `${poison(POISON_FIELD.units)} ${poison(POISON_FIELD.range)}`,
     'The tooltip source of the markup row is not the stored result, units and range');
@@ -311,14 +320,18 @@ async function workflow(s) {
       && typeof dvHdr !== 'undefined' && dvHdr.textContent.trim() !== '', null, { timeout: TIMEOUT });
   });
 
-  // Pinned: holds only the assertion finding 149 breaks. DisplayLabValue.jsp attribute-encodes the result, units and
-  // range into the row's title, the browser decodes the attribute, and boxover.js writes it with innerHTML.
+  // Pinned: holds the security and complete-text assertions finding 149 breaks. The source
+  // must survive boxover's innerHTML rendering as literal text, with no constructed elements.
   await s.step(POISONED_TOOLTIP_STEP, async () => {
     try {
       const built = await rowDisplay.locator('[data-xp]').evaluateAll((elements) => elements.map((el) => ({
         field: el.getAttribute('data-xp'), inTooltip: !!el.closest('#oDv') })));
       h.assert(built.length === 0,
         `Hovering the Row Display row built ${built.length} element(s) from lab text in its tooltip (data-xp ${built.map((e) => e.field).join(', ')})`);
+      const shown = await rowDisplay.evaluate(() => ({ header: dvHdr.textContent.trim(), body: dvBdy.textContent.trim() }));
+      h.assert(shown.header === poison(POISON_FIELD.result)
+        && shown.body === `${poison(POISON_FIELD.units)} ${poison(POISON_FIELD.range)}`,
+      'The visible tooltip changed or omitted the stored result, units or range');
     } finally {
       await rowDisplay.close().catch(() => {});
     }

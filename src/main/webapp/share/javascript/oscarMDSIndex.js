@@ -2684,45 +2684,39 @@ function storedDocComment(docId) {
 }
 
 function addDocComment(docId, providerNo) {
-
-    let ret = true;
     const comment = storedDocComment(docId);
     const commentVal = prompt("Please enter a comment (max. 255 characters)", comment);
 
     if (commentVal == null) {
-        ret = false;
-    } else if (commentVal != null && commentVal.length > 0)
-        jQuery("#" + "comment_" + docId).val(commentVal);
-    else
-        jQuery("#" + "comment_" + docId).val(comment);
-
-    if (ret) {
-        const statusEl = document.getElementById("status_" + docId);
-        if (statusEl) statusEl.value = 'N';
-        const url = ctx + "/oscarMDS/UpdateStatus";
-        const formid = "acknowledgeForm_" + docId;
-        let data = serializeForm(formid);
-        data += "&method=addComment";
-
-        postForm(url, data)
-        .then(response => response.json())
-        .then(json => {
-            if (json != null) {
-                const date = json.date;
-                const timestampEl = document.getElementById("timestamp_" + docId + "_" + providerNo);
-                if (timestampEl) timestampEl.textContent = date;
-            }
-            const statusEl2 = document.getElementById("status_" + docId);
-            if (statusEl2) statusEl2.value = "A";
-            const commentDisplayEl = document.getElementById("comment_" + docId + "_" + providerNo);
-            const commentInputEl = document.getElementById("comment_" + docId);
-            // The hidden field keeps the saved comment: it is what the next Comment or Acknowledge offers.
-            if (commentDisplayEl && commentInputEl) {
-                commentDisplayEl.textContent = commentInputEl.value;
-            }
-        })
-        .catch(error => console.error('Error:', error));
+        return;
     }
+
+    const submittedComment = commentVal.length > 0 ? commentVal : comment;
+    const url = ctx + "/oscarMDS/UpdateStatus";
+    const formid = "acknowledgeForm_" + docId;
+    const data = new URLSearchParams(serializeForm(formid));
+    data.set("comment", submittedComment);
+    data.set("status", "N");
+    data.set("method", "addComment");
+
+    // Keep the form's saved comment and acknowledgement status until the server confirms
+    // the write. Otherwise a refused request becomes the next prompt's "saved" default.
+    return postForm(url, data.toString())
+    .then(response => {
+        if (!response.ok) throw new Error("Comment save refused");
+        return response.json();
+    })
+    .then(json => {
+        if (!json || typeof json.date !== "string" || !json.date) throw new Error("Comment save not confirmed");
+        const timestampEl = document.getElementById("timestamp_" + docId + "_" + providerNo);
+        if (timestampEl) timestampEl.textContent = json.date;
+        const commentDisplayEl = document.getElementById("comment_" + docId + "_" + providerNo);
+        const commentInputEl = document.getElementById("comment_" + docId);
+        // The hidden field keeps the saved comment: it is what the next Comment or Acknowledge offers.
+        if (commentInputEl) commentInputEl.value = submittedComment;
+        if (commentDisplayEl) commentDisplayEl.textContent = submittedComment;
+    })
+    .catch(() => alert("The comment could not be saved. Please try again."));
 }
 
 function getDocComment(docId, providerNo, inQueueB) {

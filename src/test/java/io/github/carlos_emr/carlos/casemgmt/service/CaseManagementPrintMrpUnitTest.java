@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
@@ -130,6 +132,8 @@ class CaseManagementPrintMrpUnitTest extends CarlosUnitTestBase {
         when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDirectory.toString());
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        request.setParameter("demographicNo", Integer.toString(PRINTED));
+        ChartProgramContext.remember(request, null);
         try (var configuration = mockStatic(CarlosProperties.class);
              var _ = mockConstruction(EctProviderData.class, (data, context) ->
                      when(data.getProvider(anyString())).thenAnswer(call -> providers.get(call.getArgument(0, String.class))));

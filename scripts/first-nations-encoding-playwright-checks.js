@@ -41,7 +41,8 @@
  *      (patient search by demographic number, then the result link). The
  *      module is only included there when FIRST_NATIONS_MODULE=true in
  *      carlos.properties; when it is false the script says so and asserts the
- *      gate path only, rather than failing on a configuration choice.
+ *      gate path only and reports SKIP for incomplete coverage; the full check
+ *      requires the feature-enabled master record as well.
  *
  * The `<option value>` half of the same fix (firstNationCommunity.value) needs
  * two things to be true, and says so in its PASS line when either is not:
@@ -79,7 +80,7 @@
  */
 
 const { chromium } = require('playwright');
-const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { shouldIgnoreHttpsErrors, EXIT_SKIP } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -402,6 +403,17 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   });
 }
 
+function reportFirstNationsCoverage(coveredMasterRecord, communityAsserted) {
+  const missing = [];
+  if (!coveredMasterRecord) missing.push('patient master record (requires FIRST_NATIONS_MODULE=true)');
+  if (!communityAsserted) missing.push('encoded community option (requires an owned visible lookup option)');
+  if (!missing.length) return true;
+  console.log('SKIP incomplete First Nations rendering coverage: ' + missing.join('; ')
+    + '. Completed gate-route assertions are retained; this is not full coverage.');
+  process.exitCode = EXIT_SKIP;
+  return false;
+}
+
 (async () => {
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
@@ -545,6 +557,7 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
     assertNoPageErrors(recorder, ['first-nations-gate', 'master-record']);
     await schedulePage.close();
     await context.close();
+    if (!reportFirstNationsCoverage(coveredMasterRecord, communityAsserted)) return;
     console.log(
       `PASS First Nations demographic values render HTML-attribute encoded for demographic ${demographicNo}`
         + ` (gate route${coveredMasterRecord ? ' + master record' : ''}`

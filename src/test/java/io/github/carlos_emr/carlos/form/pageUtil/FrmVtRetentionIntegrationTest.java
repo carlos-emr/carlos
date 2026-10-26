@@ -81,6 +81,7 @@ class FrmVtRetentionIntegrationTest {
 
         var security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), anyString(), anyString(), eq("101"))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), eq(101))).thenReturn(true);
         var forms = mock(EncounterFormDao.class);
         for (String name : List.of("VTForm", "OtherForm")) {
             var registration = new EncounterForm();
@@ -127,6 +128,7 @@ class FrmVtRetentionIntegrationTest {
             }
         });
         response = new MockHttpServletResponse();
+        request.setMethod("POST");
         var login = new LoggedInInfo();
         var provider = new Provider();
         provider.setProviderNo("999998");

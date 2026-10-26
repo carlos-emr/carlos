@@ -59,6 +59,7 @@
     "test:lab-epsilon-playwright": "node scripts/lab-epsilon-playwright-checks.js",
     "test:rest-roster-enrolled-to-playwright": "node scripts/rest-roster-enrolled-to-playwright-checks.js",
     "test:lab-file-for-others-playwright": "node scripts/lab-file-for-others-playwright-checks.js",
+    "test:pathnet-patient-link-playwright": "node scripts/pathnet-patient-link-playwright-checks.js",
     "test:lab-upload-playwright": "node scripts/lab-upload-playwright-checks.js",
     "test:login-failure-host-header-playwright": "node scripts/login-failure-host-header-playwright-checks.js",
     "test:add-login-account-playwright": "node scripts/add-login-account-playwright-checks.js",
@@ -910,7 +911,10 @@
     "test:admin-security-workflow-playwright": "node scripts/admin-security-workflow-playwright-checks.js",
     "test:email-compose-send-playwright": "node scripts/email-compose-send-playwright-checks.js",
     "test:admin-login-text-playwright": "node scripts/admin-login-text-playwright-checks.js",
-    "test:login-agreement-display-playwright": "node scripts/login-agreement-display-playwright-checks.js"
+    "test:login-agreement-display-playwright": "node scripts/login-agreement-display-playwright-checks.js",
+    "test:chart-message-followups-playwright": "node scripts/chart-message-followups-playwright-checks.js",
+    "test:chart-context-request-guards-playwright": "node scripts/chart-context-request-guards-playwright-checks.js",
+    "test:group-note-selection-playwright": "node scripts/group-note-selection-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
@@ -925,7 +929,8 @@
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.9.2",
-    "playwright": "^1.60.0"
+    "playwright": "^1.60.0",
+    "xml-js": "1.6.11"
   },
   "browserslist": {
     "production": [

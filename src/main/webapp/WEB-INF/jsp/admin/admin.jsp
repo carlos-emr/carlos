@@ -408,6 +408,11 @@
                     <li><a href="#"
                            onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/labUpload");return false;'><fmt:message key="admin.admin.oldLabUpload"/></a></li>
                 </oscar:oscarPropertiesCheck>
+                <oscar:oscarPropertiesCheck property="PATHNET_LABS" value="yes" defaultVal="false">
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=false%>">
+                        <li><a href="${pageContext.request.contextPath}/lab/CA/BC/ViewIndex">PathNet Patient Linking</a></li>
+                    </security:oscarSec>
+                </oscar:oscarPropertiesCheck>
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=false%>">
                 <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/labForwardingRules");return false;'><fmt:message key="admin.admin.labFwdRules"/></a></li>
                 </security:oscarSec>

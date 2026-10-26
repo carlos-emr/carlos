@@ -76,7 +76,7 @@ test('Save Only requests atomic cleanup and never clears the shared stash afterw
     const calls = [];
     let cleared = 0;
     const context = {
-        validateWrittenDate: () => true, validateRxDate: () => true,
+        validateWrittenDate: () => true, validateRxDate: () => true, validateCardProperties: () => true,
         setPharmacyId() {}, ctx: '/carlos',
         document: { getElementById: () => ({}) },
         FormData: class { delete() {} }, URLSearchParams: class { toString() { return 'drugName_42=draft'; } },
@@ -108,7 +108,7 @@ for (const name of ['updateSaveAllDrugsPrintContinue', 'updateSaveAllDrugsContin
         const form = {};
         const calls = [];
         const context = {
-            validateWrittenDate: () => true, validateRxDate: () => true,
+            validateWrittenDate: () => true, validateRxDate: () => true, validateCardProperties: () => true,
             setPharmacyId() {}, ctx: '/carlos',
             document: { getElementById(id) { assert.equal(id, 'drugForm'); return form; } },
             FormData: class extends URLSearchParams {
@@ -162,5 +162,18 @@ for (const [locale, one, two, five] of [
                 { jsMsg, selectedReRxIDs: [] });
             assert.deepEqual(message.split('\n'), [sentence, jsMsg.saveWarning, jsMsg.savePrompt]);
         }
+    });
+}
+
+for (const name of ['updateSaveAllDrugsPrintContinue', 'updateSaveAllDrugsContinue']) {
+    test(`${name} cannot save an older staged value while an inline edit is refused`, () => {
+        const code = (name === 'updateSaveAllDrugsPrintContinue'
+            ? slice('function updateSaveAllDrugsPrintContinue(', 'function updateSaveAllDrugsContinue(')
+            : slice('function updateSaveAllDrugsContinue(', '/**'))
+            .replace(/<%if \(CarlosProperties[\s\S]*?<%}%>/, '');
+        const context = { validateCardProperties: () => false };
+        // Any validation, serialization or request after the rejected edit would fail here.
+        vm.runInNewContext(code, context);
+        assert.equal(context[name](), false);
     });
 }

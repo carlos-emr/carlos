@@ -1000,7 +1000,8 @@
       "timeoutSec": 300,
       "env": [
         "DOCUMENT_UPLOAD_SCREENSHOT_DIR",
-        "PRESCRIPTION_DEMOGRAPHIC_NO"
+        "PRESCRIPTION_DEMOGRAPHIC_NO",
+        "DOCUMENT_DIR"
       ]
     },
     {
@@ -1102,9 +1103,10 @@
       ],
       "timeoutSec": 120,
       "env": [
-        "PATHNET_LABS"
+        "PATHNET_LABS",
+        "PATHNET_JOURNAL_UNIT"
       ],
-      "fixtures": "Owned synthetic patient and three legacy BCP reports (final, preliminary and one holding both a final and a preliminary result); requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in.",
+      "fixtures": "Owned synthetic patient and four legacy BCP reports (final, preliminary, mixed F/P and mixed F/I); requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in. Set PATHNET_JOURNAL_UNIT=carlos-emr.service on a packaged install to require a readable journal cursor and reject factory warnings/errors from this check's requests (#5189).",
       "notes": "Exercise the real PathNet patient projection and final/partial classification; remove owned routing and lab rows. Last, the regression check for app-findings-log.md finding 165 (fixed, #4552): a report with both an F and a P result is listed as Partial, not Final (the report status aggregate used to be the alphabetical MIN of its OBR statuses). BC-only: it ends SKIP on an Ontario install (the hl7_* tables exist only on a schema the BC migrations built) (issue #4439)."
     },
     {
@@ -1180,7 +1182,8 @@
         "ECHART_PROVIDER_NO",
         "EXPECT_FRONT_DOOR"
       ],
-      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the encounter-note draft the chart's autosave stores while the prints run (discarded through the page's own cancel path), the chart's note lock and eChart row and the patient are removed by the patient's key and asserted gone. It no longer types into demo patient 1's chart, whose own stored draft it deleted. No clinic-wide state is changed."
+      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the encounter-note draft the chart's autosave stores while the prints run (discarded through the page's own cancel path), the chart's note lock and eChart row and the patient are removed by the patient's key and asserted gone. It no longer types into demo patient 1's chart, whose own stored draft it deleted. No clinic-wide state is changed.",
+      "notes": "Needs pdftotext. Seventeen native PDF downloads are captured from either the chart or its print popup and checked for the owned patient's text, including a multiline Unicode note with trailing spaces and an actual four-second print delay; printing retains the editor, its exact note lock and post-print autosave, while later real navigation releases the lock."
     },
     {
       "name": "echart-vitals-bmi",
@@ -1786,14 +1789,23 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
       "timeoutSec": 600,
       "env": [
-        "INBOX_TIMEOUT_MS"
-      ]
+        "INBOX_TIMEOUT_MS",
+        "INBOX_OWNED_FIXTURE",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM",
+        "DOCUMENT_DIR",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "envSet": {
+        "INBOX_OWNED_FIXTURE": "true"
+      },
+      "notes": "The catalogue owns a fresh FAKE patient and native Create Lab results, then removes their exact rows/files. Filters also own a PDF. Requires an exclusive disposable worker; direct invocation without INBOX_OWNED_FIXTURE=true retains the existing dataset mode."
     },
     {
       "name": "inboxhub-health-number-ack-today",
@@ -1854,8 +1866,17 @@
       ],
       "timeoutSec": 420,
       "env": [
-        "INBOX_TIMEOUT_MS"
-      ]
+        "INBOX_TIMEOUT_MS",
+        "INBOX_OWNED_FIXTURE",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM",
+        "DOCUMENT_DIR",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "envSet": {
+        "INBOX_OWNED_FIXTURE": "true"
+      },
+      "notes": "The catalogue owns a fresh FAKE patient and native Create Lab results, then removes their exact rows/files. Filters also own a PDF. Requires an exclusive disposable worker; direct invocation without INBOX_OWNED_FIXTURE=true retains the existing dataset mode."
     },
     {
       "name": "inbox-rapid-review-advance",
@@ -1869,8 +1890,17 @@
       ],
       "timeoutSec": 420,
       "env": [
-        "INBOX_TIMEOUT_MS"
-      ]
+        "INBOX_TIMEOUT_MS",
+        "INBOX_OWNED_FIXTURE",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM",
+        "DOCUMENT_DIR",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "envSet": {
+        "INBOX_OWNED_FIXTURE": "true"
+      },
+      "notes": "The catalogue owns a fresh FAKE patient and native Create Lab results, then removes their exact rows/files. Filters also own a PDF. Requires an exclusive disposable worker; direct invocation without INBOX_OWNED_FIXTURE=true retains the existing dataset mode."
     },
     {
       "name": "inbox-preview-boundary-resync",
@@ -2040,7 +2070,7 @@
       "timeoutSec": 120,
       "env": [],
       "fixtures": "Owned synthetic patient and four medications; cleanup verifies their removal.",
-      "notes": "Delay real responses to check section order, rapid selections, long-term-status refresh, failed-section refusal and retry."
+      "notes": "Delay real responses to check section order, rapid selections, long-term-status refresh (whose replacement keeps the Non-Authoritative tick and comment, #5056), failed-section refusal and retry."
     },
     {
       "name": "rx-stash-deletion",
@@ -2381,9 +2411,11 @@
         "O19_ADMIN_CREDENTIALS",
         "O19_ARCHIVE_SCHEMA",
         "O19_SMOKE_SCREENSHOT_DIR",
-        "O19_STATE_DIR"
+        "O19_STATE_DIR",
+        "O19_NATIVE_CLINICIAN_CREDENTIALS",
+        "O19_REQUIRE_NATIVE_AUTH"
       ],
-      "fixtures": "Needs a database produced by carlos-ctl import-o19 and its break-glass credentials (O19_STATE_DIR/admin-credentials.txt); SKIPs on a fresh install. Drive it end to end with scripts/migration/o19/rehearsal/ui-smoke.sh."
+      "fixtures": "Needs an actual import-o19 target and its break-glass credentials. Native-auth proof uses a private0600O19_NATIVE_CLINICIAN_CREDENTIALS file plus O19_REQUIRE_NATIVE_AUTH=true; it leaves genuine resets intact. Execute directly against the installed reviewed packages; the optional rehearsal/ui-smoke.sh builds a separate scratch WAR."
     },
     {
       "name": "patient-list-by-appointment-export",
@@ -3950,7 +3982,7 @@
         "encounterForm"
       ],
       "notes": "Fails at its step 'BC-AR 2020 opens from the form list with the patient filled in' on develop: BC-AR 2020's page script fails, so the form can't be saved or printed (#4919). Its release fix #4926 merged on 18 Oct; develop gets it in the forward merge. Every earlier step passes. The owned patient carries a Master Record patient's blank contact fields, because a NULL field breaks the prefill (#4920).",
-      "fixtures": "Owned synthetic patient. Adds BC-AR 2020 and BC-AR 2012 to the encounter form list through Administration > Select Forms and removes them again, asserting the form list is as it found it (the shown forms and their order, since Select Forms renumbers the shown forms 1..n, #4952); cleanup puts every recorded display order back and asserts the rows identical; a failed run restores the recorded display order. The form list is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The BC-AR 2020 and 2012 rows and the Print step's PrintResourceLog row (BCAR2020, the owned patient) are removed with the owned patient. Needs Poppler pdftotext."
+      "fixtures": "Owned synthetic patient. Adds BC-AR 2020 and BC-AR 2012 through Administration > Select Forms and removes them again, asserting the exact normalized database and visible menu order after each change (Select Forms renumbers the shown forms 1..n, #4945 fixed by #4952); cleanup restores every original raw encounterForm row and display position and asserts the rows identical. The form list is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The BC-AR 2020 and 2012 rows go with the owned patient. PrintResourceLog is checked absent before this run and removed only for BCAR2020, the owned patient and the signed-in provider, then asserted absent. Needs Poppler pdftotext."
     },
     {
       "name": "form-bc-newborn",
@@ -4166,11 +4198,7 @@
       "env": [
         "BC_REPROCESS_PIN"
       ],
-      "notes": "BC Bill Status and adjust bill page (#4373, #4346): Invoice List, Edit, Settle, billing history and note. Expected to FAIL at the note step while app-findings-log.md finding 145 stands (each save adds a backslash before an apostrophe). Finding 147 (TypeError on the adjust page's load) was fixed with #4551.",
-      "expectedFailure": {
-        "finding": 145,
-        "step": "the save keeps the billing note exactly, apostrophe included"
-      },
+      "notes": "BC Bill Status and adjust bill page (#4373, #4346): Invoice List, Edit, Settle, billing history and exact note text (BC_REPROCESS_PIN unset). Finding 145 is fixed: the beta1 Ubuntu 26.04 promotion revalidation preserved the apostrophe after Settle and passed all five steps. Finding 147 (TypeError on the adjust page's load) was fixed with #4551.",
       "fixtures": "Seeds and removes one billing/billingmaster/billingnote row for its own FAKE patient."
     },
     {
@@ -4761,9 +4789,13 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned prescription and drugs rows for the synthetic patient; drug profile print rendering (pdftotext), previous prints, and Write to Encounter; owned casemgmt_note/drugs/prescription rows removed.",
-      "notes": "Needs pdftotext; the drug profile is HTML + window.print(), so the PDF asserted is the browser print rendering."
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR",
+        "INCOMINGDOCUMENT_DIR"
+      ],
+      "fixtures": "Owned prescription and drugs rows for the synthetic patient, a throwaway provider, two owned programs with memberships/admissions and independent drafts; one exact owned membership is temporarily removed and restored to verify a writer belonging only to the originating program. Requires exclusive execution on a disposable database, TRIGGER privilege on casemgmt_tmpsave and read access to information_schema.TRIGGERS. An owned AFTER DELETE trigger targets the exact draft ID, provider, patient, program, note reference and text hash to force a rollback; its definition and removal are verified. A read-only hash_audit checksum also detects orphan signature writes. An additional owned issue lookup, patient issue and revision join exercise inline Add Issue and issue-status changes; cleanup verifies ownership and removes their references. Cleanup removes owned clinical rows, programs, relationships and provider. Shared provider defaults are unchanged. The same two-program fixture stages one temporary signed origin note and two owned stored PDFs; native Delete/Undelete/Refile restore their signed context, and cleanup removes exact document rows/files/refile copy and note before Rx continues. Requires DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR), INCOMINGDOCUMENT_DIR and pdftotext; prerequisites are checked before fixture creation.",
+      "notes": "Needs pdftotext; the drug profile is HTML + window.print(), so the PDF asserted is the browser print rendering. Also verifies same-patient chart windows retain independent programs through Rx launch, Save And Print, Print & Paste and chart reopening; the other program's draft stays unchanged. Signed-context/patient replay and foreign/missing draft references refuse without clinical mutations; a no-draft paste selects its own program, and explicit cross-program editing preserves the source note program and the other window draft. A writer belonging only to the originating program saves a real shared-note revision with a valid reporter role and can read it back through the native Edit link; the stored program and team are preserved. Native compact note switching rejects a false HTTP 200 acknowledgement, retains the editor after a real SQL failure with no partial issue, revision, signature or draft writes, and successfully retries while preserving the source program and team. All four duration inputs are saved and reloaded, cleared through duration-only note switching and native full Save, and retained through native inline Add Issue. Hidden legacy issue-status controls are exercised through authenticated rendered FormData and the returned fragment, without forcing a hidden click; clearing stores SQL NULL in the new revision and preserves historical values. Native Browse Notes from the first chart, after the second program was entered last, retains the first signed context in document mutation POSTs, redirect locations, returned hidden fields, preview iframe and an actual downloaded note PDF. Complete clinical/draft/lock, prescription and program-default rows are unchanged, and the temporary fixtures are removed before the remaining Rx workflow."
     },
     {
       "name": "tickler-forward-filters",
@@ -5093,9 +5125,13 @@
     {
       "name": "flowsheet-prevention-print",
       "script": "scripts/flowsheet-prevention-print-playwright-checks.js",
-      "tiers": ["core"],
+      "tiers": [
+        "core"
+      ],
       "assertsDatabase": true,
-      "provinces": ["all"],
+      "provinces": [
+        "all"
+      ],
       "timeoutSec": 180,
       "env": [],
       "fixtures": "Owned synthetic patient with three preventions and four A1C readings; all removed and verified by workflow cleanup.",
@@ -5882,11 +5918,7 @@
       "env": [
         "LAB_UPLOAD_DOCUMENT_STORE"
       ],
-      "notes": "Five steps pass on 2026.08.0~alpha19 (the old note that Row Display threw a ReferenceError on scanDOM and loaded a missing spinner image is out of date). The sixth to eighth steps are for finding 149: a second lab whose result, units and range carry inert xss-poison markup (payloads 1100-1102; the stored HL7 text is rewritten by SQL, as an imported lab's would be) is listed by Row Display as literal text with the markup in the tooltip source, hovering its row shows the tooltip (the control step), and, in the pinned eighth step, the tooltip must hold no [data-xp] element; DisplayLabValue.jsp attribute-encodes the lab text into the row's title and boxover.js writes the decoded title with innerHTML.",
-      "expectedFailure": {
-        "finding": 149,
-        "step": "hovering a Row Display row whose result, units and range carry markup builds no element from them"
-      },
+      "notes": "Eight steps pass on the installed Ubuntu 26.04 beta1 packages (2026-10-19): manually entered labs reach the patient, grid/row views, lab details and plotted graph; stored markup remains literal in both the row and visible hovered tooltip with no constructed data-xp element. Finding149 was fixed by #4448. The fixture control decodes one HTML-entity layer from boxover source so the corrected HTML-encoded payload is accepted; the actual hover still requires the exact complete result, units and range.",
       "fixtures": "Owned patient; a two-test lab and a one-test markup lab, both created through Inbox ▸ Create Lab under owned accessions (the markup lab's stored HL7 text is then rewritten by SQL); labs, routing and measurement rows removed."
     },
     {
@@ -6141,8 +6173,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Verifies a real PDF download, matching HTML/PDF totals, ISO dates, two-decimal amounts, active/settled invoice services, and deleted/OHIP/out-of-range exclusion. Requires pdftotext.",
-      "fixtures": "Owned workflow patient and six billing invoices/items with statuses and dates at both boundaries; all removed."
+      "notes": "Verifies a real PDF download, matching HTML/PDF totals, ISO dates, two-decimal amounts, active/settled invoice services, and deleted/OHIP/out-of-range exclusion. Requires pdftotext. Independent statement windows and unsent date-field edits preserve the shown PDF selection; an empty result clears stale rows and disables printing.",
+      "fixtures": "Two owned synthetic patients and seven invoices; cleanup removes only owned rows and verifies their removal."
     },
     {
       "name": "patient-swipe-card-search",
@@ -6222,10 +6254,12 @@
         "CLINICAL_FORMS_EXCEPT"
       ],
       "mutates": [
-        "encounterForm"
+        "encounterForm",
+        "measurementType",
+        "validations"
       ],
       "notes": "Vascular Tracker, regression for finding 103 (#3358, fixed in #4667): the shipped registration points at the Struts 1 SetupForm.do route, which the chart now resolves to the extensionless SetupForm route and opens for the owned patient. This row only opens the form; what lies behind it is -vascular-tracker-save. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Vascular Tracker first-use catalog rows are recorded before any native form opens and only proven fixture-created definitions are removed after clinical children; preexisting definitions, IDs and validation rows remain exact."
     },
     {
       "name": "clinical-forms-save-reopen-vascular-tracker-save",
@@ -6247,10 +6281,12 @@
         "CLINICAL_FORMS_EXCEPT"
       ],
       "mutates": [
-        "encounterForm"
+        "encounterForm",
+        "measurementType",
+        "validations"
       ],
       "notes": "Vascular Tracker registered the way its route is mapped (SetupForm without the .do suffix), regression for finding 254 (fixed in #4667): Update VT posts to form/SubmitForm, which saves exactly the typed fields for the owned patient, and the record redisplays and reopens. The shipped registration is the separate -vascular-tracker entry (finding 103). Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The extra registration points at the extensionless SetupForm route and is removed with the others."
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The extra registration points at the extensionless SetupForm route and is removed with the others. Vascular Tracker first-use catalog rows are recorded before any native form opens and only proven fixture-created definitions are removed after clinical children; preexisting definitions, IDs and validation rows remain exact."
     },
     {
       "name": "clinical-forms-save-reopen-vascular-tracker-script",
@@ -6272,10 +6308,12 @@
         "CLINICAL_FORMS_EXCEPT"
       ],
       "mutates": [
-        "encounterForm"
+        "encounterForm",
+        "measurementType",
+        "validations"
       ],
       "notes": "Vascular Tracker registered the way its route is mapped (SetupForm without the .do suffix), regression for finding 255 (#4612, fixed in #4667): loading the page and pressing Update VT must raise no JavaScript-layer problem. Before the fix every load threw TypeError: Cannot set properties of undefined (setting 'disabled') from disableEyeExam, and every Update VT threw (setting 'value') from storeEyeExamSupportData, because the eye-exam Ex inputs (value(iExValue), value(iExDate), value(iExComments)) did not exist. The save is the separate -vascular-tracker-save entry (finding 254), and the shipped registration the separate -vascular-tracker entry (finding 103). Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The extra registration points at the extensionless SetupForm route and is removed with the others."
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The extra registration points at the extensionless SetupForm route and is removed with the others. Vascular Tracker first-use catalog rows are recorded before any native form opens and only proven fixture-created definitions are removed after clinical children; preexisting definitions, IDs and validation rows remain exact."
     },
     {
       "name": "clinical-forms-save-reopen-form14-42",
@@ -6449,7 +6487,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "ALPHA, finding 230 (fixed, #4590): the Forms-menu entry answered HTTP 500 because formalpha.jsp asked for a record class (Alpha) that did not exist; FrmAlphaRecord now reads and saves formAlpha, and the page no longer links a missing stylesheet. The entry asserts every pair of the form, so a regression is attributed to the finding. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "notes": "ALPHA, finding 230 (fixed, #4590): the Forms-menu entry answered HTTP 500 because formalpha.jsp asked for a record class (Alpha) that did not exist; FrmAlphaRecord now reads and saves formAlpha, and the page no longer links a missing stylesheet. The entry asserts every pair of the form, so a regression is attributed to the finding: it opens, Save stores the typed prose, two ticked boxes and an Other name, the record redisplays and reopens with them, and Print prints the saved prose (its textareas print as they are). Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
       "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -7388,8 +7426,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient (E-Chart lock taken by opening the chart) and one marker tickler seeded by SQL; cleanup deletes the patient's notes, note links/exts/issue links, casemgmt_issue, casemgmt_cpp, eChart rows and the tickler, and asserts it.",
-      "notes": "Expected to FAIL at the last step 'chart-note writes refuse GET/HEAD, and the tickler note dialog itself saves by POST': CaseManagementEntry method=issueNoteSave and method=ticklerSaveNote write on GET, and ticklerMain.jsp saveNoteDialog() sends its save as a GET."
+      "fixtures": "Two owned synthetic patients and marker ticklers; native chart/tickler notes plus a private copied note and temporary foreign link. Cleanup verifies ownership and removes each owned clinical row.",
+      "notes": "Exercises native issue-note and tickler-note POST saves and revision; all six note-write methods refuse GET/HEAD without changing clinical rows. Cross-patient tickler/note/link substitutions return an application 403 without copying private history."
     },
     {
       "name": "get-reject-eform-editor",
@@ -7567,12 +7605,8 @@
         "property:consultResponseEnabled",
         "consultationServices"
       ],
-      "notes": "EnableConRequestResponse, pinned to finding 263: the action has no method check and HttpMethodGuardFilter does not name it, so a GET or a HEAD carrying consultRequestEnabled=true&consultResponseEnabled=true answers HTTP 200 and stores both flags (two property rows) and creates or activates the Referring Doctor service. The check brings the flags to off before each probe, so the write is visible whatever the clinic had. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
-      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 263,
-        "step": "EnableConRequestResponse: the request the page sends, replayed as GET and HEAD, is refused and writes nothing"
-      }
+      "notes": "Regression coverage for consultation configuration GET/HEAD write refusal (#263). The native page POST and replay controls remain required; an ordinary PASS requires application refusal and unchanged owned rows. Owns and verifies cleanup of marker-named rows; snapshots and restores the consultation flags and Referring Doctor service. Run exclusively (EXCLUSIVE=1).",
+      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "get-reject-consult-config-update-service-get",
@@ -7599,12 +7633,8 @@
         "consultationServices",
         "professionalSpecialists"
       ],
-      "notes": "UpdateServiceSpecialists, pinned to finding 263: the action has no method check and HttpMethodGuardFilter leaves \"Update*\" alone on purpose, so a GET or a HEAD with serviceId and specialists replaces the service's consultant links and answers HTTP 200 with the Show All Services page. The owned service's links are cleared before each probe. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
-      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 263,
-        "step": "UpdateServiceSpecialists: the request the page sends, replayed as GET and HEAD, is refused and writes nothing"
-      }
+      "notes": "Regression coverage for consultation configuration GET/HEAD write refusal (#263). The native page POST and replay controls remain required; an ordinary PASS requires application refusal and unchanged owned rows. Owns and verifies cleanup of marker-named rows; snapshots and restores the consultation flags and Referring Doctor service. Run exclusively (EXCLUSIVE=1).",
+      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "get-reject-consult-config-update-institution-get",
@@ -7632,12 +7662,8 @@
         "Institution",
         "Department"
       ],
-      "notes": "UpdateInstitutionDepartment, pinned to finding 263: the action has no method check and HttpMethodGuardFilter leaves \"Update*\" alone on purpose, so a GET or a HEAD with id and specialists replaces the institution's department links and answers HTTP 200 with the Show All Institutions page. The owned institution's links are cleared before each probe. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
-      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 263,
-        "step": "UpdateInstitutionDepartment: the request the page sends, replayed as GET and HEAD, is refused and writes nothing"
-      }
+      "notes": "Regression coverage for consultation configuration GET/HEAD write refusal (#263). The native page POST and replay controls remain required; an ordinary PASS requires application refusal and unchanged owned rows. Owns and verifies cleanup of marker-named rows; snapshots and restores the consultation flags and Referring Doctor service. Run exclusively (EXCLUSIVE=1).",
+      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "get-reject-consult-config-update-service-restricted",
@@ -7664,12 +7690,8 @@
         "consultationServices",
         "professionalSpecialists"
       ],
-      "notes": "UpdateServiceSpecialists, pinned to finding 264: the action checks _con r and nothing more, while the page that posts to it (and its result JSP) needs _admin or _admin.consult. A login holding only _con r, with its own valid token, writes the service's consultant links; the answer is then a 302 to /securityError?type=_admin&type=_admin.consult, sent by the result page after the write. The control, the full login's replay of the same request, is asserted before the restricted replay. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
-      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 264,
-        "step": "UpdateServiceSpecialists: a login holding only _con r is refused and its replay of the request writes nothing"
-      }
+      "notes": "Regression coverage for consultation configuration administration write authorization (#264). The native page POST and replay controls remain required; an ordinary PASS requires application refusal and unchanged owned rows. Owns and verifies cleanup of marker-named rows; snapshots and restores the consultation flags and Referring Doctor service. Run exclusively (EXCLUSIVE=1).",
+      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "get-reject-consult-config-update-institution-restricted",
@@ -7697,12 +7719,8 @@
         "Institution",
         "Department"
       ],
-      "notes": "UpdateInstitutionDepartment, pinned to finding 264: the action checks _con r and nothing more, while the page that posts to it (and its result JSP) needs _admin or _admin.consult. A login holding only _con r, with its own valid token, writes the institution's department links; the answer is then a 302 to /securityError?type=_admin&type=_admin.consult, sent by the result page after the write. The control, the full login's replay of the same request, is asserted before the restricted replay. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
-      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 264,
-        "step": "UpdateInstitutionDepartment: a login holding only _con r is refused and its replay of the request writes nothing"
-      }
+      "notes": "Regression coverage for consultation configuration administration write authorization (#264). The native page POST and replay controls remain required; an ordinary PASS requires application refusal and unchanged owned rows. Owns and verifies cleanup of marker-named rows; snapshots and restores the consultation flags and Referring Doctor service. Run exclusively (EXCLUSIVE=1).",
+      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "get-reject-consult-config-add-service-doctor",
@@ -7728,12 +7746,8 @@
         "property:consultResponseEnabled",
         "consultationServices"
       ],
-      "notes": "AddService, pinned to finding 264: the seeded doctor role holds _con x (read, update and write) and neither _admin nor _admin.consult, so the page that hosts the form redirects it to /securityError (asserted first, as a precondition), yet its POST to AddService (_con w) creates the service; the answer is then a 302 to /securityError?type=_admin&type=_admin.consult, sent by the result page after the write. The control, the full login's replay of the same request, is asserted before the doctor replay. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
-      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 264,
-        "step": "AddService: a login with the seeded doctor role, which the pages refuse, is refused and its replay of the request writes nothing"
-      }
+      "notes": "Regression coverage for consultation configuration administration write authorization (#264). The native page POST and replay controls remain required; an ordinary PASS requires application refusal and unchanged owned rows. Owns and verifies cleanup of marker-named rows; snapshots and restores the consultation flags and Referring Doctor service. Run exclusively (EXCLUSIVE=1).",
+      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "get-reject-consult-config-del-service-doctor",
@@ -7759,12 +7773,8 @@
         "property:consultResponseEnabled",
         "consultationServices"
       ],
-      "notes": "DelService, pinned to finding 264: the seeded doctor role holds _con x (read, update and write) and neither _admin nor _admin.consult, so the page that hosts the form redirects it to /securityError (asserted first, as a precondition), yet its POST to DelService (_con u) inactivates the service; the answer is then a 302 to /securityError?type=_admin&type=_admin.consult, sent by the result page after the write. The control, the full login's replay of the same request, is asserted before the doctor replay. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
-      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 264,
-        "step": "DelService: a login with the seeded doctor role, which the pages refuse, is refused and its replay of the request writes nothing"
-      }
+      "notes": "Regression coverage for consultation configuration administration write authorization (#264). The native page POST and replay controls remain required; an ordinary PASS requires application refusal and unchanged owned rows. Owns and verifies cleanup of marker-named rows; snapshots and restores the consultation flags and Referring Doctor service. Run exclusively (EXCLUSIVE=1).",
+      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "get-reject-consult-config-enable-doctor",
@@ -7790,12 +7800,8 @@
         "property:consultResponseEnabled",
         "consultationServices"
       ],
-      "notes": "EnableConRequestResponse, pinned to finding 264: the seeded doctor role holds _con x (read, update and write) and neither _admin nor _admin.consult, so the page that hosts the form redirects it to /securityError (asserted first, as a precondition), yet its POST to EnableConRequestResponse (_con u) stores both clinic-wide flags and activates the Referring Doctor service; the answer is then a 302 to /securityError?type=_admin&type=_admin.consult, sent by the result page after the write. The control, the full login's replay of the same request, is asserted before the doctor replay. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
-      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 264,
-        "step": "EnableConRequestResponse: a login with the seeded doctor role, which the pages refuse, is refused and its replay of the request writes nothing"
-      }
+      "notes": "Regression coverage for consultation configuration administration write authorization (#264). The native page POST and replay controls remain required; an ordinary PASS requires application refusal and unchanged owned rows. Owns and verifies cleanup of marker-named rows; snapshots and restores the consultation flags and Referring Doctor service. Run exclusively (EXCLUSIVE=1).",
+      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "get-reject-consult-config-update-service-doctor",
@@ -7822,12 +7828,8 @@
         "consultationServices",
         "professionalSpecialists"
       ],
-      "notes": "UpdateServiceSpecialists, pinned to finding 264: the seeded doctor role holds _con x (read, update and write) and neither _admin nor _admin.consult, so the page that hosts the form redirects it to /securityError (asserted first, as a precondition), yet its POST to UpdateServiceSpecialists (_con r) replaces the service's consultant links; the answer is then a 302 to /securityError?type=_admin&type=_admin.consult, sent by the result page after the write. The control, the full login's replay of the same request, is asserted before the doctor replay. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
-      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 264,
-        "step": "UpdateServiceSpecialists: a login with the seeded doctor role, which the pages refuse, is refused and its replay of the request writes nothing"
-      }
+      "notes": "Regression coverage for consultation configuration administration write authorization (#264). The native page POST and replay controls remain required; an ordinary PASS requires application refusal and unchanged owned rows. Owns and verifies cleanup of marker-named rows; snapshots and restores the consultation flags and Referring Doctor service. Run exclusively (EXCLUSIVE=1).",
+      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "get-reject-consult-config-update-institution-doctor",
@@ -7855,12 +7857,8 @@
         "Institution",
         "Department"
       ],
-      "notes": "UpdateInstitutionDepartment, pinned to finding 264: the seeded doctor role holds _con x (read, update and write) and neither _admin nor _admin.consult, so the page that hosts the form redirects it to /securityError (asserted first, as a precondition), yet its POST to UpdateInstitutionDepartment (_con r) replaces the institution's department links; the answer is then a 302 to /securityError?type=_admin&type=_admin.consult, sent by the result page after the write. The control, the full login's replay of the same request, is asserted before the doctor replay. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
-      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 264,
-        "step": "UpdateInstitutionDepartment: a login with the seeded doctor role, which the pages refuse, is refused and its replay of the request writes nothing"
-      }
+      "notes": "Regression coverage for consultation configuration administration write authorization (#264). The native page POST and replay controls remain required; an ordinary PASS requires application refusal and unchanged owned rows. Owns and verifies cleanup of marker-named rows; snapshots and restores the consultation flags and Referring Doctor service. Run exclusively (EXCLUSIVE=1).",
+      "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "detached-delete-hrm",
@@ -8601,7 +8599,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) with its own day sheet and the owned FAKE- patient; cleanup deletes the owned appointment and archive rows, then the throwaway, and asserts they are gone.",
-      "notes": "Guards #5199: full multiline reason/notes use LF storage and survive booking, reopening and unchanged Update. Name (50) and resources (255) have browser limits matching their columns."
+      "notes": "Guards #5199: full multiline reason/notes use LF storage and survive booking, reopening and unchanged Update. Name and resources accept up to 255 Unicode code points and visibly refuse overflow without truncation."
     },
     {
       "name": "boundary-messaging-text",
@@ -9606,15 +9604,19 @@
       "provinces": [
         "ON"
       ],
-      "timeoutSec": 180,
+      "timeoutSec": 420,
       "assertsDatabase": true,
       "env": [
         "TEST_PASSWORD",
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Uses the workflow's owned patient plus a second owned patient; saves one chart note through the E-Chart UI; one throwaway er_clerk login and one throwaway doctor login with the lock rows for the owned patient; cleanup removes notes, eChart row, patients and logins and asserts it.",
-      "notes": "Expected to FAIL at the last step 'a note history is only served for the patient the note belongs to, and not to a login locked out of that patient': CaseManagementEntry method=notehistory and method=history read the note by id alone. Steps 1-3 pass."
+      "fixtures": "Seven owned patients with notes, numeric measurements and CPP issue links; shared authz fixture with module readers and er_clerk/doctor logins. Two owned programs use preexisting cached reporter roles and an unchanged global policy, with one existing Facility bound through the owned reader only. All clinical descendants, program memberships/admissions, audit rows, roles and logins are removed and verified; shared defaults and policies remain unchanged. Requires pdftotext; availability is checked before fixture creation. Additional isolated startup and group-note fixtures own their patients, providers, facilities, programs, admissions, links, notes and policies; preexisting clinical rows and policies are compared exactly, and every owned row is removed. Additional compact-save, issue-history and form fixtures own their patients, programs, notes, issue links and separate module-granted logins; native form creation uses the existing guarded VT catalog lifecycle. Vascular Tracker first-use catalog rows are recorded before any native form opens and only proven fixture-created definitions are removed after clinical children; preexisting definitions, IDs and validation rows remain exact. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Both history routes enforce patient identity, record locks and notes-module access. Independent module-granted readers exercise six measurement/navbar GET routes, both measurement writer aliases and three web print routes plus REST print with record-only denials and unlocked controls. Complete clinical/draft/lock snapshots survive refusals; allowed writers persist one exact reading, HTML retains UTF-8/literal markup and PDFs contain the owned note. Malformed print identities and foreign/mixed HTML selection refuse without partial output. Native chart controls establish a real reporter-role denial and readable cross-program notes before testing actual selected/ALL/date/CPP/Other Meds/full PDFs. REST signed-context checks preserve that visibility despite another program entered last, both wrong patient query aliases or program-zero hints, reject hidden selections and forged/conflicting genuine contexts, and retain an independently authorized other-program positive. Fresh configured-provider program-zero entries are refused through both aliases, while sole-program defaults and genuinely programless zero entries render their own native chart and editor. Active group-note recipients can expand the native long-note view under the existing group reporter policy; editor/raw access, inactive links or unlinked notes, missing record access, disabled facilities and wrong reporter roles are refused without changing source notes. Two same-patient editors retain independent note locks through a native compact save and the other editor's full Save; an exact foreign-session lock refusal preserves all clinical and draft state. Captured-program issue history retains readable cross-program notes and refuses hidden reporter notes and record exclusions. Genuine form-only readers without chart or program access can create and reopen their own form; record-only exclusions refuse both setup and save, and GET, HEAD and PUT mutations return 405 before data changes.",
+      "mutates": [
+        "measurementType",
+        "validations"
+      ]
     },
     {
       "name": "authz-read-admin-objects",
@@ -9633,7 +9635,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates three throwaway logins (doctor, nurse, Field Note Admin); no other rows; reads only; cleanup asserts removal.",
-      "notes": "Expected to FAIL at the last step 'administration pages are refused without their menu object and served with it': eform/fieldNoteReport/* served to a doctor and refused (HTTP 500) to the Field Note Admin role; encounter/oscarMeasurements/View* configuration pages and billing/CA/ON/BillingONPayment served to a nurse. Steps 1-5 pass."
+      "notes": "Expected to FAIL at the last step 'administration pages are refused without their menu object and served with it': encounter/oscarMeasurements/View* configuration pages and billing/CA/ON/BillingONPayment are served to a nurse. Steps 1-5 pass. The step also listed eform/fieldNoteReport/* (served to a doctor, HTTP 500 for the Field Note Admin role) until the 2026.08 line; on the 2026.08.0-beta1 package (PR #5067) it no longer does. The doctor's /administration is expected, since the doctor holds _admin.flowsheet (#4623)."
     },
     {
       "name": "authz-read-print-export",
@@ -9691,7 +9693,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "The workflow's owned FAKE- patient; two throwaway logins (own provider rows 800000-899999, roles receptionist and doctor); an |o| _eChart$<patient> lock row keyed on the doctor login; one consent type named after the run marker, created through the API by the control login; one out-of-band OAuth ServiceClient named after the run marker, with the request/access tokens and nonces issued to it. Cleanup removes every owned row and asserts it.",
-      "notes": "Issue #2798: the /ws/rs REST services authorize, not only authenticate. Anonymous calls get 401; the receptionist is refused (application 403) app/getApps, the recordUX chart print, summary and templates, and the consent-type POST (which must write nothing), while still reading the consent catalogue; the doctor reads the chart and templates but is refused the admin-only endpoints; a patient-level _eChart lock withholds that patient's print and summary. Requires oauth.scope.enforcement.enabled=true on the disposable install. On /ws/services full-provider and receptionist OAuth tokens receive identical app.read, recordux.read, pharmacy.read and form.read scopes. The full token must reach every service with HTTP 200 before the receptionist token is checked for the exact service-level 403 body; scope-layer refusals cannot pass as privilege checks."
+      "notes": "Issue #2798: the /ws/rs REST services authorize, not only authenticate. Anonymous calls get 401; the receptionist is refused (application 403) app/getApps, the recordUX chart print, summary and templates, and the consent-type POST (which must write nothing), while still reading the consent catalogue; the doctor reads the chart and templates but is refused the admin-only endpoints; a patient-level _eChart lock withholds that patient's print and summary. Issue #5246: EXPECT_OAUTH_MODE declares the installed mode without changing configuration (default legacy-restricted). In the default mode both callers authorize scopeless OAuth tokens, read the owned patient, and get exact restricted_endpoint refusals outside the legacy allowlist. Run separately with EXPECT_OAUTH_MODE=scoped on a disposable scoped install: identical app.read, recordux.read, pharmacy.read and form.read grants must reach each service as the full provider before the receptionist is checked for the exact service-level 403 body. A demographic read outside those grants must get insufficient_scope. legacy-full also checks service privileges with scopeless tokens. All modes verify consent warnings and blocked_endpoint for jobs. See docs/ui-tests/oauth-access-mode-validation.md."
     },
     {
       "name": "gap-encounter-eform-save-as-edoc",
@@ -11027,11 +11029,7 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient, a poisoned eForm template and a patient-independent template with current and deleted instances, an eForm group and a security role. Inserts GLOBALLY VISIBLE poisoned rows while it runs (an eForm template, an eForm group, a role): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). The group Delete confirmation is only opened and dismissed. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 121, 125): Manage eForms' upload form prints role names raw in its select (eform/partials/upload.jsp:127); the eForm Groups Delete confirmation re-parses the attribute-encoded group name as HTML (efmmanageformgroups.jsp:148 into efmFooter.jspf:70 .html()); Patient-independent eForms prints instance name and subject raw on the current list (eform/efmmanageindependent.jsp:149,151) and on the Deleted list (eform/efmmanageindependentdeleted.jsp:160,162). The Deleted eForms list also throws TypeError on unload (window.opener cut by COOP, known finding 77). The seeded template's editor, group view, patient eForm list and Add eForm list encode. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
-      "expectedFailure": {
-        "finding": 121,
-        "step": "the walk found no output-encoding defect"
-      }
+      "notes": "Regression for findings 121 and 125, fixed in beta1. Manage eForms upload role names, group Delete confirmation, current/deleted patient-independent instance names and subjects, and the patient eForm lists must render stored markup as literal text. Coverage is asserted for every reached seeded field; missing fields and unopened links fail. All six steps passed on the installed Ubuntu 26.04 beta1 packages on 2026-10-19."
     },
     {
       "name": "xss-poison-messenger-consult",
@@ -11115,11 +11113,7 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "Part 1 of the Administration walk (scripts/lib/xss-poison-admin-walk.js, payload numbers from 1): about 35 poisoned rows across provider, group, role, job, lookup, quick-list, document-template, queue, eForm, report-template, measurement, appointment-type, tickler-category, billing, consultation-service, institution, REST-client, lot-number, guideline, waiting-list and system-message tables. Inserts GLOBALLY VISIBLE poisoned rows while it runs (all of them, including an active provider): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Waits five minutes for the active-provider cache. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (finding 121): Manage eForms' upload form prints role names raw (eform/partials/upload.jsp:127). The other items of the first half of the menu (users, billing, labs, forms) encode the seeded values they show. Manage eForms, Add New Queue, Manage Payment Type and Add Billing Location must show their seeded rows; Customize Consult Appointment Instructions must open, but its seeded item is not required (30-minute lookup-list cache). Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
-      "expectedFailure": {
-        "finding": 121,
-        "step": "the walk found no output-encoding defect"
-      }
+      "notes": "Regression for finding 121: Manage eForms' upload form must render role names as text. The same stored role-name surface passed in xss-poison-eform on the installed Ubuntu 26.04 beta1 packages on 2026-10-19. The other items of the first half of the menu (users, billing, labs, forms) encode the seeded values they show. Manage eForms, Add New Queue, Manage Payment Type and Add Billing Location must show their seeded rows; Customize Consult Appointment Instructions must open, but its seeded item is not required (30-minute lookup-list cache). Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED."
     },
     {
       "name": "xss-poison-admin-reports-system",
@@ -11389,10 +11383,12 @@
       "timeoutSec": 900,
       "env": [],
       "notes": "Issue #4556, finding 182: two charts in one login retain their own navbar, history/index/plot, measurement prefill, and form identities through reciprocal refreshes and writes. Each chart refreshed after the other patient was entered keeps its own identity banner and opens its own patient's note browser. Before every cross-check the other chart is entered through IncomingEncounter, the one entry that still rewrites the login-wide encounter bean. Measurement, Dx, CPP, prevention, history deletion, and Vascular Tracker Update/reopen/Save and Exit must leave the other patient's complete clinical rows unchanged. Missing, malformed, and conflicting patient parameters and foreign form IDs are rejected. A form's completion cannot alter an opener navigated to another patient. Issue #4673: with the other chart entered last, each patient's chart print names its own MRP, the legacy encounter save writes only its own revision and signs only its own appointment (a stale, foreign, missing or malformed revision, another patient's appointment and missing or conflicting patients are refused without writing), the legacy encounter prints show only its own revisions, the legacy immunization schedule adds a template, saves and deletes a set in its own schedule by the logged-in provider and its dose window names its own patient and offers the logged-in provider as the giver after the other chart was entered from another provider's day sheet, and a schedule Save, template add or set restore without one valid patient is refused (400) without writing; a template made after a chart was entered from another provider's day sheet is the logged-in provider's; the legacy case-management navigation renders completely, links only to it and lists only its own messages; its notes list keeps the logged-in provider's unsigned notes editable, and its notes panel (rendered again by a note save) names its own entry provider, after a chart was entered from another provider's day sheet.",
-      "fixtures": "Owned FAKE patients A/B with distinct WT values. All owned clinical rows and children, VT forms, note signature hashes, drafts, and locks are removed by key and asserted gone; B is removed and the harness removes A. The seeded Vascular Tracker registration is temporarily enabled by display order for browser coverage, then its exact prior encounterForm state is restored and asserted. B's MRP is a second named provider. One owned appointment per patient, its archive rows, the owned immunization schedule rows, one owned immunization template and one message linked to each patient are removed by key; the provider's legacy encounter layout row (encounterWindow) is restored exactly. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "fixtures": "Owned FAKE patients A/B with distinct WT values. All owned clinical rows and children, VT forms, note signature hashes, drafts, and locks are removed by key and asserted gone; B is removed and the harness removes A. The seeded Vascular Tracker registration is temporarily enabled by display order for browser coverage, then its exact prior encounterForm state is restored and asserted. B's MRP is a second named provider. One owned appointment per patient, its archive rows, the owned immunization schedule rows, one owned immunization template and one message linked to each patient are removed by key; the provider's legacy encounter layout row (encounterWindow) is restored exactly. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Vascular Tracker first-use catalog rows are recorded before any native form opens and only proven fixture-created definitions are removed after clinical children; preexisting definitions, IDs and validation rows remain exact.",
       "mutates": [
         "encounterForm",
-        "encounterWindow"
+        "encounterWindow",
+        "measurementType",
+        "validations"
       ]
     },
     {
@@ -11440,8 +11436,8 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Issue #4673, BC billing in two windows of one login. Schedule B on A's appointment and on B's (from a second schedule tab), a billing physician, code and diagnosis in each, Continue in each and Save Bill in each: each review names its own patient and each claim is saved for its own patient and appointment with its own codes. A bill form whose physician is changed back and forth (each change reloads the form in place) keeps its own bill through a refused Continue, Go Back and Another Bill, and both its claims are saved for its own patient and appointment. A two-line private bill's Save and Print Receipt (the button read \"Save & Print Receipt\" until #4439, and the packaged WAF answered it with 403: CRS 932115 reads \"& Print\" as a Windows command), a private bill in the other window, then Update Invoice on the first receipt: the receipt shown again is the first patient's, with both lines. A WCB bill (Bill WCB lists the bill's own patient's WCB forms) opened before the other window's bill: a Continue with a code that needs a complete WCB report is refused back to the window's own bill form, and its Continue with a code that needs none is saved for its own patient and appointment with its own WCB form (the list answered 404, a submit reloaded it and cleared the chosen form, and the WCB check on Continue answered 500; fixed here). A bill form returns to the billing form it shows after a refused Continue, and one whose bill eight newer bills pushed out of the session is told that its billing session expired.",
-      "fixtures": "Owned FAKE patients A/B with synthetic BC PHNs (B removed by the check, A by the harness); five appointments today for A and three for B; one WCB form for each; an owned billing physician created through Add Provider and deactivated through Update Provider; the claims the windows save. Every claim, note, history and recipient row of the two patients, their WCB forms, their appointments and the physician (with the bill centre, archive and official-name property rows Add and Update Provider write for it) are removed and asserted gone. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+      "notes": "Issue #4673, BC billing in two windows of one login. Schedule B on A's appointment and on B's (from a second schedule tab), a billing physician, code and diagnosis in each, Continue in each and Save Bill in each: each review names its own patient and each claim is saved for its own patient and appointment with its own codes. A bill form whose physician is changed back and forth (each change reloads the form in place) keeps its own bill through a refused Continue, Go Back and Another Bill, and both its claims are saved for its own patient and appointment. A two-line private bill's Save and Print Receipt (posting saveAndPrintReceipt), a private bill in the other window, then Update Invoice on the first receipt: the receipt shown again is the first patient's, with both lines. A WCB bill (Bill WCB lists the bill's own patient's WCB forms) opened before the other window's bill: a Continue with a code that needs a complete WCB report is refused back to the window's own bill form, and its Continue with a code that needs none is saved for its own patient and appointment with its own WCB form (the list answered 404, a submit reloaded it and cleared the chosen form, and the WCB check on Continue answered 500; fixed here). A bill form returns to the billing form it shows after a refused Continue, and one whose bill eight newer bills pushed out of the session is told that its billing session expired.",
+      "fixtures": "Owned FAKE patients A/B with synthetic BC PHNs (B removed by the check, A by the harness); five appointments today for A and three for B; one WCB form for each; two owned billing physicians, each with an owned default billing form, created through Add Provider and deactivated through Update Provider; the claims the windows save. Every claim, note, history and recipient row of the two patients, their WCB forms, their appointments and the physicians (including their property, archive and bill-center rows) are removed and asserted gone. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "legacy-encounter-editor-isolation",
@@ -11456,8 +11452,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Issue #4673: the legacy encounter editor (encounter/Index2.jsp, rendered only with the CAISI module and an IncomingEncounter carrying casetoEncounter; nothing links there) in two windows of one login. Each Save, made after the other editor was opened last, writes a revision of its own patient only and redisplays its own patient; Print prints the window's own revision; an editor whose revision another editor of the same patient superseded is refused (409) with its own text on the concurrency page and writes nothing; Sign & Save signs only its own appointment and refreshes the day sheet that opened the editor; an editor keeps its own visit through a Save after its patient was entered again from another visit, so its Sign signs that visit; Verify & Sign verifies only its own appointment; Split Chart (offered once the encounter fills half of what the editor holds) stores its own patient's whole encounter as the split revision and continues that chart from its end; Exit closes the editor and saves neither chart; on a BC install, Sign, Save & Bill opens a bill of its own patient's visit; a double-clicked Save posts the editor once, writes one revision and shows the editor again. The other patient's complete clinical rows are compared around every step. echart-two-patient-isolation drives the same save action directly in every configuration.",
-      "fixtures": "Operator prerequisite: caisi=on in /etc/carlos-emr/carlos.properties, then carlos-ctl restart; restore the property and restart afterwards (the CAISI module changes clinic-wide behaviour). Without it the check reports SKIP. Owned FAKE patients A/B, one owned appointment each and three more of A's (four on a BC install); their eChart revisions, appointments, appointment archive rows, note locks and drafts are removed by key and asserted gone, and the provider's encounterWindow (legacy editor layout) row is restored exactly. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Issue #4673: the legacy encounter editor (encounter/Index2.jsp, rendered only with the CAISI module and an IncomingEncounter carrying casetoEncounter; nothing links there) in two windows of one login. Each Save, made after the other editor was opened last, writes a revision of its own patient only and redisplays its own patient; Print prints the window's own revision; an editor whose revision another editor of the same patient superseded is refused (409) with its own text on the concurrency page and writes nothing; Sign & Save signs only its own appointment and refreshes the day sheet that opened the editor; an editor keeps its own visit through a Save after its patient was entered again from another visit, so its Sign signs that visit; Verify & Sign verifies only its own appointment; Split Chart (offered once the encounter fills half of what the editor holds) stores its own patient's whole encounter as the split revision and continues that chart from its end; Exit closes the editor and saves neither chart; on a BC install, Sign, Save & Bill opens a bill of its own patient's visit; a double-clicked Save posts the editor once, writes one revision and shows the editor again. The other patient's complete clinical rows are compared around every step. echart-two-patient-isolation drives the same save action directly in every configuration. Three further handoff steps drive linked-local, shared-chart and canonical repeated message identities through the native CAISI editor, then refuse foreign/unlinked messages, malformed/conflicting IDs, linked vanished messages, missing messaging rights and record restrictions without changing either patient.",
+      "fixtures": "Operator prerequisite: caisi=on in /etc/carlos-emr/carlos.properties, then carlos-ctl restart; restore the property and restart afterwards (the CAISI module changes clinic-wide behaviour). Without it the check reports SKIP. Owned FAKE patients A/B, one owned appointment each and three more of A's (four on a BC install); their eChart revisions, appointments, appointment archive rows, note locks and drafts are removed by key and asserted gone, and the provider's encounterWindow (legacy editor layout) row is restored exactly. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Five exact owned message IDs (including one linked vanished body), their patient/recipient links, two custom reader logins and their roles are removed and verified.",
       "mutates": [
         "encounterWindow"
       ]
@@ -11474,8 +11470,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Issue #4673: the chart note editor's Attach (PMM 'attach note to client') popup in two chart windows of one login. A's and B's charts each save a note and open their Attach popup, B's last; each popup's client search for C links to and attaches its own chart's note, so C receives one copy of A's note and one of B's. Each source chart is entered for a visit of its own, so its note carries that visit; each copy is a new note of C's own, with a new uuid and no appointment. The popup used to read the note from the session, where the popup opened last replaced it. Also pins the popup's search form: its criteria were checkboxes, the page had no head (so CSRFGuard gave its form no token and every search answered 403) and its stylesheets loaded from outside the application. The search ticks 'Search all clients': PMMFilter, which sets the session's program domain, runs after Struts has answered PMM actions, so a domain search finds no one. The PMM client view (PMmodule/ClientManager) is not driven: its result names a Tiles page that does not exist.",
-      "fixtures": "Owned FAKE patients A/B/C (the run marker as last name) with one visit each for A and B, the notes written for A and B and the copies attached to C; a throwaway login (lib/throwaway-login-fixture.js) with the test login's roles plus an owned role FAKEPW<hex>pmm whose only secObjPrivilege row grants _pmm_management, and the test provider's program memberships. Facility.enablePhoneEncounter (which shows the editor's Attach button) is set for the run and restored to its value, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes every owned row by key and asserts it gone.",
+      "notes": "Issue #4673: the chart note editor's Attach (PMM 'attach note to client') popup in two chart windows of one login. A's and B's charts each save a note and open their Attach popup, B's last; each popup's client search for C links to and attaches its own chart's note, so C receives one copy of A's note and one of B's. Each source chart is entered for a visit of its own, so its note carries that visit; each copy is a new note of C's own, with a new uuid and no appointment. The popup used to read the note from the session, where the popup opened last replaced it. Also pins the popup's search form: its criteria were checkboxes, the page had no head (so CSRFGuard gave its form no token and every search answered 403) and its stylesheets loaded from outside the application. The search ticks 'Search all clients' because C initially has no program admission; PMMFilter initializes the authenticated program domain before the action. The PMM client view (PMmodule/ClientManager) is not driven: its result names a Tiles page that does not exist. Additional source-read and target-write refusals preserve complete owned clinical rows, with an authorized copy positive control. Native nondefault-source and genuinely tokenless-source popup searches/copies preserve separate signed source and target contexts. Forged, other-patient and reporter-hidden source contexts and a native server-issued read-only target context are refused by the application, preserving full source/target clinical snapshots, drafts, editor text and locks.",
+      "fixtures": "Owned FAKE patients A/B/C plus a PMM source patient (the run marker as last name) with one visit each for A and B, owned source notes and the copies attached to C; a throwaway login (lib/throwaway-login-fixture.js) with the test login's roles plus an owned role FAKEPW<hex>pmm whose only secObjPrivilege row grants _pmm_management, and the test provider's program memberships. The source-context fixture uses three owned programs, existing cached reporter roles with a real denial, one owned read-only program policy, owned admissions and a temporary default on the throwaway login only. Shared roles/grants remain exact and the owned login default is restored. Facility.enablePhoneEncounter (which shows the editor's Attach button) is set for the run and restored to its value, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup verifies program/provider/patient/policy ownership before deleting owned rows, removes every owned clinical row by key and asserts it gone.",
       "mutates": [
         "Facility",
         "secObjPrivilege"
@@ -11599,6 +11595,25 @@
       "env": [],
       "notes": "Native Rev in a linked recipient chart shows only explicitly shared revisions. Matches the modern chart recipient-read grant, including an authorized reader without the reporter role. Covers restricted recipients, absent active note-read grants despite an inactive doctor assignment, owner-chart denial, forged/unlinked/future revision IDs and immediate active-link revocation; cumulative history never discloses unshared content.",
       "fixtures": "Owned recipient and separately named owner patients, canonical note revisions and exact group links, facility with group notes enabled, four throwaway logins and two temporary roles with controlled clinical read rights. Patient search must return only the recipient; the reader is denied the owner chart. Cleanup removes owned clinical children, links, facility, logins, role privileges, roles and patients by key and asserts removal. No existing clinic privileges or facility settings are changed."
+    },
+    {
+      "name": "group-note-selection",
+      "script": "scripts/group-note-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Four isolated synthetic patients, two owned programs and admissions, one private group-enabled facility and writer, two exact owned note rows and temporary GroupNoteLink rows. Every parent and relationship is checked before deletion; program defaults and shared roles/policy are preserved. Requires exclusive suite execution.",
+      "notes": "Native Group popup uses the mapped extensionless GET route. The same patient in program B is entered last, but A selects only its own program recipient and saved note. Native POST303 redirects to a GET close view; an empty native selection clears the exact sharing link without changing either source note. Unsaved Group retains save-first guidance. Two genuine native popups from the same signed source submit different complete recipient sets with Promise.all; the first fixture popup is renamed only to prevent fixed-window reuse, without URL/form/request mutation. The result must be exactly one whole set, never a union, and is cleared natively. This end-to-end case makes no timing-overlap claim; independent H2 barriers prove serialization. Foreign recipient/context, malformed anonymous count and non-POST saves are refused with full clinical, draft, lock and policy snapshots unchanged. Common strict browser diagnostics use baseline:[]; owned chart locks are released through the authenticated API before test-page cleanup."
     },
     {
       "name": "echart-note-verify-appointment-status",
@@ -13321,7 +13336,7 @@
         "wcb_bp_code",
         "wcb_noi_code"
       ],
-      "notes": "The BC WCB form's code lookups, which billing-bc-wcb-form fills by typing (billing-bc-adjust-bill-code-search's diagnosis search is Adjust Bill's ViewBillingDigNewSearch, another page): Create Invoice ▸ WCB ▸ New WCB Form ▸ Search beside ICD9, Body Part and Nature of Injury (support/Icd9, support/BodyPart, support/NatureInjury). The ICD9 lookup lists the codes for the typed text and a pick fills exactly the ICD9 box; the Body Part and Nature of Injury lookups list the owned code and a pick fills exactly that box. The last step, the install lists WorkSafeBC side, body part and nature-of-injury codes of its own, failed on a Flyway-built BC install until bc/V1.0.59.3 restored the reference rows (#5062): wcb_side, wcb_bp_code and wcb_noi_code were empty, so the Side list had no options and both lookups listed nothing but the owned codes. It passes on a fresh BC deb install with that migration.",
+      "notes": "The BC WCB form's code lookups, which billing-bc-wcb-form fills by typing (billing-bc-adjust-bill-code-search's diagnosis search is Adjust Bill's ViewBillingDigNewSearch, another page): Create Invoice ▸ WCB ▸ New WCB Form ▸ Search beside ICD9, Body Part and Nature of Injury (support/Icd9, support/BodyPart, support/NatureInjury). The ICD9 lookup lists the codes for the typed text and a pick fills exactly the ICD9 box; the Body Part and Nature of Injury lookups list the owned code and a pick fills exactly that box. The last step verifies all four seeded WorkSafeBC Side choices and real body-part/injury codes for empty and matching-text searches, including leading zeroes (#5062, findings log 444). Each pick fills exactly its intended box.",
       "fixtures": "One billing physician (bc.createBillingPhysician), the owned FAKE patient made a BC patient, and one wcb_bp_code and one wcb_noi_code row carrying the run marker with a non-numeric code no WorkSafeBC code uses. The two code tables are clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup deletes the owned code rows by marker, the patient's BC billing rows and the physician, and asserts each is gone."
     },
     {
@@ -13338,10 +13353,15 @@
       "env": [],
       "mutates": [
         "encounterForm",
-        "provider"
+        "provider",
+        "providerArchive",
+        "providerbillcenter",
+        "property:official_first_name",
+        "property:official_second_name",
+        "property:official_last_name"
       ],
-      "notes": "#4439 D10 and D11 (#4965), the two links into the BC WCB pages that billing-bc-wcb-form does not take: Administration ▸ Select Forms adds BC-WCB (the BC seed ships it off the form list) and the chart's Forms menu offers it; Chart ▸ Forms ▸ BC-WCB opens a new WCB form for the patient; Administration ▸ Billing ▸ Simulate Submission File ▸ Create Report lists the owned WCB claim and its invoice link opens the claim's correction page; Settle Bill there comes back to the page with the claim settled (status S, one history row); last, Select Forms removes BC-WCB and the form list is as found (the shown forms and their order, since Select Forms renumbers the shown forms 1..n, #4952). The BC-WCB step checks #4965 (the seeded form value named viewformwcb.do, HTTP 404; the WCB form page itself needs #4944), and the correction link steps too (the link named the WEB-INF JSP, HTTP 404). #4944 and the release fix #4966 merged on 18 Oct. Notes only, no pin.",
-      "fixtures": "The owned FAKE- patient made a BC patient; one billing physician made in preflight, before login, because the simulation lists the cached active providers (the cache fills at login; the live wrapper starts a fresh Tomcat); one open WCB claim for them (billing, billingmaster and a wcb row for fee item 19937). BC-WCB is shown on the clinic's form list while the check runs, and the physician shows in clinic-wide lists, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup puts every encounterForm display order back and asserts the list as found, deletes the patient's wcb rows and the claim's history, billingmaster and billing rows, and the physician, and asserts each is gone."
+      "notes": "#4439 D10 and D11 (#4965), the two links into the BC WCB pages that billing-bc-wcb-form does not take: Administration ▸ Select Forms adds BC-WCB (the BC seed ships it off the form list) and the chart's Forms menu offers it; Chart ▸ Forms ▸ BC-WCB opens a new WCB form for the patient; Administration ▸ Billing ▸ Simulate Submission File ▸ Create Report lists the owned WCB claim and its invoice link opens the claim's correction page; Settle Bill there comes back to the page with the claim settled (status S, one history row); last, Select Forms removes BC-WCB, the visible menu is unchanged and database positions match the intentional normalized order (Select Forms renumbers the shown forms 1..n, #4945 fixed by #4952); cleanup restores the exact original raw metadata. The BC-WCB step checks #4965 (the seeded form value named viewformwcb.do, HTTP 404; the WCB form page itself needs #4944), and the correction link steps too (the link named the WEB-INF JSP, HTTP 404). #4944 and the release fix #4966 merged on 18 Oct. Notes only, no pin.",
+      "fixtures": "The owned FAKE- BC patient; one billing physician refreshed through the real Admin Update Provider path so cached active-provider lists are current; one open WCB claim (billing, billingmaster and wcb for fee item 19937). It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1) because it temporarily changes the clinic form list and provider directory. Cleanup restores every encounterForm row and raw display order, deletes the owned claim/history and physician, and removes/asserts only that physician's property, providerArchive and providerbillcenter side rows."
     },
     {
       "name": "billing-bc-bill-create-save",
@@ -13637,7 +13657,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned synthetic patient and marker-named custom drugs saved through the UI; cleanup removes the patient's drugs, prescription, partial_date, drugReason and DigitalSignature rows and asserts none remain. No DrugRef data needed.",
-      "notes": "Checks option save/renewal restoration and correct 24-hour noon pickup storage; #4799 is fixed by #4800."
+      "notes": "Checks option save/renewal restoration, that a ReRx renewal starts with the Non-Authoritative tick clear and no Comment while its source keeps both (#5056), and correct 24-hour noon pickup storage; #4799 is fixed by #4800."
     },
     {
       "name": "rx-prescription-lifecycle",
@@ -13758,7 +13778,7 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "notes": "Messenger Reply ▸ Send and Archive (CreateMessage.jsp #sendArchive): the background POST to messenger/DisplayMessages archives exactly the message replied to (btnDelete=archive, its messageNo, taken from the compose page's referrer) and is accepted, then the reply is sent: one reply from the test login, delivered to the sender only. The message replied to is 'del' for the test login only (the other recipient's row is unchanged); the inbox no longer lists it and the archive box (boxType=2) does.",
+      "notes": "Messenger Reply ▸ Send and Archive (CreateMessage.jsp #sendArchive): the background POST to messenger/DisplayMessages archives exactly the message replied to (btnDelete=archive, its messageNo, taken from the validated server-rendered compose identity) and is accepted, then the reply is sent: one reply from the test login, delivered to the sender only. The message replied to is 'del' for the test login only (the other recipient's row is unchanged); the inbox no longer lists it and the archive box (boxType=2) does. The original message identity is carried by a validated encoded compose field rather than the browser referrer. A labeled negative fixture disables only the owned checked recipient control for one native ordinary Send, observes the actual server redisplay with no stored reply or changed source rows, then enables the real recipient and uses native Send & Archive. The retry retains the original message ID, raw fields and attachment key; only the original owned recipient row is archived, and the entire other-recipient row remains exact.",
       "fixtures": "One message seeded by SQL the way a local send writes it (sender messenger contact 1; recipients the test login and contact 2; subject and lines carry the run marker). SKIP when the messenger contacts are not 1 and 2 plus the test login. Cleanup deletes every message whose subject carries the marker, with its delivery and patient-link rows, and asserts they are gone."
     },
     {
@@ -14845,14 +14865,10 @@
         "EPISODE_ACTION": "literal"
       },
       "fixtures": "Owned patient and episodes; temporary provider-specific episode grants restored; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Save ordinary apostrophes in an episode description, then reopen through the chart and require complete description/date controls.",
+      "notes": "Save ordinary apostrophes in an episode description, reopen through the chart with complete description/date controls, then seed an owned stored script payload by SQL and require literal text with no execution. All three steps passed on the installed Ubuntu 26.04 beta1 packages on 2026-10-19 (finding 299).",
       "mutates": [
         "secObjPrivilege"
-      ],
-      "expectedFailure": {
-        "finding": 299,
-        "step": "reopen an episode containing an apostrophe with its complete description and dates"
-      }
+      ]
     },
     {
       "name": "health-care-team-embedded-actions",
@@ -15367,7 +15383,7 @@
         "RX_RENEWAL_FIELD": "authoritative"
       },
       "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
-      "notes": "ReRx an owned medication, set Non Authoritative on the replacement, save and inspect the actual saved record; preserve source and untouched control."
+      "notes": "ReRx an owned medication, set Non Authoritative on the replacement, save and inspect the actual saved record, then ReRx it again and expect the tick clear (a renewal is an original, #5056); preserve source and untouched control."
     },
     {
       "name": "rx-renewal-outside-provider",
@@ -15527,7 +15543,7 @@
         "RX_RENEWAL_FIELD": "comment"
       },
       "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
-      "notes": "ReRx an owned medication, add a new prescribing-event comment, save and inspect the actual saved record; preserve source and untouched control."
+      "notes": "ReRx an owned medication, add a new prescribing-event comment, save and inspect the actual saved record, then ReRx it again and expect an empty Comment (#5056); preserve source and untouched control."
     },
     {
       "name": "rx-renewal-pickup",
@@ -16050,11 +16066,7 @@
         "RX_DISCARD_CALLBACK": "quantity"
       },
       "fixtures": "Owned patient, one persisted untouched control medication and one unsaved custom card. Holds only the target field blur request, removes the card through its X, then releases the request. Uses an exclusive journal window; all owned clinical rows are removed and verified.",
-      "notes": "Verifies real card deletion, no revived draft or changed clinical records, and no server NullPointerException from a callback arriving after deletion. Reproduces finding 312 (#5036) only at the final server-error assertion; earlier UI and clinical-row controls must pass.",
-      "expectedFailure": {
-        "finding": 312,
-        "step": "a discarded draft calculation is handled without a server exception"
-      }
+      "notes": "Verifies real card deletion, no revived draft or changed clinical records, and no server NullPointerException from a callback arriving after deletion. Regression coverage for fixed finding 312 (#5036); the beta1 Ubuntu 26.04 promotion revalidation passed the actual delayed callback and all clinical-row and server-log assertions."
     },
     {
       "name": "rx-instructions-delete-race",
@@ -16075,11 +16087,7 @@
         "RX_DISCARD_CALLBACK": "instructions"
       },
       "fixtures": "Owned patient, one persisted untouched control medication and one unsaved custom card. Holds only the target field blur request, removes the card through its X, then releases the request. Uses an exclusive journal window; all owned clinical rows are removed and verified.",
-      "notes": "Verifies real card deletion, no revived draft or changed clinical records, and no server NullPointerException from a callback arriving after deletion. Reproduces finding 312 (#5036) only at the final server-error assertion; earlier UI and clinical-row controls must pass.",
-      "expectedFailure": {
-        "finding": 312,
-        "step": "a discarded draft calculation is handled without a server exception"
-      }
+      "notes": "Verifies real card deletion, no revived draft or changed clinical records, and no server NullPointerException from a callback arriving after deletion. Regression coverage for fixed finding 312 (#5036); the beta1 Ubuntu 26.04 promotion revalidation passed the actual delayed callback and all clinical-row and server-log assertions."
     },
     {
       "name": "lab-file-for-others",
@@ -16281,6 +16289,38 @@
       "notes": "Issue #3585: reprint audit writes require global and patient-scoped write; rejects GET/HEAD and tokenless POST, with browser reprint and persisted audit assertions."
     },
     {
+      "name": "pathnet-patient-link",
+      "script": "scripts/pathnet-patient-link-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "manual": true,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "mutates": [
+        "log",
+        "demographic",
+        "hl7_message",
+        "hl7_msh",
+        "hl7_pid",
+        "hl7_orc",
+        "hl7_obr",
+        "hl7_obx",
+        "hl7_link",
+        "patientLabRouting",
+        "providerLabRouting",
+        "providerLabRoutingLock",
+        "fileUploadCheck"
+      ],
+      "fixtures": "Disposable BC package install with OLD_LAB_UPLOAD=yes and PATHNET_LABS=yes; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Uses owned FAKE patients and removes their segment, link, routing and upload rows."
+    },
+    {
       "name": "rx-strength-quantity",
       "script": "scripts/rx-strength-quantity-playwright-checks.js",
       "tiers": [
@@ -16295,6 +16335,40 @@
       "env": [],
       "fixtures": "Owned synthetic patient and custom prescription; cleanup after browser closes; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "Issue #3876: strength values default to one unit per dose; explicit counts, volumes and per-dose amounts (also before the frequency) take precedence; a concentration alone calculates nothing and leaves the card quantity as it was; fractions round once at the final division. The quantity update after a 1000-unit dose derives the duration; a spaced range, written daily counts, the n/7 shorthand, a trailing ', take with food', a second day word before the duration and a 'then' taper are read; 'grams' and 'international units' are classified like 'g' and 'IU', and a method word after a product name opens the dose; a parenthesised product count and a date after the frequency are read correctly, an amount of time before the dose is skipped for the dose written after it, and a taper segment inherits the first segment's method. AJAX, card quantity and saved drugs row are asserted."
+    },
+    {
+      "name": "chart-message-followups",
+      "script": "scripts/chart-message-followups-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [],
+      "fixtures": "Owned FAKE patient, orphan appointment, CPP/eChart rows and two messages; cleanup removes only owned rows and verifies their removal.",
+      "notes": "Exercises the legacy chart owner and tab navigation, history/reminder POST saves without losing other fields, independent inbox searches and sorting across windows, orphan appointment rendering, and denial of saved attachments to an unrelated provider. Shared-chart mutations and mixed-selection unlink are refused without partial changes; native Inbox controls preserve remote recipient rows."
+    },
+    {
+      "name": "chart-context-request-guards",
+      "script": "scripts/chart-context-request-guards-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "mutates": [
+        "casemgmt_tmpsave"
+      ],
+      "fixtures": "Three owned synthetic patients, saved notes and an issue link, chart drafts and lock rows; owned roles/logins for registry and issue-write refusals; transient triggers scoped to the exact owned draft and issue deletion force real rollback and are removed and verified. The issue trigger fires after its exact row is deleted and only when the new owned note revision exists inside the transaction. Requires CREATE/DROP TRIGGER in the disposable database; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Signed context forgery, cross-patient and cross-login replay, conflicting parameters, foreign note edit/history/draft references and GET autosave refusal preserve complete clinical rows; registry module and record locks refuse with 403. Issue-only write access cannot partially delete an issue attached to a saved note. A database failure after issue deletion preserves every clinical row, the persisted draft and exact editor lock; the same editor retries successfully and removes only its superseded draft. Actual autosave database failure preserves the prior draft, reports failure visibly and recovers on retry, including network failures, cleared text and the legacy editor. A real 45-second native XHR timeout releases the save guard and allows retry. HTTP 200 login HTML cannot acknowledge a saved draft in either editor; the implicit existing-note legacy editor submits its actual selected ID. A real lost-lock autosave causes HTTP 409: Cancel retains raw editor text and the last acknowledged draft; native reload acquires a fresh owned lock, and retry autosaves the retained raw text. Passive browser protocol observations associate at most one canceled old-document release beacon with its exact request and later application response, preserving every unrelated diagnostic."
     }
   ]
 }

@@ -90,18 +90,37 @@ public class QuickBillingBCFormBean implements Serializable {
         }
     }
 
+    /** A second Submit must not process invoices already being written by the first request. */
+    private transient boolean savingBills;
+
     /**
-     * Takes the bills added so far and leaves an empty list in their place, in one step, so a second
-     * Submit of the same page (a double click) finds nothing left to save.
-     *
-     * @return the bills to save, never {@code null}
-     * @since 2026-10-16
+     * Reserves a snapshot for one save request, retaining the queued invoices until they commit.
+     * A concurrent Submit gets {@code null}; it must not clear the first request's queue or header.
      */
-    public ArrayList<BillingSessionBean> takeBillingData() {
+    public ArrayList<BillingSessionBean> beginBillingSave() {
         synchronized (billsLock) {
-            ArrayList<BillingSessionBean> taken = billingData == null ? new ArrayList<BillingSessionBean>() : billingData;
-            billingData = new ArrayList<BillingSessionBean>();
-            return taken;
+            if (savingBills) {
+                return null;
+            }
+            savingBills = true;
+            return getBillingData();
+        }
+    }
+
+    /** Removes only committed invoices; failed and newly added invoices remain available to retry. */
+    public void finishBillingSave(List<BillingSessionBean> saved) {
+        synchronized (billsLock) {
+            if (billingData != null) {
+                billingData.removeAll(saved);
+            }
+            savingBills = false;
+            if (billingData == null || billingData.isEmpty()) {
+                isHeaderSet = false;
+                billingProvider = "";
+                billingProviderNo = "";
+                serviceDate = "";
+                visitLocation = "";
+            }
         }
     }
 
@@ -131,7 +150,7 @@ public class QuickBillingBCFormBean implements Serializable {
      */
     public boolean removeBill(int index) {
         synchronized (billsLock) {
-            if (billingData == null || index < 0 || index >= billingData.size()) {
+            if (savingBills || billingData == null || index < 0 || index >= billingData.size()) {
                 return false;
             }
             billingData.remove(index);
@@ -260,7 +279,7 @@ public class QuickBillingBCFormBean implements Serializable {
     /**
      * The bills added so far, for showing them: a copy taken under the bill list's lock, so the page can
      * go through it while another request of the same session adds or removes a bill. Changes go
-     * through {@link #addBill}, {@link #removeBill} and {@link #takeBillingData}.
+     * through {@link #addBill}, {@link #removeBill} and {@link #beginBillingSave} and {@link #finishBillingSave}.
      *
      * @return a copy of the bill list, never {@code null}
      */

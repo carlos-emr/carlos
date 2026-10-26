@@ -11,8 +11,37 @@ function createConsultationSubmitFixture(sql, demographic, tempRoot) {
   const marker = `PW_CONSULT_${crypto.randomUUID().replaceAll('-', '')}`;
   const reasons = new Set();
   const files = new Map();
-  const root = tempRoot ? fs.realpathSync(tempRoot) : null;
-  const snapshot = root ? new Set(fs.readdirSync(root)) : new Set();
+  let root = null;
+  let initiallyAbsent = false;
+  let expectedOwner;
+  if (tempRoot) {
+    assert(path.isAbsolute(tempRoot), 'Application temp root must be absolute');
+    root = path.resolve(tempRoot);
+    const parent = path.dirname(root);
+    assert(fs.realpathSync(parent) === parent && fs.lstatSync(parent).isDirectory(),
+      'Application temp parent must be an existing real directory');
+    expectedOwner = fs.lstatSync(parent).uid;
+    try {
+      const entry = fs.lstatSync(root);
+      assert(entry.isDirectory() && !entry.isSymbolicLink() && fs.realpathSync(root) === root,
+        'Application temp root must be a real directory');
+      expectedOwner = entry.uid;
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      assert(path.basename(root) === 'carlos-temp', 'Only the exact application temp tail may be absent');
+      initiallyAbsent = true;
+    }
+  }
+  function verifyTempRoot() {
+    const entry = fs.lstatSync(root);
+    assert(entry.isDirectory() && !entry.isSymbolicLink() && fs.realpathSync(root) === root,
+      'Application temp root changed or became a symbolic link');
+    assert(entry.uid === expectedOwner, 'Application temp root owner changed');
+    if (initiallyAbsent) assert((entry.mode & 0o7777) === 0o700,
+      'Native application temp root must be private0700');
+    return entry;
+  }
+  const snapshot = root && !initiallyAbsent ? new Set(fs.readdirSync(root)) : new Set();
   const requestScope = () => `demographicNo=${demographic} AND reason IN (${[...reasons].map(sqlString).join(',')})`;
   return {
     reason(scenario) {
@@ -29,7 +58,9 @@ function createConsultationSubmitFixture(sql, demographic, tempRoot) {
     },
     capturePdf(bytes) {
       if (!root) return;
+      const rootEntry = verifyTempRoot();
       const expected = crypto.createHash('sha256').update(bytes).digest('hex');
+      let matched = false;
       for (const entry of fs.readdirSync(root, {withFileTypes: true})) {
         if (!entry.isDirectory() || !/^tempPDF\d+$/.test(entry.name) || snapshot.has(entry.name)) continue;
         const directory = path.join(root, entry.name);
@@ -37,11 +68,17 @@ function createConsultationSubmitFixture(sql, demographic, tempRoot) {
           const preview = /^combinedPDF_([1-9]\d*)_\d+\.pdf$/.exec(file.name);
           if (!file.isFile() || !preview || preview[1] !== String(demographic)) continue;
           const filename = path.join(directory, file.name);
+          const stat = fs.lstatSync(filename);
+          assert(stat.isFile() && !stat.isSymbolicLink() && stat.uid === rootEntry.uid,
+            'Generated consultation preview file has an unexpected owner or type');
           const actual = crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
-          if (actual === expected) files.set(filename, {hash: actual, inode: fs.lstatSync(filename).ino});
+          if (actual === expected) {
+            files.set(filename, {hash: actual, inode: stat.ino, uid: stat.uid});
+            matched = true;
+          }
         }
       }
-      assert(files.size > 0, 'Generated consultation preview file was not found for owned cleanup');
+      assert(matched, 'Generated consultation preview file was not found for owned cleanup');
     },
     cleanup() {
       const failures = [];
@@ -72,8 +109,9 @@ function createConsultationSubmitFixture(sql, demographic, tempRoot) {
       } catch (error) { failures.push(error); }
       for (const [filename, expected] of files) {
         try {
+          verifyTempRoot();
           const stat = fs.lstatSync(filename);
-          assert(stat.isFile() && stat.ino === expected.inode
+          assert(stat.isFile() && !stat.isSymbolicLink() && stat.uid === expected.uid && stat.ino === expected.inode
             && crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex') === expected.hash,
           'Owned preview file changed; refusing to remove it');
           fs.unlinkSync(filename);

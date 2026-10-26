@@ -74,7 +74,7 @@
 
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 const h = require('./lib/playwright-harness');
 const fs = require('fs');
 const os = require('os');
@@ -231,14 +231,45 @@ async function runStep(cancellation, label, body) {
  * (CARLOS_LOG_JOURNAL_UNIT). The first line of a logged error names the logger, so a stack trace's
  * continuation lines are not counted twice.
  */
-function journalActionErrors(unit, since) {
+function journalActionErrors(unit, since, { run = spawnSync } = {}) {
   assert(/^[A-Za-z0-9][A-Za-z0-9_.@-]*\.service$/.test(unit), 'CARLOS_LOG_JOURNAL_UNIT must name one systemd .service unit');
+  assert(since && typeof since.getTime === 'function' && Number.isFinite(since.getTime()),
+    'The server journal window must start at a valid date');
   const stamp = since.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
-  const journal = execFileSync('journalctl', ['-u', unit, '--since', stamp, '--no-pager', '-o', 'cat'],
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 30000 });
-  assert(journal.trim() !== '' && !/^-- No entries --/.test(journal.trim()),
-    'the server journal holds nothing in this run\'s window, so it cannot show the action logged no error');
-  return journal.split('\n').filter((line) => /\bERROR\b/.test(line) && line.includes('RxAddAllergy2Action')).length;
+  function read(extra, allowNoEntries = false) {
+    let result;
+    try {
+      result = run('journalctl', ['-u', unit, '--no-pager', '--all', '-o', 'json', ...extra],
+        { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (_) {
+      throw new Error('Could not read the actual server journal');
+    }
+    // A permission warning can accompany exit zero and only public entries.
+    // Never certify that partial view, and never echo patient-linked messages.
+    assert(result && result.status === 0 && !result.error && !result.signal
+      && typeof result.stdout === 'string' && !String(result.stderr || '').trim(),
+    'Could not read the actual server journal without access errors');
+    if (allowNoEntries && result.stdout.trim() === '-- No entries --') return [];
+    const entries = [];
+    for (const line of result.stdout.split('\n').filter((value) => value.trim())) {
+      let entry;
+      try { entry = JSON.parse(line); } catch (_) {
+        throw new Error('The server journal returned invalid structured evidence');
+      }
+      assert(entry && typeof entry === 'object' && typeof entry.__CURSOR === 'string' && entry.__CURSOR.trim()
+        && typeof entry.MESSAGE === 'string' && entry.MESSAGE.trim()
+        && [entry._SYSTEMD_UNIT, entry.UNIT, entry.OBJECT_SYSTEMD_UNIT].includes(unit),
+      'The server journal returned evidence outside the requested unit');
+      entries.push(entry);
+    }
+    return entries;
+  }
+  // An empty interval is a legitimate result for a quiet action. First prove
+  // the actual unit has a readable entry, so a missing/inaccessible journal
+  // cannot masquerade as a clean empty interval.
+  assert(read(['-n', '1']).length > 0, 'The actual server unit has no readable journal history');
+  return read(['--since', stamp], true).filter(({ MESSAGE }) => /\bERROR\b/.test(MESSAGE)
+    && MESSAGE.includes('RxAddAllergy2Action')).length;
 }
 
 function waitForListReload(page) {
@@ -453,7 +484,7 @@ async function main({ cancellation }) {
     // 6. The class code and no DIN, on the added allergy and on its amendment, and no logged error (finding 178).
     // Everything that can fail for a reason other than the defect is read first, in a step of its own: the rows
     // (read again here, after the amend archived the original, so the check judges what is stored rather than what
-    // the earlier stages saw) and this run's window of the server journal (an unreadable or empty journal throws).
+    // the earlier stages saw) and this run's window of the server journal (unreadable or missing history throws).
     // A failure there is reported as a failure elsewhere, never as the known one.
     const journalUnit = (process.env.CARLOS_LOG_JOURNAL_UNIT || '').trim();
     const observed = { rows: [], loggedErrors: null };

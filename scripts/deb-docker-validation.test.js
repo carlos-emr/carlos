@@ -183,6 +183,53 @@ test('should refuse a reset password that quoting could not carry into the conta
   assert.equal(run(['print-preseed'], { ...box.env, RESET_PASSWORD: 'Carlos2026!Verify' }).status, 0);
 });
 
+test('should preserve literal HOME_DIR through the container shell and generated environment', t => {
+  const box = sandbox(t);
+  const directory = path.join(box.dir, "clinic space $HOME `touch injected` $(touch injected2) 'single'");
+  fs.mkdirSync(directory);
+  const properties = path.join(box.dir, 'carlos.properties');
+  fs.writeFileSync(properties, `HOME_DIR=${directory}\n`);
+  const buildProperties = path.join(box.dir, 'carlos-build.properties');
+  fs.writeFileSync(buildProperties, 'build.version=test\nbuild.job=validation\nbuild.number=1\n');
+  const initialAdmin = path.join(box.dir, 'initial-admin.txt');
+  fs.writeFileSync(initialAdmin, 'user: fixture\nPIN: 1234\n');
+  const environment = path.join(box.dir, 'suite-env.sh');
+  const childRunner = path.join(box.dir, 'container-shell.js');
+  fs.writeFileSync(childRunner, `
+    const { spawnSync } = require('node:child_process');
+    let command = process.env.CONTAINER_COMMAND;
+    command = command.replaceAll('node scripts/packaged-home-dir.js', 'node ' + process.env.TEST_HOME_SCRIPT + ' ' + process.env.TEST_PROPERTIES);
+    command = command.replaceAll('node /root/carlos/scripts/packaged-home-dir.js', 'node ' + process.env.TEST_HOME_SCRIPT + ' ' + process.env.TEST_PROPERTIES);
+    command = command.replaceAll('/root/suite-env.sh', process.env.TEST_SUITE_ENV);
+    command = command.replaceAll('/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties', process.env.TEST_BUILD_PROPERTIES);
+    command = command.replaceAll('/etc/carlos-emr/initial-admin.txt', process.env.TEST_INITIAL_ADMIN);
+    command = command.replaceAll('/root/carlos', process.env.TEST_REPO);
+    command = command.replaceAll('/tmp/carlos-shots', process.env.TEST_TEMP + '/shots');
+    command = command.replaceAll('/tmp/carlos-artifacts', process.env.TEST_TEMP + '/artifacts');
+    const result = spawnSync('bash', ['-c', command], { cwd: process.env.TEST_TEMP, env: process.env, encoding: 'utf8' });
+    process.stdout.write(result.stdout || ''); process.stderr.write(result.stderr || ''); process.exit(result.status ?? 1);
+  `);
+  const source = fs.readFileSync(SCRIPT, 'utf8');
+  const functionSource = source.slice(source.indexOf('\nwrite_suite_env() {'), source.indexOf('\ncmd_suite() {'));
+  assert.match(functionSource, /^\nwrite_suite_env\(\) \{/);
+  const result = spawnSync('bash', ['-c', `set -euo pipefail
+    suite_province() { printf BC; }
+    in_container() { CONTAINER_COMMAND="$1" node "$TEST_CHILD_RUNNER"; }
+    ${functionSource}
+    write_suite_env
+  `], { encoding: 'utf8', cwd: box.dir, env: { ...box.env, RESET_PASSWORD: 'FixturePassword',
+    TEST_CHILD_RUNNER: childRunner, TEST_TEMP: box.dir, TEST_HOME_SCRIPT: path.join(__dirname, 'packaged-home-dir.js'),
+    TEST_PROPERTIES: properties, TEST_SUITE_ENV: environment, TEST_BUILD_PROPERTIES: buildProperties,
+    TEST_INITIAL_ADMIN: initialAdmin, TEST_REPO: path.resolve(__dirname, '..') } });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const sourced = spawnSync('bash', ['-c', 'mariadb() { printf fixturehash; }; . "$1"; printf %s "$HOME_DIR"', 'source-env', environment],
+    { encoding: 'utf8', cwd: box.dir });
+  assert.equal(sourced.status, 0, sourced.stderr);
+  assert.equal(sourced.stdout, directory);
+  assert.equal(fs.existsSync(path.join(box.dir, 'injected')), false, 'backtick command ran');
+  assert.equal(fs.existsSync(path.join(box.dir, 'injected2')), false, 'dollar command substitution ran');
+});
+
 test('should refuse an unknown profile, and every profile without CARLOS_DISPOSABLE_HOST=true, before calling docker', (t) => {
   const box = sandbox(t);
   const unknown = run(['profile', 'nonesuch'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' });

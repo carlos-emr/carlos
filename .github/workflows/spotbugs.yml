@@ -153,6 +153,13 @@ jobs:
           fi
           python3 scripts/ci/spotbugs-xml-to-sarif.py
 
+      # Diagnostics only: retain the existing analyzer and upload outcomes.
+      # Print only rule/severity/location metadata from the already-generated report.
+      - name: Summarize security finding locations
+        if: always() && hashFiles('spotbugs-security-report.sarif') != ''
+        continue-on-error: true
+        run: python3 scripts/summarize_security_locations.py spotbugs-security-report.sarif
+
       - name: Upload security SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84
         if: >

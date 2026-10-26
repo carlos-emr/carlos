@@ -92,6 +92,8 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("userrole", "doctor");
         request.getSession().setAttribute("user", "999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(org.mockito.ArgumentMatchers.eq(loggedInInfo),
+                org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
 
         response = new MockHttpServletResponse();
 

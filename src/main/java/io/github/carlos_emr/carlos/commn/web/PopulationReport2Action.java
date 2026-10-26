@@ -97,18 +97,25 @@ public class PopulationReport2Action extends ActionSupport {
         // simple caching mechanism (because this report is open to the public and we don't want the public smacking our server around)
         Figures figures = CACHED_FIGURES.get();
         if (figures == null || System.currentTimeMillis() - figures.retrievedAt() > DateUtils.MILLIS_PER_HOUR) {
-            // Arguments are evaluated left to right: the cache time is taken after every figure,
-            // and a failing figure leaves nothing published.
-            figures = new Figures(Calendar.getInstance().getTime(),
-                    populationReportManager.getShelterPopulation(),
-                    populationReportManager.getShelterUsage(),
-                    populationReportManager.getMortalities(),
-                    populationReportManager.getMajorMedicalConditions(),
-                    populationReportManager.getMajorMentalIllnesses(),
-                    populationReportManager.getSeriousMedicalConditions(),
-                    populationReportManager.getCategoryCodeDescriptions(),
-                    System.currentTimeMillis());
-            CACHED_FIGURES.set(figures);
+            // Keep one refresh in flight. Atomic publication alone lets every concurrent cache
+            // miss run all of the report's expensive queries before any result has been cached.
+            synchronized (CACHED_FIGURES) {
+                figures = CACHED_FIGURES.get();
+                if (figures == null || System.currentTimeMillis() - figures.retrievedAt() > DateUtils.MILLIS_PER_HOUR) {
+                    // Arguments are evaluated left to right: the cache time is taken after every
+                    // figure, and a failing figure leaves nothing published.
+                    figures = new Figures(Calendar.getInstance().getTime(),
+                            populationReportManager.getShelterPopulation(),
+                            populationReportManager.getShelterUsage(),
+                            populationReportManager.getMortalities(),
+                            populationReportManager.getMajorMedicalConditions(),
+                            populationReportManager.getMajorMentalIllnesses(),
+                            populationReportManager.getSeriousMedicalConditions(),
+                            populationReportManager.getCategoryCodeDescriptions(),
+                            System.currentTimeMillis());
+                    CACHED_FIGURES.set(figures);
+                }
+            }
         }
 
         // set attributes

@@ -664,19 +664,41 @@ def audit_rules(audit, errors, token):
     rules = set()
     transactions = []
     decoder = json.JSONDecoder()
-    remaining = audit.strip()
-    while remaining:
-        try:
-            document, end = decoder.raw_decode(remaining)
-        except ValueError:
-            break  # A writer may not yet have finished its last transaction.
-        remaining = remaining[end:].lstrip()
-        tx = document.get("transaction", {})
-        headers = tx.get("request", {}).get("headers", {})
-        identified = tx.get("unique_id") == token or any(k.lower() == HEADER.lower() and v == token for k, v in headers.items())
-        if identified:
-            transactions.append(tx)
-            rules.update(str(m.get("details", {}).get("ruleId")) for m in tx.get("messages", []) if m.get("details", {}).get("ruleId"))
+    # ModSecurity's serial JSON audit log writes one transaction per line. A
+    # previous transaction may still be flushing when run_case snapshots its
+    # byte offset: the next read then begins in that record, sometimes at a
+    # quoted field that raw_decode accepts as a standalone string. Discard an
+    # incomplete/malformed line, not all later complete records. Every poll
+    # rereads from the same offset, so an unfinished final record is retried.
+    # Keep support for concatenated complete documents on a single line too.
+    for line in audit.splitlines():
+        remaining = line.strip()
+        while remaining:
+            try:
+                document, end = decoder.raw_decode(remaining)
+            except ValueError:
+                break
+            remaining = remaining[end:].lstrip()
+            if not isinstance(document, dict):
+                continue
+            tx = document.get("transaction")
+            if not isinstance(tx, dict):
+                continue
+            request = tx.get("request", {})
+            headers = request.get("headers", {}) if isinstance(request, dict) else {}
+            identified = tx.get("unique_id") == token or (
+                isinstance(headers, dict) and any(
+                    isinstance(k, str) and k.lower() == HEADER.lower() and v == token
+                    for k, v in headers.items()))
+            if identified:
+                transactions.append(tx)
+                messages = tx.get("messages", [])
+                if isinstance(messages, list):
+                    for message in messages:
+                        details = message.get("details", {}) if isinstance(message, dict) else {}
+                        rule = details.get("ruleId") if isinstance(details, dict) else None
+                        if rule is not None and str(rule).isdigit():
+                            rules.add(str(rule))
     # Some connectors lose the audit response during phase-4 interruption.
     # Their error log is useful only with this exact transaction id.
     correlated = "\n".join(line for line in errors.splitlines() if f'[unique_id "{token}"]' in line)
@@ -978,6 +1000,51 @@ class MechanicsTests(unittest.TestCase):
         errors = '[id "949110"] [unique_id "old"]\n[id "959100"] [unique_id "current"]'
         rules, transactions, _ = audit_rules(audit, errors, "current")
         self.assertEqual(rules, {"941100", "959100"})
+        self.assertEqual(len(transactions), 1)
+
+    def test_audit_offset_inside_previous_record_does_not_hide_current_transaction(self):
+        old = json.dumps({"transaction": {"unique_id": "old", "messages": [
+            {"details": {"ruleId": "931100"}}], "request": {"headers": {HEADER: "old"}}}})
+        current = json.dumps({"transaction": {"unique_id": "current", "messages": [
+            {"details": {"ruleId": "941100"}}]}})
+        for offset in range(len(old) + 1):
+            with self.subTest(offset=offset):
+                rules, transactions, _ = audit_rules(old[offset:] + "\n" + current + "\n", "", "current")
+                self.assertEqual(rules, {"941100"})
+                self.assertEqual([tx["unique_id"] for tx in transactions], ["current"])
+
+    def test_partial_audit_tail_is_retried_without_borrowing_unrelated_rules(self):
+        current = json.dumps({"transaction": {"unique_id": "current", "messages": [
+            {"details": {"ruleId": "941100"}}]}})
+        for end in range(1, len(current)):
+            with self.subTest(end=end):
+                self.assertEqual(audit_rules(current[:end], '[id "949110"] [unique_id "old"]', "current")[:2],
+                                 (set(), []))
+        rules, transactions, _ = audit_rules(current + "\n", "", "current")
+        self.assertEqual(rules, {"941100"})
+        self.assertEqual(len(transactions), 1)
+
+    def test_nonobject_and_malformed_audit_envelopes_cannot_supply_rule_evidence(self):
+        malformed = ["field", None, 42, [], {"transaction": "current"},
+                     {"transaction": {"request": "current", "messages": [{"details": {"ruleId": "931100"}}]}},
+                     {"transaction": {"request": {"headers": [HEADER, "current"]},
+                                      "messages": [{"details": {"ruleId": "931100"}}]}}]
+        audit = "\n".join(json.dumps(document) for document in malformed)
+        rules, transactions, _ = audit_rules(audit, '[id "949110"] [unique_id "current-other"]', "current")
+        self.assertEqual(rules, set())
+        self.assertEqual(transactions, [])
+        # Invalid message shapes on a correlated record must not crash or turn
+        # arbitrary values into signature ids that could make a denial pass.
+        for messages in ("931100", [{"details": "931100"}], ["931100"], [{"details": {"ruleId": {"id": "931100"}}}]):
+            with self.subTest(messages=messages):
+                malformed_tx = json.dumps({"transaction": {"unique_id": "current", "messages": messages}})
+                self.assertEqual(audit_rules(malformed_tx, "", "current")[0], set())
+
+    def test_concatenated_audit_documents_keep_exact_transaction_correlation(self):
+        documents = [json.dumps({"transaction": {"unique_id": token, "messages": [
+            {"details": {"ruleId": rule}}]}}) for token, rule in (("old", "931100"), ("current", "941100"))]
+        rules, transactions, _ = audit_rules("".join(documents), "", "current")
+        self.assertEqual(rules, {"941100"})
         self.assertEqual(len(transactions), 1)
 
     def test_false_block_and_unrelated_signature_cannot_pass(self):

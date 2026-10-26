@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.form.FrmRecordHelp;
@@ -145,6 +146,12 @@ public class FrmForm2Action extends ActionSupport {
     public String execute()
             throws ServletException, IOException {
 
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         final String demographicNo;
         final String formId;
@@ -158,9 +165,7 @@ public class FrmForm2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", demographicNo)) {
             throw new SecurityException("missing required sec object (_form)");
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
-        }
+        PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_demographic", "w");
 
         boolean valid = true;
         logger.debug("FrmForm2Action is called " + currentMem());

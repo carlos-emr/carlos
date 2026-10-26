@@ -28,7 +28,8 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors,
+  createRecorder, wireStrictPage, assertStrictPage, buildFailureDetails } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -54,6 +55,7 @@ const editedMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} edited through e
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
+const strictRecorder = createRecorder();
 // Set before the tickler is created; until then the run owns no rows to clean. Note
 // links at or below it predate the run and are never deleted (#4409).
 let linkIdFloor = null;
@@ -181,10 +183,7 @@ function getCommentRows(ticklerNo) {
 }
 
 function wirePage(page, label) {
-  page.on('dialog', async (dialog) => {
-    consoleIssues.push({ label, type: 'dialog', text: dialog.message() });
-    await dialog.accept();
-  });
+  wireStrictPage(page, label, strictRecorder, { baseline: [] });
   page.on('response', (response) => {
     const status = response.status();
     const responseUrl = response.url();
@@ -495,6 +494,7 @@ const signalHandlers = installCleanupSignalHandlers(() => {
 
   const browser = await chromium.launch(launchOptions);
   const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  context.on('page', page => wireStrictPage(page, 'tickler-crud', strictRecorder, { baseline: [] }));
   try {
     const schedulePage = await context.newPage();
     wirePage(schedulePage, 'login-schedule');
@@ -528,6 +528,7 @@ const signalHandlers = installCleanupSignalHandlers(() => {
 
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
+    assertStrictPage(strictRecorder);
 
     console.log(`PASS tickler CRUD interface flow for tickler ${ticklerNo}`);
   } finally {
@@ -538,9 +539,11 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     // Last, so a signal arriving during cleanup still reaches the handler.
     signalHandlers.dispose();
   }
+  assertStrictPage(strictRecorder);
 })().catch((error) => {
   signalHandlers.dispose();
   cleanupMysqlDefaultsFile();
   console.error(`FAIL tickler CRUD interface flow: ${error.stack || error.message}`);
+  console.error(JSON.stringify(buildFailureDetails(strictRecorder), null, 2));
   process.exit(1);
 });

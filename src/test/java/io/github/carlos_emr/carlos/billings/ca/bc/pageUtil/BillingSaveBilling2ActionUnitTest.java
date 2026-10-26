@@ -553,11 +553,11 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    // "Save and Print Receipt" is the button's value; the old "Save & Print Receipt" is still honoured for a review
+    // The machine action and both historical display labels are honoured for a review
     // page rendered before the change (the packaged WAF refuses that value with rule 932115, so only a direct
     // Tomcat request can still send it).
     @ParameterizedTest
-    @ValueSource(strings = {"Save and Print Receipt", "Save & Print Receipt"})
+    @ValueSource(strings = {"saveAndPrintReceipt", "Save and Print Receipt", "Save & Print Receipt"})
     @DisplayName("should save bill update appointment and redirect receipt when session is valid")
     void shouldSaveBillUpdateAppointmentAndRedirectReceipt_whenSessionIsValid(String submit) throws Exception {
         request.setMethod("POST");

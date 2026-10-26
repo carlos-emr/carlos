@@ -84,6 +84,13 @@ timeout 30m flyway -url="$JDBC" -user=root \
 timeout 10m flyway -url="$JDBC" -user=root \
   -locations="filesystem:migration/common,filesystem:migration/${PROV}" validate
 
+# History validation cannot detect physical index/collation drift.
+python3 ../../scripts/schema-contract.py --check \
+  --database "carlos_${PROV}" --province "$PROV" \
+  --client-arg=-h --client-arg=127.0.0.1 --client-arg=-uroot
+MYSQL_HOST=127.0.0.1 MYSQL_USER=root SCHEMA_POLICY_REFERENCE="carlos_${PROV}" \
+  python3 ../../scripts/test-schema-policy-mariadb.py
+
 # Every expected migration must actually have applied — catches a silently-empty or
 # missing province location, which migrate+validate alone would not flag. Derive the
 # expected version list from the shipped migration files (common + this province) so a

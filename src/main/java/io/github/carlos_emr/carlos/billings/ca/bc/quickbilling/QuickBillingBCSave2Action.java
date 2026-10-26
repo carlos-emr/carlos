@@ -94,13 +94,13 @@ public class QuickBillingBCSave2Action extends ActionSupport {
 
         if (quickBillingHandler.saveBills()) {
 
-            quickBillingHandler.reset();
             request.setAttribute("saved", quickBillingHandler.getNumberSaved());
             return "saved";
 
         } else {
 
-            request.setAttribute("saved", Boolean.valueOf(false));
+            request.setAttribute("saved", Boolean.FALSE);
+            request.setAttribute("saveFailed", Boolean.TRUE);
             return "error";
 
         }

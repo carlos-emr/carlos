@@ -66,6 +66,11 @@ public class EctImmCreateImmunizationSetConfig2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "w", null)) {
             throw new SecurityException("missing required sec object (_prevention)");

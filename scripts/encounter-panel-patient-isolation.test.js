@@ -29,7 +29,7 @@ function harness(kind, patient, appointment) {
   const reloadField = {value: 'forms'};
   const editor = {value: 'Own draft', scrollHeight: 80, dispatchEvent(event) { events.push(event.type); }};
   const context = {
-    URL, Event, ctx: '/carlos', location: new URL(`https://fixture.invalid/carlos/encounter?demographicNo=${patient}`),
+    URL, Event, ctx: '/carlos', chartContext: '', location: new URL(`https://fixture.invalid/carlos/encounter?demographicNo=${patient}`),
     // Legacy windows must use encounterConfig even when obsolete globals describe another chart.
     demographicNo: kind === 'legacy' ? '999' : patient,
     appointmentNo: kind === 'legacy' ? '999' : appointment,
@@ -111,6 +111,61 @@ test('legacy popLeftColumn sends its own patient and appointment and renders onl
   assert.deepEqual(a.panels.measurements.children, []);
   assert.deepEqual(b.panels.measurements.children, []);
   assert.equal(a.panels.forms.html, 'previous content');
+});
+
+test('legacy same-patient windows retain independent chart programs through module refreshes', () => {
+  const a = harness('legacy', '101', '41');
+  const b = harness('legacy', '101', '41');
+  a.context.encounterConfig.chartContext = 'patient101.program11.signature';
+  b.context.encounterConfig.chartContext = 'patient101.program22.signature';
+  for (const fixture of [a, b]) {
+    fixture.context.loadDiv('forms', '/carlos/encounter/displayForms', 0);
+    fixture.context.popLeftColumn('/carlos/encounter/displayMeasurements', 'measurements', 'measurements');
+    for (const request of fixture.requests) {
+      assertIdentity(request, '101', '41');
+      assert.equal(new URL(request.url, 'https://fixture.invalid').searchParams.get('chartContext'), fixture.context.encounterConfig.chartContext);
+    }
+  }
+});
+
+test('legacy print and Rx popups retain context without leaking it to other patients or origins', () => {
+  const f = harness('legacy', '101', '41');
+  f.context.encounterConfig.chartContext = 'own.program.signature';
+  const opened = [];
+  f.context.open = (url, name) => {
+    opened.push({ url, name });
+    return { opener: {}, focus() {} };
+  };
+  f.context.popupPage(700, 960, 'print', '/carlos/encounter/ViewEncounterPrint?demographicNo=101&echartid=12');
+  assert.equal(new URL(opened[0].url, 'https://fixture.invalid').searchParams.get('chartContext'), 'own.program.signature');
+  assert.equal(new URL(opened[0].url, 'https://fixture.invalid').searchParams.get('echartid'), '12');
+  f.context.popupStart(700, 960, '/carlos/rx/choosePatient?demographicNo=101');
+  assert.equal(new URL(opened[1].url, 'https://fixture.invalid').searchParams.get('chartContext'), 'own.program.signature');
+  for (const url of ['https://other.invalid/carlos/rx/choosePatient?demographicNo=101',
+    '/carlos/rx/choosePatient?demographicNo=202', '/carlos/provider/appointmentprovideradminday.jsp']) {
+    assert.equal(f.context.legacyChartUrl(url), url);
+  }
+});
+
+test('legacy navbar POST preserves relative reloadURL with its chart context', () => {
+  const f = harness('legacy', '101', '41');
+  f.context.encounterConfig.chartContext = 'own.program.signature';
+  const node = f.context.document.getElementById;
+  f.context.document.getElementById = id => id === 'leftNavbar' ? {offsetHeight: 140} : node(id);
+  const loader = new f.context.navBarLoader();
+  const url = '/carlos/encounter/displayForms?hC=917611';
+
+  loader.popColumn(url, 'forms', 'forms', 'leftNavbar');
+
+  assert.equal(f.requests.length, 1);
+  const request = f.requests[0];
+  assertIdentity(request, '101', '41');
+  const body = new URLSearchParams(request.options.postBody);
+  assert.equal(body.get('reloadURL'), url + '&chartContext=own.program.signature');
+  assert.equal(request.url, body.get('reloadURL'));
+  assert.doesNotMatch(body.get('reloadURL'), /^https?:\/\//);
+  assert.equal(f.context.legacyChartUrl('encounter/displayForms?cmd=forms#panel'),
+    'encounter/displayForms?cmd=forms&chartContext=own.program.signature#panel');
 });
 
 test('legacy popup-close updateDiv posts explicit patient and appointment zero through popLeftColumn', () => {

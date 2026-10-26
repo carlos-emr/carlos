@@ -110,16 +110,22 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
             demographicNoStr = "0";
         }
 
+        AppointmentTextBounds.Values text = AppointmentTextBounds.submitted(request, appointmentName, null);
+        AppointmentTextBounds.Violation invalidText = AppointmentTextBounds.validate(text, null);
+        if (invalidText != null) {
+            return AppointmentTextBounds.refuse(request, response, invalidText);
+        }
+
         Appointment a = new Appointment();
         a.setProviderNo(request.getParameter("provider_no"));
         a.setAppointmentDate(ConversionUtils.fromDateString(request.getParameter("appointment_date")));
         a.setStartTime(ConversionUtils.fromTimeStringNoSeconds(request.getParameter("start_time")));
         a.setEndTime(ConversionUtils.fromTimeStringNoSeconds(request.getParameter("end_time")));
-        a.setName(appointmentName);
-        a.setNotes(request.getParameter("notes"));
-        a.setReason(request.getParameter("reason"));
+        a.setName(text.name());
+        a.setNotes(text.notes());
+        a.setReason(text.reason());
         a.setLocation(request.getParameter("location"));
-        a.setResources(request.getParameter("resources"));
+        a.setResources(text.resources());
         a.setType(request.getParameter("type"));
         a.setStyle(request.getParameter("style"));
         a.setBilling(request.getParameter("billing"));

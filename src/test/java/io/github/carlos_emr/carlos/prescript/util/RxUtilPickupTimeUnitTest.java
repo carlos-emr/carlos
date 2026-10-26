@@ -56,9 +56,24 @@ class RxUtilPickupTimeUnitTest {
     }
 
     @ParameterizedTest(name = "\"{0}\"")
-    @ValueSource(strings = {"", "noon", "12h30"})
+    @ValueSource(strings = {"", "noon", "12h30", "24:00", "25:30", "12:60", "12:5", "12:30 trailing", "-1:30"})
     @DisplayName("should read nothing from a value that is not a time")
     void shouldReadNothing_whenValueIsNotATime(String typed) {
         assertThat(RxUtil.parsePickupTime(typed)).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2026-02-28", "2028-02-29", "2026-1-2"})
+    void shouldReadPickupDate_withoutChangingTheDay(String typed) {
+        assertThat(RxUtil.parsePickupDate(typed)).isNotNull();
+        assertThat(RxUtil.DateToString(RxUtil.parsePickupDate(typed), "yyyy-M-d"))
+                .isEqualTo(typed.replaceAll("-0", "-"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "2026-02-30", "2027-02-29", "2026-13-01", "2026-00-10", "2026-01-00",
+            "2026-01-01 trailing", "2026-10", "tomorrow"})
+    void shouldRefusePickupDate_whenItCannotBeSavedAsEntered(String typed) {
+        assertThat(RxUtil.parsePickupDate(typed)).isNull();
     }
 }

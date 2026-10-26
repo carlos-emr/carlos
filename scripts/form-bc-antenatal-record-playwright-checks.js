@@ -7,9 +7,8 @@
  * The BC seed registers both forms but leaves them off the encounter's form list (encounterForm.hidden=0;
  * hidden is the display order, 0 means not shown). The check adds them through Administration > Select Forms,
  * the way a clinic switches them on, and removes them again at the end. It records every encounterForm row
- * first and asserts the form list is as a clinic saw it afterwards: the same forms shown, in the same order (Select
- * Forms renumbers the shown forms 1..n, #4952, so the numbers themselves can change). Cleanup puts the recorded
- * display order back and asserts the rows identical. The form list is clinic-wide, so the check must not run
+ * first, asserts the exact normalized menu order after each mutation (Select Forms renumbers the shown
+ * forms 1..n, #4945 fixed by #4952), and restores every recorded raw display order in cleanup. The form list is clinic-wide, so the check must not run
  * concurrently with other checks (live wrapper: EXCLUSIVE=1).
  *
  * Steps:
@@ -22,14 +21,14 @@
  *   6. Pages 3, 4, 5 and Attachments open from the page links and keep the same form.
  *   7. Print of pages 1 and 2 is a PDF with each value on its own page, and the print is logged.
  *   8. Save and Exit stores the change and closes the form window.
- *   9. Select Forms removes both forms again and the form list is as it was found (the shown forms and their order).
+ *   9. Select Forms removes both forms again and preserves the original visible form order.
  *
  * BC-AR 2012's referring-doctor prefill is deliberately not asserted: release reads the family doctor's
  * referral number with SxmlMisc and develop with DemographicXml, and the check runs against both.
  *
  * Rows: formBCAR2020 / formBCAR2020Data / formBCAR2020Text and formBCAR2012 rows belong to the owned FAKE
- * patient and are removed with it, and so is the PrintResourceLog row the Print step writes for that patient
- * (resourceName BCAR2020, resourceId = the owned patient): a print record of a FAKE patient the run deletes is residue.
+ * patient and are removed with it. Its PrintResourceLog rows are checked absent before the scenario,
+ * then removed by resource name, owned patient id and signed-in provider in cleanup.
  *
  *   npm run test:form-bc-antenatal-record-playwright
  */
@@ -39,7 +38,8 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { scratchDir, saveDownload, requirePoppler, squash } = require('./lib/export-content-helpers');
 const { pageText } = require('./lib/pdf-graph');
-const { encounterForms, formListAsSeen } = require('./lib/encounter-form-list');
+const { formsAfterSelection } = require('./billing-bc-wcb-links-playwright-checks');
+const { encounterForms } = require('./lib/encounter-form-list');
 
 const BCAR2020 = 'BC-AR 2020';
 const BCAR2012 = 'BC-AR 2012';
@@ -106,6 +106,15 @@ async function workflow(s) {
     phone='', phone2='' WHERE demographic_no=${s.patient} AND last_name=${h.sqlString(s.marker)}; SELECT ROW_COUNT()`);
   h.assert(blanked === '1', `The owned patient's contact fields were not blanked (${blanked} rows)`);
   const added = [];
+  const ownedPrintLogs = `resourceName='BCAR2020' AND resourceId=${h.sqlString(s.patient)}
+    AND providerNo=${h.sqlString(s.provider)}`;
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM PrintResourceLog WHERE ${ownedPrintLogs}`) === '0',
+    'The new owned patient already has BCAR2020 print logs');
+  s.cleanup(() => {
+    s.sql.execute(`DELETE FROM PrintResourceLog WHERE ${ownedPrintLogs}`);
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM PrintResourceLog WHERE ${ownedPrintLogs}`) === '0',
+      'Owned BCAR2020 print logs were not removed');
+  });
   s.cleanup(() => {
     // A run that failed before step 9 still owes the clinic its form list: put the recorded display order back.
     for (const [name, value, , hidden] of before) {
@@ -120,12 +129,10 @@ async function workflow(s) {
     s.sql.execute(`DELETE FROM formBCAR2020Data WHERE form_id IN (${owned2020});
       DELETE FROM formBCAR2020Text WHERE form_id IN (${owned2020});
       DELETE FROM formBCAR2020 WHERE demographic_no=${s.patient};
-      DELETE FROM formBCAR2012 WHERE demographic_no=${s.patient};
-      DELETE FROM PrintResourceLog WHERE resourceName='BCAR2020' AND resourceId=${h.sqlString(s.patient)}`);
+      DELETE FROM formBCAR2012 WHERE demographic_no=${s.patient}`);
     h.assert(s.sql.value(`SELECT (SELECT COUNT(*) FROM formBCAR2020 WHERE demographic_no=${s.patient})
-      + (SELECT COUNT(*) FROM formBCAR2012 WHERE demographic_no=${s.patient})
-      + (SELECT COUNT(*) FROM PrintResourceLog WHERE resourceName='BCAR2020' AND resourceId=${h.sqlString(s.patient)})`) === '0',
-    'BC-AR rows or its print record remain on the owned patient');
+      + (SELECT COUNT(*) FROM formBCAR2012 WHERE demographic_no=${s.patient})`) === '0',
+    'BC-AR rows remain on the owned patient');
   });
   const latest2020 = () => s.sql.value(`SELECT MAX(id) FROM formBCAR2020 WHERE demographic_no=${s.patient}`);
   const value2020 = (formId, pageNo, field) => s.sql.value(`SELECT val FROM formBCAR2020Data
@@ -135,15 +142,22 @@ async function workflow(s) {
   const pageTwo = `H${s.marker.slice(-7)}`;
   let chart;
   let form;
+  let shownNamesBefore;
 
   await s.step('Select Forms adds BC-AR 2020 and BC-AR 2012, and the encounter form list offers them', async () => {
     const admin = await s.context.newPage();
     await openSelectForms(admin, s);
+    shownNamesBefore = (await selectFormsLists(admin)).selected;
+    let expectedShown = [...shownNamesBefore];
     for (const name of [BCAR2020, BCAR2012]) {
       if (Number(row(name)[3]) > 0) continue;
       const lists = await moveForm(admin, { button: '#add', list: 'selectedAddTypes', name });
-      h.assert(lists.selected.includes(name) && !lists.available.includes(name), `Select Forms did not add ${name}`);
       added.push(name);
+      expectedShown.push(name);
+      h.assert(JSON.stringify(lists.selected) === JSON.stringify(expectedShown) && !lists.available.includes(name),
+        `Select Forms did not append ${name} without changing the existing visible menu`);
+      h.assert(JSON.stringify(encounterForms(s.sql)) === JSON.stringify(formsAfterSelection(before, expectedShown)),
+        `Select Forms did not persist exactly the displayed order after adding ${name}`);
     }
     await admin.close();
     for (const name of [BCAR2020, BCAR2012]) {
@@ -310,13 +324,19 @@ async function workflow(s) {
   await s.step('Select Forms removes both forms again and the form list is as it was', async () => {
     const admin = await s.context.newPage();
     await openSelectForms(admin, s);
+    let expectedShown = [...shownNamesBefore, ...added];
     for (const name of [...added].reverse()) {
       const lists = await moveForm(admin, { button: '#delete', list: 'selectedDeleteTypes', name });
-      h.assert(!lists.selected.includes(name) && lists.available.includes(name), `Select Forms did not remove ${name}`);
+      expectedShown = expectedShown.filter(selected => selected !== name);
+      h.assert(JSON.stringify(lists.selected) === JSON.stringify(expectedShown) && lists.available.includes(name),
+        `Removing ${name} changed the original visible form order`);
+      h.assert(JSON.stringify(encounterForms(s.sql)) === JSON.stringify(formsAfterSelection(before, expectedShown)),
+        `Select Forms did not persist exactly the displayed order after removing ${name}`);
     }
     await admin.close();
-    h.assert(formListAsSeen(encounterForms(s.sql)) === formListAsSeen(before),
-      'Removing the forms did not leave the form list as it was (the shown forms and their order)');
+    const expected = added.length ? formsAfterSelection(before, shownNamesBefore) : before;
+    h.assert(JSON.stringify(encounterForms(s.sql)) === JSON.stringify(expected),
+      'Removing the forms did not preserve exactly the original visible form menu');
   });
 }
 

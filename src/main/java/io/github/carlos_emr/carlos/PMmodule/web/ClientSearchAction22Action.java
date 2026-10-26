@@ -185,6 +185,11 @@ public class ClientSearchAction22Action extends ActionSupport {
             long parsedNoteId = Long.parseLong(noteId.trim());
             CaseManagementNote note = caseManagementNoteDao.getNote(parsedNoteId);
             if (note != null) {
+                String sourceContext = io.github.carlos_emr.carlos.casemgmt.common.NoteAttachContext.sourceToken(
+                        request, note.getDemographic_no());
+                if (sourceContext != null) {
+                    request.setAttribute("sourceChartContext", sourceContext);
+                }
                 request.setAttribute("noteId", String.valueOf(parsedNoteId));
             } else {
                 logger.warn("Rejected noteId that does not exist in database (trust boundary enforcement) - provider: {}", providerNo);

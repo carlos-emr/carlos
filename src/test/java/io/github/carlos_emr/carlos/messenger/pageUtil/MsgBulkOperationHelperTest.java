@@ -22,10 +22,14 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao;
 import io.github.carlos_emr.carlos.commn.model.MessageList;
+import io.github.carlos_emr.carlos.commn.model.OscarCommLocations;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.*;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -51,6 +55,7 @@ class MsgBulkOperationHelperTest extends CarlosUnitTestBase {
 
     @Mock
     private MessageListDao mockDao;
+    private OscarCommLocationsDao locations;
 
     private MockHttpServletRequest mockRequest;
 
@@ -60,6 +65,7 @@ class MsgBulkOperationHelperTest extends CarlosUnitTestBase {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         registerMock(MessageListDao.class, mockDao);
+        locations = createAndRegisterMock(OscarCommLocationsDao.class);
         mockRequest = new MockHttpServletRequest();
     }
 
@@ -172,5 +178,88 @@ class MsgBulkOperationHelperTest extends CarlosUnitTestBase {
         verify(mockDao).merge(msg1);
         verify(mockDao).merge(msg2);
         assertThat(mockRequest.getAttribute("updateFailureCount")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"read", "unread", "delete", "undelete"})
+    void shouldOnlyChangeLocalRecipients_whenProviderNumberIsReusedRemotely(String operation) {
+        OscarCommLocations firstClinic = new OscarCommLocations();
+        firstClinic.setId(37);
+        OscarCommLocations secondClinic = new OscarCommLocations();
+        secondClinic.setId(38);
+        when(locations.findByCurrent1(1)).thenReturn(List.of(firstClinic, secondClinic));
+        String initialStatus = "unread".equals(operation) ? MessageList.STATUS_READ : MessageList.STATUS_NEW;
+        MessageList legacy = recipient(0, 0, initialStatus);
+        MessageList firstLocal = recipient(37, 0, initialStatus);
+        MessageList secondLocal = recipient(38, -1, initialStatus);
+        MessageList remoteClinic = recipient(99, 0, initialStatus);
+        MessageList remoteFacility = recipient(37, 9, initialStatus);
+        when(mockDao.findByProviderNoAndMessageNo(PROVIDER_NO, 100L))
+                .thenReturn(List.of(legacy, firstLocal, remoteClinic, secondLocal, remoteFacility));
+
+        MsgBulkOperationHelper.updateSelectedMessages(mockRequest, PROVIDER_NO, new String[]{"100"}, row -> {
+            switch (operation) {
+                case "read" -> row.setStatus(MessageList.STATUS_READ);
+                case "unread" -> row.setStatus(MessageList.STATUS_NEW);
+                case "delete" -> row.setDeleted(true);
+                case "undelete" -> row.setDeleted(false);
+                default -> throw new AssertionError(operation);
+            }
+        });
+
+        String expectedStatus = switch (operation) {
+            case "read" -> MessageList.STATUS_READ;
+            case "unread" -> MessageList.STATUS_NEW;
+            case "delete" -> MessageList.STATUS_DELETED;
+            default -> null;
+        };
+        assertThat(legacy.getStatus()).isEqualTo(expectedStatus);
+        assertThat(firstLocal.getStatus()).isEqualTo(expectedStatus);
+        assertThat(secondLocal.getStatus()).isEqualTo(expectedStatus);
+        assertThat(remoteClinic.getStatus()).isEqualTo(initialStatus);
+        assertThat(remoteFacility.getStatus()).isEqualTo(initialStatus);
+        verify(mockDao).merge(same(legacy));
+        verify(mockDao).merge(same(firstLocal));
+        verify(mockDao).merge(same(secondLocal));
+        verify(mockDao, never()).merge(same(remoteClinic));
+        verify(mockDao, never()).merge(same(remoteFacility));
+    }
+
+    @Test
+    void shouldReportUnchangedSelection_whenOnlyRemoteRecipientsMatchProviderNumber() {
+        MessageList remoteClinic = recipient(99, 0, MessageList.STATUS_NEW);
+        MessageList remoteFacility = recipient(0, 9, MessageList.STATUS_NEW);
+        when(mockDao.findByProviderNoAndMessageNo(PROVIDER_NO, 100L))
+                .thenReturn(List.of(remoteClinic, remoteFacility));
+
+        MsgBulkOperationHelper.updateSelectedMessages(mockRequest, PROVIDER_NO, new String[]{"100"},
+                row -> row.setDeleted(true));
+
+        assertThat(mockRequest.getAttribute(MsgBulkOperationHelper.ATTR_UPDATE_FAILURE_COUNT)).isEqualTo(1);
+        assertThat(remoteClinic.getStatus()).isEqualTo(MessageList.STATUS_NEW);
+        assertThat(remoteFacility.getStatus()).isEqualTo(MessageList.STATUS_NEW);
+        verify(mockDao, never()).merge(any());
+    }
+
+    @Test
+    void shouldLeaveAllRecipientsUnchanged_whenLocalLocationLookupFails() {
+        when(locations.findByCurrent1(1))
+                .thenThrow(new org.springframework.dao.DataRetrievalFailureException("location lookup failed"));
+
+        assertThatThrownBy(() -> MsgBulkOperationHelper.updateSelectedMessages(
+                mockRequest, PROVIDER_NO, new String[]{"100", "200"}, row -> row.setDeleted(true)))
+                .isInstanceOf(org.springframework.dao.DataRetrievalFailureException.class);
+
+        verifyNoInteractions(mockDao);
+    }
+
+    private MessageList recipient(int location, int facility, String status) {
+        MessageList row = new MessageList();
+        row.setProviderNo(PROVIDER_NO);
+        row.setMessage(100);
+        row.setRemoteLocation(location);
+        row.setDestinationFacilityId(facility);
+        row.setStatus(status);
+        return row;
     }
 }

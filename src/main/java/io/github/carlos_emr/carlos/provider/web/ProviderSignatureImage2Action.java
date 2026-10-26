@@ -32,6 +32,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.ClientAbort;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -205,6 +206,10 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             MiscUtils.getLogger().debug("Signature image file not found on disk: {}", signatureName);
             response.setStatus(HttpServletResponse.SC_NO_CONTENT);
         } catch (IOException e) {
+            // Clinical pages can close while a background signature image is streaming.
+            if (ClientAbort.isClientAbort(e)) {
+                return;
+            }
             MiscUtils.getLogger().error("Error serving provider signature image", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }

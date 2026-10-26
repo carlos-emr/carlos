@@ -138,7 +138,7 @@ public class QuickBillingBC2Action extends ActionSupport {
 
             }
 
-            // if not adding or removing data then create a fresh form.
+            // Opening or refreshing the page retains queued invoices, including a failed save.
         } else {
 
             // add some needed form elements to the bean
@@ -147,7 +147,6 @@ public class QuickBillingBC2Action extends ActionSupport {
 
             List<ProviderData> activeProviders = quickBillingHandler.getProviderDao().findAll(false);
 
-            quickBillingHandler.reset();
             quickBillingBCFormBean.setProviderList(activeProviders);
             quickBillingBCFormBean.setBillingVisitTypes(billingVisit);
         }

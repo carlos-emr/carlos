@@ -16,6 +16,10 @@ on:
     paths:
       - 'database/mysql/**'
       - 'scripts/test-provider-signature-migration.py'
+      - 'scripts/schema-contract.py'
+      - 'scripts/test-schema-policy-mariadb.py'
+      - 'scripts/migration/o19/**'
+      - 'debian/assets/o19-manifest/**'
       - 'release/**'
       - 'pom.xml'
       - 'src/main/java/io/github/carlos_emr/carlos/db/FlywaySchemaValidator.java'
@@ -103,6 +107,14 @@ jobs:
           MYSQL_USER: root
           MYSQL_PWD: password
         run: python3 scripts/test-provider-signature-migration.py
+
+      - name: Test WorkSafeBC reference migration content and preservation
+        if: matrix.province == 'bc'
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_USER: root
+          MYSQL_PWD: password
+        run: python3 scripts/test-wcb-reference-migration.py
 
       - name: Migrate the V1 baseline and smoke-check the result
         env:

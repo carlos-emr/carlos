@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -34,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -89,6 +92,9 @@ public final class MsgAttachmentStaging {
 
     private static final String ATTRIBUTE = MsgAttachmentStaging.class.getName() + ".entries";
 
+    /** Opaque revisions that in-flight sends may restore; no attachment content is retained here. */
+    private static final String RESTORES_ATTRIBUTE = MsgAttachmentStaging.class.getName() + ".restores";
+
     /** Keys whose entries the cap dropped, until their window is told or stages again. */
     private static final String DROPPED_ATTRIBUTE = MsgAttachmentStaging.class.getName() + ".dropped";
 
@@ -113,19 +119,69 @@ public final class MsgAttachmentStaging {
     private MsgAttachmentStaging() {
     }
 
-    /**
-     * What one compose window has attached.
-     *
-     * @param pdfDemographicNo the patient the chart PDFs were rendered for, or {@code 0} when
-     *                         there are none
-     * @param pdfAttachment    the stored chart-PDF records ({@link MsgSessionBean} format), or null
-     * @param itemAttachment   transferred chart items (document-transfer XML), or null
-     */
-    public record Staged(int pdfDemographicNo, String pdfAttachment, String itemAttachment) implements Serializable {
+    /** What one compose window has attached. */
+    public static final class Staged implements Serializable {
+
+        /** Keep compatibility with the original three-component serializable record. */
+        private static final long serialVersionUID = 0L;
+
+        private final int pdfDemographicNo;
+        private final String pdfAttachment;
+        private final String itemAttachment;
+        private String revision;
+
+        /**
+         * @param pdfDemographicNo the patient the chart PDFs were rendered for, or zero without PDFs
+         * @param pdfAttachment the stored chart-PDF records ({@link MsgSessionBean} format), or null
+         * @param itemAttachment transferred chart items (document-transfer XML), or null
+         */
+        public Staged(int pdfDemographicNo, String pdfAttachment, String itemAttachment) {
+            this.pdfDemographicNo = pdfDemographicNo;
+            this.pdfAttachment = pdfAttachment;
+            this.itemAttachment = itemAttachment;
+            this.revision = newKey();
+        }
+
+        /** @return the patient whose PDFs are attached, or zero without PDFs */
+        public int pdfDemographicNo() {
+            return pdfDemographicNo;
+        }
+
+        /** @return stored chart-PDF records, or null */
+        public String pdfAttachment() {
+            return pdfAttachment;
+        }
+
+        /** @return transferred chart items, or null */
+        public String itemAttachment() {
+            return itemAttachment;
+        }
 
         /** @return whether nothing is attached */
         public boolean isEmpty() {
             return pdfAttachment == null && itemAttachment == null;
+        }
+
+        /** Attachment values retain their original record equality; revisions are internal. */
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Staged staged && pdfDemographicNo == staged.pdfDemographicNo
+                    && Objects.equals(pdfAttachment, staged.pdfAttachment)
+                    && Objects.equals(itemAttachment, staged.itemAttachment);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * (31 * Integer.hashCode(pdfDemographicNo) + Objects.hashCode(pdfAttachment))
+                    + Objects.hashCode(itemAttachment);
+        }
+
+        /** Old persisted session entries predate revisions; assign one before their next take. */
+        private void readObject(ObjectInputStream stream) throws IOException, ClassNotFoundException {
+            stream.defaultReadObject();
+            if (revision == null) {
+                revision = newKey();
+            }
         }
 
         /** Redacted: the entry carries a patient's chart. */
@@ -220,7 +276,23 @@ public final class MsgAttachmentStaging {
             LinkedHashMap<String, String> next = new LinkedHashMap<>(sources);
             next.remove(key);
             publishSources(session, next);
-            take(session, source);
+            discard(session, source);
+        }
+    }
+
+    /**
+     * Finishes a successful send and releases its source. Only that attempt's restoration claim
+     * is consumed: another send may already have taken newer attachments under the same key.
+     */
+    public static void releaseSource(HttpSession session, String key, Staged sent) {
+        if (session == null || !isKey(key)) {
+            return;
+        }
+        synchronized (WebUtils.getSessionMutex(session)) {
+            if (sent != null && sent.revision.equals(restores(session).get(key))) {
+                forgetRestore(session, key);
+            }
+            releaseSource(session, key);
         }
     }
 
@@ -285,22 +357,26 @@ public final class MsgAttachmentStaging {
                 return null;
             }
             LinkedHashMap<String, Staged> next = new LinkedHashMap<>(entries);
-            Staged staged = next.remove(key);
+            Staged stored = next.remove(key);
+            // Each send attempt owns a distinct revision, including a retry of restored values.
+            Staged staged = new Staged(stored.pdfDemographicNo(), stored.pdfAttachment(), stored.itemAttachment());
             publish(session, next);
+            rememberRestore(session, key, staged.revision);
             return staged;
         }
     }
 
     /**
      * Puts back an entry that {@link #take} handed to a send that did not go out, unless the
-     * window has staged something newer under the same key since.
+     * window has staged or explicitly cleared its attachments since. Only the matching in-flight
+     * revision can be restored; an older send cannot consume a newer send's restoration claim.
      */
     public static void restore(HttpSession session, String key, Staged staged) {
         if (session == null || !isKey(key) || staged == null || staged.isEmpty()) {
             return;
         }
         synchronized (WebUtils.getSessionMutex(session)) {
-            if (!entries(session).containsKey(key)) {
+            if (staged.revision.equals(restores(session).get(key)) && !entries(session).containsKey(key)) {
                 put(session, key, staged);
             }
         }
@@ -311,8 +387,12 @@ public final class MsgAttachmentStaging {
      * earlier; a malformed key changes nothing.
      */
     public static void discard(HttpSession session, String key) {
-        take(session, key);
-        claimDropped(session, key);
+        if (session == null || !isKey(key)) {
+            return;
+        }
+        synchronized (WebUtils.getSessionMutex(session)) {
+            put(session, key, new Staged(0, null, null));
+        }
     }
 
     /**
@@ -347,6 +427,7 @@ public final class MsgAttachmentStaging {
      * remembers the keys the cap drops to make room.
      */
     private static void put(HttpSession session, String key, Staged staged) {
+        forgetRestore(session, key);
         LinkedHashMap<String, Staged> next = new LinkedHashMap<>(entries(session));
         next.remove(key);
         List<String> evicted = new ArrayList<>();
@@ -394,6 +475,48 @@ public final class MsgAttachmentStaging {
             session.removeAttribute(ATTRIBUTE);
         } else {
             session.setAttribute(ATTRIBUTE, Collections.unmodifiableMap(next));
+        }
+    }
+
+    /**
+     * Keeps at most {@value #DROPPED_MEMORY} opaque in-flight claims. If more sends overlap, an
+     * evicted claim cannot restore old attachments; the next send is refused once with the same
+     * visible attachment-release explanation as a staging-cap eviction.
+     */
+    private static void rememberRestore(HttpSession session, String key, String revision) {
+        LinkedHashMap<String, String> next = new LinkedHashMap<>(restores(session));
+        next.remove(key);
+        next.put(key, revision);
+        List<String> evicted = new ArrayList<>();
+        Iterator<String> oldest = next.keySet().iterator();
+        while (next.size() > DROPPED_MEMORY) {
+            evicted.add(oldest.next());
+            oldest.remove();
+        }
+        publishRestores(session, next);
+        rememberDropped(session, key, evicted);
+    }
+
+    private static void forgetRestore(HttpSession session, String key) {
+        Map<String, String> claims = restores(session);
+        if (claims.containsKey(key)) {
+            LinkedHashMap<String, String> next = new LinkedHashMap<>(claims);
+            next.remove(key);
+            publishRestores(session, next);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, String> restores(HttpSession session) {
+        Object value = session.getAttribute(RESTORES_ATTRIBUTE);
+        return value instanceof Map<?, ?> map ? (Map<String, String>) map : Map.of();
+    }
+
+    private static void publishRestores(HttpSession session, LinkedHashMap<String, String> next) {
+        if (next.isEmpty()) {
+            session.removeAttribute(RESTORES_ATTRIBUTE);
+        } else {
+            session.setAttribute(RESTORES_ATTRIBUTE, Collections.unmodifiableMap(next));
         }
     }
 

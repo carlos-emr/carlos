@@ -152,6 +152,26 @@ async function workflow(s) {
       h.assert(await rx.locator(`#drugName_${key}`).count() === 1, `The card was lost after a refused ${field}`);
     }
 
+    // Dismissing a validation alert must not let either save path persist the old staged dose
+    // while the card still displays the refused edit.
+    let saves = 0;
+    const countSaves = request => {
+      if (request.method() === 'POST' && /parameterValue=updateSaveAllDrugs/.test(request.url())) saves++;
+    };
+    rx.on('request', countSaves);
+    try {
+      for (const button of ['saveOnlyButton', 'saveButton']) {
+        const dialogs = await h.withExpectedDialogs(rx, () => rx.locator(`#${button}`).click());
+        h.assert(dialogs.some(dialog => dialog.type === 'alert' && dialog.text.includes('two tabs')),
+          `${button} did not explain the refused dose: ${JSON.stringify(dialogs)}`);
+      }
+    } finally {
+      rx.off('request', countSaves);
+    }
+    h.assert(saves === 0, 'A refused inline dose still reached prescription persistence');
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE customName=${h.sqlString(name)}`) === '0',
+      'Saving after a refused dose persisted the older staged medication');
+
     const token = await rx.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     const direct = await s.context.request.post(`${s.config.baseUrl}/rx/WriteScript?parameterValue=updateProperty`, {
       form: { demographicNo: patient, elementId: `minimum_${key}`, propertyValue: 'two tabs' },
