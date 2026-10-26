@@ -81,8 +81,8 @@ class PatientPortalClinicKeysCallsUnitTest {
         var old = key(SECOND, "revoked");
         var active = key(FIRST, "active");
         return new PatientPortalClinicKeysPublishRequest(List.of(
-                new PatientPortalClinicKeysPublishRequest.Key(active.kid(), active.spki(), "active",
-                        old.kid(), encoded(new byte[64])), old));
+                PortalMyCarlosKeyReplacementProofs.mintOnce(
+                        "FAKE-clinic", key(SECOND, "active"), active, SECOND.getPrivate()), old));
     }
 
     private static PortalJobAssertionSigner signer(PortalJob job) {

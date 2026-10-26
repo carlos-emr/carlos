@@ -89,7 +89,9 @@ public record PatientPortalClinicKeysPublishRequest(List<Key> keys) {
                 if (decode(replacesKid, 32).length != 32 || replacesKid.equals(kid)) {
                     throw invalid();
                 }
-                decode(replacementSignature, 512);
+                if (decode(replacementSignature, 64).length != 64) {
+                    throw invalid();
+                }
             }
         }
 
