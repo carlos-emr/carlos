@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
-const { randomUUID } = require('node:crypto');
+const { randomUUID, createHash } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
@@ -36,6 +36,21 @@ async function openSelectionPopup(context, chart, config) {
     assertSelectionPopupResponse(responses.filter(answer => answer.frame() === page.mainFrame()).at(-1), { baseUrl: config.baseUrl });
     return page;
   } finally { context.off('response', observe); }
+}
+
+function groupSelectionProbeOptions(baseUrl, base, probe) {
+  const csrf = base['CSRF-TOKEN'];
+  const parameters = { ...base, ...probe.extra };
+  h.assert(typeof csrf === 'string' && csrf !== '' && parameters['CSRF-TOKEN'] === csrf,
+    'Group method probe must retain its genuine captured CSRF token');
+  const address = new URL(h.appUrl(baseUrl, '/casemgmt/SaveGroupNoteSelection'));
+  const options = { method: probe.method, maxRedirects: 0, failOnStatusCode: false,
+    // Servlet parameter parsing does not read a PUT form body. Reach the method
+    // guard with the same authenticated AJAX token carrier the application uses.
+    headers: { 'CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest' } };
+  if (['GET', 'HEAD'].includes(probe.method)) address.search = new URLSearchParams(parameters).toString();
+  else options.form = parameters;
+  return { address, options };
 }
 
 /** Persist only the exact newly owned policy graph, before its first native read. */
@@ -430,17 +445,22 @@ async function workflow(s) {
         {method:'POST',status:403,extra:{group_client_id:patients[2].id}},
         {method:'POST',status:403,extra:{demographicNo:patients[1].id}},
         {method:'POST',status:400,extra:{num_anonymous:'-1'}}]) {
-        const before=clinical(), links=linkRows();const parameters={...base,...probe.extra};
-        const address=new URL(h.appUrl(config.baseUrl,'/casemgmt/SaveGroupNoteSelection'));
-        const options={method:probe.method,maxRedirects:0};
-        if(['GET','HEAD'].includes(probe.method))address.search=new URLSearchParams(parameters).toString();else options.form=parameters;
+        const before=clinical(), links=linkRows();
+        const { address, options } = groupSelectionProbeOptions(config.baseUrl, base, probe);
         const response=await context.request.fetch(address.href,options);
-        try {const body=await response.text();h.assert(response.status()===probe.status&&Object.hasOwn(response.headers(),h.APPLICATION_HEADER)
-          && !h.isWafPage(response.status(),body)&&notes.every(note=>!body.includes(note.body)), 'The group refusal was not the exact application result');
+        try {const bytes=await response.body(),body=bytes.toString('utf8');
+          const bodyFile=`refusal-${probe.method}-${evidence.refusals.length+1}.body`;
+          fs.writeFileSync(path.join(evidenceDirectory,bodyFile),bytes,{flag:'wx',mode:0o600});
+          evidence.refusals.push({method:probe.method,expectedStatus:probe.status,status:response.status(),
+            applicationOrigin:Object.hasOwn(response.headers(),h.APPLICATION_HEADER),wafResponse:h.isWafPage(response.status(),body),
+            allow:response.headers().allow||null,contentType:response.headers()['content-type']||null,
+            bodyFile,bodyBytes:bytes.length,bodySha256:createHash('sha256').update(bytes).digest('hex')});saveEvidence();
+          h.assert(response.status()===probe.status&&Object.hasOwn(response.headers(),h.APPLICATION_HEADER)
+          && !h.isWafPage(response.status(),body)&&notes.every(note=>!body.includes(note.body)),
+          `The group ${probe.method} refusal returned HTTP ${response.status()}, expected application ${probe.status}`);
           if(probe.status===405)h.assert(response.headers().allow==='POST','Group save did not retain its POST-only contract');}
         finally {await response.dispose();}
         h.assert(same(clinical(),before)&&same(linkRows(),links),'A group refusal mutated clinical, draft, lock, policy or sharing state');
-        evidence.refusals.push({method:probe.method,status:probe.status});saveEvidence();
       }
     });
     await s.step('an empty native group selection clears only its previous sharing link', async () => {
@@ -563,5 +583,5 @@ async function workflow(s) {
   h.assertStrictPage(recorder);
 }
 module.exports={workflow,assertSelectionRequest,assertSelectionRedirect,assertParallelSelectionDelta,assertClearedSelectionDelta,
-  assertSelectionPopupResponse,openSelectionPopup,writeStagedGroupPolicy};
+  assertSelectionPopupResponse,openSelectionPopup,writeStagedGroupPolicy,groupSelectionProbeOptions};
 if(require.main===module)runWorkflow('group-note-selection',workflow,{openPatient:false,openMaster:false});

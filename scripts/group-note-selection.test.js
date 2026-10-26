@@ -8,7 +8,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
 const { assertSelectionRequest, assertSelectionRedirect, assertParallelSelectionDelta, assertClearedSelectionDelta,
-  assertSelectionPopupResponse, openSelectionPopup, writeStagedGroupPolicy } = require('./group-note-selection-playwright-checks');
+  assertSelectionPopupResponse, openSelectionPopup, writeStagedGroupPolicy, groupSelectionProbeOptions } = require('./group-note-selection-playwright-checks');
 const expected = { baseUrl: new URL('https://example.test/carlos'), patient: '101', program: '7', note: '51', token: 'issued.context', recipient: '202' };
 function nativeRequest(change = {}) {
   const body = new URLSearchParams({ demographicNo: expected.patient, programId: expected.program, noteId: expected.note,
@@ -43,6 +43,21 @@ for (const status of [200, 409]) test(`popup response arriving before its page e
   if (status === 200) assert.equal(await openSelectionPopup(context, chart, { baseUrl: expected.baseUrl }), page);
   else await assert.rejects(openSelectionPopup(context, chart, { baseUrl: expected.baseUrl }), /HTTP 409/);
   assert.equal(context.listenerCount('response'), 0);
+});
+for (const method of ['GET','HEAD','PUT','POST']) test(`the ${method} method probe reaches CSRFGuard with its genuine AJAX token carrier`,()=>{
+  const base={demographicNo:'101',programId:'7',noteId:'51',chartContext:'issued.context','CSRF-TOKEN':'captured-native-token'};
+  const {address,options}=groupSelectionProbeOptions(expected.baseUrl,base,{method,extra:{num_anonymous:'0'}});
+  assert.equal(address.pathname,'/carlos/casemgmt/SaveGroupNoteSelection');
+  assert.equal(options.method,method);assert.equal(options.maxRedirects,0);assert.equal(options.failOnStatusCode,false);
+  assert.deepEqual(options.headers,{'CSRF-TOKEN':'captured-native-token','X-Requested-With':'XMLHttpRequest'});
+  if(['GET','HEAD'].includes(method)) {
+    assert.equal(address.searchParams.get('CSRF-TOKEN'),'captured-native-token');assert.equal(options.form,undefined);
+  } else assert.deepEqual(options.form,{...base,num_anonymous:'0'});
+});
+test('method probes cannot omit or replace the captured token with a wrong body token',()=>{
+  const base={demographicNo:'101','CSRF-TOKEN':'captured-native-token'};
+  assert.throws(()=>groupSelectionProbeOptions(expected.baseUrl,base,{method:'PUT',extra:{'CSRF-TOKEN':'wrong-token'}}),/genuine captured CSRF token/);
+  assert.throws(()=>groupSelectionProbeOptions(expected.baseUrl,{demographicNo:'101'},{method:'PUT'}),/genuine captured CSRF token/);
 });
 
 function stagedPolicy() {
