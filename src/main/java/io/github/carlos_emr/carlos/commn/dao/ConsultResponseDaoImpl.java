@@ -49,6 +49,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse> implements ConsultResponseDao {
     private Logger logger = MiscUtils.getLogger();
 
+    @Override
+    public List<ConsultationResponse> findByDemographicNo(Integer demographicNo) {
+        if (demographicNo == null || demographicNo <= 0) throw new IllegalArgumentException("Patient scope required");
+        return entityManager.createQuery("select c from ConsultationResponse c where c.demographicNo = :patient order by c.responseDate, c.id", ConsultationResponse.class)
+                .setParameter("patient", demographicNo).getResultList();
+    }
+
     public ConsultResponseDaoImpl() {
         super(ConsultationResponse.class);
     }

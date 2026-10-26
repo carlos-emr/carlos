@@ -15,6 +15,10 @@ sh /workspace/.devcontainer/db/scripts/reapply_security_migrations.sh \
 mariadb -h db -u root carlos \
     < /workspace/.devcontainer/db/scripts/development_privileges.sql
 
+echo "[Bootstrap] Adding NHS synthetic development patients..."
+mariadb -h db -u root carlos \
+    < /workspace/.devcontainer/db/scripts/nhs-synthetic/patients.sql
+
 # The runtime document volume masks directories created in the image. Recreate
 # the configured incoming-document root in that mounted volume so fresh
 # devcontainers can render lazily-created queue children as empty queues.

@@ -1,0 +1,631 @@
+{
+  "fixture": "NHSSYN002",
+  "settings": {
+    "model": "qwen/qwen3.5-27b",
+    "provider": "siliconflow",
+    "port": 11437,
+    "timeout_seconds": 300,
+    "max_tokens": 16384,
+    "cache_seconds": 0,
+    "temperature": 0.0,
+    "request_bytes": 50000,
+    "reasoning_tokens": 0,
+    "section_passes": false,
+    "section_workers": 2
+  },
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "prompt_path": "prompt.txt",
+  "clinical_accuracy": "Unverified; inspect every statement and omission against the sources.",
+  "metrics": {
+    "claims": 56,
+    "fact_recall": 1.0,
+    "critical_recall": 1.0,
+    "missing_critical": [],
+    "date_errors": 0,
+    "name_leaks": 0,
+    "identity_leaks": 0,
+    "forbidden_assertions": 0,
+    "cross_section_duplicates": 0,
+    "mixed_date_formats": false,
+    "gate_pass": true
+  },
+  "output": {
+    "claims": [
+      {
+        "id": "c1",
+        "source_ids": [
+          "note-1"
+        ],
+        "text": "The patient presented with severe left knee pain and functional limitation due to end-stage osteoarthritis, characterized by a constant dull ache with episodes of sharp pain on weight-bearing, rated 8/10 to 9/10, present daily and worse in the mornings and after prolonged activity."
+      },
+      {
+        "id": "c2",
+        "source_ids": [
+          "note-1"
+        ],
+        "text": "The patient reported occasional swelling and stiffness of the left knee but denied redness, fever, or systemic symptoms."
+      },
+      {
+        "id": "c3",
+        "source_ids": [
+          "note-1"
+        ],
+        "text": "Past medical history includes end-stage osteoarthritis of the left knee with no other significant conditions."
+      },
+      {
+        "id": "c4",
+        "source_ids": [
+          "note-1"
+        ],
+        "text": "The patient has no known drug or environmental allergies."
+      },
+      {
+        "id": "c5",
+        "source_ids": [
+          "note-1"
+        ],
+        "text": "The patient lives at home with parents, is independent in activities of daily living but requires assistance for tasks involving prolonged walking or standing, is a non-smoker, drinks alcohol occasionally (approximately 4 units per week), and has no recreational drug use."
+      },
+      {
+        "id": "c6",
+        "source_ids": [
+          "note-1"
+        ],
+        "text": "Family history is positive for type 2 diabetes in the mother and hypertension in the father, with no family history of osteoarthritis or other joint disorders."
+      },
+      {
+        "id": "c7",
+        "source_ids": [
+          "note-1"
+        ],
+        "text": "Pre-operative examination revealed significant joint deformity with valgus alignment, tenderness along the medial joint line, reduced range of motion with pain on flexion beyond 70 degrees, and mild effusion in the left knee, with no signs of erythema, warmth, or active infection."
+      },
+      {
+        "id": "c8",
+        "source_ids": [
+          "note-1"
+        ],
+        "text": "Pre-operative vital signs on 20/12/25 were: heart rate 72 bpm, blood pressure 124/78 mmHg, respiratory rate 16 br/min, temperature 36.8\u00b0C, and SpO2 98%."
+      },
+      {
+        "id": "c9",
+        "source_ids": [
+          "note-1"
+        ],
+        "text": "Pre-operative investigations on 20/12/25 showed mild anaemia with haemoglobin 11.3 g/dL, normal white cell count and platelets, normal urea and electrolytes, normal liver function tests, normal CRP, normal urinalysis, and a normal ECG with sinus rhythm."
+      },
+      {
+        "id": "c10",
+        "source_ids": [
+          "note-1",
+          "note-2",
+          "note-3",
+          "note-4",
+          "note-5"
+        ],
+        "text": "Ferrous sulfate 200 mg tablets were prescribed once daily to address mild anaemia, with advice to increase dietary intake of iron-rich foods."
+      },
+      {
+        "id": "c11",
+        "source_ids": [
+          "note-2"
+        ],
+        "text": "Anaesthetic assessment on 20/12/25 confirmed an ASA grade I, with a Mallampati score of I, adequate mouth opening, normal neck mobility, and normal thyromental distance."
+      },
+      {
+        "id": "c12",
+        "source_ids": [
+          "note-2"
+        ],
+        "text": "Anaesthetic assessment on 20/12/25 recorded vital signs of heart rate 72 bpm and blood pressure 118/72 mmHg, with clear chest auscultation and no history of respiratory disease."
+      },
+      {
+        "id": "c13",
+        "source_ids": [
+          "note-2"
+        ],
+        "text": "The patient was cleared for general anaesthesia with instructions for carbohydrate loading the day prior to surgery and fasting from midnight."
+      },
+      {
+        "id": "c14",
+        "source_ids": [
+          "note-3"
+        ],
+        "text": "On 21/12/25, the patient provided formal written consent for total left knee replacement after discussion of benefits and risks, including infection, thromboembolism, and neurovascular injury."
+      },
+      {
+        "id": "c15",
+        "source_ids": [
+          "note-3"
+        ],
+        "text": "Pre-operative assessment on 21/12/25 recorded vital signs of heart rate 76 bpm, blood pressure 120/7 mmHg, respiratory rate 16/min, SpO2 98% on room air, and a BMI of 24."
+      },
+      {
+        "id": "c16",
+        "source_ids": [
+          "note-4"
+        ],
+        "text": "Pre-operative checklist on 21/12/25 confirmed fitness for surgery, absence of allergies, understanding of fasting instructions, and no current medications other than the prescribed ferrous sulfate."
+      },
+      {
+        "id": "c17",
+        "source_ids": [
+          "note-5"
+        ],
+        "text": "On admission on 05/01/26, examination showed the patient alert and cooperative with no apparent distress, dual heart sounds without murmurs, symmetrical peripheral pulses, no peripheral oedema, and clear chest auscultation."
+      },
+      {
+        "id": "c18",
+        "source_ids": [
+          "note-5"
+        ],
+        "text": "Admission examination on 05/01/26 noted gross deformity of the left knee consistent with end-stage OA, with no erythema, warmth, effusion, or signs of active infection."
+      },
+      {
+        "id": "c19",
+        "source_ids": [
+          "note-5"
+        ],
+        "text": "Admission vital signs on 05/01/26 were: heart rate 74 bpm, blood pressure 122/78 mmHg, respiratory rate 14 br/min, temperature 36.7\u00b0C, and SpO2 98% on room air."
+      },
+      {
+        "id": "c20",
+        "source_ids": [
+          "note-5"
+        ],
+        "text": "On admission on 05/01/26, haemoglobin was 11.3 g/dL, with other recent blood tests and urinalysis from 20/12/25 remaining normal; a repeat haemoglobin level was requested and awaited."
+      },
+      {
+        "id": "c21",
+        "source_ids": [
+          "note-6"
+        ],
+        "text": "On 05/01/26, pre-surgical preparations were confirmed including fasting compliance, verified consent, correct surgical site marking, and readiness for transfer to theatre."
+      },
+      {
+        "id": "c22",
+        "source_ids": [
+          "note-7"
+        ],
+        "text": "Total left knee replacement was performed on 05/01/26 under general anaesthesia, revealing severe cartilage degeneration and subchondral bone exposure with no peri-articular inflammation or infection."
+      },
+      {
+        "id": "c23",
+        "source_ids": [
+          "note-7"
+        ],
+        "text": "A cemented total knee prosthesis was implanted, the wound was closed with absorbable sutures and covered with a sterile dressing, and estimated blood loss was minimal with no complications."
+      },
+      {
+        "id": "c24",
+        "source_ids": [
+          "note-7"
+        ],
+        "text": "Intra-operative prophylaxis included Cefuroxime 1.5g IV, and post-operative care plan included Tinzaparin 4,500 units subcutaneously once daily for thromboprophylaxis and Paracetamol 1g orally QDS PRN for pain."
+      },
+      {
+        "id": "c25",
+        "source_ids": [
+          "note-8"
+        ],
+        "text": "Following surgery on 05/01/26, the patient was transferred to PACU at 12:15, drowsy but rousable, with stable vital signs and receiving 2L/min oxygen via nasal cannula."
+      },
+      {
+        "id": "c26",
+        "source_ids": [
+          "note-8"
+        ],
+        "text": "Post-operative pain management in PACU included initiation of a PCA pump with IV morphine 2 mg, and the surgical site was inspected with no bleeding or swelling noted."
+      },
+      {
+        "id": "c27",
+        "source_ids": [
+          "note-8"
+        ],
+        "text": "Post-operative plan on 05/01/26 included continuing Tinzaparin 4,500 units SC once daily starting the evening of 05/01/26 and maintaining the PCA pump for pain control."
+      },
+      {
+        "id": "c28",
+        "source_ids": [
+          "note-9"
+        ],
+        "text": "On 05/01/26, the patient reported moderate pain at rest (6/10) and increased discomfort with movement, with the surgical site clean, intact, and showing minimal serous drainage."
+      },
+      {
+        "id": "c29",
+        "source_ids": [
+          "note-9"
+        ],
+        "text": "Observations on 05/01/26 recorded heart rate 2 bpm, blood pressure 124/78 mmHg, respiratory rate 1 br/min, temperature 36.8\u00b0C, and SpO2 98%."
+      },
+      {
+        "id": "c30",
+        "source_ids": [
+          "note-9"
+        ],
+        "text": "Examination on 05/01/26 showed the patient alert and oriented, with the left knee tender on palpation and limited movement secondary to pain, but no signs of infection, calf tenderness, swelling, or neurovascular deficits."
+      },
+      {
+        "id": "c31",
+        "source_ids": [
+          "note-9"
+        ],
+        "text": "On 05/01/26, the plan was to start Enoxaparin 40 mg subcutaneously once daily for thromboprophylaxis, prescribe Paracetamol 1g every 6 hours regularly, and prescribe Codeine phosphate 30 mg PRN for breakthrough pain."
+      },
+      {
+        "id": "c32",
+        "source_ids": [
+          "note-10"
+        ],
+        "text": "On 06/01/26, initial physiotherapy focused on gentle mobilisation, achieving 40 degrees of flexion with mild discomfort (VAS 4/10), and included deep breathing exercises with no dizziness or shortness of breath."
+      },
+      {
+        "id": "c33",
+        "source_ids": [
+          "note-10"
+        ],
+        "text": "Physiotherapy assessment on 06/01/26 recorded vital signs of heart rate 78 bpm, blood pressure 122/78 mmHg, SpO2 98% on room air, and an intact wound dressing with minimal serous drainage."
+      },
+      {
+        "id": "c34",
+        "source_ids": [
+          "note-10"
+        ],
+        "text": "Plan on 06/01/26 included independent continuation of exercises twice daily, emphasis on adherence to Paracetamol 1g QDS, and progression to assisted walking exercises the following day."
+      },
+      {
+        "id": "c35",
+        "source_ids": [
+          "note-11"
+        ],
+        "text": "On 06/01/26, the GP was contacted to provide an update on post-operative progress, with anticipated discharge on 09/01/26 and no changes to the treatment plan."
+      },
+      {
+        "id": "c36",
+        "source_ids": [
+          "note-12"
+        ],
+        "text": "On 06/01/26, the patient reported mild pain well controlled with oral analgesia, with the surgical site clean and dry, no erythema, discharge, infection, or signs of DVT."
+      },
+      {
+        "id": "c37",
+        "source_ids": [
+          "note-12"
+        ],
+        "text": "Observations on 06/01/26 were: heart rate 78 bpm, blood pressure 118/72 mmHg, respiratory rate 16 br/min, temperature 36.8\u00b0C, and SpO2 98% on room air."
+      },
+      {
+        "id": "c38",
+        "source_ids": [
+          "note-12"
+        ],
+        "text": "Plan on 06/01/26 included prescribing Enoxaparin 40 mg SC OD for thromboprophylaxis until discharge, continuing the current pain management plan, and progressing mobilisation with physiotherapy."
+      },
+      {
+        "id": "c39",
+        "source_ids": [
+          "note-13"
+        ],
+        "text": "On 07/01/26, physiotherapy involved walking a short distance with a Zimmer frame and assisted knee flexion/extension exercises, with the patient reporting mild discomfort (3/10) and tolerating the session well."
+      },
+      {
+        "id": "c40",
+        "source_ids": [
+          "note-13"
+        ],
+        "text": "Physiotherapy assessment on 07/01/26 recorded vital signs of heart rate 72 bpm, blood pressure 120/78 mmHg, respiratory rate 16/min, SpO2 98% on room air, and a clean, dry wound with no erythema or swelling."
+      },
+      {
+        "id": "c41",
+        "source_ids": [
+          "note-13"
+        ],
+        "text": "Plan on 07/01/26 included progression to crutches in the next session, focus on stair navigation, and continuation of independent knee exercises twice daily with Paracetamol 1g QDS as needed."
+      },
+      {
+        "id": "c42",
+        "source_ids": [
+          "note-14"
+        ],
+        "text": "On 07/01/26, a pharmacist review recommended switching IV paracetamol to oral 1g QDS and continuing Ibuprofen 400mg TDS if tolerated, with advice given regarding post-discharge pain management."
+      },
+      {
+        "id": "c43",
+        "source_ids": [
+          "note-15"
+        ],
+        "text": "On 07/01/26, an occupational therapy session assessed ADLs, noting the patient maintained good balance with verbal prompts but required guidance to protect the operated knee, leading to recommendations for a raised toilet seat and sock aid."
+      },
+      {
+        "id": "c44",
+        "source_ids": [
+          "note-16"
+        ],
+        "text": "On 07/01/26, the patient reported manageable pain, improved mobility with a walking frame, and a haemoglobin level of 108 g/L indicating mild post-operative anaemia."
+      },
+      {
+        "id": "c45",
+        "source_ids": [
+          "note-16"
+        ],
+        "text": "Observations on 07/01/26 were: heart rate 82 bpm, blood pressure 125/78 mmHg, respiratory rate 16 br/min, temperature 36.7\u00b0C, and SpO2 97% on room air."
+      },
+      {
+        "id": "c46",
+        "source_ids": [
+          "note-16"
+        ],
+        "text": "Plan on 07/01/26 included continuing physiotherapy with progression to crutches, prescribing Ferrous sulfate 200 mg BD for post-op anaemia, and transitioning to oral Ibuprofen 400 mg TDS for pain management."
+      },
+      {
+        "id": "c47",
+        "source_ids": [
+          "note-17"
+        ],
+        "text": "On 08/01/26, the patient reported satisfactory pain control and was mobilising well with a Zimmer frame, with a haemoglobin level of 108 g/L and no evidence of infection or further blood loss."
+      },
+      {
+        "id": "c48",
+        "source_ids": [
+          "note-17"
+        ],
+        "text": "Observations on 08/01/26 were: heart rate 72 bpm, blood pressure 118/76 mmHg, respiratory rate 16 br/min, temperature 36.8\u00b0C, and SpO2 98% on room air."
+      },
+      {
+        "id": "c49",
+        "source_ids": [
+          "note-17"
+        ],
+        "text": "Plan on 08/01/26 included switching regular paracetamol to PRN dosing, prescribing Co-amoxiclav 500/125 mg TDS for 7 days for wound infection prophylaxis, and continuing Ferrous sulfate 200 mg BD."
+      },
+      {
+        "id": "c50",
+        "source_ids": [
+          "note-18"
+        ],
+        "text": "On 08/01/26, final physiotherapy focused on safe use of crutches for independent mobilisation, including walking on flat surfaces and navigating stairs, with the patient deemed safe for discharge with crutches."
+      },
+      {
+        "id": "c51",
+        "source_ids": [
+          "note-18"
+        ],
+        "text": "Physiotherapy assessment on 08/01/26 recorded vital signs of heart rate 72 bpm, blood pressure 118/76 mmHg, SpO2 97% on room air, and a clean, dry surgical wound with no erythema or swelling."
+      },
+      {
+        "id": "c52",
+        "source_ids": [
+          "note-19"
+        ],
+        "text": "On 08/01/26, the patient received post-op wound care instructions, a pain management plan of oral Paracetamol 1g QDS and Ibuprofen 400mg TDS, and a follow-up appointment scheduled for 15/01/26 with the GP."
+      },
+      {
+        "id": "c53",
+        "source_ids": [
+          "note-20"
+        ],
+        "text": "On 08/01/26, occupational therapy confirmed the patient demonstrated independence and safety in bed transfers, crutch use on stairs, and household tasks, with recommendations for minor home adjustments and a home exercise programme."
+      },
+      {
+        "id": "c54",
+        "source_ids": [
+          "note-11",
+          "note-20"
+        ],
+        "text": "Discharge was planned for 09/01/26, with the patient deemed ready for discharge with crutches and a home exercise programme."
+      },
+      {
+        "id": "c55",
+        "source_ids": [
+          "note-9",
+          "note-12",
+          "note-16",
+          "note-17"
+        ],
+        "text": "Medication records conflict regarding thromboprophylaxis: note-9 and note-12 prescribe Enoxaparin 40 mg SC OD, while note-7 and note-8 prescribe Tinzaparin 4,500 units SC OD; no note explicitly documents the discontinuation of Tinzaparin or the substitution of Enoxaparin."
+      },
+      {
+        "id": "c56",
+        "source_ids": [
+          "note-9",
+          "note-12",
+          "note-14",
+          "note-16",
+          "note-17",
+          "note-19"
+        ],
+        "text": "Medication records conflict regarding pain management: note-9 and note-12 prescribe Paracetamol 1g QDS regularly and Codeine PRN; note-14 recommends switching to Ibuprofen 400mg TDS; note-16 and note-17 plan to transition to Ibuprofen 400mg TDS and switch Paracetamol to PRN; note-19 prescribes Paracetamol 1g QDS and Ibuprofen 400mg TDS for discharge."
+      }
+    ],
+    "coverage": [
+      {
+        "reason": "note-1: Source provides presenting complaint, history of present illness, past medical history, social history, family history, pre-operative examination, vital signs, investigations, and initial plan.",
+        "source_id": "note-1",
+        "status": "cited"
+      },
+      {
+        "reason": "note-2: Source provides anaesthetic assessment details, airway assessment, vital signs, risk assessment, and pre-operative instructions.",
+        "source_id": "note-2",
+        "status": "cited"
+      },
+      {
+        "reason": "note-3: Source provides consent details, pre-operative discussion, vital signs, and ABCDE assessment.",
+        "source_id": "note-3",
+        "status": "cited"
+      },
+      {
+        "reason": "note-4: Source provides pre-operative checklist confirmation, fitness for surgery, and verification of fasting and consent.",
+        "source_id": "note-4",
+        "status": "cited"
+      },
+      {
+        "reason": "note-5: Source provides admission examination, vital signs, investigation results, and admission plan.",
+        "source_id": "note-5",
+        "status": "cited"
+      },
+      {
+        "reason": "note-6: Source provides pre-surgical checklist confirmation and readiness for theatre.",
+        "source_id": "note-6",
+        "status": "cited"
+      },
+      {
+        "reason": "note-7: Source provides operative findings, procedure details, implants, and immediate post-operative medication plan.",
+        "source_id": "note-7",
+        "status": "cited"
+      },
+      {
+        "reason": "note-8: Source provides PACU transfer details, initial post-operative observations, pain management, and immediate post-op plan.",
+        "source_id": "note-8",
+        "status": "cited"
+      },
+      {
+        "reason": "note-9: Source provides post-operative ward round findings, pain assessment, vital signs, and medication plan including conflicting thromboprophylaxis.",
+        "source_id": "note-9",
+        "status": "cited"
+      },
+      {
+        "reason": "note-10: Source provides initial physiotherapy session details, range of motion, vital signs, and rehabilitation plan.",
+        "source_id": "note-10",
+        "status": "cited"
+      },
+      {
+        "reason": "note-11: Source provides GP contact details and anticipated discharge date.",
+        "source_id": "note-11",
+        "status": "cited"
+      },
+      {
+        "reason": "note-12: Source provides ward round findings, vital signs, and medication plan including conflicting thromboprophylaxis.",
+        "source_id": "note-12",
+        "status": "cited"
+      },
+      {
+        "reason": "note-13: Source provides physiotherapy session details, mobilisation progress, vital signs, and rehabilitation plan.",
+        "source_id": "note-13",
+        "status": "cited"
+      },
+      {
+        "reason": "note-14: Source provides pharmacist review and conflicting pain management recommendations.",
+        "source_id": "note-14",
+        "status": "cited"
+      },
+      {
+        "reason": "note-15: Source provides occupational therapy assessment, ADL evaluation, and home adjustment recommendations.",
+        "source_id": "note-15",
+        "status": "cited"
+      },
+      {
+        "reason": "note-16: Source provides ward round findings, haemoglobin results, vital signs, and medication plan including conflicting pain management.",
+        "source_id": "note-16",
+        "status": "cited"
+      },
+      {
+        "reason": "note-17: Source provides ward round findings, haemoglobin results, vital signs, and discharge planning including antibiotic prescription.",
+        "source_id": "note-17",
+        "status": "cited"
+      },
+      {
+        "reason": "note-18: Source provides final physiotherapy session details, discharge readiness assessment, and vital signs.",
+        "source_id": "note-18",
+        "status": "cited"
+      },
+      {
+        "reason": "note-19: Source provides discharge instructions, pain management plan, and follow-up appointment details.",
+        "source_id": "note-19",
+        "status": "cited"
+      },
+      {
+        "reason": "note-20: Source provides final occupational therapy assessment, discharge readiness, and home exercise programme.",
+        "source_id": "note-20",
+        "status": "cited"
+      }
+    ],
+    "sections": [
+      {
+        "claim_ids": [
+          "c1",
+          "c2",
+          "c3",
+          "c4",
+          "c5",
+          "c6",
+          "c7",
+          "c11",
+          "c17",
+          "c18"
+        ],
+        "id": "clinical_overview",
+        "title": "Clinical overview"
+      },
+      {
+        "claim_ids": [
+          "c21",
+          "c22",
+          "c23",
+          "c24",
+          "c25",
+          "c26",
+          "c27",
+          "c28",
+          "c29",
+          "c30",
+          "c31",
+          "c32",
+          "c33",
+          "c34",
+          "c35",
+          "c36",
+          "c37",
+          "c38",
+          "c39",
+          "c40",
+          "c41",
+          "c42",
+          "c43",
+          "c44",
+          "c45",
+          "c46",
+          "c47",
+          "c48",
+          "c49",
+          "c50",
+          "c51"
+        ],
+        "id": "active_problems",
+        "title": "Active problems"
+      },
+      {
+        "claim_ids": [
+          "c55",
+          "c56"
+        ],
+        "id": "medications_allergies",
+        "title": "Medications and allergies"
+      },
+      {
+        "claim_ids": [
+          "c8",
+          "c9",
+          "c12",
+          "c15",
+          "c19",
+          "c20"
+        ],
+        "id": "results_observations",
+        "title": "Results and observations"
+      },
+      {
+        "claim_ids": [
+          "c10",
+          "c13",
+          "c14",
+          "c16",
+          "c52",
+          "c53",
+          "c54"
+        ],
+        "id": "plan_follow_up",
+        "title": "Plan and follow-up"
+      }
+    ]
+  }
+}

@@ -102,6 +102,9 @@
     pageContext.setAttribute("popupPatientSex", popupPatientSex);
     pageContext.setAttribute("popupPatientAge", popupPatientAge);
     pageContext.setAttribute("popupDemographicNo", demoNo);
+    pageContext.setAttribute("summaryDemographicNo", Integer.parseInt(demoNo));
+    pageContext.setAttribute("summaryPrototypeEnabled", "true".equals(CarlosProperties.getInstance()
+            .getProperty("clinical.ai_summary_prototype.enabled", "false")));
 
     // Same resolution the <fmt:message> tags below perform, so the Java-formatted age and the
     // JSP-rendered labels can never end up in two different languages.
@@ -266,6 +269,9 @@ function fallbackCopy(text) {
            title="${carlos:forHtmlAttribute(calculatorsTitle)}"
            onclick="window.open('${carlos:forJavaScriptAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}', 'ClinicalCalculators', 'width=800,height=650,scrollbars=yes,resizable=yes'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
       </span>
+      <c:if test="${summaryPrototypeEnabled}">
+      <span class="echart-header-item echart-header-link"><a target="_blank" rel="noopener noreferrer" href="${carlos:forHtmlAttribute(ctx)}/clinical/AiSummaryPrototype?demographicNo=${carlos:forHtmlAttribute(summaryDemographicNo)}"><fmt:message key="clinical.aiSummaryPrototype.labelPatientOverview"/></a></span>
+      </c:if>
       <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
       <span class="echart-header-item echart-header-link">
         <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScript(ctx)}/commons/omdDiseaseList.jsp?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>

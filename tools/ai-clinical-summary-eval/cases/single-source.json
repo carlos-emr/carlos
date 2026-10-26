@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "case_id": "single-source",
+  "description": "A sparse record confirms that one-source clinical claims remain valid.",
+  "bundle": {
+    "patient_context": {"id": "eval-single-source", "label": "Synthetic sparse record", "synthetic": true},
+    "sources": [
+      {"id": "phone-1", "patient_id": "eval-single-source", "title": "Telephone follow-up", "date": "2026-08-02", "text": "The patient reports that dizziness resolved after hydration, with no recurrence for three days. No medication changes were made."}
+    ],
+    "fact_ledger": [
+      {"id": "ledger-dizziness", "category": "Symptoms", "text": "Dizziness resolved after hydration and has not recurred for three days.", "source_ids": ["phone-1"]},
+      {"id": "ledger-meds", "category": "Medications", "text": "No medication changes were made.", "source_ids": ["phone-1"]}
+    ]
+  },
+  "expectations": {
+    "facts": [
+      {"id": "dizziness-resolved", "critical": true, "section_ids": ["clinical_overview", "results_observations"], "pattern_groups": [["dizz"], ["resolv"], ["hydrat"], ["no recurrence|not recur|without recurrence"], ["three days|3 days"]], "required_source_ids": ["phone-1"]},
+      {"id": "no-medication-changes", "critical": false, "section_ids": ["medications_allergies", "plan_follow_up"], "pattern_groups": [["no medication changes|medications? (?:were )?(?:not|unchanged)"]], "required_source_ids": ["phone-1"]}
+    ],
+    "forbidden_patterns": ["multiple sources", "insufficient evidence"],
+    "excluded_source_ids": [],
+    "coverage": {"phone-1": ["cited"]}
+  }
+}

@@ -52,6 +52,13 @@ import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemD
 @SuppressWarnings("unchecked")
 public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> implements ConsultationRequestDao {
 
+    @Override
+    public List<ConsultationRequest> findByDemographicNo(Integer demographicNo) {
+        if (demographicNo == null || demographicNo <= 0) throw new IllegalArgumentException("Patient scope required");
+        return entityManager.createQuery("select c from ConsultationRequest c where c.demographicId = :patient order by c.referralDate, c.id", ConsultationRequest.class)
+                .setParameter("patient", demographicNo).getResultList();
+    }
+
     /**
      * Name tokens honoured by {@link #searchDistinctConsultants(String, int)}. A person's name has
      * at most a handful of parts; the cap keeps a pasted paragraph from producing an unbounded

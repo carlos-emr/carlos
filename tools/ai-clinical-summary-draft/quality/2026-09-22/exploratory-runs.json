@@ -1,0 +1,2382 @@
+[
+ {
+  "name": "all50-27b-001",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN001",
+  "notes": 19,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 155.457,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 36,
+  "host_statements": 7,
+  "cost_usd": 0.007531,
+  "calls": [
+   {
+    "seconds": 154.435,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2798,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00753075,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 7,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 1
+  },
+  "metrics": {
+   "claims": 36,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "all50-27b-002",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN002",
+  "notes": 20,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 352.948,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 56,
+  "host_statements": 0,
+  "cost_usd": 0.013208,
+  "calls": [
+   {
+    "seconds": 351.893,
+    "prompt_tokens": 9127,
+    "completion_tokens": 5463,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01320775,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 0,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  },
+  "metrics": {
+   "claims": 56,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "all50-27b-003",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN003",
+  "notes": 17,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 213.691,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 35,
+  "host_statements": 2,
+  "cost_usd": 0.007803,
+  "calls": [
+   {
+    "seconds": 212.73,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3109,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00780275,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 2,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  },
+  "metrics": {
+   "claims": 35,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "all50-27b-004",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN004",
+  "notes": 32,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 91.534,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 33,
+  "host_statements": 14,
+  "cost_usd": 0.007198,
+  "calls": [
+   {
+    "seconds": 90.368,
+    "prompt_tokens": 10769,
+    "completion_tokens": 2253,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00719825,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 14,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-005",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN005",
+  "notes": 37,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 173.943,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 33,
+  "host_statements": 12,
+  "cost_usd": 0.009255,
+  "calls": [
+   {
+    "seconds": 172.164,
+    "prompt_tokens": 11386,
+    "completion_tokens": 3204,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0092545,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 12,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-006",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN006",
+  "notes": 11,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 147.179,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 40,
+  "host_statements": 2,
+  "cost_usd": 0.009649,
+  "calls": [
+   {
+    "seconds": 137.159,
+    "prompt_tokens": 6720,
+    "completion_tokens": 3618,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.008916,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 8.972,
+    "prompt_tokens": 1684,
+    "completion_tokens": 156,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000733,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 2,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-007",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN007",
+  "notes": 29,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 263.466,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 45,
+  "host_statements": 3,
+  "cost_usd": 0.011112,
+  "calls": [
+   {
+    "seconds": 261.266,
+    "prompt_tokens": 10264,
+    "completion_tokens": 4273,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.011112,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 2,
+   "med": 1,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-008",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN008",
+  "notes": 35,
+  "status": "rejected",
+  "error": "ValueError: Duplicate identifier",
+  "seconds": 84.84,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 0,
+  "host_statements": 0,
+  "cost_usd": 0.00862,
+  "calls": [
+   {
+    "seconds": 84.823,
+    "prompt_tokens": 11089,
+    "completion_tokens": 2924,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00862025,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "all50-27b-009",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN009",
+  "notes": 26,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 163.614,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 49,
+  "host_statements": 3,
+  "cost_usd": 0.011985,
+  "calls": [
+   {
+    "seconds": 161.815,
+    "prompt_tokens": 11053,
+    "completion_tokens": 4611,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01198525,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 2,
+   "med": 1,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-010",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN010",
+  "notes": 25,
+  "status": "rejected",
+  "error": "ValueError: Claim lacks lexical support in cited sources",
+  "seconds": 163.865,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 0,
+  "host_statements": 0,
+  "cost_usd": 0.010736,
+  "calls": [
+   {
+    "seconds": 163.842,
+    "prompt_tokens": 9881,
+    "completion_tokens": 4133,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01073625,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "all50-27b-011",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN011",
+  "notes": 27,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 148.556,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 42,
+  "host_statements": 1,
+  "cost_usd": 0.011362,
+  "calls": [
+   {
+    "seconds": 142.689,
+    "prompt_tokens": 10099,
+    "completion_tokens": 4005,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01053475,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 3.324,
+    "prompt_tokens": 2668,
+    "completion_tokens": 80,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000827,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 1,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-012",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN012",
+  "notes": 46,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 291.335,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 1,
+  "repaired_statements": 0,
+  "claims": 64,
+  "host_statements": 1,
+  "cost_usd": 0.020559,
+  "calls": [
+   {
+    "seconds": 270.415,
+    "prompt_tokens": 13659,
+    "completion_tokens": 7122,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01765875,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 16.086,
+    "prompt_tokens": 2244,
+    "completion_tokens": 513,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.001587,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 2.161,
+    "prompt_tokens": 5181,
+    "completion_tokens": 9,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00131325,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 0,
+   "med": 1,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 1
+  }
+ },
+ {
+  "name": "all50-27b-013",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN013",
+  "notes": 52,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 237.682,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 58,
+  "host_statements": 1,
+  "cost_usd": 0.018083,
+  "calls": [
+   {
+    "seconds": 155.7,
+    "prompt_tokens": 13144,
+    "completion_tokens": 4360,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.012006,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 79.246,
+    "prompt_tokens": 6148,
+    "completion_tokens": 2270,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.006077,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 0,
+   "med": 1,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 1
+  }
+ },
+ {
+  "name": "all50-27b-014",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN014",
+  "notes": 20,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 161.067,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 28,
+  "host_statements": 0,
+  "cost_usd": 0.010539,
+  "calls": [
+   {
+    "seconds": 159.863,
+    "prompt_tokens": 10004,
+    "completion_tokens": 4019,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.010539,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 0,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-015",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN015",
+  "notes": 66,
+  "status": "rejected",
+  "error": "ValueError: Incomplete or refused completion",
+  "seconds": 338.148,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 0,
+  "host_statements": 0,
+  "cost_usd": 0.016526,
+  "calls": [
+   {
+    "seconds": 188.438,
+    "prompt_tokens": 14096,
+    "completion_tokens": 5729,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.014982,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 149.294,
+    "prompt_tokens": 6154,
+    "completion_tokens": 3,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0015445,
+    "finish_reasons": [
+     null
+    ]
+   }
+  ]
+ },
+ {
+  "name": "all50-27b-016",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN016",
+  "notes": 24,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 153.22,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 29,
+  "host_statements": 1,
+  "cost_usd": 0.010705,
+  "calls": [
+   {
+    "seconds": 152.469,
+    "prompt_tokens": 11766,
+    "completion_tokens": 3882,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0107055,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 1,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-017",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN017",
+  "notes": 70,
+  "status": "rejected",
+  "error": "UpstreamError: OpenRouter connection, timeout, or response-format failure",
+  "seconds": 540.004,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 0,
+  "host_statements": 0,
+  "cost_usd": 0.025778,
+  "calls": [
+   {
+    "seconds": 121.597,
+    "prompt_tokens": 13122,
+    "completion_tokens": 4540,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0123605,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 261.37,
+    "prompt_tokens": 12644,
+    "completion_tokens": 5128,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.013417,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 155.997,
+    "error": "UpstreamError: OpenRouter connection, timeout, or response-format failure"
+   }
+  ]
+ },
+ {
+  "name": "all50-27b-018",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN018",
+  "notes": 66,
+  "status": "rejected",
+  "error": "ValueError: Incomplete or refused completion",
+  "seconds": 82.215,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 0,
+  "host_statements": 0,
+  "cost_usd": 0.003457,
+  "calls": [
+   {
+    "seconds": 82.192,
+    "prompt_tokens": 13820,
+    "completion_tokens": 1,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.003457,
+    "finish_reasons": [
+     null
+    ]
+   }
+  ]
+ },
+ {
+  "name": "all50-27b-019",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN019",
+  "notes": 60,
+  "status": "rejected",
+  "error": "ValueError: Incomplete or refused completion",
+  "seconds": 88.164,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 0,
+  "host_statements": 0,
+  "cost_usd": 0.003369,
+  "calls": [
+   {
+    "seconds": 88.15,
+    "prompt_tokens": 13468,
+    "completion_tokens": 1,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.003369,
+    "finish_reasons": [
+     null
+    ]
+   }
+  ]
+ },
+ {
+  "name": "all50-27b-020",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN020",
+  "notes": 50,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 301.173,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 62,
+  "host_statements": 3,
+  "cost_usd": 0.02018,
+  "calls": [
+   {
+    "seconds": 191.646,
+    "prompt_tokens": 13472,
+    "completion_tokens": 5344,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.014056,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 98.429,
+    "prompt_tokens": 5242,
+    "completion_tokens": 2158,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0056265,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 7.116,
+    "prompt_tokens": 1316,
+    "completion_tokens": 84,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000497,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 2,
+   "med": 1,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-021",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN021",
+  "notes": 44,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 255.122,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 54,
+  "host_statements": 7,
+  "cost_usd": 0.016233,
+  "calls": [
+   {
+    "seconds": 190.276,
+    "prompt_tokens": 14154,
+    "completion_tokens": 3600,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0107385,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 51.911,
+    "prompt_tokens": 4084,
+    "completion_tokens": 1868,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.004757,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 9.601,
+    "prompt_tokens": 2108,
+    "completion_tokens": 105,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000737,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 7,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-022",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN022",
+  "notes": 68,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 295.45,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 1,
+  "repaired_statements": 0,
+  "claims": 59,
+  "host_statements": 2,
+  "cost_usd": 0.019385,
+  "calls": [
+   {
+    "seconds": 162.961,
+    "prompt_tokens": 14001,
+    "completion_tokens": 4404,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01230825,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 125.226,
+    "prompt_tokens": 6456,
+    "completion_tokens": 2344,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.006302,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.91,
+    "prompt_tokens": 3061,
+    "completion_tokens": 5,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00077525,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 2,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-023",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN023",
+  "notes": 44,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 165.188,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 1,
+  "repaired_statements": 0,
+  "claims": 43,
+  "host_statements": 6,
+  "cost_usd": 0.016135,
+  "calls": [
+   {
+    "seconds": 98.372,
+    "prompt_tokens": 13354,
+    "completion_tokens": 3754,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0108465,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 52.215,
+    "prompt_tokens": 3972,
+    "completion_tokens": 1805,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.004603,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 2.288,
+    "prompt_tokens": 2702,
+    "completion_tokens": 5,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0006855,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 6,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-024",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN024",
+  "notes": 38,
+  "status": "rejected",
+  "error": "ValueError: Invalid clinical section",
+  "seconds": 196.27,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 0,
+  "host_statements": 0,
+  "cost_usd": 0.015946,
+  "calls": [
+   {
+    "seconds": 140.452,
+    "prompt_tokens": 12718,
+    "completion_tokens": 3744,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0106675,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 55.206,
+    "prompt_tokens": 5772,
+    "completion_tokens": 1918,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.005279,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "all50-27b-025",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN025",
+  "notes": 90,
+  "status": "rejected",
+  "error": "ValueError: Duplicate identifier",
+  "seconds": 233.2,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 0,
+  "host_statements": 0,
+  "cost_usd": 0.015762,
+  "calls": [
+   {
+    "seconds": 233.105,
+    "prompt_tokens": 13814,
+    "completion_tokens": 6154,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0157615,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "all50-27b-026",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN026",
+  "notes": 28,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 193.879,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 34,
+  "host_statements": 1,
+  "cost_usd": 0.012125,
+  "calls": [
+   {
+    "seconds": 185.868,
+    "prompt_tokens": 11441,
+    "completion_tokens": 4383,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01162625,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 3.721,
+    "prompt_tokens": 1476,
+    "completion_tokens": 65,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000499,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 1,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-027",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN027",
+  "notes": 72,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 369.258,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 1,
+  "repaired_statements": 0,
+  "claims": 74,
+  "host_statements": 1,
+  "cost_usd": 0.0218,
+  "calls": [
+   {
+    "seconds": 247.283,
+    "prompt_tokens": 12948,
+    "completion_tokens": 4128,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.011493,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 112.155,
+    "prompt_tokens": 8662,
+    "completion_tokens": 3885,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0099355,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.136,
+    "prompt_tokens": 1446,
+    "completion_tokens": 5,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0003715,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 1,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 1
+  }
+ },
+ {
+  "name": "all50-27b-028",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN028",
+  "notes": 50,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 296.762,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 62,
+  "host_statements": 2,
+  "cost_usd": 0.018627,
+  "calls": [
+   {
+    "seconds": 224.347,
+    "prompt_tokens": 12762,
+    "completion_tokens": 5000,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0131905,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 62.291,
+    "prompt_tokens": 5378,
+    "completion_tokens": 1884,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0051125,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 2.077,
+    "prompt_tokens": 832,
+    "completion_tokens": 58,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000324,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 1,
+   "med": 1,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-029",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN029",
+  "notes": 46,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 393.742,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 1,
+  "repaired_statements": 0,
+  "claims": 58,
+  "host_statements": 0,
+  "cost_usd": 0.018689,
+  "calls": [
+   {
+    "seconds": 297.543,
+    "prompt_tokens": 13392,
+    "completion_tokens": 5124,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.013596,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 93.254,
+    "prompt_tokens": 3743,
+    "completion_tokens": 1993,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00492175,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.046,
+    "prompt_tokens": 612,
+    "completion_tokens": 9,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000171,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 0,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-030",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN030",
+  "notes": 54,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 214.629,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 2,
+  "repair_calls": 1,
+  "repaired_statements": 0,
+  "claims": 58,
+  "host_statements": 1,
+  "cost_usd": 0.017796,
+  "calls": [
+   {
+    "seconds": 156.348,
+    "prompt_tokens": 14169,
+    "completion_tokens": 4685,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01291225,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 52.988,
+    "prompt_tokens": 4760,
+    "completion_tokens": 1607,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.004404,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.748,
+    "prompt_tokens": 1878,
+    "completion_tokens": 5,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0004795,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 1,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-031",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN031",
+  "notes": 21,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 62.962,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 26,
+  "host_statements": 3,
+  "cost_usd": 0.006739,
+  "calls": [
+   {
+    "seconds": 61.349,
+    "prompt_tokens": 8092,
+    "completion_tokens": 2358,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.006739,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 3,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 1
+  }
+ },
+ {
+  "name": "all50-27b-032",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN032",
+  "notes": 15,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 162.543,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 32,
+  "host_statements": 1,
+  "cost_usd": 0.007779,
+  "calls": [
+   {
+    "seconds": 155.44,
+    "prompt_tokens": 6442,
+    "completion_tokens": 2723,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0070565,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 6.008,
+    "prompt_tokens": 2458,
+    "completion_tokens": 54,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0007225,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 1,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-033",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN033",
+  "notes": 17,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 87.548,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 24,
+  "host_statements": 4,
+  "cost_usd": 0.005901,
+  "calls": [
+   {
+    "seconds": 87.058,
+    "prompt_tokens": 7741,
+    "completion_tokens": 1983,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00590125,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 4,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-034",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN034",
+  "notes": 15,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 187.133,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 44,
+  "host_statements": 0,
+  "cost_usd": 0.008836,
+  "calls": [
+   {
+    "seconds": 186.473,
+    "prompt_tokens": 6049,
+    "completion_tokens": 3662,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00883625,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 0,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-035",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN035",
+  "notes": 19,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 254.903,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 39,
+  "host_statements": 0,
+  "cost_usd": 0.009598,
+  "calls": [
+   {
+    "seconds": 215.754,
+    "prompt_tokens": 7090,
+    "completion_tokens": 3713,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0091985,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 37.946,
+    "prompt_tokens": 813,
+    "completion_tokens": 98,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00039925,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 0,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-036",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN036",
+  "notes": 18,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 116.614,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 29,
+  "host_statements": 6,
+  "cost_usd": 0.007086,
+  "calls": [
+   {
+    "seconds": 115.926,
+    "prompt_tokens": 7122,
+    "completion_tokens": 2653,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0070865,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 6,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-037",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN037",
+  "notes": 12,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 91.74,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 30,
+  "host_statements": 0,
+  "cost_usd": 0.006652,
+  "calls": [
+   {
+    "seconds": 91.368,
+    "prompt_tokens": 5992,
+    "completion_tokens": 2577,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.006652,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 0,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-038",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN038",
+  "notes": 18,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 394.796,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 22,
+  "host_statements": 4,
+  "cost_usd": 0.006232,
+  "calls": [
+   {
+    "seconds": 394.44,
+    "prompt_tokens": 6407,
+    "completion_tokens": 2315,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00623175,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 4,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-039",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN039",
+  "notes": 17,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 134.995,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 24,
+  "host_statements": 6,
+  "cost_usd": 0.006177,
+  "calls": [
+   {
+    "seconds": 123.08,
+    "prompt_tokens": 6068,
+    "completion_tokens": 2006,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.005529,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 11.506,
+    "prompt_tokens": 1855,
+    "completion_tokens": 92,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00064775,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 6,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-040",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN040",
+  "notes": 17,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 152.492,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 41,
+  "host_statements": 1,
+  "cost_usd": 0.01086,
+  "calls": [
+   {
+    "seconds": 149.47,
+    "prompt_tokens": 6522,
+    "completion_tokens": 4073,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0097765,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 2.272,
+    "prompt_tokens": 4005,
+    "completion_tokens": 41,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00108325,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 0,
+   "med": 1,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-041",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN041",
+  "notes": 11,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 94.755,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 22,
+  "host_statements": 2,
+  "cost_usd": 0.006173,
+  "calls": [
+   {
+    "seconds": 87.107,
+    "prompt_tokens": 4947,
+    "completion_tokens": 2151,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00553875,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 7.322,
+    "prompt_tokens": 2096,
+    "completion_tokens": 55,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000634,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 2,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-042",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN042",
+  "notes": 15,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 271.482,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 51,
+  "host_statements": 1,
+  "cost_usd": 0.010974,
+  "calls": [
+   {
+    "seconds": 270.455,
+    "prompt_tokens": 7186,
+    "completion_tokens": 4589,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0109745,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 1,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-043",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN043",
+  "notes": 10,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 178.117,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 13,
+  "host_statements": 0,
+  "cost_usd": 0.004492,
+  "calls": [
+   {
+    "seconds": 177.86,
+    "prompt_tokens": 4738,
+    "completion_tokens": 1654,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0044925,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 0,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-044",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN044",
+  "notes": 35,
+  "status": "rejected",
+  "error": "UpstreamError: OpenRouter connection, timeout, or response-format failure",
+  "seconds": 420.005,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 0,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 0,
+  "host_statements": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 420.004,
+    "error": "UpstreamError: OpenRouter connection, timeout, or response-format failure"
+   }
+  ]
+ },
+ {
+  "name": "all50-27b-045",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN045",
+  "notes": 14,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 359.35,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 20,
+  "host_statements": 5,
+  "cost_usd": 0.005613,
+  "calls": [
+   {
+    "seconds": 350.064,
+    "prompt_tokens": 5800,
+    "completion_tokens": 1914,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.005278,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 8.398,
+    "prompt_tokens": 1012,
+    "completion_tokens": 41,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000335,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 5,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-046",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN046",
+  "notes": 16,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 140.218,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 29,
+  "host_statements": 1,
+  "cost_usd": 0.006314,
+  "calls": [
+   {
+    "seconds": 139.149,
+    "prompt_tokens": 6039,
+    "completion_tokens": 2402,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00631375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 1,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-047",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN047",
+  "notes": 15,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 216.764,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 16,
+  "host_statements": 4,
+  "cost_usd": 0.005277,
+  "calls": [
+   {
+    "seconds": 216.098,
+    "prompt_tokens": 6659,
+    "completion_tokens": 1806,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00527675,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 4,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-048",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN048",
+  "notes": 13,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 247.069,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "claims": 46,
+  "host_statements": 0,
+  "cost_usd": 0.011794,
+  "calls": [
+   {
+    "seconds": 233.518,
+    "prompt_tokens": 6064,
+    "completion_tokens": 4946,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.011408,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 12.532,
+    "prompt_tokens": 919,
+    "completion_tokens": 78,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00038575,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "host_findings": {
+   "obs": 0,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ },
+ {
+  "name": "all50-27b-049",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN049",
+  "notes": 22,
+  "status": "rejected",
+  "error": "UpstreamError: OpenRouter connection, timeout, or response-format failure",
+  "seconds": 420.005,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 0,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 0,
+  "host_statements": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 420.003,
+    "error": "UpstreamError: OpenRouter connection, timeout, or response-format failure"
+   }
+  ]
+ },
+ {
+  "name": "all50-27b-050",
+  "note": "Default configuration over every committed chart, with all host guarantees and inline repair.",
+  "fixture": "NHSSYN050",
+  "notes": 16,
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 83.542,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "claims": 30,
+  "host_statements": 0,
+  "cost_usd": 0.007003,
+  "calls": [
+   {
+    "seconds": 82.834,
+    "prompt_tokens": 6604,
+    "completion_tokens": 2676,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.007003,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "host_findings": {
+   "obs": 0,
+   "med": 0,
+   "names": 0,
+   "dates": 0,
+   "dups": 0,
+   "switch": 0,
+   "unexpl": 0
+  }
+ }
+]

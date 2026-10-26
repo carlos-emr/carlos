@@ -1,0 +1,170 @@
+[
+  {
+    "name": "candidate-27b-thinking",
+    "model": "qwen/qwen3.5-27b",
+    "thinking": true,
+    "fixture": "NHSSYN001",
+    "temperature": 0.6,
+    "budget": 50000,
+    "seconds": 154.833,
+    "passes": 1,
+    "claims": 25
+  },
+  {
+    "name": "candidate-35b-t02",
+    "model": "qwen/qwen3.5-35b-a3b",
+    "thinking": false,
+    "fixture": "NHSSYN001",
+    "temperature": 0.2,
+    "budget": 50000,
+    "seconds": 25.626,
+    "passes": 1,
+    "claims": 37
+  },
+  {
+    "name": "candidate-35b-thinking",
+    "model": "qwen/qwen3.5-35b-a3b",
+    "thinking": true,
+    "fixture": "NHSSYN001",
+    "temperature": 0.6,
+    "budget": 50000,
+    "seconds": 37.842,
+    "passes": 1,
+    "claims": 32
+  },
+  {
+    "name": "candidate-397b-t02",
+    "seconds": 41.546,
+    "passes": 1,
+    "error": "ValueError: Invalid section fields"
+  },
+  {
+    "name": "candidate-397b-thinking",
+    "model": "qwen/qwen3.5-397b-a17b",
+    "thinking": true,
+    "fixture": "NHSSYN001",
+    "temperature": 0.6,
+    "budget": 50000,
+    "seconds": 157.823,
+    "passes": 1,
+    "claims": 43
+  },
+  {
+    "name": "candidate-9b-deepinfra-t02",
+    "seconds": 180.007,
+    "passes": 0,
+    "error": "UpstreamError: OpenRouter connection, timeout, or response-format failure"
+  },
+  {
+    "name": "candidate-9b-small-t02",
+    "seconds": 76.093,
+    "passes": 3,
+    "error": "ValueError: Coverage disagrees with citations"
+  },
+  {
+    "name": "candidate-9b-thinking",
+    "error": "Stopped after full-record pass exhausted 16384 output tokens at temperature 0; no complete draft accepted",
+    "passes": 1,
+    "seconds": 106.158
+  },
+  {
+    "name": "candidate-full-t0",
+    "fixture": "NHSSYN001",
+    "temperature": 0,
+    "budget": 50000,
+    "seconds": 22.902,
+    "passes": 1,
+    "claims": 22
+  },
+  {
+    "name": "candidate-full-t02",
+    "seconds": 61.092,
+    "passes": 0,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+  },
+  {
+    "name": "candidate-v2-35b-t0",
+    "model": "qwen/qwen3.5-35b-a3b",
+    "thinking": false,
+    "fixture": "NHSSYN001",
+    "temperature": 0,
+    "budget": 50000,
+    "seconds": 30.586,
+    "passes": 1,
+    "claims": 33
+  },
+  {
+    "name": "candidate-v2-full-t0",
+    "seconds": 34.238,
+    "passes": 1,
+    "error": "ValueError: Coverage disagrees with citations"
+  },
+  {
+    "name": "candidate-v3-397b-t02",
+    "model": "qwen/qwen3.5-397b-a17b",
+    "thinking": false,
+    "fixture": "NHSSYN001",
+    "temperature": 0.2,
+    "budget": 50000,
+    "seconds": 54.389,
+    "passes": 1,
+    "claims": 33
+  },
+  {
+    "name": "candidate-v4-397b-t02",
+    "model": "qwen/qwen3.5-397b-a17b",
+    "thinking": false,
+    "fixture": "NHSSYN001",
+    "temperature": 0.2,
+    "budget": 50000,
+    "seconds": 59.703,
+    "passes": 1,
+    "claims": 33
+  },
+  {
+    "name": "candidate-v4-9b-sampling",
+    "seconds": 21.826,
+    "passes": 1,
+    "error": "ValueError: Coverage disagrees with citations"
+  },
+  {
+    "name": "candidate-v4-9b-t02",
+    "seconds": 30.143,
+    "passes": 2,
+    "error": "ValueError: Claim lacks lexical support in cited sources"
+  },
+  {
+    "name": "candidate-v5-9b-memory-r2",
+    "seconds": 104.851,
+    "passes": 3,
+    "error": "ValueError: Claim lacks lexical support in cited sources"
+  },
+  {
+    "name": "candidate-v5-9b-memory",
+    "seconds": 59.249,
+    "passes": 2,
+    "error": "ValueError: Coverage disagrees with citations"
+  },
+  {
+    "name": "candidate-v5-9b-t02",
+    "model": "qwen/qwen3.5-9b",
+    "thinking": false,
+    "fixture": "NHSSYN001",
+    "temperature": 0.2,
+    "budget": 14000,
+    "seconds": 44.743,
+    "passes": 3,
+    "claims": 57
+  },
+  {
+    "name": "candidate-v6-397b-t02",
+    "model": "qwen/qwen3.5-397b-a17b",
+    "thinking": false,
+    "fixture": "NHSSYN001",
+    "temperature": 0.2,
+    "budget": 50000,
+    "seconds": 58.9,
+    "passes": 1,
+    "claims": 32
+  }
+]

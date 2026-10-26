@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "campaign_id": "clinical-summary-fluent-delta-27b-v1",
+  "model": "qwen3.5:27b",
+  "seeds": [42],
+  "repetitions": 1,
+  "timeout_seconds": 14400,
+  "cases": [
+    "../cases/holdout-observations-followup.json",
+    "../cases/holdout-lab-medication.json",
+    "../cases/holdout-anticoagulation.json",
+    "../cases/validation-fragmented-note.json"
+  ],
+  "candidates": [
+    {
+      "id": "host-ledger-fluent-delta-10x240-8k",
+      "max_claims": 10,
+      "max_chars": 240,
+      "num_ctx": 8192,
+      "num_predict": 256,
+      "input_mode": "clinical_sources_and_atomic_fact_ledger",
+      "output_mode": "host_ledger_with_fluent_evidence_delta"
+    }
+  ]
+}
