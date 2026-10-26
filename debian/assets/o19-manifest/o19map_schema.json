@@ -2,7 +2,7 @@
  "format": 1,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-3+6ea61c42",
+ "SCHEMA_MAP_VERSION": "o19map-4+6ea61c42",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -24627,16 +24627,11 @@
   ],
   "program": [
    "alcohol",
-   "allowBatchAdmission",
-   "allowBatchDischarge",
    "firstNation",
-   "hic",
-   "holdingTank",
    "housing",
    "mentalHealth",
    "physicalHealth",
-   "transgender",
-   "userDefined"
+   "transgender"
   ],
   "program_access": [
    "all_roles"
@@ -24740,7 +24735,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-3+f2e0d233",
+   "SCHEMA_MAP_VERSION": "o19map-4+f2e0d233",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -58835,16 +58830,11 @@
     ],
     "program": [
      "alcohol",
-     "allowBatchAdmission",
-     "allowBatchDischarge",
      "firstNation",
-     "hic",
-     "holdingTank",
      "housing",
      "mentalHealth",
      "physicalHealth",
-     "transgender",
-     "userDefined"
+     "transgender"
     ],
     "program_access": [
      "all_roles"
