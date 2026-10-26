@@ -33,7 +33,8 @@ public final class PortalMyCarlosStaffApprovalService {
     private final SecurityInfoManager security;
     private final PortalMyCarlosApprovalJournal journal;
     private final java.util.function.Supplier<PortalMyCarlosDeviceApprovalService.Current> suppliedCurrent;
-    private final java.util.function.Function<PortalMyCarlosDeviceApprovalService.SourceAuthorization, PortalMyCarlosDeviceApprovalService> suppliedCore;
+    private final java.util.function.BiFunction<PortalMyCarlosDeviceApprovalService.SourceAuthorization,
+            java.util.function.Supplier<PortalMyCarlosDeviceApprovalService.Current>, PortalMyCarlosDeviceApprovalService> suppliedCore;
     private final java.util.function.Function<PatientPortalService, PortalMyCarlosApprovalClient> suppliedClient;
     private final SecureRandom random = new SecureRandom();
 
@@ -45,7 +46,8 @@ public final class PortalMyCarlosStaffApprovalService {
     PortalMyCarlosStaffApprovalService(PortalMyCarlosDeviceApprovalTransactions transactions,
             EntityManagerFactory factory, SecurityInfoManager security, PropertyDao properties,
             java.util.function.Supplier<PortalMyCarlosDeviceApprovalService.Current> suppliedCurrent,
-            java.util.function.Function<PortalMyCarlosDeviceApprovalService.SourceAuthorization, PortalMyCarlosDeviceApprovalService> suppliedCore,
+            java.util.function.BiFunction<PortalMyCarlosDeviceApprovalService.SourceAuthorization,
+                    java.util.function.Supplier<PortalMyCarlosDeviceApprovalService.Current>, PortalMyCarlosDeviceApprovalService> suppliedCore,
             java.util.function.Function<PatientPortalService, PortalMyCarlosApprovalClient> suppliedClient) {
         this.suppliedCurrent = suppliedCurrent;
         this.suppliedCore = suppliedCore;
@@ -105,10 +107,14 @@ public final class PortalMyCarlosStaffApprovalService {
     }
 
     private PortalMyCarlosDeviceApprovalService core(PortalMyCarlosDeviceApprovalService.SourceAuthorization source) {
-        if (suppliedCore != null) return Objects.requireNonNull(suppliedCore.apply(source));
+        return core(source, this::current);
+    }
+    private PortalMyCarlosDeviceApprovalService core(PortalMyCarlosDeviceApprovalService.SourceAuthorization source,
+            java.util.function.Supplier<PortalMyCarlosDeviceApprovalService.Current> transactionalSource) {
+        if (suppliedCore != null) return Objects.requireNonNull(suppliedCore.apply(source, transactionalSource));
         return new PortalMyCarlosDeviceApprovalService(transactions, new PortalMyCarlosPatientBindingDao(factory),
                 new PortalMyCarlosDeviceApprovalChallengeDao(factory), new PortalMyCarlosAcceptedDeviceDao(factory),
-                new PortalMyCarlosDeviceApprovalOutboxDao(factory), security, this::current, source,
+                new PortalMyCarlosDeviceApprovalOutboxDao(factory), security, transactionalSource, source,
                 new ClinicSigner(), this::nonce, UUID::randomUUID, Clock.systemUTC(), event -> {
                     // Accepted/removed rows retain the actor and immutable exact signed evidence
                     // in the same transaction. Application log content never carries device keys.
@@ -225,11 +231,19 @@ public final class PortalMyCarlosStaffApprovalService {
     public State approveFirst(LoggedInInfo info, int patient, String challengeId, String expectedHash,
             String exactFingerprint, PatientPortalService portal) {
         requireStaff(info, patient, SecurityInfoManager.WRITE);
-        requireClientTarget(portal, current(), PortalJob.PERMISSION_APPROVAL_REQUESTS_READ, "GET",
-                "/internal/carlos/mycarlos/device-approval-requests?after=0&limit=20");
+        var binding = current();
+        // The core rechecks this captured scope after entering its inventory transaction and row locks.
+        java.util.function.Supplier<PortalMyCarlosDeviceApprovalService.Current> transactionalSource = () -> {
+            var latest = current();
+            if (!latest.enabled || !binding.hash().equals(latest.hash())) throw new IllegalStateException("approval configuration changed");
+            requireClientTarget(portal, binding, PortalJob.PERMISSION_APPROVAL_REQUESTS_READ, "GET",
+                    "/internal/carlos/mycarlos/device-approval-requests?after=0&limit=20");
+            return binding;
+        };
+        transactionalSource.get();
         var challenge = new Bytes(PortalMyCarlosDeviceApprovalCodec.exact32(challengeId));
         if (expectedHash == null || !expectedHash.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("invalid challenge digest");
-        var result = core(noImport()).acceptFirstFromStaff(info, patient, challenge,
+        var result = core(noImport(), transactionalSource).acceptFirstFromStaff(info, patient, challenge,
                 new Bytes(HexFormat.of().parseHex(expectedHash)), exactFingerprint);
         var row = transactions.withApprovalState(() -> new PortalMyCarlosDeviceApprovalChallengeDao(factory)
                 .findByChallengeForUpdate(result.device().challengeId()).orElseThrow());
@@ -241,9 +255,14 @@ public final class PortalMyCarlosStaffApprovalService {
 
     private PortalMyCarlosApprovalClient client(PatientPortalService portal) {
         if (suppliedClient != null) return Objects.requireNonNull(suppliedClient.apply(portal));
-        var binding = current();
         var job = PortalJobAssertionSigner.from(PortalJobKey.fromCarlosProperties(PortalJob.DEVICE_APPROVAL_SYNC)
                 .orElseThrow(() -> new IllegalStateException("approval sync job key is unavailable")));
+        return client(portal, job);
+    }
+
+    /** The same production HTTP fence, with an explicit server-owned job signer for focused tests. */
+    PortalMyCarlosApprovalClient client(PatientPortalService portal, PortalJobAssertionSigner job) {
+        var binding = current();
         return new PortalMyCarlosApprovalClient((permission, method, path, body, status) -> {
             if (!binding.hash().equals(current().hash())) throw new IllegalStateException("approval configuration changed");
             requireClientTarget(portal, binding, permission, method, path);

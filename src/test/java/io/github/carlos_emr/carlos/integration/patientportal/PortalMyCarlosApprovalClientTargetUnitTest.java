@@ -37,7 +37,7 @@ class PortalMyCarlosApprovalClientTargetUnitTest {
             AtomicInteger consumers = new AtomicInteger();
             var cfg = PortalMyCarlosDeviceApprovalService.Current.fromValidated(newer, "https://localhost:8455/patient", true, true);
             var staff = new PortalMyCarlosStaffApprovalService(mock(PortalMyCarlosDeviceApprovalTransactions.class),
-                    f.owner.factory, f.security, properties, () -> cfg, source -> {
+                    f.owner.factory, f.security, properties, () -> cfg, (source, transactionalSource) -> {
                         consumers.incrementAndGet(); return f.service;
                     }, ignored -> { throw new AssertionError("client must be fenced before constructing a poll"); });
             assertThrows(IllegalStateException.class, () -> staff.refresh(f.session, 1, portal));
@@ -82,7 +82,7 @@ class PortalMyCarlosApprovalClientTargetUnitTest {
         var properties = mock(PropertyDao.class);
         AtomicInteger consumers = new AtomicInteger();
         var staff = new PortalMyCarlosStaffApprovalService(mock(PortalMyCarlosDeviceApprovalTransactions.class),
-                f.owner.factory, f.security, properties, current::get, source -> {
+                f.owner.factory, f.security, properties, current::get, (source, transactionalSource) -> {
                     consumers.incrementAndGet(); return f.service;
                 }, ignored -> client);
         assertThrows(IllegalStateException.class, () -> staff.refresh(f.session, 1, portal));
@@ -91,4 +91,138 @@ class PortalMyCarlosApprovalClientTargetUnitTest {
         verifyNoInteractions(properties);
     }
 
+    @Test void shouldLeaveNoAcceptedRoot_whenConfigurationSwitchesBeforeInventoryOrAfterRowLocks() throws Exception {
+        for (boolean beforeInventory : new boolean[]{true, false}) {
+            var f = new PortalMyCarlosDeviceApprovalStateTestSupport.Fixture();
+            var old = settings("https://localhost:8455", f.scope.clinicId());
+            var original = PortalMyCarlosDeviceApprovalService.Current.fromValidated(old, f.scope.canonicalPublicBase(), true, true);
+            var changed = f.current;
+            var current = new java.util.concurrent.atomic.AtomicReference<>(original);
+            // Before inventory: an exact, otherwise acceptable challenge already belongs to B.
+            // After row locks: an exact A challenge becomes stale while the operation holds locks.
+            if (!beforeInventory) f.current = original;
+            var row = f.install(f.first, false);
+            if (beforeInventory) {
+                Runnable snapshot = f.owner.manager.onBegin;
+                f.owner.manager.onBegin = () -> { snapshot.run(); current.set(changed); };
+            } else {
+                f.lastLock = () -> current.set(changed);
+            }
+            var transactions = new PortalMyCarlosDeviceApprovalTransactions(f.owner.transactions,
+                    new PortalMyCarlosKeyInventoryWorker(f.properties));
+            var key = PortalMyCarlosDeviceApprovalStateTestSupport.privateKey(f.data.path("keys").path("clinic"),
+                    "FAKE_private_pkcs8_b64url", "EC");
+            var signer = new PortalMyCarlosDeviceApprovalService.Signer() {
+                public PortalMyCarlosDeviceApprovalService.SigningIdentity currentIdentity() {
+                    return new PortalMyCarlosDeviceApprovalService.SigningIdentity(
+                            f.data.path("keys").path("clinic").path("kid").asText(),
+                            f.data.path("keys").path("clinic").path("spki").asText());
+                }
+                public String sign(PortalMyCarlosDeviceApprovalTypes.Kind kind, Map<String, Object> claims,
+                        PortalMyCarlosDeviceApprovalTypes.Scope scope, PortalMyCarlosDeviceApprovalService.SigningIdentity identity) {
+                    f.signs.incrementAndGet();
+                    return PortalMyCarlosDeviceApprovalCrypto.sign(kind, claims, scope, key);
+                }
+            };
+            AtomicInteger network = new AtomicInteger();
+            var portal = new PatientPortalService(old, request -> {
+                network.incrementAndGet(); return new PatientPortalHttpResponse(200, "{\"status\":\"stored\"}");
+            }, PortalStaffAssertionSigner.from(old.staffAssertionPrivateKey()), () -> true);
+            var staff = new PortalMyCarlosStaffApprovalService(transactions, f.owner.factory, f.security,
+                    mock(PropertyDao.class), current::get, (source, transactionalSource) ->
+                    new PortalMyCarlosDeviceApprovalService(transactions, f.bindings, f.challenges, f.devices,
+                            f.outbox, f.security, transactionalSource, source, signer, () -> f.nextChallenge,
+                            java.util.UUID::randomUUID, f.clock, f.audits::add), ignored -> {
+                                throw new AssertionError("publication must not follow a refused acceptance");
+                            });
+            var refusal = assertThrows(RuntimeException.class, () -> staff.approveFirst(f.session, 1,
+                    PortalMyCarlosDeviceApprovalCodec.base64(row.challengeId().copy()),
+                    java.util.HexFormat.of().formatHex(row.challengeHash().copy()),
+                    java.util.HexFormat.of().formatHex(PortalMyCarlosDeviceApprovalCodec.exact32(row.candidateKid())), portal));
+            assertNull(f.binding);
+            assertTrue(f.deviceRows.isEmpty());
+            assertTrue(f.outboxRows.isEmpty());
+            assertTrue(f.challengeRows.get(row.challengeId()).pending());
+            assertEquals(1, f.owner.manager.rollbacks);
+            assertEquals(0, f.owner.manager.commits);
+            assertEquals(0, f.signs.get());
+            assertEquals(0, network.get());
+            assertInstanceOf(IllegalStateException.class, refusal);
+        }
+    }
+
+    private static PortalJobAssertionSigner job() {
+        return PortalJobAssertionSigner.from(new PortalJobKey(PortalJob.DEVICE_APPROVAL_SYNC,
+                PortalSecret.of(PortalTestKeys.JOB_PRIVATE_KEY), "FAKE-approval-job"));
+    }
+
+    @Test void shouldFenceProductionPutBeforeHttp_whenCapturedConfigurationOrCachedTargetChanges() throws Exception {
+        for (String kind : new String[]{"challenge", "decision"}) {
+            for (boolean staleCachedTarget : new boolean[]{false, true}) {
+                var old = settings("https://localhost:8455", "clinic-a");
+                var newer = settings("https://localhost:9555", "clinic-a");
+                var original = PortalMyCarlosDeviceApprovalService.Current.fromValidated(old, "https://localhost:8455/patient", true, true);
+                var changed = PortalMyCarlosDeviceApprovalService.Current.fromValidated(newer, "https://localhost:8455/patient", true, true);
+                var current = new java.util.concurrent.atomic.AtomicReference<>(staleCachedTarget ? changed : original);
+                AtomicInteger network = new AtomicInteger();
+                var portal = new PatientPortalService(old, request -> {
+                    network.incrementAndGet(); return new PatientPortalHttpResponse(200, "{\"status\":\"stored\"}");
+                }, PortalStaffAssertionSigner.from(old.staffAssertionPrivateKey()), () -> true);
+                var f = new PortalMyCarlosDeviceApprovalStateTestSupport.Fixture();
+                var staff = new PortalMyCarlosStaffApprovalService(mock(PortalMyCarlosDeviceApprovalTransactions.class),
+                        f.owner.factory, f.security, mock(PropertyDao.class), current::get, null, null);
+                var client = staff.client(portal, job());
+                current.set(changed);
+                assertThrows(IllegalStateException.class, () -> client.publish(
+                        java.util.UUID.fromString("39d10c50-6ddb-4164-8824-f4d540c1589c"), kind, new byte[]{123, 125}));
+                assertEquals(0, network.get());
+            }
+        }
+    }
+
+    @Test void shouldFenceProductionPutAfterHttp_whenConfigurationChangesDuringSuccessOrFailure() throws Exception {
+        for (String kind : new String[]{"challenge", "decision"}) {
+            for (int status : new int[]{200, 410}) {
+                var old = settings("https://localhost:8455", "clinic-a");
+                var newer = settings("https://localhost:9555", "clinic-a");
+                var original = PortalMyCarlosDeviceApprovalService.Current.fromValidated(old, "https://localhost:8455/patient", true, true);
+                var changed = PortalMyCarlosDeviceApprovalService.Current.fromValidated(newer, "https://localhost:8455/patient", true, true);
+                var current = new java.util.concurrent.atomic.AtomicReference<>(original);
+                AtomicInteger network = new AtomicInteger();
+                var id = java.util.UUID.fromString("39d10c50-6ddb-4164-8824-f4d540c1589c");
+                var portal = new PatientPortalService(old, request -> {
+                    network.incrementAndGet();
+                    assertEquals("PUT", request.getMethod());
+                    assertEquals("https://localhost:8455/internal/carlos/mycarlos/device-approval-requests/" + id + "/" + kind,
+                            assertDoesNotThrow(request::getUri).toASCIIString());
+                    current.set(changed);
+                    return new PatientPortalHttpResponse(status, status == 200 ? "{\"status\":\"stored\"}" : "{\"code\":\"approval_expired\"}");
+                }, PortalStaffAssertionSigner.from(old.staffAssertionPrivateKey()), () -> true);
+                var f = new PortalMyCarlosDeviceApprovalStateTestSupport.Fixture();
+                var staff = new PortalMyCarlosStaffApprovalService(mock(PortalMyCarlosDeviceApprovalTransactions.class),
+                        f.owner.factory, f.security, mock(PropertyDao.class), current::get, null, null);
+                var client = staff.client(portal, job());
+                assertThrows(IllegalStateException.class, () -> client.publish(id, kind, new byte[]{123, 125}));
+                assertEquals(1, network.get());
+            }
+        }
+    }
+
+    @Test void shouldPublishThroughProductionPutFence_whenConfigurationStaysBound() throws Exception {
+        var old = settings("https://localhost:8455", "clinic-a");
+        var cfg = PortalMyCarlosDeviceApprovalService.Current.fromValidated(old, "https://localhost:8455/patient", true, true);
+        AtomicInteger network = new AtomicInteger();
+        var portal = new PatientPortalService(old, request -> {
+            network.incrementAndGet(); return new PatientPortalHttpResponse(200, "{\"status\":\"stored\"}");
+        }, PortalStaffAssertionSigner.from(old.staffAssertionPrivateKey()), () -> true);
+        var f = new PortalMyCarlosDeviceApprovalStateTestSupport.Fixture();
+        var staff = new PortalMyCarlosStaffApprovalService(mock(PortalMyCarlosDeviceApprovalTransactions.class),
+                f.owner.factory, f.security, mock(PropertyDao.class), () -> cfg, null, null);
+        var client = staff.client(portal, job());
+        for (String kind : new String[]{"challenge", "decision"}) {
+            assertDoesNotThrow(() -> client.publish(java.util.UUID.fromString("39d10c50-6ddb-4164-8824-f4d540c1589c"),
+                    kind, new byte[]{123, 125}));
+        }
+        assertEquals(2, network.get());
+    }
 }

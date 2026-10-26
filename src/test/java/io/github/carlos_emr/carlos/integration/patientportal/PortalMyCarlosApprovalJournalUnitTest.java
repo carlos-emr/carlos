@@ -45,7 +45,7 @@ class PortalMyCarlosApprovalJournalUnitTest {
                 ? List.of(rows.get(call.getArgument(0))) : List.of());
         doAnswer(call -> { Property row = call.getArgument(0); rows.put(row.getName(), row); return null; }).when(properties).persist(any());
         var staff = new PortalMyCarlosStaffApprovalService(transactions, f.owner.factory, f.security, properties,
-                () -> f.current, source -> f.service, ignored -> null);
+                () -> f.current, (source, transactionalSource) -> f.service, ignored -> null);
         var claims = PortalMyCarlosDeviceApprovalStateTestSupport.claims(f.first.path("intent").path("claims"));
         claims.put("request_id", "39d10c50-6ddb-4164-8824-f4d540c1589c");
         claims.put("iat", f.clock.instant().minusSeconds(1000).getEpochSecond());
@@ -79,7 +79,7 @@ class PortalMyCarlosApprovalJournalUnitTest {
                 ? List.of(rows.get(call.getArgument(0))) : List.of());
         doAnswer(call -> { Property row = call.getArgument(0); rows.put(row.getName(), row); return null; }).when(properties).persist(any());
         var staff = new PortalMyCarlosStaffApprovalService(transactions, f.owner.factory, f.security, properties,
-                () -> f.current, source -> f.service, ignored -> null);
+                () -> f.current, (source, transactionalSource) -> f.service, ignored -> null);
         var old = new PortalMyCarlosApprovalClient.Request(1, 1, f.first.path("intent").path("compact").textValue());
         var refused = new java.util.ArrayList<String>();
         assertNotNull(staff.prepareRequest(f.session, 1, old, refused));
@@ -119,7 +119,7 @@ class PortalMyCarlosApprovalJournalUnitTest {
                     ? List.of(rows.get(call.getArgument(0))) : List.of());
             doAnswer(call -> { Property row = call.getArgument(0); rows.put(row.getName(), row); return null; }).when(properties).persist(any());
             var staff = new PortalMyCarlosStaffApprovalService(transactions, f.owner.factory, f.security, properties,
-                    () -> f.current, source -> f.service, ignored -> null);
+                    () -> f.current, (source, transactionalSource) -> f.service, ignored -> null);
             var claims = PortalMyCarlosDeviceApprovalStateTestSupport.claims(f.first.path("intent").path("claims"));
             claims.put("recipient_id", recipient);
             byte[] payload = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(claims);
