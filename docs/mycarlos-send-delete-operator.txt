@@ -58,7 +58,9 @@ Use Retry saved copy on a Waiting to send history row, including an older page, 
 retry that row’s exact UUID/device/body. Copies already Waiting for pickup
 use Check status. Check status retries the newest20
 patient rows; the explicit row control reaches older pending copies.
-Use New delivery only when intentionally creating another immutable copy.
+Use Send another copy only when intentionally creating a separate delivery and
+filing in myCarlos. Source edits do not revise or replace copies already saved
+in myCarlos. This milestone provides no replacement or supersession lifecycle.
 
 Picked up requires independent verification of the device-signed kept receipt
 against the stored send-time identity and original/ciphertext hashes. A portal
