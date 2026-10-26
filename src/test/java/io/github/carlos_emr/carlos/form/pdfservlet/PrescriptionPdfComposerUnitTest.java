@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.form.pdfservlet;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
