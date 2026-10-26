@@ -6,7 +6,6 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import static io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeliveryCodec.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalTypes.Bytes;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

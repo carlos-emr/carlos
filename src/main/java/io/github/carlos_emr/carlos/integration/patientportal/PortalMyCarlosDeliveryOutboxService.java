@@ -6,7 +6,6 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import static io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeliveryCodec.invalid;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeliveryOutboxDao.Row;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalService.Current;
-import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalTypes.Bytes;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.nio.charset.StandardCharsets;
