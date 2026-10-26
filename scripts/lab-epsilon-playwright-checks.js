@@ -45,7 +45,7 @@
  *   4. The PDF row's Download and inline routes answer with the PDF bytes.
  *
  * Every hl7TextMessage, hl7TextInfo, patientLabRouting, providerLabRouting,
- * measurement and fileUploadCheck row the upload creates is removed in cleanup
+ * measurement, unshared routing lock and fileUploadCheck row the upload creates is removed in cleanup
  * by the run's accession and stamped file name, pass or fail; the uploader's
  * archived copy is handled as in lab-upload-playwright-checks.js
  * (LAB_UPLOAD_DOCUMENT_STORE). All names and identifiers are fictitious
@@ -64,6 +64,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { ownPreferences } = require('./lab-embedded-pdf-playwright-checks');
+const { LOCK_NOT_SHARED } = require('./lab-forwarding-rules-playwright-checks');
 
 const TIMEOUT = 60000;
 
@@ -192,6 +193,34 @@ function assertRenderedRows(text, html, labNo, label) {
     `${label}: an ED payload was printed as encoded bytes`);
 }
 
+/** Remove only the two owned PID messages and their unshared HL7 routing mutexes. */
+function removeEpsilonLabRows(sql, labNumbers) {
+  const labs = [...new Set(labNumbers.map(String))];
+  h.assert(labs.every(id => /^[1-9]\d*$/.test(id)), 'Invalid owned Epsilon lab identity');
+  if (!labs.length) return;
+  const list = labs.join(',');
+  const measurements = sql.rows(`SELECT measurement_id FROM measurementsExt
+    WHERE keyval='lab_no' AND val IN (${labs.map((labNo) => h.sqlString(labNo)).join(',')})`)
+    .map(([id]) => id).filter((id) => /^\d+$/.test(id));
+  if (measurements.length) {
+    const ids = measurements.join(',');
+    sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids});
+      DELETE FROM measurements WHERE id IN (${ids})`);
+  }
+  sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
+    DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list}) AND ${LOCK_NOT_SHARED};
+    DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
+    DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
+    DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
+  h.assert(sql.value(`SELECT
+      (SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list}))
+    + (SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no IN (${list}) AND ${LOCK_NOT_SHARED})
+    + (SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list}))
+    + (SELECT COUNT(*) FROM hl7TextInfo WHERE lab_no IN (${list}))
+    + (SELECT COUNT(*) FROM hl7TextMessage WHERE lab_id IN (${list}))`) === '0',
+  'The owned Epsilon messages, routing and unshared locks were not all removed');
+}
+
 async function workflow(s) {
   const { sql, patient, marker, cleanup } = s;
   const stamp = crypto.randomBytes(4).toString('hex').toUpperCase();
@@ -211,30 +240,7 @@ async function workflow(s) {
     const labs = sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE ${ownLabs}
       UNION SELECT lab_id FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)}`)
       .map(([labNo]) => labNo).filter((labNo) => /^\d+$/.test(labNo));
-    if (labs.length) {
-      const list = labs.join(',');
-      const measurements = sql.rows(`SELECT measurement_id FROM measurementsExt
-        WHERE keyval='lab_no' AND val IN (${labs.map((labNo) => h.sqlString(labNo)).join(',')})`)
-        .map(([id]) => id).filter((id) => /^\d+$/.test(id));
-      if (measurements.length) {
-        const ids = measurements.join(',');
-        sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids});
-          DELETE FROM measurements WHERE id IN (${ids})`);
-      }
-      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
-        DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list})
-          AND NOT EXISTS (SELECT 1 FROM providerLabRouting other
-            WHERE other.lab_no=providerLabRoutingLock.lab_no AND other.lab_type<>'HL7');
-        DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
-        DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
-        DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
-      // Locks use the numeric lab ID across sources. Never remove a lock still
-      // used by another source (for example a document with the same number).
-      h.assert(sql.value(`SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no IN (${list})
-        AND NOT EXISTS (SELECT 1 FROM providerLabRouting other
-          WHERE other.lab_no=providerLabRoutingLock.lab_no AND other.lab_type<>'HL7')`) === '0',
-      'The synthetic Epsilon routing locks were not all removed');
-    }
+    removeEpsilonLabRows(sql, labs);
     sql.execute(`DELETE FROM fileUploadCheck WHERE ${ownUpload}`);
     removeArchivedUploads(stamp);
     h.assert(sql.value(`SELECT
@@ -301,4 +307,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('lab-epsilon', workflow, { openMaster: false });
-module.exports = { workflow, buildFeed, PDF, HTML_PAYLOAD, PDF_ROW, HTML_ROW, HEADER, FT_LINE };
+module.exports = { removeEpsilonLabRows, workflow, buildFeed, PDF, HTML_PAYLOAD, PDF_ROW, HTML_ROW, HEADER, FT_LINE };

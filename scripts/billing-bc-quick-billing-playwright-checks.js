@@ -12,7 +12,8 @@
  * lists the owned patient's line (PHN, name, the owned code and its fee) and locks the batch's
  * header; a second patient's add lists a second line; remove takes out only the line it is pressed
  * on; a GET carrying an add or a remove is refused with 405 (the saved count below shows the list was
- * not changed by it); Submit says 2 invoices were saved and writes, for each listed patient, one MSP
+ * not changed by it); reopening the page retains both queued invoices and the locked header;
+ * Submit says 2 invoices were saved and writes, for each listed patient, one MSP
  * bill (billing, status O) and one billingmaster line with the code, fee, diagnosis, PHN, the
  * physician's practitioner and payee numbers, claim code C02, the service location and today's
  * service date, plus its billing-history archive and the quick-billing note; a replay of that
@@ -238,6 +239,17 @@ async function workflow(s) {
       h.assert(response.status() === 405, `A GET ${query.split('=')[0]} answered ${response.status()}, not 405`);
     }
     h.assert(bills() === '0', 'A refused GET wrote bills');
+    const reopened = await frame.goto(h.appUrl(s.config.baseUrl, ROUTE));
+    h.assert(reopened.status() === 200, `Reopening Quick Billing answered HTTP ${reopened.status()}`);
+    await h.assertNotErrorPage(frame, 'Reopened Quick Billing');
+    h.assert(await lines().count() === 2, 'Reopening Quick Billing discarded queued invoices');
+    h.assert(await lineFor('Workflow').count() === 1 && await lineFor(B_FIRST_NAME).count() === 1,
+      'Reopening Quick Billing changed the queued patients');
+    h.assert(await frame.locator('#providers').inputValue() === physician.providerNo
+      && await frame.locator('#visitLocation').inputValue() === LOCATION,
+    'Reopening Quick Billing changed the batch header');
+    h.assert(await frame.locator('#providers').isDisabled() && await frame.locator('#visitDate').isDisabled(),
+      'Reopening Quick Billing unlocked the queued batch header');
   });
 
   let submitted;

@@ -226,6 +226,9 @@ public class Demographic2Action extends ActionSupport {
                 for (DemographicExtArchive ext : exts) {
                     extMap.put(ext.getKey(), ext);
                 }
+                String nextHomeExtension = historyExtensionValue(extMap.get("hPhoneExt"));
+                String nextWorkExtension = historyExtensionValue(extMap.get("wPhoneExt"));
+                String nextCell = historyExtensionValue(extMap.get("demo_cell"));
 
                 if (!Objects.equals(address, archive.getAddress()) || !Objects.equals(city, archive.getCity())
                         || !Objects.equals(province, archive.getProvince()) || !Objects.equals(postal, archive.getPostal())) {
@@ -237,24 +240,24 @@ public class Demographic2Action extends ActionSupport {
                     postal = archive.getPostal();
                 }
 
-                if (!Objects.equals(phone, archive.getPhone()) || (extMap.get("hPhoneExt") != null && !Objects.equals(extMap.get("hPhoneExt").getValue(), hPhoneExt))) {
+                if (!Objects.equals(phone, archive.getPhone()) || !hPhoneExt.equals(nextHomeExtension)) {
                     //new home phone
                     items.add(new DemographicHistoryItem(archive.getPhone() + extensionSuffix(extMap.get("hPhoneExt")), "phone", archive.getLastUpdateDate()));
                     phone = archive.getPhone();
-                    hPhoneExt = extMap.get("hPhoneExt") != null ? extMap.get("hPhoneExt").getValue() : "";
+                    hPhoneExt = nextHomeExtension;
                 }
 
-                if (!Objects.equals(phone2, archive.getPhone2()) || (extMap.get("wPhoneExt") != null && !Objects.equals(extMap.get("wPhoneExt").getValue(), wPhoneExt))) {
+                if (!Objects.equals(phone2, archive.getPhone2()) || !wPhoneExt.equals(nextWorkExtension)) {
                     //new work phone
                     items.add(new DemographicHistoryItem(archive.getPhone2() + extensionSuffix(extMap.get("wPhoneExt")), "phone2", archive.getLastUpdateDate()));
                     phone2 = archive.getPhone2();
-                    wPhoneExt = extMap.get("wPhoneExt") != null ? extMap.get("wPhoneExt").getValue() : "";
+                    wPhoneExt = nextWorkExtension;
                 }
 
-                if ((extMap.get("demo_cell") != null && extMap.get("demo_cell").getValue() != null && !extMap.get("demo_cell").getValue().equals(cell))) {
+                if (!cell.equals(nextCell)) {
                     //new cell phone
-                    items.add(new DemographicHistoryItem(extMap.get("demo_cell").getValue(), "cell", archive.getLastUpdateDate()));
-                    cell = extMap.get("demo_cell").getValue();
+                    items.add(new DemographicHistoryItem(nextCell, "cell", archive.getLastUpdateDate()));
+                    cell = nextCell;
                 }
 
             }
@@ -272,7 +275,13 @@ public class Demographic2Action extends ActionSupport {
 
     /** "x" and the extension, to follow a phone number in the history, or nothing when the extension is blank. */
     private static String extensionSuffix(DemographicExtArchive ext) {
-        return ext != null && ext.getValue() != null && !ext.getValue().isBlank() ? "x" + ext.getValue() : "";
+        String value = historyExtensionValue(ext);
+        return value.isEmpty() ? "" : "x" + value;
+    }
+
+    /** Missing, null and blank extension rows all represent the same cleared value. */
+    private static String historyExtensionValue(DemographicExtArchive ext) {
+        return ext == null || ext.getValue() == null || ext.getValue().isBlank() ? "" : ext.getValue();
     }
 
     public String checkForDuplicates() {

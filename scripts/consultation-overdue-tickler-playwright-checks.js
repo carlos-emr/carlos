@@ -128,6 +128,18 @@ async function clickControl(s, list, link, { accept, label }) {
   }
 }
 
+/**
+ * Clicks a form button whose handler closes the form's own window (Back runs window.close(); Save
+ * submits and the result page closes itself). Chromium can report that close before it
+ * acknowledges the click, so only that error is tolerated, and only once the window really is
+ * closed. Callers still await the window's close event and assert the stored rows afterwards.
+ */
+async function clickClosingButton(popup, button) {
+  await button.click({ noWaitAfter: true }).catch(error => {
+    if (!popup.isClosed() || !/Target page, context or browser has been closed/.test(error.message)) throw error;
+  });
+}
+
 async function readForm(popup) {
   await popup.waitForLoadState('domcontentloaded');
   await h.assertNotErrorPage(popup, 'Add Tickler form');
@@ -262,7 +274,7 @@ async function workflow(s) {
     await h.screenshot(popup, s.config.screenshotDir, 'consultation-overdue-tickler-form');
     // Cancel without saving: the form's Back button closes it.
     const closed = popup.waitForEvent('close', { timeout: TIMEOUT });
-    await popup.locator('.action-bar-bottom input[value="Back"]').click();
+    await clickClosingButton(popup, popup.locator('.action-bar-bottom input[value="Back"]'));
     await closed;
     for (const patient of owned.patients) {
       h.assert(ticklerRows(patient).length === 0, `Back created a task for patient ${patient}`);
@@ -274,7 +286,7 @@ async function workflow(s) {
     const form = await readForm(popup);
     h.assert(form.patient === patientA && form.message === SUGGESTED_MESSAGE, 'the reopened form lost the patient or the message');
     const closed = popup.waitForEvent('close', { timeout: TIMEOUT });
-    await popup.locator('.action-bar-bottom input.btn-primary').click();
+    await clickClosingButton(popup, popup.locator('.action-bar-bottom input.btn-primary'));
     await closed;
     const rows = ticklerRows(patientA);
     h.assert(rows.length === 1, `expected exactly one task for the patient, found ${rows.length}`);
@@ -303,7 +315,7 @@ async function workflow(s) {
         `the control for patient ${wanted.patients[0]} opened the form for "${form.patient}"`);
       h.assert(form.message === SUGGESTED_MESSAGE, 'the form lost the suggested message');
       const closed = popup.waitForEvent('close', { timeout: TIMEOUT });
-      await popup.locator('.action-bar-bottom input[value="Back"]').click();
+      await clickClosingButton(popup, popup.locator('.action-bar-bottom input[value="Back"]'));
       await closed;
     }
     h.assert(ticklerRows(patientC).length === 0, 'opening and closing the form created a task');

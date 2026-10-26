@@ -40,6 +40,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -48,8 +49,20 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import org.apache.commons.lang3.StringUtils;
+import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrug;
+import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.openpdf.text.DocumentException;
+import org.openpdf.text.Font;
+import org.openpdf.text.PageSize;
+import org.openpdf.text.Paragraph;
+import org.openpdf.text.Phrase;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.ColumnText;
+import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.AcroFields;
 import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfStamper;
@@ -125,6 +138,12 @@ public class PDFController {
     private String fileName;
     private Map<String, Method> methodMap;
     private Object data;
+    private boolean continueInstructions;
+
+    /** Keep long BPMH instructions readable on referenced continuation pages, without shrinking text. */
+    public void setContinueInstructions(boolean continueInstructions) {
+        this.continueInstructions = continueInstructions;
+    }
 
     /** Default constructor. Call {@link #setFilePath(File)} and {@link #_init()} before use. */
     public PDFController() {
@@ -276,6 +295,7 @@ public class PDFController {
     private void addDataToPDF() {
 
         AcroFields acroFields = getStamper().getAcroFields();
+        Map<String, BpmhDrug> instructionNotes = prepareInstructionNotes(acroFields);
         Map acroFieldsMap = acroFields.getAllFields();
         Iterator<String> acroFieldsIt = acroFieldsMap.keySet().iterator();
         String replaceWith = "";
@@ -291,6 +311,9 @@ public class PDFController {
             _Logger.debug("Filling BPMH PDF field type={}", LogSafe.sanitizeObject(fieldType));
 
             replaceWith = invokeValue(cleanKey);
+            if (instructionNotes.containsKey(cleanKey)) {
+                replaceWith = "See instructions #" + instructionNumber(cleanKey);
+            }
 
             //count the characters and compare to limit.
             //			if(fieldType == AcroFields.FIELD_TYPE_TEXT) {
@@ -309,6 +332,92 @@ public class PDFController {
 
         }
 
+        appendInstructionNotes(instructionNotes);
+    }
+
+    /** A single line fits the template safely; wrapped text needs more height than its 16pt row. */
+    private Map<String, BpmhDrug> prepareInstructionNotes(AcroFields fields) {
+        Map<String, BpmhDrug> notes = new LinkedHashMap<>();
+        if (!continueInstructions || !(data instanceof BpmhForm2Bean form) || form.getDrugs() == null) {
+            return notes;
+        }
+        BaseFont font = PdfFonts.getFont(BaseFont.HELVETICA, 7.2f).getBaseFont();
+        for (int i = 0; i < form.getDrugs().size(); i++) {
+            BpmhDrug drug = form.getDrugs().get(i);
+            if (drug == null || drug.getInstruction() == null || drug.getInstruction().isEmpty()) continue;
+            String key = "drugs#" + i + ".instruction";
+            String text = drug.getInstruction();
+            float[] position = fields.getFieldPositions(key);
+            boolean oneLine = text.indexOf('\n') < 0 && text.indexOf('\r') < 0
+                    && text.codePoints().allMatch(font::charExists);
+            if (position != null) {
+                // Use the same embedded font for measurement and the field appearance, always at 7.2pt.
+                fields.setFieldProperty(key, "textfont", font, null);
+                fields.setFieldProperty(key, "textsize", 7.2f, null);
+            }
+            if (position == null || !oneLine || font.getWidthPoint(text, 7.2f) > position[3] - position[1] - 4) {
+                notes.put(key, drug);
+            }
+        }
+        return notes;
+    }
+
+    private static int instructionNumber(String key) {
+        return Integer.parseInt(key.substring("drugs#".length(), key.indexOf('.'))) + 1;
+    }
+
+    /** ColumnText paginates complete paragraphs at 10pt; no shrinking or clipped field appearances. */
+    private void appendInstructionNotes(Map<String, BpmhDrug> notes) {
+        if (notes.isEmpty()) return;
+        Font body = PdfFonts.getFont(BaseFont.HELVETICA, 10);
+        Font heading = PdfFonts.getFont(BaseFont.HELVETICA_BOLD, 12);
+        ColumnText column = new ColumnText(null);
+        for (Map.Entry<String, BpmhDrug> entry : notes.entrySet()) {
+            BpmhDrug drug = entry.getValue();
+            Paragraph paragraph = new Paragraph();
+            paragraph.setLeading(14);
+            paragraph.setSpacingAfter(12);
+            PdfFonts.addText(paragraph, "Instruction #" + instructionNumber(entry.getKey()) + ": " + drug.getWhat() + "\n", heading);
+            PdfFonts.addText(paragraph, "Directions: " + drug.getHow() + "\n", body);
+            PdfFonts.addText(paragraph, drug.getInstruction(), body);
+            column.addElement(paragraph);
+        }
+        String patientName = continuationPatientName();
+        int page = getReader().getNumberOfPages();
+        try {
+            int status;
+            do {
+                getStamper().insertPage(++page, PageSize.LETTER);
+                PdfContentByte canvas = getStamper().getOverContent(page);
+                Phrase title = new Phrase();
+                PdfFonts.addText(title, "BPMH medication instruction notes (continued)", heading);
+                ColumnText.showTextAligned(canvas, 0, title, 36, 756, 0);
+                if (patientName != null) {
+                    Phrase patient = new Phrase();
+                    PdfFonts.addText(patient, "Patient: " + patientName, body);
+                    ColumnText.showTextAligned(canvas, 0, patient, 36, 741, 0);
+                }
+                column.setCanvas(canvas);
+                column.setSimpleColumn(36, 36, 576, 726);
+                status = column.go();
+            } while (ColumnText.hasMoreText(status));
+        } catch (DocumentException error) {
+            throw new IllegalStateException("BPMH instruction continuation could not be rendered", error);
+        }
+    }
+
+    /**
+     * The patient's name, as page 1 shows it, so a loose continuation page can be matched to its
+     * form. The internal record number is never printed on this patient and pharmacy hand-out.
+     *
+     * @return the formatted name, or null when the form carries no patient name
+     */
+    private String continuationPatientName() {
+        Demographic patient = data instanceof BpmhForm2Bean bean ? bean.getDemographic() : null;
+        if (patient == null || StringUtils.isAllBlank(patient.getLastName(), patient.getFirstName())) {
+            return null;
+        }
+        return patient.getFormattedName();
     }
 
     public void writeDataToPDF(Object data, String[] pages) {

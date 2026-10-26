@@ -181,6 +181,33 @@ async function workflow({ config, context, recorder, fid, patient }) {
   await page.close();
 }
 
+/** Attempt every owned-resource finalizer, retaining each failure for runCheck's report. */
+async function cleanupResources({ browser, sql, formName, patient, marker, ownedRows }) {
+  const failures = [];
+  async function attempt(label, cleanup) {
+    try {
+      await cleanup();
+    } catch (error) {
+      failures.push({ label, error });
+    }
+  }
+  await attempt('browser', async () => { if (browser) await browser.close(); });
+  await attempt('eForm template', () => {
+    sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${h.sqlString(formName)}`) === '0',
+      'the eForm template this run inserted was not removed');
+  });
+  await attempt('owned patient', () => {
+    if (patient) removeOwnedPatient(sql, patient, marker, ownedRows);
+  });
+  await attempt('SQL credentials', () => sql.dispose());
+  if (failures.length) {
+    throw new AggregateError(failures.map(({ error }) => error),
+      failures.map(({ label, error }) => `${label}: ${error?.message || String(error)}`).join('; '),
+      { cause: failures[0].error });
+  }
+}
+
 /**
  * Seeds an owned FAKE patient and eForm template, runs the workflow, and removes exactly the
  * rows this run created (asserting each is gone), including after a failure.
@@ -213,18 +240,10 @@ async function main() {
       await workflow({ config, context, recorder, fid, patient });
     },
     async cleanup() {
-      if (browser) await browser.close();
-      try {
-        sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
-        h.assert(sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${h.sqlString(formName)}`) === '0',
-          'the eForm template this run inserted was not removed');
-        if (patient) removeOwnedPatient(sql, patient, marker, ownedRows);
-      } finally {
-        sql.dispose();
-      }
+      await cleanupResources({ browser, sql, formName, patient, marker, ownedRows });
     },
   });
 }
 
 if (require.main === module) main();
-module.exports = { pdfWords };
+module.exports = { pdfWords, cleanupResources };

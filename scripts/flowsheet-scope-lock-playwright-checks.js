@@ -14,10 +14,9 @@
  * the All Patients editor. A locked row shows a lock whose title names the level that created it and no
  * delete link; an unlocked row shows the delete link.
  *
- * The null-field cases of the service itself (a NULL provider or demographic is "no provider" / "no
- * patient") are covered by FlowSheetCustomizationServiceUnitTest: the DAO queries only ever return rows
- * with provider '' and demographic '0' for the clinic layer, so a row with NULL columns cannot be put on
- * this page to look at.
+ * The same rows are then converted to legacy NULL scope fields and reopened through the normal links.
+ * They must still load and inherit their locks. A NULL-demographic provider hide remains read-only in
+ * the patient editor, while the provider editor offers Show and Revert for its own hidden/updated item.
  *
  * Fixtures: the owned FAKE-PW patient and three flowsheet_customization rows on `tracker` written by SQL
  * (clinic HT, provider WT, patient BP), each carrying the run marker in its display name; the Custom List
@@ -70,7 +69,9 @@ async function workflow(s) {
   // A CSS match, not a role query: the card lives in a tab pane that is not the one showing.
   const customList = page.locator('div.card', {has: page.locator('h4', {hasText: 'Custom List:'})});
   // The list names a row by its measurement type, not its display name; the three types are distinct.
-  const row = level => customList.locator('tbody tr').filter({has: page.getByText(items[level].type, {exact: true})});
+  const row = level => customList.locator('tbody tr')
+    .filter({has: page.getByText(items[level].type, {exact: true})})
+    .filter({has: page.locator('td:nth-child(2)').filter({hasText: /^\s*add\b/})});
   const expectLocked = async (level, createdAt, where) => {
     const r = row(level);
     h.assert(await r.count() === 1, `${where}: the Custom List does not show the ${level} item exactly once`);
@@ -110,6 +111,52 @@ async function workflow(s) {
     await expectRemovable('clinic', 'All Patients editor');
     h.assert(await row('provider').count() === 0, 'The All Patients list shows a provider\'s item');
     h.assert(await page.locator('i.fa-lock').count() === 0, 'The All Patients editor shows a locked item');
+  });
+
+  await s.step('legacy NULL scope rows load and keep provider hides inherited in the patient editor', async () => {
+    sql.execute(`UPDATE flowsheet_customization SET provider_no=NULL,demographic_no=NULL
+      WHERE flowsheet='tracker' AND payload LIKE ${q(`%${items.clinic.display}%`)};
+      UPDATE flowsheet_customization SET demographic_no=NULL
+      WHERE flowsheet='tracker' AND payload LIKE ${q(`%${items.provider.display}%`)}`);
+    for (const action of ['update', 'delete']) {
+      sql.execute(`INSERT INTO flowsheet_customization
+        (flowsheet,action,measurement,payload,provider_no,demographic_no,create_date,archived)
+        VALUES ('tracker',${q(action)},'WT',
+          ${q(`<item measurement_type="WT" display_name="${marker} Provider ${action}" graphable="no" value_name="WT" guideline=""/>`)},
+          ${q(provider)},NULL,NOW(),0)`);
+    }
+    h.assert(leftover() === '5', 'The NULL scope regression rows were not created');
+    await h.withExpectedDialogs(page,
+      () => navigate(page, page.getByRole('link', {name: 'Patient', exact: true})),
+      {promptText: String(patient)});
+    await expectLocked('clinic', 'clinic', 'NULL patient editor');
+    await expectLocked('provider', 'provider', 'NULL patient editor');
+    await expectRemovable('patient', 'NULL patient editor');
+    const weight = page.locator('#measurementTbl tbody tr')
+      .filter({has: page.locator('td:nth-child(3)').filter({hasText: /^WT$/})});
+    h.assert(await weight.count() === 1, 'NULL provider scope did not load the weight item');
+    h.assert(await weight.locator('i[title="Hidden at clinic or provider level"]').count() === 1,
+      'The patient editor did not mark the provider hide as inherited');
+    h.assert(await weight.locator('a[title="Show this measurement"]').count() === 0,
+      'The patient editor can restore a provider-level hide');
+    h.assert(await weight.locator('a[title="Revert to settings from higher scope"]').count() === 0,
+      'The patient editor can revert a provider-level update');
+  });
+
+  await s.step('the NULL provider editor offers Show and Revert for its own item', async () => {
+    await navigate(page, page.getByRole('link', {name: 'Your Patients', exact: true}));
+    await expectLocked('clinic', 'clinic', 'NULL provider editor');
+    await expectRemovable('provider', 'NULL provider editor');
+    const weight = page.locator('#measurementTbl tbody tr')
+      .filter({has: page.locator('td:nth-child(3)').filter({hasText: /^WT$/})});
+    // Font Awesome's generated glyph is the accessible name of these icon links, so use their actual titles.
+    h.assert(await weight.locator('a[title="Show this measurement"]').count() === 1,
+      'The provider cannot restore its own NULL-demographic hide');
+    h.assert(await weight.locator('a[title="Revert to settings from higher scope"]').count() === 1,
+      'The provider cannot revert its own NULL-demographic update');
+    await navigate(page, page.getByRole('link', {name: 'All Patients', exact: true}));
+    await expectRemovable('clinic', 'NULL clinic editor');
+    h.assert(await row('provider').count() === 0, 'The NULL clinic editor shows a provider-only item');
   });
 }
 

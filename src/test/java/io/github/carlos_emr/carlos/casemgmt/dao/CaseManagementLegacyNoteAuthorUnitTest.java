@@ -20,6 +20,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
+@Tag("dao")
 class CaseManagementLegacyNoteAuthorUnitTest {
     private final EntityManager entityManager = mock(EntityManager.class);
     private final CaseManagementNoteDAOImpl dao = new CaseManagementNoteDAOImpl() {

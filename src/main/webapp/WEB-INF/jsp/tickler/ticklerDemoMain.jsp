@@ -66,23 +66,20 @@
     if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
     String demoview = request.getParameter("demoview") == null ? "all" : request.getParameter("demoview");
 
-    // A valid, POSITIVE demographic number, or null when demoview is absent,
-    // non-numeric or 0. The tickler search below binds this as a NON-NULL
-    // positional parameter (WHERE t.demographicNo = ?1) and the Add-Tickler
-    // button further down dereferences the fetched demographic, so each of
-    // those inputs used to yield a 500: an absent param bound null
-    // (IllegalArgumentException), a non-numeric value threw NumberFormatException,
-    // and a schedule tickler alert on an appointment with NO linked patient
-    // reaches this page as demoview=0 (infirmarydemographiclist.jspf) whose
-    // demographic 0 does not exist. Parse defensively and treat all three as
-    // "no patient context".
+    // The POSITIVE demographic number the ViewTicklerDemoMain gate parsed from demoview
+    // and authorized (_tickler r for that patient, including _demographic$/_eChart$
+    // record locks), or null when demoview carries no patient context (absent, "all"
+    // or 0; a schedule tickler alert on an appointment with NO linked patient reaches
+    // this page as demoview=0 from infirmarydemographiclist.jspf). Only the gate's
+    // authorized id drives the queries below, never the raw request parameter. The
+    // tickler search binds it as a NON-NULL positional parameter
+    // (WHERE t.demographicNo = ?1), so with no patient context the page renders the
+    // empty list and omits the Add-Tickler button instead of failing with a 500.
     Integer demoViewDemographicNo = null;
-    String demoViewParam = request.getParameter("demoview");
-    if (demoViewParam != null && demoViewParam.matches("\\d+")) {
-        int parsedDemoViewNo = Integer.parseInt(demoViewParam);
-        if (parsedDemoViewNo > 0) {
-            demoViewDemographicNo = parsedDemoViewNo;
-        }
+    // JSPs compile below Java 16 (jspc), so no instanceof pattern variables here.
+    Object authorizedDemoView = request.getAttribute(PatientReadAccess.AUTHORIZED_PATIENT_ATTRIBUTE);
+    if (authorizedDemoView instanceof String) {
+        demoViewDemographicNo = Integer.valueOf((String) authorizedDemoView);
     }
 
 //Retrieve encounter id for updating encounter navbar if info this page changes anything
@@ -111,6 +108,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.PatientReadAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerComment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerUpdate" %>

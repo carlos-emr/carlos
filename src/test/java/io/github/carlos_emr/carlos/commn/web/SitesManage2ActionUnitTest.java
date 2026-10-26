@@ -115,6 +115,8 @@ class SitesManage2ActionUnitTest extends CarlosUnitTestBase {
         stored.setProvince("BC");
         stored.setSiteLogoId(12);
         stored.setSiteUrl("https://fake-site.example");
+        stored.setAddress("10 FAKE North Street");
+        stored.setCity("Faketown");
         stored.setProviderIdFrom(700);
         stored.setProviderIdTo(799);
         return stored;
@@ -162,7 +164,7 @@ class SitesManage2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should update the stored site and keep the logo, URL and provider-id range the form does not carry")
+    @DisplayName("should update the stored site and keep fields the form does not carry")
     void shouldKeepStoredFields_whenUpdatingSite() throws Exception {
         request.setParameter("method", "save");
         when(siteDao.getById(7)).thenReturn(stored());
@@ -179,6 +181,8 @@ class SitesManage2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(saved.getValue().getPhone()).isEqualTo("555-0199");
         assertThat(saved.getValue().getSiteLogoId()).isEqualTo(12);
         assertThat(saved.getValue().getSiteUrl()).isEqualTo("https://fake-site.example");
+        assertThat(saved.getValue().getAddress()).isEqualTo("10 FAKE North Street");
+        assertThat(saved.getValue().getCity()).isEqualTo("Faketown");
         assertThat(saved.getValue().getProviderIdFrom()).isEqualTo(700);
         assertThat(saved.getValue().getProviderIdTo()).isEqualTo(799);
     }

@@ -22,7 +22,9 @@ after copying. History checks alone cannot detect an altered index or column.
   or the literal string `NULL`, which can be a real password.
 - Accept complementary full SQL parts, including transactional/MyISAM splits.
   Restore identical table overlaps once; refuse conflicting overlaps. Native
-  nested backup layouts retain auxiliary artifacts. Explicit `o19-inputs.json`
+  nested and root-level backup layouts retain auxiliary artifacts and document
+  trees. Incremental template/measurement directories use the same case-insensitive
+  recognition as bundle discovery while preserving original paths. Explicit `o19-inputs.json`
   resolves ambiguous roles and declares full/incremental document order.
   Later document entries replace earlier paths; deletions require reconciliation.
   All parts must describe the same frozen source state.
@@ -31,7 +33,7 @@ after copying. History checks alone cannot detect an altered index or column.
   completed run; remove raw snapshots only after verified preservation. Routine
   backups retain ledgers and clinical exports while excluding raw inputs.
 - Use target types and collations for key comparisons, merge partitions and ID
-  maps. Verify signedness, capacity, numeric precision, stored values and
+  maps. Verify signedness, capacity, numeric and temporal precision, stored values and
   keyless-table multiplicity before completion checkpoints. Check remapped IDs
   after their parent maps exist. Reject SQL conversion diagnostics rather than
   recording a successful partial copy.
@@ -58,7 +60,7 @@ confirmed case-sensitive status queries and supplementary-character round trips.
 Connector/J 9.6 selected a different collation when UCA14 was requested directly
 in its URL; keeping the compatible connection setting is intentional.
 
-Forward migrations **V1.0.59.5** and **V1.0.59.6** correct the collations and
+Forward migrations **V1.0.59.6** and **V1.0.59.7** correct the collations and
 reconcile 47 reviewed performance-index definitions across the provincial sets,
 including order, prefixes, uniqueness, type and ignored status. Redundant
 provider/demographic extension indexes are removed only when their complete
@@ -67,7 +69,7 @@ repairs begin. Existing primary/unique constraints and hinted index names remain
 These are canonical DAO-supported decisions; workload-specific optimality still
 requires representative clinic query plans.
 
-Committed physical contracts describe all managed columns, defaults, indexes,
+Format-2 physical contracts describe all managed columns, their ordinal positions, defaults, indexes,
 constraints and database defaults. Fresh installs, upgrades and imports use the
 same contract. Package builds verify its binding to the exact migration bytes in
 the WAR. Final import verification checks all declared foreign keys and refreshes
@@ -82,14 +84,19 @@ notes into a shared history. Imported note values are not rewritten for this.
 
 ## Verification completed
 
+Source regression results below include the subsequent PR review and release-merge
+fixes. Package, full-import, browser, upgrade and recovery results record the earlier
+rehearsal; those local Debian binaries predate the final review changes.
+
 | Check | Result |
 |---|---|
-| CLI suite | 1,642 tests passed with current application contracts and MariaDB 11.8.9; standalone fixture suite also passed |
+| CLI suite | 1,700 tests passed with current application contracts and MariaDB 11.8.9, no skips; standalone fixture suite also passed |
 | Installed CLI regressions | 42 tests, one optional source-checkout check skipped; restore, ETL, schema and cleanup cases passed |
-| Application manifest/generator suite | 253 tests passed |
-| Real MariaDB collation/index migration cases | 5 passed, including collision guards, complete-definition repair and constraint preservation |
+| Application manifest/generator suite | 257 tests passed |
+| Real MariaDB collation/index migration cases | 6 passed, including composite-key transitions, collision guards, complete-definition repair and constraint preservation |
+| Schema-contract protocol and order checks | 8 passed; fresh ON/BC format-2 contracts match importer capture, detect reordered columns and retain appended preservation extensions |
 | Java 25 legacy-note regression cases | 4 passed; rebuilt WAR successfully |
-| Package/release source checks | 99 passed; released migration files unchanged |
+| Package/release source checks | 100 passed; upstream appointment-name migration and released migration files unchanged |
 | Fresh versus upgraded schema | ON and BC contracts match on MariaDB 11.8.6 / 16 KiB and 11.8.9 / 32 KiB |
 | Complete fixture imports | ON: 518 source-table digests and 1,146 row-parity checks; BC: 546 digests and 1,204 row-parity checks; final verification passed |
 | Browser checks | Both provinces: 9 passed, one expected day-schedule check skipped for a program-10016 appointment; appointment history passed |
@@ -115,8 +122,10 @@ included; the optional DrugRef service package was not built in this rehearsal.
 
 The new migrations occupy the release line's reserved subversions below the
 `develop` floor. Existing published migrations were not edited. Publishing the
-CLI commit/tag and coordinated application release remains a release action;
-the artifacts and commits produced here are local review results.
+CLI tag and coordinated application release remains a release action. The source
+changes are in coordinated application/CLI PRs; the earlier package artifacts
+remain local rehearsal results. Publish CLI 1.2.1 before building application
+release assets.
 
 Before a clinic cutover, rehearse that clinic's frozen SQL/document backup set,
 review every acknowledgement, verify backup recovery and examine the reports

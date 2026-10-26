@@ -15,8 +15,8 @@
  * appends a historical version and closes, and reopening the template offers the
  * latest saved version, explicit blank creation, or Cancel. A second open chart
  * must not borrow the first patient's saved form.
- * Fixtures: two owned FAKE patients; cleanup removes their support rows and the
- * Rourke2017 form/checkbox rows, and asserts removal.
+ * Fixtures: two owned FAKE patients; cleanup removes their support rows, and the owned
+ * form_boolean_value children before their formRourke2017 parents, and verifies both are gone.
  */
 const h = require('./lib/playwright-harness');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -30,15 +30,69 @@ const { documentChain, openerState, consumeClosingAbort } = require('./lib/popup
 // the module's menu entry for a NEW form is a different link (formrourke2017complete, formId=0).
 const STARTED = 'a[onclick*="forwardshortcutname?formname=Rourke2017"]';
 
+// Keep this local: form booleans have no demographic key or cascading SQL delete.
+// Capture pre-existing IDs before opening the form, so a reused orphan key is retained.
+function installOwnedFormCleanup(s) {
+  const { sql, context, marker } = s;
+  const patient = positiveId(s.patient, 'patient');
+  h.assert(/^FAKE-PW[0-9a-f]{16}$/.test(marker), 'The fixture marker is invalid');
+  const quotedMarker = h.sqlString(marker);
+  const owner = () => h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}
+    AND last_name=${quotedMarker}`) === '1', 'Patient fixture ownership changed');
+  const parentCount = () => sql.value(`SELECT COUNT(*) FROM formRourke2017 WHERE demographic_no=${patient}`);
+  owner();
+  h.assert(parentCount() === '0', 'A new fixture already has Rourke2017 forms');
+  const previousIds = new Set(sql.rows(`SELECT DISTINCT form_id FROM form_boolean_value
+    WHERE form_name='formRourke2017'`).map(row => {
+    h.assert(Array.isArray(row) && row.length === 1 && /^-?\d+$/.test(String(row[0])),
+      'Existing Rourke boolean identity evidence is malformed');
+    return String(row[0]);
+  }));
+  s.cleanup(() => {
+    const browser = context.browser();
+    h.assert(browser && !browser.isConnected(), 'Rourke fixtures retained: browser closure is unconfirmed');
+    owner();
+    const ids = sql.rows(`SELECT ID FROM formRourke2017 WHERE demographic_no=${patient} ORDER BY ID`)
+      .map(row => {
+        h.assert(Array.isArray(row) && row.length === 1, 'Owned Rourke form evidence is malformed');
+        return positiveId(row[0], 'form');
+      });
+    h.assert(new Set(ids).size === ids.length, 'Owned Rourke form IDs are duplicated');
+    h.assert(!ids.some(id => previousIds.has(id)), 'Pre-existing Rourke boolean rows must be retained');
+    if (!ids.length) {
+      h.assert(parentCount() === '0', 'Owned Rourke forms appeared during cleanup');
+      return;
+    }
+    const list = ids.join(',');
+    const children = () => sql.value(`SELECT COUNT(*) FROM form_boolean_value
+      WHERE form_name='formRourke2017' AND form_id IN (${list})`);
+    sql.execute(`DELETE b FROM form_boolean_value b
+      INNER JOIN formRourke2017 f ON f.ID=b.form_id AND b.form_name='formRourke2017'
+      INNER JOIN demographic d ON d.demographic_no=f.demographic_no
+      WHERE f.demographic_no=${patient} AND f.ID IN (${list}) AND d.last_name=${quotedMarker}`);
+    h.assert(children() === '0', 'Owned Rourke boolean rows were not removed');
+    owner();
+    sql.execute(`DELETE f FROM formRourke2017 f
+      INNER JOIN demographic d ON d.demographic_no=f.demographic_no
+      WHERE f.demographic_no=${patient} AND f.ID IN (${list}) AND d.last_name=${quotedMarker}`);
+    owner();
+    h.assert(parentCount() === '0' && children() === '0',
+      'Owned Rourke forms or boolean rows remain after cleanup');
+  });
+}
+
+function positiveId(value, label) {
+  const text = String(value);
+  h.assert(/^[1-9]\d*$/.test(text) && text.length <= 10 && BigInt(text) <= 2147483647n,
+    `The owned ${label} identity is invalid`);
+  return text;
+}
+
 async function workflow(s) {
   const { sql, patient } = s;
   const chain = documentChain(s.context);
   const rows = () => sql.value(`SELECT COUNT(*) FROM formRourke2017 WHERE demographic_no=${patient}`);
-  s.cleanup(() => {
-    sql.execute(`DELETE FROM form_boolean_value WHERE form_name='formRourke2017' AND form_id IN (SELECT ID FROM formRourke2017 WHERE demographic_no=${patient})`);
-    sql.execute(`DELETE FROM formRourke2017 WHERE demographic_no=${patient}`);
-    h.assert(rows() === '0', 'Owned formRourke2017 rows were not removed');
-  });
+  installOwnedFormCleanup(s);
   const chart = await s.chart();
   const module = chart.locator('#forms');
   let form;
@@ -215,4 +269,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('popup-opener-echart-forms', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, installOwnedFormCleanup };

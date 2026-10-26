@@ -80,6 +80,14 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), "FROM CaseManagementNote");
     }
 
+    /**
+     * Returns the distinct providers who edited this note's revision group.
+     * A missing or blank revision UUID limits the lookup to the recorded
+     * provider; if that provider is absent, the result is empty.
+     *
+     * @param note the non-null note whose recorded author or revision UUID identifies its editors
+     * @return a {@code List<Provider>} of matching editors, possibly empty
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<Provider> getEditors(CaseManagementNote note) {
@@ -104,6 +112,14 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         return (List<Provider>) JpqlQueryHelper.find(entityManager(), hql, demographicNo);
     }
 
+    /**
+     * Returns notes sharing the revision UUID, ordered by update date and ID.
+     * A missing or blank UUID yields no history, so unrelated legacy notes
+     * never become a shared revision group.
+     *
+     * @param note the non-null note whose revision UUID identifies its history
+     * @return a {@code List<CaseManagementNote>} in revision order, or empty when no UUID is recorded
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getHistory(CaseManagementNote note) {

@@ -3299,11 +3299,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     /** Shared patient, record and domain boundary for individual-note and issue histories. */
     private String authorizedHistoryPatient() {
-        String patient = getDemographicNo(request);
-        Long demographicId = parseExistingNoteId(patient);
+        Long demographicId = parseExistingNoteId(getDemographicNo(request));
         LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (login == null || demographicId == null || demographicId <= 0 || demographicId > Integer.MAX_VALUE
-                || !securityInfoManager.hasPrivilege(login, "_demographic", "r", patient)
+        if (login == null || demographicId == null || demographicId <= 0 || demographicId > Integer.MAX_VALUE) {
+            return null;
+        }
+        // Scoped grants and locks use the same canonical patient key as the database.
+        String patient = demographicId.toString();
+        if (!securityInfoManager.hasPrivilege(login, "_demographic", "r", patient)
                 || !securityInfoManager.hasPrivilege(login, "_casemgmt.notes", "r", patient)
                 || !securityInfoManager.isAllowedAccessToPatientRecord(login, demographicId.intValue())) {
             return null;
@@ -3358,7 +3361,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return visible.stream().anyMatch(note -> Objects.equals(selectedId, note.getId())) ? visible : null;
     }
 
-    /** Refuses history before any clinical text or demographic name is exposed to the view. */
+    /**
+     * Refuses note, issue or revision history before any clinical text or demographic name is
+     * exposed to the view. The bare 403 carries no patient identifier or reason.
+     */
     private String refuseNoteHistory() {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         return NONE;
@@ -3418,8 +3424,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     public String history() {
-        logger.debug("history");
-
         HttpSession session = request.getSession();
         if (session.getAttribute("userrole") == null) return "expired";
 
@@ -3437,14 +3441,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         CaseManagementNote note = access.selectedNote();
 
         request.setAttribute("history", note.getHistory());
-
-        this.setCaseNote_history(note.getHistory());
-
-        // The note's own demographic number is the patient the audit row is filed under; the note
-        // text goes in the data slot. Passing the text as the sixth argument put it in the
-        // demographicNo parameter, which logged it as a NumberFormatException and lost the patient (#4426).
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), note.getDemographic_no(), note.getAuditString());
-
+        setCaseNote_history(note.getHistory());
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
+                LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), demono, note.getAuditString());
         return "historyview";
     }
 

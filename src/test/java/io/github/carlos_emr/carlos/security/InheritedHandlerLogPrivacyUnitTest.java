@@ -117,7 +117,10 @@ class InheritedHandlerLogPrivacyUnitTest extends CarlosUnitTestBase {
         try (var capture = LogCapture.forLogger(DemographicSearch2Action.class)) {
             assertThat(new DemographicSearch2Action().execute()).isEqualTo("success");
             assertThat(request.getAttribute("showRecentPatients")).isEqualTo(true);
-            verify(security).hasPrivilege(login, "_demographic", "r", null);
+            // Both the route gate and patient-lock discovery may require the same
+            // module right; successful routing still needs authorization and filtering.
+            verify(security, atLeastOnce()).hasPrivilege(login, "_demographic", "r", null);
+            verify(security, atLeastOnce()).getSecurityObjects(login);
             assertPrivateValuesAbsent(capture);
         }
     }

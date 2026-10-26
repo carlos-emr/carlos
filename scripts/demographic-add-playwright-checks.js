@@ -111,6 +111,7 @@ function cleanupSyntheticPatient() {
     'Owned new-patient fixture identity changed');
     sql(`DELETE FROM admission WHERE client_id=${leftover}`);
     sql(`DELETE FROM demographicArchive WHERE demographic_no=${leftover}`);
+    sql(`DELETE FROM demographiccust WHERE demographic_no=${leftover}`);
     sql(`DELETE FROM demographic WHERE demographic_no=${leftover} AND last_name='${fixtureLastName}'`);
     assert(sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${leftover}`) === '0',
       'Owned new-patient fixture was not removed');

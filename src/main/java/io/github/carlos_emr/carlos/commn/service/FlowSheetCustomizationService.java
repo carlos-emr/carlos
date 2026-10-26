@@ -276,7 +276,8 @@ public class FlowSheetCustomizationService {
      * @return the resolved ScopeLevel
      */
     private ScopeLevel resolveCurrentScopeLevel(String currentScope, String currentDemographicNo) {
-        boolean isCurrentPatientScope = currentDemographicNo != null && !"0".equals(currentDemographicNo);
+        boolean isCurrentPatientScope = currentDemographicNo != null
+                && !currentDemographicNo.isBlank() && !"0".equals(currentDemographicNo);
         if (isCurrentPatientScope) {
             return ScopeLevel.PATIENT;
         }

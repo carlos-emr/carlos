@@ -38,9 +38,6 @@ import java.util.regex.Pattern;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVisit;
-import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
-import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote;
-import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.billings.ca.service.GstSettingsService;
@@ -48,7 +45,6 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
-import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -75,7 +71,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -102,14 +97,12 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private MockedConstruction<BillingFormData> billingFormDataConstruction;
     private MockedConstruction<BillingBillingManager> billingManagerConstruction;
-    private MockedConstruction<BillingHistoryDAO> billingHistoryConstruction;
-    private MockedConstruction<BillingNote> billingNoteConstruction;
 
     private final MockHttpSession session = new MockHttpSession();
     private MockHttpServletRequest request;
     private MockHttpServletResponse response = new MockHttpServletResponse();
     private ProviderDataDao providerDao;
-    private BillingmasterDAO billingmasterDao;
+    private QuickBillingBCInvoicePersister invoicePersister;
     private DemographicManager demographicManager;
     private final List<ProviderData> activeProviders = new ArrayList<>();
     private final List<BillingVisit> visitTypes = new ArrayList<>();
@@ -119,7 +112,7 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
         SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull())).thenReturn(true);
         providerDao = createAndRegisterMock(ProviderDataDao.class);
-        billingmasterDao = createAndRegisterMock(BillingmasterDAO.class);
+        invoicePersister = createAndRegisterMock(QuickBillingBCInvoicePersister.class);
         demographicManager = createAndRegisterMock(DemographicManager.class);
         registerMock(GstSettingsService.class, mock(GstSettingsService.class));
 
@@ -144,8 +137,6 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
                     .thenAnswer(invocation -> new ArrayList<>(List.of(line)));
             when(manager.getGrandTotal(any())).thenReturn("33.70");
         });
-        billingHistoryConstruction = mockConstruction(BillingHistoryDAO.class);
-        billingNoteConstruction = mockConstruction(BillingNote.class);
 
         session.setAttribute("user", PROVIDER_NO);
         servletActionContextMock = mockStatic(ServletActionContext.class);
@@ -160,8 +151,6 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
     void tearDown() {
         loggedInInfoMock.close();
         servletActionContextMock.close();
-        billingNoteConstruction.close();
-        billingHistoryConstruction.close();
         billingManagerConstruction.close();
         billingFormDataConstruction.close();
     }
@@ -310,19 +299,14 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
     void shouldSaveSessionBills_andClearForm() throws Exception {
         openOrPost(null, null);
         add("1", PROVIDER_NO);
-        doAnswer(invocation -> {
-            injectDependency(invocation.getArgument(0), "id", 501);
-            return null;
-        }).when(billingmasterDao).save(any(Billing.class));
 
         request = new MockHttpServletRequest("POST", "/saveQuickBillingBC");
         request.setSession(session);
         assertThat(new QuickBillingBCSave2Action().execute()).isEqualTo("saved");
 
         assertThat(request.getAttribute("saved")).isEqualTo(1);
-        var order = inOrder(billingmasterDao);
-        order.verify(billingmasterDao).save(any(Billing.class));
-        order.verify(billingmasterDao).save(any(Billingmaster.class));
+        verify(invoicePersister).saveInvoice(any(Billing.class), any(), eq(PROVIDER_NO),
+                eq(QuickBillingBCHandler.INTERNAL_COMMENT));
         QuickBillingBCFormBean form = form();
         assertThat(form.getBillingData()).isEmpty();
         assertThat(form.getIsHeaderSet()).isFalse();
@@ -362,19 +346,88 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
         Object[] secondSaved = new Object[1];
         boolean[] secondSent = new boolean[1];
         doAnswer(invocation -> {
-            injectDependency(invocation.getArgument(0), "id", 502);
             if (!secondSent[0]) {
                 secondSent[0] = true;
                 secondSaved[0] = save();
             }
             return null;
-        }).when(billingmasterDao).save(any(Billing.class));
+        }).when(invoicePersister).saveInvoice(any(Billing.class), any(), anyString(), anyString());
 
         assertThat(save()).isEqualTo(1);
 
         assertThat(secondSaved[0]).isEqualTo(0);
-        verify(billingmasterDao, times(1)).save(any(Billing.class));
-        verify(billingmasterDao, times(1)).save(any(Billingmaster.class));
+        verify(invoicePersister, times(1)).saveInvoice(any(Billing.class), any(), anyString(), anyString());
+    }
+
+
+    @Test
+    void shouldRetainBillsAndHeader_whenPersistenceFails() throws Exception {
+        add("1", PROVIDER_NO);
+        org.mockito.Mockito.doThrow(new IllegalStateException("Database unavailable"))
+                .when(invoicePersister).saveInvoice(any(Billing.class), any(), anyString(), anyString());
+        request = new MockHttpServletRequest("POST", "/saveQuickBillingBC");
+        request.setSession(session);
+
+        assertThat(new QuickBillingBCSave2Action().execute()).isEqualTo("error");
+        assertThat(request.getAttribute("saveFailed")).isEqualTo(Boolean.TRUE);
+        assertThat(form().getBillingData()).extracting("patientNo").containsExactly("1");
+        assertThat(form().getIsHeaderSet()).isTrue();
+        assertThat(form().getServiceDate()).isEqualTo("16-10-2026");
+        org.mockito.Mockito.doNothing().when(invoicePersister)
+                .saveInvoice(any(Billing.class), any(), anyString(), anyString());
+        assertThat(save()).isEqualTo(1);
+        assertThat(form().getBillingData()).isEmpty();
+    }
+
+    @Test
+    void shouldRetryOnlyUncommittedInvoices_whenLaterInvoiceFails() throws Exception {
+        add("1", PROVIDER_NO);
+        add("2", PROVIDER_NO);
+        org.mockito.Mockito.doNothing().doThrow(new IllegalStateException("Invoice rejected"))
+                .doNothing().when(invoicePersister).saveInvoice(any(Billing.class), any(), anyString(), anyString());
+        request = new MockHttpServletRequest("POST", "/saveQuickBillingBC");
+        request.setSession(session);
+
+        assertThat(new QuickBillingBCSave2Action().execute()).isEqualTo("error");
+        assertThat(form().getBillingData()).extracting("patientNo").containsExactly("2");
+        assertThat(save()).isEqualTo(1);
+        var invoices = org.mockito.ArgumentCaptor.forClass(Billing.class);
+        verify(invoicePersister, times(3)).saveInvoice(invoices.capture(), any(), anyString(), anyString());
+        assertThat(invoices.getAllValues()).extracting(Billing::getDemographicNo).containsExactly(1, 2, 2);
+    }
+
+    @Test
+    void shouldKeepInvalidInvoiceQueued_whenDateCannotBeParsed() throws Exception {
+        add("1", PROVIDER_NO);
+        form().getBillingData().get(0).setServiceDate("invalid");
+        request = new MockHttpServletRequest("POST", "/saveQuickBillingBC");
+        request.setSession(session);
+
+        assertThat(new QuickBillingBCSave2Action().execute()).isEqualTo("error");
+        assertThat(form().getBillingData()).hasSize(1);
+        org.mockito.Mockito.verifyNoInteractions(invoicePersister);
+    }
+
+    @Test
+    void shouldKeepNewInvoices_whenAddedDuringSave() throws Exception {
+        add("1", PROVIDER_NO);
+        doAnswer(invocation -> {
+            add("2", PROVIDER_NO);
+            return null;
+        }).when(invoicePersister).saveInvoice(any(Billing.class), any(), anyString(), anyString());
+
+        assertThat(save()).isEqualTo(1);
+        assertThat(form().getBillingData()).extracting("patientNo").containsExactly("2");
+        assertThat(form().getIsHeaderSet()).isTrue();
+    }
+
+    @Test
+    void shouldKeepQueuedBills_whenPageIsReopened() throws Exception {
+        add("1", PROVIDER_NO);
+
+        assertThat(send("GET", null, null)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(form().getBillingData()).extracting("patientNo").containsExactly("1");
+        assertThat(form().getServiceDate()).isEqualTo("16-10-2026");
     }
 
     @Test

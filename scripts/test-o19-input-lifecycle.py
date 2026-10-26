@@ -29,7 +29,9 @@ class TestNestedImportCredentials(unittest.TestCase):
             export.write_text("preserved record")
             outside = root / "outside.properties"
             outside.write_text("outside input tree")
-            (inputs / "bundle-sources/hash/linked.properties").symlink_to(outside)
+            link = inputs / "bundle-sources/hash/linked/source.properties"
+            link.parent.mkdir()
+            link.symlink_to(outside)
             environment = dict(os.environ, STATE=str(state))
             if fail_shred:
                 binary = root / "bin"
@@ -44,6 +46,7 @@ class TestNestedImportCredentials(unittest.TestCase):
             self.assertTrue(all(not path.exists() for path in credentials))
             self.assertEqual(export.read_text(), "preserved record")
             self.assertEqual(outside.read_text(), "outside input tree")
+            self.assertTrue(link.is_symlink())
 
     def test_nested_credentials_are_removed_without_removing_clinical_exports(self):
         self.exercise()

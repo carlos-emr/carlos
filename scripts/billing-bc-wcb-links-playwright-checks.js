@@ -15,13 +15,14 @@
  *   - Chart ▸ Forms ▸ BC-WCB opens a new WCB form for the patient;
  *   - the simulation lists the owned WCB claim, and its invoice link opens that claim's correction page;
  *   - Settle Bill on the correction page comes back to it, and the claim is settled (status S, one history row);
- *   - LAST: Select Forms removes BC-WCB again, and the form list is as the check found it (the shown forms and
- *     their order; Select Forms renumbers the shown forms 1..n, #4952, so the numbers themselves can change).
- * Fixtures: the owned FAKE- patient made a BC patient; one billing physician made BEFORE login, because the
- * simulation lists the cached active providers and that cache fills at login (a fresh Tomcat per run, as the live
- * wrapper starts); one open WCB claim for them (billing, billingmaster and a wcb row for fee item 19937). BC-WCB is
+ *   - LAST: Select Forms removes BC-WCB again, preserving the original visible menu and its relative order
+ *     (Select Forms renumbers the shown forms 1..n, #4952, so the stored numbers themselves can change).
+ * Fixtures: the owned FAKE- patient made a BC patient; one billing physician saved through Administration before
+ * the simulation, so its active-provider cache sees the owned physician even on a warm install; one open WCB claim
+ * for them (billing, billingmaster and a wcb row for fee item 19937). BC-WCB is
  * shown on the clinic's form list while the check runs, and the physician shows in clinic-wide lists, so the check
- * must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup puts the recorded display order
+ * must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Select Forms normalizes tied seed display
+ * positions; the check asserts the exact resulting order, and cleanup puts the recorded raw display order
  * back, deletes the patient's wcb rows, the claim's history rows, billingmaster and billing rows, and the physician,
  * and asserts each is gone.
  */
@@ -30,7 +31,8 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const bc = require('./lib/bc-billing-fixture');
 const { runWorkflow } = require('./lib/workflow-session');
-const { encounterForms, formListAsSeen } = require('./lib/encounter-form-list');
+const { withProviderCleanup } = require('./billing-bc-simulation-encoding-playwright-checks');
+const { encounterForms } = require('./lib/encounter-form-list');
 
 const TIMEOUT = 30000;
 const WCB_FORM = 'BC-WCB';
@@ -44,8 +46,17 @@ const STEP = {
   form: 'Chart ▸ Forms ▸ BC-WCB opens a new WCB form for the patient',
   correction: 'the simulation lists the owned WCB claim, and its invoice link opens the claim\'s correction page',
   settle: 'Settle Bill on the correction page comes back to it, and the claim is settled',
-  restored: 'Select Forms removes BC-WCB again, and the form list is as it was',
+  restored: 'Select Forms removes BC-WCB again, preserving the original visible form order',
 };
+
+/** Select Forms assigns distinct 1-based positions in the visible list; hidden forms have position 0. */
+function formsAfterSelection(before, selected) {
+  h.assert(new Set(selected).size === selected.length, 'Select Forms repeated a selected form');
+  for (const name of selected) {
+    h.assert(before.filter(row => row[0] === name).length === 1, 'Select Forms listed an unknown or ambiguous form');
+  }
+  return before.map(row => [...row.slice(0, 3), String(selected.indexOf(row[0]) + 1)]);
+}
 
 async function openSelectForms(page, s) {
   await h.gotoApp(page, s.config.baseUrl, '/administration');
@@ -155,6 +166,42 @@ function seedWcbClaim(s, phn) {
 }
 
 async function workflow(s) {
+  const { sql } = s;
+  const q = h.sqlString;
+  s.cleanup(() => {
+    const owned = `provider_no=${q(physician.providerNo)}`;
+    h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE ${owned} AND last_name=${q(physician.marker)}`) === '1',
+      'Billing physician ownership changed');
+    for (const table of ['program_provider', 'provider_facility', 'secUserRole', 'providersite',
+      'property', 'providerArchive', 'providerbillcenter']) {
+      sql.execute(`DELETE FROM ${table} WHERE ${owned}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${owned}`) === '0',
+        `The owned billing physician's ${table} rows were not removed`);
+    }
+    sql.execute(`DELETE FROM provider WHERE ${owned} AND last_name=${q(physician.marker)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE ${owned}`) === '0', 'The owned billing physician was not removed');
+  });
+  const admin = await s.context.newPage();
+  async function saveStatus(active) {
+    await h.gotoApp(admin, s.config.baseUrl, `/admin/ViewProviderUpdateProvider?keyword=${encodeURIComponent(physician.providerNo)}`);
+    const form = admin.locator('form[name="updatearecord"]');
+    await form.locator(active ? '#statusActive' : '#statusInactive').check();
+    await Promise.all([
+      admin.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: TIMEOUT }),
+      form.locator('input[type="submit"][name="subbutton"]').click(),
+    ]);
+    h.assert(sql.value(`SELECT status FROM provider WHERE provider_no=${q(physician.providerNo)}`) === (active ? '1' : '0'),
+      'The owned billing physician was not saved through Administration');
+  }
+  // Only an application-side provider save evicts the cached provider list. A direct SQL
+  // fixture was invisible after earlier checks warmed it, and its deletion left a ghost.
+  return withProviderCleanup(async () => {
+    await saveStatus(true);
+    await runScenario(s);
+  }, () => saveStatus(false), () => admin.close());
+}
+
+async function runScenario(s) {
   const { sql, patient } = s;
   const q = h.sqlString;
   h.assert(physician, 'The billing physician was not made before login');
@@ -167,11 +214,6 @@ async function workflow(s) {
         WHERE form_name=${q(name)} AND form_value=${q(value)} AND hidden<>${Number(hidden)}`);
     }
     h.assert(JSON.stringify(encounterForms(sql)) === JSON.stringify(before), 'The encounter form list is not as the check found it');
-  });
-  s.cleanup(() => {
-    sql.execute(`DELETE FROM provider WHERE provider_no=${q(physician.providerNo)} AND last_name=${q(physician.marker)}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(physician.providerNo)}`) === '0',
-      'The owned billing physician was not removed');
   });
   let claim = null;
   s.cleanup(() => {
@@ -191,14 +233,21 @@ async function workflow(s) {
   claim = seedWcbClaim(s, phn);
 
   let chart;
+  let shownNamesBefore;
   await s.step(STEP.shown, async () => {
+    const admin = await s.context.newPage();
+    await openSelectForms(admin, s);
+    shownNamesBefore = (await selectFormsLists(admin)).selected;
+    h.assert(shownNamesBefore.includes(WCB_FORM) === shownBefore,
+      'Select Forms and the stored BC-WCB visibility disagree');
     if (!shownBefore) {
-      const admin = await s.context.newPage();
-      await openSelectForms(admin, s);
       const lists = await moveForm(admin, { button: '#add', list: 'selectedAddTypes', name: WCB_FORM });
-      h.assert(lists.selected.includes(WCB_FORM) && !lists.available.includes(WCB_FORM), 'Select Forms did not add BC-WCB');
-      await admin.close();
+      h.assert(JSON.stringify(lists.selected) === JSON.stringify([...shownNamesBefore, WCB_FORM])
+        && !lists.available.includes(WCB_FORM), 'Select Forms did not append BC-WCB without changing the existing menu');
+      h.assert(JSON.stringify(encounterForms(sql)) === JSON.stringify(formsAfterSelection(before, lists.selected)),
+        'Select Forms did not persist exactly the displayed order after adding BC-WCB');
     }
+    await admin.close();
     h.assert(Number(sql.value(`SELECT hidden FROM encounterForm WHERE form_name=${q(WCB_FORM)}`)) > 0,
       'BC-WCB is still off the encounter form list');
     chart = await s.chart();
@@ -267,13 +316,17 @@ async function workflow(s) {
       const admin = await s.context.newPage();
       await openSelectForms(admin, s);
       const lists = await moveForm(admin, { button: '#delete', list: 'selectedDeleteTypes', name: WCB_FORM });
-      h.assert(!lists.selected.includes(WCB_FORM) && lists.available.includes(WCB_FORM), 'Select Forms did not remove BC-WCB');
+      h.assert(JSON.stringify(lists.selected) === JSON.stringify(shownNamesBefore) && lists.available.includes(WCB_FORM),
+        'Removing BC-WCB changed the original visible form menu');
       await admin.close();
     }
-    h.assert(formListAsSeen(encounterForms(sql)) === formListAsSeen(before),
-      'Removing BC-WCB did not leave the form list as it was (the shown forms and their order)');
+    // The BC seed shares positions across forms. The first Select Forms mutation
+    // intentionally normalizes them (#4945); cleanup restores the exact raw seed.
+    const expected = shownBefore ? before : formsAfterSelection(before, shownNamesBefore);
+    h.assert(JSON.stringify(encounterForms(sql)) === JSON.stringify(expected),
+      'Removing BC-WCB did not persist exactly the original visible menu with distinct positions');
   });
 }
 
 if (require.main === module) runWorkflow('billing-bc-wcb-links', workflow, { preflight });
-module.exports = { workflow, STEP };
+module.exports = { workflow, STEP, formsAfterSelection };

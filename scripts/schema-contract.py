@@ -14,10 +14,11 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+FORMAT = 2
 FIELDS = {
     "defaults": ("SCHEMATA", ["SCHEMA_NAME", "DEFAULT_CHARACTER_SET_NAME", "DEFAULT_COLLATION_NAME"], "1=1"),
     "tables": ("TABLES", ["TABLE_NAME", "ENGINE", "ROW_FORMAT", "TABLE_COLLATION"], "TABLE_TYPE = 'BASE TABLE'"),
-    "columns": ("COLUMNS", ["TABLE_NAME", "COLUMN_NAME", "COLUMN_TYPE", "IS_NULLABLE", "COLUMN_DEFAULT", "EXTRA", "CHARACTER_SET_NAME", "COLLATION_NAME", "GENERATION_EXPRESSION"], "1=1"),
+    "columns": ("COLUMNS", ["TABLE_NAME", "COLUMN_NAME", "COLUMN_TYPE", "IS_NULLABLE", "COLUMN_DEFAULT", "EXTRA", "CHARACTER_SET_NAME", "COLLATION_NAME", "GENERATION_EXPRESSION", "ORDINAL_POSITION"], "1=1"),
     "indexes": ("STATISTICS", ["TABLE_NAME", "INDEX_NAME", "NON_UNIQUE", "SEQ_IN_INDEX", "COLUMN_NAME", "COLLATION", "SUB_PART", "INDEX_TYPE", "IGNORED"], "1=1"),
     "keys": ("KEY_COLUMN_USAGE", ["TABLE_NAME", "CONSTRAINT_NAME", "ORDINAL_POSITION", "COLUMN_NAME", "REFERENCED_TABLE_SCHEMA", "REFERENCED_TABLE_NAME", "REFERENCED_COLUMN_NAME"], "1=1"),
     "references": ("REFERENTIAL_CONSTRAINTS", ["TABLE_NAME", "CONSTRAINT_NAME", "REFERENCED_TABLE_NAME", "UPDATE_RULE", "DELETE_RULE"], "1=1"),
@@ -105,7 +106,7 @@ def export(client, schema, province):
         metadata[kind] = sorted(values, key=lambda row: json.dumps(row, ensure_ascii=True))
     validate_policy(metadata)
     validate_seed_floors(client, schema, province, {row[0] for row in metadata["tables"]})
-    return {"format": 1, "province": province, "migration_sha256": migration_digest(province), "schema": metadata}
+    return {"format": FORMAT, "province": province, "migration_sha256": migration_digest(province), "schema": metadata}
 
 
 def main():
@@ -121,7 +122,7 @@ def main():
     if args.verify_files:
         for province in ("on", "bc"):
             document = json.loads((ROOT / "database/mysql/schema-contract" / (province + ".json")).read_text())
-            if document.get("format") != 1 or document.get("province") != province or document.get("migration_sha256") != migration_digest(province):
+            if document.get("format") != FORMAT or document.get("province") != province or document.get("migration_sha256") != migration_digest(province):
                 raise SystemExit("schema contract is stale for " + province)
             validate_policy(document["schema"])
         if args.verify_war:

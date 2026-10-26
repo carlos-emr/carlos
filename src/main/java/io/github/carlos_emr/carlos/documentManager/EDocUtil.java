@@ -1314,14 +1314,11 @@ public final class EDocUtil {
         File resolvedFile = new File(resolvePath(fileName));
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-        try {
-            return PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
-        } catch (SecurityException e) {
-            if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
-                return PathValidationUtils.resolveTrustedPath(resolvedFile);
-            }
-            throw e;
+        // A valid temp document is an ordinary source, not a failed document-root probe.
+        if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
+            return PathValidationUtils.resolveTrustedPath(resolvedFile);
         }
+        return PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
     }
 
     /**
@@ -1371,18 +1368,16 @@ public final class EDocUtil {
             }
 
             // Get the canonical path to resolve any symbolic links or relative paths
-            String canonicalPath = inputFile.getCanonicalPath();
+            File canonicalFile = inputFile.getCanonicalFile();
 
-            // Use PathValidationUtils for validation
-            // First try document directory
+            // Preserve the existing allowed-temp policy, checking its canonical target before
+            // the document-only validator logs a rejection. Operate on that same canonical file.
+            if (PathValidationUtils.isInAllowedTempDirectory(canonicalFile)) {
+                return canonicalFile.getPath();
+            }
             try {
-                inputFile = PathValidationUtils.validateExistingPath(inputFile, documentDir);
-                return canonicalPath;
+                return PathValidationUtils.validateExistingPath(canonicalFile, documentDir).getPath();
             } catch (SecurityException e) {
-                // Not in document directory, check temp directories
-                if (PathValidationUtils.isInAllowedTempDirectory(inputFile)) {
-                    return canonicalPath;
-                }
                 logger.error("Security violation: Attempted to access file outside allowed directory");
                 throw new SecurityException("Access denied: File is outside the allowed directories");
             }

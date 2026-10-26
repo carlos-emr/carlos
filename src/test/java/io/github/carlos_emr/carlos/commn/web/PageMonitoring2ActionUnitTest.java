@@ -16,6 +16,17 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.apache.struts2.ActionContext;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,6 +35,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -106,6 +118,68 @@ class PageMonitoring2ActionUnitTest extends CarlosWebTestBase {
         ArgumentCaptor<PageMonitor> persisted = ArgumentCaptor.forClass(PageMonitor.class);
         verify(dao).persist(persisted.capture());
         assertThat(persisted.getValue().isLocked()).isFalse();
+    }
+
+    @Test
+    void shouldGrantOnlyOneLock_whenTwoActionInstancesBookTheSameSlotConcurrently() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), isNull())).thenReturn(true);
+        addRequestParameter("method", "update");
+        addRequestParameter("lock", "true");
+        PageMonitoring2Action firstAction = new PageMonitoring2Action();
+
+        MockHttpServletRequest secondRequest = new MockHttpServletRequest("POST", "/PageMonitoringService");
+        secondRequest.setSession(new MockHttpSession());
+        secondRequest.getSession().setAttribute(LOGGED_IN_INFO_KEY, mockLoggedInInfo);
+        secondRequest.setParameter("page", "addappointment");
+        secondRequest.setParameter("pageId", PAGE_ID);
+        secondRequest.setParameter("method", "update");
+        secondRequest.setParameter("lock", "true");
+        ActionContext.of().withServletRequest(secondRequest)
+                .withServletResponse(new MockHttpServletResponse()).bind();
+        PageMonitoring2Action secondAction = new PageMonitoring2Action();
+
+        List<PageMonitor> persisted = new CopyOnWriteArrayList<>();
+        CountDownLatch firstRead = new CountDownLatch(1);
+        CountDownLatch releaseFirstRead = new CountDownLatch(1);
+        AtomicBoolean first = new AtomicBoolean(true);
+        when(dao.findByPageName("addappointment")).thenAnswer(invocation -> {
+            List<PageMonitor> snapshot = List.copyOf(persisted);
+            if (first.compareAndSet(true, false)) {
+                firstRead.countDown();
+                if (!releaseFirstRead.await(5, TimeUnit.SECONDS)) {
+                    throw new AssertionError("The first slot lookup was never released");
+                }
+            }
+            return snapshot;
+        });
+        doAnswer(invocation -> {
+            persisted.add(invocation.getArgument(0));
+            return null;
+        }).when(dao).persist(any(PageMonitor.class));
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var firstResult = executor.submit(firstAction::execute);
+            try {
+                assertThat(firstRead.await(5, TimeUnit.SECONDS)).isTrue();
+                var secondResult = executor.submit(secondAction::execute);
+                try {
+                    // An unprotected second request completes while the first holds an empty snapshot.
+                    // A protected request waits, then observes the first request's persisted lock.
+                    secondResult.get(300, TimeUnit.MILLISECONDS);
+                } catch (TimeoutException expected) {
+                    // The shared critical section is still held by the first request.
+                } finally {
+                    releaseFirstRead.countDown();
+                }
+                firstResult.get(5, TimeUnit.SECONDS);
+                secondResult.get(5, TimeUnit.SECONDS);
+            } finally {
+                releaseFirstRead.countDown();
+            }
+        }
+
+        assertThat(persisted).hasSize(2);
+        assertThat(persisted.stream().filter(PageMonitor::isLocked)).hasSize(1);
     }
 
     @Test

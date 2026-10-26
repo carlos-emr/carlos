@@ -228,9 +228,7 @@
         defaultBillingForm = bean.getBillForm();
     }
 
-    if (billform.serviceExists(defaultBillingForm)) {
-        bean.setBillForm(defaultBillingForm);
-    }
+    bean.setBillForm(billform.resolveBillingForm(defaultBillingForm));
 
     // 5. Nothing above names a billing form this install has, and the bill carries none (or one it does not
     // have): use the form the Billing form list shows first, which is what the list would show chosen anyway.

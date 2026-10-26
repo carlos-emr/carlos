@@ -456,6 +456,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Demographic report favourites and patient sets (#4225) are POST-only;
+        // report display/run/load remain GET-compatible. Focused RptDemographicReport2ActionUnitTest.
+        "io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action",
         // UploadLoginText2ActionUnitTest covers read-only GET and mutation-intent rejection.
         "io.github.carlos_emr.carlos.login.UploadLoginText2Action",
         // Legacy encounter forms: every save must be POST; only submit=graph/printAll/printAllJasperReport read

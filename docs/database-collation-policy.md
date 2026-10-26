@@ -11,7 +11,7 @@ equivalence and compatibility with the checksum-frozen migration chain. It is no
 a general recommendation for human text: its comparisons conflate some distinct
 supplementary Unicode characters.
 
-V1.0.59.5 changes these reviewed human-text columns to `utf8mb4_uca1400_ai_ci`:
+V1.0.59.6 changes these reviewed human-text columns to `utf8mb4_uca1400_ai_ci`:
 
 - `demographic.first_name`, `demographic.last_name`
 - `provider.first_name`, `provider.last_name`
@@ -29,7 +29,7 @@ the forward migration aligns it with the appointment column and Java's case-sens
 lookup. A binary collation still ignores padding spaces: import value verification
 compares binary strings after character-set conversion instead.
 
-V1.0.59.5 checks the affected shapes and complete composite/prefix unique keys
+V1.0.59.6 checks the affected shapes and complete composite/prefix unique keys
 before changing a persistent column. A collision under the proposed collation
 stops the migration with source rows untouched; it never chooses a row to delete.
 Existing widths, defaults, nullability and comments are preserved. A failed
@@ -49,7 +49,7 @@ replace application indexes. Key comparisons, merge partitions and ID maps use t
 target column's type and collation. Source archive objects retain original
 definitions and capacity; their differences are preservation metadata.
 
-V1.0.59.6 reconciles the reviewed performance indexes by complete definition,
+V1.0.59.7 reconciles the reviewed performance indexes by complete definition,
 including column order, prefixes, uniqueness, index type and ignored status. A
 same-name unexpected unique index is reported before any repair, never downgraded.
 The old `providerExt` provider index is redundant with its full unique replacement.

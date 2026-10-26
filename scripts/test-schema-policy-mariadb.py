@@ -13,8 +13,8 @@ import unittest
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-COLLATION = (ROOT / "database/mysql/migration/common/V1.0.59.5__align_clinical_text_and_status_collations.sql").read_text()
-INDEXES = (ROOT / "database/mysql/migration/common/V1.0.59.6__reconcile_managed_performance_indexes.sql").read_text()
+COLLATION = (ROOT / "database/mysql/migration/common/V1.0.59.6__align_clinical_text_and_status_collations.sql").read_text()
+INDEXES = (ROOT / "database/mysql/migration/common/V1.0.59.7__reconcile_managed_performance_indexes.sql").read_text()
 CONNECTION = ["--no-defaults", "-h", os.environ.get("MYSQL_HOST", "localhost"), "-u", os.environ.get("MYSQL_USER", "root")]
 
 

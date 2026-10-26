@@ -161,7 +161,7 @@ async function workflow(session) {
       // of waiting for the unrelated window load event.
       await Promise.all([
         page.waitForURL(/\/rx\/searchDrug\?/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
-        back.click(),
+        back.click({ noWaitAfter: true }),
       ]);
       await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
       await h.assertNotErrorPage(page, 'drug search after favorites');

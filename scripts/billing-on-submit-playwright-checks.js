@@ -27,7 +27,7 @@
  * only proves bill-type navigation keeps billRegion). This check completes the
  * journey: Next -> review page -> Save, and verifies billing_on_cheader1 /
  * billing_on_item rows plus the appointment's billed status, then deletes
- * every row it created (appointments, headers, items, ext, transactions).
+ * every row it created (appointments and their archives, headers, items, ext, transactions).
  *
  * Fixture: it inserts its own appointments for BILLING_DEMOGRAPHIC_NO with
  * BILLING_PROVIDER_NO on a fixed past date, so no demo appointment is billed.
@@ -47,6 +47,7 @@
  */
 
 const { chromium } = require('playwright');
+const { cleanupAppointmentArchives } = require('./lib/billing-on-submit-cleanup');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -139,8 +140,10 @@ function escapeSql(value) {
 }
 
 const createdAppointments = [];
+const attemptedAppointmentLabels = new Set();
 
 function createAppointment(startTime, label) {
+  attemptedAppointmentLabels.add(label); // recover even if INSERT succeeds but its ID lookup fails
   sql(`INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name, demographic_no, program_id, notes, reason, location, resources, type, style, billing, status, createdatetime, updatedatetime, creator, remarks, urgency)`
     + ` SELECT '${escapeSql(providerNo)}', '${escapeSql(billingDate)}', '${startTime}', ADDTIME('${startTime}', '00:14:00'), CONCAT(last_name, ',', first_name), ${Number(demographicNo)}, 0, '${escapeSql(`${stamp} ${label}`)}', '${escapeSql(`${stamp} ${label}`)}', '', '', '', '', '', 't', NOW(), NOW(), '${escapeSql(providerNo)}', '', ''`
     + ` FROM demographic WHERE demographic_no=${Number(demographicNo)}`);
@@ -151,7 +154,12 @@ function createAppointment(startTime, label) {
 }
 
 function cleanupRows() {
-  const headerIds = sqlRows(`SELECT id FROM billing_on_cheader1 WHERE appointment_no IN (SELECT appointment_no FROM appointment WHERE notes LIKE '${escapeSql(`${stamp}%`)}')`
+  const ownedAppointments = cleanupAppointmentArchives(sqlRows, sql, {
+    stamp, providerNo, demographicNo, billingDate,
+    labels: [...attemptedAppointmentLabels], appointmentIds: createdAppointments,
+  });
+  const appointmentList = ownedAppointments.length ? ownedAppointments.map(Number).join(',') : '0';
+  const headerIds = sqlRows(`SELECT id FROM billing_on_cheader1 WHERE appointment_no IN (${appointmentList})`
     + ` OR (demographic_no=${Number(demographicNo)} AND billing_date='${escapeSql(billingDate)}' AND comment1 LIKE '${escapeSql(`${stamp}%`)}')`).map((row) => row[0]);
   // Bonus headers carry no appointment number, so also sweep by the item date
   // + provider + our fixture window; anything we created is deleted by id.
@@ -161,7 +169,10 @@ function cleanupRows() {
     sql(`DELETE FROM billing_on_item WHERE ch1_id=${Number(id)}`);
     sql(`DELETE FROM billing_on_cheader1 WHERE id=${Number(id)}`);
   }
-  sql(`DELETE FROM appointment WHERE notes LIKE '${escapeSql(`${stamp}%`)}'`);
+  sql(`DELETE FROM appointment WHERE appointment_no IN (${appointmentList}) AND provider_no='${escapeSql(providerNo)}'`
+    + ` AND demographic_no=${Number(demographicNo)} AND appointment_date='${escapeSql(billingDate)}'`);
+  assert(sql(`SELECT COUNT(*) FROM appointment WHERE appointment_no IN (${appointmentList})`) === '0',
+    'Owned billing appointments remain after cleanup');
 }
 const createdHeaderIds = [];
 

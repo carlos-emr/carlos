@@ -245,7 +245,24 @@ public class RxUtil {
      * @return the time of day, or {@code null} if it cannot be read
      */
     public static Date parsePickupTime(String value) {
-        return StringToDate(value, "HH:mm");
+        if (value == null || !value.trim().matches("(?:[01]?\\d|2[0-3]):[0-5]\\d")) {
+            return null;
+        }
+        return StringToDate(value.trim(), "HH:mm");
+    }
+
+    /** Reads a real pick-up day without allowing the lenient date parser to roll it into another day. */
+    public static Date parsePickupDate(String value) {
+        if (value == null || !value.trim().matches("\\d{4}-\\d{1,2}-\\d{1,2}")) {
+            return null;
+        }
+        try {
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", locale);
+            format.setLenient(false);
+            return format.parse(value.trim());
+        } catch (java.text.ParseException _) {
+            return null;
+        }
     }
 
     public static String DateToString(Date Expression) {
