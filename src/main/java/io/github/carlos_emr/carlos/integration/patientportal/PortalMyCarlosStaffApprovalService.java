@@ -134,19 +134,29 @@ public final class PortalMyCarlosStaffApprovalService {
     /** Explicit staff operation. Clinic-wide routing is filtered before local challenge creation. */
     public State refresh(LoggedInInfo info, int patient, PatientPortalService portal) {
         requireStaff(info, patient, SecurityInfoManager.WRITE);
-        current();
+        var initial = current();
+        requireClientTarget(portal, initial, PortalJob.PERMISSION_APPROVAL_REQUESTS_READ, "GET",
+                "/internal/carlos/mycarlos/device-approval-requests?after=0&limit=20");
         var client = client(portal);
         var refused = new java.util.ArrayList<String>();
         long after = 0;
         boolean complete = false;
         for (int pageNo = 0; pageNo < 50; pageNo++) {
+            var binding = current();
+            String path = "/internal/carlos/mycarlos/device-approval-requests?after=" + after + "&limit=20";
+            Runnable fence = () -> {
+                requireClientTarget(portal, binding, PortalJob.PERMISSION_APPROVAL_REQUESTS_READ, "GET", path);
+                if (!binding.hash().equals(current().hash())) throw new IllegalStateException("approval configuration changed");
+            };
+            fence.run();
             PortalMyCarlosApprovalClient.Page<PortalMyCarlosApprovalClient.Request> page;
             try { page = client.requests(after); }
             catch (PortalContractException failure) {
                 throw PatientPortalException.ofMalformedResponse(200, "/internal/carlos/mycarlos/device-approval-requests", failure);
             }
+            fence.run();
             for (var request : page.records()) {
-                var challenge = prepareRequest(info, patient, request, refused);
+                var challenge = prepareRequest(info, patient, request, refused, binding, fence);
                 if (challenge == null) continue;
                 try {
                     publish(challenge, "challenge", client);
@@ -154,7 +164,7 @@ public final class PortalMyCarlosStaffApprovalService {
                 } catch (PublicationPending pending) {
                     refused.add("publication_pending");
                 } catch (PatientPortalException failure) {
-                    if (!retainPublicationRefusal(request, failure)) throw failure;
+                    if (!retainPublicationRefusal(request, failure, binding, fence)) throw failure;
                     refused.add("challenge_expired");
                 }
             }
@@ -169,13 +179,20 @@ public final class PortalMyCarlosStaffApprovalService {
     /** A durable refusal is an explicit processed outcome, so an old expired request cannot block newer ones. */
     PortalMyCarlosDeviceApprovalChallenge prepareRequest(LoggedInInfo info, int patient,
             PortalMyCarlosApprovalClient.Request request, List<String> refused) {
+        return prepareRequest(info, patient, request, refused, current(), () -> {});
+    }
+    private PortalMyCarlosDeviceApprovalChallenge prepareRequest(LoggedInInfo info, int patient,
+            PortalMyCarlosApprovalClient.Request request, List<String> refused,
+            PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence) {
+        fence.run();
         if (request.demographicNo() != patient) return null;
         requireStaff(info, patient, SecurityInfoManager.WRITE);
-        String terminal = journal.publication(current(), request, null);
+        String terminal = journal.publication(binding, request, null);
         if (terminal != null) { refused.add(terminal); return null; }
-        String saved = journal.record(current(), request, null);
+        String saved = journal.record(binding, request, null);
         if (saved != null && !"prepared".equals(saved)) { refused.add(saved); return null; }
         var service = core(expected -> {
+            fence.run();
             if (expected != patient) throw new SecurityException("approval patient routing changed");
             requireStaff(info, patient, SecurityInfoManager.WRITE);
         });
@@ -184,23 +201,32 @@ public final class PortalMyCarlosStaffApprovalService {
             challenge = service.createOrReadExactChallenge(patient, request.intent());
         } catch (PortalMyCarlosDeviceApprovalService.Refusal failure) {
             if ("approval_unavailable".equals(failure.code)) throw failure;
-            if ("prepared".equals(journal.record(current(), request, failure.code))) throw failure;
+            fence.run();
+            if ("prepared".equals(journal.record(binding, request, failure.code))) throw failure;
             refused.add(failure.code);
             return null;
         }
-        journal.record(current(), request, "prepared");
+        fence.run();
+        journal.record(binding, request, "prepared");
         return challenge;
     }
 
     boolean retainPublicationRefusal(PortalMyCarlosApprovalClient.Request request, PatientPortalException failure) {
+        return retainPublicationRefusal(request, failure, current(), () -> {});
+    }
+    private boolean retainPublicationRefusal(PortalMyCarlosApprovalClient.Request request, PatientPortalException failure,
+            PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence) {
         if (failure.statusCode() != 410 || !"approval_expired".equals(failure.detail())) return false;
-        journal.publication(current(), request, "challenge_expired");
+        fence.run();
+        journal.publication(binding, request, "challenge_expired");
         return true;
     }
 
     public State approveFirst(LoggedInInfo info, int patient, String challengeId, String expectedHash,
             String exactFingerprint, PatientPortalService portal) {
         requireStaff(info, patient, SecurityInfoManager.WRITE);
+        requireClientTarget(portal, current(), PortalJob.PERMISSION_APPROVAL_REQUESTS_READ, "GET",
+                "/internal/carlos/mycarlos/device-approval-requests?after=0&limit=20");
         var challenge = new Bytes(PortalMyCarlosDeviceApprovalCodec.exact32(challengeId));
         if (expectedHash == null || !expectedHash.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("invalid challenge digest");
         var result = core(noImport()).acceptFirstFromStaff(info, patient, challenge,
@@ -215,10 +241,27 @@ public final class PortalMyCarlosStaffApprovalService {
 
     private PortalMyCarlosApprovalClient client(PatientPortalService portal) {
         if (suppliedClient != null) return Objects.requireNonNull(suppliedClient.apply(portal));
+        var binding = current();
         var job = PortalJobAssertionSigner.from(PortalJobKey.fromCarlosProperties(PortalJob.DEVICE_APPROVAL_SYNC)
                 .orElseThrow(() -> new IllegalStateException("approval sync job key is unavailable")));
-        return new PortalMyCarlosApprovalClient((permission, method, path, body, status) ->
-                portal.exchangeJob(job, permission, method, path, body, status));
+        return new PortalMyCarlosApprovalClient((permission, method, path, body, status) -> {
+            if (!binding.hash().equals(current().hash())) throw new IllegalStateException("approval configuration changed");
+            requireClientTarget(portal, binding, permission, method, path);
+            try { return portal.exchangeJob(job, permission, method, path, body, status); }
+            finally {
+                requireClientTarget(portal, binding, permission, method, path);
+                if (!binding.hash().equals(current().hash())) throw new IllegalStateException("approval configuration changed");
+            }
+        });
+    }
+
+    static void requireClientTarget(PatientPortalService portal, PortalMyCarlosDeviceApprovalService.Current cfg,
+            String permission, String method, String path) {
+        var actual = portal.myCarlosJobTarget(permission, method, path);
+        String expected = URI.create(cfg.internalOrigin + path).toASCIIString();
+        if (!cfg.clinic.equals(actual.clinicId()) || !expected.equals(actual.uri().toASCIIString())) {
+            throw new IllegalStateException("approval client configuration changed");
+        }
     }
 
     /** Claim a bounded durable lease, then cross HTTP with no database transaction held. */
