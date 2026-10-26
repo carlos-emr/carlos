@@ -90,11 +90,18 @@ test('21st pending copy reached through Older deliveries retries its exact UUID/
 });
 
 test('lost reply leaves the pending row retryable with exactly the same identity and body', async () => {
-    const pending = rowData(21, 'waiting'); const {ids, calls, payload} = mount([pending]);
+    const pending = rowData(21, 'staged'); const {ids, calls, payload} = mount([pending]);
     const retry = ids['delivery-history'].rows[0].querySelector('[data-retry]');
     retry.click(); await tick(); calls[0].reject(new Error('FAKE lost reply')); await tick();
     assert.equal(retry.disabled, false); assert.equal(ids['delivery-message'].textContent, 'error');
     retry.click(); await tick();
     assert.equal(calls[1].options.body, calls[0].options.body);
     calls[1].resolve(payload([pending])); await tick();
+});
+
+
+test('waiting-for-pickup rows offer status checking rather than an upload retry', () => {
+    const {ids} = mount([rowData(21, 'waiting')]);
+    assert.equal(ids['delivery-history'].querySelectorAll().length, 0);
+    assert.equal(ids['delivery-check'].disabled, false);
 });

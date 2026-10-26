@@ -64,7 +64,7 @@
     };
     const addRetryControls = () => {
         Array.from(history.rows).forEach(row => {
-            if (!['staged', 'waiting'].includes(row.dataset.status) || row.querySelector('[data-retry]')) return;
+            if (row.dataset.status !== 'staged' || row.querySelector('[data-retry]')) return;
             const button = document.createElement('button');
             button.type = 'button';
             button.dataset.retry = '';

@@ -45,8 +45,9 @@ The signed original, selected accepted keys, send-time configuration and exact
 HPKE upload bytes commit before network upload. An unknown upload result keeps
 the same UUID and exact bytes. Reloading the send page retains its operation
 UUID; Check status retries pending stored bytes and collects portal evidence.
-Use Retry saved copy on a pending history row, including an older page, to
-retry that row’s exact UUID/device/body. Check status retries the newest20
+Use Retry saved copy on a Waiting to send history row, including an older page, to
+retry that row’s exact UUID/device/body. Copies already Waiting for pickup
+use Check status. Check status retries the newest20
 patient rows; the explicit row control reaches older pending copies.
 Use New delivery only when intentionally creating another immutable copy.
 
