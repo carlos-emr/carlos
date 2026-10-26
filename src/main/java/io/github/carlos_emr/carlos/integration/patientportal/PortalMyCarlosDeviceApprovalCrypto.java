@@ -110,15 +110,15 @@ final class PortalMyCarlosDeviceApprovalCrypto {
         for (String field : new String[] {"clinic_id", "recipient_id", "candidate_device_key_id",
                 "candidate_x25519_public_key", "candidate_ed25519_public_key", "predecessor_device_key_id",
                 "public_portal_base_url", "request_id"}) {
-            equal(i.values().get(field), c.values().get(field));
-            equal(c.values().get(field), a.values().get(field));
+            requireEqual(i.values().get(field), c.values().get(field));
+            requireEqual(c.values().get(field), a.values().get(field));
         }
         String intentHash = compactHash(flow.intent());
         String challengeHash = compactHash(flow.challenge());
-        equal(c.text("candidate_intent_sha256"), intentHash);
-        equal(a.text("challenge_sha256"), challengeHash);
-        equal(a.text("challenge_id"), c.text("challenge_id"));
-        equal(a.text("approval_kind"), c.text("approval_kind"));
+        requireEqual(c.text("candidate_intent_sha256"), intentHash);
+        requireEqual(a.text("challenge_sha256"), challengeHash);
+        requireEqual(a.text("challenge_id"), c.text("challenge_id"));
+        requireEqual(a.text("approval_kind"), c.text("approval_kind"));
         long issued = c.epoch("issued_at");
         long maximumExpiry = issued > Long.MAX_VALUE - 600 ? Long.MAX_VALUE : issued + 600;
         if (c.epoch("expires_at") != Math.min(maximumExpiry, i.epoch("exp"))) {
@@ -136,11 +136,11 @@ final class PortalMyCarlosDeviceApprovalCrypto {
             for (String field : new String[] {"clinic_id", "recipient_id", "candidate_device_key_id",
                     "candidate_x25519_public_key", "candidate_ed25519_public_key", "predecessor_device_key_id",
                     "challenge_id", "predecessor_version"}) {
-                equal(p.values().get(field), c.values().get(field));
+                requireEqual(p.values().get(field), c.values().get(field));
             }
-            equal(p.text("candidate_intent_sha256"), intentHash);
-            equal(p.text("challenge_sha256"), challengeHash);
-            equal(a.text("approval_sha256"), compactHash(flow.approval()));
+            requireEqual(p.text("candidate_intent_sha256"), intentHash);
+            requireEqual(p.text("challenge_sha256"), challengeHash);
+            requireEqual(a.text("approval_sha256"), compactHash(flow.approval()));
         }
         return new VerifiedFlow(intent, challenge, approval, acceptance);
     }
@@ -218,7 +218,7 @@ final class PortalMyCarlosDeviceApprovalCrypto {
         return kind.deviceSignature ? "Ed25519" : "SHA256withECDSAinP1363Format";
     }
 
-    private static void equal(Object left, Object right) {
+    private static void requireEqual(Object left, Object right) {
         if (!Objects.equals(left, right)) {
             throw invalid();
         }

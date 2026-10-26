@@ -43,13 +43,13 @@ final class PortalMyCarlosDeliveryReceiptVerifier {
         var claims = PortalMyCarlosDeliveryCodec.object(envelope.payload().copy(),
                 PortalMyCarlosDeliveryCodec.MAX_RECEIPT_BYTES);
         PortalMyCarlosDeliveryCodec.fields(claims, FIELDS);
-        equal("mycarlos-delivery-receipt", PortalMyCarlosDeliveryCodec.text(claims, "typ"));
-        equal("carlos-delivery-receipt", PortalMyCarlosDeliveryCodec.text(claims, "aud"));
-        equal(immutableSend.deliveryId(), PortalMyCarlosDeliveryCodec.text(claims, "delivery_id"));
-        equal(immutableSend.recipientId(), PortalMyCarlosDeliveryCodec.text(claims, "recipient_id"));
-        equal(immutableSend.device().kid(), PortalMyCarlosDeliveryCodec.text(claims, "device_key_id"));
-        equal(immutableSend.ciphertextSha256(), PortalMyCarlosDeliveryCodec.text(claims, "ciphertext_sha256"));
-        equal(immutableSend.documentSha256(), PortalMyCarlosDeliveryCodec.text(claims, "document_sha256"));
+        requireEqual("mycarlos-delivery-receipt", PortalMyCarlosDeliveryCodec.text(claims, "typ"));
+        requireEqual("carlos-delivery-receipt", PortalMyCarlosDeliveryCodec.text(claims, "aud"));
+        requireEqual(immutableSend.deliveryId(), PortalMyCarlosDeliveryCodec.text(claims, "delivery_id"));
+        requireEqual(immutableSend.recipientId(), PortalMyCarlosDeliveryCodec.text(claims, "recipient_id"));
+        requireEqual(immutableSend.device().kid(), PortalMyCarlosDeliveryCodec.text(claims, "device_key_id"));
+        requireEqual(immutableSend.ciphertextSha256(), PortalMyCarlosDeliveryCodec.text(claims, "ciphertext_sha256"));
+        requireEqual(immutableSend.documentSha256(), PortalMyCarlosDeliveryCodec.text(claims, "document_sha256"));
         String jti = PortalMyCarlosDeliveryCodec.text(claims, "jti");
         PortalMyCarlosDeliveryCodec.uuid(jti, false);
         String anchor = PortalMyCarlosDeliveryCodec.text(claims, "vault_head_link");
@@ -67,7 +67,7 @@ final class PortalMyCarlosDeliveryReceiptVerifier {
         return new Verified(compact, jti, pickedUpAt, anchor);
     }
 
-    private static void equal(String expected, String actual) {
+    private static void requireEqual(String expected, String actual) {
         if (!expected.equals(actual)) throw invalid();
     }
 }

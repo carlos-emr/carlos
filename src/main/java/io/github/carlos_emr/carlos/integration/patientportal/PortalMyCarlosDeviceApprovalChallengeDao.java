@@ -7,7 +7,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDevic
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalService.Jdbc;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalTypes.Bytes;
 import jakarta.persistence.EntityManagerFactory;
-import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -20,6 +20,12 @@ import org.hibernate.jdbc.ReturningWork;
 /** Single-table prepared JDBC DAO for mycarlos_device_approval_challenge; never owns a connection or transaction. */
 final class PortalMyCarlosDeviceApprovalChallengeDao {
     private static final String COLUMNS = "challenge_id,request_id,binding_id,clinic_id,demographic_no,recipient_id,public_portal_base_url,config_binding_sha256,candidate_device_key_id,candidate_x25519_public_key,candidate_ed25519_public_key,candidate_intent,candidate_intent_sha256,signed_challenge,challenge_sha256,approval_kind,predecessor_accepted_id,predecessor_device_key_id,predecessor_version,issued_at,expires_at,consumed_at,consumed_approval_jti,consumed_approval,consumed_approval_sha256,cancelled_at,cancellation_reason";
+    private static final String FIND_BY_REQUEST = "SELECT " + COLUMNS
+            + " FROM mycarlos_device_approval_challenge WHERE BINARY clinic_id=BINARY ? AND request_id=? FOR UPDATE";
+    private static final String FIND_BY_CHALLENGE = "SELECT " + COLUMNS
+            + " FROM mycarlos_device_approval_challenge WHERE challenge_id=? FOR UPDATE";
+    private static final String FIND_BY_CONSUMED_JTI = "SELECT " + COLUMNS
+            + " FROM mycarlos_device_approval_challenge WHERE predecessor_accepted_id=? AND consumed_approval_jti=? FOR UPDATE";
     final EntityManagerFactory factory;
     PortalMyCarlosDeviceApprovalChallengeDao(EntityManagerFactory factory) { this.factory = java.util.Objects.requireNonNull(factory);
     }
@@ -56,15 +62,12 @@ final class PortalMyCarlosDeviceApprovalChallengeDao {
                 rows.getString("cancellation_reason"));
         return result;
     }
-    private Optional<PortalMyCarlosDeviceApprovalChallenge> find(Connection c, String where, Jdbc.Parameters parameters) throws SQLException {
-        try (var q = c.prepareStatement("SELECT " + COLUMNS + " FROM mycarlos_device_approval_challenge WHERE " + where + " FOR UPDATE")) {
-            parameters.bind(q);
-            try (var rows = q.executeQuery()) {
-                if (!rows.next()) return Optional.empty();
-                var value = map(rows);
-                Checks.require(!rows.next());
-                return Optional.of(value);
-            }
+    private Optional<PortalMyCarlosDeviceApprovalChallenge> find(PreparedStatement q) throws SQLException {
+        try (var rows = q.executeQuery()) {
+            if (!rows.next()) return Optional.empty();
+            var value = map(rows);
+            Checks.require(!rows.next());
+            return Optional.of(value);
         }
     }
     PortalMyCarlosDeviceApprovalChallenge insert(PortalMyCarlosDeviceApprovalChallenge row) {
@@ -103,17 +106,30 @@ final class PortalMyCarlosDeviceApprovalChallengeDao {
         });
     }
     Optional<PortalMyCarlosDeviceApprovalChallenge> findByRequestForUpdate(String clinic, UUID request) {
-        return owned(c -> find(c, "BINARY clinic_id=BINARY ? AND request_id=?", q -> { q.setString(1, clinic);
-            q.setBytes(2, Jdbc.uuid(request));
-        }));
+        return owned(c -> {
+            try (var q = c.prepareStatement(FIND_BY_REQUEST)) {
+                q.setString(1, clinic);
+                q.setBytes(2, Jdbc.uuid(request));
+                return find(q);
+            }
+        });
     }
     Optional<PortalMyCarlosDeviceApprovalChallenge> findByChallengeForUpdate(Bytes challenge) {
-        return owned(c -> find(c, "challenge_id=?", q -> q.setBytes(1, challenge.copy())));
+        return owned(c -> {
+            try (var q = c.prepareStatement(FIND_BY_CHALLENGE)) {
+                q.setBytes(1, challenge.copy());
+                return find(q);
+            }
+        });
     }
     Optional<PortalMyCarlosDeviceApprovalChallenge> findByConsumedJtiForUpdate(long predecessor, UUID jti) {
-        return owned(c -> find(c, "predecessor_accepted_id=? AND consumed_approval_jti=?", q -> { q.setLong(1, predecessor);
-            q.setBytes(2, Jdbc.uuid(jti));
-        }));
+        return owned(c -> {
+            try (var q = c.prepareStatement(FIND_BY_CONSUMED_JTI)) {
+                q.setLong(1, predecessor);
+                q.setBytes(2, Jdbc.uuid(jti));
+                return find(q);
+            }
+        });
     }
     List<PortalMyCarlosDeviceApprovalChallenge> findOpenForPatientForUpdate(String clinic, int patient) {
         return owned(c -> {

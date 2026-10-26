@@ -6,7 +6,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalService.Checks;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalService.Jdbc;
 import jakarta.persistence.EntityManagerFactory;
-import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -18,6 +18,8 @@ import org.hibernate.jdbc.ReturningWork;
 /** Single-table prepared JDBC DAO for mycarlos_accepted_device; never owns a connection or transaction. */
 final class PortalMyCarlosAcceptedDeviceDao {
     private static final String COLUMNS = "id,binding_id,device_key_id,x25519_public_key,ed25519_public_key,approval_kind,approval_challenge_id,approved_by_provider_no,approved_by_security_no,staff_verification_method,predecessor_accepted_id,predecessor_version,predecessor_approval,clinic_acceptance,clinic_acceptance_sha256,accepted_at,removed_at,removal_id,removal_reason,removed_by_provider_no,version";
+    private static final String FIND_BY_KID = "SELECT " + COLUMNS
+            + " FROM mycarlos_accepted_device WHERE BINARY device_key_id=BINARY ? FOR UPDATE";
     final EntityManagerFactory factory;
     PortalMyCarlosAcceptedDeviceDao(EntityManagerFactory factory) { this.factory = java.util.Objects.requireNonNull(factory);
     }
@@ -49,15 +51,12 @@ final class PortalMyCarlosAcceptedDeviceDao {
         Checks.positive(result.id());
         return result;
     }
-    private Optional<PortalMyCarlosAcceptedDevice> find(Connection c, String where, Jdbc.Parameters parameters) throws SQLException {
-        try (var q = c.prepareStatement("SELECT " + COLUMNS + " FROM mycarlos_accepted_device WHERE " + where + " FOR UPDATE")) {
-            parameters.bind(q);
-            try (var rows = q.executeQuery()) {
-                if (!rows.next()) return Optional.empty();
-                var value = map(rows);
-                Checks.require(!rows.next());
-                return Optional.of(value);
-            }
+    private Optional<PortalMyCarlosAcceptedDevice> find(PreparedStatement q) throws SQLException {
+        try (var rows = q.executeQuery()) {
+            if (!rows.next()) return Optional.empty();
+            var value = map(rows);
+            Checks.require(!rows.next());
+            return Optional.of(value);
         }
     }
     PortalMyCarlosAcceptedDevice insert(PortalMyCarlosAcceptedDevice row) {
@@ -96,7 +95,12 @@ final class PortalMyCarlosAcceptedDeviceDao {
         });
     }
     Optional<PortalMyCarlosAcceptedDevice> findByKidForUpdate(String kid) {
-        return owned(c -> find(c, "BINARY device_key_id=BINARY ?", q -> q.setString(1, kid)));
+        return owned(c -> {
+            try (var q = c.prepareStatement(FIND_BY_KID)) {
+                q.setString(1, kid);
+                return find(q);
+            }
+        });
     }
     List<PortalMyCarlosAcceptedDevice> historyForUpdate(long binding, long after, int limit) {
         return owned(c -> {

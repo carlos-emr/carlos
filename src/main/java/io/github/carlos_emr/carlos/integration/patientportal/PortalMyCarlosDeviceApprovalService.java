@@ -201,21 +201,21 @@ final class PortalMyCarlosDeviceApprovalService {
         Decoded c = PortalMyCarlosDeviceApprovalCodec.decode(Kind.CHALLENGE, row.signedChallenge(), scope);
         for (String field : new String[] {"clinic_id", "recipient_id", "public_portal_base_url", "request_id",
                 "candidate_device_key_id", "candidate_x25519_public_key", "candidate_ed25519_public_key", "predecessor_device_key_id"}) {
-            equal(i.claims().values().get(field), c.claims().values().get(field));
+            requireEqual(i.claims().values().get(field), c.claims().values().get(field));
         }
-        equal(i.candidate(), new DeviceKeys(row.candidateKid(), row.candidateX(), row.candidateEd()));
-        equal(c.claims().text("request_id"), row.requestId().toString());
-        equal(c.claims().text("challenge_id"), PortalMyCarlosDeviceApprovalCodec.base64(row.challengeId().copy()));
-        equal(c.claims().text("candidate_intent_sha256"), PortalMyCarlosDeviceApprovalCrypto.compactHash(row.intent()));
-        equal(c.claims().text("approval_kind"), row.kind());
-        equal(c.claims().text("predecessor_device_key_id"), row.predecessorKid());
-        equal(c.claims().text("predecessor_version"), row.predecessorVersion() == null ? null : row.predecessorVersion().toString());
-        equal(c.claims().epoch("issued_at"), row.issuedAt().getEpochSecond());
-        equal(c.claims().epoch("expires_at"), row.expiresAt().getEpochSecond());
+        requireEqual(i.candidate(), new DeviceKeys(row.candidateKid(), row.candidateX(), row.candidateEd()));
+        requireEqual(c.claims().text("request_id"), row.requestId().toString());
+        requireEqual(c.claims().text("challenge_id"), PortalMyCarlosDeviceApprovalCodec.base64(row.challengeId().copy()));
+        requireEqual(c.claims().text("candidate_intent_sha256"), PortalMyCarlosDeviceApprovalCrypto.compactHash(row.intent()));
+        requireEqual(c.claims().text("approval_kind"), row.kind());
+        requireEqual(c.claims().text("predecessor_device_key_id"), row.predecessorKid());
+        requireEqual(c.claims().text("predecessor_version"), row.predecessorVersion() == null ? null : row.predecessorVersion().toString());
+        requireEqual(c.claims().epoch("issued_at"), row.issuedAt().getEpochSecond());
+        requireEqual(c.claims().epoch("expires_at"), row.expiresAt().getEpochSecond());
         long issued = c.claims().epoch("issued_at");
-        equal(c.claims().epoch("expires_at"), Math.min(issued > Long.MAX_VALUE - 600 ? Long.MAX_VALUE : issued + 600, i.claims().epoch("exp")));
+        requireEqual(c.claims().epoch("expires_at"), Math.min(issued > Long.MAX_VALUE - 600 ? Long.MAX_VALUE : issued + 600, i.claims().epoch("exp")));
     }
-    private static void equal(Object left, Object right) {
+    private static void requireEqual(Object left, Object right) {
         if (!Objects.equals(left, right)) throw refuse("invalid_proof");
     }
     private static Decoded verified(Kind kind, String compact, Scope scope,
@@ -261,11 +261,11 @@ final class PortalMyCarlosDeviceApprovalService {
             var prior = challenges.findByRequestForUpdate(cfg.clinic, request);
             if (prior.isPresent()) {
                 challenge(cfg, prior.get(), patient);
-                equal(prior.get().intent(), exactIntent);
+                requireEqual(prior.get().intent(), exactIntent);
                 if (bound.isPresent()) binding(cfg, bound.get(), patient, recipient);
                 if (prior.get().bindingId() != null && (bound.isEmpty() || prior.get().bindingId() != bound.get().id())) throw refuse("binding_changed");
                 source.requireTrustedSource(patient);
-                equal(cfg.hash(), current().hash());
+                requireEqual(cfg.hash(), current().hash());
                 return prior.get();
             }
             var pending = challenges.findOpenForPatientForUpdate(cfg.clinic, patient);
@@ -283,7 +283,7 @@ final class PortalMyCarlosDeviceApprovalService {
             }
             if (devices.findByKidForUpdate(intent.candidate().kid()).isPresent()) throw refuse("approval_conflict");
             source.requireTrustedSource(patient);
-            equal(cfg.hash(), current().hash());
+            requireEqual(cfg.hash(), current().hash());
             for (var open : pending) {
                 challenge(cfg, open, patient);
                 if (outbox.findMessageForUpdate(open.challengeId(), "decision").isPresent()) throw refuse("approval_conflict");
@@ -297,8 +297,8 @@ final class PortalMyCarlosDeviceApprovalService {
             if (challenges.findByChallengeForUpdate(nextId).isPresent()
                     || outbox.findMessageForUpdate(nextId, "challenge").isPresent()) throw refuse("approval_conflict");
             source.requireTrustedSource(patient);
-            equal(cfg.hash(), current().hash());
-            equal(identity, activeSigner(keys));
+            requireEqual(cfg.hash(), current().hash());
+            requireEqual(identity, activeSigner(keys));
             Instant now = now();
             fresh(intent, now);
             int live = 0;
@@ -355,8 +355,8 @@ final class PortalMyCarlosDeviceApprovalService {
             var recipientBinding = bindings.findByClinicRecipientForUpdate(cfg.clinic, row.recipientId());
             var priorDecision = outbox.findMessageForUpdate(row.challengeId(), "decision");
             Actor actor = staff(session, patient, SecurityInfoManager.WRITE);
-            equal(cfg.hash(), current().hash());
-            equal(row.challengeHash(), expectedChallengeHash);
+            requireEqual(cfg.hash(), current().hash());
+            requireEqual(row.challengeHash(), expectedChallengeHash);
             if (!"staff_first".equals(row.kind())) throw refuse("staff_required");
             String fingerprint = HexFormat.of().formatHex(PortalMyCarlosDeviceApprovalCodec.exact32(row.candidateKid()));
             if (!fingerprint.equals(exactFingerprint)) throw new SecurityException("full device fingerprint confirmation required");
@@ -392,7 +392,7 @@ final class PortalMyCarlosDeviceApprovalService {
             var candidate = devices.findByKidForUpdate(row.candidateKid());
             var priorDecision = outbox.findMessageForUpdate(row.challengeId(), "decision");
             source.requireTrustedSource(patient);
-            equal(cfg.hash(), current().hash());
+            requireEqual(cfg.hash(), current().hash());
             if (!"accepted_device".equals(row.kind())) throw refuse("staff_required");
             if (row.consumedAt() != null) return historical(cfg, patient, row, bound, candidate, exactApproval, priorDecision);
             if (row.cancelledAt() != null) throw refuse("challenge_cancelled");
@@ -409,7 +409,7 @@ final class PortalMyCarlosDeviceApprovalService {
             if (challenges.findByConsumedJtiForUpdate(predecessor.id(), jti).isPresent() || candidate.isPresent()) throw refuse("approval_conflict");
             outbox.findMessageForUpdate(row.challengeId(), "decision");
             source.requireTrustedSource(patient);
-            equal(cfg.hash(), current().hash());
+            requireEqual(cfg.hash(), current().hash());
             SigningIdentity identity = activeSigner(keys);
             Instant now = now();
             verifyNew(row, keys, predecessor, cfg, now);
@@ -420,12 +420,12 @@ final class PortalMyCarlosDeviceApprovalService {
 
     private static void compareApproval(PortalMyCarlosDeviceApprovalChallenge row, Decoded proof) {
         var p = proof.claims();
-        equal(p.text("challenge_id"), PortalMyCarlosDeviceApprovalCodec.base64(row.challengeId().copy()));
-        equal(p.text("challenge_sha256"), PortalMyCarlosDeviceApprovalCrypto.compactHash(row.signedChallenge()));
-        equal(p.text("candidate_intent_sha256"), PortalMyCarlosDeviceApprovalCrypto.compactHash(row.intent()));
-        equal(proof.candidate(), new DeviceKeys(row.candidateKid(), row.candidateX(), row.candidateEd()));
-        equal(p.text("predecessor_device_key_id"), row.predecessorKid());
-        equal(p.text("predecessor_version"), row.predecessorVersion().toString());
+        requireEqual(p.text("challenge_id"), PortalMyCarlosDeviceApprovalCodec.base64(row.challengeId().copy()));
+        requireEqual(p.text("challenge_sha256"), PortalMyCarlosDeviceApprovalCrypto.compactHash(row.signedChallenge()));
+        requireEqual(p.text("candidate_intent_sha256"), PortalMyCarlosDeviceApprovalCrypto.compactHash(row.intent()));
+        requireEqual(proof.candidate(), new DeviceKeys(row.candidateKid(), row.candidateX(), row.candidateEd()));
+        requireEqual(p.text("predecessor_device_key_id"), row.predecessorKid());
+        requireEqual(p.text("predecessor_version"), row.predecessorVersion().toString());
     }
     private static void verifyNew(PortalMyCarlosDeviceApprovalChallenge row,
             Map<String, PatientPortalClinicKeysPublishRequest.Key> keys, PortalMyCarlosAcceptedDevice predecessor, Current cfg, Instant now) {
@@ -458,7 +458,7 @@ final class PortalMyCarlosDeviceApprovalService {
             Map<String, PatientPortalClinicKeysPublishRequest.Key> keys) {
         String compact = signer.sign(kind, java.util.Collections.unmodifiableMap(new LinkedHashMap<>(claims)), scope, identity);
         var decoded = verified(kind, compact, scope, keys, null);
-        equal(decoded.claims().values(), claims);
+        requireEqual(decoded.claims().values(), claims);
         return compact;
     }
     private Decision commitAcceptance(PortalMyCarlosDeviceApprovalChallenge row, PortalMyCarlosPatientBinding binding,
@@ -481,25 +481,25 @@ final class PortalMyCarlosDeviceApprovalService {
         binding(cfg, binding, patient, challenge.recipientId());
         var accepted = candidate.orElseThrow(() -> refuse("approval_conflict"));
         if (challenge.bindingId() == null || challenge.bindingId() != binding.id() || accepted.bindingId() != binding.id()) throw refuse("binding_changed");
-        equal(accepted.kid(), challenge.candidateKid());
-        equal(accepted.x25519(), challenge.candidateX());
-        equal(accepted.ed25519(), challenge.candidateEd());
-        if (challenge.kind().equals("staff_first")) equal(binding.rootKid(), accepted.kid());
-        equal(accepted.challengeId(), challenge.challengeId());
-        equal(accepted.kind(), challenge.kind());
-        equal(accepted.predecessorId(), challenge.predecessorId());
-        equal(accepted.predecessorVersion(), challenge.predecessorVersion());
+        requireEqual(accepted.kid(), challenge.candidateKid());
+        requireEqual(accepted.x25519(), challenge.candidateX());
+        requireEqual(accepted.ed25519(), challenge.candidateEd());
+        if (challenge.kind().equals("staff_first")) requireEqual(binding.rootKid(), accepted.kid());
+        requireEqual(accepted.challengeId(), challenge.challengeId());
+        requireEqual(accepted.kind(), challenge.kind());
+        requireEqual(accepted.predecessorId(), challenge.predecessorId());
+        requireEqual(accepted.predecessorVersion(), challenge.predecessorVersion());
         if (!Objects.equals(approval, challenge.consumedApproval()) || !Objects.equals(approval, accepted.predecessorApproval())) throw refuse("approval_conflict");
         var receipt = PortalMyCarlosDeviceApprovalCodec.decode(Kind.ACCEPTANCE, accepted.acceptance(), cfg.scope(challenge.recipientId()));
-        equal(receipt.candidate(), new DeviceKeys(accepted.kid(), accepted.x25519(), accepted.ed25519()));
-        equal(receipt.claims().text("request_id"), challenge.requestId().toString());
-        equal(receipt.claims().text("challenge_id"), PortalMyCarlosDeviceApprovalCodec.base64(challenge.challengeId().copy()));
-        equal(receipt.claims().text("challenge_sha256"), PortalMyCarlosDeviceApprovalCrypto.compactHash(challenge.signedChallenge()));
-        equal(receipt.claims().text("approval_kind"), challenge.kind());
-        equal(receipt.claims().text("predecessor_device_key_id"), challenge.predecessorKid());
-        equal(receipt.claims().text("approval_sha256"), approval == null ? null : PortalMyCarlosDeviceApprovalCrypto.compactHash(approval));
-        equal(receipt.claims().text("accepted_version"), "0");
-        equal(receipt.claims().epoch("accepted_at"), accepted.acceptedAt().getEpochSecond());
+        requireEqual(receipt.candidate(), new DeviceKeys(accepted.kid(), accepted.x25519(), accepted.ed25519()));
+        requireEqual(receipt.claims().text("request_id"), challenge.requestId().toString());
+        requireEqual(receipt.claims().text("challenge_id"), PortalMyCarlosDeviceApprovalCodec.base64(challenge.challengeId().copy()));
+        requireEqual(receipt.claims().text("challenge_sha256"), PortalMyCarlosDeviceApprovalCrypto.compactHash(challenge.signedChallenge()));
+        requireEqual(receipt.claims().text("approval_kind"), challenge.kind());
+        requireEqual(receipt.claims().text("predecessor_device_key_id"), challenge.predecessorKid());
+        requireEqual(receipt.claims().text("approval_sha256"), approval == null ? null : PortalMyCarlosDeviceApprovalCrypto.compactHash(approval));
+        requireEqual(receipt.claims().text("accepted_version"), "0");
+        requireEqual(receipt.claims().epoch("accepted_at"), accepted.acceptedAt().getEpochSecond());
         var saved = decision.orElseThrow(() -> refuse("approval_unavailable"));
         Bytes body = json("challenge_id", PortalMyCarlosDeviceApprovalCodec.base64(challenge.challengeId().copy()),
                 "status", "accepted", "acceptance", accepted.acceptance(), "reason", null);
@@ -530,7 +530,7 @@ final class PortalMyCarlosDeviceApprovalService {
                 outbox.findMessageForUpdate(open.challengeId(), "decision");
             }
             Actor actor = staff(session, patient, SecurityInfoManager.WRITE);
-            equal(cfg.hash(), current().hash());
+            requireEqual(cfg.hash(), current().hash());
             if (!device.current()) {
                 Bytes savedBody = removalBody(device.removalId(), patient, binding.recipientId(), kid, device.removedAt());
                 if (originalRemoval.isEmpty() || !sameMessage(originalRemoval.get(), message(original, "removal", savedBody, cfg, device.removedAt()))) throw refuse("approval_conflict");
@@ -559,13 +559,13 @@ final class PortalMyCarlosDeviceApprovalService {
             Current cfg = current();
             var binding = bindings.findByClinicPatientForUpdate(cfg.clinic, patient);
             if (binding.isEmpty()) { staff(session, patient, SecurityInfoManager.READ);
-                equal(cfg.hash(), current().hash());
+                requireEqual(cfg.hash(), current().hash());
                 return new History(List.of(), false);
             }
             binding(cfg, binding.get(), patient, binding.get().recipientId());
             var rows = devices.historyForUpdate(binding.get().id(), afterId, limit + 1);
             staff(session, patient, SecurityInfoManager.READ);
-            equal(cfg.hash(), current().hash());
+            requireEqual(cfg.hash(), current().hash());
             return new History(rows.subList(0, Math.min(limit, rows.size())), rows.size() > limit);
         });
     }
@@ -578,7 +578,7 @@ final class PortalMyCarlosDeviceApprovalService {
             var rows = challenges.findOpenForPatientForUpdate(cfg.clinic, patient);
             for (var row : rows) challenge(cfg, row, patient);
             staff(session, patient, SecurityInfoManager.READ);
-            equal(cfg.hash(), current().hash());
+            requireEqual(cfg.hash(), current().hash());
             return List.copyOf(rows);
         });
     }
