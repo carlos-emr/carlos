@@ -7,7 +7,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDevic
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalService.Jdbc;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalTypes.Bytes;
 import jakarta.persistence.EntityManagerFactory;
-import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -17,6 +17,8 @@ import org.hibernate.jdbc.ReturningWork;
 /** Single-table prepared JDBC DAO for mycarlos_device_approval_outbox; never owns a connection or transaction. */
 final class PortalMyCarlosDeviceApprovalOutboxDao {
     private static final String COLUMNS = "id,challenge_id,message_kind,clinic_id,target_uri,config_binding_sha256,exact_body,body_sha256,created_at,next_attempt_at,failures,lease_token,lease_expires_at,published_at,version";
+    private static final String FIND_MESSAGE = "SELECT " + COLUMNS
+            + " FROM mycarlos_device_approval_outbox WHERE challenge_id=? AND BINARY message_kind=BINARY ? FOR UPDATE";
     final EntityManagerFactory factory;
     PortalMyCarlosDeviceApprovalOutboxDao(EntityManagerFactory factory) { this.factory = java.util.Objects.requireNonNull(factory);
     }
@@ -42,15 +44,12 @@ final class PortalMyCarlosDeviceApprovalOutboxDao {
         Checks.positive(result.id());
         return result;
     }
-    private Optional<PortalMyCarlosDeviceApprovalOutboxEntry> find(Connection c, String where, Jdbc.Parameters parameters) throws SQLException {
-        try (var q = c.prepareStatement("SELECT " + COLUMNS + " FROM mycarlos_device_approval_outbox WHERE " + where + " FOR UPDATE")) {
-            parameters.bind(q);
-            try (var rows = q.executeQuery()) {
-                if (!rows.next()) return Optional.empty();
-                var value = map(rows);
-                Checks.require(!rows.next());
-                return Optional.of(value);
-            }
+    private Optional<PortalMyCarlosDeviceApprovalOutboxEntry> find(PreparedStatement q) throws SQLException {
+        try (var rows = q.executeQuery()) {
+            if (!rows.next()) return Optional.empty();
+            var value = map(rows);
+            Checks.require(!rows.next());
+            return Optional.of(value);
         }
     }
     PortalMyCarlosDeviceApprovalOutboxEntry insert(PortalMyCarlosDeviceApprovalOutboxEntry row) {
@@ -83,9 +82,13 @@ final class PortalMyCarlosDeviceApprovalOutboxDao {
         });
     }
     Optional<PortalMyCarlosDeviceApprovalOutboxEntry> findMessageForUpdate(Bytes challenge, String kind) {
-        return owned(c -> find(c, "challenge_id=? AND BINARY message_kind=BINARY ?", q -> { q.setBytes(1, challenge.copy());
-            q.setString(2, kind);
-        }));
+        return owned(c -> {
+            try (var q = c.prepareStatement(FIND_MESSAGE)) {
+                q.setBytes(1, challenge.copy());
+                q.setString(2, kind);
+                return find(q);
+            }
+        });
     }
     void updateLeaseState(PortalMyCarlosDeviceApprovalOutboxEntry before,
             PortalMyCarlosDeviceApprovalOutboxEntry after) {

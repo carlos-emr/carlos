@@ -62,17 +62,20 @@ done \
   | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n "\t" $0 }' \
   | sort -n | cut -f2 \
   | while IFS= read -r f; do
-      if grep -qE 'secObjectName|secObjPrivilege|secPrivilege|secRole|secUserRole' "$f"; then
-        echo "  re-applying $(basename "$f")"
-        case "$f" in
-          */V1.0.81__mycarlos_accepted_device_approval.sql|*/V1.0.82__mycarlos_sender_outbox.sql)
-            if ! seed_sql="$(mycarlos_security_seed "$f")"; then
-              echo "Refusing changed myCarlos security seed layout: $(basename "$f")" >&2
-              exit 1
-            fi
-            printf '%s\n' "$seed_sql" | mariadb "$@" "${DB}"
-            ;;
-          *) mariadb "$@" "${DB}" < "$f" ;;
-        esac
-      fi
+      case "$f" in
+        */V1.0.81__mycarlos_accepted_device_approval.sql|*/V1.0.82__mycarlos_sender_outbox.sql)
+          echo "  re-applying $(basename "$f")"
+          if ! seed_sql="$(mycarlos_security_seed "$f")"; then
+            echo "Refusing changed myCarlos security seed layout: $(basename "$f")" >&2
+            exit 1
+          fi
+          printf '%s\n' "$seed_sql" | mariadb "$@" "${DB}"
+          ;;
+        *)
+          if grep -qE 'secObjectName|secObjPrivilege|secPrivilege|secRole|secUserRole' "$f"; then
+            echo "  re-applying $(basename "$f")"
+            mariadb "$@" "${DB}" < "$f"
+          fi
+          ;;
+      esac
     done
