@@ -1,0 +1,59 @@
+# Validate CI tooling without starting the application or publishing artifacts.
+# Licensed under the repository's LICENSE.
+name: CI Validation
+
+on:
+  pull_request:
+    paths:
+      - '.github/**'
+      - 'scripts/ci/**'
+      - '.devcontainer/development/Dockerfile'
+  push:
+    branches: [main, develop, 'release/**']
+    paths:
+      - '.github/**'
+      - 'scripts/ci/**'
+      - '.devcontainer/development/Dockerfile'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-validation-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Validate workflow syntax and expressions
+        # This actionlint release predates GitHub's concurrency.queue support,
+        # already used by the OpenCode workflows. Ignore only that diagnostic.
+        # Inline shell lint has existing findings; check extracted helpers below.
+        run: >-
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          -shellcheck='' -pyflakes=''
+          -ignore='^unexpected key "queue" for "concurrency" section\.'
+
+      - name: Lint CI shell helpers
+        run: shellcheck .github/actions/dev-container/pull-image.sh scripts/ci/*.sh
+
+      - name: Install pinned CI Python dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/ci-validation-venv"
+          "$RUNNER_TEMP/ci-validation-venv/bin/python" -m pip install \
+            --disable-pip-version-check --require-hashes -r scripts/ci/requirements.txt
+          echo "$RUNNER_TEMP/ci-validation-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Test CI helpers
+        run: python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v
+
+      - name: Verify release and development base image pins
+        run: bash scripts/ci/check-release-base-image.sh
