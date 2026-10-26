@@ -87,4 +87,29 @@ final class PortalMyCarlosDeviceApprovalOutboxDao {
             q.setString(2, kind);
         }));
     }
+    void updateLeaseState(PortalMyCarlosDeviceApprovalOutboxEntry before,
+            PortalMyCarlosDeviceApprovalOutboxEntry after) {
+        Checks.require(before.id() == after.id() && before.publishedAt() == null
+                && before.challengeId().equals(after.challengeId())
+                && before.messageKind().equals(after.messageKind())
+                && before.clinicId().equals(after.clinicId()) && before.targetUri().equals(after.targetUri())
+                && before.configHash().equals(after.configHash()) && before.body().equals(after.body())
+                && before.bodyHash().equals(after.bodyHash()) && before.createdAt().equals(after.createdAt())
+                && after.version() == before.version() + 1);
+        owned(c -> {
+            try (var q = c.prepareStatement("UPDATE mycarlos_device_approval_outbox SET next_attempt_at=?,failures=?,lease_token=?,lease_expires_at=?,published_at=?,version=? WHERE id=? AND version=? AND published_at IS NULL")) {
+                Jdbc.timestamp(q, 1, after.nextAttemptAt());
+                q.setInt(2, after.failures());
+                q.setBytes(3, Jdbc.raw(after.leaseToken()));
+                Jdbc.timestamp(q, 4, after.leaseExpiresAt());
+                Jdbc.timestamp(q, 5, after.publishedAt());
+                q.setLong(6, after.version());
+                q.setLong(7, before.id());
+                q.setLong(8, before.version());
+                Jdbc.changed(q.executeUpdate());
+            }
+            return null;
+        });
+    }
+
 }

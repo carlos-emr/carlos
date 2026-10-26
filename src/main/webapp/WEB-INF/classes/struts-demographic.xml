@@ -66,6 +66,7 @@
         <action name="demographic/portalBookingPrompt" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalBookingPrompt2Action"/>
         <action name="demographic/portalInvite" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action"/>
         <action name="demographic/portalAccount" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action"/>
+        <action name="demographic/portalDeviceApproval" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalDeviceApproval2Action"/>
         <action name="demographic/portalPanel" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalPanel2Action"/>
         <!-- The staff page for a patient's portal access (issue #3854); it drives the JSON routes above. -->
         <action name="demographic/portalManage" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalManage2Action">

@@ -37,8 +37,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Unregistered local core. Constructor ports are server-owned; no HTTP, job, configuration loader,
- * CSRF exemption, schema bootstrap or network client is supplied by this slice.
+ * Local approval authority. Constructor ports are server-owned; HTTP adapters keep network work
+ * outside these transactions and staff actions retain their separate method/CSRF gates.
  */
 final class PortalMyCarlosDeviceApprovalService {
     static final String OBJECT = "_portal.mycarlos.device_approval";
@@ -569,6 +569,20 @@ final class PortalMyCarlosDeviceApprovalService {
             return new History(rows.subList(0, Math.min(limit, rows.size())), rows.size() > limit);
         });
     }
+    List<PortalMyCarlosDeviceApprovalChallenge> readPendingForStaff(LoggedInInfo session, int patient) {
+        standalone();
+        current();
+        staff(session, patient, SecurityInfoManager.READ);
+        return transactions.withApprovalState(() -> {
+            Current cfg = current();
+            var rows = challenges.findOpenForPatientForUpdate(cfg.clinic, patient);
+            for (var row : rows) challenge(cfg, row, patient);
+            staff(session, patient, SecurityInfoManager.READ);
+            equal(cfg.hash(), current().hash());
+            return List.copyOf(rows);
+        });
+    }
+
     private void cancel(PortalMyCarlosDeviceApprovalChallenge row, Instant now, String reason, Current cfg) {
         challenges.terminal(row, row.cancelled(now, reason));
         enqueue(row, "decision", json("challenge_id", PortalMyCarlosDeviceApprovalCodec.base64(row.challengeId().copy()),
