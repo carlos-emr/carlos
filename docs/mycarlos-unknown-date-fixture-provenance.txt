@@ -1,0 +1,67 @@
+Unknown-service-date interoperability fixtures
+
+The manual test entry point is:
+io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosUnknownDateFixtureExport
+
+It reads only the public FAKE delivery-contract.json and signed-PDF test
+resources on the test classpath. It accepts a new output directory and either
+canonical or legacy. It has no server, native-vault, approval or credential
+arguments and performs no network or custody operation. Existing output
+directories are refused. Only the generated package.json is intended for a
+new native fixture; the temporary public-FAKE PKCS12 is removed after use.
+
+From a CARLOS checkout using JDK25, on Unix:
+
+  mvn -DskipTests compile dependency:build-classpath -DincludeScope=test -Dmdep.outputFile=target/mycarlos-fixture-classpath.txt
+  umask 077
+  CARLOS_FIXTURE_CP="target/classes:$(cat target/mycarlos-fixture-classpath.txt)"
+  mkdir -p target/test-classes
+  javac -J-Xmx256m -J-XX:ActiveProcessorCount=2 -proc:none --release 25 -cp "$CARLOS_FIXTURE_CP" -d target/test-classes src/test/java/io/github/carlos_emr/carlos/test/util/PdfSigningTestSupport.java src/test/java/io/github/carlos_emr/carlos/integration/patientportal/PortalMyCarlosUnknownDateFixtureExport.java
+  java -Xmx256m -XX:ActiveProcessorCount=2 -cp "target/test-classes:src/test/resources:$CARLOS_FIXTURE_CP" io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosUnknownDateFixtureExport target/FAKE-unknown-date-canonical canonical
+  java -Xmx256m -XX:ActiveProcessorCount=2 -cp "target/test-classes:src/test/resources:$CARLOS_FIXTURE_CP" io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosUnknownDateFixtureExport target/FAKE-unknown-date-legacy legacy
+
+Use the workspace's build/resource wrapper when required by its instructions.
+On Windows use the platform classpath separator, semicolon, and the shell's
+equivalent for reading the generated dependency-classpath file. The Java entry
+point, resources, arguments and generated packet format are the same.
+
+The signing identity is deliberately public FAKE test material: SHA256 of the
+shared keys.clinic_a.seed_text, interpreted as a positive integer modulo
+(P256 order minus1), plus1. Its public key is the shared fixture SPKI. The
+exporter requires the exact shared FAKE seed label. Recipient, device and
+receiver data come from that same public fixture. It never reads deployed
+private signing keys or actual native vault keys.
+
+The actual pipeline is DocumentManifest -> PDFSigningUtil.signPDF ->
+PortalMyCarlosSignedOriginal.verify -> ApplicationService.deliveryDocument ->
+PDFSigningUtil.signMyCarlosPayload -> Composer.composeWithSigner. This checks
+the CMS signature, pinned SPKI and exact embedded manifest before exporting the
+real HPKE upload. Canonical mode embeds service_date:null in the PDF; legacy
+mode embeds service_date:"". Both delivery manifests contain service_date:"".
+Known dates, labels, signatures, hashes and patient/device bindings retain the
+production validation. Native tests separately exercise strict date pairing,
+the actual PDF helper, custody, receipts, reopening and backup.
+
+The original 2026-10-26 packet files were produced at production commit
+4b9da5bcc1abef3ac6ab8edd6c9dae18bb84441b by the small standalone predecessor
+ExportUnknownDateInterop.java, SHA256:
+72b3095e92b93dcc089bf9adbdeec4e2378843b49c4d6842df6b26bf33bee465
+Its orchestration driver SHA256 was:
+0e6a8bef6b02c0fcfea1a550572d3f59700dbc950414d4afa689a04a14fc093a
+The repository entry point preserves that derivation, production pipeline and
+packet format, using packaged test resources and refusing output replacement.
+
+Original canonical-null package.json SHA256:
+2bc603a3ea3311a14fde89d93b02a4f0632972fa25a1410227199e95eeee37f8
+Original canonical-null PDF SHA256:
+2145f1a432f30b7005282a4643347a3f0a2c35d1b22b5914894d59e3bd5735d7
+Original legacy-empty package.json SHA256:
+c1bedde7b8415fda7c886e60697da0460c7490b439624e2a34a6f74a8c117ccb
+Original legacy-empty PDF SHA256:
+0f85b02f6bd80c155dd716f3162a8dab7eb1cd6def0bad7c986f5189b455a940
+
+Signatures, HPKE randomness, PDF identifiers and certificate/signing timestamps
+mean a new export need not have identical bytes or hashes. Validate regenerated
+packets through the production native path; review any new fixture and checksum
+as a new artifact. Do not overwrite the frozen shared fixtures or the retained
+original packets merely to run this export.
