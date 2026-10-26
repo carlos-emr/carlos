@@ -64,6 +64,7 @@ class LabFilingServiceIntegrationTest extends CarlosTestBase {
         when(properties.isActiveBooleanProperty(any(io.github.carlos_emr.carlos.commn.model.Property.PROPERTY_KEY.class), eq("100002"))).thenReturn(true);
         when(security.hasPrivilege(info, "_lab", "w", null)).thenReturn(true);
         when(security.hasPrivilege(info, "_lab", "w", "9835001")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(info, 9835001)).thenReturn(true);
         service = spy(new LabFilingService(routes, patients, properties, providers, security, transactions));
         doReturn(List.of(OLDER)).when(service).olderVersions(REVIEWED);
         audit = mockStatic(LogAction.class);
@@ -113,6 +114,13 @@ class LabFilingServiceIntegrationTest extends CarlosTestBase {
         assertThatThrownBy(() -> service.fileForProviders(info, REVIEWED, "HL7", List.of("100002", "100003"), null, true))
                 .isInstanceOf(SecurityException.class);
         assertThat(states(REVIEWED)).containsExactly("A", "N");
+        audit.verifyNoInteractions();
+    }
+    @Test void shouldLeaveAllVersionsUnchanged_whenPatientRecordIsLocked() {
+        when(security.isAllowedAccessToPatientRecord(info, 9835001)).thenReturn(false);
+        assertThatThrownBy(this::file).isInstanceOf(SecurityException.class);
+        assertThat(states(REVIEWED)).containsExactly("A", "N");
+        assertThat(states(OLDER)).containsExactly("A", "N");
         audit.verifyNoInteractions();
     }
     @Test void shouldLeaveAllVersionsUnchanged_whenPatientSpecificWriteIsDenied() {

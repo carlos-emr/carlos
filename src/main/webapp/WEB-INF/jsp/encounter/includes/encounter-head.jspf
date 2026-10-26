@@ -28,6 +28,7 @@
             var encounterConfig = {
                 ctx: "${carlos:forJavaScript(ctx)}",
                 demographicNo: "<carlos:encode value='${bean.demographicNo}' context="javaScript"/>",
+                chartContext: "<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>",
                 appointmentNo: "<carlos:encode value='${bean.appointmentNo}' context="javaScript"/>",
                 patientSex: "<carlos:encode value='${bean.patientSex}' context="javaScript"/>",
                 pAge: "<carlos:encode value='${pAge}' context="javaScript"/>",

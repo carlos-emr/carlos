@@ -19,29 +19,32 @@ const { assert, assertNotErrorPage, sqlString, withExpectedDialogs } = require('
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { selectBillingSiteAndProvider, validateBillingContext } = require('./lib/billing-site-context');
+const { createOwnedBillingPhysician } = require('./lib/owned-billing-physician');
+const { createQuickListPreferenceFixture } = require('./lib/quick-list-preference-fixture');
 
 const CODES = ['250', '401', '428'];
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
+  const physicianFixture = createOwnedBillingPhysician(s);
   // quickListUser.quickListName is VARCHAR(10): "FAKE" plus six base-36 digits of a
   // disjoint 32-bit slice of the run marker (~31 bits each) keeps the names within it.
   const shortName = hex => `FAKE${(parseInt(hex, 16) % 36 ** 6).toString(36).toUpperCase().padStart(6, '0')}`;
   const name = shortName(marker.slice(-8));
   const seeded = `F${marker.slice(-7)}"&`; // Ten characters; exercise literal attribute encoding.
+  createQuickListPreferenceFixture(s, [name, seeded]);
   const names = `(${sqlString(name)},${sqlString(seeded)})`;
   const ownedLists = `quickListName IN ${names} AND createdByProvider=${sqlString(provider)}`;
-  const ownedUsers = `quickListName IN ${names} AND providerNo=${sqlString(provider)}`;
   const ownedCodes = `code LIKE ${sqlString(`${marker}%`)}`;
   const listRows = () => sql.value(`SELECT GROUP_CONCAT(dxResearchCode ORDER BY dxResearchCode)
     FROM quickList WHERE quickListName=${sqlString(name)} AND codingSystem='icd9' AND createdByProvider=${sqlString(provider)}`);
   s.cleanup(() => {
+    assert(s.context.browser().isConnected() === false, 'Quick-list cleanup retained: workflow browser close is unconfirmed');
     sql.execute(`DELETE FROM quickList WHERE ${ownedLists};
-      DELETE FROM quickListUser WHERE ${ownedUsers};
       DELETE FROM dxresearch WHERE demographic_no=${patient};
       DELETE FROM dx_associations WHERE ${ownedCodes}`);
     assert(sql.value(`SELECT (SELECT COUNT(*) FROM quickList WHERE ${ownedLists})
-      + (SELECT COUNT(*) FROM quickListUser WHERE ${ownedUsers})
       + (SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM dx_associations WHERE ${ownedCodes})`) === '0', 'Owned quick-list fixtures were not removed');
   });
@@ -129,10 +132,17 @@ async function workflow(s) {
     await bill.locator('a[onclick*="showHideLayers(\'Layer1\',\'\',\'show\')"]').first().click();
     await bill.locator('#Layer1').getByRole('link', { name: 'General Practice' }).first().click();
     await bill.locator('input[name="xml_A007A"]:visible').first().check();
-    // Physician values are "<provider_no>|<ohip_no>"; prefer the login's own entry.
+    // Populate physicians by selecting only an actually offered native clinic first.
+    await physicianFixture.selectClinic(bill);
+    const billingContext = await selectBillingSiteAndProvider(bill, physicianFixture.providerNo);
+    physicianFixture.assertContext(billingContext);
+    validateBillingContext(sql, provider, billingContext);
+    // Select only the exact owned physician actually offered by the native clinic.
     const physicians = await bill.locator('select[name="xml_provider"] option').evaluateAll(o => o.map(x => x.value));
-    const physician = physicians.find(v => v.split('|')[0] === provider) || physicians.find(v => /^-?\d+\|\d+$/.test(v));
+    const physician = physicians.find(value => value === `${billingContext.providerNo}|${billingContext.ohipNo}`);
+    assert(physicians.filter(value => value === physician).length === 1, 'The owned physician is not uniquely offered');
     assert(physician, 'The bill form offers no billable physician');
+    assert(physician === `${billingContext.providerNo}|${billingContext.ohipNo}`, 'The offered billing physician changed after clinic selection');
     await bill.locator('select[name="xml_provider"]').selectOption(physician);
     await bill.locator('input[name="dxCode"]').fill('250');
     await bill.locator('input[name="dxCode"]').dispatchEvent('change');

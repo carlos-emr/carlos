@@ -1,3 +1,23 @@
+carlos-emr (2026.09.0~snapshot27) resolute; urgency=medium
+
+  * Keep immutable import input snapshots out of routine backups and remove
+    nested source credential copies under the purge policy.
+  * Display the recorded author for legacy notes without a revision UUID,
+    without grouping missing UUIDs into a shared note history.
+  * Align importer seed expectations with retired forms and merge seeded
+    WorkSafeBC catalogs by their natural codes. Check pristine manifest
+    expectations against fresh Flyway schemas.
+  * Ship forward Flyway migrations for reviewed clinical-text collations,
+    case-sensitive appointment status lookups and managed index repair.
+    Fresh schemas, existing upgrades and OSCAR imports use the same decisions.
+  * Package and verify physical schema contracts for Ontario and BC.
+    Require carlos-ctl 1.2.1 for complete backup sets, precise conversion
+    verification and schema/index checks during OSCAR 19 imports.
+  * Explicitly pin the MariaDB connection collation independently of
+    distribution character-set default mappings.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 26 Oct 2026 03:30:00 +0000
+
 carlos-emr (2026.09.0~snapshot26) resolute; urgency=medium
 
   * The empty transitional carlos-emr-eform-renderer package is no longer
@@ -26,6 +46,19 @@ carlos-emr (2026.09.0~snapshot26) resolute; urgency=medium
     open, although the page went on to its name search. A DIN shared by two
     products, and a database failure, are still errors. This upload moves
     debian/drugref.pin to the DrugRef revision that carries the fix.
+  * On BC databases, migration V1.0.59.3 restores the WorkSafeBC body part,
+    nature of injury and side lists the retired BC seed carried (#5062), so
+    the WCB form's Side list and its two code lookups are no longer empty on
+    an install built by Flyway. It adds only codes that are missing and
+    keeps a clinic's own rows.
+  * On BC databases, migration V1.0.59.4 makes Select Forms offer BC-AR 2020
+    in place of BC-AR and BC-AR 2007 (#5051), on new and upgraded databases
+    alike, but only while those antenatal rows still hold the values the
+    baseline seeded; a clinic that changed them keeps its choice. Records
+    saved on the older forms still open from the chart.
+  * The BC private bill's receipt button reads "Save and Print Receipt"
+    (#4439): the packaged WAF (CRS rule 932115) refused every "Save & Print
+    Receipt" with 403, so no private-bill receipt could be saved.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 28 Sep 2026 23:06:10 +0000
 

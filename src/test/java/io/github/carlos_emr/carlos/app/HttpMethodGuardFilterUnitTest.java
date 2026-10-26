@@ -1175,6 +1175,27 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain, never()).doFilter(any(), any());
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"GET", "HEAD"})
+        @DisplayName("should block a Teleplan file generation that is not posted")
+        void shouldBlock_forGenerateTeleplanFileProviders(String httpMethod) throws Exception {
+            // #4439 D3: the generation wrote an MSP batch; only its Create Report form, a POST, may.
+            MockHttpServletResponse res = doFilter(httpMethod, "/billing/CA/BC/GenerateTeleplanFile", "providers", "all");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+            assertThat(res.getHeader("Allow")).isEqualTo("POST");
+            verify(chain, never()).doFilter(any(), any());
+        }
+
+        @Test
+        @DisplayName("should pass the Teleplan Activity List's year archive, which writes nothing")
+        void shouldPassThrough_forGenerateTeleplanFileYearArchive() throws Exception {
+            MockHttpServletResponse res = doFilter("GET", "/billing/CA/BC/GenerateTeleplanFile", "year", "2025");
+
+            assertThat(res.getStatus()).isEqualTo(200);
+            verify(chain).doFilter(any(), any());
+        }
+
         @Test
         @DisplayName("should match the route and the parameter name case-insensitively")
         void shouldBlock_forDifferentlyCasedRouteAndParameter() throws Exception {
@@ -1201,7 +1222,8 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @ParameterizedTest
-        @ValueSource(strings = {"/admin/ProviderPrivilege", "/admin/ProviderRole", "/messenger/HandleMessages"})
+        @ValueSource(strings = {"/admin/ProviderPrivilege", "/admin/ProviderRole", "/messenger/HandleMessages",
+                "/billing/CA/BC/GenerateTeleplanFile"})
         @DisplayName("should pass a bare GET that only opens the page")
         void shouldPassThrough_forBareGet(String route) throws Exception {
             MockHttpServletResponse res = doFilter("GET", route);

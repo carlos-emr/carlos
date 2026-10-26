@@ -98,9 +98,12 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
         return service;
     }
 
-    /** Grants patient-scoped chart read, the right the PDF print requires (#2798). */
-    private void grantChartRead() {
+    /** Grants the independent patient-scoped module and record boundaries required to print. */
+    private void grantPrintRead() {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), anyInt())).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), anyInt())).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_casemgmt.notes"), eq("r"), anyInt())).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
     }
 
     @Test
@@ -129,7 +132,7 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
     @Test
     @DisplayName("selected notes ignore an incomplete optional dates object")
     void shouldPrintSelectedNotes_withIncompleteOptionalDates() throws Exception {
-        grantChartRead();
+        grantPrintRead();
         try (var printers = mockConstruction(
                 CaseManagementPrint.class)) {
             Response response = request().path("/recordUX/123/print").replaceHeader("Accept", "application/pdf")
@@ -147,7 +150,7 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
     @Test
     @DisplayName("date mode passes both bounds and all-note selection to the PDF service")
     void shouldPrintDateRange_withCompleteBounds() throws Exception {
-        grantChartRead();
+        grantPrintRead();
         try (var printers = mockConstruction(CaseManagementPrint.class)) {
             Response response = request().path("/recordUX/123/print").replaceHeader("Accept", "application/pdf")
                     .query("printOps", "{\"printType\":\"dates\",\"selectedList\":[],\"dates\":{"
@@ -164,7 +167,7 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
     @Test
     @DisplayName("date printing rejects incomplete, invalid and reversed bounds before streaming")
     void shouldRejectDateRange_withInvalidBounds() {
-        grantChartRead();
+        grantPrintRead();
         String[] dates = {"{}", "{\"start\":\"2026-10-03T00:00:00Z\"}",
                 "{\"start\":null,\"end\":\"2026-10-03T00:00:00Z\"}",
                 "{\"start\":\"invalid\",\"end\":\"2026-10-03T00:00:00Z\"}",
@@ -184,7 +187,7 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
     @Test
     @DisplayName("PDF generation errors produce HTTP failure instead of empty successful downloads")
     void shouldReturnServerError_whenChartPrintingFails() {
-        grantChartRead();
+        grantPrintRead();
         try (var _ = mockConstruction(
                 CaseManagementPrint.class,
                 (printer, context) -> doThrow(new IOException("synthetic failure"))

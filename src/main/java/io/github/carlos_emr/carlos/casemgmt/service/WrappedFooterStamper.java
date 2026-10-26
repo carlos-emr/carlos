@@ -5,10 +5,10 @@
 package io.github.carlos_emr.carlos.casemgmt.service;
 
 import io.github.carlos_emr.carlos.commn.printing.FontSettings;
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
 import org.openpdf.text.Document;
 import org.openpdf.text.Element;
 import org.openpdf.text.Font;
-import org.openpdf.text.Phrase;
 import org.openpdf.text.Rectangle;
 import org.openpdf.text.pdf.PdfPCell;
 import org.openpdf.text.pdf.PdfPTable;
@@ -47,7 +47,7 @@ public final class WrappedFooterStamper extends FooterSupport {
 
     private void addText(String text) {
         if (text == null || text.isBlank()) return;
-        PdfPCell cell = new PdfPCell(new Phrase(text, new Font(getFont(), getFontSize())));
+        PdfPCell cell = new PdfPCell(PdfFonts.phrase(text, new Font(getFont(), getFontSize())));
         cell.setBorder(Rectangle.NO_BORDER);
         cell.setHorizontalAlignment(Element.ALIGN_CENTER);
         cell.setPadding(0);

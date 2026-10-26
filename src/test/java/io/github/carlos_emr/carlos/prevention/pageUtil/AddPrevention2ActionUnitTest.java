@@ -193,6 +193,15 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         verifyNoInteractions(manager);
     }
 
+    @Test void shouldRejectDeleteWithoutRecordId_insteadOfCreatingAPrevention() throws Exception {
+        // Without an id the save would take the insert branch and create a prevention.
+        mockRequest.setParameter("delete", "delete");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        data.verifyNoInteractions();
+        verifyNoInteractions(manager);
+    }
+
     @Test void shouldRejectRhDeleteOnGet_beforeReadingOrDeletingRecords() throws Exception {
         mockRequest.setMethod("GET");
         mockRequest.setParameter("id", "100");
@@ -205,6 +214,7 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         data.verifyNoInteractions();
         verifyNoInteractions(manager);
     }
+
     @Test void shouldRejectMissingInteractiveDate_withoutWriting() throws Exception {
         mockRequest.removeParameter("prevDate");
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");

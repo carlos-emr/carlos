@@ -63,6 +63,7 @@ import io.github.carlos_emr.carlos.encounter.data.EctEChartBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.EctFindMeasurementTypeUtil;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -105,9 +106,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form patient or record");
             return NONE;
         }
-        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_demographic", "w", demo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
-        }
+        PatientRecordAccess.require(securityInfoManager(), loggedInInfo, demo, "_demographic", "w");
         if (!securityInfoManager().hasPrivilege(loggedInInfo, "_form", "r", demo)) {
             throw new SecurityException("missing required sec object (_form)");
         }

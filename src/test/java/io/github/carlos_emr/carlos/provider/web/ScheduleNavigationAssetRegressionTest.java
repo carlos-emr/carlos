@@ -82,15 +82,16 @@ class ScheduleNavigationAssetRegressionTest {
      * append the schedule navigation flag after box/demographic parameters.
      */
     private static final String STATUS_SORT_LINK_PATTERN =
-            "DisplayMessages?orderby=status<%=boxTypeQuerySuffix%>"
-                    + "<%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>";
+            "DisplayMessages?orderby=<%= \"status\".equals(orderby) ? \"!status\" : \"status\" %>"
+                    + "<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>";
     /**
      * Verifies message-detail links retain both the selected mailbox and the
      * focused schedule-shell flag when users drill into an individual message.
      */
     private static final String MESSAGE_LINK_PATTERN =
             "ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>'"
-                    + " context=\"uriComponent\"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>";
+                    + " context=\"uriComponent\"/>&boxType=<%=pageType%>&amp;orderby=<%=SafeEncode.forUriComponent(orderby)%>"
+                    + "<%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>";
 
     @Test
     @DisplayName("should resolve schedule navigation without Carlosdoc provider special case")
@@ -210,8 +211,8 @@ class ScheduleNavigationAssetRegressionTest {
         assertThat(viewMessage)
                 .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
-                .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>")
-                .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>")
+                .contains("DisplayMessages?boxType=0<%=scheduleNavQuerySuffix%><%=mailboxQuerySuffix%>")
+                .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%><%=mailboxQuerySuffix%>")
                 // Compose names the message it is opened from first (issue #4673): the compose page
                 // starts with its own copy of that message's saved items. Then the nav flag.
                 .contains("ViewCreateMessage<%= viewedMessageId > 0 ? \"?forwardMessage=\" + viewedMessageId"

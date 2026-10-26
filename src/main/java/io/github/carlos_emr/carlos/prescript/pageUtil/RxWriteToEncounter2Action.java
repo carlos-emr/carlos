@@ -29,10 +29,13 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+
 import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
 
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.service.StaleNoteRevisionException;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDao;
 import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
@@ -50,6 +53,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Date;
+import java.util.List;
 
 import java.util.Locale;
 
@@ -69,8 +73,9 @@ public class RxWriteToEncounter2Action extends ActionSupport {
      * Appends prescription text to the originating patient's encounter.
      *
      * <p>After the session and prescription-write privilege check, known pre-write
-     * rejection returns HTTP 405 (non-POST) or 409 (missing or
-     * changed Rx patient context), with {@code X-Carlos-Encounter-Write: not-written}.
+     * rejection returns HTTP 405 (non-POST), 403 (chart write access denied), or 409
+     * (missing or changed Rx patient context, or an unsafe/stale draft reference), with
+     * {@code X-Carlos-Encounter-Write: not-written}.
      * Successful completion sets that header to {@code written}. Exceptions after
      * persistence may mean the write committed: absence of the header is never
      * proof that retrying is safe.</p>
@@ -106,42 +111,79 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         // Patient-level _rx write AND access to this patient's record (the shared Rx write check).
         RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
                 rxSessionBean.getDemographicNo(), "_rx", SecurityInfoManager.WRITE);
-        String programNo = new EctProgram(session).getProgram(session.getAttribute("user").toString());
+        String programNo = ChartProgramContext.resolve(request);
+        if (programNo == null) {
+            programNo = new EctProgram(session).getProgram(loggedInInfo.getLoggedInProviderNo());
+            ChartProgramContext.remember(request, programNo);
+        }
 
 
         CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
         CaseManagementTmpSaveDao caseManagementTmpSaveDao = SpringUtils.getBean(CaseManagementTmpSaveDao.class);
-        CaseManagementNote note = getLastSaved(request, demographicNo, loggedInInfo.getLoggedInProviderNo(), caseManagementMgr);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "w", demographicNo)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "w", demographicNo)
+                || caseManagementMgr.hasAccessRight("note-read-only", "access",
+                    loggedInInfo.getLoggedInProviderNo(), demographicNo, programNo)) {
+            return rejectBeforeWrite(HttpServletResponse.SC_FORBIDDEN);
+        }
         CaseManagementTmpSave tmpSave = caseManagementMgr.getTmpSave(loggedInInfo.getLoggedInProviderNo(), demographicNo, programNo);
+        Integer capturedDraftId = tmpSave == null ? null : tmpSave.getId();
+        if (tmpSave != null && (capturedDraftId == null || capturedDraftId <= 0)) {
+            return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
+        }
         Date today = new Date();
         if (tmpSave != null) {
             // Persist clinical text, not a JavaScript string literal. Apply output
             // encoding at the rendering boundary, as for the non-draft paths below.
             String noteBody = generateNote(loggedInInfo, request.getParameter("body"), false);
 
-            if (tmpSave.getNoteId() > 0) {
-                note = caseManagementMgr.getNote(String.valueOf(tmpSave.getNoteId()));
-                if (note.getUpdate_date().after(tmpSave.getUpdateDate())) {
-                    note.setNote(tmpSave.getNote() + "\n" + noteBody);
-                    note.setUpdate_date(today);
-                    caseManagementMgr.saveNoteSimple(note);
-                } else {
-                    createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, tmpSave.getNote() + "\n" + noteBody, request.getParameter("sign"));
+            if (tmpSave.getNoteId() != null && tmpSave.getNoteId() > 0) {
+                CaseManagementNote note = caseManagementMgr.getNote(String.valueOf(tmpSave.getNoteId()));
+                // A draft is keyed to the requested patient, but a legacy or forged note_id
+                // may reference a different record. Never append to that record or consume
+                // the draft. Explicitly selected shared notes can retain their own program.
+                if (note == null || !demographicNo.equals(note.getDemographic_no())
+                        || !mayAppendDirectly(note, loggedInInfo.getLoggedInProviderNo())) {
+                    return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
+                }
+                if (!"0".equals(programNo) && caseManagementMgr.filterNotes(loggedInInfo,
+                        loggedInInfo.getLoggedInProviderNo(), List.of(note), programNo).isEmpty()) {
+                    return rejectBeforeWrite(HttpServletResponse.SC_FORBIDDEN);
+                }
+                // A draft cannot replace clinical text saved after it was captured. Leave both
+                // versions intact for the editor's normal revision/conflict workflow.
+                if (note.getUpdate_date() == null || tmpSave.getUpdateDate() == null
+                        || note.getUpdate_date().after(tmpSave.getUpdateDate())) {
+                    return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
+                }
+                if (!appendRevision(caseManagementMgr, note, tmpSave.getNote() + "\n" + noteBody, today)) {
+                    return NONE;
                 }
             } else {
                 createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, tmpSave.getNote() + "\n" + noteBody, request.getParameter("sign"));
             }
-            caseManagementTmpSaveDao.remove(tmpSave.getProviderNo(), tmpSave.getDemographicNo(), tmpSave.getProgramId());
-        } else if (note != null) {
-            String noteBody = generateNote(loggedInInfo, request.getParameter("body"), false);
-            note.setNote(note.getNote() + "\n" + noteBody);
-            note.setUpdate_date(today);
-            caseManagementMgr.saveNoteSimple(note);
+            // A newer autosave can replace this row while the revision is being saved.
+            // Consume only the captured row; never remove an unseen replacement by patient/program.
+            caseManagementTmpSaveDao.removeCaptured(capturedDraftId);
         } else {
-            String noteBody = generateNote(loggedInInfo, request.getParameter("body"), true);
-            createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, noteBody, request.getParameter("sign"));
+            CaseManagementNote note = getLastSaved(request, demographicNo, loggedInInfo.getLoggedInProviderNo(), caseManagementMgr);
+            if (note != null && demographicNo.equals(note.getDemographic_no())
+                    && mayAppendDirectly(note, loggedInInfo.getLoggedInProviderNo())
+                    && ("0".equals(programNo) || !caseManagementMgr.filterNotes(loggedInInfo,
+                        loggedInInfo.getLoggedInProviderNo(), List.of(note), programNo).isEmpty())) {
+                String noteBody = generateNote(loggedInInfo, request.getParameter("body"), false);
+                if (!appendRevision(caseManagementMgr, note, note.getNote() + "\n" + noteBody, today)) {
+                    return NONE;
+                }
+            } else {
+                // Legacy automatic selection omits facility filtering and may return a hidden
+                // or protected note. Prescribing still
+                // works by adding a fresh note owned by this provider in this chart program.
+                String noteBody = generateNote(loggedInInfo, request.getParameter("body"), true);
+                createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, noteBody, request.getParameter("sign"));
+            }
         }
-        // Never emit this for an exception after saveNoteSimple: the append may
+        // Never emit this for an exception after persistence: the append may
         // already have committed, so the client must not blindly repeat it.
         response.setHeader("X-Carlos-Encounter-Write", "written");
         return NONE;
@@ -151,6 +193,38 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         response.setHeader("X-Carlos-Encounter-Write", "not-written");
         response.setStatus(status);
         return NONE;
+    }
+
+    /** Direct Rx append cannot perform the explicit editor's signed-note amendment workflow. */
+    private static boolean mayAppendDirectly(CaseManagementNote note, String providerNo) {
+        return providerNo.equals(note.getProviderNo()) && !note.isSigned()
+                && !note.isLocked() && !note.isArchived();
+    }
+
+    /** Saves a detached submission through the note chain's transactional optimistic-lock check. */
+    private boolean appendRevision(CaseManagementManager manager, CaseManagementNote source, String text, Date updated) {
+        CaseManagementNote revision = source.copyForRevision();
+        revision.setId(source.getId());
+        revision.setNote(text);
+        revision.setUpdate_date(updated);
+        int previousRevision;
+        try {
+            previousRevision = Integer.parseInt(source.getRevision());
+        } catch (NumberFormatException legacyRevision) {
+            previousRevision = 0;
+        }
+        revision.setRevision(String.valueOf(previousRevision + 1));
+        String previousHistory = source.getHistory();
+        if (previousHistory == null || previousHistory.isEmpty()) previousHistory = source.getNote();
+        revision.setHistory(text + "\n   ----------------History Record----------------   " + previousHistory);
+        try {
+            manager.saveNoteRevisionSimple(revision);
+            return true;
+        } catch (RuntimeException failure) {
+            if (!StaleNoteRevisionException.isConflict(failure)) throw failure;
+            rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
+            return false;
+        }
     }
 
     private String generateNote(LoggedInInfo loggedInInfo, String noteBody, boolean addDateString) {
@@ -171,8 +245,7 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     }
 
     public CaseManagementNote getLastSaved(HttpServletRequest request, String demono, String providerNo, CaseManagementManager caseManagementMgr) {
-        HttpSession session = request.getSession();
-        String programId = (String) session.getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         return caseManagementMgr.getLastSaved(programId, demono, providerNo);
     }
 

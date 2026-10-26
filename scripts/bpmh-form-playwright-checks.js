@@ -30,7 +30,121 @@ const BC_FORM_VALUE = '../formBPMH.do?demographic_no=';
 const isBpmh = method => r => r.request().method() === 'POST' && h.pathOnly(r.url()).endsWith('/formBPMH')
   && new URLSearchParams(r.request().postData() || '').get('method') === method;
 
+/** Capture the native Print POST without depending on PDF viewer/download presentation. */
+async function captureBpmhPrint(page, { patient, saved, timeout = 40000 }) {
+  h.assert(Number.isFinite(timeout) && timeout > 0, 'Print timeout must be positive');
+  const endpoint = new URL(page.url());
+  endpoint.search = ''; endpoint.hash = '';
+  h.assert(endpoint.pathname.endsWith('/formBPMH'), 'Print must start on the native BPMH form');
+  const matches = url => url.origin === endpoint.origin && url.pathname === endpoint.pathname;
+  let resolve, reject, timer, calls = 0;
+  const operations = [];
+  const captured = new Promise((yes, no) => { resolve = yes; reject = no; });
+  captured.catch(() => {});
+  const handler = route => {
+    const pending = (async () => {
+      let response, failure, pdf;
+      try {
+        h.assert(++calls === 1, 'Print submitted more than one BPMH request');
+        const request = route.request();
+        const fields = new URLSearchParams(request.postData() || '');
+        h.assert(request.url() === endpoint.href && request.method() === 'POST'
+          && request.isNavigationRequest() && request.frame() === page.mainFrame(), 'Print did not submit the native BPMH form');
+        for (const [key, value] of [['method', 'print'], ['form.demographicNo', patient], ['form.formId', saved]]) {
+          h.assert(fields.getAll(key).length === 1 && fields.get(key) === value, `Print submitted a different ${key}`);
+        }
+        // Fetch once, with the browser's original request. Never replay a failed print or follow a login redirect.
+        response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout });
+        pdf = { status: response.status(), headers: response.headers(), bytes: await response.body() };
+        // The same status, headers and bytes still reach the browser after the real Print click.
+        await route.fulfill({ response, body: pdf.bytes });
+      } catch (error) {
+        failure = error;
+        try { await route.abort('failed'); }
+        catch (abortError) { failure = new AggregateError([failure, abortError], 'BPMH print and request abort failed'); }
+      } finally {
+        if (response) {
+          try { await response.dispose(); }
+          catch (error) { failure = failure ? new AggregateError([failure, error], 'BPMH print and response disposal failed') : error; }
+        }
+      }
+      if (failure) throw failure;
+      return pdf;
+    })();
+    operations.push(pending);
+    pending.then(resolve, reject);
+    // Route errors are reported by captured, avoiding an unhandled event-handler rejection.
+    return pending.catch(() => {});
+  };
+  await page.route(matches, handler);
+  timer = setTimeout(() => reject(new Error(`Print produced no completed native BPMH response within ${timeout}ms`)), timeout);
+  let result, failure;
+  try {
+    const [, pdf] = await Promise.all([
+      page.locator('button[name="method"][value="print"]').click({ timeout }), captured,
+    ]);
+    result = pdf;
+  } catch (error) {
+    failure = error;
+  } finally {
+    clearTimeout(timer);
+    // Drain every intercepted request, including a rejected duplicate, before removing this route.
+    for (let count = 0; count < operations.length;) {
+      const batch = operations.slice(count); count = operations.length;
+      for (const outcome of await Promise.allSettled(batch)) {
+        if (outcome.status === 'rejected' && outcome.reason !== failure) {
+          failure = failure ? new AggregateError([failure, outcome.reason], 'BPMH print failed') : outcome.reason;
+        }
+      }
+    }
+    try { await page.unroute(matches, handler); }
+    catch (error) { failure = failure ? new AggregateError([failure, error], 'BPMH print route cleanup failed') : error; }
+  }
+  if (failure) throw failure;
+  return result;
+}
+
+function assertBpmhPdf(pdf, { note, instruction }) {
+  h.assert(pdf.status === 200 && /^application\/pdf(?:\s*;|$)/i.test(pdf.headers['content-type'] || ''),
+    `Print answered HTTP ${pdf.status} ${pdf.headers['content-type']}`);
+  // pdfTextBuffer requires the PDF signature and complete EOF trailer before extracting every page.
+  // Raw extraction preserves a literal hyphen at a wrapped line ending; never discard clinical characters.
+  const text = x.squash(x.pdfTextBuffer(pdf.bytes, { raw: true }));
+  h.assert(text.includes(x.squash(note)), 'The printed PDF lost part or all of the saved note');
+  h.assert(text.includes(x.squash(instruction)), 'The printed PDF lost part or all of the saved drug instruction');
+  // Poppler can extract text outside a clipped AcroForm appearance. This fixture's long instruction
+  // must instead appear on a readable continuation, wholly inside its page bounds.
+  const xml = require('node:child_process').execFileSync('pdftotext', ['-bbox', '-enc', 'UTF-8', '-', '-'],
+    { input: pdf.bytes, encoding: 'utf8', timeout: 20000, maxBuffer: 8 * 1024 * 1024 });
+  const pages = [...xml.matchAll(/<page width="([\d.]+)" height="([\d.]+)">([\s\S]*?)<\/page>/g)];
+  const decode = value => value.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+  const continuations = pages.slice(1).filter(page => x.squash(decode(page[3].replace(/<[^>]+>/g, ' '))).includes(x.squash(instruction)));
+  h.assert(continuations.length > 0, 'The long saved instruction has no readable instruction continuation');
+  for (const page of continuations) {
+    h.assert(decode(page[3]).includes('instruction'), 'The continuation has no instruction heading');
+    const words = [...page[3].matchAll(/<word xMin="([\d.-]+)" yMin="([\d.-]+)" xMax="([\d.-]+)" yMax="([\d.-]+)">/g)];
+    h.assert(words.length > 0 && words.every(word => Number(word[1]) >= 35 && Number(word[3]) <= Number(page[1]) - 35
+      && Number(word[2]) >= 20 && Number(word[4]) <= Number(page[2]) - 30 && Number(word[4]) - Number(word[2]) >= 7),
+    'The instruction continuation is outside its visible margins or smaller than readable 7pt text');
+  }
+}
+
+function retainBpmhPdf(pdf, directory) {
+  const fs = require('node:fs');
+  const { execFileSync } = require('node:child_process');
+  const file = h.buildArtifactPath(directory, 'bpmh-native-print', '.pdf');
+  fs.writeFileSync(file, pdf.bytes);
+  fs.writeFileSync(h.buildArtifactPath(directory, 'bpmh-native-print', '.json'), JSON.stringify({
+    status: pdf.status, headers: pdf.headers, bytes: pdf.bytes.length,
+    sha256: require('node:crypto').createHash('sha256').update(pdf.bytes).digest('hex'),
+  }, null, 2));
+  execFileSync('pdftoppm', ['-png', '-r', '110', file, file.slice(0, -4)], { timeout: 20000, stdio: 'pipe' });
+  fs.writeFileSync(h.buildArtifactPath(directory, 'bpmh-native-print', '.xml'), execFileSync('pdftotext', ['-bbox', file, '-'], { timeout: 20000 }));
+  return file;
+}
+
 async function workflow(s) {
+  x.requirePoppler('pdftotext', 'pdftoppm');
   const { sql, patient, provider, marker, context, recorder } = s;
   const q = h.sqlString;
   const tag = marker.slice(-8);
@@ -154,13 +268,13 @@ async function workflow(s) {
   });
 
   await s.step('Print answers a PDF of the saved form', async () => {
-    // Headless Chromium hands an inline PDF to the download machinery, so the PDF is read from the download.
-    const scratch = x.scratchDir();
-    s.cleanup(() => require('node:fs').rmSync(scratch, { recursive: true, force: true }));
-    const pdf = await x.saveDownload(form, scratch, () => form.locator('button[name="method"][value="print"]').click(), { route: /\/formBPMH$/ });
-    h.assert(pdf.status === 200 && /application\/pdf/.test(pdf.headers['content-type'] || ''),
-      `Print answered HTTP ${pdf.status} ${pdf.headers['content-type']}`);
-    h.assert(pdf.bytes.subarray(0, 4).toString() === '%PDF', 'Print did not answer a PDF');
+    const pdf = await captureBpmhPrint(form, { patient, saved });
+    try { assertBpmhPdf(pdf, { note, instruction }); }
+    catch (error) {
+      try { retainBpmhPdf(pdf, s.config.screenshotDir); }
+      catch (artifactError) { throw new AggregateError([error, artifactError], 'BPMH PDF assertion and artifact retention failed'); }
+      throw error;
+    }
     h.assert(sql.value(`SELECT COUNT(*) FROM formBPMH WHERE demographic_no=${patient}`) === '1', 'Printing the saved form stored another form');
     // The PDF is stamped to a file in the document store only to be streamed; none may be left behind.
     const store = process.env.DOCUMENT_DIR || process.env.RX_FAX_DOCUMENT_DIR;
@@ -186,4 +300,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('bpmh-form', workflow);
-module.exports = { workflow };
+module.exports = { workflow, captureBpmhPrint, assertBpmhPdf, retainBpmhPdf };

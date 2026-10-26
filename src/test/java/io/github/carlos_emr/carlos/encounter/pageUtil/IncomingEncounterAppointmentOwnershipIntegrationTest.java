@@ -25,6 +25,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EChart;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -59,12 +60,16 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -138,6 +143,8 @@ class IncomingEncounterAppointmentOwnershipIntegrationTest extends CarlosTestBas
         LoggedInInfo.setLoggedInInfoIntoSession(session, login);
         security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(eq(login), eq("_demographic"), eq("r"), nullable(String.class))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(login, a)).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(login, b)).thenReturn(true);
         demographics = mock(DemographicManager.class);
         when(demographics.getDemographic(eq(login), anyString()))
                 .thenAnswer(call -> demographicDao.getDemographic(call.<String>getArgument(1)));
@@ -161,6 +168,8 @@ class IncomingEncounterAppointmentOwnershipIntegrationTest extends CarlosTestBas
                         .setParameter("ids", visits).executeUpdate();
             }
             if (!patients.isEmpty()) {
+                entityManager.createQuery("delete from CaseManagementTmpSave x where x.demographicNo in :ids")
+                        .setParameter("ids", patients).executeUpdate();
                 entityManager.createQuery("delete from EChart x where x.demographicNo in :ids")
                         .setParameter("ids", patients).executeUpdate();
                 entityManager.createNativeQuery("DELETE FROM demographic WHERE demographic_no IN (:ids)")
@@ -221,6 +230,59 @@ class IncomingEncounterAppointmentOwnershipIntegrationTest extends CarlosTestBas
         assertThat(EncounterPatientContext.findEncounter(request, Integer.toString(a)).appointmentNo).isEqualTo("0");
     }
 
+    @ParameterizedTest(name = "demographicSearch={0}")
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should preserve stored charts, drafts and remembered entries when record access is withdrawn")
+    void shouldRefuseWithoutClinicalChanges_whenTheRequestedRecordIsExcluded(boolean demographicSearch) throws Exception {
+        assertThat(enter(a, Integer.toString(aVisit), "FAKE reason A", false, new MockHttpServletResponse()))
+                .isEqualTo("success2");
+        assertThat(enter(b, Integer.toString(bVisit), "FAKE reason B", false, new MockHttpServletResponse()))
+                .isEqualTo("success2");
+        tx.executeWithoutResult(status -> {
+            for (int patient : patients) {
+                CaseManagementTmpSave draft = new CaseManagementTmpSave();
+                draft.setDemographicNo(patient);
+                draft.setProviderNo(PROVIDER);
+                draft.setProgramId(0);
+                draft.setNoteId(0);
+                draft.setNote("FAKE retained draft " + patient + " H&P + \u00e9\u4e2d\u6587");
+                draft.setUpdateDate(new Date(1700000000123L));
+                entityManager.persist(draft);
+            }
+        });
+        List<List<Object>> before = rows();
+        assertThat(before).hasSize(visits.size() + patients.size() * 3); // charts, note counts and real drafts per patient
+        MockHttpServletRequest request = request(a, Integer.toString(aVisit), "FAKE refused reason", false);
+        if (demographicSearch) request.setParameter("demographicSearch", "true");
+        EctSessionBean aBefore = EncounterPatientContext.findEncounter(request, Integer.toString(a));
+        EctSessionBean bBefore = EncounterPatientContext.findEncounter(request, Integer.toString(b));
+        EctSessionBean staleGlobal = new EctSessionBean();
+        staleGlobal.demographicNo = Integer.toString(b);
+        staleGlobal.encounter = "FAKE preserved login-wide chart";
+        session.setAttribute("EctSessionBean", staleGlobal);
+        when(security.isAllowedAccessToPatientRecord(login, a)).thenReturn(false);
+        clearInvocations(security, demographics);
+
+        assertThatThrownBy(() -> execute(request, new MockHttpServletResponse()))
+                .isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
+
+        verify(security).isAllowedAccessToPatientRecord(login, a);
+        verifyNoInteractions(demographics);
+        assertThat(request.getAttribute("EctSessionBean")).isNull();
+        assertThat(request.getAttribute("encounterText")).isNull();
+        assertThat(session.getAttribute("EctSessionBean")).isSameAs(staleGlobal);
+        assertThat(staleGlobal.encounter).isEqualTo("FAKE preserved login-wide chart");
+        EctSessionBean aAfter = EncounterPatientContext.findEncounter(request, Integer.toString(a));
+        EctSessionBean bAfter = EncounterPatientContext.findEncounter(request, Integer.toString(b));
+        assertEntry(aAfter, a, aVisit, "FAKE reason A");
+        assertEntry(bAfter, b, bVisit, "FAKE reason B");
+        assertThat(aAfter.encounter).isEqualTo(aBefore.encounter);
+        assertThat(aAfter.eChartId).isEqualTo(aBefore.eChartId);
+        assertThat(bAfter.encounter).isEqualTo(bBefore.encounter);
+        assertThat(bAfter.eChartId).isEqualTo(bBefore.eChartId);
+        assertThat(rows()).isEqualTo(before);
+    }
+
     private String enter(int patient, String visit, String reason, boolean legacyFlag,
                          MockHttpServletResponse response) throws Exception {
         return execute(request(patient, visit, reason, legacyFlag), response);
@@ -270,6 +332,12 @@ class IncomingEncounterAppointmentOwnershipIntegrationTest extends CarlosTestBas
             }
             for (int patient : patients) {
                 rows.add(List.<Object>of(patient, notes.getNotesCountByDemographicId(Integer.toString(patient))));
+            }
+            for (Object[] row : entityManager.createQuery(
+                            "select x.id, x.demographicNo, x.providerNo, x.programId, x.noteId, x.note, x.updateDate"
+                                    + " from CaseManagementTmpSave x where x.demographicNo in :ids order by x.id", Object[].class)
+                    .setParameter("ids", patients).getResultList()) {
+                rows.add(Arrays.asList(row));
             }
             return rows;
         });

@@ -46,6 +46,7 @@ class LabFilingServiceUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(info, "_lab", "w", null)).thenReturn(true);
         when(patients.findByLabNoAndLabType(30, "HL7")).thenReturn(List.of(new PatientLabRouting(30, "HL7", 321)));
         when(security.hasPrivilege(info, "_lab", "w", "321")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(eq(info), anyInt())).thenReturn(true);
         Provider target = new Provider(); target.setFirstName("Target"); target.setLastName("Test");
         when(providers.getProvider("100002")).thenReturn(target);
         when(properties.isActiveBooleanProperty(Property.PROPERTY_KEY.hl7_allow_others_file_for_you, "100002")).thenReturn(true);
@@ -101,10 +102,35 @@ class LabFilingServiceUnitTest extends CarlosUnitTestBase {
         verify(security).hasPrivilege(info, "_lab", "w", "321");
     }
     @Test
+    void shouldRejectLockedPatientRecord_whenPatientSpecificLabWriteIsAllowed() {
+        when(security.isAllowedAccessToPatientRecord(info, 321)).thenReturn(false);
+        assertThatThrownBy(() -> file(List.of("100002")))
+                .isInstanceOf(SecurityException.class).hasMessageNotContaining("321");
+        noWrites();
+        // The refusal precedes target resolution, so no consent or routing row is read for update.
+        verify(providers, never()).getProvider(anyString());
+        verify(routes, never()).findRoutingForUpdate(anyInt(), anyString(), anyString());
+    }
+    @Test
+    void shouldRejectLockedOlderVersionPatient_whenReviewedPatientIsOpen() {
+        when(patients.findByLabNoAndLabType(90, "HL7")).thenReturn(List.of(new PatientLabRouting(90, "HL7", 654)));
+        when(security.hasPrivilege(info, "_lab", "w", "654")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(info, 654)).thenReturn(false);
+        assertThatThrownBy(() -> file(List.of("100002"))).isInstanceOf(SecurityException.class); noWrites();
+        verify(security).isAllowedAccessToPatientRecord(info, 321);
+    }
+    @Test
+    void shouldFileForOpenPatient_whenPatientRecordIsNotLocked() {
+        assertThat(file(List.of("100002"))).isEqualTo(1);
+        verify(security).isAllowedAccessToPatientRecord(info, 321);
+        verify(routes).transitionNewRoutingRows(30, "HL7", "100002", 'F');
+    }
+    @Test
     void shouldRetainGlobalAuthorizationForUnmatchedLabs_whenNoPatientIsLinked() {
         when(patients.findByLabNoAndLabType(30, "HL7")).thenReturn(List.of(new PatientLabRouting(30, "HL7", 0)));
         assertThat(file(List.of("100002"))).isEqualTo(1);
         verify(security, never()).hasPrivilege(info, "_lab", "w", "0");
+        verify(security, never()).isAllowedAccessToPatientRecord(any(), anyInt());
     }
     @Test
     void shouldPreserveAcknowledgedAndFiledRows_whenOlderVersionAlreadyHandled() {

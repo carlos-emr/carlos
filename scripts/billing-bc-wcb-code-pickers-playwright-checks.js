@@ -13,9 +13,8 @@
  *   - ICD9: the lookup lists the codes for the box's text, and a pick fills exactly the ICD9 box and closes the popup;
  *   - Body Part and Nature of Injury: the lookup lists the owned code for the box's text, and a pick fills exactly
  *     that box and closes the popup; the other boxes keep what they held;
- *   - LAST: the install lists WorkSafeBC codes of its own: the Side list has options and both lookups list codes other
- *     than the owned ones. Notes only: on a Flyway-built BC install wcb_side, wcb_bp_code and wcb_noi_code are empty
- *     (#5062, findings log 444), so it fails until the reference rows are restored.
+ *   - LAST: the install lists all four WorkSafeBC sides, each selectable, and both lookups list and pick real
+ *     reference codes (including their leading zeroes), for empty and matching-text searches (#5062).
  * Fixtures: one billing physician (bc.createBillingPhysician) and the owned FAKE patient made a BC patient; one
  * wcb_bp_code and one wcb_noi_code row carrying the run marker, with a non-numeric code ("Q" and 4 hex) no WorkSafeBC
  * code uses. The two code tables are clinic-wide (every login's lookups list the rows while the run lasts), so the check
@@ -144,15 +143,26 @@ async function workflow(s) {
   });
 
   await s.step(STEP.codes, async () => {
-    const sides = await wcb.locator('#w_side option').count();
-    const others = {};
-    for (const [field, fn, code] of [['w_bp', 'popBodyPartList', owned.bp], ['w_noi', 'popNOIList', owned.noi]]) {
-      const popup = await lookup(field, fn, '');
-      others[field] = await codeLinks(popup).evaluateAll((links, mine) => links.filter(link => link.textContent.trim() !== mine).length, code);
-      await popup.close();
+    const sides = await wcb.locator('#w_side option').evaluateAll(options =>
+      Object.fromEntries(options.map(option => [option.value, option.textContent.trim()])));
+    for (const [value, label] of Object.entries({ N: 'Not Applicable', L: 'Left', R: 'Right', B: 'Left and Right' })) {
+      h.assert(sides[value] === label, `The WorkSafeBC Side list lacks ${value}: ${label} (#5062)`);
+      await wcb.locator('#w_side').selectOption(value);
+      h.assert(await wcb.locator('#w_side').inputValue() === value, `Cannot choose WorkSafeBC side ${value}`);
     }
-    h.assert(sides > 0 && others.w_bp > 0 && others.w_noi > 0,
-      `The install lists ${sides} side(s), ${others.w_bp} body part code(s) and ${others.w_noi} nature-of-injury code(s) of its own (#5062)`);
+    for (const [field, fn, code, text] of [
+      ['w_bp', 'popBodyPartList', '01100', 'BRAIN'],
+      ['w_noi', 'popNOIList', '01000', 'BONES'],
+    ]) {
+      for (const search of ['', text]) {
+        const popup = await lookup(field, fn, search);
+        const before = await boxes();
+        await pick(popup, field, code);
+        const after = await boxes();
+        h.assert(after[field] === code && Object.keys(before).every(key => key === field || after[key] === before[key]),
+          `The seeded ${field} lookup for "${search}" did not fill exactly ${code} (#5062)`);
+      }
+    }
   });
 }
 
