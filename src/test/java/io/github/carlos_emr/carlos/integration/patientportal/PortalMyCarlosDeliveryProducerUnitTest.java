@@ -230,6 +230,22 @@ class PortalMyCarlosDeliveryProducerUnitTest {
                 () -> PortalMyCarlosDeliveryCodec.canonical(Map.of("a", "\udc00")));
     }
 
+    @Test
+    void shouldRejectDatesAndLabelsThatFrozenNativeM0Refuses_beforeCreatingAnyDeliveryCopy() {
+        for (String invalidDate : new String[] {"", "2026-2-03", "2026-02-29", "2026-04-31", "0000-01-01", "2026-10-26T00:00:00Z"}) {
+            assertThrows(IllegalArgumentException.class, () -> new PortalMyCarlosDeliveryComposer.Document("clinic-a", "FAKE Clinic", "FAKE Provider",
+                    "FAKE Patient", "1990-01-01", "FAKE document", "document", invalidDate));
+            assertThrows(IllegalArgumentException.class, () -> new PortalMyCarlosDeliveryComposer.Document("clinic-a", "FAKE Clinic", "FAKE Provider",
+                    "FAKE Patient", invalidDate, "FAKE document", "document", "2026-10-17"));
+        }
+        for (String invalidLabel : new String[] {"", "FAKE\nClinic", "FAKE\u0085Clinic", "x".repeat(241)}) {
+            assertThrows(IllegalArgumentException.class, () -> new PortalMyCarlosDeliveryComposer.Document("clinic-a", invalidLabel, "FAKE Provider",
+                    "FAKE Patient", "1990-01-01", "FAKE document", "document", "2026-10-17"));
+        }
+        assertDoesNotThrow(() -> new PortalMyCarlosDeliveryComposer.Document("clinic-a", "😀".repeat(240), "FAKE Provider",
+                "FAKE Patient", "2000-02-29", "FAKE document", "document", "2024-02-29"));
+    }
+
     static PortalMyCarlosDeliveryComposer.Copy compose(JsonNode f) throws Exception {
         var c = f.at("/sender/manifest_claims");
         return PortalMyCarlosDeliveryComposer.compose(c.get("delivery_id").textValue(),

@@ -83,6 +83,21 @@ class PortalDelivery2ActionUnitTest {
             assertFalse(response.getContentAsString().contains("clinical title"));
         }
     }
+    @Test void shouldExplainMissingSavedServiceDate_withoutExposingInternalDetails() throws Exception {
+        var request = request("POST", "send"); var response = new MockHttpServletResponse();
+        var application = mock(PortalMyCarlosDeliveryApplicationService.class);
+        when(application.send(any(), anyInt(), anyInt(), anyString(), anyString(), any()))
+                .thenThrow(mock(PortalMyCarlosDeliveryApplicationService.MissingServiceDate.class));
+        try (var servlet = mockStatic(ServletActionContext.class); var beans = mockStatic(SpringUtils.class);
+             var identity = mockStatic(LoggedInInfo.class); var enabled = mockStatic(PortalMyCarlosDeliveryApplicationService.class);
+             var portal = mockStatic(PatientPortalSettings.class)) {
+            configure(servlet, beans, identity, enabled, request, response);
+            beans.when(() -> SpringUtils.getBean(PortalMyCarlosDeliveryApplicationService.class)).thenReturn(application);
+            assertEquals("none", action().execute()); assertEquals(400, response.getStatus());
+            assertTrue(response.getContentAsString().contains("mycarlos.delivery.missingServiceDate"));
+        }
+    }
+
     private static PortalDelivery2Action action() {
         var action = spy(new PortalDelivery2Action());
         doAnswer(call -> call.getArgument(0)).when(action).getText(anyString());

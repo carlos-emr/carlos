@@ -10,6 +10,14 @@ The route is off by default. patient_portal.mycarlos.sender.enabled=true also
 requires the existing portal, myCarlos delivery and staff approval gates, an
 active published clinic P-256 signing identity, DELIVERY_SYNC job credentials,
 a stable pdf.signing.document_id.secret, and a locally verified accepted device.
+A new delivery requires the eDoc's saved observation/service date. A missing
+service date returns a specific staff message before PDF rendering, signing or
+queue staging. The content/upload timestamp and current date are never used as
+substitutes for a clinical service date. Save the known date in the document's
+details, then create the delivery. Both signed manifests use that saved date;
+frozen M0 date/label validation runs before rendering/signing. Existing queued
+copies retain their original exact bytes even when source metadata changes.
+
 Staff require patient access, demographic read, eDoc read, the existing
 _newCasemgmt.documents renderer read permission and
 _mycarlos_delivery write privileges. Deploy approved database migrations81/82

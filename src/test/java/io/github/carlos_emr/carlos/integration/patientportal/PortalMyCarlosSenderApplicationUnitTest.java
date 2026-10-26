@@ -42,10 +42,12 @@ class PortalMyCarlosSenderApplicationUnitTest {
     private final DocumentAttachmentManager renderer = mock(DocumentAttachmentManager.class);
     private final CtlDocumentDao ownership = mock(CtlDocumentDao.class);
     private final DocumentDao documents = mock(DocumentDao.class);
+    private final ClinicDAO clinics = mock(ClinicDAO.class);
+    private final DemographicManager demographics = mock(DemographicManager.class);
     private final PortalMyCarlosDeviceApprovalTransactions transactions = mock(PortalMyCarlosDeviceApprovalTransactions.class);
     private PortalMyCarlosDeliveryApplicationService application() {
         return new PortalMyCarlosDeliveryApplicationService(transactions, mock(EntityManagerFactory.class), security,
-                mock(PropertyDao.class), mock(ClinicDAO.class), ownership, documents, renderer, mock(DemographicManager.class));
+                mock(PropertyDao.class), clinics, ownership, documents, renderer, demographics);
     }
     private static LoggedInInfo staff() {
         var info = new LoggedInInfo(); var provider = new Provider(); provider.setProviderNo("FAKE");
@@ -102,6 +104,37 @@ class PortalMyCarlosSenderApplicationUnitTest {
             verify(documents).find(44);
             verifyNoInteractions(unmerged, renderer, transactions);
         }
+    }
+
+    @Test void shouldRequireSavedServiceDate_inActualSourceManifestBeforePreparingAnyPdf() {
+        var source = new io.github.carlos_emr.carlos.commn.model.Document();
+        source.setContentdatetime(java.sql.Timestamp.valueOf("2026-10-26 12:00:00"));
+        // The actual refused eDoc had a content timestamp and no observation/service date.
+        assertThrows(PortalMyCarlosDeliveryApplicationService.MissingServiceDate.class,
+                () -> application().manifest(staff(), 6001, source, "FAKE-source", "FAKE-recipient", "clinic-a", 1793030400L));
+        verifyNoInteractions(renderer, transactions, clinics, demographics);
+    }
+
+    @Test void shouldBindSavedServiceDateIntoBothManifests_withoutInventingItFromContentOrSendTime() throws Exception {
+        var source = new io.github.carlos_emr.carlos.commn.model.Document();
+        source.setObservationdate(java.sql.Date.valueOf("2026-10-17"));
+        source.setContentdatetime(java.sql.Timestamp.valueOf("2026-10-26 12:00:00"));
+        source.setDocdesc("FAKE date-bound document");
+        var chart = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        chart.setFirstName("FAKE"); chart.setLastName("Patient");
+        chart.setYearOfBirth("1990"); chart.setMonthOfBirth("01"); chart.setDateOfBirth("01");
+        when(demographics.getDemographic(any(), eq(6001))).thenReturn(chart);
+        var clinic = new io.github.carlos_emr.carlos.commn.model.Clinic(); clinic.setClinicName("FAKE Clinic");
+        when(clinics.getClinic()).thenReturn(clinic);
+        var info = staff(); info.getLoggedInProvider().setFirstName("FAKE"); info.getLoggedInProvider().setLastName("Provider");
+        var manifest = application().manifest(info, 6001, source, "FAKE-source", "FAKE-recipient", "clinic-a", 1793030400L);
+        assertEquals("2026-10-17", manifest.serviceDate());
+        var encoded = new ObjectMapper().readTree(manifest.toCanonicalJson("A".repeat(43)));
+        assertEquals("2026-10-17", encoded.at("/document/service_date").textValue());
+        var checked = new PortalMyCarlosDeliveryComposer.Document(manifest.clinicId(), manifest.clinicName(), manifest.providerName(),
+                manifest.patientName(), manifest.patientBirthDate(), manifest.documentTitle(), manifest.documentType(), manifest.serviceDate());
+        assertEquals("2026-10-17", checked.serviceDate());
+        verifyNoInteractions(renderer, transactions);
     }
 
     @Test void shouldParseDedicatedKeyringAndRefuseUnknownDuplicateOrMissingKeys() {

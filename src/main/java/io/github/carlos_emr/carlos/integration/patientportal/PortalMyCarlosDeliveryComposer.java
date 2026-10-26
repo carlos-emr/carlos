@@ -42,9 +42,27 @@ final class PortalMyCarlosDeliveryComposer {
                     birthDate, title, type, serviceDate}) {
                 PortalMyCarlosDeliveryCodec.text(value);
             }
-            if (clinicId.isEmpty() || clinicId.codePointCount(0, clinicId.length()) > 64) throw invalid();
+            label(clinicId, 64);
+            for (String value : new String[] {clinicName, providerName, patientName, title}) label(value, 240);
+            label(type, 64);
+            date(birthDate);
+            date(serviceDate);
         }
         @Override public String toString() { return "DeliveryDocument[REDACTED]"; }
+    }
+
+    /** Frozen M0 labels and dates must be acceptable before signing or encryption. */
+    private static void label(String value, int maximum) {
+        if (value.isEmpty() || value.codePointCount(0, value.length()) > maximum
+                || value.codePoints().anyMatch(Character::isISOControl)) throw invalid();
+    }
+
+    private static void date(String value) {
+        if (!value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) throw invalid();
+        try {
+            var parsed = java.time.LocalDate.parse(value);
+            if (parsed.getYear() <= 0 || !parsed.toString().equals(value)) throw invalid();
+        } catch (java.time.DateTimeException failure) { throw invalid(); }
     }
 
     record Copy(String deliveryId, String recipientId, DeviceKeys device, String signerKid,

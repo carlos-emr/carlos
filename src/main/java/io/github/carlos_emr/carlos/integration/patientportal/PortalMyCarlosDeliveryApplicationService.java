@@ -189,15 +189,16 @@ public final class PortalMyCarlosDeliveryApplicationService {
             });
             long created = clock.instant().getEpochSecond();
             if (created < 0 || created > Long.MAX_VALUE - PortalMyCarlosDeliveryCodec.MAX_LIFETIME) throw unavailable();
-            DocumentManifest manifest = manifest(info, patient, document, source, target.binding().recipientId(), runtime.current(), created);
+            DocumentManifest manifest = manifest(info, patient, document, source, target.binding().recipientId(), runtime.current().clinic, created);
+            // Validate all frozen wire metadata before rendering or signing the original.
+            var details = new PortalMyCarlosDeliveryComposer.Document(manifest.clinicId(), manifest.clinicName(), manifest.providerName(),
+                    manifest.patientName(), manifest.patientBirthDate(), manifest.documentTitle(), manifest.documentType(), manifest.serviceDate());
             var signing = PDFSigningConfig.fromCarlosProperties();
             try (var working = EmailComposeWorkingDirectory.create()) {
                 // Reuse the existing permission-aware renderer and private temp custody, with no email log or SMTP work.
                 var rendered = working.adoptGeneratedPdf(renderer.renderDocument(info, DocumentType.DOC, documentId));
                 byte[] original = PortalMyCarlosSignedOriginal.sign(rendered, manifest, signing, target.signer(), working);
                 var keys = new DeviceKeys(target.accepted().kid(), target.accepted().x25519(), target.accepted().ed25519());
-                var details = new PortalMyCarlosDeliveryComposer.Document(manifest.clinicId(), manifest.clinicName(), manifest.providerName(),
-                        manifest.patientName(), manifest.patientBirthDate(), manifest.documentTitle(), manifest.documentType(), manifest.serviceDate());
                 var copy = PortalMyCarlosDeliveryComposer.composeWithSigner(deliveryId, target.binding().recipientId(), keys, details,
                         original, created, created + PortalMyCarlosDeliveryCodec.MAX_LIFETIME, target.signer(),
                         (payload, kid) -> PDFSigningUtil.signMyCarlosPayload(payload, kid, signing));
@@ -235,17 +236,23 @@ public final class PortalMyCarlosDeliveryApplicationService {
         return new State(state.title(), state.devices(), state.deliveries(), state.nextCursor(), sync);
     }
 
-    private DocumentManifest manifest(LoggedInInfo info, int patient, Document document, String source,
-            String recipient, Current cfg, long created) {
+    public static final class MissingServiceDate extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+        MissingServiceDate() { super("saved document service date is required"); }
+    }
+
+    DocumentManifest manifest(LoggedInInfo info, int patient, Document document, String source,
+            String recipient, String clinicId, long created) {
+        if (document.getObservationdate() == null) throw new MissingServiceDate();
+        String date = document.getObservationdate() instanceof java.sql.Date sqlDate ? sqlDate.toLocalDate().toString()
+                : Instant.ofEpochMilli(document.getObservationdate().getTime()).atZone(ZoneId.systemDefault()).toLocalDate().toString();
         var chart = demographics.getDemographic(info, patient); var clinic = clinics.getClinic();
         if (chart == null || clinic == null || info.getLoggedInProvider() == null) throw unavailable();
         String name = required(chart.getLastName()) + ", " + required(chart.getFirstName());
         String birth;
         try { birth = LocalDate.of(Integer.parseInt(chart.getYearOfBirth()), Integer.parseInt(chart.getMonthOfBirth()), Integer.parseInt(chart.getDateOfBirth())).toString(); }
         catch (RuntimeException invalidChartDate) { throw unavailable(); }
-        String date = document.getObservationdate() == null ? "" : Instant.ofEpochMilli(document.getObservationdate().getTime())
-                .atZone(ZoneId.systemDefault()).toLocalDate().toString();
-        return new DocumentManifest(source, 1, created, cfg.clinic, required(clinic.getClinicName()),
+        return new DocumentManifest(source, 1, created, clinicId, required(clinic.getClinicName()),
                 required(info.getLoggedInProvider().getFormattedName()), recipient, name, birth,
                 required(document.getDocdesc()), "document", date);
     }

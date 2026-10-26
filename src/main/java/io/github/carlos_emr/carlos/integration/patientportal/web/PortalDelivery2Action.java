@@ -56,6 +56,9 @@ public final class PortalDelivery2Action extends PortalJsonAction {
                     .put("deviceKeyId", row.deviceKeyId()).put("queuedAt", row.queuedAt().toString()).put("status", row.status());
             return write(response, 200, json);
         } catch (PatientPortalException failure) { return portalFailure(response, failure); }
+        catch (PortalMyCarlosDeliveryApplicationService.MissingServiceDate failure) {
+            return badRequest(response, getText("mycarlos.delivery.missingServiceDate"));
+        }
         catch (IllegalArgumentException failure) { return badRequest(response, getText("mycarlos.delivery.changed")); }
         catch (IllegalStateException | IOException failure) {
             if (page) { available = false; return SUCCESS; }
