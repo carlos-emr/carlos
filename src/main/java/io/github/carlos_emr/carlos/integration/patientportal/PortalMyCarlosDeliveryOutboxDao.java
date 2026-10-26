@@ -34,7 +34,8 @@ final class PortalMyCarlosDeliveryOutboxDao {
     Optional<Original> original(String clinic, String delivery) {
         return owned(c -> {
             try (var q = c.prepareStatement("SELECT id,original_sha256,encrypted_original FROM mycarlos_delivery_original WHERE clinic_id=? AND delivery_id=? FOR UPDATE")) {
-                q.setString(1, clinic); q.setString(2, delivery);
+                q.setString(1, clinic);
+                q.setString(2, delivery);
                 try (var r = q.executeQuery()) {
                     if (!r.next()) return Optional.empty();
                     var value = new Original(r.getLong(1), hex(r.getBytes(2)), new Bytes(r.getBytes(3)));
@@ -48,8 +49,11 @@ final class PortalMyCarlosDeliveryOutboxDao {
     long insertOriginal(String clinic, String delivery, String hash, byte[] encrypted, long created) {
         return owned(c -> {
             try (var q = c.prepareStatement("INSERT INTO mycarlos_delivery_original (clinic_id,delivery_id,original_sha256,encrypted_original,created_at) VALUES (?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS)) {
-                q.setString(1, clinic); q.setString(2, delivery); q.setBytes(3, raw(hash));
-                q.setBytes(4, encrypted); q.setLong(5, created);
+                q.setString(1, clinic);
+                q.setString(2, delivery);
+                q.setBytes(3, raw(hash));
+                q.setBytes(4, encrypted);
+                q.setLong(5, created);
                 changed(q.executeUpdate());
                 return generated(q);
             }
@@ -59,7 +63,9 @@ final class PortalMyCarlosDeliveryOutboxDao {
     Optional<Row> find(String clinic, String delivery, String kid) {
         return owned(c -> {
             try (var q = c.prepareStatement("SELECT * FROM mycarlos_delivery_outbox WHERE clinic_id=? AND delivery_id=? AND device_key_id=? FOR UPDATE")) {
-                q.setString(1, clinic); q.setString(2, delivery); q.setString(3, kid);
+                q.setString(1, clinic);
+                q.setString(2, delivery);
+                q.setString(3, kid);
                 try (var r = q.executeQuery()) {
                     if (!r.next()) return Optional.empty();
                     Row value = row(r);
@@ -85,7 +91,10 @@ final class PortalMyCarlosDeliveryOutboxDao {
         if (patient <= 0 || before < 0 || limit < 1 || limit > 51) throw invalid();
         return owned(c -> {
             try (var q = c.prepareStatement("SELECT id,delivery_id,device_key_id FROM mycarlos_delivery_outbox WHERE clinic_id=? AND demographic_no=? AND id<? ORDER BY id DESC LIMIT ? FOR UPDATE")) {
-                q.setString(1, clinic); q.setInt(2, patient); q.setLong(3, before == 0 ? Long.MAX_VALUE : before); q.setInt(4, limit);
+                q.setString(1, clinic);
+                q.setInt(2, patient);
+                q.setLong(3, before == 0 ? Long.MAX_VALUE : before);
+                q.setInt(4, limit);
                 java.util.List<Reference> result = new java.util.ArrayList<>();
                 try (var r = q.executeQuery()) { while (r.next()) result.add(new Reference(r.getLong(1), r.getString(2), r.getString(3))); }
                 return java.util.List.copyOf(result);
@@ -96,7 +105,8 @@ final class PortalMyCarlosDeliveryOutboxDao {
     java.util.List<Row> findForDelivery(String clinic, String deliveryId) {
         return owned(c -> {
             try (var q = c.prepareStatement("SELECT * FROM mycarlos_delivery_outbox WHERE clinic_id=? AND delivery_id=? ORDER BY id LIMIT 2 FOR UPDATE")) {
-                q.setString(1, clinic); q.setString(2, deliveryId);
+                q.setString(1, clinic);
+                q.setString(2, deliveryId);
                 java.util.List<Row> rows = new java.util.ArrayList<>();
                 try (var r = q.executeQuery()) { while (r.next()) rows.add(row(r)); }
                 return java.util.List.copyOf(rows);
@@ -107,10 +117,16 @@ final class PortalMyCarlosDeliveryOutboxDao {
     long insert(long original, PortalMyCarlosDeliverySnapshot s, byte[] encrypted, String snapshotHash) {
         return owned(c -> {
             try (var q = c.prepareStatement("INSERT INTO mycarlos_delivery_outbox (original_id,clinic_id,delivery_id,device_key_id,demographic_no,accepted_device_id,acceptance_version,config_sha256,encrypted_snapshot,snapshot_sha256) VALUES (?,?,?,?,?,?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS)) {
-                q.setLong(1, original); q.setString(2, s.clinicId()); q.setString(3, s.deliveryId());
-                q.setString(4, s.device().kid()); q.setInt(5, s.demographicNo()); q.setLong(6, s.acceptedDeviceId());
-                q.setLong(7, s.acceptanceVersion()); q.setBytes(8, raw(s.configSha256()));
-                q.setBytes(9, encrypted); q.setBytes(10, raw(snapshotHash));
+                q.setLong(1, original);
+                q.setString(2, s.clinicId());
+                q.setString(3, s.deliveryId());
+                q.setString(4, s.device().kid());
+                q.setInt(5, s.demographicNo());
+                q.setLong(6, s.acceptedDeviceId());
+                q.setLong(7, s.acceptanceVersion());
+                q.setBytes(8, raw(s.configSha256()));
+                q.setBytes(9, encrypted);
+                q.setBytes(10, raw(snapshotHash));
                 changed(q.executeUpdate());
                 return generated(q);
             }
@@ -121,8 +137,13 @@ final class PortalMyCarlosDeliveryOutboxDao {
         owned(c -> {
             nextVersion(row);
             try (var q = c.prepareStatement("UPDATE mycarlos_delivery_outbox SET lease_id=?,lease_until=?,row_version=row_version+1 WHERE id=? AND row_version=? AND state='staged' AND retry_after<=? AND (lease_until IS NULL OR lease_until<=?)")) {
-                q.setString(1, lease); q.setLong(2, until); q.setLong(3, row.id()); q.setLong(4, row.version());
-                q.setLong(5, now); q.setLong(6, now); changed(q.executeUpdate());
+                q.setString(1, lease);
+                q.setLong(2, until);
+                q.setLong(3, row.id());
+                q.setLong(4, row.version());
+                q.setLong(5, now);
+                q.setLong(6, now);
+                changed(q.executeUpdate());
             }
             return null;
         });
@@ -136,8 +157,12 @@ final class PortalMyCarlosDeliveryOutboxDao {
                 "delivery_conflict", "mailbox_quota_exceeded", "invalid_delivery", "local_ineligible", "portal_failure").contains(safeFailure))) throw invalid();
         return owned(c -> {
             try (var q = c.prepareStatement("UPDATE mycarlos_delivery_outbox SET state=?,retry_after=?,failure_code=?,lease_id=NULL,lease_until=NULL,row_version=row_version+1 WHERE id=? AND lease_id=? AND row_version=? AND state='staged'")) {
-                q.setString(1, state); q.setLong(2, retryAfter); q.setString(3, safeFailure);
-                q.setLong(4, id); q.setString(5, lease); q.setLong(6, version);
+                q.setString(1, state);
+                q.setLong(2, retryAfter);
+                q.setString(3, safeFailure);
+                q.setLong(4, id);
+                q.setString(5, lease);
+                q.setLong(6, version);
                 return q.executeUpdate() == 1;
             }
         });
@@ -147,8 +172,12 @@ final class PortalMyCarlosDeliveryOutboxDao {
         owned(c -> {
             nextVersion(row);
             try (var q = c.prepareStatement("UPDATE mycarlos_delivery_outbox SET state='picked_up',encrypted_receipt=?,receipt_sha256=?,receipt_jti=?,lease_id=NULL,lease_until=NULL,failure_code=NULL,row_version=row_version+1 WHERE id=? AND row_version=? AND state<>'picked_up'")) {
-                q.setBytes(1, encryptedReceipt); q.setBytes(2, raw(receiptHash)); q.setString(3, jti);
-                q.setLong(4, row.id()); q.setLong(5, row.version()); changed(q.executeUpdate());
+                q.setBytes(1, encryptedReceipt);
+                q.setBytes(2, raw(receiptHash));
+                q.setString(3, jti);
+                q.setLong(4, row.id());
+                q.setLong(5, row.version());
+                changed(q.executeUpdate());
             }
             return null;
         });
@@ -160,7 +189,10 @@ final class PortalMyCarlosDeliveryOutboxDao {
         owned(c -> {
             nextVersion(row);
             try (var q = c.prepareStatement("UPDATE mycarlos_delivery_outbox SET state=?,lease_id=NULL,lease_until=NULL,row_version=row_version+1 WHERE id=? AND row_version=? AND state<>'picked_up'")) {
-                q.setString(1, state); q.setLong(2, row.id()); q.setLong(3, row.version()); changed(q.executeUpdate());
+                q.setString(1, state);
+                q.setLong(2, row.id());
+                q.setLong(3, row.version());
+                changed(q.executeUpdate());
             }
             return null;
         });
@@ -176,11 +208,15 @@ final class PortalMyCarlosDeliveryOutboxDao {
                 String value = new String(PortalMyCarlosDeliveryCodec.canonical(java.util.Map.of(
                         "v", 1L, "clinic_id", clinic, "device_key_id", kid)), java.nio.charset.StandardCharsets.UTF_8);
                 try (var q = c.prepareStatement("INSERT INTO property (name,value,provider_no) VALUES (?,?,NULL)")) {
-                    q.setString(1, removalProperty(kid)); q.setString(2, value); changed(q.executeUpdate());
+                    q.setString(1, removalProperty(kid));
+                    q.setString(2, value);
+                    changed(q.executeUpdate());
                 }
             }
             try (var q = c.prepareStatement("UPDATE mycarlos_delivery_outbox SET state='fenced',lease_id=NULL,lease_until=NULL,failure_code='device_removed',row_version=row_version+1 WHERE clinic_id=? AND device_key_id=? AND state IN ('staged','waiting')")) {
-                q.setString(1, clinic); q.setString(2, kid); q.executeUpdate();
+                q.setString(1, clinic);
+                q.setString(2, kid);
+                q.executeUpdate();
             }
             return null;
         });
@@ -224,7 +260,9 @@ final class PortalMyCarlosDeliveryOutboxDao {
             return id;
         }
     }
-    private static byte[] raw(String hex) { PortalMyCarlosDeliveryCodec.hash(hex); return java.util.HexFormat.of().parseHex(hex); }
-    private static String hex(byte[] bytes) { if (bytes == null || bytes.length != 32) throw invalid(); return java.util.HexFormat.of().formatHex(bytes); }
+    private static byte[] raw(String hex) { PortalMyCarlosDeliveryCodec.hash(hex);
+        return java.util.HexFormat.of().parseHex(hex); }
+    private static String hex(byte[] bytes) { if (bytes == null || bytes.length != 32) throw invalid();
+        return java.util.HexFormat.of().formatHex(bytes); }
     private static void changed(int count) { if (count != 1) throw new IllegalStateException("myCarlos delivery state changed"); }
 }

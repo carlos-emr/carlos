@@ -38,11 +38,16 @@ final class PortalMyCarlosDeliveryOutboxService {
             PortalMyCarlosDeliveryOutboxDao outbox, PortalMyCarlosDeliveryCipher cipher,
             Supplier<Current> current, PatientPortalService portal, PortalMyCarlosDeliveryClient client,
             SecurityInfoManager security, Clock clock) {
-        this.transactions = Objects.requireNonNull(transactions); this.bindings = Objects.requireNonNull(bindings);
-        this.devices = Objects.requireNonNull(devices); this.outbox = Objects.requireNonNull(outbox);
-        this.cipher = Objects.requireNonNull(cipher); this.current = Objects.requireNonNull(current);
-        this.portal = Objects.requireNonNull(portal); this.client = Objects.requireNonNull(client);
-        this.security = Objects.requireNonNull(security); this.clock = Objects.requireNonNull(clock);
+        this.transactions = Objects.requireNonNull(transactions);
+        this.bindings = Objects.requireNonNull(bindings);
+        this.devices = Objects.requireNonNull(devices);
+        this.outbox = Objects.requireNonNull(outbox);
+        this.cipher = Objects.requireNonNull(cipher);
+        this.current = Objects.requireNonNull(current);
+        this.portal = Objects.requireNonNull(portal);
+        this.client = Objects.requireNonNull(client);
+        this.security = Objects.requireNonNull(security);
+        this.clock = Objects.requireNonNull(clock);
     }
 
     void requireStaff(LoggedInInfo session, int patient) {
@@ -124,22 +129,30 @@ final class PortalMyCarlosDeliveryOutboxService {
         } catch (PatientPortalException remote) {
             String code = remote.detail();
             if ("device_removed".equals(code)) {
-                state = "fenced"; failure = "device_removed"; result = SendResult.FENCED;
+                state = "fenced";
+                failure = "device_removed";
+                result = SendResult.FENCED;
             } else if (remote.kind() == PatientPortalException.Kind.CONFLICT || remote.statusCode() == 400
                     || remote.statusCode() == 401 || remote.statusCode() == 403 || remote.statusCode() == 404 || remote.statusCode() == 413) {
-                state = "error"; failure = remote.statusCode() == 413 ? "invalid_delivery"
+                state = "error";
+                failure = remote.statusCode() == 413 ? "invalid_delivery"
                         : "delivery_conflict".equals(code) ? "delivery_conflict" : "portal_failure";
                 result = SendResult.ERROR;
             } else {
-                state = "staged"; retry = plus(now(), 60);
+                state = "staged";
+                retry = plus(now(), 60);
                 failure = remote.statusCode() == 429 ? "mailbox_quota_exceeded" : "transport_unknown";
                 result = SendResult.RETRY_PENDING;
             }
         } catch (PortalRequestPreparationException locallyRefused) {
-            state = "fenced"; failure = "local_ineligible"; result = SendResult.FENCED;
+            state = "fenced";
+            failure = "local_ineligible";
+            result = SendResult.FENCED;
         } catch (IllegalArgumentException malformedSuccess) {
             // The endpoint parser refused a success body after the portal may have accepted it.
-            state = "staged"; retry = plus(now(), 60); failure = "transport_unknown";
+            state = "staged";
+            retry = plus(now(), 60);
+            failure = "transport_unknown";
             result = SendResult.RETRY_PENDING;
         }
         String completionState = state, completionFailure = failure;
@@ -271,8 +284,11 @@ final class PortalMyCarlosDeliveryOutboxService {
     private static PortalMyCarlosDeliveryCipher.Context context(PortalMyCarlosDeliverySnapshot s, String kind) {
         return new PortalMyCarlosDeliveryCipher.Context(s.clinicId(), s.deliveryId(), "original".equals(kind) ? "" : s.device().kid(), kind);
     }
-    private long now() { long time = clock.instant().getEpochSecond(); if (time < 0) throw invalid(); return time; }
-    private static long plus(long value, long seconds) { if (value > Long.MAX_VALUE - seconds) throw invalid(); return value + seconds; }
+    private long now() { long time = clock.instant().getEpochSecond(); if (time < 0) throw
+        invalid();
+        return time; }
+    private static long plus(long value, long seconds) { if (value > Long.MAX_VALUE - seconds) throw invalid();
+        return value + seconds; }
     private static final class Ineligible extends IllegalStateException {
         private static final long serialVersionUID = 1L;
         Ineligible() { super("myCarlos delivery is unavailable or binding changed"); }

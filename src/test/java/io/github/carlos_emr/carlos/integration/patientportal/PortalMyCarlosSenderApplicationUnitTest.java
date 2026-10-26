@@ -50,8 +50,14 @@ class PortalMyCarlosSenderApplicationUnitTest {
                 mock(PropertyDao.class), clinics, ownership, documents, renderer, demographics);
     }
     private static LoggedInInfo staff() {
-        var info = new LoggedInInfo(); var provider = new Provider(); provider.setProviderNo("FAKE");
-        var security = new Security(); security.setSecurityNo(1); info.setLoggedInProvider(provider); info.setLoggedInSecurity(security); return info;
+        var info = new LoggedInInfo();
+        var provider = new Provider();
+        provider.setProviderNo("FAKE");
+        var security = new Security();
+        security.setSecurityNo(1);
+        info.setLoggedInProvider(provider);
+        info.setLoggedInSecurity(security);
+        return info;
     }
     @Test void shouldRefuseAnonymousAndUnauthorizedStaff_beforeReadingSourceOrPreparingPdf() {
         var application = application();
@@ -84,7 +90,8 @@ class PortalMyCarlosSenderApplicationUnitTest {
         when(security.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         when(ownership.findDocumentNosForDemographic(6001, List.of(44))).thenReturn(List.of(44));
-        var deleted = new io.github.carlos_emr.carlos.commn.model.Document(); deleted.setStatus('D');
+        var deleted = new io.github.carlos_emr.carlos.commn.model.Document();
+        deleted.setStatus('D');
         when(documents.find(44)).thenReturn(deleted);
         try (var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
             context.registerBean(PortalMyCarlosDeviceApprovalTransactions.class, () -> transactions);
@@ -111,12 +118,18 @@ class PortalMyCarlosSenderApplicationUnitTest {
         source.setContentdatetime(java.sql.Timestamp.valueOf("2026-10-26 12:00:00"));
         source.setDocdesc("FAKE unknown-date document");
         var chart = new io.github.carlos_emr.carlos.commn.model.Demographic();
-        chart.setFirstName("FAKE"); chart.setLastName("Patient");
-        chart.setYearOfBirth("1990"); chart.setMonthOfBirth("01"); chart.setDateOfBirth("01");
+        chart.setFirstName("FAKE");
+        chart.setLastName("Patient");
+        chart.setYearOfBirth("1990");
+        chart.setMonthOfBirth("01");
+        chart.setDateOfBirth("01");
         when(demographics.getDemographic(any(), eq(6001))).thenReturn(chart);
-        var clinic = new io.github.carlos_emr.carlos.commn.model.Clinic(); clinic.setClinicName("FAKE Clinic");
+        var clinic = new io.github.carlos_emr.carlos.commn.model.Clinic();
+        clinic.setClinicName("FAKE Clinic");
         when(clinics.getClinic()).thenReturn(clinic);
-        var info = staff(); info.getLoggedInProvider().setFirstName("FAKE"); info.getLoggedInProvider().setLastName("Provider");
+        var info = staff();
+        info.getLoggedInProvider().setFirstName("FAKE");
+        info.getLoggedInProvider().setLastName("Provider");
         var manifest = application().manifest(info, 6001, source, "FAKE-source", "FAKE-recipient", "clinic-a", 1793030400L);
         assertNull(manifest.serviceDate());
         var encoded = new ObjectMapper().readTree(manifest.toCanonicalJson("A".repeat(43)));
@@ -133,12 +146,18 @@ class PortalMyCarlosSenderApplicationUnitTest {
         source.setContentdatetime(java.sql.Timestamp.valueOf("2026-10-26 12:00:00"));
         source.setDocdesc("FAKE date-bound document");
         var chart = new io.github.carlos_emr.carlos.commn.model.Demographic();
-        chart.setFirstName("FAKE"); chart.setLastName("Patient");
-        chart.setYearOfBirth("1990"); chart.setMonthOfBirth("01"); chart.setDateOfBirth("01");
+        chart.setFirstName("FAKE");
+        chart.setLastName("Patient");
+        chart.setYearOfBirth("1990");
+        chart.setMonthOfBirth("01");
+        chart.setDateOfBirth("01");
         when(demographics.getDemographic(any(), eq(6001))).thenReturn(chart);
-        var clinic = new io.github.carlos_emr.carlos.commn.model.Clinic(); clinic.setClinicName("FAKE Clinic");
+        var clinic = new io.github.carlos_emr.carlos.commn.model.Clinic();
+        clinic.setClinicName("FAKE Clinic");
         when(clinics.getClinic()).thenReturn(clinic);
-        var info = staff(); info.getLoggedInProvider().setFirstName("FAKE"); info.getLoggedInProvider().setLastName("Provider");
+        var info = staff();
+        info.getLoggedInProvider().setFirstName("FAKE");
+        info.getLoggedInProvider().setLastName("Provider");
         var manifest = application().manifest(info, 6001, source, "FAKE-source", "FAKE-recipient", "clinic-a", 1793030400L);
         assertEquals("2026-10-17", manifest.serviceDate());
         var encoded = new ObjectMapper().readTree(manifest.toCanonicalJson("A".repeat(43)));
@@ -164,12 +183,14 @@ class PortalMyCarlosSenderApplicationUnitTest {
     }
 
     @Test void shouldUseExistingConfiguredP256Signer_whenComposingWithoutExportingPrivateMaterial() throws Exception {
-        var generator = KeyPairGenerator.getInstance("EC"); generator.initialize(new ECGenParameterSpec("secp256r1"));
+        var generator = KeyPairGenerator.getInstance("EC");
+        generator.initialize(new ECGenParameterSpec("secp256r1"));
         var pair = generator.generateKeyPair();
         var certificate = PdfSigningTestSupport.createSelfSignedCertificate(pair, "SHA256withECDSA");
         var config = PdfSigningTestSupport.enabledConfig(temporary.resolve("FAKE-sender.p12"), pair.getPrivate(), certificate);
         var identity = PortalMyCarlosSigningIdentity.fromValidatedCertificate(certificate);
-        var f = PortalMyCarlosDeliveryProducerUnitTest.fixture(); var example = PortalMyCarlosDeliveryProducerUnitTest.compose(f);
+        var f = PortalMyCarlosDeliveryProducerUnitTest.fixture();
+        var example = PortalMyCarlosDeliveryProducerUnitTest.compose(f);
         var document = new PortalMyCarlosDeliveryComposer.Document("clinic-a", "FAKE Clinic", "FAKE Provider", "FAKE Patient",
                 "1990-01-01", "FAKE Report", "document", "2026-10-26");
         var copy = PortalMyCarlosDeliveryComposer.composeWithSigner(example.deliveryId(), example.recipientId(), example.device(),
@@ -178,7 +199,8 @@ class PortalMyCarlosSenderApplicationUnitTest {
         assertEquals(identity.kid(), copy.signerKid());
         var envelope = PortalMyCarlosDeviceApprovalCodec.envelope(copy.manifest());
         var verifier = java.security.Signature.getInstance("SHA256withECDSAinP1363Format");
-        verifier.initVerify(certificate.getPublicKey()); verifier.update(envelope.payload().copy());
+        verifier.initVerify(certificate.getPublicKey());
+        verifier.update(envelope.payload().copy());
         assertTrue(verifier.verify(envelope.signature().copy()));
     }
 

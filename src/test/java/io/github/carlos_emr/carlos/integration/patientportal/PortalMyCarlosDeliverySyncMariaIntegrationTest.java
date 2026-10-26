@@ -30,14 +30,19 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
         new PortalMyCarlosDeliveryMariaIntegrationTest().restoreOnlyOwnedAcceptanceFixture();
         for (long id : ownedFenceProperties) {
             try (var c = source.getConnection(); var q = c.prepareStatement("DELETE FROM property WHERE id=? AND name LIKE 'mycarlos.delivery.removed.%'")) {
-                q.setLong(1, id); assertEquals(1, q.executeUpdate());
+                q.setLong(1, id);
+                assertEquals(1, q.executeUpdate());
             }
         }
-        try (var c = source.getConnection(); var q = c.prepareStatement("UPDATE mycarlos_delivery_checkpoint SET writer_id=NULL,writer_until=NULL WHERE clinic_id='clinic-a'")) { q.executeUpdate(); }
+        try (var c = source.getConnection(); var q = c.prepareStatement("UPDATE mycarlos_delivery_checkpoint SET writer_id=NULL,writer_until=NULL WHERE clinic_id='clinic-a'")) {
+            q.executeUpdate();
+        }
     }
 
     @Test void shouldCommitExactProofAndCheckpointBeforeAck_whenReceiptIsIndependentlyValid() throws Exception {
-        var h = harness(); var p = pair(); h.sender.stage(staff(), p.copy(), p.snapshot());
+        var h = harness();
+        var p = pair();
+        h.sender.stage(staff(), p.copy(), p.snapshot());
         long before = checkpoint(h).through();
         String proof = receipt(p.snapshot(), UUID.randomUUID().toString());
         h.exchange.response = page(List.of(event(p.snapshot(), before + 1, proof)), before + 1);
@@ -50,8 +55,11 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
     }
 
     @Test void shouldKeepOnlyDurableContiguousPrefix_whenLaterEventHasWrongBinding() throws Exception {
-        var h = harness(); var good = pair(); var bad = pair();
-        h.sender.stage(staff(), good.copy(), good.snapshot()); h.sender.stage(staff(), bad.copy(), bad.snapshot());
+        var h = harness();
+        var good = pair();
+        var bad = pair();
+        h.sender.stage(staff(), good.copy(), good.snapshot());
+        h.sender.stage(staff(), bad.copy(), bad.snapshot());
         long before = checkpoint(h).through();
         var first = event(good.snapshot(), before + 1, receipt(good.snapshot(), UUID.randomUUID().toString()));
         var second = event(bad.snapshot(), before + 2, receipt(bad.snapshot(), UUID.randomUUID().toString()));
@@ -70,7 +78,8 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
 
     @Test void shouldQuarantineExactUnknownOrGappedEvent_withoutAdvancingOrAcknowledging() throws Exception {
         for (boolean gap : List.of(false, true)) {
-            var h = harness(); var p = pair();
+            var h = harness();
+            var p = pair();
             if (gap) h.sender.stage(staff(), p.copy(), p.snapshot());
             long before = checkpoint(h).through();
             h.exchange.response = page(List.of(event(p.snapshot(), before + (gap ? 2 : 1),
@@ -84,7 +93,9 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
     }
 
     @Test void shouldRetryOnlyCommittedAckAfterRestart_whenAckReplyIsLost() throws Exception {
-        var h = harness(); var p = pair(); long id = h.sender.stage(staff(), p.copy(), p.snapshot());
+        var h = harness();
+        var p = pair();
+        long id = h.sender.stage(staff(), p.copy(), p.snapshot());
         long before = checkpoint(h).through();
         h.exchange.response = page(List.of(event(p.snapshot(), before + 1,
                 receipt(p.snapshot(), UUID.randomUUID().toString()))), before + 1);
@@ -103,7 +114,9 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
     }
 
     @Test void shouldRollBackPickupAndPage_whenEventInsertFailsBeforeCheckpointCommit() throws Exception {
-        var h = harness(); var p = pair(); long id = h.sender.stage(staff(), p.copy(), p.snapshot());
+        var h = harness();
+        var p = pair();
+        long id = h.sender.stage(staff(), p.copy(), p.snapshot());
         long before = checkpoint(h).through();
         var data = event(p.snapshot(), before + 1, receipt(p.snapshot(), UUID.randomUUID().toString()));
         h.exchange.response = page(List.of(data), before + 1);
@@ -116,31 +129,38 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
             var cipher = new PortalMyCarlosDeliveryCipher(1, Map.of(1, new byte[32]));
             long pageId = h.events.keepPage("clinic-a", before, hash,
                     cipher.seal(new PortalMyCarlosDeliveryCipher.Context("clinic-a", hash, "", "event_page"), marker), NOW.get(), null);
-            h.events.event("clinic-a", parsed, pageId, true); return null;
+            h.events.event("clinic-a", parsed, pageId, true);
+            return null;
         });
         try {
             assertThrows(RuntimeException.class, () -> h.sync.poll());
-            assertEquals(before, checkpoint(h).through()); assertTrue(h.exchange.acks.isEmpty());
+            assertEquals(before, checkpoint(h).through());
+            assertTrue(h.exchange.acks.isEmpty());
             assertEquals("staged", tx.withApprovalState(() -> dao.find(id).orElseThrow().state()));
             assertNull(pageFailure(h.exchange.response)); // The new page transaction rolled back.
         } finally {
             try (var c = source.getConnection(); var q = c.prepareStatement("DELETE FROM mycarlos_delivery_event WHERE clinic_id='clinic-a' AND sequence=?")) {
-                q.setLong(1, before + 1); assertEquals(1, q.executeUpdate());
+                q.setLong(1, before + 1);
+                assertEquals(1, q.executeUpdate());
             }
         }
     }
 
     @Test void shouldRetainMalformedPageAndHoldCursor_whenJsonSchemaCannotBeParsed() throws Exception {
-        var h = harness(); long before = checkpoint(h).through();
+        var h = harness();
+        long before = checkpoint(h).through();
         h.exchange.response = "{\"events\":[],\"last_sequence\":false,\"next_cursor\":null}";
         assertEquals(PortalMyCarlosDeliverySyncService.Result.QUARANTINED, h.sync.poll());
-        assertTrue(h.exchange.acks.isEmpty()); assertEquals(before, checkpoint(h).through());
-        assertEquals("invalid_page", pageFailure(h.exchange.response)); assertExactPageRetained(h.exchange.response);
+        assertTrue(h.exchange.acks.isEmpty());
+        assertEquals(before, checkpoint(h).through());
+        assertEquals("invalid_page", pageFailure(h.exchange.response));
+        assertExactPageRetained(h.exchange.response);
     }
 
     @Test void shouldRefuseRepointedFeedAfterRestart_beforeAnyFetchOrAck() throws Exception {
         var original = harness();
-        var document = pair(); original.sender.stage(staff(), document.copy(), document.snapshot());
+        var document = pair();
+        original.sender.stage(staff(), document.copy(), document.snapshot());
         long initialThrough = checkpoint(original).through();
         original.exchange.response = page(List.of(event(document.snapshot(), initialThrough + 1,
                 receipt(document.snapshot(), UUID.randomUUID().toString()))), initialThrough + 1);
@@ -152,26 +172,37 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
                 PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY, PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "FAKE-staff",
                 PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN));
         current.set(PortalMyCarlosDeviceApprovalService.Current.fromValidated(target, "https://portal.example.test", true, true));
-        var exchange = new SyncExchange(); var repointed = harness(exchange, target);
+        var exchange = new SyncExchange();
+        var repointed = harness(exchange, target);
         assertThrows(IllegalStateException.class, () -> repointed.sync.poll());
-        assertEquals(0, exchange.gets); assertTrue(exchange.acks.isEmpty());
+        assertEquals(0, exchange.gets);
+        assertTrue(exchange.acks.isEmpty());
         assertEquals(before, checkpoint(original).through());
     }
 
     @Test void shouldFenceFutureStaging_whenRemovedPortalDeviceHadNoQueuedCopies() throws Exception {
-        var h = harness(); long before = checkpoint(h).through();
+        var h = harness();
+        long before = checkpoint(h).through();
         String otherKid = "UfKEw1hvufYaSTpPEAC3iFECGAQJg1ULkDzYhZGsAVQ";
         try (var c = source.getConnection(); var q = c.prepareStatement("SELECT COUNT(*) FROM mycarlos_delivery_outbox WHERE device_key_id=?")) {
-            q.setString(1, otherKid); try (var r = q.executeQuery()) { assertTrue(r.next()); assertEquals(0, r.getLong(1)); }
+            q.setString(1, otherKid); try (var r = q.executeQuery()) {
+                assertTrue(r.next());
+                assertEquals(0, r.getLong(1)); }
         }
-        var removed = JSON.createObjectNode(); removed.put("sequence", Long.toString(before + 1)); removed.put("kind", "device_removed");
-        removed.put("occurred_at", NOW.get()); removed.put("recipient_id", "rcp-FAKE0001aaaaaaaaaaaa"); removed.put("device_key_id", otherKid);
-        removed.putNull("delivery_id"); removed.putObject("payload");
+        var removed = JSON.createObjectNode();
+        removed.put("sequence", Long.toString(before + 1));
+        removed.put("kind", "device_removed");
+        removed.put("occurred_at", NOW.get());
+        removed.put("recipient_id", "rcp-FAKE0001aaaaaaaaaaaa");
+        removed.put("device_key_id", otherKid);
+        removed.putNull("delivery_id");
+        removed.putObject("payload");
         h.exchange.response = page(List.of(removed), before + 1);
         assertEquals(PortalMyCarlosDeliverySyncService.Result.COLLECTED, h.sync.poll());
         try (var c = source.getConnection(); var q = c.prepareStatement("SELECT id FROM property WHERE name=?")) {
             q.setString(1, "mycarlos.delivery.removed." + otherKid);
-            try (var r = q.executeQuery()) { assertTrue(r.next()); ownedFenceProperties.add(r.getLong(1)); }
+            try (var r = q.executeQuery()) { assertTrue(r.next());
+                ownedFenceProperties.add(r.getLong(1)); }
         }
         var fixture = PortalMyCarlosDeliveryProducerUnitTest.fixture();
         ((com.fasterxml.jackson.databind.node.ObjectNode) fixture.at("/sender/manifest_claims")).put("delivery_id", UUID.randomUUID().toString());
@@ -186,7 +217,9 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
     }
 
     @Test void shouldVerifyBothOriginalProofs_whenFreshRequestAnchorsLaterHistoryHead() throws Exception {
-        var h = harness(); var p = pair(); h.sender.stage(staff(), p.copy(), p.snapshot());
+        var h = harness();
+        var p = pair();
+        h.sender.stage(staff(), p.copy(), p.snapshot());
         long before = checkpoint(h).through();
         var data = event(p.snapshot(), before + 1, receipt(p.snapshot(), UUID.randomUUID().toString()));
         var payload = (com.fasterxml.jackson.databind.node.ObjectNode) data.get("payload");
@@ -219,10 +252,20 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
         String assertion = sign(PortalMyCarlosDeliveryCodec.canonical(Map.of("aud", "carlos-patient-portal-device-api", "iss", "mycarlos",
                 "iat", NOW.get(), "exp", NOW.get() + 60, "jti", UUID.randomUUID().toString(), "kid", s.device().kid(),
                 "recipient_id", s.recipientId(), "request_hash", "b".repeat(64), "vault_head_link", "a".repeat(64))));
-        var e = JSON.createObjectNode(); e.put("sequence", Long.toString(sequence)); e.put("kind", "picked_up");
-        e.put("occurred_at", NOW.get()); e.put("recipient_id", s.recipientId()); e.put("device_key_id", s.device().kid()); e.put("delivery_id", s.deliveryId());
-        var p = e.putObject("payload"); p.put("ciphertext_sha256", s.ciphertextSha256()); p.put("size", s.sealedSize());
-        p.put("created_at", s.createdAt()); p.put("expires_at", s.expiresAt()); p.put("receipt", receipt); p.put("request_assertion", assertion);
+        var e = JSON.createObjectNode();
+        e.put("sequence", Long.toString(sequence));
+        e.put("kind", "picked_up");
+        e.put("occurred_at", NOW.get());
+        e.put("recipient_id", s.recipientId());
+        e.put("device_key_id", s.device().kid());
+        e.put("delivery_id", s.deliveryId());
+        var p = e.putObject("payload");
+        p.put("ciphertext_sha256", s.ciphertextSha256());
+        p.put("size", s.sealedSize());
+        p.put("created_at", s.createdAt());
+        p.put("expires_at", s.expiresAt());
+        p.put("receipt", receipt);
+        p.put("request_assertion", assertion);
         return e;
     }
     static String page(List<?> events, long last) throws Exception { return JSON.writeValueAsString(Map.of("events", events, "last_sequence", Long.toString(last)))
@@ -230,29 +273,35 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
     static String pageFailure(String exact) throws Exception {
         String hash = PortalMyCarlosDeviceApprovalCrypto.sha256(exact.getBytes(StandardCharsets.UTF_8));
         try (var c = source.getConnection(); var q = c.prepareStatement("SELECT failure_code FROM mycarlos_delivery_event_page WHERE clinic_id='clinic-a' AND page_sha256=?")) {
-            q.setBytes(1, java.util.HexFormat.of().parseHex(hash)); try (var r = q.executeQuery()) { return r.next() ? r.getString(1) : null; }
+            q.setBytes(1, java.util.HexFormat.of().parseHex(hash)); try (var r = q.executeQuery()) {
+                return r.next() ? r.getString(1) : null; }
         }
     }
     static void assertExactPageRetained(String exact) throws Exception {
         String hash = PortalMyCarlosDeviceApprovalCrypto.sha256(exact.getBytes(StandardCharsets.UTF_8));
         try (var c = source.getConnection(); var q = c.prepareStatement("SELECT encrypted_page FROM mycarlos_delivery_event_page WHERE clinic_id='clinic-a' AND page_sha256=?")) {
-            q.setBytes(1, java.util.HexFormat.of().parseHex(hash)); try (var r = q.executeQuery()) { assertTrue(r.next());
+            q.setBytes(1, java.util.HexFormat.of().parseHex(hash)); try (var r = q.executeQuery()) {
+                assertTrue(r.next());
                 var cipher = new PortalMyCarlosDeliveryCipher(1, Map.of(1, new byte[32]));
                 assertArrayEquals(exact.getBytes(StandardCharsets.UTF_8), cipher.open(new PortalMyCarlosDeliveryCipher.Context("clinic-a", hash, "", "event_page"), r.getBytes(1))); }
         }
     }
     static final class SyncExchange implements PatientPortalHttpExchange {
-        String response; boolean loseFirstAck; int gets;
+        String response;
+        boolean loseFirstAck;
+        int gets;
         final List<Long> acks = new ArrayList<>();
         public PatientPortalHttpResponse send(ClassicHttpRequest request) throws IOException {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertFalse(TransactionSynchronizationManager.isSynchronizationActive());
-            if ("GET".equals(request.getMethod())) { gets++; return new PatientPortalHttpResponse(200, response); }
+            if ("GET".equals(request.getMethod())) { gets++;
+                return new PatientPortalHttpResponse(200, response); }
             long through = Long.parseLong(JSON.readTree(request.getEntity().getContent()).get("through").textValue());
             // Separate connection observes COMMITTED checkpoint before any network acknowledgment.
             try (var c = source.getConnection(); var q = c.createStatement();
                  var r = q.executeQuery("SELECT committed_through FROM mycarlos_delivery_checkpoint WHERE clinic_id='clinic-a'")) {
-                assertTrue(r.next()); assertEquals(through, r.getLong(1));
+                assertTrue(r.next());
+                assertEquals(through, r.getLong(1));
             } catch (Exception failure) { throw new AssertionError("ack must follow durable checkpoint", failure); }
             acks.add(through);
             if (loseFirstAck && acks.size() == 1) throw new IOException("FAKE lost ack reply after server acceptance");

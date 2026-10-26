@@ -40,10 +40,14 @@ class PortalMyCarlosDeviceEvidenceVerifierUnitTest {
         var fixture = PortalMyCarlosDeliveryProducerUnitTest.fixture();
         var snapshot = PortalMyCarlosDeliveryStorageUnitTest.snapshot();
         ObjectNode claims = JSON.createObjectNode();
-        claims.put("aud", "carlos-patient-portal-device-api"); claims.put("iss", "mycarlos");
-        claims.put("iat", 1792454400L); claims.put("exp", 1792454460L);
-        claims.put("jti", "00000000-0000-4000-8000-000000000001"); claims.put("kid", snapshot.device().kid());
-        claims.put("recipient_id", snapshot.recipientId()); claims.put("request_hash", "a".repeat(64));
+        claims.put("aud", "carlos-patient-portal-device-api");
+        claims.put("iss", "mycarlos");
+        claims.put("iat", 1792454400L);
+        claims.put("exp", 1792454460L);
+        claims.put("jti", "00000000-0000-4000-8000-000000000001");
+        claims.put("kid", snapshot.device().kid());
+        claims.put("recipient_id", snapshot.recipientId());
+        claims.put("request_hash", "a".repeat(64));
         List<String> bad = List.of(claims.deepCopy().put("aud", "carlos-patient-portal-device-link").toString(),
                 claims.deepCopy().put("recipient_id", "other-patient").toString(),
                 claims.deepCopy().put("kid", "A".repeat(43)).toString(),

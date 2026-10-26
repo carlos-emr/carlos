@@ -38,7 +38,8 @@ class PortalMyCarlosApprovalClientTargetUnitTest {
             var cfg = PortalMyCarlosDeviceApprovalService.Current.fromValidated(newer, "https://localhost:8455/patient", true, true);
             var staff = new PortalMyCarlosStaffApprovalService(mock(PortalMyCarlosDeviceApprovalTransactions.class),
                     f.owner.factory, f.security, properties, () -> cfg, (source, transactionalSource) -> {
-                        consumers.incrementAndGet(); return f.service;
+                        consumers.incrementAndGet();
+                return f.service;
                     }, ignored -> { throw new AssertionError("client must be fenced before constructing a poll"); });
             assertThrows(IllegalStateException.class, () -> staff.refresh(f.session, 1, portal));
             assertEquals(0, consumers.get());
@@ -50,7 +51,8 @@ class PortalMyCarlosApprovalClientTargetUnitTest {
         var settings = settings("https://localhost:8455", "clinic-a");
         AtomicInteger network = new AtomicInteger();
         var portal = new PatientPortalService(settings, request -> {
-            network.incrementAndGet(); return new PatientPortalHttpResponse(200, "{}");
+            network.incrementAndGet();
+            return new PatientPortalHttpResponse(200, "{}");
         }, PortalStaffAssertionSigner.from(settings.staffAssertionPrivateKey()), () -> true);
         var cfg = PortalMyCarlosDeviceApprovalService.Current.fromValidated(settings, "https://localhost:8455/patient", true, true);
         assertDoesNotThrow(() -> PortalMyCarlosStaffApprovalService.requireClientTarget(portal, cfg,
@@ -83,7 +85,8 @@ class PortalMyCarlosApprovalClientTargetUnitTest {
         AtomicInteger consumers = new AtomicInteger();
         var staff = new PortalMyCarlosStaffApprovalService(mock(PortalMyCarlosDeviceApprovalTransactions.class),
                 f.owner.factory, f.security, properties, current::get, (source, transactionalSource) -> {
-                    consumers.incrementAndGet(); return f.service;
+                    consumers.incrementAndGet();
+            return f.service;
                 }, ignored -> client);
         assertThrows(IllegalStateException.class, () -> staff.refresh(f.session, 1, portal));
         assertEquals(1, network.get());
@@ -104,7 +107,8 @@ class PortalMyCarlosApprovalClientTargetUnitTest {
             var row = f.install(f.first, false);
             if (beforeInventory) {
                 Runnable snapshot = f.owner.manager.onBegin;
-                f.owner.manager.onBegin = () -> { snapshot.run(); current.set(changed); };
+                f.owner.manager.onBegin = () -> { snapshot.run();
+                    current.set(changed); };
             } else {
                 f.lastLock = () -> current.set(changed);
             }
@@ -126,7 +130,8 @@ class PortalMyCarlosApprovalClientTargetUnitTest {
             };
             AtomicInteger network = new AtomicInteger();
             var portal = new PatientPortalService(old, request -> {
-                network.incrementAndGet(); return new PatientPortalHttpResponse(200, "{\"status\":\"stored\"}");
+                network.incrementAndGet();
+                return new PatientPortalHttpResponse(200, "{\"status\":\"stored\"}");
             }, PortalStaffAssertionSigner.from(old.staffAssertionPrivateKey()), () -> true);
             var staff = new PortalMyCarlosStaffApprovalService(transactions, f.owner.factory, f.security,
                     mock(PropertyDao.class), current::get, (source, transactionalSource) ->
@@ -166,7 +171,8 @@ class PortalMyCarlosApprovalClientTargetUnitTest {
                 var current = new java.util.concurrent.atomic.AtomicReference<>(staleCachedTarget ? changed : original);
                 AtomicInteger network = new AtomicInteger();
                 var portal = new PatientPortalService(old, request -> {
-                    network.incrementAndGet(); return new PatientPortalHttpResponse(200, "{\"status\":\"stored\"}");
+                    network.incrementAndGet();
+                    return new PatientPortalHttpResponse(200, "{\"status\":\"stored\"}");
                 }, PortalStaffAssertionSigner.from(old.staffAssertionPrivateKey()), () -> true);
                 var f = new PortalMyCarlosDeviceApprovalStateTestSupport.Fixture();
                 var staff = new PortalMyCarlosStaffApprovalService(mock(PortalMyCarlosDeviceApprovalTransactions.class),
@@ -213,7 +219,8 @@ class PortalMyCarlosApprovalClientTargetUnitTest {
         var cfg = PortalMyCarlosDeviceApprovalService.Current.fromValidated(old, "https://localhost:8455/patient", true, true);
         AtomicInteger network = new AtomicInteger();
         var portal = new PatientPortalService(old, request -> {
-            network.incrementAndGet(); return new PatientPortalHttpResponse(200, "{\"status\":\"stored\"}");
+            network.incrementAndGet();
+            return new PatientPortalHttpResponse(200, "{\"status\":\"stored\"}");
         }, PortalStaffAssertionSigner.from(old.staffAssertionPrivateKey()), () -> true);
         var f = new PortalMyCarlosDeviceApprovalStateTestSupport.Fixture();
         var staff = new PortalMyCarlosStaffApprovalService(mock(PortalMyCarlosDeviceApprovalTransactions.class),

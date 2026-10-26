@@ -24,7 +24,10 @@ class PortalMyCarlosApprovalJournalUnitTest {
         Map<String, Property> rows = new HashMap<>();
         when(properties.findByNameForUpdate(anyString())).thenAnswer(call -> rows.containsKey(call.getArgument(0))
                 ? List.of(rows.get(call.getArgument(0))) : List.of());
-        doAnswer(call -> { Property row = call.getArgument(0); rows.put(row.getName(), row); return null; }).when(properties).persist(any());
+        doAnswer(call -> { Property row = call.getArgument(0);
+            rows.put(row.getName(), row);
+            return null;
+        }).when(properties).persist(any());
         var fixture = new PortalMyCarlosDeviceApprovalStateTestSupport.Fixture();
         var request = new PortalMyCarlosApprovalClient.Request(1, 1, "FAKE exact expired intent bytes");
         var journal = new PortalMyCarlosApprovalJournal(transactions, properties);
@@ -43,7 +46,10 @@ class PortalMyCarlosApprovalJournalUnitTest {
         Map<String, Property> rows = new HashMap<>();
         when(properties.findByNameForUpdate(anyString())).thenAnswer(call -> rows.containsKey(call.getArgument(0))
                 ? List.of(rows.get(call.getArgument(0))) : List.of());
-        doAnswer(call -> { Property row = call.getArgument(0); rows.put(row.getName(), row); return null; }).when(properties).persist(any());
+        doAnswer(call -> { Property row = call.getArgument(0);
+            rows.put(row.getName(), row);
+            return null;
+        }).when(properties).persist(any());
         var staff = new PortalMyCarlosStaffApprovalService(transactions, f.owner.factory, f.security, properties,
                 () -> f.current, (source, transactionalSource) -> f.service, ignored -> null);
         var claims = PortalMyCarlosDeviceApprovalStateTestSupport.claims(f.first.path("intent").path("claims"));
@@ -77,7 +83,10 @@ class PortalMyCarlosApprovalJournalUnitTest {
         Map<String, Property> rows = new HashMap<>();
         when(properties.findByNameForUpdate(anyString())).thenAnswer(call -> rows.containsKey(call.getArgument(0))
                 ? List.of(rows.get(call.getArgument(0))) : List.of());
-        doAnswer(call -> { Property row = call.getArgument(0); rows.put(row.getName(), row); return null; }).when(properties).persist(any());
+        doAnswer(call -> { Property row = call.getArgument(0);
+            rows.put(row.getName(), row);
+            return null;
+        }).when(properties).persist(any());
         var staff = new PortalMyCarlosStaffApprovalService(transactions, f.owner.factory, f.security, properties,
                 () -> f.current, (source, transactionalSource) -> f.service, ignored -> null);
         var old = new PortalMyCarlosApprovalClient.Request(1, 1, f.first.path("intent").path("compact").textValue());
@@ -117,7 +126,10 @@ class PortalMyCarlosApprovalJournalUnitTest {
             Map<String, Property> rows = new HashMap<>();
             when(properties.findByNameForUpdate(anyString())).thenAnswer(call -> rows.containsKey(call.getArgument(0))
                     ? List.of(rows.get(call.getArgument(0))) : List.of());
-            doAnswer(call -> { Property row = call.getArgument(0); rows.put(row.getName(), row); return null; }).when(properties).persist(any());
+            doAnswer(call -> { Property row = call.getArgument(0);
+                rows.put(row.getName(), row);
+                return null;
+            }).when(properties).persist(any());
             var staff = new PortalMyCarlosStaffApprovalService(transactions, f.owner.factory, f.security, properties,
                     () -> f.current, (source, transactionalSource) -> f.service, ignored -> null);
             var claims = PortalMyCarlosDeviceApprovalStateTestSupport.claims(f.first.path("intent").path("claims"));
@@ -126,7 +138,8 @@ class PortalMyCarlosApprovalJournalUnitTest {
             var key = PortalMyCarlosDeviceApprovalStateTestSupport.privateKey(f.data.path("keys").path("first"),
                     "FAKE_ed25519_private_pkcs8_b64url", "Ed25519");
             var signer = java.security.Signature.getInstance("Ed25519");
-            signer.initSign(key); signer.update(payload);
+            signer.initSign(key);
+            signer.update(payload);
             String invalid = PortalMyCarlosDeviceApprovalCodec.base64(payload) + "." + PortalMyCarlosDeviceApprovalCodec.base64(signer.sign());
             var old = new PortalMyCarlosApprovalClient.Request(1, 1, invalid);
             var fresh = new PortalMyCarlosApprovalClient.Request(2, 1, f.first.path("intent").path("compact").textValue());
