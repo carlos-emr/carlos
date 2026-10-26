@@ -102,6 +102,13 @@ final class PortalMyCarlosDeliveryOutboxService {
         standalone();
         Lease lease = claim(rowId);
         if (lease == null) return SendResult.NOT_CLAIMED;
+        return transmit(lease);
+    }
+
+    /** The complete network boundary also permits a worker to resume an already claimed lease. */
+    SendResult transmit(Lease lease) {
+        standalone();
+        Objects.requireNonNull(lease);
         // Network initiation follows the second local fence. Concurrent removal after this point
         // races with the portal's deterministic device lock; no cross-system atomicity is claimed.
         if (!beforeHttp(lease)) return SendResult.FENCED;
@@ -120,8 +127,9 @@ final class PortalMyCarlosDeliveryOutboxService {
             if ("device_removed".equals(code)) {
                 state = "fenced"; failure = "device_removed"; result = SendResult.FENCED;
             } else if (remote.kind() == PatientPortalException.Kind.CONFLICT || remote.statusCode() == 400
-                    || remote.statusCode() == 401 || remote.statusCode() == 403 || remote.statusCode() == 404) {
-                state = "error"; failure = "delivery_conflict".equals(code) ? "delivery_conflict" : "portal_failure";
+                    || remote.statusCode() == 401 || remote.statusCode() == 403 || remote.statusCode() == 404 || remote.statusCode() == 413) {
+                state = "error"; failure = remote.statusCode() == 413 ? "invalid_delivery"
+                        : "delivery_conflict".equals(code) ? "delivery_conflict" : "portal_failure";
                 result = SendResult.ERROR;
             } else {
                 state = "staged"; retry = plus(now(), 60);
@@ -168,6 +176,7 @@ final class PortalMyCarlosDeliveryOutboxService {
             Row row = outbox.find(lease.rowId()).orElseThrow(() -> unavailable());
             if (!lease.token().equals(row.leaseId()) || lease.version() != row.version()
                     || !"staged".equals(row.state()) || lease.until() <= now()) return false;
+            if (!load(row).equals(lease.snapshot())) throw invalid();
             try {
                 eligible(lease.snapshot());
                 return true;
@@ -184,6 +193,7 @@ final class PortalMyCarlosDeliveryOutboxService {
                 || !java.util.HexFormat.of().formatHex(cfg.hash().copy()).equals(s.configSha256())
                 || !portal.myCarlosClinicId().equals(s.clinicId())
                 || !portal.myCarlosDeliveryTarget(s.demographicNo()).toASCIIString().equals(s.internalTarget())) throw unavailable();
+        if (outbox.deviceFenced(s.clinicId(), s.device().kid())) throw unavailable();
         var binding = bindings.findByClinicPatientForUpdate(s.clinicId(), s.demographicNo()).orElseThrow(() -> unavailable());
         var device = devices.findByKidForUpdate(s.device().kid()).orElseThrow(() -> unavailable());
         if (!binding.recipientId().equals(s.recipientId()) || !binding.publicBase().equals(s.publicBase())

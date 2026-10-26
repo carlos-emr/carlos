@@ -141,13 +141,44 @@ final class PortalMyCarlosDeliveryOutboxDao {
         });
     }
 
+    boolean deviceFenced(String clinic, String kid) {
+        return owned(c -> removedFence(c, clinic, kid));
+    }
+
     void fenceDevice(String clinic, String kid) {
         owned(c -> {
+            if (!removedFence(c, clinic, kid)) {
+                String value = new String(PortalMyCarlosDeliveryCodec.canonical(java.util.Map.of(
+                        "v", 1L, "clinic_id", clinic, "device_key_id", kid)), java.nio.charset.StandardCharsets.UTF_8);
+                try (var q = c.prepareStatement("INSERT INTO property (name,value,provider_no) VALUES (?,?,NULL)")) {
+                    q.setString(1, removalProperty(kid)); q.setString(2, value); changed(q.executeUpdate());
+                }
+            }
             try (var q = c.prepareStatement("UPDATE mycarlos_delivery_outbox SET state='fenced',lease_id=NULL,lease_until=NULL,failure_code='device_removed',row_version=row_version+1 WHERE clinic_id=? AND device_key_id=? AND state IN ('staged','waiting')")) {
                 q.setString(1, clinic); q.setString(2, kid); q.executeUpdate();
             }
             return null;
         });
+    }
+
+    private static boolean removedFence(Connection connection, String clinic, String kid) throws SQLException {
+        try (var q = connection.prepareStatement("SELECT value FROM property WHERE name=? AND (provider_no IS NULL OR TRIM(provider_no)='') FOR UPDATE")) {
+            q.setString(1, removalProperty(kid));
+            try (var r = q.executeQuery()) {
+                if (!r.next()) return false;
+                var stored = PortalMyCarlosDeliveryCodec.object(PortalMyCarlosDeviceApprovalCodec.utf8(r.getString(1)), 4096);
+                PortalMyCarlosDeliveryCodec.fields(stored, java.util.Set.of("v", "clinic_id", "device_key_id"));
+                if (r.next() || PortalMyCarlosDeliveryCodec.epoch(stored, "v") != 1
+                        || !clinic.equals(PortalMyCarlosDeliveryCodec.text(stored, "clinic_id"))
+                        || !kid.equals(PortalMyCarlosDeliveryCodec.text(stored, "device_key_id"))) throw invalid();
+                return true;
+            }
+        }
+    }
+
+    private static String removalProperty(String kid) {
+        PortalMyCarlosDeviceApprovalCodec.exact32(kid);
+        return "mycarlos.delivery.removed." + kid;
     }
 
     private static Row row(ResultSet r) throws SQLException {

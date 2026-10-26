@@ -43,6 +43,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 /** Owned real Maria rows/transactions only; accepted-state fixture and staff rights are synthetic. */
 @Tag("integration")
 class PortalMyCarlosDeliveryMariaIntegrationTest {
+    private final List<Long> ownedFenceProperties = new ArrayList<>();
     static final ObjectMapper JSON = new ObjectMapper();
     static JsonNode credentials;
     static DriverManagerDataSource source;
@@ -119,6 +120,12 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
     @AfterAll static void close() { if (context != null) context.close(); }
     @AfterEach void restoreOnlyOwnedAcceptanceFixture() throws Exception {
         NOW.set(1792454400L); current.set(initial);
+        for (long id : ownedFenceProperties) {
+            try (var c = source.getConnection(); var q = c.prepareStatement("DELETE FROM property WHERE id=? AND name=?")) {
+                q.setLong(1, id); q.setString(2, "mycarlos.delivery.removed.Ebz2sH2jVoqcdFhl1BmIOBRm1xuT-zW5bvFBcCeERPY");
+                assertEquals(1, q.executeUpdate());
+            }
+        }
         try (var c = source.getConnection(); var q = c.prepareStatement("UPDATE mycarlos_accepted_device SET removed_at=NULL,removal_id=NULL,removal_reason=NULL,removed_by_provider_no=NULL,version=0 WHERE id=1 AND binding_id=1")) { assertEquals(1, q.executeUpdate()); }
     }
 
@@ -199,6 +206,10 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
         String conflicting = receipt(pair.snapshot(), UUID.randomUUID().toString());
         assertThrows(IllegalStateException.class, () -> tx.withApprovalState(() -> { service.keepReceipt(dao.find(id).orElseThrow(), conflicting); return null; }));
         tx.withApprovalState(() -> { dao.fenceDevice("clinic-a", pair.snapshot().device().kid()); return null; });
+        try (var c = source.getConnection(); var q = c.prepareStatement("SELECT id FROM property WHERE name=?")) {
+            q.setString(1, "mycarlos.delivery.removed." + pair.snapshot().device().kid());
+            try (var r = q.executeQuery()) { assertTrue(r.next()); ownedFenceProperties.add(r.getLong(1)); }
+        }
         assertEquals(first, tx.withApprovalState(() -> dao.find(id).orElseThrow()));
         assertEquals(PortalMyCarlosDeliveryOutboxService.DeliveryStatus.PICKED_UP,
                 service.status(staff(), 123, pair.snapshot().deliveryId(), pair.snapshot().device().kid()));
@@ -210,6 +221,42 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
         assertEquals(PortalMyCarlosDeliveryOutboxService.SendResult.WAITING, service.send(id));
         assertEquals(PortalMyCarlosDeliveryOutboxService.DeliveryStatus.WAITING,
                 service.status(staff(), 123, pair.snapshot().deliveryId(), pair.snapshot().device().kid()));
+    }
+
+    @Test void shouldRecheckRemovalAfterClaim_beforeInitiatingAnyHttp() throws Exception {
+        var pair = pair(); var exchange = new Exchange(pair.snapshot()); var service = service(exchange);
+        long id = service.stage(staff(), pair.copy(), pair.snapshot());
+        var claimed = new CountDownLatch(1); var release = new CountDownLatch(1);
+        var pool = Executors.newSingleThreadExecutor();
+        try {
+            var worker = pool.submit(() -> {
+                var lease = service.claim(id); assertNotNull(lease); claimed.countDown();
+                assertTrue(release.await(20, TimeUnit.SECONDS));
+                return service.transmit(lease);
+            });
+            assertTrue(claimed.await(20, TimeUnit.SECONDS));
+            removeDevice(); // A real separate owning Maria transaction commits after the claim.
+            release.countDown();
+            assertEquals(PortalMyCarlosDeliveryOutboxService.SendResult.FENCED, worker.get(30, TimeUnit.SECONDS));
+            assertTrue(exchange.sent.isEmpty());
+        } finally { release.countDown(); pool.shutdownNow(); }
+    }
+
+    @Test void shouldPreservePickup_whenHttpCompletionArrivesAfterReceiptCommit() throws Exception {
+        var pair = pair(); var exchange = new Exchange(pair.snapshot()); var service = service(exchange);
+        long id = service.stage(staff(), pair.copy(), pair.snapshot());
+        exchange.requestStarted = new CountDownLatch(1); exchange.allowReply = new CountDownLatch(1);
+        var pool = Executors.newSingleThreadExecutor();
+        try {
+            var worker = pool.submit(() -> service.send(id));
+            assertTrue(exchange.requestStarted.await(20, TimeUnit.SECONDS));
+            String exact = receipt(pair.snapshot(), UUID.randomUUID().toString());
+            tx.withApprovalState(() -> { service.keepReceipt(dao.find(id).orElseThrow(), exact); return null; });
+            exchange.allowReply.countDown();
+            assertEquals(PortalMyCarlosDeliveryOutboxService.SendResult.STALE, worker.get(30, TimeUnit.SECONDS));
+            assertEquals(PortalMyCarlosDeliveryOutboxService.DeliveryStatus.PICKED_UP,
+                    service.status(staff(), 123, pair.snapshot().deliveryId(), pair.snapshot().device().kid()));
+        } finally { exchange.allowReply.countDown(); pool.shutdownNow(); }
     }
 
     @Test void shouldKeepExplicitTransportTerminalState_whenKnownRetryReturnsExpiredOrRemoved() throws Exception {
@@ -225,7 +272,7 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
     }
 
     @Test void shouldReportGenericAuthFailuresAndOnlyFenceKnownDeviceRemoval_whenPortalRefusesUpload() throws Exception {
-        for (int code : List.of(403, 404, 409)) {
+        for (int code : List.of(403, 404, 409, 413)) {
             var pair = pair(); var exchange = new Exchange(pair.snapshot()); exchange.responseStatus = code;
             if (code == 409) exchange.errorCode = "device_removed";
             var service = service(exchange); long id = service.stage(staff(), pair.copy(), pair.snapshot());
@@ -296,6 +343,7 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
     static final class Exchange implements PatientPortalHttpExchange {
         final PortalMyCarlosDeliverySnapshot snapshot;
         final List<byte[]> sent = new ArrayList<>(); final List<String> assertions = new ArrayList<>();
+        CountDownLatch requestStarted; CountDownLatch allowReply;
         boolean failFirst; String status = "waiting"; int responseStatus = 200; String errorCode;
         Exchange(PortalMyCarlosDeliverySnapshot snapshot) { this.snapshot = snapshot; }
         public PatientPortalHttpResponse send(ClassicHttpRequest request) throws IOException {
@@ -305,6 +353,11 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
                 assertEquals(1, count("mycarlos_delivery_outbox", snapshot.deliveryId())); }
             catch (Exception failure) { throw new AssertionError("sender must commit before HTTP", failure); }
             sent.add(request.getEntity().getContent().readAllBytes()); assertions.add(request.getFirstHeader(PortalJobAssertionSigner.HEADER).getValue());
+            if (requestStarted != null) {
+                requestStarted.countDown();
+                try { if (!allowReply.await(20, TimeUnit.SECONDS)) throw new IOException("FAKE timed out awaiting reply release"); }
+                catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new IOException("FAKE interrupted reply"); }
+            }
             if (failFirst && sent.size() == 1) throw new IOException("FAKE lost reply after server acceptance");
             if (responseStatus != 200) return new PatientPortalHttpResponse(responseStatus, errorCode == null ? "{}" : "{\"code\":\"" + errorCode + "\"}");
             return new PatientPortalHttpResponse(200, "{\"delivery_id\":\"" + snapshot.deliveryId() + "\",\"device_key_id\":\"" + snapshot.device().kid() + "\",\"status\":\"" + status + "\"}");
