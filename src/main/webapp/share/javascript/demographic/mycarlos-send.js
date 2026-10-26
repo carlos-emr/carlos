@@ -11,6 +11,7 @@
     const more = document.getElementById('delivery-more');
     const send = document.getElementById('delivery-send');
     const check = document.getElementById('delivery-check');
+    const chooser = document.getElementById('delivery-device');
     const copy = {};
     document.querySelectorAll('#delivery-copy [data-copy]').forEach(node => { copy[node.dataset.copy] = node.textContent; });
     const statuses = {};
@@ -19,7 +20,8 @@
     let busy = false;
     const alreadyQueued = () => Array.from(history.rows).some(row => row.dataset.delivery === root.dataset.delivery);
     const updateButtons = () => {
-        send.disabled = busy || !document.getElementById('delivery-device').value || alreadyQueued();
+        chooser.disabled = busy || chooser.options.length === 0;
+        send.disabled = busy || !chooser.value || alreadyQueued();
         check.disabled = busy;
         more.disabled = busy;
         more.hidden = !next;
@@ -43,6 +45,19 @@
             history.append(row);
         });
         document.getElementById('delivery-empty').hidden = history.rows.length !== 0;
+    };
+    const reconcileDevices = devices => {
+        const selected = chooser.value;
+        chooser.replaceChildren();
+        devices.forEach(device => {
+            const option = document.createElement('option');
+            option.value = device.deviceKeyId;
+            option.textContent = device.acceptedAt + ' · ' + device.fingerprint;
+            chooser.append(option);
+        });
+        // A removed selection requires a deliberate new device choice.
+        chooser.value = selected;
+        document.getElementById('delivery-no-device').hidden = devices.length !== 0;
     };
     async function request(operation, older) {
         if (busy) return;
@@ -77,6 +92,7 @@
                 failure.userMessage = typeof result.message === 'string' ? result.message : copy.error;
                 throw failure;
             }
+            reconcileDevices(result.devices);
             if (!older) history.replaceChildren();
             append(result.deliveries);
             next = result.nextCursor;
@@ -88,6 +104,7 @@
             updateButtons();
         }
     }
+    chooser.addEventListener('change', updateButtons);
     form.addEventListener('submit', event => { event.preventDefault(); request('send', false); });
     check.addEventListener('click', () => request('refresh', false));
     more.addEventListener('click', () => request('read', true));

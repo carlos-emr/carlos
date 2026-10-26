@@ -122,6 +122,7 @@ public final class PortalMyCarlosDeliveryApplicationService {
 
     private Document document(LoggedInInfo info, int patient, int documentId) {
         if (documentId <= 0 || !security.hasPrivilege(info, "_edoc", SecurityInfoManager.READ, Integer.toString(patient))
+                || !security.hasPrivilege(info, "_newCasemgmt.documents", SecurityInfoManager.READ, null)
                 || !ownership.findDocumentNosForDemographic(patient, List.of(documentId)).contains(documentId))
             throw new SecurityException("missing required sec object (_edoc)");
         Document document = documents.find(documentId);
@@ -146,7 +147,7 @@ public final class PortalMyCarlosDeliveryApplicationService {
             var rows = runtime.devices().historyForUpdate(binding.get().id(), 0, 51);
             if (rows.size() > 50) throw unavailable();
             return rows.stream().filter(row -> row.current() && !runtime.outbox().deviceFenced(runtime.current().clinic, row.kid()))
-                    .map(row -> new Device(row.kid(), row.kid(), row.acceptedAt())).toList();
+                    .map(row -> new Device(row.kid(), HexFormat.of().formatHex(PortalMyCarlosDeviceApprovalCodec.exact32(row.kid())), row.acceptedAt())).toList();
         });
         var references = transactions.withApprovalState(() -> runtime.outbox().historyReferences(runtime.current().clinic, patient, before, 21));
         List<Delivery> deliveries = new ArrayList<>();

@@ -59,12 +59,24 @@ class PortalMyCarlosSenderApplicationUnitTest {
         verifyNoInteractions(renderer, ownership, documents, transactions);
     }
     @Test void shouldRefuseDocumentOwnedByAnotherPatient_beforeConfigSigningQueueOrHttp() {
-        when(security.hasPrivilege(any(), anyString(), anyString(), anyString())).thenReturn(true);
+        when(security.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         when(ownership.findDocumentNosForDemographic(6001, List.of(44))).thenReturn(List.of());
         assertThrows(SecurityException.class, () -> application().read(staff(), 6001, 44, 0, null));
+        verify(ownership).findDocumentNosForDemographic(6001, List.of(44));
         verifyNoInteractions(documents, renderer, transactions);
     }
+    @Test void shouldRefuseMissingExistingRendererPermission_beforeSourceConfigOrRendering() throws Exception {
+        when(security.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
+        when(security.hasPrivilege(any(), eq("_newCasemgmt.documents"), eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
+        var application = application();
+        assertThrows(SecurityException.class, () -> application.read(staff(), 6001, 44, 0, null));
+        assertThrows(SecurityException.class, () -> application.send(staff(), 6001, 44,
+                "00000000-0000-4000-8000-000000000001", "A".repeat(43), null));
+        verifyNoInteractions(ownership, documents, renderer, transactions);
+    }
+
     @Test void shouldParseDedicatedKeyringAndRefuseUnknownDuplicateOrMissingKeys() {
         String key = Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
         String valid = "format=1\ncurrent=1\nkey.1=" + key + "\n";

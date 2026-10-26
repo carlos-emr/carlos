@@ -33,7 +33,7 @@
                         <option value="${carlos:forHtmlAttribute(device.deviceKeyId)}"><carlos:encode value="${device.acceptedAt}"/> · <carlos:encode value="${device.fingerprint}"/></option>
                     </c:forEach>
                 </select>
-                <c:if test="${empty devices}"><p><fmt:message key="mycarlos.delivery.noDevice"/></p></c:if>
+                <p id="delivery-no-device" ${empty devices ? '' : 'hidden'}><fmt:message key="mycarlos.delivery.noDevice"/></p>
                 <div class="delivery-actions">
                     <button type="submit" id="delivery-send" ${empty devices ? 'disabled' : ''}><fmt:message key="mycarlos.delivery.send"/></button>
                     <button type="button" id="delivery-check"><fmt:message key="mycarlos.delivery.check"/></button>

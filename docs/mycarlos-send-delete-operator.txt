@@ -10,7 +10,8 @@ The route is off by default. patient_portal.mycarlos.sender.enabled=true also
 requires the existing portal, myCarlos delivery and staff approval gates, an
 active published clinic P-256 signing identity, DELIVERY_SYNC job credentials,
 a stable pdf.signing.document_id.secret, and a locally verified accepted device.
-Staff require patient access, demographic read, eDoc read and
+Staff require patient access, demographic read, eDoc read, the existing
+_newCasemgmt.documents renderer read permission and
 _mycarlos_delivery write privileges. Deploy approved database migrations81/82
 with the normal database procedure before enabling. No startup schema repair
 or key creation is performed.
