@@ -1087,17 +1087,20 @@ public class PatientPortalService implements Closeable {
     }
 
     private ClassicHttpRequest buildRequest(String method, String path, String jsonBody, Caller caller) {
+        byte[] body = jsonBody == null ? null : jsonBody.getBytes(StandardCharsets.UTF_8);
+        return buildRequest(method, path, body, ContentType.APPLICATION_JSON, caller);
+    }
+
+    private ClassicHttpRequest buildRequest(String method, String path, byte[] exactBody,
+            ContentType contentType, Caller caller) {
         URI uri = resolve(path);
         HttpUriRequestBase request = new HttpUriRequestBase(method, uri);
-        byte[] body = jsonBody == null ? new byte[0]
-                : jsonBody.getBytes(StandardCharsets.UTF_8);
+        byte[] body = exactBody == null ? new byte[0] : exactBody;
         request.setHeader(AUTHORIZATION_HEADER,
                 String.format(Locale.ROOT, BEARER_PREFIX, settings.serviceToken().expose()));
-        // Sign the same raw URI and bytes handed to the transport. Neither the patient target
-        // nor the operation/body can be substituted after CARLOS has authorized the request.
         caller.sign(request, method, uri, body);
-        if (jsonBody != null) {
-            request.setEntity(new ByteArrayEntity(body, ContentType.APPLICATION_JSON));
+        if (exactBody != null) {
+            request.setEntity(new ByteArrayEntity(body, contentType));
         }
         return request;
     }
@@ -1114,6 +1117,109 @@ public class PatientPortalService implements Closeable {
     private Caller staffCaller(PatientPortalStaffContext staff) {
         return (request, method, uri, body) -> request.setHeader(STAFF_ASSERTION_HEADER,
                 assertionSigner.sign(staff, settings.clinicId(), settings.staffAssertionKeyId(), method, uri, body));
+    }
+
+    /**
+     * Additive M3/M4 transport. Adapters supply a fixed local route and parse its exact schema.
+     * No request body passes through a String: the assertion and HTTP entity use one snapshot.
+     */
+    String exchangeJob(PortalJobAssertionSigner job, String permission, String method, String path,
+            byte[] exactBody, int expectedStatus) {
+        return exchangeMyCarlosJob(job, permission, method, path, exactBody, Set.of(expectedStatus)).body();
+    }
+
+    PatientPortalHttpResponse exchangeMyCarlosJob(PortalJobAssertionSigner job, String permission,
+            String method, String path, byte[] exactBody, Set<Integer> expectedStatuses) {
+        if (!myCarlosDeliveryEnabled.getAsBoolean()) {
+            throw new PortalRequestPreparationException("myCarlos delivery is disabled");
+        }
+        if (job == null || permission == null || !job.job().permissions().contains(permission)
+                || !(job.job() == PortalJob.DEVICE_APPROVAL_SYNC || job.job() == PortalJob.DELIVERY_SYNC)
+                || expectedStatuses == null || expectedStatuses.isEmpty()
+                || !Set.of(200, 201).containsAll(expectedStatuses)) {
+            throw new PortalRequestPreparationException("myCarlos job request is invalid");
+        }
+        validateMyCarlosJobRoute(permission, method, path);
+        boolean upload = PortalJob.PERMISSION_DELIVERY_UPLOAD.equals(permission);
+        int maximum = upload ? PortalMyCarlosDeliveryCodec.MAX_BODY_BYTES : 65536;
+        if (exactBody == null || exactBody.length > maximum || (GET.equals(method) && exactBody.length != 0)) {
+            throw new PortalRequestPreparationException("myCarlos request body is invalid");
+        }
+        // No identifiers or remote body text enter transport error messages.
+        String template = "/internal/carlos/mycarlos/{operation}";
+        byte[] snapshot = exactBody.clone();
+        Caller caller = (request, verb, uri, bytes) -> request.setHeader(JOB_ASSERTION_HEADER,
+                job.sign(permission, settings.clinicId(), verb, uri, bytes));
+        PatientPortalHttpResponse response;
+        try {
+            response = exchange.send(buildRequest(method, path, GET.equals(method) ? null : snapshot,
+                    upload ? ContentType.APPLICATION_OCTET_STREAM : ContentType.APPLICATION_JSON, caller));
+        } catch (PortalResponseTooLargeException failure) {
+            throw unreadableBody(failure.statusCode(), template,
+                    new PortalContractException("portal response exceeds size limit"));
+        } catch (PortalResponseDecodingException failure) {
+            throw unreadableBody(failure.statusCode(), template,
+                    new PortalContractException("portal response is not valid UTF-8"));
+        } catch (IOException failure) {
+            throw PatientPortalException.ofTransportFailure(template, failure);
+        }
+        if (!response.isSuccess()) {
+            throw PatientPortalException.ofStatus(response.statusCode(), template, myCarlosMachineCode(response.body()));
+        }
+        if (!expectedStatuses.contains(response.statusCode()) || response.body() == null
+                || response.body().getBytes(StandardCharsets.UTF_8).length > 1048576) {
+            throw PatientPortalException.ofMalformedResponse(response.statusCode(), template,
+                    new PortalContractException("myCarlos response status or size is invalid"));
+        }
+        // Strict response-schema validation belongs to the endpoint adapter, including empty bodies.
+        return response;
+    }
+
+    private static String myCarlosMachineCode(String body) {
+        try {
+            var object = PortalMyCarlosDeliveryCodec.object(body.getBytes(StandardCharsets.UTF_8), 4096);
+            PortalMyCarlosDeliveryCodec.fields(object, Set.of("code"));
+            String code = PortalMyCarlosDeliveryCodec.text(object, "code");
+            return Set.of("device_removed", "delivery_conflict", "cursor_too_old", "invalid_cursor",
+                    "invalid_delivery", "mailbox_quota_exceeded", "invalid_approval",
+                    "approval_conflict", "approval_expired", "approval_unavailable", "approval_not_found").contains(code) ? code : null;
+        } catch (IllegalArgumentException failure) {
+            return null;
+        }
+    }
+
+    /** Same configured destination used by upload and the durable outbox configuration fence. */
+    URI myCarlosDeliveryTarget(int demographicNo) {
+        if (demographicNo <= 0) throw new PortalRequestPreparationException("demographic number must be positive");
+        return resolve("/internal/carlos/patients/" + demographicNo + "/mycarlos/deliveries");
+    }
+
+    String myCarlosClinicId() {
+        return settings.clinicId();
+    }
+
+    private static void validateMyCarlosJobRoute(String permission, String method, String path) {
+        String root = "/internal/carlos/mycarlos/";
+        String cursor = "(?:0|[1-9][0-9]{0,18})";
+        String uuid = "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+        boolean valid = switch (permission) {
+            case PortalJob.PERMISSION_APPROVAL_REQUESTS_READ -> GET.equals(method) && path != null
+                    && path.matches(root + "device-approval-requests\\?after=" + cursor + "&limit=(?:[1-9]|1[0-9]|20)");
+            case PortalJob.PERMISSION_APPROVAL_PROOFS_READ -> GET.equals(method) && path != null
+                    && path.matches(root + "device-approvals\\?after=" + cursor + "&limit=(?:[1-9]|1[0-9]|20)");
+            case PortalJob.PERMISSION_APPROVAL_CHALLENGES_PUBLISH -> PUT.equals(method) && path != null
+                    && path.matches(root + "device-approval-requests/" + uuid + "/challenge");
+            case PortalJob.PERMISSION_APPROVAL_DECISIONS_PUBLISH -> PUT.equals(method) && path != null
+                    && path.matches(root + "device-approval-requests/" + uuid + "/decision");
+            case PortalJob.PERMISSION_APPROVAL_DEVICES_REMOVE -> POST.equals(method) && (root + "device-removals").equals(path);
+            case PortalJob.PERMISSION_DELIVERY_UPLOAD -> POST.equals(method) && path != null
+                    && path.matches("/internal/carlos/patients/[1-9][0-9]{0,9}/mycarlos/deliveries");
+            case PortalJob.PERMISSION_DELIVERY_EVENTS_READ -> GET.equals(method) && path != null
+                    && path.matches(root + "delivery-events\\?after=" + cursor + "&limit=(?:[1-9]|[1-4][0-9]|50)");
+            case PortalJob.PERMISSION_DELIVERY_EVENTS_ACK -> POST.equals(method) && (root + "delivery-events/ack").equals(path);
+            default -> false;
+        };
+        if (!valid) throw new PortalRequestPreparationException("myCarlos job route is invalid");
     }
 
     /** The booking-sync job, claiming its one permission; any other signer is refused before sending. */
