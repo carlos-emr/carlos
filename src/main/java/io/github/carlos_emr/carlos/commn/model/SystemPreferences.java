@@ -46,7 +46,9 @@ public class SystemPreferences extends AbstractModel<Integer> {
 
     public enum ECHART_PREFERENCE_KEYS {echart_hide_timer,
         // The enum name is the persisted OSCAR-compatible preference key.
-        @SuppressWarnings("java:S115") echart_show_ocean}
+        @SuppressWarnings("java:S115") echart_show_ocean,
+        // ChartSpace clinic default layout id (ChartSpaceLayout); same persisted-key naming as above.
+        @SuppressWarnings("java:S115") chartspace_default_layout}
 
     public enum MASTER_FILE_PREFERENCE_KEYS {display_former_name, redirect_for_contact}
 

@@ -93,6 +93,9 @@ class ViewChartSpace2ActionIntegrationTest extends CarlosWebTestBase {
         when(demographicManager.getDemographic(any(LoggedInInfo.class), anyInt()))
                 .thenReturn(new Demographic(2, "FAKE-Given", "FAKE-Family"));
         replaceSpringUtilsBean(DemographicManager.class, demographicManager);
+        ChartSpaceLayoutService layoutService = mock(ChartSpaceLayoutService.class);
+        when(layoutService.loadClinicDefault()).thenReturn(ChartSpaceLayout.DEFAULT);
+        replaceSpringUtilsBean(ChartSpaceLayoutService.class, layoutService);
     }
 
     @Test

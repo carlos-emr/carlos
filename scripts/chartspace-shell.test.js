@@ -47,7 +47,7 @@ function buildPage() {
  * and waits for the load to settle. The allergies module is also required
  * fresh so its renderer captures the fake window as its root.
  */
-async function startShell(json, overrides) {
+async function startShell(json, overrides, initOptions) {
   const doc = buildPage();
   global.window = { document: doc };
   [SHELL_PATH, ALLERGIES_PATH].forEach((p) => delete require.cache[require.resolve(p)]);
@@ -61,7 +61,8 @@ async function startShell(json, overrides) {
     }, overrides);
     global.window.ChartSpace = { layout, allergies: block };
     require(SHELL_PATH);
-    global.window.ChartSpace.init({ contextPath: '/carlos', demographicNo: '2', i18n: I18N });
+    global.window.ChartSpace.init(Object.assign(
+      { contextPath: '/carlos', demographicNo: '2', i18n: I18N }, initOptions));
     for (let i = 0; i < 5; i++) {
       await new Promise((resolve) => setImmediate(resolve));
     }
@@ -89,6 +90,34 @@ test('a block that loads OK sits in the right region and its count is announced'
   assert.equal(card.hasAttribute('aria-busy'), false);
   assert.equal($('cs-announcer').textContent, 'Allergies: 2 records');
   assert.equal($('cs-hidden-toggle').disabled, true);
+});
+
+test('init with layoutId eyeCare mounts without errors and without empty cards', async () => {
+  const { $, doc } = await startShell(OK_JSON, undefined, { layoutId: 'eyeCare' });
+  const cards = byClass(doc.body, 'cs-block');
+  assert.equal(cards.length, 1);
+  cards.forEach((c) => {
+    assert.equal(c.getAttribute('data-state'), 'OK');
+    assert.ok(byClass(c, 'cs-block-title')[0].textContent !== '', 'card has a title');
+    assert.ok(byClass(c, 'cs-block-body')[0].textContent !== '', 'card has a body');
+  });
+  assert.equal(cards[0].parentNode, $('cs-right'));
+  assert.equal($('cs-top').childNodes.length, 0, 'no empty top region cards');
+});
+
+test('init resolves the preset for the layoutId it received', async () => {
+  const original = layout.resolvePreset;
+  const seen = [];
+  layout.resolvePreset = function (id) {
+    seen.push(id);
+    return original(id);
+  };
+  try {
+    await startShell(OK_JSON, undefined, { layoutId: 'eyeCare' });
+  } finally {
+    layout.resolvePreset = original;
+  }
+  assert.deepEqual(seen, ['eyeCare'], 'resolvePreset called once with the layoutId given to init');
 });
 
 test('an EMPTY block moves to the hidden panel, enables the toggle and is announced', async () => {

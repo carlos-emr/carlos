@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionContext;
 import org.apache.struts2.ActionSupport;
@@ -37,6 +38,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -66,10 +72,14 @@ class ViewChartSpace2ActionUnitTest {
     private SecurityInfoManager securityInfoManager;
     private CaseManagementManager caseManagementManager;
     private DemographicManager demographicManager;
+    private ChartSpaceLayoutService layoutService;
     private ViewChartSpace2Action action;
+    private String originalBaseName;
 
     @BeforeEach
     void setUp() {
+        // Capture before any test changes the global, so tearDown is always a true restore.
+        originalBaseName = LocaleUtils.BASE_NAME;
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         session = new MockHttpSession();
@@ -87,8 +97,10 @@ class ViewChartSpace2ActionUnitTest {
         when(caseManagementManager.isClientInProgramDomain("999998", "2")).thenReturn(true);
         demographicManager = mock(DemographicManager.class);
         when(demographicManager.getDemographic(any(), eq(2))).thenReturn(fakePatient());
+        layoutService = mock(ChartSpaceLayoutService.class);
+        when(layoutService.loadClinicDefault()).thenReturn(ChartSpaceLayout.DEFAULT);
         action = new ViewChartSpace2Action(new ChartSpaceRequestValidator(securityInfoManager, caseManagementManager),
-                demographicManager);
+                demographicManager, layoutService);
     }
 
     private static Demographic fakePatient() {
@@ -102,6 +114,39 @@ class ViewChartSpace2ActionUnitTest {
     @AfterEach
     void tearDown() {
         ActionContext.clear();
+        LocaleUtils.BASE_NAME = originalBaseName;
+        ResourceBundle.clearCache();
+    }
+
+    // LocaleUtils.BASE_NAME is set by ContextStartupListener at webapp start; unit tests get no listener.
+    private void negotiateFrenchAfterUnsupportedGerman() {
+        LocaleUtils.BASE_NAME = "oscarResources";
+        ResourceBundle.clearCache();
+        request.addHeader("Accept-Language", "de-DE,fr");
+        request.setPreferredLocales(List.of(Locale.GERMANY, Locale.FRENCH));
+    }
+
+    @Test
+    void shouldExposeNegotiatedLocale_whenBrowserPrefersUnsupportedLanguage() throws Exception {
+        negotiateFrenchAfterUnsupportedGerman();
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("csLocale")).isEqualTo(Locale.FRENCH);
+    }
+
+    @Test
+    void shouldComputeAge_withNegotiatedLocale() throws Exception {
+        negotiateFrenchAfterUnsupportedGerman();
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+        Demographic patient = spy(fakePatient());
+        when(demographicManager.getDemographic(any(), eq(2))).thenReturn(patient);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(patient).getAgeAsOf(any(Date.class), eq(Locale.FRENCH));
+        verify(patient, never()).getAgeAsOf(any(Date.class), eq(Locale.GERMANY));
     }
 
     @Test
@@ -120,6 +165,7 @@ class ViewChartSpace2ActionUnitTest {
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_eChart)");
+        assertThat(request.getAttribute("csLocale")).isNull();
     }
 
     @Test
@@ -137,6 +183,7 @@ class ViewChartSpace2ActionUnitTest {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("csLocale")).isNull();
         verifyNoInteractions(securityInfoManager);
     }
 
@@ -149,6 +196,7 @@ class ViewChartSpace2ActionUnitTest {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("GET, HEAD");
+        assertThat(request.getAttribute("csLocale")).isNull();
         verifyNoInteractions(securityInfoManager);
     }
 
@@ -217,6 +265,7 @@ class ViewChartSpace2ActionUnitTest {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(404);
         assertThat(request.getAttribute("csPatientName")).isNull();
+        assertThat(request.getAttribute("csLocale")).isNull();
     }
 
     @Test
@@ -234,5 +283,55 @@ class ViewChartSpace2ActionUnitTest {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         verifyNoInteractions(demographicManager);
+    }
+
+    @Test
+    void shouldExposeLayoutId_whenServiceReturnsEyeCare() throws Exception {
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+        when(layoutService.loadClinicDefault()).thenReturn(ChartSpaceLayout.EYE_CARE);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("csLayoutId")).isEqualTo("eyeCare");
+    }
+
+    @Test
+    void shouldExposeFamilyPracticeId_whenServiceReturnsDefault() throws Exception {
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("csLayoutId")).isEqualTo("familyPractice");
+    }
+
+    @Test
+    void shouldNotReadLayout_whenValidationFails() {
+        request.setParameter("demographicNo", "2");
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(layoutService);
+        assertThat(request.getAttribute("csLayoutId")).isNull();
+    }
+
+    @Test
+    void shouldNotReadLayout_whenPatientNotFound() throws Exception {
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+        when(demographicManager.getDemographic(any(), eq(2))).thenReturn(null);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verifyNoInteractions(layoutService);
+        assertThat(request.getAttribute("csLayoutId")).isNull();
+    }
+
+    @Test
+    void shouldPropagateError_whenLayoutReadFails() {
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+        when(layoutService.loadClinicDefault()).thenThrow(new IllegalStateException("FAKE-db-down"));
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("FAKE-db-down");
     }
 }

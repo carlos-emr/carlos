@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.chartspace;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -34,6 +35,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -65,6 +67,7 @@ public class ViewChartSpace2Action extends ActionSupport {
 
     private final transient ChartSpaceRequestValidator validator;
     private final transient DemographicManager demographicManager;
+    private final transient ChartSpaceLayoutService layoutService;
 
     /**
      * Creates the action for Struts-managed instantiation paths, resolving
@@ -73,7 +76,8 @@ public class ViewChartSpace2Action extends ActionSupport {
      * @throws org.springframework.beans.BeansException if a required bean is unavailable
      */
     public ViewChartSpace2Action() {
-        this(SpringUtils.getBean(ChartSpaceRequestValidator.class), SpringUtils.getBean(DemographicManager.class));
+        this(SpringUtils.getBean(ChartSpaceRequestValidator.class), SpringUtils.getBean(DemographicManager.class),
+                SpringUtils.getBean(ChartSpaceLayoutService.class));
     }
 
     /**
@@ -81,11 +85,14 @@ public class ViewChartSpace2Action extends ActionSupport {
      *
      * @param validator shared ChartSpace request checks
      * @param demographicManager privilege-aware patient lookup for the page header
+     * @param layoutService reads the clinic default layout shown on the page
      */
     @Autowired
-    public ViewChartSpace2Action(ChartSpaceRequestValidator validator, DemographicManager demographicManager) {
+    public ViewChartSpace2Action(ChartSpaceRequestValidator validator, DemographicManager demographicManager,
+                                 ChartSpaceLayoutService layoutService) {
         this.validator = validator;
         this.demographicManager = demographicManager;
+        this.layoutService = layoutService;
     }
 
     @Override
@@ -107,6 +114,13 @@ public class ViewChartSpace2Action extends ActionSupport {
             return NONE;
         }
 
+        // One locale for the whole page: JSTL labels, the age below and <html lang> all use it, so a
+        // browser asking for "de-DE,fr" cannot get French labels with an English age and lang="de".
+        Locale locale = LocaleUtils.resolveBundleLocale(request);
+        request.setAttribute("csLocale", locale);
+        // Not caught on purpose: a database failure is a plain 500, never an invented default. The id is
+        // taken from the enum (allow-list), so the JSP can build a message key from it safely.
+        request.setAttribute("csLayoutId", layoutService.loadClinicDefault().id());
         request.setAttribute("demographicNo", validated.get().demographicNo());
         request.setAttribute("csPatientName", patient.getFullName());
         // getAgeAsOf substitutes "1900" for an empty year of birth, which would show a fabricated
@@ -114,7 +128,7 @@ public class ViewChartSpace2Action extends ActionSupport {
         String yearOfBirth = patient.getYearOfBirth();
         if (yearOfBirth != null && !yearOfBirth.isBlank()) {
             // Already localized by Demographic ("45 years"); null/blank means no usable date of birth.
-            String age = patient.getAgeAsOf(new Date(), request.getLocale());
+            String age = patient.getAgeAsOf(new Date(), locale);
             if (age != null && !age.isBlank()) {
                 request.setAttribute("csPatientAge", age);
             }

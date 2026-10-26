@@ -25,8 +25,8 @@
  * regions a block lands in once its load status is known. No DOM access, so it
  * can be tested with node --test.
  *
- * The preset is fixed in PR1; persisting a per-user layout (UserProperty) is a
- * later PR.
+ * The preset is chosen by id (resolvePreset); persisting a per-user layout
+ * (UserProperty) is a later PR.
  */
 (function (root) {
   'use strict';
@@ -34,11 +34,23 @@
   var TOP_MAX = 4;
   var REGIONS = ['top', 'right', 'hidden'];
 
-  var PRESET = Object.freeze({
-    top: Object.freeze([]),
-    right: Object.freeze(['allergies']),
-    hidden: Object.freeze([])
+  /*
+   * Layout presets, keyed by the persisted id. The keys must equal the ids of the
+   * Java enum ChartSpaceLayout (a test reads the source to check it). Ids of blocks
+   * that are not registered yet are dropped by normalizeLayout, so a preset may name
+   * blocks that arrive in later PRs.
+   */
+  var PRESETS = Object.freeze({
+    familyPractice: Object.freeze({
+      top: Object.freeze(['socialHistory', 'medicalHistory', 'ongoingConcerns', 'reminders']),
+      right: Object.freeze(['allergies'])
+    }),
+    eyeCare: Object.freeze({
+      top: Object.freeze(['ocularHistory', 'impressionHistory', 'ocularMedications', 'iopTrend']),
+      right: Object.freeze(['allergies'])
+    })
   });
+  var DEFAULT_PRESET_ID = 'familyPractice';
 
   function asArray(value) {
     return Array.isArray(value) ? value : [];
@@ -99,8 +111,23 @@
     return out;
   }
 
+  /**
+   * Returns the preset for id, or the default preset for any other value
+   * (undefined, unknown text, or inherited names such as '__proto__' and
+   * 'constructor'). Own-property lookup is the allow-list: the id may come from
+   * the page and is never trusted as a key.
+   */
+  function resolvePreset(id) {
+    if (typeof id === 'string' && Object.prototype.hasOwnProperty.call(PRESETS, id)) {
+      return PRESETS[id];
+    }
+    return PRESETS[DEFAULT_PRESET_ID];
+  }
+
   var api = {
-    PRESET: PRESET,
+    PRESETS: PRESETS,
+    DEFAULT_PRESET_ID: DEFAULT_PRESET_ID,
+    resolvePreset: resolvePreset,
     TOP_MAX: TOP_MAX,
     normalizeLayout: normalizeLayout,
     partition: partition

@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { PRESET, TOP_MAX, normalizeLayout, partition } =
+const { PRESETS, DEFAULT_PRESET_ID, resolvePreset, TOP_MAX, normalizeLayout, partition } =
   require('../src/main/webapp/js/chartspace/chartspace-layout.js');
 
 test('normalizeLayout drops unknown ids and duplicates, first region wins', () => {
@@ -24,14 +24,76 @@ test('normalizeLayout tolerates missing or non-array regions', () => {
   assert.deepEqual(normalizeLayout({ top: 'a', right: 7 }, ['a']), { top: [], right: [], hidden: [] });
 });
 
-test('normalizeLayout returns a fresh object and never mutates PRESET', () => {
-  const out = normalizeLayout(PRESET, ['allergies']);
-  assert.notEqual(out, PRESET);
-  assert.notEqual(out.right, PRESET.right);
-  assert.ok(Object.isFrozen(PRESET));
+test('normalizeLayout returns a fresh object and never mutates the preset', () => {
+  assert.ok(PRESETS[DEFAULT_PRESET_ID], 'the default preset exists');
+  const out = normalizeLayout(PRESETS[DEFAULT_PRESET_ID], ['allergies']);
+  assert.notEqual(out, PRESETS[DEFAULT_PRESET_ID]);
+  assert.notEqual(out.right, PRESETS[DEFAULT_PRESET_ID].right);
+  assert.ok(Object.isFrozen(PRESETS[DEFAULT_PRESET_ID]));
   assert.deepEqual(out, { top: [], right: ['allergies'], hidden: [] });
   out.right.push('zzz');
-  assert.deepEqual(PRESET.right, ['allergies']);
+  assert.deepEqual(PRESETS[DEFAULT_PRESET_ID].right, ['allergies']);
+});
+
+const ALL_PRESET_IDS = ['familyPractice', 'eyeCare'];
+
+test('PRESETS, every preset and every region array are frozen', () => {
+  assert.ok(Object.isFrozen(PRESETS));
+  Object.keys(PRESETS).forEach((id) => {
+    assert.ok(Object.isFrozen(PRESETS[id]), id);
+    Object.keys(PRESETS[id]).forEach((region) => assert.ok(Object.isFrozen(PRESETS[id][region]), id + '.' + region));
+  });
+  assert.deepEqual(Object.keys(PRESETS).sort(), ALL_PRESET_IDS.slice().sort());
+});
+
+test('presets match the contract', () => {
+  assert.equal(DEFAULT_PRESET_ID, 'familyPractice');
+  assert.deepEqual(PRESETS.familyPractice, {
+    top: ['socialHistory', 'medicalHistory', 'ongoingConcerns', 'reminders'],
+    right: ['allergies']
+  });
+  assert.deepEqual(PRESETS.eyeCare, {
+    top: ['ocularHistory', 'impressionHistory', 'ocularMedications', 'iopTrend'],
+    right: ['allergies']
+  });
+  assert.ok(PRESETS.eyeCare.top.length <= TOP_MAX);
+  assert.ok(PRESETS.familyPractice.top.length <= TOP_MAX);
+});
+
+test('with only allergies registered both presets normalize to top empty and right allergies', () => {
+  assert.deepEqual(normalizeLayout(PRESETS.familyPractice, ['allergies']),
+    { top: [], right: ['allergies'], hidden: [] });
+  assert.deepEqual(normalizeLayout(PRESETS.eyeCare, ['allergies']),
+    { top: [], right: ['allergies'], hidden: [] });
+});
+
+test('resolvePreset returns the named preset for known ids', () => {
+  const eye = resolvePreset('eyeCare');
+  const family = resolvePreset('familyPractice');
+  assert.ok(eye && family, 'resolvePreset returns an object');
+  assert.equal(eye, PRESETS.eyeCare);
+  assert.equal(family, PRESETS.familyPractice);
+  assert.deepEqual(eye.top, ['ocularHistory', 'impressionHistory', 'ocularMedications', 'iopTrend']);
+  assert.deepEqual(family.top, ['socialHistory', 'medicalHistory', 'ongoingConcerns', 'reminders']);
+});
+
+test('resolvePreset falls back to the default for anything else', () => {
+  [undefined, null, '', 'x', '__proto__', 'constructor', 'toString', 'hasOwnProperty', 7, {}].forEach((bad) => {
+    const got = resolvePreset(bad);
+    assert.ok(got, 'default preset returned for ' + String(bad));
+    assert.equal(got, PRESETS.familyPractice, String(bad));
+    assert.deepEqual(got.right, ['allergies']);
+  });
+});
+
+test('PRESETS ids equal the ChartSpaceLayout.java enum ids', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname,
+    '../src/main/java/io/github/carlos_emr/carlos/chartspace/ChartSpaceLayout.java'), 'utf8');
+  const ids = Array.from(src.matchAll(/^\s*[A-Z][A-Z_]*\("([A-Za-z]+)"\)\s*[,;]/gm), (m) => m[1]);
+  assert.ok(ids.length > 0, 'enum ids found in source');
+  assert.deepEqual(Object.keys(PRESETS).sort(), ids.sort());
 });
 
 test('partition auto-hides EMPTY blocks but never NO_ACCESS, ERROR or LOADING', () => {
@@ -91,7 +153,12 @@ test('chartSpace.jsp keeps the presentation contract', () => {
   assert.ok(order[0] > -1 && order[0] < order[1] && order[1] < order[2], String(order));
   ['cs-top', 'cs-right', 'cs-hidden-toggle', 'cs-hidden-panel', 'cs-announcer']
     .forEach((id) => assert.ok(jsp.includes('id="' + id + '"'), id));
-  assert.ok(jsp.includes('<html lang="${pageContext.request.locale.language}">'));
+  // One negotiated locale (set by the gate as csLocale) for labels, age and page language.
+  const setLocale = jsp.indexOf('<fmt:setLocale value="${csLocale}"/>');
+  assert.ok(setLocale > -1, 'fmt:setLocale uses csLocale');
+  assert.ok(setLocale < jsp.indexOf('<fmt:setBundle basename="oscarResources"/>'), 'setLocale precedes setBundle');
+  assert.ok(jsp.includes('<html lang="${carlos:forHtmlAttribute(csLocale.toLanguageTag())}">'));
+  assert.ok(!jsp.includes('pageContext.request.locale'), 'no request.locale left on the page');
 });
 
 function readJsp() {
@@ -116,10 +183,10 @@ test('CSS styles the patient age as normal-weight, name-coloured text', () => {
   ['font-weight: 400', 'color: inherit', 'margin-left: .25rem'].forEach((d) => assert.ok(m[1].includes(d), d));
 });
 
-test('JSP drops the unused core taglib and the redundant setLocale', () => {
+test('JSP drops the unused core taglib', () => {
   const jsp = readJsp();
   assert.ok(!jsp.includes('prefix="c"'), 'no core taglib');
-  assert.ok(!jsp.includes('fmt:setLocale'), 'no fmt:setLocale');
+  // fmt:setLocale is no longer redundant: it pins labels to the gate's negotiated csLocale (Task 0c).
 });
 
 test('JSP has one page-level polite status announcer outside the hidden panel', () => {
@@ -145,5 +212,88 @@ test('JSP passes the announce messages to the shell, JavaScript-encoded', () => 
     const cap = 'csA' + k.slice(1);
     assert.ok(jsp.includes('<fmt:message key="chartspace.chartSpace.' + k + '" var="' + cap + '"/>'), k);
     assert.ok(jsp.includes(k + ": '${carlos:forJavaScript(" + cap + ")}'"), k);
+  });
+});
+
+test('JSP passes the layout id to init, JavaScript-encoded', () => {
+  assert.ok(readJsp().includes("layoutId: '${carlos:forJavaScript(csLayoutId)}'"));
+});
+
+test('JSP shows the layout name through fmt:message var and carlos:encode only', () => {
+  const jsp = readJsp();
+  assert.ok(jsp.includes('<fmt:message key="chartspace.chartSpace.layout.${csLayoutId}" var="csLayoutName"/>'));
+  assert.ok(jsp.includes('<fmt:message key="chartspace.chartSpace.layoutLabel" var="csLayoutLabel"/>'));
+  const span = /<span class="cs-layout-name">([\s\S]*?)<\/span>/.exec(jsp);
+  assert.ok(span, 'cs-layout-name span present');
+  assert.equal(span[1].trim(), '<carlos:encode value="${csLayoutName}"/>');
+  assert.ok(jsp.includes('<carlos:encode value="${csLayoutLabel}"/>'));
+  const bare = (jsp.match(/<fmt:message\b(?![^>]*\bvar=)[^>]*>/g) || []);
+  assert.deepEqual(bare, [], 'no fmt:message written straight into the HTML');
+});
+
+test('CSS top row shrinks to 12rem tracks so up to TOP_MAX cards fit', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const css = fs.readFileSync(path.join(__dirname, '../src/main/webapp/css/chartspace.css'), 'utf8');
+  const m = /\.cs-top\s*\{([^}]*)\}/.exec(css);
+  assert.ok(m, '.cs-top rule present');
+  assert.ok(m[1].includes('repeat(auto-fit, minmax(12rem, 1fr))'), m[1]);
+  assert.ok(!/!important/.test(m[1]), 'no !important in the rule');
+});
+
+test('CSS styles the layout name text with a cs- class', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const css = fs.readFileSync(path.join(__dirname, '../src/main/webapp/css/chartspace.css'), 'utf8');
+  const rule = /\.cs-layout-name\s*\{([^}]*)\}/.exec(css);
+  assert.ok(rule && rule[1].includes('font-weight'), '.cs-layout-name rule present');
+  assert.ok(!/!important/.test(rule[1]), 'no !important in the rule');
+});
+
+test('JSP leaves the layout label punctuation to the message, with whitespace before the name', () => {
+  const jsp = readJsp();
+  assert.ok(/<carlos:encode value="\$\{csLayoutLabel\}"\/>\s+<span class="cs-layout-name">/.test(jsp),
+    'label is followed by whitespace and the name span, no literal colon');
+});
+
+function rawProperty(locale, key) {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const text = fs.readFileSync(
+    path.join(__dirname, '../src/main/resources/oscarResources_' + locale + '.properties'), 'latin1');
+  const line = text.split(/\r?\n/).find(function (l) { return l.indexOf(key + '=') === 0; });
+  assert.ok(line, key + ' present in ' + locale);
+  return line.slice(key.length + 1);
+}
+
+test('layout label carries its punctuation, written as raw ASCII escapes', () => {
+  const expected = {
+    en: 'Layout:',
+    es: 'Disposici\\u00f3n:',
+    fr: 'Disposition\\u00a0:',
+    pl: 'Uk\\u0142ad:',
+    pt_BR: 'Layout:'
+  };
+  Object.keys(expected).forEach(function (locale) {
+    assert.equal(rawProperty(locale, 'chartspace.chartSpace.layoutLabel'), expected[locale], locale);
+  });
+});
+
+test('Spanish names the Eye care layout "Cuidado ocular", not the specialty', () => {
+  assert.equal(rawProperty('es', 'chartspace.chartSpace.layout.eyeCare'), 'Cuidado ocular');
+  assert.equal(rawProperty('es', 'admin.echartDisplaySettings.layout.eyeCare'), 'Cuidado ocular');
+});
+
+test('Spanish admin layout texts use the same term as ChartSpace, "Disposicion", as raw ASCII escapes', () => {
+  const expected = {
+    'admin.echartDisplaySettings.layout.label':
+      'Disposici\\u00f3n predeterminada de ChartSpace',
+    'admin.echartDisplaySettings.layout.help':
+      'Disposici\\u00f3n que ChartSpace usa en toda la cl\\u00ednica. Medicina familiar es el valor predeterminado.',
+    'admin.echartDisplaySettings.layout.invalid':
+      'La disposici\\u00f3n seleccionada no es v\\u00e1lida y no se guard\\u00f3 nada. Elija una de las disposiciones de la lista.'
+  };
+  Object.keys(expected).forEach(function (key) {
+    assert.equal(rawProperty('es', key), expected[key], key);
   });
 });
