@@ -99,6 +99,12 @@ class MsgHandleMessages2ActionDeleteGuardUnitTest extends CarlosUnitTestBase {
         message.setDate(new Date());
         message.setTime(new Date());
         when(messagingManager.getMessage(loggedInInfo, MESSAGE_ID)).thenReturn(message);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("101");
+        message.setSentByNo("101");
+        when(createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.MessageTblDao.class).find(MESSAGE_ID))
+                .thenReturn(message);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao.class);
+
         when(messengerDemographicManager.getAttachedDemographicList(loggedInInfo, MESSAGE_ID)).thenReturn(List.of());
 
         request = new MockHttpServletRequest();

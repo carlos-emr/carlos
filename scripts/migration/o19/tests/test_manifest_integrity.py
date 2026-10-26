@@ -12,13 +12,16 @@ Run (from the repository root):
     python3 -m unittest discover -s scripts/migration/o19/tests -t .
 """
 
+import contextlib
 import importlib.util
+import io
 import json
 import re
+import tempfile
 import unittest
 from pathlib import Path
 
-from carlos_ctl import o19etl, o19map_props, o19map_schema
+from carlos_ctl import o19etl, o19manifest, o19map_props, o19map_schema
 
 
 def load_generator():
@@ -434,24 +437,36 @@ class TestDroppedPrefixesTrackTheFileRules(unittest.TestCase):
 
 
 class TestPreflightDriftLock(unittest.TestCase):
-    """The data embedded in o19_preflight.py must be exactly derivable from
-    o19map_schema — the two ship together and must never drift."""
+    """Installed preflight rulings must agree with the installed schema.
 
-    def test_embedded_data_matches_schema_manifest(self):
-        from carlos_ctl import o19_preflight as pf
+    The CLI and CARLOS packages version independently. Import mode loads
+    CARLOS's manifest over the CLI release's embedded fallback; standalone
+    export embeds that same installed manifest. Test those public paths
+    without rebinding the preflight module other tests import.
+    """
+
+    def _load_preflight(self, path=None):
+        from carlos_ctl import o19_preflight
+        spec = importlib.util.spec_from_file_location(
+            "preflight_manifest_contract", path or o19_preflight.__file__)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def _assert_schema_rulings(self, pf, schema):
         self.assertEqual(pf.SCHEMA_MAP_VERSION,
-                         o19map_schema.SCHEMA_MAP_VERSION)
+                         schema["SCHEMA_MAP_VERSION"])
         self.assertEqual(sorted(pf.CREDENTIAL_TABLES),
-                         sorted(o19map_schema.CREDENTIAL_TABLES))
+                         sorted(schema["CREDENTIAL_TABLES"]))
         self.assertEqual(
             pf.PATIENT_DATA_TABLES,
-            sorted(t for t, e in o19map_schema.TABLES.items()
+            sorted(t for t, e in schema["TABLES"].items()
                    if e.get("patient_data")))
         self.assertEqual(pf.KNOWN_TABLES,
                          {t: e["class"]
-                          for t, e in o19map_schema.TABLES.items()})
+                          for t, e in schema["TABLES"].items()})
         b3 = {}
-        for t, e in o19map_schema.TABLES.items():
+        for t, e in schema["TABLES"].items():
             for col, d in e.get("dropped", {}).items():
                 if d.get("b3"):
                     b3.setdefault(t, {})[col] = \
@@ -459,11 +474,91 @@ class TestPreflightDriftLock(unittest.TestCase):
         self.assertEqual(pf.B3_FLAGGED_COLUMNS, b3)
         self.assertEqual(
             pf.CHARSET_SCAN,
-            {t: e["charset_scan"] for t, e in o19map_schema.TABLES.items()
+            {t: e["charset_scan"] for t, e in schema["TABLES"].items()
              if e.get("charset_scan")})
-        self.assertEqual(pf.STOCK_ROLE_NAMES, o19map_schema.STOCK_ROLE_NAMES)
+        self.assertEqual(pf.STOCK_ROLE_NAMES, schema["STOCK_ROLE_NAMES"])
         self.assertEqual(pf.LEGACY_PREVENTION_TYPES,
-                         sorted(o19map_schema.PREVENTION_TYPE_MAP))
+                         sorted(schema["PREVENTION_TYPE_MAP"]))
+
+    def _assert_all_profiles(self, pf, schema):
+        default = schema["O19_PROFILE"]
+        # Returning to the default must restore installed ON data after BC,
+        # rather than the older snapshot embedded in the CLI release.
+        for province in [default] + sorted(schema["PROFILES"]) + [default]:
+            with self.subTest(province=province):
+                expected = dict(schema)
+                expected.update(schema["PROFILES"].get(province, {}))
+                self.assertEqual(pf.bind(province), province)
+                self._assert_schema_rulings(pf, expected)
+
+    def test_installed_data_matches_schema_manifest_for_every_profile(self):
+        pf = self._load_preflight()
+        installed = o19manifest.load("o19-preflight")
+        self.assertEqual(pf.load_manifest(installed),
+                         installed["SCHEMA_MAP_VERSION"])
+        self._assert_all_profiles(pf, o19manifest.load("o19map-schema"))
+
+    def test_installed_manifest_replaces_stale_rulings_and_profile_defaults(self):
+        pf = self._load_preflight()
+        installed = o19manifest.load("o19-preflight")
+        stale = json.loads(json.dumps(installed))
+        for profile in [stale] + list(stale["PROFILES"].values()):
+            profile["SCHEMA_MAP_VERSION"] = "o19map-3+older-rules"
+            profile["KNOWN_TABLES"] = {"retired_only_table": "copy"}
+        pf.load_manifest(stale)
+        self.assertEqual(pf.KNOWN_TABLES, {"retired_only_table": "copy"})
+
+        pf.load_manifest(installed)
+        self._assert_all_profiles(pf, o19manifest.load("o19map-schema"))
+
+    def test_standalone_export_embeds_installed_rulings_for_every_profile(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "o19_preflight.py")
+            version = o19manifest.write_standalone_preflight(path)
+            schema = o19manifest.load("o19map-schema")
+            self.assertEqual(version, schema["SCHEMA_MAP_VERSION"])
+            self._assert_all_profiles(self._load_preflight(path), schema)
+
+    def test_previous_program_coercion_token_cannot_resume_an_import(self):
+        from carlos_ctl import o19import
+        schema = o19manifest.load("o19map-schema")
+        for profile in [schema] + list(schema["PROFILES"].values()):
+            current = profile["SCHEMA_MAP_VERSION"]
+            with self.subTest(province=profile["O19_PROFILE"]):
+                self.assertEqual(current.split("+", 1)[0], "o19map-4")
+                previous = "o19map-3+" + current.split("+", 1)[1]
+                state = {"inputs": {"schema_map_version": previous},
+                         "phases": {"etl": {"status": "done"}}}
+                refusal = o19import.manifest_change_refusal(state, current)
+                self.assertIn(previous, refusal)
+                self.assertIn(current, refusal)
+                self.assertIn("reinstall the carlos-emr package version", refusal)
+                state["inputs"]["schema_map_version"] = current
+                self.assertIsNone(o19import.manifest_change_refusal(state, current))
+
+                with tempfile.TemporaryDirectory() as directory:
+                    progress = {"tables": {"program": {"done": True}},
+                                "dump_sha256": "same-fixture-dump",
+                                "schema_map_version": previous}
+                    o19etl.save_progress(directory, progress)
+                    ledger = Path(o19etl.progress_path(directory))
+                    before = ledger.read_bytes()
+                    self.assertEqual(o19etl.load_progress(
+                        directory, "same-fixture-dump", previous), progress)
+                    error = io.StringIO()
+                    with contextlib.redirect_stderr(error), \
+                            self.assertRaises(SystemExit) as caught:
+                        o19etl.load_progress(directory, "same-fixture-dump", current)
+                    self.assertEqual(caught.exception.code, 1)
+                    self.assertIn(previous, error.getvalue())
+                    self.assertIn(current, error.getvalue())
+                    self.assertIn("restore the pre-import snapshot", error.getvalue())
+                    self.assertEqual(ledger.read_bytes(), before)
+
+                    progress["schema_map_version"] = current
+                    o19etl.save_progress(directory, progress)
+                    self.assertEqual(o19etl.load_progress(
+                        directory, "same-fixture-dump", current), progress)
 
 
 class TestPropsManifest(unittest.TestCase):

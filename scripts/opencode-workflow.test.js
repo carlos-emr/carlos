@@ -228,10 +228,12 @@ test('raw snapshots preserve export attributes, binary bytes, modes and symlinks
   fs.writeFileSync(path.join(source, 'executable'), 'hello\n', { mode: 0o755 });
   fs.symlinkSync('substitute', path.join(source, 'link'));
   git(['add', '.']); git(['commit', '-m', 'fixture']); const head = git(['rev-parse', 'HEAD']);
-  w.snapshot(source, work, head);
+  const previousMask = process.umask(0o077);
+  try { w.snapshot(source, work, head); } finally { process.umask(previousMask); }
   assert.deepEqual(fs.readFileSync(path.join(work, 'hidden')), Buffer.from([0, 255, 10, 128]));
   assert.equal(fs.readFileSync(path.join(work, 'substitute'), 'utf8'), '$Format:%H$\n');
   assert.equal(fs.statSync(path.join(work, 'executable')).mode & 0o111, 0o111);
+  assert.equal(fs.statSync(path.join(work, 'substitute')).mode & 0o777, 0o644);
   assert.equal(fs.readlinkSync(path.join(work, 'link')), 'substitute');
   assert.deepEqual(w.collect(source, work, head), []);
   assert.throws(() => w.snapshot(source, work, head), /empty directory/);

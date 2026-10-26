@@ -13,6 +13,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.messenger.service.MessageEncounterService.MissingMessageException;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -239,6 +240,7 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
 
     @Test
     void shouldAnswerNotFound_whenTheNoteToAttachDoesNotExist() throws Exception {
+        allowAttach();
         MockHttpServletResponse response = new MockHttpServletResponse();
         try (var props = mockStatic(CarlosProperties.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
@@ -448,6 +450,7 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
 
     private void allowAttach() {
         when(security.hasPrivilege(eq(login), eq("_casemgmt.notes"), anyString(), anyString())).thenReturn(true);
+        when(security.hasPrivilege(eq(login), eq("_eChart"), anyString(), anyString())).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(eq(login), anyInt())).thenReturn(true);
     }
 
@@ -478,6 +481,93 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
         return request;
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("invalidMessageIds")
+    void shouldRefuseEveryInvalidHandoffValue_beforeCreatingClinicalBeans(String[] messageIds) throws Exception {
+        MockHttpServletRequest request = request("101", "9001");
+        request.setParameter("msgId", messageIds);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try (var beans = clinicalBeans()) {
+            assertThat(execute(request, response)).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(beans.constructed()).isEmpty();
+        }
+        assertThat(request.getAttribute("EctSessionBean")).isNull();
+        assertThat(session.getAttribute("EctSessionBean")).isSameAs(stale);
+        verifyNoInteractions(manager, notes, charts, appointments);
+    }
+
+    static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> invalidMessageIds() {
+        return java.util.stream.Stream.of(
+                new String[]{"0"}, new String[]{"-1"}, new String[]{"2147483648"},
+                new String[]{"not-a-message"}, new String[]{"7", "8"},
+                new String[]{"7", "not-a-message"}, new String[]{"7", ""},
+                new String[]{"", "7"}, new String[0])
+                .map(values -> org.junit.jupiter.params.provider.Arguments.of((Object) values));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"7", "2147483647"})
+    void shouldCanonicalizeEqualMessageValues_beforeTheLegacyEntryLoadsThem(String messageId) throws Exception {
+        try (var props = mockStatic(CarlosProperties.class);
+             var patients = mockStatic(RxPatientData.class);
+             var beans = clinicalBeans()) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            MockHttpServletRequest request = request("101", "9001");
+            request.setParameter("msgId", messageId, "7".equals(messageId) ? "0007" : messageId);
+
+            assertThat(execute(request, new MockHttpServletResponse())).isEqualTo("success2");
+
+            EctSessionBean bean = (EctSessionBean) request.getAttribute("EctSessionBean");
+            assertThat(bean.oscarMsgID).isEqualTo(messageId);
+            verify(bean).setUpEncounterPage(login);
+            assertThat(session.getAttribute("EctSessionBean")).isSameAs(stale);
+        }
+    }
+
+    @Test
+    void shouldReturnNotFoundWithoutRememberingTheEntry_whenTheLinkedMessageDisappears() throws Exception {
+        try (var props = mockStatic(CarlosProperties.class);
+             var patients = mockStatic(RxPatientData.class);
+             var beans = mockConstruction(EctSessionBean.class, (bean, context) ->
+                     doThrow(new MissingMessageException()).when(bean).setUpEncounterPage(login))) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            MockHttpServletRequest request = request("101", "9001");
+            request.setParameter("msgId", "7");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            assertThat(execute(request, response)).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(404);
+            assertThat(beans.constructed()).hasSize(1);
+            assertThat(request.getAttribute("EctSessionBean")).isNull();
+            assertThat(EncounterPatientContext.findEncounter(request, "101")).isNull();
+            assertThat(session.getAttribute("EctSessionBean")).isSameAs(stale);
+            verifyNoInteractions(manager, notes, charts);
+        }
+    }
+
+    @Test
+    void shouldPropagateClinicalLoaderErrors_whenTheyAreNotAMissingMessage() {
+        try (var props = mockStatic(CarlosProperties.class);
+             var patients = mockStatic(RxPatientData.class);
+             var beans = mockConstruction(EctSessionBean.class, (bean, context) ->
+                     doThrow(new IllegalArgumentException("FAKE unrelated clinical error"))
+                             .when(bean).setUpEncounterPage(login))) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            MockHttpServletRequest request = request("101", "9001");
+            request.setParameter("msgId", "7");
+
+            assertThatThrownBy(() -> execute(request, new MockHttpServletResponse()))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("FAKE unrelated clinical error");
+
+            assertThat(beans.constructed()).hasSize(1);
+            assertThat(request.getAttribute("EctSessionBean")).isNull();
+            assertThat(session.getAttribute("EctSessionBean")).isSameAs(stale);
+            verifyNoInteractions(manager, notes, charts);
+        }
+    }
+
     private MockedConstruction<EctSessionBean> clinicalBeans() {
         return mockConstruction(EctSessionBean.class, (bean, context) -> {
             when(bean.getDemographicNo()).thenAnswer(call -> bean.demographicNo);
@@ -506,7 +596,9 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
     }
 
     private String execute(MockHttpServletRequest request, MockHttpServletResponse response) throws Exception {
-        try (var servlet = mockStatic(ServletActionContext.class)) {
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var programs = mockConstruction(io.github.carlos_emr.carlos.encounter.data.EctProgram.class,
+                     (program, context) -> when(program.getProgram("999998")).thenReturn("0"))) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             return new EctIncomingEncounter2Action().execute();

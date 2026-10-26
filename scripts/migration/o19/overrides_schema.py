@@ -40,9 +40,9 @@ ran those updates they surface through preflight's unknown-table flow (B2,
 archive-by-default).
 """
 
-# The nullable consultation booking field no longer needs primitive coercion.
+# Nullable Program flags no longer need primitive coercion during import.
 # Refuse resuming a partially applied import under the previous conversion rules.
-SCHEMA_MAP_VERSION = "o19map-3"
+SCHEMA_MAP_VERSION = "o19map-4"
 
 #: Provinces the import verb will actually RUN, as opposed to provinces
 #: the package carries a profile for (generate_manifests.PROVINCES).

@@ -52,6 +52,7 @@ class MeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
         session = new MockHttpSession();
         session.setAttribute("user", "999998");
         LoggedInInfo.setLoggedInInfoIntoSession(session, login);
+        when(security.isAllowedAccessToPatientRecord(eq(login), anyInt())).thenReturn(true);
         global = new EctSessionBean();
         global.demographicNo = "202";
         session.setAttribute("EctSessionBean", global);
@@ -146,6 +147,26 @@ class MeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(delete(invalidRequest(kind), response, "WT", "11")).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(measurements, deleted);
+    }
+
+    @ParameterizedTest
+    @EnumSource(Read.class)
+    void shouldRefuseLockedRecord_beforeConstructingClinicalHandlers(Read endpoint) {
+        when(security.hasPrivilege(login, "_measurement", "r", "101")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(false);
+        try (var history = mockConstruction(EctMeasurementsDataBeanHandler.class);
+             var types = mockConstruction(EctMeasurementTypesBeanHandler.class);
+             var validation = mockConstruction(EctValidation.class)) {
+            assertThatThrownBy(() -> read(endpoint, request("000101"), new MockHttpServletResponse()))
+                    .isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
+            verify(security).hasPrivilege(login, "_measurement", "r", "101");
+            verify(security).isAllowedAccessToPatientRecord(login, 101);
+            assertThat(history.constructed()).isEmpty();
+            assertThat(types.constructed()).isEmpty();
+            assertThat(validation.constructed()).isEmpty();
+            verifyNoInteractions(measurements, deleted);
+            assertGlobalUnchanged();
+        }
     }
 
     @ParameterizedTest

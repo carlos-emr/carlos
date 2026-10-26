@@ -99,6 +99,9 @@
                 }
             %>
         </c:if>
+        <script src="${pageContext.request.contextPath}/share/javascript/rx-patient-context.js"
+                data-demographic-no="<%= bean.getDemographicNo() %>"
+                data-chart-context="<carlos:encode value='<%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) %>' context="htmlAttribute"/>"></script>
         <script type="text/javascript">
             function reportPharmacyFailure(event, transport, settings) {
                 if (!settings || !/\/rx\/managePharmacy(?:\?|$)/.test(settings.url)) return;
@@ -389,7 +392,7 @@
                 if (demo) {
                     url += (url.indexOf('?') >= 0 ? '&' : '?') + "demographicNo=" + encodeURIComponent(demo);
                 }
-                iframe.src = url;
+                iframe.src = RxPatientContext.withPatient(url);
                 var modal = new bootstrap.Modal(document.getElementById('pharmacyModal'));
                 modal.show();
             }
@@ -441,8 +444,8 @@
                 // providerNo comes from the session.
                 var demoField = document.getElementById("demographicNo");
                 var demo = demoField ? demoField.value : "";
-                window.location.href = ctx + "/rx/choosePatient"
-                    + (demo ? "?demographicNo=" + encodeURIComponent(demo) : "");
+                window.location.href = RxPatientContext.withPatient(ctx + "/rx/choosePatient"
+                    + (demo ? "?demographicNo=" + encodeURIComponent(demo) : ""));
             }
 
 			function formatTimestamp(timestamp) {

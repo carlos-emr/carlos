@@ -1000,7 +1000,8 @@
       "timeoutSec": 300,
       "env": [
         "DOCUMENT_UPLOAD_SCREENSHOT_DIR",
-        "PRESCRIPTION_DEMOGRAPHIC_NO"
+        "PRESCRIPTION_DEMOGRAPHIC_NO",
+        "DOCUMENT_DIR"
       ]
     },
     {
@@ -1181,7 +1182,8 @@
         "ECHART_PROVIDER_NO",
         "EXPECT_FRONT_DOOR"
       ],
-      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the encounter-note draft the chart's autosave stores while the prints run (discarded through the page's own cancel path), the chart's note lock and eChart row and the patient are removed by the patient's key and asserted gone. It no longer types into demo patient 1's chart, whose own stored draft it deleted. No clinic-wide state is changed."
+      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the encounter-note draft the chart's autosave stores while the prints run (discarded through the page's own cancel path), the chart's note lock and eChart row and the patient are removed by the patient's key and asserted gone. It no longer types into demo patient 1's chart, whose own stored draft it deleted. No clinic-wide state is changed.",
+      "notes": "Needs pdftotext. Seventeen native PDF downloads are captured from either the chart or its print popup and checked for the owned patient's text, including a multiline Unicode note with trailing spaces and an actual four-second print delay; printing retains the editor, its exact note lock and post-print autosave, while later real navigation releases the lock."
     },
     {
       "name": "echart-vitals-bmi",
@@ -4762,9 +4764,13 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned prescription and drugs rows for the synthetic patient; drug profile print rendering (pdftotext), previous prints, and Write to Encounter; owned casemgmt_note/drugs/prescription rows removed.",
-      "notes": "Needs pdftotext; the drug profile is HTML + window.print(), so the PDF asserted is the browser print rendering."
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR",
+        "INCOMINGDOCUMENT_DIR"
+      ],
+      "fixtures": "Owned prescription and drugs rows for the synthetic patient, a throwaway provider, two owned programs with memberships/admissions and independent drafts; one exact owned membership is temporarily removed and restored to verify a writer belonging only to the originating program. Requires exclusive execution on a disposable database, TRIGGER privilege on casemgmt_tmpsave and read access to information_schema.TRIGGERS. An owned AFTER DELETE trigger targets the exact draft ID, provider, patient, program, note reference and text hash to force a rollback; its definition and removal are verified. A read-only hash_audit checksum also detects orphan signature writes. An additional owned issue lookup, patient issue and revision join exercise inline Add Issue and issue-status changes; cleanup verifies ownership and removes their references. Cleanup removes owned clinical rows, programs, relationships and provider. Shared provider defaults are unchanged. The same two-program fixture stages one temporary signed origin note and two owned stored PDFs; native Delete/Undelete/Refile restore their signed context, and cleanup removes exact document rows/files/refile copy and note before Rx continues. Requires DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR), INCOMINGDOCUMENT_DIR and pdftotext; prerequisites are checked before fixture creation.",
+      "notes": "Needs pdftotext; the drug profile is HTML + window.print(), so the PDF asserted is the browser print rendering. Also verifies same-patient chart windows retain independent programs through Rx launch, Save And Print, Print & Paste and chart reopening; the other program's draft stays unchanged. Signed-context/patient replay and foreign/missing draft references refuse without clinical mutations; a no-draft paste selects its own program, and explicit cross-program editing preserves the source note program and the other window draft. A writer belonging only to the originating program saves a real shared-note revision with a valid reporter role and can read it back through the native Edit link; the stored program and team are preserved. Native compact note switching rejects a false HTTP 200 acknowledgement, retains the editor after a real SQL failure with no partial issue, revision, signature or draft writes, and successfully retries while preserving the source program and team. All four duration inputs are saved and reloaded, cleared through duration-only note switching and native full Save, and retained through native inline Add Issue. Hidden legacy issue-status controls are exercised through authenticated rendered FormData and the returned fragment, without forcing a hidden click; clearing stores SQL NULL in the new revision and preserves historical values. Native Browse Notes from the first chart, after the second program was entered last, retains the first signed context in document mutation POSTs, redirect locations, returned hidden fields, preview iframe and an actual downloaded note PDF. Complete clinical/draft/lock, prescription and program-default rows are unchanged, and the temporary fixtures are removed before the remaining Rx workflow."
     },
     {
       "name": "tickler-forward-filters",
@@ -6146,8 +6152,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Verifies a real PDF download, matching HTML/PDF totals, ISO dates, two-decimal amounts, active/settled invoice services, and deleted/OHIP/out-of-range exclusion. Requires pdftotext.",
-      "fixtures": "Owned workflow patient and six billing invoices/items with statuses and dates at both boundaries; all removed."
+      "notes": "Verifies a real PDF download, matching HTML/PDF totals, ISO dates, two-decimal amounts, active/settled invoice services, and deleted/OHIP/out-of-range exclusion. Requires pdftotext. Independent statement windows and unsent date-field edits preserve the shown PDF selection; an empty result clears stale rows and disables printing.",
+      "fixtures": "Two owned synthetic patients and seven invoices; cleanup removes only owned rows and verifies their removal."
     },
     {
       "name": "patient-swipe-card-search",
@@ -6227,10 +6233,12 @@
         "CLINICAL_FORMS_EXCEPT"
       ],
       "mutates": [
-        "encounterForm"
+        "encounterForm",
+        "measurementType",
+        "validations"
       ],
       "notes": "Vascular Tracker, regression for finding 103 (#3358, fixed in #4667): the shipped registration points at the Struts 1 SetupForm.do route, which the chart now resolves to the extensionless SetupForm route and opens for the owned patient. This row only opens the form; what lies behind it is -vascular-tracker-save. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Vascular Tracker first-use catalog rows are recorded before any native form opens and only proven fixture-created definitions are removed after clinical children; preexisting definitions, IDs and validation rows remain exact."
     },
     {
       "name": "clinical-forms-save-reopen-vascular-tracker-save",
@@ -6252,10 +6260,12 @@
         "CLINICAL_FORMS_EXCEPT"
       ],
       "mutates": [
-        "encounterForm"
+        "encounterForm",
+        "measurementType",
+        "validations"
       ],
       "notes": "Vascular Tracker registered the way its route is mapped (SetupForm without the .do suffix), regression for finding 254 (fixed in #4667): Update VT posts to form/SubmitForm, which saves exactly the typed fields for the owned patient, and the record redisplays and reopens. The shipped registration is the separate -vascular-tracker entry (finding 103). Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The extra registration points at the extensionless SetupForm route and is removed with the others."
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The extra registration points at the extensionless SetupForm route and is removed with the others. Vascular Tracker first-use catalog rows are recorded before any native form opens and only proven fixture-created definitions are removed after clinical children; preexisting definitions, IDs and validation rows remain exact."
     },
     {
       "name": "clinical-forms-save-reopen-vascular-tracker-script",
@@ -6277,10 +6287,12 @@
         "CLINICAL_FORMS_EXCEPT"
       ],
       "mutates": [
-        "encounterForm"
+        "encounterForm",
+        "measurementType",
+        "validations"
       ],
       "notes": "Vascular Tracker registered the way its route is mapped (SetupForm without the .do suffix), regression for finding 255 (#4612, fixed in #4667): loading the page and pressing Update VT must raise no JavaScript-layer problem. Before the fix every load threw TypeError: Cannot set properties of undefined (setting 'disabled') from disableEyeExam, and every Update VT threw (setting 'value') from storeEyeExamSupportData, because the eye-exam Ex inputs (value(iExValue), value(iExDate), value(iExComments)) did not exist. The save is the separate -vascular-tracker-save entry (finding 254), and the shipped registration the separate -vascular-tracker entry (finding 103). Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The extra registration points at the extensionless SetupForm route and is removed with the others."
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The extra registration points at the extensionless SetupForm route and is removed with the others. Vascular Tracker first-use catalog rows are recorded before any native form opens and only proven fixture-created definitions are removed after clinical children; preexisting definitions, IDs and validation rows remain exact."
     },
     {
       "name": "clinical-forms-save-reopen-form14-42",
@@ -7393,8 +7405,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient (E-Chart lock taken by opening the chart) and one marker tickler seeded by SQL; cleanup deletes the patient's notes, note links/exts/issue links, casemgmt_issue, casemgmt_cpp, eChart rows and the tickler, and asserts it.",
-      "notes": "Expected to FAIL at the last step 'chart-note writes refuse GET/HEAD, and the tickler note dialog itself saves by POST': CaseManagementEntry method=issueNoteSave and method=ticklerSaveNote write on GET, and ticklerMain.jsp saveNoteDialog() sends its save as a GET."
+      "fixtures": "Two owned synthetic patients and marker ticklers; native chart/tickler notes plus a private copied note and temporary foreign link. Cleanup verifies ownership and removes each owned clinical row.",
+      "notes": "Exercises native issue-note and tickler-note POST saves and revision; all six note-write methods refuse GET/HEAD without changing clinical rows. Cross-patient tickler/note/link substitutions return an application 403 without copying private history."
     },
     {
       "name": "get-reject-eform-editor",
@@ -9611,15 +9623,19 @@
       "provinces": [
         "ON"
       ],
-      "timeoutSec": 180,
+      "timeoutSec": 420,
       "assertsDatabase": true,
       "env": [
         "TEST_PASSWORD",
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Uses the workflow's owned patient plus a second owned patient; saves one chart note through the E-Chart UI; one throwaway er_clerk login and one throwaway doctor login with the lock rows for the owned patient; cleanup removes notes, eChart row, patients and logins and asserts it.",
-      "notes": "Expected to FAIL at the last step 'a note history is only served for the patient the note belongs to, and not to a login locked out of that patient': CaseManagementEntry method=notehistory and method=history read the note by id alone. Steps 1-3 pass."
+      "fixtures": "Seven owned patients with notes, numeric measurements and CPP issue links; shared authz fixture with module readers and er_clerk/doctor logins. Two owned programs use preexisting cached reporter roles and an unchanged global policy, with one existing Facility bound through the owned reader only. All clinical descendants, program memberships/admissions, audit rows, roles and logins are removed and verified; shared defaults and policies remain unchanged. Requires pdftotext; availability is checked before fixture creation. Additional isolated startup and group-note fixtures own their patients, providers, facilities, programs, admissions, links, notes and policies; preexisting clinical rows and policies are compared exactly, and every owned row is removed. Additional compact-save, issue-history and form fixtures own their patients, programs, notes, issue links and separate module-granted logins; native form creation uses the existing guarded VT catalog lifecycle. Vascular Tracker first-use catalog rows are recorded before any native form opens and only proven fixture-created definitions are removed after clinical children; preexisting definitions, IDs and validation rows remain exact. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Both history routes enforce patient identity, record locks and notes-module access. Independent module-granted readers exercise six measurement/navbar GET routes, both measurement writer aliases and three web print routes plus REST print with record-only denials and unlocked controls. Complete clinical/draft/lock snapshots survive refusals; allowed writers persist one exact reading, HTML retains UTF-8/literal markup and PDFs contain the owned note. Malformed print identities and foreign/mixed HTML selection refuse without partial output. Native chart controls establish a real reporter-role denial and readable cross-program notes before testing actual selected/ALL/date/CPP/Other Meds/full PDFs. REST signed-context checks preserve that visibility despite another program entered last, both wrong patient query aliases or program-zero hints, reject hidden selections and forged/conflicting genuine contexts, and retain an independently authorized other-program positive. Fresh configured-provider program-zero entries are refused through both aliases, while sole-program defaults and genuinely programless zero entries render their own native chart and editor. Active group-note recipients can expand the native long-note view under the existing group reporter policy; editor/raw access, inactive links or unlinked notes, missing record access, disabled facilities and wrong reporter roles are refused without changing source notes. Two same-patient editors retain independent note locks through a native compact save and the other editor's full Save; an exact foreign-session lock refusal preserves all clinical and draft state. Captured-program issue history retains readable cross-program notes and refuses hidden reporter notes and record exclusions. Genuine form-only readers without chart or program access can create and reopen their own form; record-only exclusions refuse both setup and save, and GET, HEAD and PUT mutations return 405 before data changes.",
+      "mutates": [
+        "measurementType",
+        "validations"
+      ]
     },
     {
       "name": "authz-read-admin-objects",
@@ -11394,10 +11410,12 @@
       "timeoutSec": 900,
       "env": [],
       "notes": "Issue #4556, finding 182: two charts in one login retain their own navbar, history/index/plot, measurement prefill, and form identities through reciprocal refreshes and writes. Each chart refreshed after the other patient was entered keeps its own identity banner and opens its own patient's note browser. Before every cross-check the other chart is entered through IncomingEncounter, the one entry that still rewrites the login-wide encounter bean. Measurement, Dx, CPP, prevention, history deletion, and Vascular Tracker Update/reopen/Save and Exit must leave the other patient's complete clinical rows unchanged. Missing, malformed, and conflicting patient parameters and foreign form IDs are rejected. A form's completion cannot alter an opener navigated to another patient. Issue #4673: with the other chart entered last, each patient's chart print names its own MRP, the legacy encounter save writes only its own revision and signs only its own appointment (a stale, foreign, missing or malformed revision, another patient's appointment and missing or conflicting patients are refused without writing), the legacy encounter prints show only its own revisions, the legacy immunization schedule adds a template, saves and deletes a set in its own schedule by the logged-in provider and its dose window names its own patient and offers the logged-in provider as the giver after the other chart was entered from another provider's day sheet, and a schedule Save, template add or set restore without one valid patient is refused (400) without writing; a template made after a chart was entered from another provider's day sheet is the logged-in provider's; the legacy case-management navigation renders completely, links only to it and lists only its own messages; its notes list keeps the logged-in provider's unsigned notes editable, and its notes panel (rendered again by a note save) names its own entry provider, after a chart was entered from another provider's day sheet.",
-      "fixtures": "Owned FAKE patients A/B with distinct WT values. All owned clinical rows and children, VT forms, note signature hashes, drafts, and locks are removed by key and asserted gone; B is removed and the harness removes A. The seeded Vascular Tracker registration is temporarily enabled by display order for browser coverage, then its exact prior encounterForm state is restored and asserted. B's MRP is a second named provider. One owned appointment per patient, its archive rows, the owned immunization schedule rows, one owned immunization template and one message linked to each patient are removed by key; the provider's legacy encounter layout row (encounterWindow) is restored exactly. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "fixtures": "Owned FAKE patients A/B with distinct WT values. All owned clinical rows and children, VT forms, note signature hashes, drafts, and locks are removed by key and asserted gone; B is removed and the harness removes A. The seeded Vascular Tracker registration is temporarily enabled by display order for browser coverage, then its exact prior encounterForm state is restored and asserted. B's MRP is a second named provider. One owned appointment per patient, its archive rows, the owned immunization schedule rows, one owned immunization template and one message linked to each patient are removed by key; the provider's legacy encounter layout row (encounterWindow) is restored exactly. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Vascular Tracker first-use catalog rows are recorded before any native form opens and only proven fixture-created definitions are removed after clinical children; preexisting definitions, IDs and validation rows remain exact.",
       "mutates": [
         "encounterForm",
-        "encounterWindow"
+        "encounterWindow",
+        "measurementType",
+        "validations"
       ]
     },
     {
@@ -11461,8 +11479,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Issue #4673: the legacy encounter editor (encounter/Index2.jsp, rendered only with the CAISI module and an IncomingEncounter carrying casetoEncounter; nothing links there) in two windows of one login. Each Save, made after the other editor was opened last, writes a revision of its own patient only and redisplays its own patient; Print prints the window's own revision; an editor whose revision another editor of the same patient superseded is refused (409) with its own text on the concurrency page and writes nothing; Sign & Save signs only its own appointment and refreshes the day sheet that opened the editor; an editor keeps its own visit through a Save after its patient was entered again from another visit, so its Sign signs that visit; Verify & Sign verifies only its own appointment; Split Chart (offered once the encounter fills half of what the editor holds) stores its own patient's whole encounter as the split revision and continues that chart from its end; Exit closes the editor and saves neither chart; on a BC install, Sign, Save & Bill opens a bill of its own patient's visit; a double-clicked Save posts the editor once, writes one revision and shows the editor again. The other patient's complete clinical rows are compared around every step. echart-two-patient-isolation drives the same save action directly in every configuration.",
-      "fixtures": "Operator prerequisite: caisi=on in /etc/carlos-emr/carlos.properties, then carlos-ctl restart; restore the property and restart afterwards (the CAISI module changes clinic-wide behaviour). Without it the check reports SKIP. Owned FAKE patients A/B, one owned appointment each and three more of A's (four on a BC install); their eChart revisions, appointments, appointment archive rows, note locks and drafts are removed by key and asserted gone, and the provider's encounterWindow (legacy editor layout) row is restored exactly. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Issue #4673: the legacy encounter editor (encounter/Index2.jsp, rendered only with the CAISI module and an IncomingEncounter carrying casetoEncounter; nothing links there) in two windows of one login. Each Save, made after the other editor was opened last, writes a revision of its own patient only and redisplays its own patient; Print prints the window's own revision; an editor whose revision another editor of the same patient superseded is refused (409) with its own text on the concurrency page and writes nothing; Sign & Save signs only its own appointment and refreshes the day sheet that opened the editor; an editor keeps its own visit through a Save after its patient was entered again from another visit, so its Sign signs that visit; Verify & Sign verifies only its own appointment; Split Chart (offered once the encounter fills half of what the editor holds) stores its own patient's whole encounter as the split revision and continues that chart from its end; Exit closes the editor and saves neither chart; on a BC install, Sign, Save & Bill opens a bill of its own patient's visit; a double-clicked Save posts the editor once, writes one revision and shows the editor again. The other patient's complete clinical rows are compared around every step. echart-two-patient-isolation drives the same save action directly in every configuration. Three further handoff steps drive linked-local, shared-chart and canonical repeated message identities through the native CAISI editor, then refuse foreign/unlinked messages, malformed/conflicting IDs, linked vanished messages, missing messaging rights and record restrictions without changing either patient.",
+      "fixtures": "Operator prerequisite: caisi=on in /etc/carlos-emr/carlos.properties, then carlos-ctl restart; restore the property and restart afterwards (the CAISI module changes clinic-wide behaviour). Without it the check reports SKIP. Owned FAKE patients A/B, one owned appointment each and three more of A's (four on a BC install); their eChart revisions, appointments, appointment archive rows, note locks and drafts are removed by key and asserted gone, and the provider's encounterWindow (legacy editor layout) row is restored exactly. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Five exact owned message IDs (including one linked vanished body), their patient/recipient links, two custom reader logins and their roles are removed and verified.",
       "mutates": [
         "encounterWindow"
       ]
@@ -11479,8 +11497,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Issue #4673: the chart note editor's Attach (PMM 'attach note to client') popup in two chart windows of one login. A's and B's charts each save a note and open their Attach popup, B's last; each popup's client search for C links to and attaches its own chart's note, so C receives one copy of A's note and one of B's. Each source chart is entered for a visit of its own, so its note carries that visit; each copy is a new note of C's own, with a new uuid and no appointment. The popup used to read the note from the session, where the popup opened last replaced it. Also pins the popup's search form: its criteria were checkboxes, the page had no head (so CSRFGuard gave its form no token and every search answered 403) and its stylesheets loaded from outside the application. The search ticks 'Search all clients': PMMFilter, which sets the session's program domain, runs after Struts has answered PMM actions, so a domain search finds no one. The PMM client view (PMmodule/ClientManager) is not driven: its result names a Tiles page that does not exist.",
-      "fixtures": "Owned FAKE patients A/B/C (the run marker as last name) with one visit each for A and B, the notes written for A and B and the copies attached to C; a throwaway login (lib/throwaway-login-fixture.js) with the test login's roles plus an owned role FAKEPW<hex>pmm whose only secObjPrivilege row grants _pmm_management, and the test provider's program memberships. Facility.enablePhoneEncounter (which shows the editor's Attach button) is set for the run and restored to its value, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes every owned row by key and asserts it gone.",
+      "notes": "Issue #4673: the chart note editor's Attach (PMM 'attach note to client') popup in two chart windows of one login. A's and B's charts each save a note and open their Attach popup, B's last; each popup's client search for C links to and attaches its own chart's note, so C receives one copy of A's note and one of B's. Each source chart is entered for a visit of its own, so its note carries that visit; each copy is a new note of C's own, with a new uuid and no appointment. The popup used to read the note from the session, where the popup opened last replaced it. Also pins the popup's search form: its criteria were checkboxes, the page had no head (so CSRFGuard gave its form no token and every search answered 403) and its stylesheets loaded from outside the application. The search ticks 'Search all clients' because C initially has no program admission; PMMFilter initializes the authenticated program domain before the action. The PMM client view (PMmodule/ClientManager) is not driven: its result names a Tiles page that does not exist. Additional source-read and target-write refusals preserve complete owned clinical rows, with an authorized copy positive control. Native nondefault-source and genuinely tokenless-source popup searches/copies preserve separate signed source and target contexts. Forged, other-patient and reporter-hidden source contexts and a native server-issued read-only target context are refused by the application, preserving full source/target clinical snapshots, drafts, editor text and locks.",
+      "fixtures": "Owned FAKE patients A/B/C plus a PMM source patient (the run marker as last name) with one visit each for A and B, owned source notes and the copies attached to C; a throwaway login (lib/throwaway-login-fixture.js) with the test login's roles plus an owned role FAKEPW<hex>pmm whose only secObjPrivilege row grants _pmm_management, and the test provider's program memberships. The source-context fixture uses three owned programs, existing cached reporter roles with a real denial, one owned read-only program policy, owned admissions and a temporary default on the throwaway login only. Shared roles/grants remain exact and the owned login default is restored. Facility.enablePhoneEncounter (which shows the editor's Attach button) is set for the run and restored to its value, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup verifies program/provider/patient/policy ownership before deleting owned rows, removes every owned clinical row by key and asserts it gone.",
       "mutates": [
         "Facility",
         "secObjPrivilege"
@@ -11604,6 +11622,25 @@
       "env": [],
       "notes": "Native Rev in a linked recipient chart shows only explicitly shared revisions. Matches the modern chart recipient-read grant, including an authorized reader without the reporter role. Covers restricted recipients, absent active note-read grants despite an inactive doctor assignment, owner-chart denial, forged/unlinked/future revision IDs and immediate active-link revocation; cumulative history never discloses unshared content.",
       "fixtures": "Owned recipient and separately named owner patients, canonical note revisions and exact group links, facility with group notes enabled, four throwaway logins and two temporary roles with controlled clinical read rights. Patient search must return only the recipient; the reader is denied the owner chart. Cleanup removes owned clinical children, links, facility, logins, role privileges, roles and patients by key and asserts removal. No existing clinic privileges or facility settings are changed."
+    },
+    {
+      "name": "group-note-selection",
+      "script": "scripts/group-note-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Four isolated synthetic patients, two owned programs and admissions, one private group-enabled facility and writer, two exact owned note rows and temporary GroupNoteLink rows. Every parent and relationship is checked before deletion; program defaults and shared roles/policy are preserved. Requires exclusive suite execution.",
+      "notes": "Native Group popup uses the mapped extensionless GET route. The same patient in program B is entered last, but A selects only its own program recipient and saved note. Native POST303 redirects to a GET close view; an empty native selection clears the exact sharing link without changing either source note. Unsaved Group retains save-first guidance. Two genuine native popups from the same signed source submit different complete recipient sets with Promise.all; the first fixture popup is renamed only to prevent fixed-window reuse, without URL/form/request mutation. The result must be exactly one whole set, never a union, and is cleared natively. This end-to-end case makes no timing-overlap claim; independent H2 barriers prove serialization. Foreign recipient/context, malformed anonymous count and non-POST saves are refused with full clinical, draft, lock and policy snapshots unchanged. Common strict browser diagnostics use baseline:[]; owned chart locks are released through the authenticated API before test-page cleanup."
     },
     {
       "name": "echart-note-verify-appointment-status",
@@ -13763,7 +13800,7 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "notes": "Messenger Reply ▸ Send and Archive (CreateMessage.jsp #sendArchive): the background POST to messenger/DisplayMessages archives exactly the message replied to (btnDelete=archive, its messageNo, taken from the compose page's referrer) and is accepted, then the reply is sent: one reply from the test login, delivered to the sender only. The message replied to is 'del' for the test login only (the other recipient's row is unchanged); the inbox no longer lists it and the archive box (boxType=2) does.",
+      "notes": "Messenger Reply ▸ Send and Archive (CreateMessage.jsp #sendArchive): the background POST to messenger/DisplayMessages archives exactly the message replied to (btnDelete=archive, its messageNo, taken from the validated server-rendered compose identity) and is accepted, then the reply is sent: one reply from the test login, delivered to the sender only. The message replied to is 'del' for the test login only (the other recipient's row is unchanged); the inbox no longer lists it and the archive box (boxType=2) does. The original message identity is carried by a validated encoded compose field rather than the browser referrer. A labeled negative fixture disables only the owned checked recipient control for one native ordinary Send, observes the actual server redisplay with no stored reply or changed source rows, then enables the real recipient and uses native Send & Archive. The retry retains the original message ID, raw fields and attachment key; only the original owned recipient row is archived, and the entire other-recipient row remains exact.",
       "fixtures": "One message seeded by SQL the way a local send writes it (sender messenger contact 1; recipients the test login and contact 2; subject and lines carry the run marker). SKIP when the messenger contacts are not 1 and 2 plus the test login. Cleanup deletes every message whose subject carries the marker, with its delivery and patient-link rows, and asserts they are gone."
     },
     {
@@ -16332,6 +16369,40 @@
       "env": [],
       "fixtures": "Owned synthetic patient and custom prescription; cleanup after browser closes; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "Issue #3876: strength values default to one unit per dose; explicit counts, volumes and per-dose amounts (also before the frequency) take precedence; a concentration alone calculates nothing and leaves the card quantity as it was; fractions round once at the final division. The quantity update after a 1000-unit dose derives the duration; a spaced range, written daily counts, the n/7 shorthand, a trailing ', take with food', a second day word before the duration and a 'then' taper are read; 'grams' and 'international units' are classified like 'g' and 'IU', and a method word after a product name opens the dose; a parenthesised product count and a date after the frequency are read correctly, an amount of time before the dose is skipped for the dose written after it, and a taper segment inherits the first segment's method. AJAX, card quantity and saved drugs row are asserted."
+    },
+    {
+      "name": "chart-message-followups",
+      "script": "scripts/chart-message-followups-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [],
+      "fixtures": "Owned FAKE patient, orphan appointment, CPP/eChart rows and two messages; cleanup removes only owned rows and verifies their removal.",
+      "notes": "Exercises the legacy chart owner and tab navigation, history/reminder POST saves without losing other fields, independent inbox searches and sorting across windows, orphan appointment rendering, and denial of saved attachments to an unrelated provider. Shared-chart mutations and mixed-selection unlink are refused without partial changes; native Inbox controls preserve remote recipient rows."
+    },
+    {
+      "name": "chart-context-request-guards",
+      "script": "scripts/chart-context-request-guards-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "mutates": [
+        "casemgmt_tmpsave"
+      ],
+      "fixtures": "Three owned synthetic patients, saved notes and an issue link, chart drafts and lock rows; owned roles/logins for registry and issue-write refusals; transient triggers scoped to the exact owned draft and issue deletion force real rollback and are removed and verified. The issue trigger fires after its exact row is deleted and only when the new owned note revision exists inside the transaction. Requires CREATE/DROP TRIGGER in the disposable database; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Signed context forgery, cross-patient and cross-login replay, conflicting parameters, foreign note edit/history/draft references and GET autosave refusal preserve complete clinical rows; registry module and record locks refuse with 403. Issue-only write access cannot partially delete an issue attached to a saved note. A database failure after issue deletion preserves every clinical row, the persisted draft and exact editor lock; the same editor retries successfully and removes only its superseded draft. Actual autosave database failure preserves the prior draft, reports failure visibly and recovers on retry, including network failures, cleared text and the legacy editor. A real 45-second native XHR timeout releases the save guard and allows retry. HTTP 200 login HTML cannot acknowledge a saved draft in either editor; the implicit existing-note legacy editor submits its actual selected ID. A real lost-lock autosave causes HTTP 409: Cancel retains raw editor text and the last acknowledged draft; native reload acquires a fresh owned lock, and retry autosaves the retained raw text. Passive browser protocol observations associate at most one canceled old-document release beacon with its exact request and later application response, preserving every unrelated diagnostic."
     }
   ]
 }

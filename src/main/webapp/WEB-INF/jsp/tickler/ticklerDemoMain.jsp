@@ -28,7 +28,16 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
+<%--
+    Purpose: Displays a patient's ticklers within the chart workflow.
+    Features: Pages and filters ticklers, opens attachments, and edits linked
+    clinical notes. Note saves POST to CaseManagementEntry; failed saves retain
+    the editor and display the localized failure message.
+    Parameters: demoview selects the patient; limit1/limit2 control paging;
+    ticklerview and the date fields filter results. parentAjaxId/updateParent
+    identify an optional owning chart panel to refresh.
+    @since 2026-10-24 (POST note-save recovery)
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -144,6 +153,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="tickler.ticklerMain.errorNoteSaveFailed" var="ticklerNoteSaveFailed"/>
 
 <html>
     <head>
@@ -198,6 +208,7 @@
             function saveNoteDialog() {
                 //alert('not yet implemented');
                 jQuery.ajax({
+                    type: 'POST',
                     url: '<%=request.getContextPath()%>/CaseManagementEntry',
                     data: {
                         method: "ticklerSaveNote",
@@ -208,14 +219,12 @@
                     },
                     async: false,
                     success: function (data) {
-                        // alert('ok');
+                        jQuery("#note-form").dialog("close");
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
-                        alert(errorThrown);
+                        alert('${carlos:forJavaScriptBlock(ticklerNoteSaveFailed)}');
                     }
                 });
-
-                jQuery("#note-form").dialog("close");
             }
 
 

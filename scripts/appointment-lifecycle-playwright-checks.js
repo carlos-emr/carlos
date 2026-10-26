@@ -59,7 +59,7 @@
  */
 
 const { chromium } = require('playwright');
-const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { shouldIgnoreHttpsErrors, assertStrictPage, wireStrictPage, withExpectedDialogs } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -75,7 +75,6 @@ const {
   login,
   validateBaseUrl,
   validateMysqlHost,
-  wirePage,
 } = require('./eform-local-playwright-utils');
 
 const config = {
@@ -285,12 +284,7 @@ async function bookFromSlot(context, daySheet) {
   const popupPromise = context.waitForEvent('page', { timeout: 45000 });
   await slots.first().click();
   const popup = await popupPromise;
-  // Not every slot prompts; only one whose template carries a confirmation
-  // message does. Accept whatever this popup raises during booking.
-  wirePage(popup, 'add-appointment', recorder, async (dialog, entry) => {
-    recorder.dialogs.push({ ...entry, accepted: true });
-    await dialog.accept().catch(() => {});
-  });
+  wireStrictPage(popup, 'add-appointment', recorder, { baseline: [] });
   // The context's page event can fire while the popup is still about:blank.
   // Waiting for that document's load state would pass immediately and make a
   // healthy appointment form look like an empty response.
@@ -378,7 +372,9 @@ async function openEditPopup(context, daySheet, appointmentNo, dialogHandler = n
   const popupPromise = context.waitForEvent('page', { timeout: 45000 });
   await link.click();
   const popup = await popupPromise;
-  wirePage(popup, 'edit-appointment', recorder, dialogHandler);
+  // Keep the exported helper's callback contract for the separate recurrence
+  // driver. This lifecycle check scopes its own confirmations to their clicks.
+  wireStrictPage(popup, 'edit-appointment', recorder, { baseline: [], dialogHandler });
   await popup.waitForURL(url => String(url) !== 'about:blank', {
     timeout: 45000, waitUntil: 'domcontentloaded',
   });
@@ -405,7 +401,7 @@ async function checkAppointmentLabels(context, daySheet, appointmentNo) {
     context.waitForEvent('page', { timeout: 45000 }),
     edit.locator('a[onclick*="ViewDemographicLabelPrintSetting"]').click(),
   ]);
-  wirePage(labels, 'appointment-labels', recorder);
+  wireStrictPage(labels, 'appointment-labels', recorder, { baseline: [] });
   await labels.waitForURL(url => String(url) !== 'about:blank', {
     timeout: 45000, waitUntil: 'domcontentloaded',
   });
@@ -485,7 +481,7 @@ async function submitEditWithReceipt(context, popup, appointmentNo) {
     popup.waitForResponse((response) => response.request().method() === 'POST'
       && /\/appointment\/UpdateRecord$/.test(new URL(response.url()).pathname), { timeout: 45000 }),
     receiptPromise.then((page) => {
-      wirePage(page, 'appointment-receipt', recorder);
+      wireStrictPage(page, 'appointment-receipt', recorder, { baseline: [] });
       return page;
     }),
     popup.locator('#printReceiptButton').click(),
@@ -630,15 +626,11 @@ async function cancelAppointment(context, daySheet, appointmentNo) {
   }, 'appointment status to become Cancelled (C)');
 }
 
-/** Open the edit popup with a handler that DISMISSES its confirmation, click `control`, and report what happened. */
+/** Dismiss only the confirmation raised by this owned appointment's control. */
 async function clickDismissed(context, daySheet, appointmentNo, control, routes) {
-  let confirmText = null;
   let posts = 0;
-  const popup = await openEditPopup(context, daySheet, appointmentNo, async (dialog, entry) => {
-    confirmText = dialog.message();
-    recorder.dialogs.push({ ...entry, accepted: false });
-    await dialog.dismiss().catch(() => {});
-  });
+  let dialogs;
+  const popup = await openEditPopup(context, daySheet, appointmentNo);
   const count = (request) => {
     if (routes.test(new URL(request.url()).pathname)) posts += 1;
   };
@@ -646,14 +638,16 @@ async function clickDismissed(context, daySheet, appointmentNo, control, routes)
   try {
     const button = popup.locator(control);
     assert(await button.count() > 0, `edit popup rendered no ${control} control`);
-    await button.click();
+    dialogs = await withExpectedDialogs(popup, () => button.click(), { accept: false });
+    assert(dialogs.length === 1 && dialogs[0].type === 'confirm',
+      `${control} must raise exactly one confirmation`);
     // Long enough for the form's post to start, had the page sent it.
     await popup.waitForTimeout(1500);
   } finally {
     popup.off('request', count);
   }
   await popup.close().catch(() => {});
-  return { confirmText, posts };
+  return { confirmText: dialogs[0].text, posts };
 }
 
 /**
@@ -694,26 +688,18 @@ async function dismissDeleteAppointment(context, daySheet, appointmentNo) {
 }
 
 async function deleteAppointment(context, daySheet, appointmentNo) {
-  // The delete confirm is raised by the form's own onSubmit, not by the click, so
-  // the handler has to be installed with the popup: dismissing it cancels the
-  // submit and no POST is ever made.
-  let confirmText = null;
-  const popup = await openEditPopup(context, daySheet, appointmentNo, async (dialog, entry) => {
-    confirmText = dialog.message();
-    recorder.dialogs.push({ ...entry, accepted: true });
-    await dialog.accept().catch(() => {});
-  });
+  const popup = await openEditPopup(context, daySheet, appointmentNo);
 
   const deleteButton = popup.locator('#deleteButton');
   assert(await deleteButton.count() > 0, 'edit popup rendered no delete control');
-  const [response] = await Promise.all([
-    popup.waitForResponse((r) => r.request().method() === 'POST'
-      && /\/appointment\/DeleteRecord$/.test(new URL(r.url()).pathname), { timeout: 45000 }),
-    deleteButton.click(),
-  ]);
+  const responsePromise = popup.waitForResponse((r) => r.request().method() === 'POST'
+    && /\/appointment\/DeleteRecord$/.test(new URL(r.url()).pathname), { timeout: 45000 });
+  responsePromise.catch(() => {});
+  const dialogs = await withExpectedDialogs(popup, () => deleteButton.click());
+  const response = await responsePromise;
   assert(response.status() < 400, `appointment DeleteRecord returned HTTP ${response.status()}`);
-  assert(confirmText && /delete/i.test(confirmText),
-    `appointment delete raised an unexpected confirmation: ${confirmText}`);
+  assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && /delete/i.test(dialogs[0].text),
+    `appointment delete raised an unexpected confirmation: ${JSON.stringify(dialogs)}`);
   await popup.waitForLoadState('domcontentloaded', { timeout: 45000 }).catch(() => {});
   await assertNotErrorPage(popup, 'appointment delete confirmation');
   await popup.close().catch(() => {});
@@ -740,6 +726,9 @@ async function main() {
 
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+    // Wire before the initial popup response and before the shared login helper
+    // can choose its default baseline. No historical console baseline applies.
+    context.on('page', page => wireStrictPage(page, 'appointment-page', recorder, { baseline: [] }));
     // appointmentaddarecord.jsp calls self.close() on a SUCCESSFUL add, tearing the
     // confirmation down before it can be read. Neutralising close keeps the page
     // inspectable; the flag it sets is what the booking asserts instead.
@@ -752,7 +741,7 @@ async function main() {
     await login(context, config, recorder);
 
     const daySheet = await context.newPage();
-    wirePage(daySheet, 'day-sheet', recorder);
+    wireStrictPage(daySheet, 'day-sheet', recorder, { baseline: [] });
     await openDaySheet(daySheet);
     pass(`day sheet renders bookable slots for ${targetDate}`);
 
@@ -782,6 +771,7 @@ async function main() {
       `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
     assert(recorder.consoleIssues.length === 0,
       `unexpected console issues: ${JSON.stringify(recorder.consoleIssues, null, 2)}`);
+    assertStrictPage(recorder);
     console.log(`\nPASS appointment lifecycle: ${passed.length} checks, 0 failures`);
   } catch (error) {
     console.error(`FAIL appointment lifecycle: ${error.stack || error.message}`);

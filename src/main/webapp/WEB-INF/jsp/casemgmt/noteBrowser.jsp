@@ -1,6 +1,7 @@
 <%--
 
     Copyright (c) 2012- Centre de Medecine Integree
+    Modifications by CARLOS Contributors, 2026.
 
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
@@ -40,6 +41,7 @@
 
     Parameters:
         demographic_no  the patient (required; _eChart r and the _eChart$<demo> lock apply).
+        chartContext    optional authenticated chart-window program, retained through document mutations.
         view            document type filter, raw ("all" for every type).
         viewstatus      active | deleted | all.
         sortorder       Content | Observation | Update.
@@ -50,6 +52,7 @@
 
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="java.util.Hashtable" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page import="java.util.Collections" %>
@@ -149,6 +152,15 @@
     <title><fmt:message key="encounter.noteBrowser.title"/> - <oscar:nameage
             demographicNo="<%= demographicID %>"/></title>
     <script type="text/javascript">
+        var noteBrowserPatient = '<%= SafeEncode.forJavaScript(demographicID) %>';
+        var noteBrowserChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+
+        function noteBrowserActionUrl(operation, encList) {
+            return '<%= SafeEncode.forJavaScript(request.getContextPath()) %>/CaseManagementEntry?method='
+                + encodeURIComponent(operation) + '&demographicNo=' + encodeURIComponent(noteBrowserPatient)
+                + (noteBrowserChartContext ? '&chartContext=' + encodeURIComponent(noteBrowserChartContext) : '')
+                + encList + '&printCPP=false&printRx=false';
+        }
 
         function popup(vheight, vwidth, varpage) { //open a new popup window
             var page = "" + varpage;
@@ -174,6 +186,7 @@
             params.set('view', form.view.value);
             params.set('viewstatus', form.viewstatus.value);
             params.set('sortorder', form.sortorder.value);
+            if (noteBrowserChartContext) params.set('chartContext', noteBrowserChartContext);
             window.location.href = '<%= request.getContextPath() %>/casemgmt/ViewNoteBrowser?' + params.toString();
         }
 
@@ -276,9 +289,8 @@
 
         }
 
-        <c:set var="__enc_1"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
         function showEncounter(encList) {
-            var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=displayNotes&demographicNo=<carlos:encode value='${__enc_1}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false';
+            var url2 = noteBrowserActionUrl('displayNotes', encList);
             var iframe = document.createElement('iframe');
             iframe.src = url2;
             iframe.width = (getWidth() - 40);
@@ -439,8 +451,7 @@
                     }
                 }
 
-                <c:set var="__enc_2"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=print&demographicNo=<carlos:encode value='${__enc_2}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
+                popup(700, 960, noteBrowserActionUrl('print', encList), 'PrintEncounter');
             }
         }
 
@@ -495,6 +506,10 @@
 </head>
 <body onload="OnLoad();">
 <form name="DisplayDoc" method="post" action="<%= request.getContextPath() %>/casemgmt/ViewNoteBrowser">
+    <% String mutationChartContext = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request);
+       if (mutationChartContext != null) { %>
+    <input type="hidden" name="chartContext" value="<%= SafeEncode.forHtmlAttribute(mutationChartContext) %>">
+    <% } %>
 
     <table>
         <%if (errorMessage.length() > 0) {%>

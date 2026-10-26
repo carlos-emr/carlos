@@ -15,6 +15,9 @@
  * User path: Schedule ▸ Msg ▸ a message from another provider ▸ Reply (messenger/HandleMessages) ▸ Send and Archive.
  * Asserted:
  *   1. Reply opens the compose page with the sender ticked, the subject prefixed "Re:" and a Send and Archive button.
+ *      A controlled disabled-recipient form fault then sends a real native Send POST without recipients. The server's
+ *      error redisplay must retain the original message ID, raw subject/body and compose key, with no stored reply or
+ *      source-row change. The sender is selected again on that redisplay before the following Send and Archive.
  *   2. Send and Archive posts the archive for exactly the message replied to (DisplayMessages, btnDelete, its messageNo)
  *      and the application accepts it, then posts the reply (CreateMessage). One reply is stored from the test login and
  *      delivered to the sender only.
@@ -82,8 +85,13 @@ async function workflow(s) {
   }
   const statusOf = who => sql.value(`SELECT IFNULL(GROUP_CONCAT(status),'') FROM messagelisttbl WHERE message=${messageId}
     AND provider_no=${h.sqlString(who)}`);
-  const otherRow = () => JSON.stringify(sql.rows(`SELECT id, status FROM messagelisttbl WHERE message=${messageId}
+  const otherRow = () => JSON.stringify(sql.rows(`SELECT * FROM messagelisttbl WHERE message=${messageId}
     AND provider_no=${h.sqlString(OTHER)}`));
+  const sourceState = () => JSON.stringify({
+    message: sql.rows(`SELECT * FROM messagetbl WHERE messageid=${messageId}`),
+    recipients: sql.rows(`SELECT * FROM messagelisttbl WHERE message=${messageId} ORDER BY id`),
+    patients: sql.rows(`SELECT * FROM msgDemoMap WHERE messageID=${messageId} ORDER BY id`),
+  });
 
   let inbox;
   const listed = () => inbox.locator(`a[href*="/messenger/ViewMessage?messageID=${messageId}&"]`);
@@ -103,8 +111,56 @@ async function workflow(s) {
     await inbox.locator('#sendArchive').waitFor({ state: 'visible' });
     h.assert(await inbox.locator('#sendArchive').getAttribute('data-message-id') === messageId,
       'The compose page lost the original message ID');
+    h.assert(await inbox.locator('input[name="archiveMessageId"]').inputValue() === messageId,
+      'The reply form does not carry its original message through a failed send');
     // Exercise the packaged privacy policy even on a development server.
     await inbox.evaluate(() => Object.defineProperty(document, 'referrer', { configurable: true, value: '' }));
+  });
+
+  let retryBody;
+  await s.step('an actual Send with a disabled recipient reaches server refusal and retains the reply for Send and Archive', async () => {
+    const attachmentKey = await inbox.locator('input[name="attachmentKey"]').inputValue();
+    const rawSubject = `  Re:${subject}  `;
+    await inbox.locator('#subject').fill(rawSubject);
+    retryBody = await inbox.evaluate(value => {
+      editor.setMarkdown(value);
+      writeToMessage();
+      return document.forms[0].message.value;
+    }, `${marker} retry H&P + café 中文\n${lines.join('\n')}`);
+    const selected = inbox.locator('input[name="provider"]:checked');
+    const selectedValues = await selected.evaluateAll(boxes => boxes.map(box => box.value));
+    h.assert(selectedValues.length > 0 && selectedValues.every(value => value === selectedValues[0]),
+      'The reply does not select only its original sender, including any group copies');
+    const recipient = selectedValues[0];
+    // Controlled form fault: validation sees a checked box, while the browser omits
+    // its disabled value from the real POST. No shared contact or HTTP response is changed.
+    await selected.evaluateAll(boxes => boxes.forEach(box => { box.disabled = true; }));
+    const before = sourceState();
+    const beforeMessages = JSON.stringify(owned());
+    const [refused] = await Promise.all([
+      inbox.waitForResponse(r => r.request().method() === 'POST'
+        && r.request().isNavigationRequest() && new URL(r.url()).pathname.endsWith('/messenger/CreateMessage'), { timeout: TIMEOUT }),
+      inbox.locator('button[type="submit"]').click(),
+    ]);
+    const posted = new URLSearchParams(refused.request().postData() || '');
+    h.assert(posted.getAll('provider').length === 0 && posted.get('archiveMessageId') === messageId
+      && posted.get('subject') === rawSubject && posted.get('message') === retryBody,
+    'The controlled disabled-recipient POST lost the original reply carrier or typed fields');
+    h.assert(refused.status() === 200 && Object.hasOwn(refused.headers(), h.APPLICATION_HEADER),
+      'The no-recipient send did not return the real application compose page');
+    await settle(inbox);
+    h.assert((await inbox.locator('body').innerText()).includes('No valid recipients selected'),
+      'The application did not display its controlled recipient refusal');
+    h.assert(sourceState() === before && JSON.stringify(owned()) === beforeMessages,
+      'The refused ordinary Send stored a message or changed the original message/delivery rows');
+    h.assert(await inbox.locator('#subject').inputValue() === rawSubject
+      && await inbox.locator('textarea[name="message"]').inputValue() === retryBody
+      && await inbox.locator('input[name="attachmentKey"]').inputValue() === attachmentKey,
+    'Redisplay lost the typed subject/body or this compose window attachment key');
+    h.assert(await inbox.locator('input[name="archiveMessageId"]').inputValue() === messageId
+      && await inbox.locator('#sendArchive').getAttribute('data-message-id') === messageId,
+    'The refused send lost the original message for the following Send and Archive');
+    await inbox.locator(`input[name="provider"][value="${recipient}"]`).first().check();
   });
 
   let archive;
@@ -125,6 +181,8 @@ async function workflow(s) {
     await settle(inbox);
     const replies = sql.rows(`SELECT messageid, sentbyNo FROM messagetbl WHERE thesubject=${h.sqlString(`Re:${subject}`)}`);
     h.assert(replies.length === 1 && replies[0][1] === self, `Send and Archive stored ${replies.length} replies, not one from ${self}`);
+    h.assert(sql.value(`SELECT themessage FROM messagetbl WHERE messageid=${replies[0][0]}`) === retryBody,
+      'The retried reply did not store the exact recovered message text');
     const delivered = sql.rows(`SELECT provider_no FROM messagelisttbl WHERE message=${replies[0][0]} ORDER BY provider_no`).map(row => row[0]);
     h.assert(JSON.stringify(delivered) === JSON.stringify([SENDER]), `The reply was delivered to ${JSON.stringify(delivered)}, not to ${SENDER}`);
     h.assert(archive.status() >= 200 && archive.status() < 300,

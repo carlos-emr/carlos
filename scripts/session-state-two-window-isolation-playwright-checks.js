@@ -39,7 +39,7 @@
  *   8. A compose window for B open ▸ the transfer page's post (messenger/Transfer/PostItems, with
  *      A's items): the compose window the transfer opens carries them, and B's message carries none.
  *      The transfer left its items on the login's messenger bean for whichever window sent next.
- *      (The transfer page itself cannot render on any install; the step posts its form.)
+ *      The transfer chooser must first render using the packaged export definition (#4811).
  *   9. A received message linked to A ▸ Attachment ▸ Save Attachments ▸ Reply in its view,
  *      Forward in a second view of it and Compose in a third ▸ Attach Patient in the reply only ▸
  *      Send Message from the forward, the new message, then the reply: all three carry the saved
@@ -90,6 +90,7 @@ const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { seedOwnedBill } = require('./billing-on-invoice-third-party-playwright-checks');
 const { pdfTextBuffer, requirePoppler } = require('./lib/export-content-helpers');
+const { storedQuickListNames, trackQuickListPreferences } = require('./lib/quicklist-preference-fixture');
 
 const TIMEOUT = 30000;
 const A_FIRST_NAME = 'PatientAlpha';
@@ -453,12 +454,10 @@ async function sendRefused(s, page, groupId, subject, reason, label) {
 }
 
 /**
- * The transfer page's post (messenger/Transfer/PostItems) with one item, from `page`. The transfer
- * page itself (messenger/Transfer/SelectItems) cannot render: it reads /DocXferConfig.xml from the
- * server's filesystem root, which no install has, so it fails for every patient. Its form posts
- * xmlDoc (the patient's document, Base64) and item<N>=on for each ticked item to PostItems, which
- * is live. The same form is built and submitted here, from a messenger page, so CSRFGuard adds its
- * token as it does for the page's own form. The post opens a compose window of its own in `page`.
+ * Submit the transfer form's XML contract with one identifiable item, from `page`.
+ * The workflow first renders the real packaged chooser, then uses a synthetic item
+ * to distinguish this compose window's attachment from another window's. CSRFGuard
+ * adds the token to this form just as it does to the chooser's own submission.
  */
 async function postTransfer(page, content) {
   const previous = new URL(page.url()).searchParams.get('attachmentKey');
@@ -568,8 +567,15 @@ async function transferredItems(s, A, B, messenger, chartOf) {
       'compose-B-beside-transfer');
     await composeB.locator('#subject').waitFor({ timeout: TIMEOUT });
     const transfer = await context.newPage();
-    await h.gotoApp(transfer, s.config.baseUrl, '/messenger/DisplayMessages');
-    await settle(transfer, 'the inbox the transfer is posted from');
+    await h.gotoApp(transfer, s.config.baseUrl, `/messenger/Transfer/SelectItems?val1=untrusted-provider&val2=${A}`);
+    await settle(transfer, 'the patient document-transfer chooser');
+    h.assert(await transfer.locator('form[action$="/messenger/Transfer/PostItems"]').count() === 1,
+      'The packaged document-transfer definition did not render a chooser');
+    await transfer.getByRole('link', {name: 'Expand All', exact: true}).click();
+    await transfer.getByRole('cell', {name: `${marker}, ${A_FIRST_NAME}`, exact: true})
+      .waitFor({state: 'visible', timeout: TIMEOUT});
+    h.assert((await transfer.locator('body').innerText()).includes(A_FIRST_NAME),
+      'The transfer chooser does not display its named patient');
     const content = `${marker} ${A_FIRST_NAME} transferred eDoc`;
     await postTransfer(transfer, content);
     h.assert((await transfer.locator('body').innerText()).includes(ATTACHMENTS_LABEL),
@@ -621,7 +627,7 @@ async function sendRefusals(s, A, B, messenger, chartOf) {
 }
 
 async function listsKeepAttachments(s, A, B, messenger, chartOf) {
-  const { marker } = s;
+  const { marker, context, config } = s;
   await step(s, 'the inbox and each patient\'s message list, opened before a send, leave the compose window\'s attachment', async () => {
     const compose = await composeWithPatientPdf(s, chartOf.B, 'B (lists open)', B);
     const inbox = await openPage(s, '/messenger/DisplayMessages', 'messenger inbox');
@@ -636,16 +642,21 @@ async function listsKeepAttachments(s, A, B, messenger, chartOf) {
       h.assert(text.includes(`${marker} ${label} chart PDF`) && !text.includes(`${marker} ${other} chart PDF`),
         `${label}'s message list does not list exactly the messages linked to ${label}`);
     }
-    // Without a patient the list names none, rather than the patient of another window's list.
-    const unnamed = await openPage(s, '/messenger/DisplayDemographicMessages', 'message list without a patient');
-    const unnamedText = await unnamed.locator('body').innerText();
-    h.assert(!unnamedText.includes(`${marker} A chart PDF`) && !unnamedText.includes(`${marker} B chart PDF`),
-      'The message list opened without a patient lists another window\'s patient\'s messages');
+    // A list without an explicit patient is refused, rather than borrowing another window's
+    // patient. Use the same authenticated browser context for this deliberately invalid request.
+    const unnamed = await context.request.get(h.appUrl(config.baseUrl, '/messenger/DisplayDemographicMessages'),
+      {maxRedirects: 0, failOnStatusCode: false});
+    try {
+      h.assert(unnamed.status() === 404, `A message list without a patient answered HTTP ${unnamed.status()}, not 404`);
+      const unnamedText = await unnamed.text();
+      h.assert(!unnamedText.includes(`${marker} A chart PDF`) && !unnamedText.includes(`${marker} B chart PDF`),
+        'The message list opened without a patient lists another window\'s patient\'s messages');
+    } finally { await unnamed.dispose(); }
     const id = await sendToSelf(s, compose, messenger.groupId, `${marker} B after the lists`);
     const pdfs = storedPdfs(s, id);
     h.assert(pdfs.count === 1 && pdfs.text.includes(B_FIRST_NAME),
       `Opening the inbox and the message lists left B's message with ${pdfs.count} chart PDFs instead of B's one`);
-    for (const page of [unnamed, listOf.B, listOf.A, inbox, compose]) await page.close();
+    for (const page of [listOf.B, listOf.A, inbox, compose]) await page.close();
   });
 }
 
@@ -857,14 +868,15 @@ async function composeFromView(view, label, button) {
 
 async function forwardedItems(s, A, messenger) {
   const { sql, marker } = s;
-  const received = { first: receiveMessageWithItem(s, 'first'), second: receiveMessageWithItem(s, 'second') };
+  const received = { first: receiveMessageWithItem(s, 'first'), second: receiveMessageWithItem(s, 'second'),
+    third: receiveMessageWithItem(s, 'third') };
 
   const viewOf = {};
   let inbox;
   /** The inbox sets up the login's messenger; each message then opens in a window of its own. */
   async function openViews() {
     inbox = await openPage(s, '/messenger/DisplayMessages', 'messenger inbox');
-    for (const label of ['first', 'second']) {
+    for (const label of ['first', 'second', 'third']) {
       viewOf[label] = await openPage(s, await messageViewPath(inbox, received[label], label), `${label} message view`);
     }
   }
@@ -894,18 +906,32 @@ async function forwardedItems(s, A, messenger) {
       AND demographic_no=${patient}`, '1', `Link to Patient did not link the ${label} message`);
   }
 
-  await step(s, 'each message view forwards only its own message\'s chart items, by Forward or Reply', async () => {
+  await step(s, 'Forward, Reply and Reply All retain their own quote and chart items after reload', async () => {
     await openViews();
     await saveViewAttachments(s, viewOf.first, 'first');
     // The second view saves its items after the first one did.
     await saveViewAttachments(s, viewOf.second, 'second');
+    await saveViewAttachments(s, viewOf.third, 'third');
     // The first view is shown again for its linked patient before it forwards.
     await linkPatient('first', A);
-    for (const [label, other, button] of [['first', 'second', 'forward'], ['second', 'first', 'reply']]) {
+    for (const [label, other, button] of [
+      ['first', 'second', 'forward'], ['second', 'first', 'reply'], ['third', 'first', 'replyAll']]) {
       const view = viewOf[label];
       await composeFromView(view, label, button);
       h.assert(/Attachments/i.test(await view.locator('#scrollNumber1').innerText()),
         `${button} from the ${label} message view does not show the items saved in it`);
+      const composeKey = new URL(view.url()).searchParams.get('attachmentKey');
+      h.assert(composeKey, `${button} has no stable compose key in its address`);
+      const originalSubject = await view.locator('#subject').inputValue();
+      await view.reload({ waitUntil: 'domcontentloaded' });
+      await settle(view, `${button} after reload`);
+      h.assert(await view.locator('#subject').inputValue() === originalSubject
+          && (await view.locator('#messagediv').innerText()).includes('FAKE-PW received'),
+        `${button} reload lost its original subject or quoted message`);
+      h.assert(new URL(view.url()).searchParams.get('attachmentKey') === composeKey,
+        `${button} reload replaced its compose workspace`);
+      h.assert(/Attachments/i.test(await view.locator('#scrollNumber1').innerText()),
+        `${button} reload discarded its saved chart items`);
       const id = await sendToSelf(s, view, messenger.groupId, `${marker} forwarded ${label}`);
       const stored = sql.value(`SELECT attachment FROM messagetbl WHERE messageid=${id}`) || '';
       h.assert(stored.includes(`name="${received[label].item}"`) && !stored.includes(`name="${received[other].item}"`),
@@ -1128,38 +1154,43 @@ async function diseaseRegistry(s, A, B) {
         coding_system, providerNo)
       VALUES (${patient}, CURDATE(), NOW(), 'A', ${q(code)}, 'icd9', ${q(provider)})`);
   }
+  const quickLists = storedQuickListNames(sql);
+  // A POST re-render may return to the default list, so retain all validated catalog keys.
+  const preferences = trackQuickListPreferences(s, quickLists);
   const registry = patient => `/oscarResearch/dxresearch/setupDxResearch?demographicNo=${patient}`
-    + `&providerNo=${encodeURIComponent(provider)}&quickList=`;
+    + `&providerNo=${encodeURIComponent(provider)}&quickList=${encodeURIComponent(quickLists[0])}`;
   const listed = async page => page.locator('#displayDxCodeTable').innerText();
 
-  await step(s, 'a refused registry code re-renders this window\'s own patient, whose next code is filed for it', async () => {
-    const windowA = await openPage(s, registry(A), 'A\'s Disease Registry');
-    const windowB = await openPage(s, registry(B), 'B\'s Disease Registry');
-    await windowA.locator('input[name="xml_research1"]').fill('99999');
-    await Promise.all([
-      windowA.waitForNavigation({ timeout: TIMEOUT }),
-      windowA.locator('input[name="codeAdd"]').click(),
-    ]);
-    await settle(windowA, 'A\'s Disease Registry after a refused code');
-    const shown = await listed(windowA);
-    h.assert(shown.includes(describe(codeOf.A)) && !shown.includes(describe(codeOf.B)),
-      `A's registry, re-rendered after the refusal, lists ${shown.includes(describe(codeOf.B)) ? 'B\'s' : 'no'} diagnoses`);
-    h.assert(await windowA.locator('form[action$="/oscarDxResearch/dxResearch"] input[name="demographicNo"]').inputValue() === A,
-      'A\'s re-rendered registry form names another patient');
-    await windowA.locator('input[name="xml_research1"]').fill(added);
-    await Promise.all([
-      windowA.waitForNavigation({ timeout: TIMEOUT }),
-      windowA.locator('input[name="codeAdd"]').click(),
-    ]);
-    await settle(windowA, 'A\'s Disease Registry after adding a code');
-    await expectValue(sql, `SELECT GROUP_CONCAT(dxresearch_code ORDER BY dxresearch_code) FROM dxresearch
-      WHERE demographic_no=${A} AND status='A'`, [codeOf.A, added].sort().join(','),
-    'A\'s next code was not registered for A');
-    h.assert(sql.value(`SELECT GROUP_CONCAT(dxresearch_code) FROM dxresearch WHERE demographic_no=${B}`) === codeOf.B,
-      'A\'s window changed B\'s registry');
-    await windowA.close();
-    await windowB.close();
-  });
+  try {
+    await step(s, 'a refused registry code re-renders this window\'s own patient, whose next code is filed for it', async () => {
+      const windowA = await openPage(s, registry(A), 'A\'s Disease Registry');
+      const windowB = await openPage(s, registry(B), 'B\'s Disease Registry');
+      await windowA.locator('input[name="xml_research1"]').fill('99999');
+      await Promise.all([
+        windowA.waitForNavigation({ timeout: TIMEOUT }),
+        windowA.locator('input[name="codeAdd"]').click(),
+      ]);
+      await settle(windowA, 'A\'s Disease Registry after a refused code');
+      const shown = await listed(windowA);
+      h.assert(shown.includes(describe(codeOf.A)) && !shown.includes(describe(codeOf.B)),
+        `A's registry, re-rendered after the refusal, lists ${shown.includes(describe(codeOf.B)) ? 'B\'s' : 'no'} diagnoses`);
+      h.assert(await windowA.locator('form[action$="/oscarDxResearch/dxResearch"] input[name="demographicNo"]').inputValue() === A,
+        'A\'s re-rendered registry form names another patient');
+      await windowA.locator('input[name="xml_research1"]').fill(added);
+      await Promise.all([
+        windowA.waitForNavigation({ timeout: TIMEOUT }),
+        windowA.locator('input[name="codeAdd"]').click(),
+      ]);
+      await settle(windowA, 'A\'s Disease Registry after adding a code');
+      await expectValue(sql, `SELECT GROUP_CONCAT(dxresearch_code ORDER BY dxresearch_code) FROM dxresearch
+        WHERE demographic_no=${A} AND status='A'`, [codeOf.A, added].sort().join(','),
+      'A\'s next code was not registered for A');
+      h.assert(sql.value(`SELECT GROUP_CONCAT(dxresearch_code) FROM dxresearch WHERE demographic_no=${B}`) === codeOf.B,
+        'A\'s window changed B\'s registry');
+      await windowA.close();
+      await windowB.close();
+    });
+  } finally { preferences.observe(); }
 }
 
 async function workflow(s) {

@@ -31,7 +31,8 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
  *
  * <p>The shared {@link AbstractNoteBrowserDocumentMutation2Action} contract rejects
  * non-POST requests, requires an authenticated user with {@code _eChart w}, and
- * validates the document number before this action calls {@link EDocUtil}.</p>
+ * validates the document number and chart association, and requires the stored document's
+ * patient, program and queue write permissions before this action calls {@link EDocUtil}.</p>
  *
  * @since 2026-06-01
  */
@@ -53,6 +54,9 @@ public class NoteBrowserDocumentDelete2Action extends AbstractNoteBrowserDocumen
     protected String invalidParameterMessage() {
         return "invalid delDocumentNo";
     }
+
+    @Override
+    protected String selectedDocumentNo() { return delDocumentNo; }
 
     @Override
     protected void mutateDocument() throws DocumentMutationException {

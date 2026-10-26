@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf;
 
@@ -45,13 +46,11 @@ import java.util.Map;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.openpdf.text.DocumentException;
 import org.openpdf.text.pdf.AcroFields;
-import org.openpdf.text.pdf.AcroFields.Item;
-import org.openpdf.text.pdf.PdfDictionary;
-import org.openpdf.text.pdf.PdfName;
 import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfStamper;
 
@@ -191,7 +190,7 @@ public class PDFController {
                 this.pdfreader = reader;
             }
         } catch (IOException e) {
-            _Logger.log(Level.FATAL, e);
+            _Logger.log(Level.FATAL, "Unable to read BPMH PDF template{}", LogSafe.exceptionTrace(e));
         }
 
     }
@@ -204,7 +203,7 @@ public class PDFController {
             return Boolean.TRUE;
         }
 
-        _Logger.log(Level.FATAL, "Template file location " + file.getAbsolutePath() + " not found.");
+        _Logger.log(Level.FATAL, "BPMH PDF template file was not found.");
 
         return Boolean.FALSE;
     }
@@ -259,22 +258,11 @@ public class PDFController {
         digestData(data);
     }
 
-    @SuppressWarnings("rawtypes")
     private void setPdfMetaData() {
-
-        Map pdfInfoMap = getReader().getInfo();
-        Iterator pdfInfoIt = pdfInfoMap.entrySet().iterator();
-
         numberOfPages = getReader().getNumberOfPages();
         certificationLevel = getReader().getCertificationLevel();
-
-        while (pdfInfoIt.hasNext()) {
-            _Logger.debug("PDF INFO: " + pdfInfoIt.next().toString());
-        }
-
-        _Logger.debug("PDF INFO: number pages=" + getNumberOfPages());
-        _Logger.debug("PDF INFO: certification level=" + getCertificationLevel());
-
+        _Logger.debug("BPMH PDF metadata: pageCount={}, certificationLevel={}",
+                LogSafe.sanitizeObject(numberOfPages), LogSafe.sanitizeObject(certificationLevel));
     }
 
 
@@ -294,34 +282,13 @@ public class PDFController {
         String key = "";
         String cleanKey = "";
         int fieldType;
-        String[] appStates;
-        AcroFields.Item acroField;
-        PdfDictionary annots;
-        Iterator itannots;
 
         while (acroFieldsIt.hasNext()) {
 
             key = acroFieldsIt.next().toString();
             cleanKey = key.replaceAll(STRING_FILTER, "");
             fieldType = acroFields.getFieldType(key);
-            appStates = acroFields.getAppearanceStates(key);
-            acroField = (Item) acroFieldsMap.get(key);
-            annots = acroField.getWidget(0);
-
-            _Logger.debug("Field Type: " + cleanKey + " = " + fieldType);
-
-            itannots = annots.getKeys().iterator();
-            while (itannots.hasNext()) {
-                PdfName annotKey = (PdfName) itannots.next();
-                _Logger.debug("ANNOT KEY: " + annotKey);
-                _Logger.debug("ANNOT VALUE: " + annots.get(annotKey));
-            }
-
-            if (appStates.length > 0) {
-                for (int i = 0; appStates.length > i; i++) {
-                    _Logger.debug("APPEARANCE STATE: " + appStates[i]);
-                }
-            }
+            _Logger.debug("Filling BPMH PDF field type={}", LogSafe.sanitizeObject(fieldType));
 
             replaceWith = invokeValue(cleanKey);
 
@@ -332,14 +299,12 @@ public class PDFController {
 
             try {
 
-                _Logger.debug("Replacement Key and Value: Key = " + cleanKey + " Value = " + replaceWith);
-
                 acroFields.setField(cleanKey, replaceWith);
 
             } catch (IOException e) {
-                _Logger.log(Level.FATAL, "Failed to set method " + cleanKey + " with value " + replaceWith + " into PDF document", e);
+                _Logger.log(Level.FATAL, "Unable to fill BPMH PDF field{}", LogSafe.exceptionTrace(e));
             } catch (DocumentException e) {
-                _Logger.log(Level.FATAL, "Failed to set method " + cleanKey + " with value " + replaceWith + " into PDF document", e);
+                _Logger.log(Level.FATAL, "Unable to fill BPMH PDF field{}", LogSafe.exceptionTrace(e));
             }
 
         }
@@ -444,32 +409,32 @@ public class PDFController {
                 getStamper().setFreeTextFlattening(true);
 
             } catch (FileNotFoundException e1) {
-                _Logger.log(Level.FATAL, e1);
+                _Logger.log(Level.FATAL, "Unable to generate BPMH PDF{}", LogSafe.exceptionTrace(e1));
             } catch (DocumentException e1) {
-                _Logger.log(Level.FATAL, e1);
+                _Logger.log(Level.FATAL, "Unable to generate BPMH PDF{}", LogSafe.exceptionTrace(e1));
             } catch (IOException e1) {
-                _Logger.log(Level.FATAL, e1);
+                _Logger.log(Level.FATAL, "Unable to generate BPMH PDF{}", LogSafe.exceptionTrace(e1));
             } finally {
                 if (getStamper() != null) {
                     try {
                         getStamper().close();
                     } catch (DocumentException e) {
-                        _Logger.log(Level.FATAL, e);
+                        _Logger.log(Level.FATAL, "Unable to finalize BPMH PDF output{}", LogSafe.exceptionTrace(e));
                     } catch (IOException e) {
-                        _Logger.log(Level.FATAL, e);
+                        _Logger.log(Level.FATAL, "Unable to finalize BPMH PDF output{}", LogSafe.exceptionTrace(e));
                     }
                 }
                 if (fos != null) {
                     try {
                         fos.close();
                     } catch (IOException e) {
-                        _Logger.log(Level.FATAL, e);
+                        _Logger.log(Level.FATAL, "Unable to finalize BPMH PDF output{}", LogSafe.exceptionTrace(e));
                     }
                 }
             }
 
         } else {
-            _Logger.warn("Unable to load document from" + filePath);
+            _Logger.warn("Unable to load BPMH PDF template.");
         }
 
     }
@@ -501,11 +466,11 @@ public class PDFController {
         try {
             fillGetterMethods(data, methods);
         } catch (IllegalArgumentException e) {
-            _Logger.fatal("Failed to get generic object methods ", e);
+            _Logger.fatal("Unable to discover BPMH PDF getters{}", LogSafe.exceptionTrace(e));
         } catch (IllegalAccessException e) {
-            _Logger.fatal("Failed to get generic object methods ", e);
+            _Logger.fatal("Unable to discover BPMH PDF getters{}", LogSafe.exceptionTrace(e));
         } catch (InvocationTargetException e) {
-            _Logger.fatal("Failed to get generic object methods ", e);
+            _Logger.fatal("Unable to discover BPMH PDF getters{}", LogSafe.exceptionTrace(e));
         }
 
         return methods;
@@ -657,7 +622,7 @@ public class PDFController {
         int index = -1;
 
         if (!methodMap.containsKey(methodName)) {
-            _Logger.debug("Method " + methodName + " not found in data object.");
+            _Logger.debug("BPMH PDF getter was not found.");
             return value;
         } else {
             method = methodMap.get(methodName);
@@ -676,42 +641,36 @@ public class PDFController {
 
         try {
 
-            _Logger.debug("Value state 1 = " + value);
-
             if (methodMap.containsKey(methodOne)) {
                 objectOne = methodMap.get(methodOne).invoke(data);
             }
 
             if (objectOne != null) {
-                _Logger.debug("MethodName [MapKey]: " + methodName + " ObjectOne [GenericObject]: " + objectOne.toString() + " Index [ListIndex]: " + index);
+                _Logger.debug("Reading nested BPMH PDF field at listIndex={}", LogSafe.sanitizeObject(index));
 
                 if (objectOne instanceof java.util.List && index > -1) {
-                    _Logger.debug("Method [ObjectList]: " + methodMap.get(methodName).toGenericString());
-                    _Logger.debug("Method [ListPOJOBean]: " + method.getName());
+                    _Logger.debug("Reading BPMH PDF list field");
                     value = method.invoke(((java.util.List<?>) objectOne).get(index));
                 } else {
-                    _Logger.debug("Method [POJOBean]: " + method.getName());
+                    _Logger.debug("Reading nested BPMH PDF field");
                     value = method.invoke(objectOne);
                 }
 
-                _Logger.debug("Value state 2 = " + value);
-
             } else {
-                _Logger.debug("Method [FormBean]: " + method.getName());
+                _Logger.debug("Reading BPMH PDF field");
                 value = method.invoke(data);
-                _Logger.debug("Value state 3 = " + value);
             }
 
         } catch (IllegalArgumentException e) {
-            _Logger.fatal("Failed to invoke method " + methodName, e);
+            _Logger.fatal("Unable to read BPMH PDF field{}", LogSafe.exceptionTrace(e));
         } catch (IllegalAccessException e) {
-            _Logger.fatal("Failed to invoke method " + methodName, e);
+            _Logger.fatal("Unable to read BPMH PDF field{}", LogSafe.exceptionTrace(e));
         } catch (InvocationTargetException e) {
-            _Logger.fatal("Failed to invoke method " + methodName, e);
+            _Logger.fatal("Unable to read BPMH PDF field{}", LogSafe.exceptionTrace(e));
         }
 
         if (value == null) {
-            _Logger.warn("Value for " + methodName + " not found in data object.");
+            _Logger.warn("BPMH PDF field value was not available.");
         }
 
         return value;
@@ -782,7 +741,7 @@ public class PDFController {
             }
         }
 
-        _Logger.info("PRINTING PAGE NUMBERS: " + stringBuilder);
+        _Logger.info("BPMH PDF requested pageCount={}", LogSafe.sanitizeObject(array.length));
 
         return stringBuilder.toString();
     }
@@ -794,7 +753,7 @@ public class PDFController {
             try {
                 out = Integer.parseInt(filteredInteger);
             } catch (NumberFormatException e) {
-                _Logger.log(Level.FATAL, "Number format exception.", e);
+                _Logger.log(Level.FATAL, "Invalid BPMH PDF field index{}", LogSafe.exceptionTrace(e));
             }
         }
         return out;

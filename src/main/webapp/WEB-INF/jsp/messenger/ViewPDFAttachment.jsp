@@ -193,6 +193,7 @@
                             <% }  %>
                     </table>
                         <input type="hidden" name="file_id" id="file_id"/>
+                        <input type="hidden" name="chartPatientNo" value="<%= SafeEncode.forHtmlAttribute(request.getParameter("chartPatientNo")) %>"/>
                         <input type="hidden" name="attId" value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute("attId")) %>"/>
 
         </form>

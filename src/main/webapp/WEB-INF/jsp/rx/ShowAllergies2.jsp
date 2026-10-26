@@ -107,7 +107,8 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-patient-context.js" data-demographic-no="<%= patient == null ? "" : String.valueOf(patient.getDemographicNo()) %>"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-patient-context.js" data-demographic-no="<%= patient == null ? "" : String.valueOf(patient.getDemographicNo()) %>"
+                data-chart-context="<carlos:encode value='<%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) %>' context="htmlAttribute"/>"></script>
         <%-- Shows failed dialogue requests and saves in the page, keeping the entered values (#3355, #3488). --%>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-allergy-dialog.js"></script>
         <%@ include file="allergyDialog.jspf" %>
