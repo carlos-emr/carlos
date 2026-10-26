@@ -222,7 +222,7 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 <%      } %>
     </div>
 </div>
-<ul id="<%=htmlNavbarName%>list">
+<ul id="<%=htmlNavbarName%>list" data-filed-in-folders="<%= dao.isFiledInFolders() %>">
     <%
         //now we display the actual items of the module
         String manageItems = "";

@@ -92,11 +92,13 @@ class EctDisplayDocs2ActionUnitTest {
         EDoc newest = document("4", "Newest", "consult", "2026-10-26");
         EDoc sameDay = document("5", "Same day", "lab", "2026-10-26");
         EDoc blank = document("6", "Blank", "lab", "");
-        ArrayList<EDoc> documents = new ArrayList<>(Arrays.asList(missing, older, invalid, newest, sameDay, blank));
+        EDoc trailingText = document("7", "Trailing text", "lab", "2026-10-26invalid");
+        ArrayList<EDoc> documents = new ArrayList<>(Arrays.asList(
+                missing, older, invalid, newest, sameDay, blank, trailingText));
 
         EctDisplayDocs2Action.sortByDate(documents);
 
-        assertThat(documents).containsExactly(newest, sameDay, older, missing, invalid, blank);
+        assertThat(documents).containsExactly(newest, sameDay, older, missing, invalid, blank, trailingText);
     }
 
     private static EDoc document(String id, String description, String type, String date) {

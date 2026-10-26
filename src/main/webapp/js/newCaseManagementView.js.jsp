@@ -242,12 +242,17 @@
         if (threshold == 0)
             return;
 
+        var listId = Id + "list";
+        var list = $(listId);
+        // Folder panels manage visibility with their own disclosure buttons. The flat-row
+        // image indices and column cutoff must not count or toggle folder headers/children.
+        if (list.getAttribute('data-filed-in-folders') === 'true')
+            return;
+
         var saveThreshold = Id + "threshold";
         if ($(saveThreshold) != null)
             $(saveThreshold).value = threshold;
 
-        var listId = Id + "list";
-        var list = $(listId);
         var items = list.getElementsByTagName('li');
         items = $A(items);
 

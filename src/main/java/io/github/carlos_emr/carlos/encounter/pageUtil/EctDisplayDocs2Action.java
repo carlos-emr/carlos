@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import java.text.ParseException;
+import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -199,13 +199,11 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
 
     private static Date observationDate(String value) {
         if (value == null || value.isBlank()) return null;
-        try {
-            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-            format.setLenient(false);
-            return format.parse(value);
-        } catch (ParseException invalidDate) {
-            return null;
-        }
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+        format.setLenient(false);
+        ParsePosition position = new ParsePosition(0);
+        Date date = format.parse(value, position);
+        return position.getIndex() == value.length() ? date : null;
     }
 
 

@@ -1053,11 +1053,14 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label"><label for="echartDocumentGrouping"><fmt:message key="provider.providerpreference.label.echartDocumentGrouping"/></label></div>
+                <fmt:message key="provider.providerpreference.label.echartDocumentGrouping" var="echartDocumentGroupingLabel"/>
+                <fmt:message key="provider.providerpreference.documentGrouping.none" var="echartGroupingNoneLabel"/>
+                <fmt:message key="provider.providerpreference.documentGrouping.type" var="echartGroupingTypeLabel"/>
+                <div class="pref-label"><label for="echartDocumentGrouping">${carlos:forHtml(echartDocumentGroupingLabel)}</label></div>
                 <div class="pref-value">
                     <select id="echartDocumentGrouping" name="<%= UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE %>" class="pref-input form-select-sm">
-                        <option value="false" <%=!groupEchartDocuments ? "selected" : ""%>><fmt:message key="provider.providerpreference.documentGrouping.none"/></option>
-                        <option value="true" <%=groupEchartDocuments ? "selected" : ""%>><fmt:message key="provider.providerpreference.documentGrouping.type"/></option>
+                        <option value="false" <%=!groupEchartDocuments ? "selected" : ""%>>${carlos:forHtml(echartGroupingNoneLabel)}</option>
+                        <option value="true" <%=groupEchartDocuments ? "selected" : ""%>>${carlos:forHtml(echartGroupingTypeLabel)}</option>
                     </select>
                 </div>
             </div>
