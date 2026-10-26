@@ -82,7 +82,7 @@
 <header class="cs-header">
     <h1 class="cs-title"><carlos:encode value="${csPatientName}"/>
         <span class="cs-patient-age">${empty csPatientAge ? '' : '<span aria-hidden="true">&middot;</span> '}<carlos:encode value="${csPatientAge}"/></span></h1>
-    <p class="cs-layout-info"><carlos:encode value="${csLayoutLabel}"/>:
+    <p class="cs-layout-info"><carlos:encode value="${csLayoutLabel}"/>
         <span class="cs-layout-name"><carlos:encode value="${csLayoutName}"/></span></p>
     <button type="button" id="cs-hidden-toggle" class="btn btn-outline-secondary btn-sm"
             aria-expanded="false" aria-controls="cs-hidden-panel" data-has-data="false" disabled>

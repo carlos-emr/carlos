@@ -251,3 +251,37 @@ test('CSS styles the layout name text with a cs- class', () => {
   assert.ok(rule && rule[1].includes('font-weight'), '.cs-layout-name rule present');
   assert.ok(!/!important/.test(rule[1]), 'no !important in the rule');
 });
+
+test('JSP leaves the layout label punctuation to the message, with whitespace before the name', () => {
+  const jsp = readJsp();
+  assert.ok(/<carlos:encode value="\$\{csLayoutLabel\}"\/>\s+<span class="cs-layout-name">/.test(jsp),
+    'label is followed by whitespace and the name span, no literal colon');
+});
+
+function rawProperty(locale, key) {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const text = fs.readFileSync(
+    path.join(__dirname, '../src/main/resources/oscarResources_' + locale + '.properties'), 'latin1');
+  const line = text.split(/\r?\n/).find(function (l) { return l.indexOf(key + '=') === 0; });
+  assert.ok(line, key + ' present in ' + locale);
+  return line.slice(key.length + 1);
+}
+
+test('layout label carries its punctuation, written as raw ASCII escapes', () => {
+  const expected = {
+    en: 'Layout:',
+    es: 'Disposici\\u00f3n:',
+    fr: 'Disposition\\u00a0:',
+    pl: 'Uk\\u0142ad:',
+    pt_BR: 'Layout:'
+  };
+  Object.keys(expected).forEach(function (locale) {
+    assert.equal(rawProperty(locale, 'chartspace.chartSpace.layoutLabel'), expected[locale], locale);
+  });
+});
+
+test('Spanish names the Eye care layout "Cuidado ocular", not the specialty', () => {
+  assert.equal(rawProperty('es', 'chartspace.chartSpace.layout.eyeCare'), 'Cuidado ocular');
+  assert.equal(rawProperty('es', 'admin.echartDisplaySettings.layout.eyeCare'), 'Cuidado ocular');
+});
