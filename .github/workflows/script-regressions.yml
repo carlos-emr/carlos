@@ -19,7 +19,8 @@ jobs:
   script-regressions:
     name: Node Script Regressions
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # Include browser dependency installation on slower Ubuntu mirrors.
+    timeout-minutes: 20
     env:
       CARLOS_CTL_SRC: ${{ github.workspace }}/.carlos-ctl
     steps:
