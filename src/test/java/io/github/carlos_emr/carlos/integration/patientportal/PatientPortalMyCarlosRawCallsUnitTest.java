@@ -124,7 +124,8 @@ class PatientPortalMyCarlosRawCallsUnitTest {
 
     @Test
     void shouldReportActualCachedJobTarget_beforeAnyNetworkOrFreshConfigurationRead() {
-        var exchange = new Exchange(200, "{}"); var portal = service(exchange, true);
+        var exchange = new Exchange(200, "{}");
+        var portal = service(exchange, true);
         var target = portal.myCarlosJobTarget(PortalJob.PERMISSION_APPROVAL_REQUESTS_READ, "GET",
                 "/internal/carlos/mycarlos/device-approval-requests?after=0&limit=20");
         assertEquals("clinic-a", target.clinicId());

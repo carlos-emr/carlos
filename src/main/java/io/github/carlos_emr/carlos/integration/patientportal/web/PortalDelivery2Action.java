@@ -23,13 +23,15 @@ public final class PortalDelivery2Action extends PortalJsonAction {
     private transient PortalMyCarlosDeliveryApplicationService.State state;
 
     @Override protected String handleRequest() throws IOException {
-        var request = ServletActionContext.getRequest(); var response = ServletActionContext.getResponse();
+        var request = ServletActionContext.getRequest();
+        var response = ServletActionContext.getResponse();
         String operation = request.getParameter("method");
         boolean page = operation == null || "page".equals(operation);
         boolean read = page || "read".equals(operation);
         if (!(read ? "GET" : "POST").equals(request.getMethod())) return methodNotAllowed(response);
         if (!read && !"send".equals(operation) && !"refresh".equals(operation)) return badRequest(response, getText("mycarlos.delivery.changed"));
-        patient = positiveInt(request.getParameter("demographicNo")); document = positiveInt(request.getParameter("documentId"));
+        patient = positiveInt(request.getParameter("demographicNo"));
+        document = positiveInt(request.getParameter("documentId"));
         if (patient <= 0 || document <= 0) return badRequest(response, getText("mycarlos.delivery.changed"));
         var info = LoggedInInfo.getLoggedInInfoFromSession(request);
         var security = SpringUtils.getBean(SecurityInfoManager.class);
@@ -46,8 +48,10 @@ public final class PortalDelivery2Action extends PortalJsonAction {
             else state = service.refresh(info, patient, document, portalService());
             if (page) return SUCCESS;
             var json = newPayload().put("ok", true).put("title", state.title()).put("serviceDate", state.serviceDate());
-            if (state.nextCursor() == null) json.putNull("nextCursor"); else json.put("nextCursor", state.nextCursor());
-            if (state.syncStatus() == null) json.putNull("syncStatus"); else json.put("syncStatus", state.syncStatus());
+            if (state.nextCursor() == null) json.putNull("nextCursor"); else
+            json.put("nextCursor", state.nextCursor());
+            if (state.syncStatus() == null) json.putNull("syncStatus"); else
+            json.put("syncStatus", state.syncStatus());
             var devices = json.putArray("devices");
             for (var device : state.devices()) devices.addObject().put("deviceKeyId", device.deviceKeyId())
                     .put("fingerprint", device.fingerprint()).put("acceptedAt", device.acceptedAt().toString());
@@ -58,7 +62,8 @@ public final class PortalDelivery2Action extends PortalJsonAction {
         } catch (PatientPortalException failure) { return portalFailure(response, failure); }
         catch (IllegalArgumentException failure) { return badRequest(response, getText("mycarlos.delivery.changed")); }
         catch (IllegalStateException | IOException failure) {
-            if (page) { available = false; return SUCCESS; }
+            if (page) { available = false;
+                return SUCCESS; }
             return unavailable(response);
         }
     }

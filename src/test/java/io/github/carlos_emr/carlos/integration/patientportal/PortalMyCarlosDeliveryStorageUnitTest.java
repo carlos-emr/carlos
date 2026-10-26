@@ -32,7 +32,8 @@ class PortalMyCarlosDeliveryStorageUnitTest {
 
     @Test
     void shouldRefuseSwappedRowsAndTampering_whenOpeningEncryptedArtifacts() throws Exception {
-        var s = snapshot(); var c = cipher();
+        var s = snapshot();
+        var c = cipher();
         byte[] encrypted = c.seal(context(s, "outbox"), s.encode());
         for (var wrong : java.util.List.of(
                 new PortalMyCarlosDeliveryCipher.Context("other-clinic", s.deliveryId(), s.device().kid(), "outbox"),
@@ -42,7 +43,8 @@ class PortalMyCarlosDeliveryStorageUnitTest {
             assertThrows(IllegalArgumentException.class, () -> c.open(wrong, encrypted));
         }
         for (int index : new int[] {0, 8, 12, 24, encrypted.length - 1}) {
-            byte[] tampered = encrypted.clone(); tampered[index] ^= 1;
+            byte[] tampered = encrypted.clone();
+            tampered[index] ^= 1;
             assertThrows(IllegalArgumentException.class, () -> c.open(context(s, "outbox"), tampered));
         }
         assertThrows(IllegalArgumentException.class, () -> c.open(context(s, "outbox"), Arrays.copyOf(encrypted, encrypted.length - 1)));
@@ -51,8 +53,10 @@ class PortalMyCarlosDeliveryStorageUnitTest {
     @Test
     void shouldRetainOldKeyAndUseFreshNonce_whenRotatingCurrentStorageKey() throws Exception {
         var s = snapshot();
-        byte[] a = new byte[32]; a[0] = 1;
-        byte[] b = new byte[32]; b[0] = 2;
+        byte[] a = new byte[32];
+        a[0] = 1;
+        byte[] b = new byte[32];
+        b[0] = 2;
         var old = new PortalMyCarlosDeliveryCipher(1, Map.of(1, a));
         byte[] encrypted = old.seal(context(s, "outbox"), s.encode());
         a[0] ^= 64; // The cipher owns a defensive copy.
@@ -69,11 +73,13 @@ class PortalMyCarlosDeliveryStorageUnitTest {
     @Test
     void shouldRefuseChangedFrameAndIdentity_whenRestoringPersistedSnapshot() throws Exception {
         var s = snapshot();
-        byte[] changed = s.encode(); changed[changed.length - 1] ^= 1;
+        byte[] changed = s.encode();
+        changed[changed.length - 1] ^= 1;
         assertThrows(IllegalArgumentException.class, () -> PortalMyCarlosDeliverySnapshot.decode(changed));
         byte[] extra = Arrays.copyOf(s.encode(), s.encode().length + 1);
         assertThrows(IllegalArgumentException.class, () -> PortalMyCarlosDeliverySnapshot.decode(extra));
-        byte[] overflow = s.encode(); Arrays.fill(overflow, 0, 8, (byte) 0xff);
+        byte[] overflow = s.encode();
+        Arrays.fill(overflow, 0, 8, (byte) 0xff);
         assertThrows(IllegalArgumentException.class, () -> PortalMyCarlosDeliverySnapshot.decode(overflow));
         assertThrows(IllegalArgumentException.class, () -> new PortalMyCarlosDeliverySnapshot(s.clinicId(), s.demographicNo(),
                 s.recipientId(), s.publicBase(), "https://portal.example.test/internal/carlos/patients/124/mycarlos/deliveries",

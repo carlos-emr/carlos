@@ -53,10 +53,14 @@ public final class PortalMyCarlosDeliveryApplicationService {
             EntityManagerFactory factory, SecurityInfoManager security, PropertyDao properties, ClinicDAO clinics,
             CtlDocumentDao ownership, @Qualifier("documentDao") DocumentDao documents,
             DocumentAttachmentManager renderer, DemographicManager demographics) {
-        this.transactions = Objects.requireNonNull(transactions); this.factory = Objects.requireNonNull(factory);
-        this.security = Objects.requireNonNull(security); this.properties = Objects.requireNonNull(properties);
-        this.clinics = Objects.requireNonNull(clinics); this.ownership = Objects.requireNonNull(ownership);
-        this.documents = Objects.requireNonNull(documents); this.renderer = Objects.requireNonNull(renderer);
+        this.transactions = Objects.requireNonNull(transactions);
+        this.factory = Objects.requireNonNull(factory);
+        this.security = Objects.requireNonNull(security);
+        this.properties = Objects.requireNonNull(properties);
+        this.clinics = Objects.requireNonNull(clinics);
+        this.ownership = Objects.requireNonNull(ownership);
+        this.documents = Objects.requireNonNull(documents);
+        this.renderer = Objects.requireNonNull(renderer);
         this.demographics = Objects.requireNonNull(demographics);
     }
 
@@ -77,7 +81,8 @@ public final class PortalMyCarlosDeliveryApplicationService {
         public State(String title, List<Device> devices, List<Delivery> deliveries, String nextCursor, String syncStatus) {
             this(title, devices, deliveries, nextCursor, syncStatus, null);
         }
-        public State { devices = List.copyOf(devices); deliveries = List.copyOf(deliveries); }
+        public State { devices = List.copyOf(devices);
+            deliveries = List.copyOf(deliveries); }
         @Override public String toString() { return "StaffDeliveryState[REDACTED]"; }
     }
     private record Runtime(Current current, PortalMyCarlosDeliveryOutboxDao outbox, PortalMyCarlosAcceptedDeviceDao devices,
@@ -115,7 +120,8 @@ public final class PortalMyCarlosDeliveryApplicationService {
         if (!client.configuredFor(cfg.clinic, cfg.internalOrigin)) throw unavailable();
         var cipher = PortalMyCarlosDeliveryKeyring.load(PatientPortalSettings.rawProperty(PortalMyCarlosDeliveryKeyring.PROPERTY));
         var outbox = new PortalMyCarlosDeliveryOutboxDao(factory);
-        var devices = new PortalMyCarlosAcceptedDeviceDao(factory); var bindings = new PortalMyCarlosPatientBindingDao(factory);
+        var devices = new PortalMyCarlosAcceptedDeviceDao(factory);
+        var bindings = new PortalMyCarlosPatientBindingDao(factory);
         var sender = new PortalMyCarlosDeliveryOutboxService(transactions, bindings, devices, outbox, cipher, this::current,
                 portal, client, security, clock);
         return new Runtime(cfg, outbox, devices, bindings, sender,
@@ -167,7 +173,8 @@ public final class PortalMyCarlosDeliveryApplicationService {
     public State send(LoggedInInfo info, int patient, int documentId, String deliveryId, String deviceKid,
             PatientPortalService portal) throws IOException {
         requireStaff(info, patient);
-        PortalMyCarlosDeliveryCodec.uuid(deliveryId, true); PortalMyCarlosDeviceApprovalCodec.exact32(deviceKid);
+        PortalMyCarlosDeliveryCodec.uuid(deliveryId, true);
+        PortalMyCarlosDeviceApprovalCodec.exact32(deviceKid);
         var document = document(info, patient, documentId);
         var runtime = runtime(portal);
         String source = sourceId(documentId);
@@ -175,7 +182,8 @@ public final class PortalMyCarlosDeliveryApplicationService {
         long rowId;
         if (!existing.isEmpty()) {
             if (existing.size() != 1) throw unavailable();
-            var row = existing.getFirst(); var saved = runtime.sender().load(row);
+            var row = existing.getFirst();
+            var saved = runtime.sender().load(row);
             if (row.demographicNo() != patient || !deviceKid.equals(row.deviceKid()) || !source.equals(saved.sourceDocumentId())) throw unavailable();
             rowId = row.id(); // Retry the exact already staged bytes, including after a lost result.
         } else {
@@ -226,8 +234,10 @@ public final class PortalMyCarlosDeliveryApplicationService {
 
     /** Explicit staff check: retry pending exact bodies, then collect and verify delivery evidence. */
     public State refresh(LoggedInInfo info, int patient, int documentId, PatientPortalService portal) {
-        requireStaff(info, patient); document(info, patient, documentId);
-        var runtime = runtime(portal); String source = sourceId(documentId);
+        requireStaff(info, patient);
+        document(info, patient, documentId);
+        var runtime = runtime(portal);
+        String source = sourceId(documentId);
         var references = transactions.withApprovalState(() -> runtime.outbox().historyReferences(runtime.current().clinic, patient, 0, 20));
         for (var reference : references) {
             var saved = transactions.withApprovalState(() -> runtime.sender().load(runtime.outbox().find(reference.id()).orElseThrow(PortalMyCarlosDeliveryApplicationService::unavailable)));
@@ -254,7 +264,8 @@ public final class PortalMyCarlosDeliveryApplicationService {
     DocumentManifest manifest(LoggedInInfo info, int patient, Document document, String source,
             String recipient, String clinicId, long created) {
         String date = serviceDate(document);
-        var chart = demographics.getDemographic(info, patient); var clinic = clinics.getClinic();
+        var chart = demographics.getDemographic(info, patient);
+        var clinic = clinics.getClinic();
         if (chart == null || clinic == null || info.getLoggedInProvider() == null) throw unavailable();
         String name = required(chart.getLastName()) + ", " + required(chart.getFirstName());
         String birth;
@@ -268,7 +279,8 @@ public final class PortalMyCarlosDeliveryApplicationService {
         if (!b.clinicId().equals(cfg.clinic) || b.demographicNo() != patient || !b.publicBase().equals(cfg.publicBase)
                 || !b.internalOrigin().equals(cfg.internalOrigin) || !b.configHash().equals(cfg.hash())) throw unavailable();
     }
-    private static String required(String value) { if (value == null || value.isBlank()) throw unavailable(); return value; }
+    private static String required(String value) { if (value == null || value.isBlank()) throw unavailable();
+        return value; }
     private static String hex(PortalMyCarlosDeviceApprovalTypes.Bytes bytes) { return HexFormat.of().formatHex(bytes.copy()); }
     private static IllegalStateException unavailable() { return new IllegalStateException("myCarlos delivery is unavailable or changed"); }
 }

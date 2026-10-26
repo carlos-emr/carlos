@@ -75,14 +75,17 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
         @Bean DataSource dataSource() { return source; }
         @Bean LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource ds) {
             var unit = new DefaultPersistenceUnitManager();
-            unit.setPersistenceXmlLocations(new String[0]); unit.setMappingResources(new String[0]);
+            unit.setPersistenceXmlLocations(new String[0]);
+            unit.setMappingResources(new String[0]);
             unit.setDefaultPersistenceUnitName("entityManagerFactory");
             unit.setManagedTypes(PersistenceManagedTypes.of(Property.class.getName()));
             unit.setDefaultDataSource(ds);
-            unit.setPersistenceUnitPostProcessors(info -> { info.setTransactionType(jakarta.persistence.PersistenceUnitTransactionType.RESOURCE_LOCAL); info.setExcludeUnlistedClasses(true); });
+            unit.setPersistenceUnitPostProcessors(info -> { info.setTransactionType(jakarta.persistence.PersistenceUnitTransactionType.RESOURCE_LOCAL);
+                info.setExcludeUnlistedClasses(true); });
             unit.afterPropertiesSet();
             var factory = new LocalContainerEntityManagerFactoryBean();
-            factory.setPersistenceUnitManager(unit); factory.setPersistenceUnitName("entityManagerFactory");
+            factory.setPersistenceUnitManager(unit);
+            factory.setPersistenceUnitName("entityManagerFactory");
             factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
             factory.setJpaPropertyMap(Map.of("hibernate.dialect", "org.hibernate.dialect.MariaDBDialect",
                     "hibernate.boot.allow_jdbc_metadata_access", "true", "hibernate.hbm2ddl.auto", "none",
@@ -104,12 +107,15 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
         assertEquals("a1_send_delete_runtime_20261026", credentials.get("schema").textValue());
         source = new DriverManagerDataSource(credentials.get("url").textValue(), credentials.get("username").textValue(), credentials.get("password").textValue());
         try (var c = source.getConnection(); var q = c.createStatement(); var r = q.executeQuery("SELECT DATABASE()")) {
-            assertTrue(r.next()); assertEquals("a1_send_delete_runtime_20261026", r.getString(1));
+            assertTrue(r.next());
+            assertEquals("a1_send_delete_runtime_20261026", r.getString(1));
         }
         context = new AnnotationConfigApplicationContext(TestContext.class);
         var f = context.getBean(EntityManagerFactory.class);
         tx = context.getBean(PortalMyCarlosDeviceApprovalTransactions.class);
-        dao = new PortalMyCarlosDeliveryOutboxDao(f); devices = new PortalMyCarlosAcceptedDeviceDao(f); bindings = new PortalMyCarlosPatientBindingDao(f);
+        dao = new PortalMyCarlosDeliveryOutboxDao(f);
+        devices = new PortalMyCarlosAcceptedDeviceDao(f);
+        bindings = new PortalMyCarlosPatientBindingDao(f);
         settings = PatientPortalSettings.fromProperties(Map.of(PatientPortalSettings.BASE_URL_KEY, "https://portal.example.test",
                 PatientPortalSettings.CLINIC_ID_KEY, "clinic-a", PatientPortalSettings.SERVICE_TOKEN_KEY, "FAKE-service-token-only-00000001",
                 PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY, PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "FAKE-staff",
@@ -119,20 +125,27 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
     }
     @AfterAll static void close() { if (context != null) context.close(); }
     @AfterEach void restoreOnlyOwnedAcceptanceFixture() throws Exception {
-        NOW.set(1792454400L); current.set(initial);
+        NOW.set(1792454400L);
+        current.set(initial);
         for (long id : ownedFenceProperties) {
             try (var c = source.getConnection(); var q = c.prepareStatement("DELETE FROM property WHERE id=? AND name=?")) {
-                q.setLong(1, id); q.setString(2, "mycarlos.delivery.removed.Ebz2sH2jVoqcdFhl1BmIOBRm1xuT-zW5bvFBcCeERPY");
+                q.setLong(1, id);
+                q.setString(2, "mycarlos.delivery.removed.Ebz2sH2jVoqcdFhl1BmIOBRm1xuT-zW5bvFBcCeERPY");
                 assertEquals(1, q.executeUpdate());
             }
         }
-        try (var c = source.getConnection(); var q = c.prepareStatement("UPDATE mycarlos_accepted_device SET removed_at=NULL,removal_id=NULL,removal_reason=NULL,removed_by_provider_no=NULL,version=0 WHERE id=1 AND binding_id=1")) { assertEquals(1, q.executeUpdate()); }
+        try (var c = source.getConnection(); var q = c.prepareStatement("UPDATE mycarlos_accepted_device SET removed_at=NULL,removal_id=NULL,removal_reason=NULL,removed_by_provider_no=NULL,version=0 WHERE id=1 AND binding_id=1")) {
+            assertEquals(1, q.executeUpdate());
+        }
     }
 
     @Test void shouldRefuseMissingStaffIdentity_beforeStagingAnyOwnedRow() throws Exception {
-        var pair = pair(); var exchange = new Exchange(pair.snapshot()); var service = service(exchange);
+        var pair = pair();
+        var exchange = new Exchange(pair.snapshot());
+        var service = service(exchange);
         assertThrows(SecurityException.class, () -> service.stage(null, pair.copy(), pair.snapshot()));
-        var missingSecurityId = staff(); missingSecurityId.getLoggedInSecurity().setSecurityNo(null);
+        var missingSecurityId = staff();
+        missingSecurityId.getLoggedInSecurity().setSecurityNo(null);
         assertThrows(SecurityException.class, () -> service.stage(missingSecurityId, pair.copy(), pair.snapshot()));
         assertEquals(0, count("mycarlos_delivery_original", pair.snapshot().deliveryId()));
         assertEquals(0, count("mycarlos_delivery_outbox", pair.snapshot().deliveryId()));
@@ -140,12 +153,17 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
     }
 
     @Test void shouldCommitEncryptedOriginalAndIdenticalOutboxOnce_whenTwoThreadsStageSameCopy() throws Exception {
-        var pair = pair(); var exchange = new Exchange(pair.snapshot()); var service = service(exchange);
+        var pair = pair();
+        var exchange = new Exchange(pair.snapshot());
+        var service = service(exchange);
         var start = new CountDownLatch(1);
         var pool = Executors.newFixedThreadPool(2);
         try {
-            Callable<Long> stage = () -> { start.await(); return service.stage(staff(), pair.copy(), pair.snapshot()); };
-            var a = pool.submit(stage); var b = pool.submit(stage); start.countDown();
+            Callable<Long> stage = () -> { start.await();
+                return service.stage(staff(), pair.copy(), pair.snapshot()); };
+            var a = pool.submit(stage);
+            var b = pool.submit(stage);
+            start.countDown();
             assertEquals(a.get(30, TimeUnit.SECONDS), b.get(30, TimeUnit.SECONDS));
             assertEquals(1, count("mycarlos_delivery_original", pair.snapshot().deliveryId()));
             assertEquals(1, count("mycarlos_delivery_outbox", pair.snapshot().deliveryId()));
@@ -157,8 +175,11 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
     }
 
     @Test void shouldRetryExactPersistedBytesAfterRestart_whenUploadReplyIsLost() throws Exception {
-        var pair = pair(); var exchange = new Exchange(pair.snapshot()); exchange.failFirst = true;
-        var service = service(exchange); long id = service.stage(staff(), pair.copy(), pair.snapshot());
+        var pair = pair();
+        var exchange = new Exchange(pair.snapshot());
+        exchange.failFirst = true;
+        var service = service(exchange);
+        long id = service.stage(staff(), pair.copy(), pair.snapshot());
         assertEquals(PortalMyCarlosDeliveryOutboxService.SendResult.RETRY_PENDING, service.send(id));
         NOW.addAndGet(61);
         var restored = service(exchange); // Same provisioned storage key, fresh service/codec/client objects.
@@ -173,7 +194,9 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
 
     @Test void shouldFenceQueuedWork_whenLocalAcceptanceIsRemovedOrConfigurationChanges() throws Exception {
         for (boolean remove : List.of(true, false)) {
-            var pair = pair(); var exchange = new Exchange(pair.snapshot()); var service = service(exchange);
+            var pair = pair();
+            var exchange = new Exchange(pair.snapshot());
+            var service = service(exchange);
             long id = service.stage(staff(), pair.copy(), pair.snapshot());
             if (remove) removeDevice();
             else current.set(PortalMyCarlosDeviceApprovalService.Current.fromValidated(settings, "https://other.example.test", true, true));
@@ -186,29 +209,41 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
     }
 
     @Test void shouldRejectLateCallback_whenLeaseHasBeenReplaced() throws Exception {
-        var pair = pair(); var service = service(new Exchange(pair.snapshot()));
+        var pair = pair();
+        var service = service(new Exchange(pair.snapshot()));
         long id = service.stage(staff(), pair.copy(), pair.snapshot());
-        var old = service.claim(id); assertNotNull(old);
-        NOW.addAndGet(31); var replacement = service.claim(id); assertNotNull(replacement);
+        var old = service.claim(id);
+        assertNotNull(old);
+        NOW.addAndGet(31);
+        var replacement = service.claim(id);
+        assertNotNull(replacement);
         assertNotEquals(old.token(), replacement.token());
         assertFalse(tx.withApprovalState(() -> dao.finish(id, old.token(), old.version(), "waiting", 0, null)));
         assertEquals(replacement.token(), tx.withApprovalState(() -> dao.find(id).orElseThrow().leaseId()));
     }
 
     @Test void shouldKeepHistoricalPickupAndFirstExactReceipt_whenCurrentDeviceIsRemoved() throws Exception {
-        var pair = pair(); var exchange = new Exchange(pair.snapshot()); var service = service(exchange);
-        long id = service.stage(staff(), pair.copy(), pair.snapshot()); removeDevice();
+        var pair = pair();
+        var exchange = new Exchange(pair.snapshot());
+        var service = service(exchange);
+        long id = service.stage(staff(), pair.copy(), pair.snapshot());
+        removeDevice();
         String kept = receipt(pair.snapshot(), UUID.randomUUID().toString());
-        tx.withApprovalState(() -> { service.keepReceipt(dao.find(id).orElseThrow(), kept); return null; });
+        tx.withApprovalState(() -> { service.keepReceipt(dao.find(id).orElseThrow(), kept);
+            return null; });
         var first = tx.withApprovalState(() -> dao.find(id).orElseThrow());
-        tx.withApprovalState(() -> { service.keepReceipt(dao.find(id).orElseThrow(), kept); return null; });
+        tx.withApprovalState(() -> { service.keepReceipt(dao.find(id).orElseThrow(), kept);
+            return null; });
         assertEquals(first, tx.withApprovalState(() -> dao.find(id).orElseThrow()));
         String conflicting = receipt(pair.snapshot(), UUID.randomUUID().toString());
-        assertThrows(IllegalStateException.class, () -> tx.withApprovalState(() -> { service.keepReceipt(dao.find(id).orElseThrow(), conflicting); return null; }));
-        tx.withApprovalState(() -> { dao.fenceDevice("clinic-a", pair.snapshot().device().kid()); return null; });
+        assertThrows(IllegalStateException.class, () -> tx.withApprovalState(() -> { service.keepReceipt(dao.find(id).orElseThrow(), conflicting);
+            return null; }));
+        tx.withApprovalState(() -> { dao.fenceDevice("clinic-a", pair.snapshot().device().kid());
+            return null; });
         try (var c = source.getConnection(); var q = c.prepareStatement("SELECT id FROM property WHERE name=?")) {
             q.setString(1, "mycarlos.delivery.removed." + pair.snapshot().device().kid());
-            try (var r = q.executeQuery()) { assertTrue(r.next()); ownedFenceProperties.add(r.getLong(1)); }
+            try (var r = q.executeQuery()) { assertTrue(r.next());
+                ownedFenceProperties.add(r.getLong(1)); }
         }
         assertEquals(first, tx.withApprovalState(() -> dao.find(id).orElseThrow()));
         assertEquals(PortalMyCarlosDeliveryOutboxService.DeliveryStatus.PICKED_UP,
@@ -216,21 +251,29 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
     }
 
     @Test void shouldKeepWaiting_whenUnsignedPortalUploadStatusSaysPickedUp() throws Exception {
-        var pair = pair(); var exchange = new Exchange(pair.snapshot()); exchange.status = "picked_up";
-        var service = service(exchange); long id = service.stage(staff(), pair.copy(), pair.snapshot());
+        var pair = pair();
+        var exchange = new Exchange(pair.snapshot());
+        exchange.status = "picked_up";
+        var service = service(exchange);
+        long id = service.stage(staff(), pair.copy(), pair.snapshot());
         assertEquals(PortalMyCarlosDeliveryOutboxService.SendResult.WAITING, service.send(id));
         assertEquals(PortalMyCarlosDeliveryOutboxService.DeliveryStatus.WAITING,
                 service.status(staff(), 123, pair.snapshot().deliveryId(), pair.snapshot().device().kid()));
     }
 
     @Test void shouldRecheckRemovalAfterClaim_beforeInitiatingAnyHttp() throws Exception {
-        var pair = pair(); var exchange = new Exchange(pair.snapshot()); var service = service(exchange);
+        var pair = pair();
+        var exchange = new Exchange(pair.snapshot());
+        var service = service(exchange);
         long id = service.stage(staff(), pair.copy(), pair.snapshot());
-        var claimed = new CountDownLatch(1); var release = new CountDownLatch(1);
+        var claimed = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
         var pool = Executors.newSingleThreadExecutor();
         try {
             var worker = pool.submit(() -> {
-                var lease = service.claim(id); assertNotNull(lease); claimed.countDown();
+                var lease = service.claim(id);
+                assertNotNull(lease);
+                claimed.countDown();
                 assertTrue(release.await(20, TimeUnit.SECONDS));
                 return service.transmit(lease);
             });
@@ -239,30 +282,39 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
             release.countDown();
             assertEquals(PortalMyCarlosDeliveryOutboxService.SendResult.FENCED, worker.get(30, TimeUnit.SECONDS));
             assertTrue(exchange.sent.isEmpty());
-        } finally { release.countDown(); pool.shutdownNow(); }
+        } finally { release.countDown();
+            pool.shutdownNow(); }
     }
 
     @Test void shouldPreservePickup_whenHttpCompletionArrivesAfterReceiptCommit() throws Exception {
-        var pair = pair(); var exchange = new Exchange(pair.snapshot()); var service = service(exchange);
+        var pair = pair();
+        var exchange = new Exchange(pair.snapshot());
+        var service = service(exchange);
         long id = service.stage(staff(), pair.copy(), pair.snapshot());
-        exchange.requestStarted = new CountDownLatch(1); exchange.allowReply = new CountDownLatch(1);
+        exchange.requestStarted = new CountDownLatch(1);
+        exchange.allowReply = new CountDownLatch(1);
         var pool = Executors.newSingleThreadExecutor();
         try {
             var worker = pool.submit(() -> service.send(id));
             assertTrue(exchange.requestStarted.await(20, TimeUnit.SECONDS));
             String exact = receipt(pair.snapshot(), UUID.randomUUID().toString());
-            tx.withApprovalState(() -> { service.keepReceipt(dao.find(id).orElseThrow(), exact); return null; });
+            tx.withApprovalState(() -> { service.keepReceipt(dao.find(id).orElseThrow(), exact);
+                return null; });
             exchange.allowReply.countDown();
             assertEquals(PortalMyCarlosDeliveryOutboxService.SendResult.STALE, worker.get(30, TimeUnit.SECONDS));
             assertEquals(PortalMyCarlosDeliveryOutboxService.DeliveryStatus.PICKED_UP,
                     service.status(staff(), 123, pair.snapshot().deliveryId(), pair.snapshot().device().kid()));
-        } finally { exchange.allowReply.countDown(); pool.shutdownNow(); }
+        } finally { exchange.allowReply.countDown();
+            pool.shutdownNow(); }
     }
 
     @Test void shouldKeepExplicitTransportTerminalState_whenKnownRetryReturnsExpiredOrRemoved() throws Exception {
         for (String terminal : List.of("expired", "removed")) {
-            var pair = pair(); var exchange = new Exchange(pair.snapshot()); exchange.status = terminal;
-            var service = service(exchange); long id = service.stage(staff(), pair.copy(), pair.snapshot());
+            var pair = pair();
+            var exchange = new Exchange(pair.snapshot());
+            exchange.status = terminal;
+            var service = service(exchange);
+            long id = service.stage(staff(), pair.copy(), pair.snapshot());
             assertEquals("expired".equals(terminal) ? PortalMyCarlosDeliveryOutboxService.SendResult.EXPIRED
                     : PortalMyCarlosDeliveryOutboxService.SendResult.REMOVED, service.send(id));
             assertEquals("expired".equals(terminal) ? PortalMyCarlosDeliveryOutboxService.DeliveryStatus.EXPIRED
@@ -273,9 +325,12 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
 
     @Test void shouldReportGenericAuthFailuresAndOnlyFenceKnownDeviceRemoval_whenPortalRefusesUpload() throws Exception {
         for (int code : List.of(403, 404, 409, 413)) {
-            var pair = pair(); var exchange = new Exchange(pair.snapshot()); exchange.responseStatus = code;
+            var pair = pair();
+            var exchange = new Exchange(pair.snapshot());
+            exchange.responseStatus = code;
             if (code == 409) exchange.errorCode = "device_removed";
-            var service = service(exchange); long id = service.stage(staff(), pair.copy(), pair.snapshot());
+            var service = service(exchange);
+            long id = service.stage(staff(), pair.copy(), pair.snapshot());
             assertEquals(code == 409 ? PortalMyCarlosDeliveryOutboxService.SendResult.FENCED
                     : PortalMyCarlosDeliveryOutboxService.SendResult.ERROR, service.send(id));
             assertEquals(code == 409 ? PortalMyCarlosDeliveryOutboxService.DeliveryStatus.FENCED
@@ -313,17 +368,26 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
         return new Pair(c, s);
     }
     static LoggedInInfo staff() {
-        var session = new LoggedInInfo(); var provider = new Provider(); provider.setProviderNo("FAKE");
-        var security = new Security(); security.setSecurityNo(1); session.setLoggedInProvider(provider); session.setLoggedInSecurity(security); return session;
+        var session = new LoggedInInfo();
+        var provider = new Provider();
+        provider.setProviderNo("FAKE");
+        var security = new Security();
+        security.setSecurityNo(1);
+        session.setLoggedInProvider(provider);
+        session.setLoggedInSecurity(security);
+        return session;
     }
     static void removeDevice() {
         tx.withApprovalState(() -> { var d = devices.findByKidForUpdate("Ebz2sH2jVoqcdFhl1BmIOBRm1xuT-zW5bvFBcCeERPY").orElseThrow();
-            devices.markRemoved(d, d.removed(UUID.randomUUID(), "FAKE", CLOCK.instant())); return null; });
+            devices.markRemoved(d, d.removed(UUID.randomUUID(), "FAKE", CLOCK.instant()));
+            return null; });
     }
     static long count(String table, String delivery) throws Exception {
         if (!Set.of("mycarlos_delivery_original", "mycarlos_delivery_outbox").contains(table)) throw new IllegalArgumentException();
         try (var c = source.getConnection(); var q = c.prepareStatement("SELECT COUNT(*) FROM " + table + " WHERE delivery_id=?")) {
-            q.setString(1, delivery); try (var r = q.executeQuery()) { assertTrue(r.next()); return r.getLong(1); }
+            q.setString(1, delivery); try (var r = q.executeQuery()) {
+                assertTrue(r.next());
+                return r.getLong(1); }
         }
     }
     static String receipt(PortalMyCarlosDeliverySnapshot s, String jti) throws Exception {
@@ -337,14 +401,21 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
         byte[] seed = MessageDigest.getInstance("SHA-256").digest("FAKE delivery contract test key: device 1 ed25519".getBytes(StandardCharsets.UTF_8));
         byte[] prefix = HexFormat.of().parseHex("302e020100300506032b657004220420");
         var key = KeyFactory.getInstance("Ed25519").generatePrivate(new PKCS8EncodedKeySpec(ByteBuffer.allocate(prefix.length + seed.length).put(prefix).put(seed).array()));
-        Signature signer = Signature.getInstance("Ed25519"); signer.initSign(key); signer.update(payload);
+        Signature signer = Signature.getInstance("Ed25519");
+        signer.initSign(key);
+        signer.update(payload);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(payload) + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(signer.sign());
     }
     static final class Exchange implements PatientPortalHttpExchange {
         final PortalMyCarlosDeliverySnapshot snapshot;
-        final List<byte[]> sent = new ArrayList<>(); final List<String> assertions = new ArrayList<>();
-        CountDownLatch requestStarted; CountDownLatch allowReply;
-        boolean failFirst; String status = "waiting"; int responseStatus = 200; String errorCode;
+        final List<byte[]> sent = new ArrayList<>();
+        final List<String> assertions = new ArrayList<>();
+        CountDownLatch requestStarted;
+        CountDownLatch allowReply;
+        boolean failFirst;
+        String status = "waiting";
+        int responseStatus = 200;
+        String errorCode;
         Exchange(PortalMyCarlosDeliverySnapshot snapshot) { this.snapshot = snapshot; }
         public PatientPortalHttpResponse send(ClassicHttpRequest request) throws IOException {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -352,11 +423,15 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
             try { assertEquals(1, count("mycarlos_delivery_original", snapshot.deliveryId()));
                 assertEquals(1, count("mycarlos_delivery_outbox", snapshot.deliveryId())); }
             catch (Exception failure) { throw new AssertionError("sender must commit before HTTP", failure); }
-            sent.add(request.getEntity().getContent().readAllBytes()); assertions.add(request.getFirstHeader(PortalJobAssertionSigner.HEADER).getValue());
+            sent.add(request.getEntity().getContent().readAllBytes());
+            assertions.add(request.getFirstHeader(PortalJobAssertionSigner.HEADER).getValue());
             if (requestStarted != null) {
                 requestStarted.countDown();
                 try { if (!allowReply.await(20, TimeUnit.SECONDS)) throw new IOException("FAKE timed out awaiting reply release"); }
-                catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new IOException("FAKE interrupted reply"); }
+                catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("FAKE interrupted reply");
+                }
             }
             if (failFirst && sent.size() == 1) throw new IOException("FAKE lost reply after server acceptance");
             if (responseStatus != 200) return new PatientPortalHttpResponse(responseStatus, errorCode == null ? "{}" : "{\"code\":\"" + errorCode + "\"}");

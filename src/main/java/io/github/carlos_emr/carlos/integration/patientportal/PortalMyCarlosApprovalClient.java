@@ -149,7 +149,8 @@ final class PortalMyCarlosApprovalClient {
         catch (NumberFormatException failure) { throw invalid(); }
     }
     private static String cursor(long value) { return Long.toString(nonnegative(value)); }
-    private static long nonnegative(long value) { if (value < 0) throw invalid(); return value; }
+    private static long nonnegative(long value) { if (value < 0) throw invalid();
+        return value; }
     private static PortalContractException invalid() {
         return new PortalContractException("portal device approval response is invalid");
     }

@@ -37,11 +37,16 @@ final class PortalMyCarlosDeliverySyncService {
             PortalMyCarlosDeliveryOutboxService sender, PortalMyCarlosAcceptedDeviceDao devices,
             PortalMyCarlosPatientBindingDao bindings, PortalMyCarlosDeliveryClient client,
             PortalMyCarlosDeliveryCipher cipher, Supplier<Current> configuration, Clock clock, PropertyDao properties) {
-        this.transactions = Objects.requireNonNull(transactions); this.events = Objects.requireNonNull(events);
-        this.outbox = Objects.requireNonNull(outbox); this.sender = Objects.requireNonNull(sender);
-        this.devices = Objects.requireNonNull(devices); this.bindings = Objects.requireNonNull(bindings);
-        this.client = Objects.requireNonNull(client); this.cipher = Objects.requireNonNull(cipher);
-        this.configuration = Objects.requireNonNull(configuration); this.clock = Objects.requireNonNull(clock);
+        this.transactions = Objects.requireNonNull(transactions);
+        this.events = Objects.requireNonNull(events);
+        this.outbox = Objects.requireNonNull(outbox);
+        this.sender = Objects.requireNonNull(sender);
+        this.devices = Objects.requireNonNull(devices);
+        this.bindings = Objects.requireNonNull(bindings);
+        this.client = Objects.requireNonNull(client);
+        this.cipher = Objects.requireNonNull(cipher);
+        this.configuration = Objects.requireNonNull(configuration);
+        this.clock = Objects.requireNonNull(clock);
         this.properties = Objects.requireNonNull(properties);
     }
 
@@ -52,7 +57,8 @@ final class PortalMyCarlosDeliverySyncService {
     private static final class Untrusted extends IllegalArgumentException {
         private static final long serialVersionUID = 1L;
         final String code;
-        Untrusted(String code) { super("myCarlos delivery evidence requires reconciliation"); this.code = code; }
+        Untrusted(String code) { super("myCarlos delivery evidence requires reconciliation");
+            this.code = code; }
     }
 
     Result poll() {
@@ -75,7 +81,8 @@ final class PortalMyCarlosDeliverySyncService {
             acknowledge(writer, writer.through());
             return Result.RECOVERED_ACK;
         }
-        transactions.withApprovalState(() -> { requireWriter(writer); return null; });
+        transactions.withApprovalState(() -> { requireWriter(writer);
+            return null; });
         byte[] exact = client.fetchEvents(writer.through()); // No transaction spans this HTTP.
         PortalMyCarlosDeliveryClient.Page page;
         try {
@@ -95,10 +102,12 @@ final class PortalMyCarlosDeliverySyncService {
             long through = writer.through();
             String failure = null;
             for (var event : page.events()) {
-                if (through == Long.MAX_VALUE || event.sequence() != through + 1) { failure = "event_gap"; break; }
+                if (through == Long.MAX_VALUE || event.sequence() != through + 1) { failure = "event_gap";
+                    break; }
                 Prepared prepared;
                 try { prepared = prepare(writer.clinic(), event); }
-                catch (Untrusted invalid) { failure = invalid.code; break; }
+                catch (Untrusted invalid) { failure = invalid.code;
+                    break; }
                 prepared.apply().run();
                 events.event(writer.clinic(), event, pageId, prepared.proofVerified());
                 through = event.sequence();
@@ -110,12 +119,14 @@ final class PortalMyCarlosDeliverySyncService {
         // Only the durable prefix may leave CARLOS as an acknowledgment. A quarantined suffix
         // keeps the feed visibly paused until reconciled and can never become Picked up by status.
         if (collected.through() > writer.through() || !collected.quarantined()) acknowledge(writer, collected.through());
-        else transactions.withApprovalState(() -> { events.releaseWriter(writer.clinic(), writer.token()); return null; });
+        else transactions.withApprovalState(() -> { events.releaseWriter(writer.clinic(), writer.token());
+            return null; });
         return collected.quarantined() ? Result.QUARANTINED : Result.COLLECTED;
     }
 
     private void acknowledge(Writer writer, long through) {
-        transactions.withApprovalState(() -> { requireWriter(writer, through); return null; });
+        transactions.withApprovalState(() -> { requireWriter(writer, through);
+            return null; });
         client.acknowledge(through); // A collection acknowledgment is never a patient receipt.
         transactions.withApprovalState(() -> {
             requireWriter(writer, through);
@@ -199,5 +210,7 @@ final class PortalMyCarlosDeliverySyncService {
                 || !writer.configHash().equals(java.util.HexFormat.of().formatHex(cfg.hash().copy()))
                 || !client.configuredFor(cfg.clinic, cfg.internalOrigin)) throw new IllegalStateException("myCarlos delivery sync configuration changed");
     }
-    private long now() { long value = clock.instant().getEpochSecond(); if (value < 0) throw invalid(); return value; }
+    private long now() { long value = clock.instant().getEpochSecond(); if (value < 0) throw
+        invalid();
+        return value; }
 }

@@ -62,7 +62,9 @@ public final class PortalMyCarlosStaffApprovalService {
             boolean firstDevice, boolean expired) {}
     public record Device(String deviceKeyId, String fingerprint, Instant acceptedAt, Instant removedAt) {}
     public record State(List<Pending> pending, List<Device> devices, List<String> refusedRequests) {
-        public State { pending = List.copyOf(pending); devices = List.copyOf(devices); refusedRequests = List.copyOf(refusedRequests); }
+        public State { pending = List.copyOf(pending);
+            devices = List.copyOf(devices);
+            refusedRequests = List.copyOf(refusedRequests); }
     }
 
     private void requireStaff(LoggedInInfo info, int patient, String level) {
@@ -120,7 +122,9 @@ public final class PortalMyCarlosStaffApprovalService {
                     // in the same transaction. Application log content never carries device keys.
                 });
     }
-    private Bytes nonce() { byte[] value = new byte[32]; random.nextBytes(value); return new Bytes(value); }
+    private Bytes nonce() { byte[] value = new byte[32];
+        random.nextBytes(value);
+        return new Bytes(value); }
     private static PortalMyCarlosDeviceApprovalService.SourceAuthorization noImport() {
         return patient -> { throw new IllegalStateException("authenticated approval import required"); };
     }
@@ -174,7 +178,8 @@ public final class PortalMyCarlosStaffApprovalService {
                     refused.add("challenge_expired");
                 }
             }
-            if (page.nextCursor() == null) { complete = true; break; }
+            if (page.nextCursor() == null) { complete = true;
+                break; }
             after = page.nextCursor();
         }
         if (!complete) throw new IllegalStateException("approval request polling limit reached");
@@ -194,9 +199,11 @@ public final class PortalMyCarlosStaffApprovalService {
         if (request.demographicNo() != patient) return null;
         requireStaff(info, patient, SecurityInfoManager.WRITE);
         String terminal = journal.publication(binding, request, null);
-        if (terminal != null) { refused.add(terminal); return null; }
+        if (terminal != null) { refused.add(terminal);
+            return null; }
         String saved = journal.record(binding, request, null);
-        if (saved != null && !"prepared".equals(saved)) { refused.add(saved); return null; }
+        if (saved != null && !"prepared".equals(saved)) { refused.add(saved);
+            return null; }
         var service = core(expected -> {
             fence.run();
             if (expected != patient) throw new SecurityException("approval patient routing changed");

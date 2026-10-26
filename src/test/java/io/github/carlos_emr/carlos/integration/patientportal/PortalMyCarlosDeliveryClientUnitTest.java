@@ -132,7 +132,8 @@ class PortalMyCarlosDeliveryClientUnitTest {
         final List<ClassicHttpRequest> sent = new ArrayList<>();
         final PatientPortalHttpResponse response;
         Exchange(int status, String body) { response = new PatientPortalHttpResponse(status, body); }
-        public PatientPortalHttpResponse send(ClassicHttpRequest request) { sent.add(request); return response; }
+        public PatientPortalHttpResponse send(ClassicHttpRequest request) { sent.add(request);
+            return response; }
     }
     private static PortalMyCarlosDeliveryClient client(Exchange exchange) {
         var settings = PatientPortalSettings.fromProperties(Map.of(

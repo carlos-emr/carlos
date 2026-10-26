@@ -248,7 +248,9 @@ class PortalMyCarlosDeliveryProducerUnitTest {
 
     @Test
     void shouldEncodeExplicitUnknownDateAsEmptyString_inActualSignedDeliveryManifest() throws Exception {
-        var f = fixture(); var expected = compose(f); var known = document();
+        var f = fixture();
+        var expected = compose(f);
+        var known = document();
         var unknown = new PortalMyCarlosDeliveryComposer.Document(known.clinicId(), known.clinicName(), known.providerName(),
                 known.patientName(), known.birthDate(), known.title(), known.type(), "");
         var copy = PortalMyCarlosDeliveryComposer.compose(expected.deliveryId(), expected.recipientId(), expected.device(), unknown,
