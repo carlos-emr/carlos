@@ -198,7 +198,7 @@ class StartupEncryptionKeyGuardUnitTest {
 
             // Nothing was generated or written, and the operator got exactly one ERROR.
             assertThat(props.getProperty(KEY)).isBlank();
-            assertThat(savedPropertiesFile()).doesNotExist();
+            assertThat(Files.readString(savedPropertiesFile())).doesNotContain(KEY + "=");
             assertThat(logs.errors()).hasSize(1);
             assertThat(logs.errors().get(0))
                     .startsWith(KEY + " is missing or blank, but 1 item in the database may be encrypted")
@@ -226,7 +226,7 @@ class StartupEncryptionKeyGuardUnitTest {
                 .isInstanceOf(RuntimeException.class)
                 .cause().hasMessageContaining("email sender accounts: 1");
         assertThat(props.getProperty(KEY)).isBlank();
-        assertThat(savedPropertiesFile()).doesNotExist();
+        assertThat(Files.readString(savedPropertiesFile())).doesNotContain(KEY + "=");
     }
 
     @Test
@@ -349,7 +349,7 @@ class StartupEncryptionKeyGuardUnitTest {
                     .hasMessageContaining(ACK + "=true");
 
             assertThat(props.getProperty(KEY)).isBlank();
-            assertThat(savedPropertiesFile()).doesNotExist();
+            assertThat(Files.readString(savedPropertiesFile())).doesNotContain(KEY + "=");
             assertThat(logs.errors()).hasSize(1);
             logs.assertNoSecretMaterial(secretMaterial);
         }
@@ -398,7 +398,7 @@ class StartupEncryptionKeyGuardUnitTest {
 
             assertThat(props.getProperty(KEY)).isEqualTo(invalidKey);
             assertThat(keySpecField.get(null)).isNull();
-            assertThat(savedPropertiesFile()).doesNotExist();
+            assertThat(Files.readString(savedPropertiesFile())).doesNotContain(KEY + "=");
             // Unchanged invalid-key path: the generic startup error, not the missing-key refusal.
             assertThat(logs.startupMessages()).contains("Unexpected error.");
             assertThat(logs.startupMessages()).noneMatch(message -> message.contains("is missing or blank"));
@@ -414,7 +414,7 @@ class StartupEncryptionKeyGuardUnitTest {
             new Startup().contextInitialized(newStartupEvent());
 
             assertThat(props.getProperty(KEY)).isEqualTo(EncryptedDataTestDatabase.SYNTHETIC_KEY);
-            assertThat(savedPropertiesFile()).doesNotExist();
+            assertThat(Files.readString(savedPropertiesFile())).doesNotContain(KEY + "=");
             assertThat(logs.warnings()).containsExactly(ACK + " is set but has no effect while " + KEY
                     + " is configured. Remove it, so that a future loss of the key stops startup instead of being accepted.");
             logs.assertNoSecretMaterial(secretMaterial);
@@ -467,7 +467,7 @@ class StartupEncryptionKeyGuardUnitTest {
                 .isInstanceOf(RuntimeException.class)
                 .cause().hasMessageContaining("stored digital signature images: 1");
         assertThat(props.getProperty(KEY)).isBlank();
-        assertThat(savedPropertiesFile()).doesNotExist();
+        assertThat(Files.readString(savedPropertiesFile())).doesNotContain(KEY + "=");
     }
 
     @Test
@@ -500,7 +500,7 @@ class StartupEncryptionKeyGuardUnitTest {
                         .isLessThan(refusal.getMessage().indexOf("loses nothing")))
                 .hasMessageContaining("See \"Limits of the check\" in https://github.com/carlos-emr/carlos/blob/develop/"
                         + "docs/email/provider-to-patient-email-operations.md#credential-encryption-key (the copy");
-        assertThat(savedPropertiesFile()).doesNotExist();
+        assertThat(Files.readString(savedPropertiesFile())).doesNotContain(KEY + "=");
         props.setProperty(ACK, "true");
         try (StartupLogs logs = new StartupLogs()) {
             new Startup().contextInitialized(newStartupEvent());
@@ -543,6 +543,16 @@ class StartupEncryptionKeyGuardUnitTest {
     }
 
     private ServletContextEvent newStartupEvent() throws Exception {
+        // Startup now distinguishes deployment config from packaged singleton defaults (#2969).
+        // Deploy the test database address, keeping the missing/invalid key under test in memory.
+        Properties deployed = new Properties();
+        for (String name : List.of("db_username", "db_name", "db_uri", "db_driver", "db_password")) {
+            String value = props.getProperty(name);
+            if (value != null) deployed.setProperty(name, value);
+        }
+        try (var output = Files.newOutputStream(savedPropertiesFile())) {
+            deployed.store(output, "Synthetic key-guard database configuration");
+        }
         Path webappRoot = tempDir.resolve("webapps").resolve("carlos");
         Files.createDirectories(webappRoot);
         ServletContextEvent event = mock(ServletContextEvent.class);
