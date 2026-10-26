@@ -23,8 +23,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
 
 /** Local text extraction only. No browser, external resources, scripts, OCR, or model calls. */
-final class ClinicalSummaryTextExtractor {
-    record Extract(String text, boolean complete, String reason) { }
+public final class ClinicalSummaryTextExtractor {
+    public record Extract(String text, boolean complete, String reason) { }
     private record Cached(Extract extract, long created, int bytes) { }
     private static final int MAX_FILE_BYTES = 20 * 1024 * 1024;
     private static final int CACHE_BYTES = 8 * 1024 * 1024;
@@ -34,7 +34,7 @@ final class ClinicalSummaryTextExtractor {
     // FindSecBugs PATH_TRAVERSAL_IN: the stored filename must be one path component, and the resolved file must stay
     // inside DOCUMENT_DIR (canonical-path containment), as for outbound email attachments.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "persisted eDoc filename validated as one path component; real-path containment within DOCUMENT_DIR")
-    static Extract document(String filename, String contentType) throws IOException {
+    public static Extract document(String filename, String contentType) throws IOException {
         File directory = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
         String safeName = PathValidationUtils.validatePathComponent(filename, "stored document filename");

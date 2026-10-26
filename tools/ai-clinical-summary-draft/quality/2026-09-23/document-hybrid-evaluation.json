@@ -1,0 +1,471 @@
+{
+  "date": "2026-09-23",
+  "candidate": "hybrid",
+  "adopted": false,
+  "gateway_default": "balanced-reviewed",
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "started_at": "2026-09-23T19:55:08.596026+00:00",
+  "finished_at": "2026-09-23T19:56:11.300224+00:00",
+  "selection": "Longest notes NHSSYN004\u2013013; alternating mode order, one trial each. Reused development cases.",
+  "caveats": [
+    "All clinical wording is source-derived; AI selects opening IDs and does not author a synopsis.",
+    "All extracted facts survive; this does not prove perfect parsing/relevance classification or clinical correctness.",
+    "Checks differ: balanced includes model review; hybrid uses extraction/source-conservation checks without clinical paraphrasing.",
+    "Word counts include opening and row labels, exclude closed evidence/shared UI. Not measured reading time.",
+    "One hybrid case has no eligible opening and uses no model call. Nine use one call.",
+    "The stricter identity-template guard was added after live generation; every saved output independently reconstructs unchanged with the final code.",
+    "One hosted trial does not establish future latency. Model/provider privacy settings unchanged."
+  ],
+  "summary": {
+    "balanced": {
+      "accepted": 10,
+      "runs": 10,
+      "median_word_ratio": 0.7302500000000001,
+      "median_seconds": 5.002,
+      "completion_tokens": 2666,
+      "cost_usd": 0.00702995,
+      "mean_words": 272,
+      "min_words": 174,
+      "max_words": 403,
+      "successful_api_calls": 22
+    },
+    "hybrid": {
+      "accepted": 10,
+      "runs": 10,
+      "median_word_ratio": 0.9074500000000001,
+      "median_seconds": 0.79,
+      "completion_tokens": 107,
+      "cost_usd": 0.0003611,
+      "mean_words": 344.7,
+      "min_words": 251,
+      "max_words": 501,
+      "successful_api_calls": 9
+    }
+  },
+  "runs": [
+    {
+      "case": "NHSSYN004",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 308,
+      "point_words": 223,
+      "word_ratio": 0.724,
+      "seconds": 10.627,
+      "note_index": 4,
+      "source_sha256": "4053b1b27744bd5290e15835d206f64435fc4606620803f835551b3a731324ac",
+      "successful_api_calls": 4,
+      "completion_tokens": 552,
+      "reported_cost_usd": 0.00138645
+    },
+    {
+      "case": "NHSSYN004",
+      "mode": "hybrid",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 308,
+      "point_words": 284,
+      "word_ratio": 0.9221,
+      "seconds": 1.236,
+      "note_index": 4,
+      "source_sha256": "4053b1b27744bd5290e15835d206f64435fc4606620803f835551b3a731324ac",
+      "successful_api_calls": 1,
+      "completion_tokens": 12,
+      "reported_cost_usd": 5.37e-05,
+      "extracted_facts": 16,
+      "all_extracted_facts_retained": true,
+      "exact_evidence": true,
+      "selection": {
+        "selected_ids": [
+          "4",
+          "14"
+        ]
+      }
+    },
+    {
+      "case": "NHSSYN005",
+      "mode": "hybrid",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 561,
+      "point_words": 501,
+      "word_ratio": 0.893,
+      "seconds": 0.656,
+      "note_index": 5,
+      "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+      "successful_api_calls": 1,
+      "completion_tokens": 12,
+      "reported_cost_usd": 3.9e-05,
+      "extracted_facts": 55,
+      "all_extracted_facts_retained": true,
+      "exact_evidence": true,
+      "selection": {
+        "selected_ids": [
+          "1",
+          "46"
+        ]
+      }
+    },
+    {
+      "case": "NHSSYN005",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 561,
+      "point_words": 403,
+      "word_ratio": 0.7184,
+      "seconds": 4.128,
+      "note_index": 5,
+      "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+      "successful_api_calls": 2,
+      "completion_tokens": 231,
+      "reported_cost_usd": 0.00070785
+    },
+    {
+      "case": "NHSSYN006",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 273,
+      "point_words": 202,
+      "word_ratio": 0.7399,
+      "seconds": 4.531,
+      "note_index": 0,
+      "source_sha256": "be9cc2190a3cca52275d9843083dbdfc38735302362a033d5f754bac4b5e1f80",
+      "successful_api_calls": 2,
+      "completion_tokens": 204,
+      "reported_cost_usd": 0.0005445000000000001
+    },
+    {
+      "case": "NHSSYN006",
+      "mode": "hybrid",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 273,
+      "point_words": 251,
+      "word_ratio": 0.9194,
+      "seconds": 0.798,
+      "note_index": 0,
+      "source_sha256": "be9cc2190a3cca52275d9843083dbdfc38735302362a033d5f754bac4b5e1f80",
+      "successful_api_calls": 1,
+      "completion_tokens": 11,
+      "reported_cost_usd": 3.635e-05,
+      "extracted_facts": 32,
+      "all_extracted_facts_retained": true,
+      "exact_evidence": true,
+      "selection": {
+        "selected_ids": [
+          "2",
+          "3"
+        ]
+      }
+    },
+    {
+      "case": "NHSSYN007",
+      "mode": "hybrid",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 392,
+      "point_words": 359,
+      "word_ratio": 0.9158,
+      "seconds": 0.726,
+      "note_index": 5,
+      "source_sha256": "aedd42099db8e9d20541b5c291563e3956c02410047797777e0f86ee21be4641",
+      "successful_api_calls": 1,
+      "completion_tokens": 12,
+      "reported_cost_usd": 3.72e-05,
+      "extracted_facts": 27,
+      "all_extracted_facts_retained": true,
+      "exact_evidence": true,
+      "selection": {
+        "selected_ids": [
+          "1",
+          "19"
+        ]
+      }
+    },
+    {
+      "case": "NHSSYN007",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 392,
+      "point_words": 313,
+      "word_ratio": 0.7985,
+      "seconds": 5.474,
+      "note_index": 5,
+      "source_sha256": "aedd42099db8e9d20541b5c291563e3956c02410047797777e0f86ee21be4641",
+      "successful_api_calls": 2,
+      "completion_tokens": 263,
+      "reported_cost_usd": 0.0006713
+    },
+    {
+      "case": "NHSSYN008",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 380,
+      "point_words": 315,
+      "word_ratio": 0.8289,
+      "seconds": 5.119,
+      "note_index": 5,
+      "source_sha256": "52adf060b8b0caf84fa0a3d1f6b8b9bb2391ce2eda8b28abe740b5ef55494beb",
+      "successful_api_calls": 2,
+      "completion_tokens": 209,
+      "reported_cost_usd": 0.0006077000000000001
+    },
+    {
+      "case": "NHSSYN008",
+      "mode": "hybrid",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 380,
+      "point_words": 345,
+      "word_ratio": 0.9079,
+      "seconds": 1.719,
+      "note_index": 5,
+      "source_sha256": "52adf060b8b0caf84fa0a3d1f6b8b9bb2391ce2eda8b28abe740b5ef55494beb",
+      "successful_api_calls": 1,
+      "completion_tokens": 12,
+      "reported_cost_usd": 4.575e-05,
+      "extracted_facts": 31,
+      "all_extracted_facts_retained": true,
+      "exact_evidence": true,
+      "selection": {
+        "selected_ids": [
+          "1",
+          "30"
+        ]
+      }
+    },
+    {
+      "case": "NHSSYN009",
+      "mode": "hybrid",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 344,
+      "point_words": 312,
+      "word_ratio": 0.907,
+      "seconds": 0.578,
+      "note_index": 0,
+      "source_sha256": "9cae8e39a672d0cb119ca8d4ed6b7517ab3cd6b649fd1dfb0f406ba0d88d884b",
+      "successful_api_calls": 1,
+      "completion_tokens": 11,
+      "reported_cost_usd": 3.62e-05,
+      "extracted_facts": 32,
+      "all_extracted_facts_retained": true,
+      "exact_evidence": true,
+      "selection": {
+        "selected_ids": [
+          "1",
+          "2"
+        ]
+      }
+    },
+    {
+      "case": "NHSSYN009",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 344,
+      "point_words": 252,
+      "word_ratio": 0.7326,
+      "seconds": 3.666,
+      "note_index": 0,
+      "source_sha256": "9cae8e39a672d0cb119ca8d4ed6b7517ab3cd6b649fd1dfb0f406ba0d88d884b",
+      "successful_api_calls": 2,
+      "completion_tokens": 210,
+      "reported_cost_usd": 0.00057705
+    },
+    {
+      "case": "NHSSYN010",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 385,
+      "point_words": 174,
+      "word_ratio": 0.4519,
+      "seconds": 5.177,
+      "note_index": 2,
+      "source_sha256": "e3f0f93933aced32eb95c74d2270d281f5806659475937bdb4c2ec4722d1460e",
+      "successful_api_calls": 2,
+      "completion_tokens": 250,
+      "reported_cost_usd": 0.0006164499999999999
+    },
+    {
+      "case": "NHSSYN010",
+      "mode": "hybrid",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 385,
+      "point_words": 367,
+      "word_ratio": 0.9532,
+      "seconds": 0.02,
+      "note_index": 2,
+      "source_sha256": "e3f0f93933aced32eb95c74d2270d281f5806659475937bdb4c2ec4722d1460e",
+      "successful_api_calls": 0,
+      "completion_tokens": 0,
+      "reported_cost_usd": 0,
+      "extracted_facts": 11,
+      "all_extracted_facts_retained": true,
+      "exact_evidence": true,
+      "selection": {
+        "selected_ids": []
+      }
+    },
+    {
+      "case": "NHSSYN011",
+      "mode": "hybrid",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 523,
+      "point_words": 458,
+      "word_ratio": 0.8757,
+      "seconds": 1.003,
+      "note_index": 5,
+      "source_sha256": "bf2b14abd63d70a362f9d91a387a98ddfc12e08ca9c8852273c5e35ccf0cdb35",
+      "successful_api_calls": 1,
+      "completion_tokens": 12,
+      "reported_cost_usd": 3.825e-05,
+      "extracted_facts": 57,
+      "all_extracted_facts_retained": true,
+      "exact_evidence": true,
+      "selection": {
+        "selected_ids": [
+          "1",
+          "49"
+        ]
+      }
+    },
+    {
+      "case": "NHSSYN011",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 523,
+      "point_words": 396,
+      "word_ratio": 0.7572,
+      "seconds": 4.885,
+      "note_index": 5,
+      "source_sha256": "bf2b14abd63d70a362f9d91a387a98ddfc12e08ca9c8852273c5e35ccf0cdb35",
+      "successful_api_calls": 2,
+      "completion_tokens": 270,
+      "reported_cost_usd": 0.000729
+    },
+    {
+      "case": "NHSSYN012",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 305,
+      "point_words": 222,
+      "word_ratio": 0.7279,
+      "seconds": 4.618,
+      "note_index": 0,
+      "source_sha256": "9c3aa96ae9bb1c0068e480ce52c92dc7c3985cea34a4c2ef7870228b5138046a",
+      "successful_api_calls": 2,
+      "completion_tokens": 262,
+      "reported_cost_usd": 0.0006219999999999999
+    },
+    {
+      "case": "NHSSYN012",
+      "mode": "hybrid",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 305,
+      "point_words": 273,
+      "word_ratio": 0.8951,
+      "seconds": 0.912,
+      "note_index": 0,
+      "source_sha256": "9c3aa96ae9bb1c0068e480ce52c92dc7c3985cea34a4c2ef7870228b5138046a",
+      "successful_api_calls": 1,
+      "completion_tokens": 11,
+      "reported_cost_usd": 3.575e-05,
+      "extracted_facts": 31,
+      "all_extracted_facts_retained": true,
+      "exact_evidence": true,
+      "selection": {
+        "selected_ids": [
+          "1",
+          "2"
+        ]
+      }
+    },
+    {
+      "case": "NHSSYN013",
+      "mode": "hybrid",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 335,
+      "point_words": 297,
+      "word_ratio": 0.8866,
+      "seconds": 0.783,
+      "note_index": 0,
+      "source_sha256": "4052e347b59a44911c4ed9bc7063330385eb08fe5541934712f0a615e96f86a6",
+      "successful_api_calls": 1,
+      "completion_tokens": 14,
+      "reported_cost_usd": 3.89e-05,
+      "extracted_facts": 46,
+      "all_extracted_facts_retained": true,
+      "exact_evidence": true,
+      "selection": {
+        "selected_ids": [
+          "2",
+          "3"
+        ]
+      }
+    },
+    {
+      "case": "NHSSYN013",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 335,
+      "point_words": 220,
+      "word_ratio": 0.6567,
+      "seconds": 5.392,
+      "note_index": 0,
+      "source_sha256": "4052e347b59a44911c4ed9bc7063330385eb08fe5541934712f0a615e96f86a6",
+      "successful_api_calls": 2,
+      "completion_tokens": 215,
+      "reported_cost_usd": 0.0005676500000000001
+    }
+  ],
+  "targeted_source_retention": {
+    "NHSSYN006": [
+      "~2 yrs"
+    ],
+    "NHSSYN011": [
+      "Reduced urinary output reported.",
+      "No obvious signs of infection such as rashes or erythema."
+    ],
+    "NHSSYN013": [
+      "8/10 on a bad day, 5/10 on a good day.",
+      "No obvious deformity."
+    ]
+  },
+  "implementation_sha256": "5e6e79502eb40c2ea6160b1e04b63c532b3c3f4d044cd050b7744219cc511510",
+  "prompt_sha256": "3beed97b4b3c03e797bc21b0157d80258a4fde34fcc8b8472ddb1a8ea2f96185",
+  "verification": {
+    "python_tests_passed": 182,
+    "corpus": {
+      "notes": 1602,
+      "opening_selections_checked": 2597,
+      "max_facts": 57,
+      "max_initial_payload_bytes": 1970,
+      "exact_evidence_and_public_validation": true
+    },
+    "preview_browser": {
+      "passed": true,
+      "checks": [
+        "synopsis",
+        "facts table",
+        "expandable evidence",
+        "390px mobile without horizontal overflow",
+        "no external requests",
+        "no page errors"
+      ]
+    }
+  }
+}

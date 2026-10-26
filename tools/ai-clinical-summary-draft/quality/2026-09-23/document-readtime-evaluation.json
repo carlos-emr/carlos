@@ -1,0 +1,866 @@
+{
+  "date": "2026-09-23",
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "mode": "extractive-brief",
+  "prompt_sha256": "dfd04709b41a87b8c61ae797b38e230dbd47766546ffecd7cfee7764e28be54b",
+  "measurement": "Whitespace-delimited words, including source headings. Default view: old overview + points; new points only. Excludes common UI labels, warnings, hidden evidence. Not measured clinician reading time.",
+  "evaluation_design": "Final comparison reused patients seen during iterative development; not an untouched clinical holdout.",
+  "phases": [
+    {
+      "name": "document-readtime-release",
+      "raw_report_sha256": "c59993055f859bea2de49b89e726c3ae542bd7b03b6b52d0f773cccb6143b1b3",
+      "selection": "longest-note-per-patient-[34, 50]",
+      "summary": {
+        "fidelity": {
+          "accepted": 17,
+          "runs": 17,
+          "median_word_ratio": 0.8091,
+          "median_seconds": 0.891,
+          "completion_tokens": 680,
+          "cost_usd": 0.00303965
+        },
+        "brief": {
+          "accepted": 17,
+          "runs": 17,
+          "median_word_ratio": 0.6952,
+          "median_seconds": 0.77,
+          "completion_tokens": 305,
+          "cost_usd": 0.00326915
+        }
+      },
+      "cases": [
+        {
+          "case": "NHSSYN034",
+          "fixture": "NHSSYN034",
+          "note_index": 5,
+          "sha256": "4f425f6cb6a4e999e71d4af29360c74bf936ddfc463a1ac630ba54f4423713b2",
+          "source_words": 373
+        },
+        {
+          "case": "NHSSYN035",
+          "fixture": "NHSSYN035",
+          "note_index": 4,
+          "sha256": "05612023e8bd11912f114577f925b4ce01cd0c1b467207e0d3760340f3b7199d",
+          "source_words": 240
+        },
+        {
+          "case": "NHSSYN036",
+          "fixture": "NHSSYN036",
+          "note_index": 5,
+          "sha256": "54ecfd9e2a7dc0fbd17e109572789f2fc7574a3017a2f46e920ac7230c0f01ad",
+          "source_words": 447
+        },
+        {
+          "case": "NHSSYN037",
+          "fixture": "NHSSYN037",
+          "note_index": 0,
+          "sha256": "b3b52464a531d06e4750def2e1fc91699b5274d493d336484b3fc0672bc34f36",
+          "source_words": 368
+        },
+        {
+          "case": "NHSSYN038",
+          "fixture": "NHSSYN038",
+          "note_index": 4,
+          "sha256": "1108d678e669ea2ed75376fc9bc8f79b62caddf3e1aad59eec0c932f59055244",
+          "source_words": 220
+        },
+        {
+          "case": "NHSSYN039",
+          "fixture": "NHSSYN039",
+          "note_index": 5,
+          "sha256": "912432641dc3a81e85359d5237bfe4bf668130f5000968a23753c3e4c4c19457",
+          "source_words": 269
+        },
+        {
+          "case": "NHSSYN040",
+          "fixture": "NHSSYN040",
+          "note_index": 4,
+          "sha256": "902796f3f0c10f8d0bafdb935550566986c56d72526e4558cd68e756a0554dac",
+          "source_words": 358
+        },
+        {
+          "case": "NHSSYN041",
+          "fixture": "NHSSYN041",
+          "note_index": 3,
+          "sha256": "b2119ce5b283089b28e1599fa87ddbcb48c532baa314fc87ae9868d52982d008",
+          "source_words": 362
+        },
+        {
+          "case": "NHSSYN042",
+          "fixture": "NHSSYN042",
+          "note_index": 0,
+          "sha256": "e8363c204b829fa84bac5e35255fbe4f2dacb68a224bbce1a77fe46279f46a71",
+          "source_words": 400
+        },
+        {
+          "case": "NHSSYN043",
+          "fixture": "NHSSYN043",
+          "note_index": 4,
+          "sha256": "a055aec5a0d1a54823684de8c77cceaefd5f0333765f00b26055967f753d9301",
+          "source_words": 371
+        },
+        {
+          "case": "NHSSYN044",
+          "fixture": "NHSSYN044",
+          "note_index": 0,
+          "sha256": "0ac396691756a072fae6b1d4ec25ea50b38c1c4012109ff8452399161f40da0f",
+          "source_words": 269
+        },
+        {
+          "case": "NHSSYN045",
+          "fixture": "NHSSYN045",
+          "note_index": 3,
+          "sha256": "8ec30ae9f78620537a8552b58eb77d7ce10885a1c705ed8913ebbe97a4a89d91",
+          "source_words": 322
+        },
+        {
+          "case": "NHSSYN046",
+          "fixture": "NHSSYN046",
+          "note_index": 3,
+          "sha256": "95654530fe1f6d9125eed74a37f9e942731785f2dfe90c85f2f3989226ced251",
+          "source_words": 329
+        },
+        {
+          "case": "NHSSYN047",
+          "fixture": "NHSSYN047",
+          "note_index": 3,
+          "sha256": "bde3eaefef0cb55822dced57317bc6a6a13e3d16b6339d06a54e8541d650d404",
+          "source_words": 401
+        },
+        {
+          "case": "NHSSYN048",
+          "fixture": "NHSSYN048",
+          "note_index": 0,
+          "sha256": "5dc40bfc99a778b712ca5135c08043162f38c2c358651c5635a07cd75916e9e7",
+          "source_words": 320
+        },
+        {
+          "case": "NHSSYN049",
+          "fixture": "NHSSYN049",
+          "note_index": 3,
+          "sha256": "9ba6ce9218b8dc44efa5dcd4812c6b3501f6d028c94663316c3ea43963de9dfa",
+          "source_words": 296
+        },
+        {
+          "case": "NHSSYN050",
+          "fixture": "NHSSYN050",
+          "note_index": 0,
+          "sha256": "76de38adbc5405364d3ebcd962eb028529d82379b4034d7041a8a6fd1ceef634",
+          "source_words": 366
+        }
+      ],
+      "runs": [
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN034",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 373,
+          "point_words": 320,
+          "point_characters": 2107,
+          "word_ratio": 0.8579,
+          "seconds": 0.944
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN034",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 373,
+          "point_words": 210,
+          "point_characters": 1390,
+          "word_ratio": 0.563,
+          "seconds": 0.742
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN035",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 240,
+          "point_words": 211,
+          "point_characters": 1457,
+          "word_ratio": 0.8792,
+          "seconds": 0.658
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN035",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 240,
+          "point_words": 222,
+          "point_characters": 1527,
+          "word_ratio": 0.925,
+          "seconds": 0.823
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN036",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 447,
+          "point_words": 295,
+          "point_characters": 1942,
+          "word_ratio": 0.66,
+          "seconds": 0.814
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN036",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 447,
+          "point_words": 203,
+          "point_characters": 1326,
+          "word_ratio": 0.4541,
+          "seconds": 0.866
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN037",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 368,
+          "point_words": 178,
+          "point_characters": 1183,
+          "word_ratio": 0.4837,
+          "seconds": 0.847
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN037",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 368,
+          "point_words": 288,
+          "point_characters": 1892,
+          "word_ratio": 0.7826,
+          "seconds": 0.965
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN038",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 220,
+          "point_words": 178,
+          "point_characters": 1105,
+          "word_ratio": 0.8091,
+          "seconds": 0.942
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN038",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 220,
+          "point_words": 178,
+          "point_characters": 1105,
+          "word_ratio": 0.8091,
+          "seconds": 0.882
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN039",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 269,
+          "point_words": 187,
+          "point_characters": 1294,
+          "word_ratio": 0.6952,
+          "seconds": 0.753
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN039",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 269,
+          "point_words": 207,
+          "point_characters": 1469,
+          "word_ratio": 0.7695,
+          "seconds": 0.953
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN040",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 358,
+          "point_words": 309,
+          "point_characters": 2085,
+          "word_ratio": 0.8631,
+          "seconds": 0.984
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN040",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 358,
+          "point_words": 170,
+          "point_characters": 1152,
+          "word_ratio": 0.4749,
+          "seconds": 1.848
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN041",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 362,
+          "point_words": 217,
+          "point_characters": 1370,
+          "word_ratio": 0.5994,
+          "seconds": 0.733
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN041",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 362,
+          "point_words": 280,
+          "point_characters": 1834,
+          "word_ratio": 0.7735,
+          "seconds": 0.936
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN042",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 400,
+          "point_words": 319,
+          "point_characters": 2096,
+          "word_ratio": 0.7975,
+          "seconds": 0.891
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN042",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 400,
+          "point_words": 271,
+          "point_characters": 1756,
+          "word_ratio": 0.6775,
+          "seconds": 0.793
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN043",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 371,
+          "point_words": 303,
+          "point_characters": 2014,
+          "word_ratio": 0.8167,
+          "seconds": 0.713
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN043",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 371,
+          "point_words": 309,
+          "point_characters": 2038,
+          "word_ratio": 0.8329,
+          "seconds": 0.808
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN044",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 269,
+          "point_words": 210,
+          "point_characters": 1354,
+          "word_ratio": 0.7807,
+          "seconds": 2.279
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN044",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 269,
+          "point_words": 187,
+          "point_characters": 1214,
+          "word_ratio": 0.6952,
+          "seconds": 0.778
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN045",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 322,
+          "point_words": 277,
+          "point_characters": 1833,
+          "word_ratio": 0.8602,
+          "seconds": 2.219
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN045",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 322,
+          "point_words": 266,
+          "point_characters": 1760,
+          "word_ratio": 0.8261,
+          "seconds": 0.839
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN046",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 329,
+          "point_words": 279,
+          "point_characters": 1890,
+          "word_ratio": 0.848,
+          "seconds": 1.973
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN046",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 329,
+          "point_words": 289,
+          "point_characters": 1963,
+          "word_ratio": 0.8784,
+          "seconds": 0.732
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN047",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 401,
+          "point_words": 342,
+          "point_characters": 2292,
+          "word_ratio": 0.8529,
+          "seconds": 0.757
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN047",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 401,
+          "point_words": 347,
+          "point_characters": 2328,
+          "word_ratio": 0.8653,
+          "seconds": 0.888
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN048",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 320,
+          "point_words": 242,
+          "point_characters": 1554,
+          "word_ratio": 0.7562,
+          "seconds": 0.882
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN048",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 320,
+          "point_words": 151,
+          "point_characters": 968,
+          "word_ratio": 0.4719,
+          "seconds": 1.694
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN049",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 296,
+          "point_words": 241,
+          "point_characters": 1631,
+          "word_ratio": 0.8142,
+          "seconds": 0.681
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN049",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 296,
+          "point_words": 296,
+          "point_characters": 1983,
+          "word_ratio": 1.0,
+          "seconds": 0.774
+        },
+        {
+          "mode": "fidelity",
+          "case": "NHSSYN050",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 366,
+          "point_words": 248,
+          "point_characters": 1609,
+          "word_ratio": 0.6776,
+          "seconds": 0.784
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN050",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 366,
+          "point_words": 248,
+          "point_characters": 1609,
+          "word_ratio": 0.6776,
+          "seconds": 0.77
+        }
+      ],
+      "median_paired_point_word_reduction": 0.10952380952380958,
+      "median_paired_default_view_word_reduction": 0.28352490421455934
+    },
+    {
+      "name": "document-readtime-release-regression",
+      "raw_report_sha256": "2703a368708a336129ab856d2ad1f7adfcc0f4e40b5ae61a0641ec70d0bc9036",
+      "selection": "longest-note-from-each-of-ten-new-patients",
+      "summary": {
+        "brief": {
+          "accepted": 10,
+          "runs": 10,
+          "median_word_ratio": 0.73245,
+          "median_seconds": 0.882,
+          "completion_tokens": 266,
+          "cost_usd": 0.0022182499999999997
+        }
+      },
+      "cases": [
+        {
+          "case": "NHSSYN004",
+          "fixture": "NHSSYN004",
+          "note_index": 4,
+          "sha256": "4053b1b27744bd5290e15835d206f64435fc4606620803f835551b3a731324ac",
+          "source_words": 308
+        },
+        {
+          "case": "NHSSYN005",
+          "fixture": "NHSSYN005",
+          "note_index": 5,
+          "sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+          "source_words": 561
+        },
+        {
+          "case": "NHSSYN006",
+          "fixture": "NHSSYN006",
+          "note_index": 0,
+          "sha256": "be9cc2190a3cca52275d9843083dbdfc38735302362a033d5f754bac4b5e1f80",
+          "source_words": 273
+        },
+        {
+          "case": "NHSSYN007",
+          "fixture": "NHSSYN007",
+          "note_index": 5,
+          "sha256": "aedd42099db8e9d20541b5c291563e3956c02410047797777e0f86ee21be4641",
+          "source_words": 392
+        },
+        {
+          "case": "NHSSYN008",
+          "fixture": "NHSSYN008",
+          "note_index": 5,
+          "sha256": "52adf060b8b0caf84fa0a3d1f6b8b9bb2391ce2eda8b28abe740b5ef55494beb",
+          "source_words": 380
+        },
+        {
+          "case": "NHSSYN009",
+          "fixture": "NHSSYN009",
+          "note_index": 0,
+          "sha256": "9cae8e39a672d0cb119ca8d4ed6b7517ab3cd6b649fd1dfb0f406ba0d88d884b",
+          "source_words": 344
+        },
+        {
+          "case": "NHSSYN010",
+          "fixture": "NHSSYN010",
+          "note_index": 2,
+          "sha256": "e3f0f93933aced32eb95c74d2270d281f5806659475937bdb4c2ec4722d1460e",
+          "source_words": 385
+        },
+        {
+          "case": "NHSSYN011",
+          "fixture": "NHSSYN011",
+          "note_index": 5,
+          "sha256": "bf2b14abd63d70a362f9d91a387a98ddfc12e08ca9c8852273c5e35ccf0cdb35",
+          "source_words": 523
+        },
+        {
+          "case": "NHSSYN012",
+          "fixture": "NHSSYN012",
+          "note_index": 0,
+          "sha256": "9c3aa96ae9bb1c0068e480ce52c92dc7c3985cea34a4c2ef7870228b5138046a",
+          "source_words": 305
+        },
+        {
+          "case": "NHSSYN013",
+          "fixture": "NHSSYN013",
+          "note_index": 0,
+          "sha256": "4052e347b59a44911c4ed9bc7063330385eb08fe5541934712f0a615e96f86a6",
+          "source_words": 335
+        }
+      ],
+      "runs": [
+        {
+          "mode": "brief",
+          "case": "NHSSYN004",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 308,
+          "point_words": 216,
+          "point_characters": 1494,
+          "word_ratio": 0.7013,
+          "seconds": 0.791
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN005",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 561,
+          "point_words": 334,
+          "point_characters": 2167,
+          "word_ratio": 0.5954,
+          "seconds": 0.927
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN006",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 273,
+          "point_words": 203,
+          "point_characters": 1310,
+          "word_ratio": 0.7436,
+          "seconds": 0.625
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN007",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 392,
+          "point_words": 384,
+          "point_characters": 2413,
+          "word_ratio": 0.9796,
+          "seconds": 1.786
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN008",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 380,
+          "point_words": 350,
+          "point_characters": 2314,
+          "word_ratio": 0.9211,
+          "seconds": 1.234
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN009",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 344,
+          "point_words": 236,
+          "point_characters": 1581,
+          "word_ratio": 0.686,
+          "seconds": 0.837
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN010",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 385,
+          "point_words": 297,
+          "point_characters": 2138,
+          "word_ratio": 0.7714,
+          "seconds": 0.828
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN011",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 523,
+          "point_words": 439,
+          "point_characters": 2855,
+          "word_ratio": 0.8394,
+          "seconds": 1.099
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN012",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 305,
+          "point_words": 220,
+          "point_characters": 1441,
+          "word_ratio": 0.7213,
+          "seconds": 1.056
+        },
+        {
+          "mode": "brief",
+          "case": "NHSSYN013",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 335,
+          "point_words": 172,
+          "point_characters": 1120,
+          "word_ratio": 0.5134,
+          "seconds": 0.766
+        }
+      ]
+    },
+    {
+      "name": "document-readtime-release-original-six",
+      "raw_report_sha256": "0e53fa78ce4bfe18c1666c0021bbfe952668f1aa30e32c0a6fa08e63cd7a8910",
+      "selection": "development",
+      "summary": {
+        "brief": {
+          "accepted": 6,
+          "runs": 6,
+          "median_word_ratio": 0.7126,
+          "median_seconds": 0.75,
+          "completion_tokens": 67,
+          "cost_usd": 0.00074635
+        }
+      },
+      "cases": [
+        {
+          "case": "triage",
+          "fixture": "NHSSYN001",
+          "note_index": 0,
+          "sha256": "3f295d5d7e55744e6f2fa651555fc2491536de08ffde9501c924fb078d5b6da4",
+          "source_words": 112
+        },
+        {
+          "case": "investigations",
+          "fixture": "NHSSYN001",
+          "note_index": 3,
+          "sha256": "00c6fb6cd1a780d14c8ee0416674cda52ba4e18d81a99e405819c4e3e2562447",
+          "source_words": 128
+        },
+        {
+          "case": "multiline-assessment",
+          "fixture": "NHSSYN001",
+          "note_index": 4,
+          "sha256": "5e00db06679c4be4b26febb9df7b12098a14001b2372132c0a413886c9013ac6",
+          "source_words": 354
+        },
+        {
+          "case": "medication-plan",
+          "fixture": "NHSSYN002",
+          "note_index": 13,
+          "sha256": "aa5c74cfe784568900b39e6894f2c72bc6f5951a49c495d430bb968a114051f2",
+          "source_words": 31
+        },
+        {
+          "case": "postoperative-plan",
+          "fixture": "NHSSYN002",
+          "note_index": 16,
+          "sha256": "b074b2a00e06d9dcf3694c2ea57610cf47195e4476c6480d972a3ef0e2f118c4",
+          "source_words": 197
+        },
+        {
+          "case": "discharge-plan",
+          "fixture": "NHSSYN003",
+          "note_index": 14,
+          "sha256": "48bb604a1eff0edebcd031f0b7f81bdd73c1a98d8ff1ad8e523c9f7e36e9f846",
+          "source_words": 112
+        }
+      ],
+      "runs": [
+        {
+          "mode": "brief",
+          "case": "triage",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 112,
+          "point_words": 78,
+          "point_characters": 526,
+          "word_ratio": 0.6964,
+          "seconds": 0.733
+        },
+        {
+          "mode": "brief",
+          "case": "investigations",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 128,
+          "point_words": 128,
+          "point_characters": 852,
+          "word_ratio": 1.0,
+          "seconds": 1.003
+        },
+        {
+          "mode": "brief",
+          "case": "multiline-assessment",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 354,
+          "point_words": 258,
+          "point_characters": 1784,
+          "word_ratio": 0.7288,
+          "seconds": 0.73
+        },
+        {
+          "mode": "brief",
+          "case": "medication-plan",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 31,
+          "point_words": 31,
+          "point_characters": 200,
+          "word_ratio": 1.0,
+          "seconds": 2.641
+        },
+        {
+          "mode": "brief",
+          "case": "postoperative-plan",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 197,
+          "point_words": 125,
+          "point_characters": 805,
+          "word_ratio": 0.6345,
+          "seconds": 0.645
+        },
+        {
+          "mode": "brief",
+          "case": "discharge-plan",
+          "repeat": 1,
+          "accepted": true,
+          "source_words": 112,
+          "point_words": 74,
+          "point_characters": 491,
+          "word_ratio": 0.6607,
+          "seconds": 0.767
+        }
+      ]
+    }
+  ],
+  "final_brief_drafts_verified": 33,
+  "verification": [
+    "Host reconstruction matches stored output",
+    "Unchanged document validator passes",
+    "Every required source excerpt retained",
+    "Every displayed word comes from the ordered cited excerpts"
+  ]
+}

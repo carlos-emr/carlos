@@ -418,3 +418,7 @@ failure state. It sends synthetic sources to loopback and writes only temporary
 synthetic-chart screenshots. Full-fixture generation on a slow CPU can exceed
 10 minutes; use the bounded development timeout above. A GPU is preferable for
 interactive turnaround. No model-quality benchmark is implied by a smoke test.
+
+## Single-document workflow
+
+For the reusable service and Document Manager integration, see [Single-document summary](DOCUMENT_SUMMARY.md).

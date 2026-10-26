@@ -43,6 +43,13 @@
             <result name="dms_page">/WEB-INF/jsp/oscarMDS/Page.jsp</result>
             <result name="document_in_queues">/WEB-INF/jsp/oscarMDS/documentsInQueues.jsp</result>
         </action>
+        <action name="documentManager/AiDocumentSummary" class="io.github.carlos_emr.carlos.clinical.summary.web.AiDocumentSummary2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/aiDocumentSummary.jsp</result>
+        </action>
+        <action name="documentManager/GenerateAiDocumentSummary" class="io.github.carlos_emr.carlos.clinical.summary.web.AiDocumentSummary2Action" method="generate">
+            <result name="success">/WEB-INF/jsp/documentManager/aiDocumentSummary.jsp</result>
+            <allowed-methods>generate</allowed-methods>
+        </action>
         <action name="oscarMDS/SendMRP" class="io.github.carlos_emr.carlos.mds.pageUtil.SendMostResponProv2Action">
             <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>

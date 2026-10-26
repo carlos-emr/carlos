@@ -27,6 +27,8 @@ from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from example_agent import MAX_REQUEST_BYTES, PATH, unique_object, validate_request
+import document_distill
+import document_summary
 import host_checks
 import pipeline
 from run import build_artifact
@@ -438,6 +440,32 @@ class Gateway:
                 self.cache.move_to_end(key)
                 self.cache_hits += 1
                 return loads(self.cache[key][1])
+        output = self.complete(payload)
+        if self.config["host_merge_duplicates"] and isinstance(output, dict) and isinstance(output.get("claims"), list):
+            # Formatting faults are settled and recorded rather than failing the draft, and identical
+            # statements are folded with every citation.
+            output, merged = host_checks.merge_identical_claims(output)
+            output, tolerated = host_checks.tolerate_structure(output, sources)
+            with self.cache_lock:
+                self.merges = getattr(self, "merges", 0) + merged
+                self.tolerated = getattr(self, "tolerated", []) + tolerated
+        # The host records cited sources first: an all-cited draft arrives with no reviews at all.
+        output = pipeline.complete_coverage(label_source_reviews(output, sources), sources)
+        output = normalize_coverage_status(normalize_section_placement(output, sources), sources)
+        if section is not None:
+            require(all(row["id"] == section for row in output["sections"]), "Unexpected section in scoped pass")
+        self.validate_output(sources, output)
+        raw = json.dumps(output).encode("utf-8")
+        if self.config["cache_seconds"] and len(raw) <= MAX_RESPONSE_BYTES:
+            with self.cache_lock:
+                self.cache[key] = (self.clock() + self.config["cache_seconds"], raw)
+                self.cache_bytes += len(raw)
+                while len(self.cache) > 128 or self.cache_bytes > 16 * 1024 * 1024:
+                    self.cache_bytes -= len(self.cache.popitem(last=False)[1][1])
+        return output
+
+    def complete(self, payload):
+        """Shared bounded completion transport; each workflow validates its own output."""
         for attempt in range(3):
             remaining = 540 if self.deadline is None else self.deadline - self.clock()
             if remaining <= 0:
@@ -467,29 +495,20 @@ class Gateway:
         message = choice.get("message")
         require(isinstance(message, dict) and not message.get("refusal") and not message.get("tool_calls")
                 and isinstance(message.get("content"), str), "Missing assistant JSON")
-        output = loads(message["content"])
-        if self.config["host_merge_duplicates"] and isinstance(output, dict) and isinstance(output.get("claims"), list):
-            # Formatting faults are settled and recorded rather than failing the draft, and identical
-            # statements are folded with every citation.
-            output, merged = host_checks.merge_identical_claims(output)
-            output, tolerated = host_checks.tolerate_structure(output, sources)
-            with self.cache_lock:
-                self.merges = getattr(self, "merges", 0) + merged
-                self.tolerated = getattr(self, "tolerated", []) + tolerated
-        # The host records cited sources first: an all-cited draft arrives with no reviews at all.
-        output = pipeline.complete_coverage(label_source_reviews(output, sources), sources)
-        output = normalize_coverage_status(normalize_section_placement(output, sources), sources)
-        if section is not None:
-            require(all(row["id"] == section for row in output["sections"]), "Unexpected section in scoped pass")
-        self.validate_output(sources, output)
-        raw = json.dumps(output).encode("utf-8")
-        if self.config["cache_seconds"] and len(raw) <= MAX_RESPONSE_BYTES:
-            with self.cache_lock:
-                self.cache[key] = (self.clock() + self.config["cache_seconds"], raw)
-                self.cache_bytes += len(raw)
-                while len(self.cache) > 128 or self.cache_bytes > 16 * 1024 * 1024:
-                    self.cache_bytes -= len(self.cache.popitem(last=False)[1][1])
-        return output
+        return loads(message["content"])
+
+    def run_document(self, request):
+        """Single-document operation; only a complete committed synthetic note may leave the host."""
+        self.deadline = self.clock() + 540
+        document_summary.validate_request(request, self.allowed.notes, self.config["request_bytes"])
+        try:
+            output = document_distill.run(self.config, request["sources"][0]["text"],
+                                          self.complete, protect=True)
+        except pipeline.OutputLimitError:
+            raise UpstreamError("Document completion exceeded its output limit; no draft accepted") from None
+        document_summary.validate_output(output, request["sources"][0]["text"])
+        return {"contract_version": 1, "request_id": request["request_id"],
+                "status": "completed", "output": output}
 
     def run(self, request):
         self.deadline = self.clock() + 540  # Below CARLOS's configured 600-second HTTP timeout.
@@ -677,6 +696,7 @@ def handler_for(gateway):
             self.respond(200 if self.path == "/health" else 404,
                          {"service": "carlos-openrouter-synthetic", "model": gateway.config["model"],
                           "provider": gateway.config["provider"],
+                          "document_mode": "balanced-reviewed",
                           "temperature": gateway.config["temperature"],
                           "request_bytes": gateway.config["request_bytes"],
                           "reasoning_tokens": gateway.config["reasoning_tokens"],
@@ -686,7 +706,7 @@ def handler_for(gateway):
 
         def do_POST(self):
             self.connection.settimeout(10)
-            if self.path not in (PATH, PATH + "/repair"):
+            if self.path not in (PATH, PATH + "/repair", document_summary.PATH):
                 self.respond(404, {"error": "Not found"})
                 return
             try:
@@ -697,7 +717,9 @@ def handler_for(gateway):
                 raw = self.rfile.read(length)
                 require(len(raw) == length, "Incomplete request")
                 started, hits = time.monotonic(), gateway.cache_hits
-                output = gateway.run_repair(loads(raw)) if self.path.endswith("/repair") else gateway.run(loads(raw))
+                operation = (gateway.run_document if self.path == document_summary.PATH else
+                             gateway.run_repair if self.path.endswith("/repair") else gateway.run)
+                output = operation(loads(raw))
                 require(len(json.dumps(output).encode("utf-8")) <= MAX_RESPONSE_BYTES, "Oversized output")
                 self.respond(200, output)
                 if self.path.endswith("/repair"):

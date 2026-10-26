@@ -1,0 +1,952 @@
+{
+  "started_at": "2026-09-23T13:24:17.917230+00:00",
+  "prompt_sha256": "9ee92ed41e13d6e2764a09d191a70ed6180c9f25be0823855b413538c6367027",
+  "schema_sha256": "72b1dc92ee2a404e72a92125d04a486d3b5a8a75b51163b9c5eba5ae962115a3",
+  "settings": {
+    "temperature": 0,
+    "max_tokens": 4096,
+    "timeout_seconds": 90,
+    "reasoning": false,
+    "output_cache": false,
+    "provider_fallbacks": false,
+    "data_collection": "deny",
+    "zdr": true
+  },
+  "caveats": [
+    "Different providers/quantizations/hardware; this is a hosted-stack comparison.",
+    "Qwen3 Instruct is non-reasoning: omit unsupported reasoning parameter.",
+    "Validation is not clinical accuracy; no automatic repair or prompt tuning.",
+    "Upstream input-prefix caching may occur; reported cached tokens are retained."
+  ],
+  "finished_at": "2026-09-23T13:31:26.708602+00:00",
+  "summary": {
+    "qwen35-parasail": {
+      "runs": 12,
+      "accepted": 8,
+      "median_seconds_all": 3.582,
+      "range_seconds_all": [
+        1.524,
+        9.107
+      ],
+      "median_seconds_accepted": 3.346,
+      "reported_cost_usd": 0.009568,
+      "nonverbatim_excerpts": 50,
+      "total_excerpts": 187
+    },
+    "qwen30-siliconflow": {
+      "runs": 12,
+      "accepted": 9,
+      "median_seconds_all": 24.216,
+      "range_seconds_all": [
+        10.184,
+        56.92
+      ],
+      "median_seconds_accepted": 23.403,
+      "reported_cost_usd": 0.003234,
+      "nonverbatim_excerpts": 8,
+      "total_excerpts": 179
+    },
+    "nemotron30-crusoe": {
+      "runs": 12,
+      "accepted": 5,
+      "median_seconds_all": 2.363,
+      "range_seconds_all": [
+        1.053,
+        5.889
+      ],
+      "median_seconds_accepted": 1.935,
+      "reported_cost_usd": 0.002154,
+      "nonverbatim_excerpts": 19,
+      "total_excerpts": 231
+    }
+  },
+  "cases": [
+    {
+      "case": "triage",
+      "fixture": "NHSSYN001",
+      "note_index": 0,
+      "characters": 759,
+      "sha256": "3f295d5d7e55744e6f2fa651555fc2491536de08ffde9501c924fb078d5b6da4"
+    },
+    {
+      "case": "investigations",
+      "fixture": "NHSSYN001",
+      "note_index": 3,
+      "characters": 853,
+      "sha256": "00c6fb6cd1a780d14c8ee0416674cda52ba4e18d81a99e405819c4e3e2562447"
+    },
+    {
+      "case": "multiline-assessment",
+      "fixture": "NHSSYN001",
+      "note_index": 4,
+      "characters": 2464,
+      "sha256": "5e00db06679c4be4b26febb9df7b12098a14001b2372132c0a413886c9013ac6"
+    },
+    {
+      "case": "medication-plan",
+      "fixture": "NHSSYN002",
+      "note_index": 13,
+      "characters": 200,
+      "sha256": "aa5c74cfe784568900b39e6894f2c72bc6f5951a49c495d430bb968a114051f2"
+    },
+    {
+      "case": "postoperative-plan",
+      "fixture": "NHSSYN002",
+      "note_index": 16,
+      "characters": 1272,
+      "sha256": "b074b2a00e06d9dcf3694c2ea57610cf47195e4476c6480d972a3ef0e2f118c4"
+    },
+    {
+      "case": "discharge-plan",
+      "fixture": "NHSSYN003",
+      "note_index": 14,
+      "characters": 777,
+      "sha256": "48bb604a1eff0edebcd031f0b7f81bdd73c1a98d8ff1ad8e523c9f7e36e9f846"
+    }
+  ],
+  "runs": [
+    {
+      "stack": "qwen35-parasail",
+      "case": "triage",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 5.965,
+          "provider": "Parasail",
+          "model": "qwen/qwen3.5-35b-a3b",
+          "prompt_tokens": 603,
+          "completion_tokens": 539,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00062945,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 5.967,
+      "points": 5,
+      "excerpts": 19,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "qwen30-siliconflow",
+      "case": "triage",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 24.552,
+          "provider": "SiliconFlow",
+          "model": "qwen/qwen3-30b-a3b-instruct-2507",
+          "prompt_tokens": 589,
+          "completion_tokens": 549,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00021771,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Evidence is not a verbatim document excerpt",
+      "seconds": 24.553,
+      "points": 5,
+      "excerpts": 9,
+      "nonverbatim_excerpts": 4
+    },
+    {
+      "stack": "nemotron30-crusoe",
+      "case": "triage",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 3.92,
+          "provider": "Crusoe",
+          "model": "nvidia/nemotron-3-nano-30b-a3b",
+          "prompt_tokens": 599,
+          "completion_tokens": 832,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00019635,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Evidence is not a verbatim document excerpt",
+      "seconds": 3.921,
+      "points": 20,
+      "excerpts": 20,
+      "nonverbatim_excerpts": 1
+    },
+    {
+      "stack": "qwen30-siliconflow",
+      "case": "investigations",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 23.229,
+          "provider": "SiliconFlow",
+          "model": "qwen/qwen3-30b-a3b-instruct-2507",
+          "prompt_tokens": 540,
+          "completion_tokens": 707,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.0002607,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 23.23,
+      "points": 9,
+      "excerpts": 11,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "nemotron30-crusoe",
+      "case": "investigations",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 2.094,
+          "provider": "Crusoe",
+          "model": "nvidia/nemotron-3-nano-30b-a3b",
+          "prompt_tokens": 544,
+          "completion_tokens": 581,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.0001434,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Evidence is not a verbatim document excerpt",
+      "seconds": 2.095,
+      "points": 8,
+      "excerpts": 8,
+      "nonverbatim_excerpts": 1
+    },
+    {
+      "stack": "qwen35-parasail",
+      "case": "investigations",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 3.56,
+          "provider": "Parasail",
+          "model": "qwen/qwen3.5-35b-a3b",
+          "prompt_tokens": 553,
+          "completion_tokens": 650,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00073295,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 3.56,
+      "points": 8,
+      "excerpts": 8,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "nemotron30-crusoe",
+      "case": "multiline-assessment",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 4.032,
+          "provider": "Crusoe",
+          "model": "nvidia/nemotron-3-nano-30b-a3b",
+          "prompt_tokens": 1035,
+          "completion_tokens": 1201,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00029195,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Evidence is not a verbatim document excerpt",
+      "seconds": 4.033,
+      "points": 14,
+      "excerpts": 19,
+      "nonverbatim_excerpts": 12
+    },
+    {
+      "stack": "qwen35-parasail",
+      "case": "multiline-assessment",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 7.47,
+          "provider": "Parasail",
+          "model": "qwen/qwen3.5-35b-a3b",
+          "prompt_tokens": 1046,
+          "completion_tokens": 1305,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.0014619,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Evidence is not a verbatim document excerpt",
+      "seconds": 7.47,
+      "points": 15,
+      "excerpts": 34,
+      "nonverbatim_excerpts": 18
+    },
+    {
+      "stack": "qwen30-siliconflow",
+      "case": "multiline-assessment",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 56.919,
+          "provider": "SiliconFlow",
+          "model": "qwen/qwen3-30b-a3b-instruct-2507",
+          "prompt_tokens": 1036,
+          "completion_tokens": 1350,
+          "cached_tokens": 288,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00049824,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Duplicate document evidence",
+      "seconds": 56.92,
+      "points": 12,
+      "excerpts": 19,
+      "nonverbatim_excerpts": 2
+    },
+    {
+      "stack": "qwen35-parasail",
+      "case": "medication-plan",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 1.561,
+          "provider": "Parasail",
+          "model": "qwen/qwen3.5-35b-a3b",
+          "prompt_tokens": 404,
+          "completion_tokens": 213,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.0002736,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 1.561,
+      "points": 3,
+      "excerpts": 3,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "qwen30-siliconflow",
+      "case": "medication-plan",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 11.512,
+          "provider": "SiliconFlow",
+          "model": "qwen/qwen3-30b-a3b-instruct-2507",
+          "prompt_tokens": 390,
+          "completion_tokens": 206,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 9.69e-05,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 11.512,
+      "points": 3,
+      "excerpts": 3,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "nemotron30-crusoe",
+      "case": "medication-plan",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 1.052,
+          "provider": "Crusoe",
+          "model": "nvidia/nemotron-3-nano-30b-a3b",
+          "prompt_tokens": 402,
+          "completion_tokens": 281,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 7.63e-05,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 1.053,
+      "points": 5,
+      "excerpts": 5,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "qwen30-siliconflow",
+      "case": "postoperative-plan",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 34.955,
+          "provider": "SiliconFlow",
+          "model": "qwen/qwen3-30b-a3b-instruct-2507",
+          "prompt_tokens": 682,
+          "completion_tokens": 771,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00029268,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 34.955,
+      "points": 6,
+      "excerpts": 21,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "nemotron30-crusoe",
+      "case": "postoperative-plan",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 1.934,
+          "provider": "Crusoe",
+          "model": "nvidia/nemotron-3-nano-30b-a3b",
+          "prompt_tokens": 683,
+          "completion_tokens": 515,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00013715,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 1.935,
+      "points": 5,
+      "excerpts": 15,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "qwen35-parasail",
+      "case": "postoperative-plan",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 4.479,
+          "provider": "Parasail",
+          "model": "qwen/qwen3.5-35b-a3b",
+          "prompt_tokens": 693,
+          "completion_tokens": 734,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00083795,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 4.479,
+      "points": 8,
+      "excerpts": 18,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "nemotron30-crusoe",
+      "case": "discharge-plan",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 2.328,
+          "provider": "Crusoe",
+          "model": "nvidia/nemotron-3-nano-30b-a3b",
+          "prompt_tokens": 591,
+          "completion_tokens": 599,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00014935,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Evidence is not a verbatim document excerpt",
+      "seconds": 2.328,
+      "points": 8,
+      "excerpts": 25,
+      "nonverbatim_excerpts": 1
+    },
+    {
+      "stack": "qwen35-parasail",
+      "case": "discharge-plan",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 3.603,
+          "provider": "Parasail",
+          "model": "qwen/qwen3.5-35b-a3b",
+          "prompt_tokens": 594,
+          "completion_tokens": 632,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.0007211,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Evidence is not a verbatim document excerpt",
+      "seconds": 3.603,
+      "points": 8,
+      "excerpts": 9,
+      "nonverbatim_excerpts": 7
+    },
+    {
+      "stack": "qwen30-siliconflow",
+      "case": "discharge-plan",
+      "repeat": 1,
+      "calls": [
+        {
+          "seconds": 23.403,
+          "provider": "SiliconFlow",
+          "model": "qwen/qwen3-30b-a3b-instruct-2507",
+          "prompt_tokens": 582,
+          "completion_tokens": 620,
+          "cached_tokens": 288,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00023838,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 23.403,
+      "points": 8,
+      "excerpts": 20,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "qwen30-siliconflow",
+      "case": "triage",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 32.51,
+          "provider": "SiliconFlow",
+          "model": "qwen/qwen3-30b-a3b-instruct-2507",
+          "prompt_tokens": 589,
+          "completion_tokens": 640,
+          "cached_tokens": 288,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00024501,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 32.511,
+      "points": 7,
+      "excerpts": 22,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "nemotron30-crusoe",
+      "case": "triage",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 2.971,
+          "provider": "Crusoe",
+          "model": "nvidia/nemotron-3-nano-30b-a3b",
+          "prompt_tokens": 599,
+          "completion_tokens": 792,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00018835,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Evidence is not a verbatim document excerpt",
+      "seconds": 2.972,
+      "points": 19,
+      "excerpts": 19,
+      "nonverbatim_excerpts": 1
+    },
+    {
+      "stack": "qwen35-parasail",
+      "case": "triage",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 2.673,
+          "provider": "Parasail",
+          "model": "qwen/qwen3.5-35b-a3b",
+          "prompt_tokens": 603,
+          "completion_tokens": 522,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00061245,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 2.674,
+      "points": 5,
+      "excerpts": 15,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "nemotron30-crusoe",
+      "case": "investigations",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 2.398,
+          "provider": "Crusoe",
+          "model": "nvidia/nemotron-3-nano-30b-a3b",
+          "prompt_tokens": 544,
+          "completion_tokens": 654,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.000158,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 2.398,
+      "points": 14,
+      "excerpts": 14,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "qwen35-parasail",
+      "case": "investigations",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 3.132,
+          "provider": "Parasail",
+          "model": "qwen/qwen3.5-35b-a3b",
+          "prompt_tokens": 553,
+          "completion_tokens": 645,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00072795,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 3.133,
+      "points": 8,
+      "excerpts": 8,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "qwen30-siliconflow",
+      "case": "investigations",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 21.906,
+          "provider": "SiliconFlow",
+          "model": "qwen/qwen3-30b-a3b-instruct-2507",
+          "prompt_tokens": 540,
+          "completion_tokens": 712,
+          "cached_tokens": 288,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.0002622,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 21.906,
+      "points": 9,
+      "excerpts": 11,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "qwen35-parasail",
+      "case": "multiline-assessment",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 9.106,
+          "provider": "Parasail",
+          "model": "qwen/qwen3.5-35b-a3b",
+          "prompt_tokens": 1046,
+          "completion_tokens": 1504,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.0016609,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Evidence is not a verbatim document excerpt",
+      "seconds": 9.107,
+      "points": 15,
+      "excerpts": 44,
+      "nonverbatim_excerpts": 18
+    },
+    {
+      "stack": "qwen30-siliconflow",
+      "case": "multiline-assessment",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 40.341,
+          "provider": "SiliconFlow",
+          "model": "qwen/qwen3-30b-a3b-instruct-2507",
+          "prompt_tokens": 1036,
+          "completion_tokens": 1348,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00049764,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Duplicate document evidence",
+      "seconds": 40.342,
+      "points": 11,
+      "excerpts": 19,
+      "nonverbatim_excerpts": 2
+    },
+    {
+      "stack": "nemotron30-crusoe",
+      "case": "multiline-assessment",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 5.888,
+          "provider": "Crusoe",
+          "model": "nvidia/nemotron-3-nano-30b-a3b",
+          "prompt_tokens": 1035,
+          "completion_tokens": 1679,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00038755,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Evidence is not a verbatim document excerpt",
+      "seconds": 5.889,
+      "points": 36,
+      "excerpts": 58,
+      "nonverbatim_excerpts": 2
+    },
+    {
+      "stack": "qwen30-siliconflow",
+      "case": "medication-plan",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 10.184,
+          "provider": "SiliconFlow",
+          "model": "qwen/qwen3-30b-a3b-instruct-2507",
+          "prompt_tokens": 390,
+          "completion_tokens": 206,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 9.69e-05,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 10.184,
+      "points": 3,
+      "excerpts": 3,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "nemotron30-crusoe",
+      "case": "medication-plan",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 1.486,
+          "provider": "Crusoe",
+          "model": "nvidia/nemotron-3-nano-30b-a3b",
+          "prompt_tokens": 402,
+          "completion_tokens": 273,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 7.47e-05,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 1.486,
+      "points": 5,
+      "excerpts": 5,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "qwen35-parasail",
+      "case": "medication-plan",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 1.524,
+          "provider": "Parasail",
+          "model": "qwen/qwen3.5-35b-a3b",
+          "prompt_tokens": 404,
+          "completion_tokens": 213,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.0002736,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 1.524,
+      "points": 3,
+      "excerpts": 3,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "nemotron30-crusoe",
+      "case": "postoperative-plan",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 3.4,
+          "provider": "Crusoe",
+          "model": "nvidia/nemotron-3-nano-30b-a3b",
+          "prompt_tokens": 683,
+          "completion_tokens": 902,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00021455,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 3.408,
+      "points": 20,
+      "excerpts": 20,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "qwen35-parasail",
+      "case": "postoperative-plan",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 4.049,
+          "provider": "Parasail",
+          "model": "qwen/qwen3.5-35b-a3b",
+          "prompt_tokens": 693,
+          "completion_tokens": 839,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00094295,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 4.049,
+      "points": 11,
+      "excerpts": 18,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "qwen30-siliconflow",
+      "case": "postoperative-plan",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 40.997,
+          "provider": "SiliconFlow",
+          "model": "qwen/qwen3-30b-a3b-instruct-2507",
+          "prompt_tokens": 682,
+          "completion_tokens": 769,
+          "cached_tokens": 288,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00029208,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 40.998,
+      "points": 6,
+      "excerpts": 21,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "qwen35-parasail",
+      "case": "discharge-plan",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 3.53,
+          "provider": "Parasail",
+          "model": "qwen/qwen3.5-35b-a3b",
+          "prompt_tokens": 594,
+          "completion_tokens": 604,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.0006931,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Evidence is not a verbatim document excerpt",
+      "seconds": 3.531,
+      "points": 8,
+      "excerpts": 8,
+      "nonverbatim_excerpts": 7
+    },
+    {
+      "stack": "qwen30-siliconflow",
+      "case": "discharge-plan",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 23.879,
+          "provider": "SiliconFlow",
+          "model": "qwen/qwen3-30b-a3b-instruct-2507",
+          "prompt_tokens": 582,
+          "completion_tokens": 612,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00023598,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": true,
+      "seconds": 23.879,
+      "points": 8,
+      "excerpts": 20,
+      "nonverbatim_excerpts": 0
+    },
+    {
+      "stack": "nemotron30-crusoe",
+      "case": "discharge-plan",
+      "repeat": 2,
+      "calls": [
+        {
+          "seconds": 2.115,
+          "provider": "Crusoe",
+          "model": "nvidia/nemotron-3-nano-30b-a3b",
+          "prompt_tokens": 591,
+          "completion_tokens": 534,
+          "cached_tokens": 0,
+          "reasoning_tokens": 0,
+          "cost_usd": 0.00013635,
+          "finish_reason": "stop"
+        }
+      ],
+      "accepted": false,
+      "error": "Evidence is not a verbatim document excerpt",
+      "seconds": 2.116,
+      "points": 7,
+      "excerpts": 23,
+      "nonverbatim_excerpts": 1
+    }
+  ],
+  "raw_report_sha256": "190f139e1fb7f75518d4675a62dd15ff63721b6fea7ee212a26fede26e805dcb"
+}
