@@ -22927,7 +22927,7 @@
   "ctl_frequency": 20,
   "ctl_specialinstructions": 26,
   "default_role_access": 982,
-  "encounterForm": 99,
+  "encounterForm": 98,
   "encountertemplate": 186,
   "frm_labreq_preset": 193,
   "groups_tbl": 1,
@@ -24740,7 +24740,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-3+f2e0d233",
+   "SCHEMA_MAP_VERSION": "o19map-3+a3deefa1",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -41917,7 +41917,11 @@
      ]
     },
     "wcb_bp_code": {
-     "class": "copy",
+     "class": "merge",
+     "merge_keys": [
+      "code"
+     ],
+     "surrogate_pk": "wcb_bp_code_no",
      "cols": [
       "wcb_bp_code_no",
       "level1",
@@ -41928,7 +41932,11 @@
      ]
     },
     "wcb_noi_code": {
-     "class": "copy",
+     "class": "merge",
+     "merge_keys": [
+      "code"
+     ],
+     "surrogate_pk": "wcb_noi_code_no",
      "cols": [
       "wcb_noi_code_no",
       "level1",
@@ -41939,7 +41947,10 @@
      ]
     },
     "wcb_side": {
-     "class": "copy",
+     "class": "merge",
+     "merge_keys": [
+      "sidetype"
+     ],
      "cols": [
       "sidetype",
       "sidedesc",
@@ -57300,7 +57311,7 @@
     "ctl_frequency": 20,
     "ctl_specialinstructions": 26,
     "default_role_access": 982,
-    "encounterForm": 55,
+    "encounterForm": 54,
     "encountertemplate": 186,
     "groups_tbl": 1,
     "issue": 71,

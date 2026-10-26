@@ -82,7 +82,14 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
     @Override
     public List<Provider> getEditors(CaseManagementNote note) {
         String uuid = note.getUuid();
-        if (uuid == null) return Collections.emptyList();
+        if (uuid == null || uuid.isBlank()) {
+            // Older OSCAR notes may have no revision UUID. Their recorded
+            // author still applies; an empty UUID must not join other notes.
+            String providerNo = note.getProviderNo();
+            if (providerNo == null || providerNo.isBlank()) return Collections.emptyList();
+            return (List<Provider>) JpqlQueryHelper.find(entityManager(),
+                    "select p from Provider p where p.providerNo = ?1", providerNo);
+        }
         String hql = "select distinct p from Provider p, CaseManagementNote cmn where p.providerNo = cmn.providerNo and cmn.uuid = ?1";
         return (List<Provider>) JpqlQueryHelper.find(entityManager(), hql, uuid);
     }
@@ -99,7 +106,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
     @Override
     public List<CaseManagementNote> getHistory(CaseManagementNote note) {
         String uuid = note.getUuid();
-        if (uuid == null) return Collections.emptyList();
+        if (uuid == null || uuid.isBlank()) return Collections.emptyList();
         return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(),
                 "from CaseManagementNote cmn where cmn.uuid = ?1 order by cmn.update_date asc, cmn.id asc", uuid);
     }

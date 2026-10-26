@@ -550,7 +550,8 @@ cmd_run() {
     #                 contradicts that. It is regenerable from the dump, and
     #                 the values that matter live on in carlos.properties,
     #                 which IS backed up.
-    #   bundle/, bundle-assess/  the extracted handoff archive: the clinic's
+    #   bundle/, bundle-assess/, bundle-sources/, bundle-assess-sources/
+    #                 extracted inputs and their immutable source snapshots: the clinic's
     #                 ENTIRE database as plaintext SQL, their documents tar
     #                 and their oscar.properties. It sits in the workspace
     #                 from the moment the bundle is opened until --cleanup,
@@ -581,6 +582,8 @@ cmd_run() {
         --exclude "${O19_DIR}/**/oscar.properties" \
         --exclude "${O19_DIR}/bundle" \
         --exclude "${O19_DIR}/bundle-assess" \
+        --exclude "${O19_DIR}/bundle-sources" \
+        --exclude "${O19_DIR}/bundle-assess-sources" \
         --exclude "${O19_DIR}/.lock" \
         "${targets[@]}"
 

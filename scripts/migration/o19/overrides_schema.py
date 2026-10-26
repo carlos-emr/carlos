@@ -213,6 +213,8 @@ MERGE_EXCLUDE = {
 # Seed rows a later Flyway migration DELETEs again (the static tuple count
 # over-counts them): table -> rows to subtract from the P0 floor.
 SEED_COUNT_DELETIONS = {
+    # V1.0.59.2 retires the worksheet menu entry in both provinces.
+    "encounterForm": 1,
     # common/V1.0.9 removes the carlosdoc-scoped _admin.schedule.groupCreate
     # denial the on_data baseline seeded
     "secObjPrivilege": 1,
@@ -374,7 +376,16 @@ BY_PROVINCE = {
         # plus the nine MSP has added since (B, J, K, L, N, Q, U, V, W).
         # So it is the textbook union: CARLOS's codes win, anything the
         # clinic added appends.
-        "CLASS_MERGE": {"billingvisit": ["visittype", "region"]},
+        "CLASS_MERGE": {
+            "billingvisit": ["visittype", "region"],
+            # V1.0.59.3 seeds WorkSafeBC catalogs by these natural codes.
+            # Forms store codes, not the lookup surrogate IDs. Keep the
+            # CARLOS reference wording and append clinic-only codes;
+            # original clinic rows remain in the merge archive.
+            "wcb_bp_code": ["code"],
+            "wcb_noi_code": ["code"],
+            "wcb_side": ["sidetype"],
+        },
         # Three directories CARLOS seeds ONLY in the BC migration set
         # (V1.0.6, INSERT IGNORE without the surrogate column, so the
         # seeded rows take auto_increment ids 1..N):

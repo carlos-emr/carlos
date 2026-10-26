@@ -62,3 +62,5 @@ common/V1.0.59__archive_security_mfa_setting.sql
 common/V1.0.59.2__remove_patient_encounter_worksheet.sql
 bc/V1.0.59.3__restore_wcb_reference_codes.sql
 bc/V1.0.59.4__offer_current_bc_antenatal_record.sql
+common/V1.0.59.5__align_clinical_text_and_status_collations.sql
+common/V1.0.59.6__reconcile_managed_performance_indexes.sql

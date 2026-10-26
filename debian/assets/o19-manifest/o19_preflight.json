@@ -877,7 +877,7 @@
  ],
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-3+f2e0d233",
+   "SCHEMA_MAP_VERSION": "o19map-3+a3deefa1",
    "O19_PROFILE": "bc",
    "PATIENT_DATA_TABLES": [
     "DrugDispensing",
@@ -1547,9 +1547,9 @@
     "waitingList": "copy",
     "waitingListName": "copy",
     "wcb": "copy",
-    "wcb_bp_code": "copy",
-    "wcb_noi_code": "copy",
-    "wcb_side": "copy",
+    "wcb_bp_code": "merge",
+    "wcb_noi_code": "merge",
+    "wcb_side": "merge",
     "workflow": "copy"
    },
    "B3_FLAGGED_COLUMNS": {

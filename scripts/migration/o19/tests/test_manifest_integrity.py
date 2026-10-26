@@ -879,6 +879,10 @@ class TestTheOntarioProfile(unittest.TestCase):
             self.assertIn(table, self.tables, table)
             self.assertEqual(self.tables[table]["class"], "copy", table)
 
+    def test_retired_worksheet_is_subtracted_from_seed_floor(self):
+        self.assertEqual(self.data["SEED_ROW_COUNTS"]["encounterForm"], 98)
+        self.assertEqual(profile_data("bc")["SEED_ROW_COUNTS"]["encounterForm"], 54)
+
     def test_privilege_seed_floor_reflects_later_deletions(self):
         # 514 baseline tuples + the V1.0.6 INSERT IGNORE row - the carlosdoc
         # denial V1.0.9 deletes = 514, which is what a live target holds
@@ -920,6 +924,11 @@ class TestTheBritishColumbiaProfile(unittest.TestCase):
         for table in ("formBCAR", "formBCAR2007"):
             self.assertEqual(self.tables[table]["class"], "copy", table)
             self.assertFalse(self.tables[table].get("patient_data"), table)
+
+    def test_wcb_catalogs_merge_on_codes_after_the_reference_seed_migration(self):
+        for table, key in (("wcb_bp_code", "code"), ("wcb_noi_code", "code"), ("wcb_side", "sidetype")):
+            self.assertEqual(self.tables[table]["class"], "merge")
+            self.assertEqual(self.tables[table]["merge_keys"], [key])
 
     def test_the_uncountable_join_seed_is_tolerated_and_replaced(self):
         """`serviceSpecialists` is seeded by an INSERT ... SELECT.
