@@ -70,6 +70,24 @@ class TestClinicalCollations(DatabaseTest):
         self.assertEqual(self.sql("SELECT collation_name FROM information_schema.columns WHERE table_schema=DATABASE() "
                                  "AND table_name='demographic' AND column_name='first_name'").stdout.strip(), "utf8mb4_general_ci")
 
+    def test_composite_unique_keys_use_final_collations_in_one_alter(self):
+        # General_ci distinguishes the sharp-s spelling, but conflates these
+        # supplementary characters. UCA14 reverses those equivalences. Both
+        # complete keys remain unique before and after migration; changing just
+        # first_name would temporarily make them duplicates.
+        for table in ("demographic", "provider"):
+            self.sql("ALTER TABLE `{0}` ADD UNIQUE INDEX clinic_name(first_name(20), last_name);"
+                     "INSERT INTO `{0}` VALUES(1,'Straße','😀'),(2,'Strasse','😃');".format(table))
+        before = {table: self.sql("SELECT id,HEX(first_name),HEX(last_name) FROM `{0}` ORDER BY id".format(table)).stdout
+                  for table in ("demographic", "provider")}
+        self.sql(COLLATION)
+        for table in ("demographic", "provider"):
+            self.assertEqual(self.sql("SELECT id,HEX(first_name),HEX(last_name) FROM `{0}` ORDER BY id".format(table)).stdout,
+                             before[table])
+            self.assertEqual(self.sql("SELECT COUNT(*) FROM `{0}` WHERE last_name='😀'".format(table)).stdout.strip(), "1")
+            self.assertEqual(self.sql("SELECT COUNT(*) FROM `{0}` WHERE first_name='Strasse'".format(table)).stdout.strip(), "2")
+        self.sql(COLLATION)  # All columns already match; the grouped ALTER is a no-op.
+
     def test_existing_capacity_defaults_nullability_and_comments_are_retained(self):
         self.sql("ALTER TABLE demographic MODIFY first_name VARCHAR(200) NULL DEFAULT 'Unknown' COMMENT 'clinic width';")
         self.sql(COLLATION)

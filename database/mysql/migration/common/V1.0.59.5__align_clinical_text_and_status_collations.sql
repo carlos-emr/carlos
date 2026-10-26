@@ -4,6 +4,8 @@
 -- lookup/merge keys and archive originals retain their existing policy.
 -- Stop all application writers and take a verified backup before upgrading.
 -- Every schema and uniqueness guard runs before the first persistent ALTER.
+-- Change all affected columns of a table together so composite unique keys
+-- never see an intermediate mixture of old and proposed comparisons.
 -- Existing widths, nullability, defaults and comments are retained.
 
 SET @carlos_text_shape_ok = (
@@ -171,7 +173,6 @@ SET @carlos_collision_sql = IF(@carlos_collision_queries IS NULL,
 PREPARE carlos_text_statement FROM @carlos_collision_sql;
 EXECUTE carlos_text_statement;
 DEALLOCATE PREPARE carlos_text_statement;
-SET SESSION group_concat_max_len = @carlos_old_group_concat_max_len;
 SET @carlos_text_guard = IF(@carlos_collation_conflicts = 0, 'SELECT 1',
     'SELECT resolve_unique_key_collisions_before_collation_upgrade FROM demographic');
 PREPARE carlos_text_statement FROM @carlos_text_guard;
@@ -179,151 +180,139 @@ EXECUTE carlos_text_statement;
 DEALLOCATE PREPARE carlos_text_statement;
 
 SET @carlos_text_ddl = (
-    SELECT IF(collation_name = 'utf8mb4_uca1400_ai_ci', 'SELECT 1',
-        CONCAT('ALTER TABLE `demographic` MODIFY COLUMN `first_name` ', column_type,
-               ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
-               IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
-               IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
-               ' COMMENT ', QUOTE(column_comment),
-               IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+    SELECT COALESCE(CONCAT('ALTER TABLE `demographic` ', GROUP_CONCAT(
+        IF(collation_name = 'utf8mb4_uca1400_ai_ci', NULL,
+            CONCAT('MODIFY COLUMN `', REPLACE(column_name, '`', '``'), '` ', column_type,
+                   ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
+                   IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
+                   IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
+                   ' COMMENT ', QUOTE(column_comment),
+                   IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+        ORDER BY column_name SEPARATOR ', ')), 'SELECT 1')
     FROM information_schema.columns
-    WHERE table_schema = DATABASE() AND table_name = 'demographic' AND column_name = 'first_name'
+    WHERE table_schema = DATABASE() AND table_name = 'demographic' AND column_name IN ('first_name', 'last_name')
 );
 PREPARE carlos_text_statement FROM @carlos_text_ddl;
 EXECUTE carlos_text_statement;
 DEALLOCATE PREPARE carlos_text_statement;
 
 SET @carlos_text_ddl = (
-    SELECT IF(collation_name = 'utf8mb4_uca1400_ai_ci', 'SELECT 1',
-        CONCAT('ALTER TABLE `demographic` MODIFY COLUMN `last_name` ', column_type,
-               ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
-               IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
-               IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
-               ' COMMENT ', QUOTE(column_comment),
-               IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+    SELECT COALESCE(CONCAT('ALTER TABLE `provider` ', GROUP_CONCAT(
+        IF(collation_name = 'utf8mb4_uca1400_ai_ci', NULL,
+            CONCAT('MODIFY COLUMN `', REPLACE(column_name, '`', '``'), '` ', column_type,
+                   ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
+                   IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
+                   IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
+                   ' COMMENT ', QUOTE(column_comment),
+                   IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+        ORDER BY column_name SEPARATOR ', ')), 'SELECT 1')
     FROM information_schema.columns
-    WHERE table_schema = DATABASE() AND table_name = 'demographic' AND column_name = 'last_name'
+    WHERE table_schema = DATABASE() AND table_name = 'provider' AND column_name IN ('first_name', 'last_name')
 );
 PREPARE carlos_text_statement FROM @carlos_text_ddl;
 EXECUTE carlos_text_statement;
 DEALLOCATE PREPARE carlos_text_statement;
 
 SET @carlos_text_ddl = (
-    SELECT IF(collation_name = 'utf8mb4_uca1400_ai_ci', 'SELECT 1',
-        CONCAT('ALTER TABLE `provider` MODIFY COLUMN `first_name` ', column_type,
-               ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
-               IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
-               IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
-               ' COMMENT ', QUOTE(column_comment),
-               IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+    SELECT COALESCE(CONCAT('ALTER TABLE `casemgmt_note` ', GROUP_CONCAT(
+        IF(collation_name = 'utf8mb4_uca1400_ai_ci', NULL,
+            CONCAT('MODIFY COLUMN `', REPLACE(column_name, '`', '``'), '` ', column_type,
+                   ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
+                   IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
+                   IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
+                   ' COMMENT ', QUOTE(column_comment),
+                   IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+        ORDER BY column_name SEPARATOR ', ')), 'SELECT 1')
     FROM information_schema.columns
-    WHERE table_schema = DATABASE() AND table_name = 'provider' AND column_name = 'first_name'
+    WHERE table_schema = DATABASE() AND table_name = 'casemgmt_note' AND column_name IN ('note')
 );
 PREPARE carlos_text_statement FROM @carlos_text_ddl;
 EXECUTE carlos_text_statement;
 DEALLOCATE PREPARE carlos_text_statement;
 
 SET @carlos_text_ddl = (
-    SELECT IF(collation_name = 'utf8mb4_uca1400_ai_ci', 'SELECT 1',
-        CONCAT('ALTER TABLE `provider` MODIFY COLUMN `last_name` ', column_type,
-               ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
-               IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
-               IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
-               ' COMMENT ', QUOTE(column_comment),
-               IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+    SELECT COALESCE(CONCAT('ALTER TABLE `document` ', GROUP_CONCAT(
+        IF(collation_name = 'utf8mb4_uca1400_ai_ci', NULL,
+            CONCAT('MODIFY COLUMN `', REPLACE(column_name, '`', '``'), '` ', column_type,
+                   ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
+                   IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
+                   IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
+                   ' COMMENT ', QUOTE(column_comment),
+                   IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+        ORDER BY column_name SEPARATOR ', ')), 'SELECT 1')
     FROM information_schema.columns
-    WHERE table_schema = DATABASE() AND table_name = 'provider' AND column_name = 'last_name'
+    WHERE table_schema = DATABASE() AND table_name = 'document' AND column_name IN ('docdesc')
 );
 PREPARE carlos_text_statement FROM @carlos_text_ddl;
 EXECUTE carlos_text_statement;
 DEALLOCATE PREPARE carlos_text_statement;
 
 SET @carlos_text_ddl = (
-    SELECT IF(collation_name = 'utf8mb4_uca1400_ai_ci', 'SELECT 1',
-        CONCAT('ALTER TABLE `casemgmt_note` MODIFY COLUMN `note` ', column_type,
-               ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
-               IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
-               IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
-               ' COMMENT ', QUOTE(column_comment),
-               IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+    SELECT COALESCE(CONCAT('ALTER TABLE `drugs` ', GROUP_CONCAT(
+        IF(collation_name = 'utf8mb4_uca1400_ai_ci', NULL,
+            CONCAT('MODIFY COLUMN `', REPLACE(column_name, '`', '``'), '` ', column_type,
+                   ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
+                   IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
+                   IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
+                   ' COMMENT ', QUOTE(column_comment),
+                   IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+        ORDER BY column_name SEPARATOR ', ')), 'SELECT 1')
     FROM information_schema.columns
-    WHERE table_schema = DATABASE() AND table_name = 'casemgmt_note' AND column_name = 'note'
+    WHERE table_schema = DATABASE() AND table_name = 'drugs' AND column_name IN ('special')
 );
 PREPARE carlos_text_statement FROM @carlos_text_ddl;
 EXECUTE carlos_text_statement;
 DEALLOCATE PREPARE carlos_text_statement;
 
 SET @carlos_text_ddl = (
-    SELECT IF(collation_name = 'utf8mb4_uca1400_ai_ci', 'SELECT 1',
-        CONCAT('ALTER TABLE `document` MODIFY COLUMN `docdesc` ', column_type,
-               ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
-               IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
-               IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
-               ' COMMENT ', QUOTE(column_comment),
-               IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+    SELECT COALESCE(CONCAT('ALTER TABLE `tickler` ', GROUP_CONCAT(
+        IF(collation_name = 'utf8mb4_uca1400_ai_ci', NULL,
+            CONCAT('MODIFY COLUMN `', REPLACE(column_name, '`', '``'), '` ', column_type,
+                   ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
+                   IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
+                   IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
+                   ' COMMENT ', QUOTE(column_comment),
+                   IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+        ORDER BY column_name SEPARATOR ', ')), 'SELECT 1')
     FROM information_schema.columns
-    WHERE table_schema = DATABASE() AND table_name = 'document' AND column_name = 'docdesc'
+    WHERE table_schema = DATABASE() AND table_name = 'tickler' AND column_name IN ('message')
 );
 PREPARE carlos_text_statement FROM @carlos_text_ddl;
 EXECUTE carlos_text_statement;
 DEALLOCATE PREPARE carlos_text_statement;
 
 SET @carlos_text_ddl = (
-    SELECT IF(collation_name = 'utf8mb4_uca1400_ai_ci', 'SELECT 1',
-        CONCAT('ALTER TABLE `drugs` MODIFY COLUMN `special` ', column_type,
-               ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
-               IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
-               IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
-               ' COMMENT ', QUOTE(column_comment),
-               IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+    SELECT COALESCE(CONCAT('ALTER TABLE `appointment` ', GROUP_CONCAT(
+        IF(collation_name = 'utf8mb4_bin', NULL,
+            CONCAT('MODIFY COLUMN `', REPLACE(column_name, '`', '``'), '` ', column_type,
+                   ' CHARACTER SET utf8mb4 COLLATE utf8mb4_bin',
+                   IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
+                   IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
+                   ' COMMENT ', QUOTE(column_comment),
+                   IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+        ORDER BY column_name SEPARATOR ', ')), 'SELECT 1')
     FROM information_schema.columns
-    WHERE table_schema = DATABASE() AND table_name = 'drugs' AND column_name = 'special'
+    WHERE table_schema = DATABASE() AND table_name = 'appointment' AND column_name IN ('status')
 );
 PREPARE carlos_text_statement FROM @carlos_text_ddl;
 EXECUTE carlos_text_statement;
 DEALLOCATE PREPARE carlos_text_statement;
 
 SET @carlos_text_ddl = (
-    SELECT IF(collation_name = 'utf8mb4_uca1400_ai_ci', 'SELECT 1',
-        CONCAT('ALTER TABLE `tickler` MODIFY COLUMN `message` ', column_type,
-               ' CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci',
-               IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
-               IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
-               ' COMMENT ', QUOTE(column_comment),
-               IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+    SELECT COALESCE(CONCAT('ALTER TABLE `appointment_status` ', GROUP_CONCAT(
+        IF(collation_name = 'utf8mb4_bin', NULL,
+            CONCAT('MODIFY COLUMN `', REPLACE(column_name, '`', '``'), '` ', column_type,
+                   ' CHARACTER SET utf8mb4 COLLATE utf8mb4_bin',
+                   IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
+                   IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
+                   ' COMMENT ', QUOTE(column_comment),
+                   IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
+        ORDER BY column_name SEPARATOR ', ')), 'SELECT 1')
     FROM information_schema.columns
-    WHERE table_schema = DATABASE() AND table_name = 'tickler' AND column_name = 'message'
+    WHERE table_schema = DATABASE() AND table_name = 'appointment_status' AND column_name IN ('status')
 );
 PREPARE carlos_text_statement FROM @carlos_text_ddl;
 EXECUTE carlos_text_statement;
 DEALLOCATE PREPARE carlos_text_statement;
 
-SET @carlos_text_ddl = (
-    SELECT IF(collation_name = 'utf8mb4_bin', 'SELECT 1',
-        CONCAT('ALTER TABLE `appointment` MODIFY COLUMN `status` ', column_type,
-               ' CHARACTER SET utf8mb4 COLLATE utf8mb4_bin',
-               IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
-               IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
-               ' COMMENT ', QUOTE(column_comment),
-               IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
-    FROM information_schema.columns
-    WHERE table_schema = DATABASE() AND table_name = 'appointment' AND column_name = 'status'
-);
-PREPARE carlos_text_statement FROM @carlos_text_ddl;
-EXECUTE carlos_text_statement;
-DEALLOCATE PREPARE carlos_text_statement;
-
-SET @carlos_text_ddl = (
-    SELECT IF(collation_name = 'utf8mb4_bin', 'SELECT 1',
-        CONCAT('ALTER TABLE `appointment_status` MODIFY COLUMN `status` ', column_type,
-               ' CHARACTER SET utf8mb4 COLLATE utf8mb4_bin',
-               IF(is_nullable = 'YES', ' NULL', ' NOT NULL'),
-               IF(column_default IS NULL, '', CONCAT(' DEFAULT ', column_default)),
-               ' COMMENT ', QUOTE(column_comment),
-               IF(extra = 'INVISIBLE', ' INVISIBLE', '')))
-    FROM information_schema.columns
-    WHERE table_schema = DATABASE() AND table_name = 'appointment_status' AND column_name = 'status'
-);
-PREPARE carlos_text_statement FROM @carlos_text_ddl;
-EXECUTE carlos_text_statement;
-DEALLOCATE PREPARE carlos_text_statement;
+SET SESSION group_concat_max_len = @carlos_old_group_concat_max_len;

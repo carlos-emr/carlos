@@ -1,6 +1,6 @@
 {
  "format": 1,
- "migration_sha256": "c51a2d69e24a4edfd98452a1e64b2bb3f5dbd62d65a1929cbc3b7d8538ac3e1f",
+ "migration_sha256": "33d265f0e6b8787fa56bc0bd2978e290c0e7db7322ebfd778570a1a773383d0e",
  "province": "bc",
  "schema": {
   "checks": [

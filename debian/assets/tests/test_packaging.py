@@ -48,10 +48,9 @@ def postrm_shredded_names():
     """The `-name` globs the postrm shreds out of the import workspace:
     the package's own statement of what in there is a credential."""
     text = POSTRM.read_text(encoding="utf-8")
-    # the depth is part of the block's shape and has changed once (the
-    # clinic's own oscar.properties sits one level down, inside the
-    # extracted bundle), so it is matched rather than spelled
-    m = re.search(r'o19-import" -maxdepth \d+ -type f(.*?)-exec', text,
+    # Match recursive traversal and older depth-limited forms. Nested
+    # backup layouts and immutable source snapshots require recursion.
+    m = re.search(r'find(?:\s+-P)?\s+"\$\{STATE\}/o19-import"\s+(?:-maxdepth \d+\s+)?-type f(.*?)-exec', text,
                   re.S)
     if not m:
         raise AssertionError(
@@ -68,19 +67,20 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
     def test_every_file_the_postrm_shreds_is_excluded(self):
         names = postrm_shredded_names()
         self.assertTrue(names, "no shredded names parsed from the postrm")
-        excluded = {e.rsplit("/", 1)[-1] for e in backup_excludes()}
+        excluded = set(backup_excludes())
         # No exemptions. `oscar.properties` sits inside the excluded
         # bundle/ today, so "the directory covers it" was true -- and it
         # left the two scripts free to disagree the moment that file is
-        # written anywhere else the postrm's -maxdepth 2 find reaches.
-        # The backup names it instead, at both depths.
+        # written anywhere else the postrm's recursive find reaches.
+        # Require both root and nested exclusions for every credential name.
         for name in names:
-            self.assertIn(
-                name, excluded,
-                "the postrm shreds {0} from the import workspace because it "
-                "holds credentials, but the nightly backup copies it into "
-                "the restic repository, where the retention policy keeps it "
-                "for up to a year".format(name))
+            for directory in ("${O19_DIR}/", "${O19_DIR}/**/"):
+                self.assertIn(
+                    directory + name, excluded,
+                    "the postrm shreds {0} from the import workspace because it "
+                    "holds credentials, but the nightly backup copies it into "
+                    "the restic repository, where the retention policy keeps it "
+                    "for up to a year".format(directory + name))
 
     def test_the_extracted_bundle_is_excluded(self):
         # bundle/ is the clinic's whole database as plaintext SQL, their
@@ -90,7 +90,7 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
         # import guarantees an unmanaged second copy of the entire
         # pre-migration record in the repository.
         excluded = {e.rsplit("/", 1)[-1] for e in backup_excludes()}
-        for name in ("bundle", "bundle-assess"):
+        for name in ("bundle", "bundle-assess", "bundle-sources", "bundle-assess-sources"):
             self.assertIn(
                 name, excluded,
                 "the extracted bundle directory {0}/ is not excluded from "
