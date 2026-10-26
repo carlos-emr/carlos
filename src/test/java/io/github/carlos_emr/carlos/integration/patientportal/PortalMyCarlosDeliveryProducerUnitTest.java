@@ -58,6 +58,15 @@ class PortalMyCarlosDeliveryProducerUnitTest {
         assertEquals(copy.ciphertextSha256(), outer.get("ciphertext_sha256").textValue());
         assertEquals(copy.sealed().size(), outer.get("size").intValue());
         assertEquals(copy.bodySha256(), hash(copy.uploadBody().copy()));
+        // Expected outer bytes are built independently of the production encoder and field map.
+        String expectedOuter = "{\"ciphertext_sha256\":\"" + copy.ciphertextSha256()
+                + "\",\"created_at\":1792450800,\"delivery_id\":\"6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13\","
+                + "\"device_key_id\":\"Ebz2sH2jVoqcdFhl1BmIOBRm1xuT-zW5bvFBcCeERPY\",\"expires_at\":1793055600,"
+                + "\"recipient_id\":\"rcp-FAKE0001aaaaaaaaaaaa\",\"size\":" + copy.sealed().size()
+                + ",\"suite\":{\"aead_id\":3,\"kdf_id\":1,\"kem_id\":32},\"v\":1}";
+        assertArrayEquals(expectedOuter.getBytes(StandardCharsets.UTF_8), bodyParts.getFirst());
+        assertEquals(JSON.readTree(expectedOuter), outer);
+
         String outerText = new String(bodyParts.getFirst(), StandardCharsets.UTF_8);
         assertFalse(outerText.contains("FAKE-Jones"));
         assertFalse(outerText.contains("report"));
@@ -221,7 +230,7 @@ class PortalMyCarlosDeliveryProducerUnitTest {
                 () -> PortalMyCarlosDeliveryCodec.canonical(Map.of("a", "\udc00")));
     }
 
-    private static PortalMyCarlosDeliveryComposer.Copy compose(JsonNode f) throws Exception {
+    static PortalMyCarlosDeliveryComposer.Copy compose(JsonNode f) throws Exception {
         var c = f.at("/sender/manifest_claims");
         return PortalMyCarlosDeliveryComposer.compose(c.get("delivery_id").textValue(),
                 c.get("recipient_id").textValue(), device(f.at("/keys/device")), document(),
@@ -301,7 +310,7 @@ class PortalMyCarlosDeliveryProducerUnitTest {
             .digest(text.getBytes(StandardCharsets.UTF_8)); }
     private static String hash(byte[] bytes) { return PortalMyCarlosDeviceApprovalCrypto.sha256(bytes); }
     private static byte[] hex(JsonNode node) { return HexFormat.of().parseHex(node.textValue()); }
-    private static JsonNode fixture() throws Exception {
+    static JsonNode fixture() throws Exception {
         try (var stream = PortalMyCarlosDeliveryProducerUnitTest.class.getResourceAsStream("/patientportal/delivery-contract.json")) {
             return JSON.readTree(stream);
         }

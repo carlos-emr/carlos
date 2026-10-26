@@ -4,6 +4,7 @@
 package io.github.carlos_emr.carlos.integration.patientportal;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -14,6 +15,9 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -48,6 +52,35 @@ final class PortalMyCarlosDeliveryCodec {
             }
             return node;
         } catch (IOException failure) {
+            throw invalid();
+        }
+    }
+
+    /** Extract original object bytes, so per-event limits include original whitespace and escapes. */
+    static List<byte[]> arrayObjects(byte[] exactPage, String field, int maximumObjectBytes) {
+        try (var parser = JSON.getFactory().createParser(exactPage)) {
+            if (parser.nextToken() != JsonToken.START_OBJECT) throw invalid();
+            while (parser.nextToken() != JsonToken.END_OBJECT) {
+                String name = parser.currentName();
+                parser.nextToken();
+                if (!field.equals(name)) {
+                    parser.skipChildren();
+                    continue;
+                }
+                if (parser.currentToken() != JsonToken.START_ARRAY) throw invalid();
+                List<byte[]> objects = new ArrayList<>();
+                while (parser.nextToken() != JsonToken.END_ARRAY) {
+                    if (parser.currentToken() != JsonToken.START_OBJECT) throw invalid();
+                    int start = Math.toIntExact(parser.currentTokenLocation().getByteOffset());
+                    parser.skipChildren();
+                    int end = Math.toIntExact(parser.currentLocation().getByteOffset());
+                    if (end - start > maximumObjectBytes) throw invalid();
+                    objects.add(Arrays.copyOfRange(exactPage, start, end));
+                }
+                return objects;
+            }
+            throw invalid();
+        } catch (IOException | ArithmeticException failure) {
             throw invalid();
         }
     }
