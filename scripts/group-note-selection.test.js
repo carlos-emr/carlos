@@ -8,8 +8,32 @@ const os = require('node:os');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
 const { assertSelectionRequest, assertSelectionRedirect, assertParallelSelectionDelta, assertClearedSelectionDelta,
-  assertSelectionPopupResponse, openSelectionPopup, writeStagedGroupPolicy, groupSelectionProbeOptions } = require('./group-note-selection-playwright-checks');
+  assertSelectionPopupResponse, openSelectionPopup, writeStagedGroupPolicy, groupSelectionProbeOptions,
+  groupProgramLegacyValues, assertOwnedGroupProgramLegacySeed } = require('./group-note-selection-playwright-checks');
 const expected = { baseUrl: new URL('https://example.test/carlos'), patient: '101', program: '7', note: '51', token: 'issued.context', recipient: '202' };
+const rawProgramFields = ['holdingTank','allowBatchAdmission','allowBatchDischarge','hic','userDefined','defaultServiceRestrictionDays'];
+const rawProgramSeed = () => ['7','8'].map(id => [id, JSON.stringify([null,null,null,null,null,null])]);
+test('both group programs start with six actual nullable legacy values', () => {
+  assert.deepEqual(groupProgramLegacyValues(), [null,null,null,null,null,null]);
+  assert.doesNotThrow(() => assertOwnedGroupProgramLegacySeed(rawProgramSeed(), ['7','8']));
+});
+for (const [index, field] of rawProgramFields.entries()) {
+  for (const [id, normalized] of [['7', index === 4 ? 1 : index === 5 ? 30 : 0], ['8', 'NULL']]) {
+    test(`the raw program seed rejects ${field} normalization or text NULL on program ${id}`, () => {
+      const rows = rawProgramSeed();
+      const row = rows.find(([program]) => program === id);
+      const values = JSON.parse(row[1]); values[index] = normalized; row[1] = JSON.stringify(values);
+      assert.throws(() => assertOwnedGroupProgramLegacySeed(rows, ['7','8']), /six raw SQL NULL values/);
+    });
+  }
+}
+for (const [label, change] of Object.entries({
+  missingProgram: rows => rows.pop(), duplicateProgram: rows => { rows[1] = rows[0].slice(); },
+  foreignProgram: rows => { rows[1][0] = '9'; }, missingColumn: rows => { rows[0][1] = JSON.stringify([null,null,null,null,null]); },
+})) test(`the raw program seed refuses ${label}`, () => {
+  const rows = rawProgramSeed(); change(rows);
+  assert.throws(() => assertOwnedGroupProgramLegacySeed(rows, ['7','8']), /six raw SQL NULL values/);
+});
 function nativeRequest(change = {}) {
   const body = new URLSearchParams({ demographicNo: expected.patient, programId: expected.program, noteId: expected.note,
     chartContext: expected.token, num_anonymous: '0', group_client_id: expected.recipient, 'CSRF-TOKEN': 'real-token' });

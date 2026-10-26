@@ -11,6 +11,18 @@ const { readPatientState } = require('./echart-two-patient-isolation-playwright-
 const q = h.sqlString;
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const positive = value => /^[1-9]\d*$/.test(String(value));
+const LEGACY_PROGRAM_FIELDS = Object.freeze(['holdingTank','allowBatchAdmission','allowBatchDischarge','hic',
+  'userDefined','defaultServiceRestrictionDays']);
+
+function groupProgramLegacyValues() { return [null,null,null,null,null,null]; }
+
+/** Check SQL JSON types before the owned programs are first read by the application. */
+function assertOwnedGroupProgramLegacySeed(rows, programs) {
+  h.assert(programs.length === 2 && programs.every(positive) && new Set(programs).size === 2
+    && rows.length === 2 && rows.every((row, index) => row.length === 2 && row[0] === programs[index]
+      && same(JSON.parse(row[1]), [null,null,null,null,null,null])),
+  'Both owned group programs must retain all six raw SQL NULL values before their first native request');
+}
 
 function assertSelectionPopupResponse(response, { baseUrl }) {
   const expected = new URL(h.appUrl(baseUrl, '/casemgmt/ViewGroupNoteSelect'));
@@ -312,14 +324,17 @@ async function workflow(s) {
   }
   for (const program of programs) {
     h.assert(sql.value(`SELECT COUNT(*) FROM program WHERE name=${q(program.name)}`) === '0', 'Group program marker collision');
-    // Program's mapped getters canonicalize these nullable legacy columns on a
-    // native read. Seed their ordinary 0/30 values before the exact snapshot.
-    program.id = h.insertId(sql, `INSERT INTO program(facilityId,name,type,maxAllowed,programStatus,holdingTank,allowBatchAdmission,
-      allowBatchDischarge,hic,defaultServiceRestrictionDays,transgender,firstNation,
+    // Valid nullable legacy values must survive the native reads and sharing writes.
+    program.id = h.insertId(sql, `INSERT INTO program(facilityId,name,type,maxAllowed,programStatus,${LEGACY_PROGRAM_FIELDS.join(',')},transgender,firstNation,
       alcohol,physicalHealth,mentalHealth,housing,exclusiveView,ageMin,ageMax,enableEncounterTime,enableEncounterTransportationTime,
-      enableOCAN) VALUES (${facility.id},${q(program.name)},'service',10,'active',0,0,0,0,30,0,0,0,0,0,0,'none',0,150,0,0,0)`, 'group selection program');
+      enableOCAN) VALUES (${facility.id},${q(program.name)},'service',10,'active',${groupProgramLegacyValues().map(value => value === null ? 'NULL' : q(value)).join(',')},0,0,0,0,0,0,'none',0,150,0,0,0)`, 'group selection program');
     sql.execute(`INSERT INTO program_provider(program_id,provider_no,role_id,team_id) VALUES (${program.id},${q(login.providerNo)},${doctor[0][0]},0)`);
   }
+  const rawProgramSeed = sql.rows(`SELECT id,JSON_ARRAY(${LEGACY_PROGRAM_FIELDS.join(',')}) FROM program
+    WHERE id IN (${set(programIds())}) ORDER BY id`);
+  assertOwnedGroupProgramLegacySeed(rawProgramSeed, programIds());
+  evidence.rawProgramSeed = { columns: LEGACY_PROGRAM_FIELDS,
+    programs: rawProgramSeed.map(([id, values]) => ({ id, values: JSON.parse(values) })) };
   h.assert(sql.value(`SELECT COUNT(*) FROM provider_default_program WHERE provider_no=${q(login.providerNo)}`) === '0', 'New group writer already has a default');
   defaultIntended=true;
   sql.execute(`INSERT INTO provider_default_program(provider_no,program_id) VALUES (${q(login.providerNo)},${programs[0].id})`);
@@ -583,5 +598,6 @@ async function workflow(s) {
   h.assertStrictPage(recorder);
 }
 module.exports={workflow,assertSelectionRequest,assertSelectionRedirect,assertParallelSelectionDelta,assertClearedSelectionDelta,
-  assertSelectionPopupResponse,openSelectionPopup,writeStagedGroupPolicy,groupSelectionProbeOptions};
+  assertSelectionPopupResponse,openSelectionPopup,writeStagedGroupPolicy,groupSelectionProbeOptions,
+  groupProgramLegacyValues,assertOwnedGroupProgramLegacySeed};
 if(require.main===module)runWorkflow('group-note-selection',workflow,{openPatient:false,openMaster:false});
