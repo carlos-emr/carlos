@@ -7,6 +7,21 @@ const { waitForNavbars } = require('../echart-navbar-modules-playwright-checks')
 const { readPatientState, assertPatientStateUnchanged } = require('../echart-two-patient-isolation-playwright-checks');
 const q = h.sqlString;
 const positive = value => /^[1-9]\d*$/.test(String(value));
+const LEGACY_OWNER_FIELDS = Object.freeze(['phone','phone2','chart_no','family_doctor','alias','pronoun','gender',
+  'patient_status','roster_status','province','year_of_birth','month_of_birth','date_of_birth']);
+
+function groupPatientLegacyValues(kind) {
+  h.assert(['owner','recipient'].includes(kind), 'Unknown group fixture patient kind');
+  return kind === 'owner' ? [null,null,null,null,null,null,null,null,null,' on ','','','']
+    : [null,null,null,null,null,null,null,'AC','NR','ON','1980','01','02'];
+}
+
+/** A raw SQL assertion prevents Java getter defaults from masking this read invariant. */
+function assertOwnedGroupLegacySeed(rows) {
+  h.assert(rows.length === 1 && rows[0].length === 1
+    && JSON.stringify(JSON.parse(rows[0][0])) === JSON.stringify([null,null,null,null,null,null,null,null,null,' on ','','','']),
+  'The group owner must retain all thirteen raw legacy values before any browser request');
+}
 
 function assertNativeGroupRequest(request, { baseUrl, patient, noteId, token }) {
   const actual = new URL(request.url());
@@ -202,9 +217,13 @@ async function checkGroupNoteFullView(s, { fixture }) {
   for (const [owned, enabled] of [[facility, 1], [disabledFacility, 0]]) sql.execute(`UPDATE Facility
     SET enableGroupNotes=${enabled} WHERE id=${owned.id} AND name=${q(owned.name)} AND description=${q(marker)}`);
   for (const patient of patients) patient.id = h.insertId(sql, `INSERT INTO demographic
-    (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,hc_type,province,
-      roster_status,lastUpdateDate) VALUES (${q(patient.name)},${q(patient.first)},'1980','01','02','F','AC',
-      ${q(provider)},'ON','ON','NR',NOW())`, 'group expansion patient');
+    (last_name,first_name,sex,provider_no,hc_type,lastUpdateDate,${LEGACY_OWNER_FIELDS.join(',')})
+    VALUES (${q(patient.name)},${q(patient.first)},'F',${q(provider)},'ON',NOW(),
+      ${groupPatientLegacyValues(patient.kind).map(value => value === null ? 'NULL' : q(value)).join(',')})`, 'group expansion patient');
+  const owner = patients.find(patient => patient.kind === 'owner');
+  assertOwnedGroupLegacySeed(sql.rows(`SELECT JSON_ARRAY(${LEGACY_OWNER_FIELDS.join(',')}) FROM demographic
+    WHERE demographic_no=${owner.id} AND BINARY last_name=${q(owner.name)} AND first_name=${q(owner.first)}
+      AND provider_no=${q(provider)}`));
   const moduleRole = fixture.addRole({ _demographic: 'r', _eChart: 'r', _appointment: 'r', '_casemgmt.notes': 'r' });
   const makeLogin = (roleName, ownedFacility) => {
     const login = fixture.addLogin(roleName);
@@ -440,4 +459,5 @@ async function checkGroupNoteFullView(s, { fixture }) {
   }
 }
 
-module.exports = { checkGroupNoteFullView, assertNativeGroupRequest, assertGroupExpansion, ownedGroupLockIds };
+module.exports = { checkGroupNoteFullView, assertNativeGroupRequest, assertGroupExpansion, ownedGroupLockIds,
+  groupPatientLegacyValues, assertOwnedGroupLegacySeed };

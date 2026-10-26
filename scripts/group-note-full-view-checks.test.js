@@ -3,7 +3,32 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const h = require('./lib/playwright-harness');
-const { assertNativeGroupRequest, assertGroupExpansion, ownedGroupLockIds } = require('./lib/group-note-full-view-checks');
+const { assertNativeGroupRequest, assertGroupExpansion, ownedGroupLockIds,
+  groupPatientLegacyValues, assertOwnedGroupLegacySeed } = require('./lib/group-note-full-view-checks');
+
+const rawOwnerLegacy = [null,null,null,null,null,null,null,null,null,' on ','','',''];
+test('the owner fixture proves SQL NULLs, padded province and empty DOB bytes before browser reads', () => {
+  assert.deepEqual(groupPatientLegacyValues('owner'), rawOwnerLegacy);
+  assert.doesNotThrow(() => assertOwnedGroupLegacySeed([[JSON.stringify(rawOwnerLegacy)]]));
+});
+for (const [index,field,normalized] of [
+  [0,'phone',''],[1,'phone2',''],[2,'chart_no',''],[3,'family_doctor',''],[4,'alias',''],[5,'pronoun',''],[6,'gender',''],
+  [7,'patient_status','AC'],[8,'roster_status','NR'],[9,'province','ON'],
+  [10,'year_of_birth',null],[11,'month_of_birth',null],[12,'date_of_birth',null],
+]) test(`the raw owner seed guard rejects premature ${field} normalization`,()=>{
+  const changed=rawOwnerLegacy.slice();changed[index]=normalized;
+  assert.throws(()=>assertOwnedGroupLegacySeed([[JSON.stringify(changed)]]),/thirteen raw legacy values/);
+});
+test('the recipient keeps its active native chart status, roster, province and complete DOB',()=>{
+  assert.deepEqual(groupPatientLegacyValues('recipient'),[null,null,null,null,null,null,null,'AC','NR','ON','1980','01','02']);
+  assert.throws(()=>groupPatientLegacyValues('unknown'),/Unknown group fixture patient kind/);
+});
+test('raw seed proof cannot substitute missing/duplicate rows or the text NULL for SQL NULL',()=>{
+  assert.throws(()=>assertOwnedGroupLegacySeed([]),/thirteen raw legacy values/);
+  assert.throws(()=>assertOwnedGroupLegacySeed([[JSON.stringify(rawOwnerLegacy)],[JSON.stringify(rawOwnerLegacy)]]),/thirteen raw legacy values/);
+  const textNull=rawOwnerLegacy.slice();textNull[0]='NULL';
+  assert.throws(()=>assertOwnedGroupLegacySeed([[JSON.stringify(textNull)]]),/thirteen raw legacy values/);
+});
 
 const identity = { baseUrl: new URL('https://127.0.0.1/carlos'), patient: '101', noteId: '52', token: 'actual-owned-token' };
 function request({ path = '/carlos/CaseManagementView', origin = 'https://127.0.0.1',
