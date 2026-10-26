@@ -463,6 +463,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("emailPDFPassword", state.emailPDFPassword());
         request.setAttribute("emailPDFPasswordClue", state.emailPDFPasswordClue());
         request.setAttribute("emailAttachmentList", emailAttachmentList);
+        exposeMyCarlosRoute(loggedInInfo, demographicNo, emailAttachmentList);
         request.setAttribute("senderEmail", view.senderEmail());
         request.setAttribute("subjectEmail", view.subjectEmail());
         request.setAttribute("message", view.message());
@@ -487,6 +488,21 @@ public class EmailCompose2Action extends ActionSupport {
                 prepared.emailPDFPasswordToken());
 
         return "compose";
+    }
+
+    /** A route choice reuses the saved eDoc, without creating an email or invoking SMTP. */
+    private void exposeMyCarlosRoute(LoggedInInfo info, int patient, List<EmailAttachment> attachments) {
+        if (attachments.size() != 1 || attachments.getFirst().getDocumentType()
+                != io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.DOC
+                || attachments.getFirst().getDocumentId() <= 0
+                || !securityInfoManager.hasPrivilege(info, "_mycarlos_delivery", SecurityInfoManager.WRITE, Integer.toString(patient))) return;
+        try {
+            if (io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeliveryApplicationService.isEnabled())
+                request.setAttribute("myCarlosRouteDocumentId", attachments.getFirst().getDocumentId());
+        } catch (io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException unavailable) {
+            // A broken optional route is visible without taking the existing email route away.
+            request.setAttribute("myCarlosRouteUnavailable", true);
+        }
     }
 
     /**

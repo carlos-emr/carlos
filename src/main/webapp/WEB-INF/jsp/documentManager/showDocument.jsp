@@ -482,6 +482,25 @@
         <input type="button" class="btn btn-outline-secondary btn-sm" id="fileBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnFile"/>"
                onclick="fileDoc('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');">
         <%} %>
+        <%
+            boolean myCarlosRoute = false;
+            boolean myCarlosRouteUnavailable = false;
+            if (isLinkedToDemographic && demoI > 0
+                    && securityInfoManager.hasPrivilege(loggedInInfo, "_mycarlos_delivery", "w", demoI)) {
+                try {
+                    myCarlosRoute = io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeliveryApplicationService.isEnabled();
+                } catch (io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException unavailable) {
+                    myCarlosRouteUnavailable = true;
+                }
+            }
+            if (myCarlosRoute) {
+        %>
+        <a class="btn btn-outline-primary btn-sm" id="mycarlos-document-send"
+           href="<carlos:encode value='<%=request.getContextPath()%>' context="htmlAttribute"/>/demographic/PortalDelivery?demographicNo=<carlos:encode value='<%=String.valueOf(demoI)%>' context="uriComponent"/>&amp;documentId=<carlos:encode value='<%=docId%>' context="uriComponent"/>"
+           target="_blank" rel="noopener"><fmt:message key="mycarlos.delivery.send"/></a>
+        <% } else if (myCarlosRouteUnavailable) { %>
+        <span class="text-warning"><fmt:message key="mycarlos.delivery.unavailable"/></span>
+        <% } %>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="closeBtn_<%=docId%>" value=" <fmt:message key="global.btnClose"/> "
                onClick="window.close()">
         <input type="button" class="btn btn-outline-secondary btn-sm" id="printBtn_<%=docId%>" value=" <fmt:message key="global.btnPrint"/> "

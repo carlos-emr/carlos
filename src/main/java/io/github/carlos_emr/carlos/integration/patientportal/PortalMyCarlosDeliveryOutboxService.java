@@ -279,7 +279,11 @@ final class PortalMyCarlosDeliveryOutboxService {
         Ineligible() { super("myCarlos delivery is unavailable or binding changed"); }
     }
     private static Ineligible unavailable() { return new Ineligible(); }
-    private static IllegalStateException conflict() { return new IllegalStateException("myCarlos delivery immutable identity conflicts"); }
+    static final class ImmutableConflict extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+        ImmutableConflict() { super("myCarlos delivery immutable identity conflicts"); }
+    }
+    private static ImmutableConflict conflict() { return new ImmutableConflict(); }
     private static void standalone() {
         if (TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isSynchronizationActive())
             throw new IllegalStateException("myCarlos network work requires an independent transaction boundary");

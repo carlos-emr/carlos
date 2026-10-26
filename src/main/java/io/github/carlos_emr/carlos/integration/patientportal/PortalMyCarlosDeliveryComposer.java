@@ -53,9 +53,24 @@ final class PortalMyCarlosDeliveryComposer {
         @Override public String toString() { return "DeliveryCopy[REDACTED]"; }
     }
 
+    @FunctionalInterface
+    interface SignBytes {
+        byte[] sign(byte[] exactPayload, String expectedKid) throws java.io.IOException;
+    }
+
     static Copy compose(String deliveryId, String recipientId, DeviceKeys acceptedDevice,
             Document document, byte[] signedOriginalPdf, long createdAt, long expiresAt,
             PatientPortalClinicKeysPublishRequest.Key activeSigner, PrivateKey signingKey) {
+        if (signingKey == null) throw invalid();
+        return composeWithSigner(deliveryId, recipientId, acceptedDevice, document, signedOriginalPdf,
+                createdAt, expiresAt, activeSigner, (payload, kid) -> PortalMyCarlosDeviceApprovalCodec
+                        .envelope(sign(payload, activeSigner, signingKey)).signature().copy());
+    }
+
+    /** Production signing can retain private-key ownership in the existing validated PDF loader. */
+    static Copy composeWithSigner(String deliveryId, String recipientId, DeviceKeys acceptedDevice,
+            Document document, byte[] signedOriginalPdf, long createdAt, long expiresAt,
+            PatientPortalClinicKeysPublishRequest.Key activeSigner, SignBytes signingKey) {
         PortalMyCarlosDeliveryCodec.uuid(deliveryId, true);
         PortalMyCarlosDeliveryCodec.recipient(recipientId);
         PortalMyCarlosDeliveryCodec.lifetime(createdAt, expiresAt);
@@ -70,7 +85,7 @@ final class PortalMyCarlosDeliveryComposer {
         Map<String, Object> claims = claims(deliveryId, recipientId, acceptedDevice.kid(), document,
                 pdf.length, documentHash, createdAt, expiresAt, activeSigner.kid());
         byte[] payload = PortalMyCarlosDeliveryCodec.canonical(claims);
-        String manifest = sign(payload, activeSigner, signingKey);
+        String manifest = signedManifest(payload, activeSigner, signingKey);
         byte[] plaintext = PortalMyCarlosDeviceApprovalCrypto.frame(MAGIC,
                 manifest.getBytes(StandardCharsets.US_ASCII), pdf);
         if (plaintext.length > PortalMyCarlosDeliveryCodec.MAX_SEALED_BYTES - 48) throw invalid();
@@ -134,6 +149,18 @@ final class PortalMyCarlosDeliveryComposer {
                 "suite", Map.of("kem_id", 32L, "kdf_id", 1L, "aead_id", 3L),
                 "delivery_id", id, "recipient_id", recipient, "device_key_id", kid,
                 "size", size, "ciphertext_sha256", hash, "created_at", created, "expires_at", expires));
+    }
+
+    private static String signedManifest(byte[] payload, PatientPortalClinicKeysPublishRequest.Key identity, SignBytes signer) {
+        try {
+            byte[] signature = signer.sign(payload.clone(), identity.kid());
+            if (signature == null || signature.length != 64) throw invalid();
+            Signature check = Signature.getInstance("SHA256withECDSAinP1363Format");
+            check.initVerify(PortalMyCarlosDeviceApprovalCrypto.clinicPublicKey(identity));
+            check.update(payload);
+            if (!check.verify(signature)) throw invalid();
+            return PortalMyCarlosDeviceApprovalCodec.base64(payload) + "." + PortalMyCarlosDeviceApprovalCodec.base64(signature);
+        } catch (GeneralSecurityException | java.io.IOException failure) { throw invalid(); }
     }
 
     /** RFC 6979 via the existing Bouncy Castle implementation, with P1363 wire encoding. */

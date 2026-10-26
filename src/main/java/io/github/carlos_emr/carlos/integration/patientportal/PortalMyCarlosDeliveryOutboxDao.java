@@ -79,6 +79,31 @@ final class PortalMyCarlosDeliveryOutboxDao {
         });
     }
 
+    record Reference(long id, String deliveryId, String deviceKid) {}
+
+    java.util.List<Reference> historyReferences(String clinic, int patient, long before, int limit) {
+        if (patient <= 0 || before < 0 || limit < 1 || limit > 51) throw invalid();
+        return owned(c -> {
+            try (var q = c.prepareStatement("SELECT id,delivery_id,device_key_id FROM mycarlos_delivery_outbox WHERE clinic_id=? AND demographic_no=? AND id<? ORDER BY id DESC LIMIT ? FOR UPDATE")) {
+                q.setString(1, clinic); q.setInt(2, patient); q.setLong(3, before == 0 ? Long.MAX_VALUE : before); q.setInt(4, limit);
+                java.util.List<Reference> result = new java.util.ArrayList<>();
+                try (var r = q.executeQuery()) { while (r.next()) result.add(new Reference(r.getLong(1), r.getString(2), r.getString(3))); }
+                return java.util.List.copyOf(result);
+            }
+        });
+    }
+
+    java.util.List<Row> findForDelivery(String clinic, String deliveryId) {
+        return owned(c -> {
+            try (var q = c.prepareStatement("SELECT * FROM mycarlos_delivery_outbox WHERE clinic_id=? AND delivery_id=? ORDER BY id LIMIT 2 FOR UPDATE")) {
+                q.setString(1, clinic); q.setString(2, deliveryId);
+                java.util.List<Row> rows = new java.util.ArrayList<>();
+                try (var r = q.executeQuery()) { while (r.next()) rows.add(row(r)); }
+                return java.util.List.copyOf(rows);
+            }
+        });
+    }
+
     long insert(long original, PortalMyCarlosDeliverySnapshot s, byte[] encrypted, String snapshotHash) {
         return owned(c -> {
             try (var q = c.prepareStatement("INSERT INTO mycarlos_delivery_outbox (original_id,clinic_id,delivery_id,device_key_id,demographic_no,accepted_device_id,acceptance_version,config_sha256,encrypted_snapshot,snapshot_sha256) VALUES (?,?,?,?,?,?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS)) {

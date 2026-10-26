@@ -1,0 +1,71 @@
+myCarlos synthetic send/delete sender milestone
+
+Scope and feature gates
+This milestone sends one saved patient eDoc to one locally accepted myCarlos
+device. Open the saved document and choose Send to myCarlos, or use the route
+choice on a compose screen containing exactly one saved eDoc. The sender uses
+the existing document renderer and PAdES producer; it does not send email.
+
+The route is off by default. patient_portal.mycarlos.sender.enabled=true also
+requires the existing portal, myCarlos delivery and staff approval gates, an
+active published clinic P-256 signing identity, DELIVERY_SYNC job credentials,
+a stable pdf.signing.document_id.secret, and a locally verified accepted device.
+Staff require patient access, demographic read, eDoc read and
+_mycarlos_delivery write privileges. Deploy approved database migrations81/82
+with the normal database procedure before enabling. No startup schema repair
+or key creation is performed.
+
+Dedicated encrypted custody
+Set patient_portal.mycarlos.delivery.keyring_file to an operator-provisioned,
+service-owned file with mode0600. Its full directory chain must be root- or
+service-owned and have no group/other write permission; use a private service
+configuration directory outside shared temporary paths. POSIX ownership and
+permissions are checked; unsupported filesystems fail closed. ASCII format:
+
+format=1
+current=1
+key.1=<32 random bytes encoded as43 canonical unpadded base64url characters>
+
+Use a dedicated AES256 key, distinct from email archives and PDF signing.
+Provision through the clinic secret-management process. Never copy a real key
+into a report, source tree or support ticket. Duplicate/unknown entries,
+missing current keys and malformed files fail closed. Rotation adds key.N and
+changes current; retain every old key needed by stored artifacts. The sender
+never generates replacement keys or silently falls back to another key.
+
+Back up and restore the database and complete keyring together. Losing a key
+can make queued originals, exact upload bodies, pages and receipts permanently
+unreadable. Preserve the stable document-ID secret, clinic signing history,
+accepted-device records and configuration identity with the recovery set.
+Do not delete/reseed outbox or collector rows to resolve a delivery problem.
+
+Exact retries and staff status
+The signed original, selected accepted keys, send-time configuration and exact
+HPKE upload bytes commit before network upload. An unknown upload result keeps
+the same UUID and exact bytes. Reloading the send page retains its operation
+UUID; Check status retries pending stored bytes and collects portal evidence.
+Use New delivery only when intentionally creating another immutable copy.
+
+Picked up requires independent verification of the device-signed kept receipt
+against the stored send-time identity and original/ciphertext hashes. A portal
+upload reply alone cannot set it. Receipt and event evidence commit with the
+contiguous collector prefix before acknowledgment. Historical verified pickup
+survives later device removal. Removed devices are durably fenced from future
+sends, including when no queue row existed when removal was observed.
+
+The page displays local history without portal network work. Check status is
+an explicit POST. Busy or held evidence is visible; hold/quarantine prevents
+acknowledging an unverified suffix. Operators must investigate configuration,
+key/custody or evidence issues using controlled server diagnostics. The UI
+returns fixed messages rather than key material, file paths or clinical blobs.
+Changing clinic/portal identity cannot silently adopt an existing collector
+cursor. Restore the matching identity/custody or perform a separately reviewed
+reconciliation; do not repoint the collector as a repair shortcut.
+
+Validation boundary
+Focused tests cover the actual Java PAdES fixture, altered/encrypted/unbound
+PDF refusal, configured P-256 manifest signing, immutable snapshot recovery,
+strict keyring parsing and authorization/action boundaries. Core MariaDB and
+cross-language checks are separate evidence. A complete native Windows run
+must additionally demonstrate real approval, durable custody, portal deletion
+and sender-verified pickup; unit results alone do not establish that outcome.
