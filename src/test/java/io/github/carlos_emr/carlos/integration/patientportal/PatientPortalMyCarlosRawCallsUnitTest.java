@@ -111,7 +111,7 @@ class PatientPortalMyCarlosRawCallsUnitTest {
     @Test
     void shouldEnforceUtf8ResponseCapAndExactStatus_whenTransportReturnsSuccess() {
         for (Exchange exchange : List.of(new Exchange(202, "{}"),
-                new Exchange(200, "é".repeat(524289)))) {
+                new Exchange(200, "é".repeat(524289)), new Exchange(200, ""))) {
             var failure = assertThrows(PatientPortalException.class, () -> service(exchange, true).exchangeJob(
                     signer(PortalJob.DELIVERY_SYNC), PortalJob.PERMISSION_DELIVERY_EVENTS_READ, "GET", EVENTS,
                     new byte[0], 200));
@@ -120,6 +120,19 @@ class PatientPortalMyCarlosRawCallsUnitTest {
         assertDoesNotThrow(() -> service(new Exchange(200, "x".repeat(1048576)), true).exchangeJob(
                 signer(PortalJob.DELIVERY_SYNC), PortalJob.PERMISSION_DELIVERY_EVENTS_READ, "GET", EVENTS,
                 new byte[0], 200));
+    }
+
+    @Test
+    void shouldReportActualCachedJobTarget_beforeAnyNetworkOrFreshConfigurationRead() {
+        var exchange = new Exchange(200, "{}"); var portal = service(exchange, true);
+        var target = portal.myCarlosJobTarget(PortalJob.PERMISSION_APPROVAL_REQUESTS_READ, "GET",
+                "/internal/carlos/mycarlos/device-approval-requests?after=0&limit=20");
+        assertEquals("clinic-a", target.clinicId());
+        assertEquals(URI.create("https://portal.example.test/internal/carlos/mycarlos/device-approval-requests?after=0&limit=20"), target.uri());
+        assertFalse(target.toString().contains("portal.example.test"));
+        assertTrue(exchange.requests.isEmpty());
+        assertThrows(PortalRequestPreparationException.class, () -> portal.myCarlosJobTarget(
+                PortalJob.PERMISSION_APPROVAL_REQUESTS_READ, "GET", "https://another.test/internal/carlos/mycarlos/device-approval-requests"));
     }
 
     private static final class Exchange implements PatientPortalHttpExchange {

@@ -1166,7 +1166,7 @@ public class PatientPortalService implements Closeable {
         if (!response.isSuccess()) {
             throw PatientPortalException.ofStatus(response.statusCode(), template, myCarlosMachineCode(response.body()));
         }
-        if (!expectedStatuses.contains(response.statusCode()) || response.body() == null
+        if (!expectedStatuses.contains(response.statusCode()) || response.body() == null || response.body().isBlank()
                 || response.body().getBytes(StandardCharsets.UTF_8).length > 1048576) {
             throw PatientPortalException.ofMalformedResponse(response.statusCode(), template,
                     new PortalContractException("myCarlos response status or size is invalid"));
@@ -1186,6 +1186,16 @@ public class PatientPortalService implements Closeable {
         } catch (IllegalArgumentException failure) {
             return null;
         }
+    }
+
+    /** Cached client identity/destination, independent of a later configuration reload. */
+    record MyCarlosJobTarget(String clinicId, URI uri) {
+        @Override public String toString() { return "MyCarlosJobTarget[REDACTED]"; }
+    }
+
+    MyCarlosJobTarget myCarlosJobTarget(String permission, String method, String path) {
+        validateMyCarlosJobRoute(permission, method, path);
+        return new MyCarlosJobTarget(settings.clinicId(), resolve(path));
     }
 
     /** Same configured destination used by upload and the durable outbox configuration fence. */
