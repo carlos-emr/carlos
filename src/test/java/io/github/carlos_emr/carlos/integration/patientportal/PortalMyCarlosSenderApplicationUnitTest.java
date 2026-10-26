@@ -77,6 +77,34 @@ class PortalMyCarlosSenderApplicationUnitTest {
         verifyNoInteractions(ownership, documents, renderer, transactions);
     }
 
+    @Test void shouldResolveExistingNamedDependencies_whenLegacyAndScannedBeansCoexist() throws Exception {
+        var unmerged = mock(DocumentDao.class);
+        when(security.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
+        when(ownership.findDocumentNosForDemographic(6001, List.of(44))).thenReturn(List.of(44));
+        var deleted = new io.github.carlos_emr.carlos.commn.model.Document(); deleted.setStatus('D');
+        when(documents.find(44)).thenReturn(deleted);
+        try (var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
+            context.registerBean(PortalMyCarlosDeviceApprovalTransactions.class, () -> transactions);
+            context.registerBean(EntityManagerFactory.class, () -> mock(EntityManagerFactory.class));
+            context.registerBean(SecurityInfoManager.class, () -> security);
+            context.registerBean(PropertyDao.class, () -> mock(PropertyDao.class));
+            context.registerBean(ClinicDAO.class, () -> mock(ClinicDAO.class));
+            context.registerBean(CtlDocumentDao.class, () -> ownership);
+            context.registerBean("documentDao", DocumentDao.class, () -> documents);
+            context.registerBean("documentDaoImpl", DocumentDao.class, () -> unmerged);
+            context.registerBean(DocumentAttachmentManager.class, () -> renderer);
+            context.registerBean("demographicManager", DemographicManager.class, () -> mock(DemographicManager.class));
+            context.registerBean("demographicManagerImpl", DemographicManager.class, () -> mock(DemographicManager.class));
+            context.register(PortalMyCarlosDeliveryApplicationService.class);
+            context.refresh();
+            var application = context.getBean(PortalMyCarlosDeliveryApplicationService.class);
+            assertThrows(IllegalStateException.class, () -> application.read(staff(), 6001, 44, 0, null));
+            verify(documents).find(44);
+            verifyNoInteractions(unmerged, renderer, transactions);
+        }
+    }
+
     @Test void shouldParseDedicatedKeyringAndRefuseUnknownDuplicateOrMissingKeys() {
         String key = Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
         String valid = "format=1\ncurrent=1\nkey.1=" + key + "\n";

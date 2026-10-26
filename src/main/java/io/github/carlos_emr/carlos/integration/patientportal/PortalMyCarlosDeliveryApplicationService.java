@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 /** Staff application path for one eDoc and one locally accepted device per synthetic milestone send. */
@@ -50,7 +51,8 @@ public final class PortalMyCarlosDeliveryApplicationService {
 
     public PortalMyCarlosDeliveryApplicationService(PortalMyCarlosDeviceApprovalTransactions transactions,
             EntityManagerFactory factory, SecurityInfoManager security, PropertyDao properties, ClinicDAO clinics,
-            CtlDocumentDao ownership, DocumentDao documents, DocumentAttachmentManager renderer, DemographicManager demographics) {
+            CtlDocumentDao ownership, @Qualifier("documentDao") DocumentDao documents,
+            DocumentAttachmentManager renderer, @Qualifier("demographicManager") DemographicManager demographics) {
         this.transactions = Objects.requireNonNull(transactions); this.factory = Objects.requireNonNull(factory);
         this.security = Objects.requireNonNull(security); this.properties = Objects.requireNonNull(properties);
         this.clinics = Objects.requireNonNull(clinics); this.ownership = Objects.requireNonNull(ownership);
