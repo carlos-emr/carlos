@@ -46,7 +46,7 @@
                     <th scope="col"><fmt:message key="mycarlos.delivery.status"/></th></tr></thead>
                     <tbody id="delivery-history">
                     <c:forEach items="${deliveries}" var="row">
-                        <tr data-delivery="${carlos:forHtmlAttribute(row.deliveryId)}" data-device="${carlos:forHtmlAttribute(row.deviceKeyId)}"><td><carlos:encode value="${row.queuedAt}"/></td>
+                        <tr data-delivery="${carlos:forHtmlAttribute(row.deliveryId)}" data-device="${carlos:forHtmlAttribute(row.deviceKeyId)}" data-status="${carlos:forHtmlAttribute(row.status)}"><td><carlos:encode value="${row.queuedAt}"/></td>
                             <td><fmt:message key="mycarlos.delivery.status.${row.status}"/></td></tr>
                     </c:forEach>
                     </tbody>
@@ -60,6 +60,8 @@
         <c:forEach items="${['staged','waiting','picked_up','expired','removed','fenced','error']}" var="status">
             <span data-status="${carlos:forHtmlAttribute(status)}"><fmt:message key="mycarlos.delivery.status.${status}"/></span>
         </c:forEach>
+        <span data-copy="retry"><fmt:message key="mycarlos.delivery.retry"/></span>
+        <span data-copy="retried"><fmt:message key="mycarlos.delivery.retried"/></span>
         <span data-copy="error"><fmt:message key="mycarlos.delivery.error"/></span>
         <span data-copy="sync"><fmt:message key="mycarlos.delivery.syncWarning"/></span>
         <span data-copy="busy"><fmt:message key="mycarlos.delivery.busy"/></span>

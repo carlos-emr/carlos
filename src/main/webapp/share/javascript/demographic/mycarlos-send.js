@@ -25,6 +25,7 @@
         check.disabled = busy;
         more.disabled = busy;
         more.hidden = !next;
+        history.querySelectorAll('[data-retry]').forEach(button => { button.disabled = busy; });
     };
     // The page's opaque operation UUID survives reload/lost replies, preserving exact queue retries.
     const address = new URL(window.location.href);
@@ -36,6 +37,7 @@
             const row = document.createElement('tr');
             row.dataset.delivery = item.deliveryId;
             row.dataset.device = item.deviceKeyId;
+            row.dataset.status = item.status;
             const date = document.createElement('td');
             const parsed = new Date(item.queuedAt);
             date.textContent = Number.isNaN(parsed.getTime()) ? item.queuedAt : parsed.toLocaleString();
@@ -44,6 +46,7 @@
             row.append(date, status);
             history.append(row);
         });
+        addRetryControls();
         document.getElementById('delivery-empty').hidden = history.rows.length !== 0;
     };
     const reconcileDevices = devices => {
@@ -59,7 +62,20 @@
         chooser.value = selected;
         document.getElementById('delivery-no-device').hidden = devices.length !== 0;
     };
-    async function request(operation, older) {
+    const addRetryControls = () => {
+        Array.from(history.rows).forEach(row => {
+            if (!['staged', 'waiting'].includes(row.dataset.status) || row.querySelector('[data-retry]')) return;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.dataset.retry = '';
+            button.textContent = copy.retry;
+            button.addEventListener('click', () => request('send', false, {
+                deliveryId: row.dataset.delivery, deviceKeyId: row.dataset.device
+            }));
+            row.lastElementChild.append(' ', button);
+        });
+    };
+    async function request(operation, older, retry) {
         if (busy) return;
         busy = true;
         message.textContent = copy.busy;
@@ -68,8 +84,8 @@
             const params = new URLSearchParams({method: operation, demographicNo: root.dataset.patient, documentId: root.dataset.document});
             const options = {method: operation === 'read' ? 'GET' : 'POST', credentials: 'same-origin', headers: {Accept: 'application/json'}};
             if (operation === 'send') {
-                params.set('deliveryId', root.dataset.delivery);
-                params.set('deviceKeyId', document.getElementById('delivery-device').value);
+                params.set('deliveryId', retry ? retry.deliveryId : root.dataset.delivery);
+                params.set('deviceKeyId', retry ? retry.deviceKeyId : chooser.value);
             }
             let url = root.dataset.context + '/demographic/PortalDelivery';
             if (options.method === 'GET') { if (older && next) params.set('before', next); url += '?' + params.toString(); }
@@ -96,7 +112,7 @@
             if (!older) history.replaceChildren();
             append(result.deliveries);
             next = result.nextCursor;
-            message.textContent = result.syncStatus === 'quarantined' ? copy.sync : result.syncStatus === 'busy' ? copy.busy : '';
+            message.textContent = result.syncStatus === 'quarantined' ? copy.sync : result.syncStatus === 'busy' ? copy.busy : retry ? copy.retried : '';
         } catch (failure) {
             message.textContent = failure.userMessage || copy.error;
         } finally {
@@ -104,6 +120,7 @@
             updateButtons();
         }
     }
+    addRetryControls();
     chooser.addEventListener('change', updateButtons);
     form.addEventListener('submit', event => { event.preventDefault(); request('send', false); });
     check.addEventListener('click', () => request('refresh', false));
