@@ -20,15 +20,18 @@ default-character-set = utf8mb4
 # utf8mb4 end to end. Real patient names and clinical free text contain
 # astral-plane code points — emoji in a note, CJK extension characters in a
 # name — and utf8mb3 stores them as a mangled placeholder or rejects the
-# insert. utf8mb4_general_ci is the 4-byte equivalent of the collation the
-# OSCAR-lineage schema has always used, so no comparison semantics change.
+# insert. Keep general_ci as the compatible connection/identifier default.
+# Reviewed human-text columns use UCA14, and case-sensitive appointment codes
+# use binary collations, through forward Flyway migrations. See the collation
+# policy and physical schema contracts shipped under /usr/share/carlos-emr/schema.
 #
 # init-connect matters as much as the server default: without it a client that
-# negotiates utf8mb3 stays there. It is skipped for SUPER users (root), which
+# negotiates utf8mb3 stays there. COLLATE is explicit because MariaDB can remap
+# a character set's default independently of collation-server. It is skipped for SUPER users (root), which
 # is fine — the application connects as the non-super `carlos` account.
 character-set-server = utf8mb4
 collation-server     = utf8mb4_general_ci
-init-connect          = 'SET NAMES utf8mb4'
+init-connect          = 'SET NAMES utf8mb4 COLLATE utf8mb4_general_ci'
 
 # --- SQL mode ---------------------------------------------------------------
 # STRICT is OFF. The OSCAR-lineage application relies on the permissive

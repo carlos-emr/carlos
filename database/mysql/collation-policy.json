@@ -1,0 +1,70 @@
+{
+  "format": 1,
+  "charset": "utf8mb4",
+  "connection": "utf8mb4_general_ci",
+  "default": "utf8mb4_general_ci",
+  "default_reason": "Retain established identifier and lookup-key equivalence; migration and connection compatibility are explicit. Human-text overrides are reviewed per column.",
+  "columns": [
+    {
+      "table": "demographic",
+      "column": "first_name",
+      "collation": "utf8mb4_uca1400_ai_ci",
+      "reason": "Human names or clinical free text require Unicode-aware comparisons."
+    },
+    {
+      "table": "demographic",
+      "column": "last_name",
+      "collation": "utf8mb4_uca1400_ai_ci",
+      "reason": "Human names or clinical free text require Unicode-aware comparisons."
+    },
+    {
+      "table": "provider",
+      "column": "first_name",
+      "collation": "utf8mb4_uca1400_ai_ci",
+      "reason": "Human names or clinical free text require Unicode-aware comparisons."
+    },
+    {
+      "table": "provider",
+      "column": "last_name",
+      "collation": "utf8mb4_uca1400_ai_ci",
+      "reason": "Human names or clinical free text require Unicode-aware comparisons."
+    },
+    {
+      "table": "casemgmt_note",
+      "column": "note",
+      "collation": "utf8mb4_uca1400_ai_ci",
+      "reason": "Human names or clinical free text require Unicode-aware comparisons."
+    },
+    {
+      "table": "document",
+      "column": "docdesc",
+      "collation": "utf8mb4_uca1400_ai_ci",
+      "reason": "Human names or clinical free text require Unicode-aware comparisons."
+    },
+    {
+      "table": "drugs",
+      "column": "special",
+      "collation": "utf8mb4_uca1400_ai_ci",
+      "reason": "Human names or clinical free text require Unicode-aware comparisons."
+    },
+    {
+      "table": "tickler",
+      "column": "message",
+      "collation": "utf8mb4_uca1400_ai_ci",
+      "reason": "Human names or clinical free text require Unicode-aware comparisons."
+    },
+    {
+      "table": "appointment",
+      "column": "status",
+      "collation": "utf8mb4_bin",
+      "reason": "Appointment codes distinguish C/c and H/h."
+    },
+    {
+      "table": "appointment_status",
+      "column": "status",
+      "collation": "utf8mb4_bin",
+      "reason": "Appointment codes distinguish C/c and H/h."
+    }
+  ],
+  "preservation": "Source archive objects retain original encoding, collation and capacity."
+}

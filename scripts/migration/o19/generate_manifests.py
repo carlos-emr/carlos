@@ -2521,6 +2521,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--oscar-src", required=True,
                     help="path to an oscaremr/oscar (OSCAR 19) checkout")
+    ap.add_argument("--oscar-commit", help="verified source commit for an extracted OSCAR archive")
     ap.add_argument("--check", action="store_true",
                     help="verify committed outputs match; write nothing")
     ap.add_argument("--ctl-src", type=Path, default=None,
@@ -2529,6 +2530,8 @@ def main() -> int:
                          "parser, and its o19_preflight.py generated-data "
                          "block is rewritten (or, with --check, compared)")
     args = ap.parse_args()
+    if args.oscar_commit is not None and not re.fullmatch(r"[0-9a-f]{40}", args.oscar_commit):
+        return ap.error("--oscar-commit must be a full lowercase commit SHA")
     global CTL_SRC
     CTL_SRC = args.ctl_src
 
@@ -2577,6 +2580,11 @@ def main() -> int:
                             capture_output=True, text=True)
         if cp.returncode == 0:
             commit = cp.stdout.strip()
+
+    if args.oscar_commit is not None:
+        if commit != "unknown" and commit != args.oscar_commit:
+            return ap.error("--oscar-commit differs from the source checkout HEAD")
+        commit = args.oscar_commit
 
     o19_defaults = parse_properties(oscar / O19_PROPERTIES)
     # the file the deb installs as /etc/carlos-emr/carlos.properties: what

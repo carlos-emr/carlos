@@ -885,11 +885,11 @@ async function loginThroughForcedReset(context, user, password, pin, label,
       const text = await bodyText(page);
       assert(text.includes(excerpt),
         'the e-chart did not render the newest migrated note (text withheld: PHI)');
+      await screenshot(page, 'o19-smoke-echart');
       if (fixtures.provider && fixtures.provider.lastName) {
         assert(text.toUpperCase().includes(fixtures.provider.lastName.toUpperCase()),
           "the e-chart did not name the note's signing provider (name withheld)");
       }
-      await screenshot(page, 'o19-smoke-echart');
       await page.close();
     });
 
