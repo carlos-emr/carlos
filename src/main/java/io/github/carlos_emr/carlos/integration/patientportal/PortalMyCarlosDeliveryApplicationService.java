@@ -89,10 +89,8 @@ public final class PortalMyCarlosDeliveryApplicationService {
     }
     private Current current() {
         if (!isEnabled()) throw unavailable();
-        String publicBase = PatientPortalSettings.rawProperty(PortalInviteSettings.PUBLIC_BASE_URL_KEY);
-        if (publicBase == null || publicBase.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 1024
-                || !publicBase.equals(publicBase.strip()) || publicBase.contains("\\")) throw unavailable();
-        publicBase = PatientPortalSettings.validatedHttpsUrl(publicBase, PortalInviteSettings.PUBLIC_BASE_URL_KEY);
+        String publicBase = PortalMyCarlosStaffApprovalService.canonicalDemoPublicBase(
+                PatientPortalSettings.rawProperty(PortalInviteSettings.PUBLIC_BASE_URL_KEY));
         return Current.fromValidated(PatientPortalSettings.fromCarlosProperties(), publicBase, true, true);
     }
     public void requireStaff(LoggedInInfo info, int patient) {
