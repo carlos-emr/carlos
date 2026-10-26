@@ -97,7 +97,7 @@ public final class PortalMyCarlosStaffApprovalService {
     static String canonicalDemoPublicBase(String raw) {
         try {
             if (raw == null || raw.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 1024
-                    || !raw.matches("https://localhost(?::[1-9][0-9]{0,4})?(?:/[A-Za-z0-9_-]+)*")) {
+                    || !raw.matches("https://localhost(?::[1-9][0-9]{0,4})?(?:/[A-Za-z0-9_-]++)*+")) {
                 throw new IllegalArgumentException();
             }
             URI uri = URI.create(raw);
@@ -273,11 +273,25 @@ public final class PortalMyCarlosStaffApprovalService {
         return new PortalMyCarlosApprovalClient((permission, method, path, body, status) -> {
             if (!binding.hash().equals(current().hash())) throw new IllegalStateException("approval configuration changed");
             requireClientTarget(portal, binding, permission, method, path);
-            try { return portal.exchangeJob(job, permission, method, path, body, status); }
-            finally {
+            Runnable responseFence = () -> {
                 requireClientTarget(portal, binding, permission, method, path);
                 if (!binding.hash().equals(current().hash())) throw new IllegalStateException("approval configuration changed");
+            };
+            String response;
+            try {
+                response = portal.exchangeJob(job, permission, method, path, body, status);
+            } catch (RuntimeException | Error exchangeFailure) {
+                try {
+                    responseFence.run();
+                } catch (RuntimeException | Error fenceFailure) {
+                    // A changed target still takes precedence, while retaining the HTTP failure.
+                    if (fenceFailure != exchangeFailure) fenceFailure.addSuppressed(exchangeFailure);
+                    throw fenceFailure;
+                }
+                throw exchangeFailure;
             }
+            responseFence.run();
+            return response;
         });
     }
 

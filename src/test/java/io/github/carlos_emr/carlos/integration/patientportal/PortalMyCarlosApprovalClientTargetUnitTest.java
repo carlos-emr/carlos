@@ -208,10 +208,37 @@ class PortalMyCarlosApprovalClientTargetUnitTest {
                 var staff = new PortalMyCarlosStaffApprovalService(mock(PortalMyCarlosDeviceApprovalTransactions.class),
                         f.owner.factory, f.security, mock(PropertyDao.class), current::get, null, null);
                 var client = staff.client(portal, job());
-                assertThrows(IllegalStateException.class, () -> client.publish(id, kind, new byte[]{123, 125}));
+                var failure = assertThrows(IllegalStateException.class,
+                        () -> client.publish(id, kind, new byte[]{123, 125}));
+                assertEquals(status == 410 ? 1 : 0, failure.getSuppressed().length);
+                if (status == 410) {
+                    var exchangeFailure = assertInstanceOf(PatientPortalException.class, failure.getSuppressed()[0]);
+                    assertEquals(410, exchangeFailure.statusCode());
+                }
                 assertEquals(1, network.get());
             }
         }
+    }
+
+    @Test void shouldRetainOriginalHttpFailure_whenPostResponseConfigurationStaysBound() throws Exception {
+        var old = settings("https://localhost:8455", "clinic-a");
+        var cfg = PortalMyCarlosDeviceApprovalService.Current.fromValidated(old, "https://localhost:8455/patient", true, true);
+        AtomicInteger network = new AtomicInteger();
+        var portal = new PatientPortalService(old, request -> {
+            network.incrementAndGet();
+            return new PatientPortalHttpResponse(410, "{\"code\":\"approval_expired\"}");
+        }, PortalStaffAssertionSigner.from(old.staffAssertionPrivateKey()), () -> true);
+        var f = new PortalMyCarlosDeviceApprovalStateTestSupport.Fixture();
+        var staff = new PortalMyCarlosStaffApprovalService(mock(PortalMyCarlosDeviceApprovalTransactions.class),
+                f.owner.factory, f.security, mock(PropertyDao.class), () -> cfg, null, null);
+        var client = staff.client(portal, job());
+        for (String kind : new String[]{"challenge", "decision"}) {
+            var failure = assertThrows(PatientPortalException.class, () -> client.publish(
+                    java.util.UUID.fromString("39d10c50-6ddb-4164-8824-f4d540c1589c"), kind, new byte[]{123, 125}));
+            assertEquals(410, failure.statusCode());
+            assertEquals(0, failure.getSuppressed().length);
+        }
+        assertEquals(2, network.get());
     }
 
     @Test void shouldPublishThroughProductionPutFence_whenConfigurationStaysBound() throws Exception {

@@ -163,4 +163,19 @@ class PortalMyCarlosApprovalJournalUnitTest {
         }
     }
 
+    @Test void shouldKeepExactCanonicalUrlLanguage_whenPathIsAtTheByteLimit() {
+        String base = "https://localhost";
+        String longest = base + "/" + "x".repeat(1024 - base.length() - 1);
+        String manySegments = base + "/a".repeat((1024 - base.length()) / 2);
+        for (String raw : new String[]{base, "https://localhost:1", "https://localhost:65535/a_b-9/Z",
+                longest, manySegments}) {
+            assertEquals(raw, PortalMyCarlosStaffApprovalService.canonicalDemoPublicBase(raw));
+        }
+        for (String raw : new String[]{longest + "x", manySegments + "/", "https://localhost:0443/a",
+                "https://localhost:0/a", "https://localhost/a?x", "https://localhost/a#x", "https://localhost//a"}) {
+            assertThrows(PatientPortalConfigurationException.class,
+                    () -> PortalMyCarlosStaffApprovalService.canonicalDemoPublicBase(raw));
+        }
+    }
+
 }
