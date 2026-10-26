@@ -276,7 +276,7 @@ function fallbackCopy(text) {
       </span>
       <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
       <span class="echart-header-item echart-header-link">
-        <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScript(ctx)}/commons/omdDiseaseList.jsp?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>
+        <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScriptAttribute(ctx)}/common/omdDiseaseList?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>
       </span>
       <%}%>
       <span class="echart-header-item echart-header-link"><%=getEChartLinks() %></span>

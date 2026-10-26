@@ -108,13 +108,6 @@ public class ProviderRole2Action extends ActionSupport {
             }
         }
 
-        // Assigning or removing a role changes what that provider may do, so it needs the write
-        // right that Provider Privilege already requires for the same objects; read only lists.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
-        }
-
         return SUCCESS;
     }
 }

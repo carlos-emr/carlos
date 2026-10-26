@@ -25,6 +25,8 @@ import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.Tag;
@@ -49,6 +51,9 @@ class EmailComposeManagerWiringUnitTest {
         EmailLogDaoImpl logs = mock(EmailLogDaoImpl.class);
         LoggedInInfo info = mock(LoggedInInfo.class);
         EmailLog log = new EmailLog();
+        Demographic patient = new Demographic();
+        patient.setDemographicNo(42);
+        log.setDemographic(patient);
         when(logs.find(Integer.valueOf(5))).thenReturn(log);
         try (var context = new AnnotationConfigApplicationContext()) {
             var beans = context.getBeanFactory();
@@ -61,10 +66,14 @@ class EmailComposeManagerWiringUnitTest {
             beans.registerSingleton("formsManager", mock(FormsManager.class));
             beans.registerSingleton("patientConsentManager", mock(PatientConsentManager.class));
             beans.registerSingleton("nioFileManager", mock(NioFileManager.class));
+            beans.registerSingleton("emailConsentResolver", mock(EmailConsentResolver.class));
             context.register(EmailComposeManager.class);
             context.refresh();
             EmailComposeManager manager = context.getBean(EmailComposeManager.class);
             when(security.hasPrivilege(info, "_email", SecurityInfoManager.READ, null)).thenReturn(true);
+            when(security.hasPrivilege(info, "_demographic", SecurityInfoManager.READ, "42")).thenReturn(true);
+            when(security.hasPrivilege(info, "_email", SecurityInfoManager.READ, "42")).thenReturn(true);
+            when(security.isAllowedAccessToPatientRecord(info, 42)).thenReturn(true);
             assertThat(manager.prepareEmailForResend(info, 5)).isSameAs(log);
             verify(logs).find(Integer.valueOf(5));
             clearInvocations(logs);

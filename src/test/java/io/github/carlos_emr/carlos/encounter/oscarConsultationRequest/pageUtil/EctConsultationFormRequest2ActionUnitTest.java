@@ -500,7 +500,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should warn in the preview reply about attached labs the PDF could not include")
     void shouldWarnAboutLabsNotIncluded_forDirectPrintPreview() throws Exception {
         action.setSignatureImg("123");
-        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(invocation -> {
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class))).thenAnswer(invocation -> {
             request.setAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE,
                     List.of("MDS lab result: Hem/Chem/Other, 2024-03-05 10:22:00"));
             return pdfPath;
@@ -527,7 +527,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(consultationSignatureService.saveManualSignatureForPreview(
                 loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
                 .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.PERSIST_FAILED, ""));
-        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(invocation -> {
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class))).thenAnswer(invocation -> {
             request.setAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE, List.of("Lab result (source not confirmed)"));
             return pdfPath;
         });
@@ -1245,7 +1245,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     private void givenConsultationUpdate(String submission) {
         action.setSubmission(submission);
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
                 .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
     }

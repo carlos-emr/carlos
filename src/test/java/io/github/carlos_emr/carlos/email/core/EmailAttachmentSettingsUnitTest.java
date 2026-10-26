@@ -111,9 +111,9 @@ class EmailAttachmentSettingsUnitTest {
             EmailAttachmentSettings settings = fromRequest(request);
 
             assertThat(settings.senderEmail()).isEqualTo("user@example.com");
-            assertThat(settings.subjectEmail()).isEqualTo("SafeSubject" + "x".repeat(189));
-            assertThat(settings.bodyEmail()).isEqualTo("b".repeat(10000));
-            assertThat(settings.encryptedMessageEmail()).isEqualTo("e".repeat(10000));
+            assertThat(settings.subjectEmail()).isEqualTo("SafeSubject" + "x".repeat(201));
+            assertThat(settings.bodyEmail()).isEqualTo("b".repeat(10001));
+            assertThat(settings.encryptedMessageEmail()).isEqualTo("e".repeat(10001));
             assertThat(settings.emailPatientChartOption()).isEqualTo("addFullNote");
         }
 

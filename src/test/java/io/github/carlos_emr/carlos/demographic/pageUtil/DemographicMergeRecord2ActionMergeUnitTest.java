@@ -103,6 +103,7 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
+            loggedIn.when(() -> LoggedInInfo.requireLoggedInInfoFromSession(request)).thenCallRealMethod();
             return new DemographicMergeRecord2Action().execute();
         }
     }

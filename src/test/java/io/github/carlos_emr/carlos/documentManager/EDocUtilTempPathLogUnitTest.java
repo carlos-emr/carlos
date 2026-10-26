@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -27,6 +28,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 /** Valid temp PDFs must not log a failed document-directory probe before succeeding. */
 @Tag("unit")
@@ -47,6 +49,7 @@ class EDocUtilTempPathLogUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void configureIsolatedRoots() throws Exception {
+        registerMock(OutboundEmailArchiveDao.class, mock(OutboundEmailArchiveDao.class));
         documents = Files.createDirectories(root.resolve("documents"));
         Path sharedTemp = Files.createDirectories(root.resolve("temp"));
         managedTemp = Files.createDirectories(sharedTemp.resolve("carlos-eform-browser-pdf-temp"));
@@ -145,7 +148,7 @@ class EDocUtilTempPathLogUnitTest extends CarlosUnitTestBase {
         try (LogCapture documentsLog = LogCapture.forLogger(EDocUtil.class)) {
             assertThat(EDocUtil.getPDFPageCount(invalidPdf.toString())).isZero();
             assertThat(documentsLog.events()).anyMatch(event -> event.getLevel().isMoreSpecificThan(Level.ERROR)
-                    && event.getThrown() instanceof IOException);
+                    && event.getMessage().getFormattedMessage().contains("Could not read PDF file (exceptionType=IOException)"));
         }
     }
 

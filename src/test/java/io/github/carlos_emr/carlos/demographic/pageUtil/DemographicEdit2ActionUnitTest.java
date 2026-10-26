@@ -398,10 +398,21 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
             when(mockWaitingListAvailability.hasCurrentLists()).thenReturn(true);
             when(mockWaitingListAvailability.findSelectableLists(preference)).thenReturn(List.of(physio));
 
-            executeAction(action);
+            io.github.carlos_emr.CarlosProperties properties = io.github.carlos_emr.CarlosProperties.getInstance();
+            String previous = properties.getProperty(WaitingListAvailabilityService.FEATURE_PROPERTY);
+            try {
+                properties.setProperty(WaitingListAvailabilityService.FEATURE_PROPERTY, "true");
+                executeAction(action);
 
-            assertThat(mockRequest.getAttribute("waitingListLinkVisible")).isEqualTo(Boolean.TRUE);
-            assertThat(mockRequest.getAttribute("selectableWaitingLists")).isEqualTo(List.of(physio));
+                assertThat(mockRequest.getAttribute("waitingListLinkVisible")).isEqualTo(Boolean.TRUE);
+                assertThat(mockRequest.getAttribute("selectableWaitingLists")).isEqualTo(List.of(physio));
+                assertThat(mockRequest.getAttribute(PatientNavModel.REQUEST_ATTRIBUTE))
+                        .isInstanceOfSatisfying(PatientNavModel.class, nav -> assertThat(nav.isWaitingListShown()).isTrue());
+                verify(mockWaitingListAvailability).hasCurrentLists();
+            } finally {
+                if (previous == null) properties.remove(WaitingListAvailabilityService.FEATURE_PROPERTY);
+                else properties.setProperty(WaitingListAvailabilityService.FEATURE_PROPERTY, previous);
+            }
         }
 
         @Test

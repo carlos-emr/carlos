@@ -89,6 +89,10 @@ class DxResearch2ActionUnitTest extends CarlosUnitTestBase {
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_dxresearch"), eq("w"), isNull()))
                 .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_dxresearch", "w", "12345")).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_demographic", "r", "12345")).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 12345)).thenReturn(true);
+        org.springframework.test.util.ReflectionTestUtils.setField(dxResearch2Action.class, "securityInfoManager", mockSecurityInfoManager);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         when(mockDxresearchDao.findByDemographicNoResearchCodeAndCodingSystem(any(), anyString(), anyString()))
                 .thenReturn(Collections.emptyList());

@@ -26,7 +26,6 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
@@ -50,10 +49,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MasterRecordHospitalBillingLinkJspUnitTest {
 
     private static final String ROUTE = "billing/CA/ON/billingShortcutPg1View";
-    private static final Pattern URL_TAG = Pattern.compile(
-            "(?s)<c:url var=\"masterRecordHospitalBilling\" value=\"([^\"]+)\">(.*?)</c:url>");
-    private static final Pattern CLOSING_SCRIPTLET = Pattern.compile("<%\\s*}\\s*%>");
-
     private static Path projectRoot() throws URISyntaxException {
         Path current = Path.of(MasterRecordHospitalBillingLinkJspUnitTest.class.getProtectionDomain()
                 .getCodeSource().getLocation().toURI());
@@ -69,27 +64,27 @@ class MasterRecordHospitalBillingLinkJspUnitTest {
     }
 
     private static String editJsp() throws IOException, URISyntaxException {
-        return read("src/main/webapp/WEB-INF/jsp/demographic/edit.jsp");
+        return read("src/main/webapp/WEB-INF/jsp/demographic/patient-nav.jsp");
     }
 
     /** The sidebar's Billing section: the body of the {@code _billing} read gate. */
     private static String billingSection(String jsp) {
         int start = jsp.indexOf("objectName=\"_billing\" rights=\"r\">");
         assertThat(start).as("_billing read gate in edit.jsp").isNotNegative();
-        int end = jsp.indexOf("</security:oscarSec>", start);
+        int end = jsp.indexOf("encounter.Index.clinicalModules", start);
         assertThat(end).as("end of the _billing read gate").isGreaterThan(start);
         return jsp.substring(start, end);
     }
 
-    /** The second {@code "ON".equals(prov)} block of the Billing section, the one after Create Invoice. */
+    /** The shared navigation's Ontario-only invoice and hospital shortcut block. */
     private static String ontarioLinkBlock(String section) {
         int invoice = section.indexOf("msgCreateInvoice");
         assertThat(invoice).as("Create Invoice link in the Billing section").isNotNegative();
-        int start = section.indexOf("if (\"ON\".equals(prov)) {", invoice);
-        assertThat(start).as("Ontario-only block after Create Invoice").isNotNegative();
-        Matcher close = CLOSING_SCRIPTLET.matcher(section);
-        assertThat(close.find(start)).as("end of the Ontario-only block").isTrue();
-        return section.substring(start, close.start());
+        int start = section.lastIndexOf("<c:when test=\"${nav.ontarioBilling}\">", invoice);
+        assertThat(start).as("Ontario-only invoice block").isNotNegative();
+        int end = section.indexOf("</c:when>", invoice);
+        assertThat(end).as("end of the Ontario-only block").isGreaterThan(start);
+        return section.substring(start, end);
     }
 
     @Test
@@ -98,37 +93,26 @@ class MasterRecordHospitalBillingLinkJspUnitTest {
 
         assertThat(block)
                 .contains("id=\"hospitalBillingLink\"")
-                .contains("href=\"${carlos:forHtmlAttribute(masterRecordHospitalBilling)}\"")
+                .contains("href=\"${carlos:forHtmlAttribute(nav.hospitalBillingUrl)}\"")
                 .contains("<fmt:message key=\"demographic.demographiceditdemographic.msgHospitalBilling\"/>");
     }
 
     @Test
     void shouldTargetTheShortcutPageOneRoute_notTheRetiredJsp() throws Exception {
         String jsp = editJsp();
-        Matcher url = URL_TAG.matcher(jsp);
-
-        assertThat(url.find()).as("c:url for the Hospital Billing link").isTrue();
-        assertThat(url.group(1)).isEqualTo("/" + ROUTE);
-        assertThat(jsp).doesNotContain("billingShortcutPg1.jsp");
+        String model = read("src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/PatientNavModel.java");
+        assertThat(jsp).contains("nav.hospitalBillingUrl").doesNotContain("billingShortcutPg1.jsp");
+        assertThat(model).contains("billingUrl(\"/" + ROUTE + "\", hospitalBillingView)");
     }
 
     @Test
     void shouldPassTheParametersPageOneReads_toTheShortcutRoute() throws Exception {
-        Matcher url = URL_TAG.matcher(editJsp());
-        assertThat(url.find()).isTrue();
-        String params = url.group(2);
-
-        // BillingShortcutPg1ViewModelAssembler reads these; a missing demographic_no opens an
-        // empty bill, and billForm picks the service-code grid.
-        assertThat(params)
-                .contains("<c:param name=\"demographic_no\" value='<%= String.valueOf(demographic.getDemographicNo()) %>'/>")
-                .contains("<c:param name=\"demographic_name\"")
-                .contains("<c:param name=\"billForm\" value='<%= oscarProps.getProperty(\"hospital_view\", "
-                        + "oscarProps.getProperty(\"default_view\")) %>'/>")
-                .contains("<c:param name=\"appointment_no\" value=\"0\"/>")
-                .contains("<c:param name=\"apptProvider_no\" value=\"none\"/>")
-                .contains("<c:param name=\"appointment_date\" value='<%= dateString %>'/>")
-                .contains("<c:param name=\"providerview\" value='<%= demographic.getProviderNo() %>'/>");
+        // Query values are now assembled and URL-encoded by PatientNavModel, whose behavior
+        // is covered by PatientNavModelUnitTest; the shared JSP encodes the complete URL for HTML.
+        String block = ontarioLinkBlock(billingSection(editJsp()));
+        assertThat(block).contains("href=\"${carlos:forHtmlAttribute(nav.hospitalBillingUrl)}\"")
+                .contains("data-nav-popup=\"page\"")
+                .doesNotContain("onclick=", "demographic.getLastName()");
     }
 
     @Test

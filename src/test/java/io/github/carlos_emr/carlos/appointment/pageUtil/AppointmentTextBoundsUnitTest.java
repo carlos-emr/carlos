@@ -70,16 +70,17 @@ class AppointmentTextBoundsUnitTest extends CarlosUnitTestBase {
   doAnswer(x->{Appointment value=x.getArgument(0);value.setId(61);written.set(value);return null;}).when(appointments).persist(any(Appointment.class));
   doAnswer(x->{written.set(x.getArgument(0));return x.getArgument(0);}).when(appointments).merge(any(Appointment.class));
   existing.setId(61);existing.setProviderNo("999998");existing.setName("FAKE-PATIENT,Check");existing.setReason("prior");existing.setNotes("prior notes");existing.setResources("prior resources");existing.setStatus("t");
-  when(appointments.find(61)).thenReturn(existing);
+  when(appointments.findForUpdate(61)).thenReturn(existing);
   request=new MockHttpServletRequest();request.setSession(new MockHttpSession());request.getSession().setAttribute("user","999998");request.setMethod("POST");
   for(String[] p:new String[][]{{"provider_no","999998"},{"appointment_no","61"},{"appointment_date","2026-10-21"},{"start_time","09:00"},{"end_time","09:14"},{"keyword","FAKE-PATIENT,Check"},{"reason","reason"},{"notes","notes"},{"resources","resources"},{"demographic_no",""},{"status","t"}})request.setParameter(p[0],p[1]);
+  request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(existing, null));
   response=new MockHttpServletResponse();
  }
  @AfterEach void close(){for(MockedStatic<?> m:new MockedStatic<?>[]{waitingLists,otherIds,sessions,servlet})if(m!=null)m.close();}
  private void refused(boolean update,String field,String value)throws Exception{
   request.setParameter(field,value);lastResult=update?new AppointmentUpdateRecord2Action().execute():new AppointmentAddRecord2Action().execute();
   assertThat(response.getStatus()).as("explicit native length refusal for %s",field).isEqualTo(400);
-  verify(appointments,never()).persist(any());verify(appointments,never()).merge(any());verifyNoInteractions(archives,events);otherIds.verifyNoInteractions();
+  verify(appointments,never()).persist(any());verify(appointments,never()).merge(any());verifyNoInteractions(archives,events);otherIds.verify(() -> OtherIdManager.saveIdAppointment(anyString(), anyString(), any()), never());
   assertThat(request.getParameter(field)).isEqualTo(value);assertThat(request.getAttribute("success")).isNull();
  }
  @Test void addRefusesTwoHundredFiftySixCharacterFreeTextNameBeforePersistence()throws Exception{refused(false,"keyword","N".repeat(256));}
@@ -123,13 +124,14 @@ class AppointmentTextBoundsUnitTest extends CarlosUnitTestBase {
  @Test void preservesLegacyUnchangedOverCapacityFieldsAndRawCrLfBytes()throws Exception{
   existing.setName("L".repeat(300));ReflectionTestUtils.setField(existing,"reason","R".repeat(88)+"\r\nZ");ReflectionTestUtils.setField(existing,"notes","N".repeat(300)+"\r\nZ");existing.setResources("S".repeat(280));
   request.setParameter("keyword",existing.getName());request.setParameter("reason",existing.getReason().replace("\r\n","\n"));request.setParameter("notes",existing.getNotes());request.setParameter("resources",existing.getResources());
+  request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(existing, null));
   String reason=existing.getReason(),notes=existing.getNotes();assertThat(execute(true)).isEqualTo(ActionSupport.SUCCESS);
   assertThat(written.get().getName()).isEqualTo("L".repeat(300));assertThat(written.get().getReason()).isEqualTo(reason);assertThat(written.get().getNotes()).isEqualTo(notes);assertThat(written.get().getResources()).isEqualTo("S".repeat(280));
   var order=inOrder(archives,appointments);order.verify(archives).archiveAppointment(existing);order.verify(appointments).merge(existing);
  }
  @Test void preservesUnchangedStoredCrLfWithoutReencodingTheRecord()throws Exception{
   // JPA uses field access; model setters now normalize new writes, so seed the stored legacy bytes directly.
-  ReflectionTestUtils.setField(existing,"reason","first\r\nlast");ReflectionTestUtils.setField(existing,"notes","line\rnext");request.setParameter("reason","first\r\nlast");request.setParameter("notes","line\r\nnext");
+  ReflectionTestUtils.setField(existing,"reason","first\r\nlast");ReflectionTestUtils.setField(existing,"notes","line\rnext");request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(existing, null));request.setParameter("reason","first\r\nlast");request.setParameter("notes","line\r\nnext");
   execute(true);assertThat(written.get().getReason()).isEqualTo("first\r\nlast");assertThat(written.get().getNotes()).isEqualTo("line\rnext");
  }
  @Test void normalizesNewLogicalLineEndingsOnBothNativePathsWithoutDroppingTheLastCharacter()throws Exception{

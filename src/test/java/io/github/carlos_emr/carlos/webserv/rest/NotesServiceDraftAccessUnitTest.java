@@ -80,6 +80,8 @@ class NotesServiceDraftAccessUnitTest extends CarlosUnitTestBase {
         security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(eq(login), anyString(), anyString(), eq("101"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(true);
+        when(security.hasPrivilege(eq(login), eq("_eChart"), anyString(), isNull())).thenReturn(true);
+        when(manager.isClientInProgramDomain(anyList(), anyList())).thenReturn(true);
         ProgramManager2 programs = mock(ProgramManager2.class);
         ProgramProvider membership = new ProgramProvider();
         membership.setProgramId(11L);

@@ -322,10 +322,9 @@ public class NotesService extends AbstractServiceImpl {
      *
      * @param demographicNo patient the draft belongs to
      * @param note          the draft note; its {@code noteId} names the note being edited
-     * @return the draft that was stored, or {@code null} if it had no text
-     * @throws AccessDeniedException if the caller lacks the {@code _eChart} write privilege,
-     *         is not authorized to access this demographicNo, or the draft's {@code noteId}
-     *         references a note that does not belong to this patient
+     * @return the exact draft that was stored, including an explicit empty string
+     * @throws WebApplicationException if the draft is malformed, the caller lacks patient or
+     *         program access, or the draft references a missing, foreign or hidden note
      */
     @POST
     @Path("/{demographicNo}/tmpSave")
@@ -344,15 +343,6 @@ public class NotesService extends AbstractServiceImpl {
         requireDraftPatientAccess(loggedInInfo, demographicNo, "w");
         String providerNo = loggedInInfo.getLoggedInProvider().getProviderNo();
 
-        // Ownership check (IDOR hardening, issue #2839 class): this endpoint writes a draft
-        // row keyed by the caller-supplied demographicNo, so gate it the same way the rest
-        // of this class does before any draft is stored.
-        String demoNo = String.valueOf(demographicNo);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "w", null)
-                || !isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
-            throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
-        }
-
         String programId = getProgram(loggedInInfo, providerNo);
         String noteStr = note.getNote();
         String noteId = note.getNoteId() == null ? "0" : Integer.toString(Math.max(0, note.getNoteId()));
@@ -362,13 +352,6 @@ public class NotesService extends AbstractServiceImpl {
             requireDraftNoteAccess(loggedInInfo, demographicNo, programId, original);
         }
 
-        // The draft carries a noteId that getCurrentNote later restores from. Bind it to
-        // this patient here as well so a draft can never be seeded with another patient's
-        // note id in the first place (defence in depth with the getCurrentNote check).
-        if (noteId != null && Integer.parseInt(noteId) > 0) {
-            requireOwnedNote(noteId, demoNo, "w");
-        }
-		
 		/* NOT SURE HOW TO HANDLE LOCKS YET!!
 		//compare locks and see if they are the same
 		CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock)request.getSession().getAttribute("casemgmtNoteLock"+demographicNo);
@@ -409,7 +392,9 @@ public class NotesService extends AbstractServiceImpl {
         if (login == null || login.getLoggedInProvider() == null
                 || !securityInfoManager.hasPrivilege(login, "_eChart", right, patient.toString())
                 || !securityInfoManager.hasPrivilege(login, "_casemgmt.notes", right, patient.toString())
-                || !securityInfoManager.isAllowedAccessToPatientRecord(login, patient)) {
+                || !securityInfoManager.isAllowedAccessToPatientRecord(login, patient)
+                || !securityInfoManager.hasPrivilege(login, SEC_OBJECT_ECHART, right, null)
+                || !isNoteAccessAllowed(login, login.getLoggedInProviderNo(), patient.toString())) {
             throw new WebApplicationException("Draft access denied", Response.Status.FORBIDDEN);
         }
     }
@@ -1184,7 +1169,7 @@ public class NotesService extends AbstractServiceImpl {
      * @param demographicNo patient the note belongs to
      * @param jsonobject    note-editing context (temp-save/existing-note/new-note selectors)
      * @return the current note
-     * @throws AccessDeniedException if the caller lacks the {@code _eChart} read privilege,
+     * @throws WebApplicationException with HTTP 403 if the caller lacks the required clinical read privileges,
      *         is not authorized to access this demographicNo, or the request references an
      *         existing note (by {@code noteId}) that does not belong to this patient
      */
@@ -1211,15 +1196,6 @@ public class NotesService extends AbstractServiceImpl {
         if (!hasSessionAuth && !hasOAuthAuth) {
             logger.error("Unable to authenticate - neither session nor OAuth authentication available");
             return null;
-        }
-
-        // Ownership check (IDOR hardening, issue #2839 class): this endpoint takes
-        // demographicNo directly from the caller, so bind it the same way
-        // getNotesWithFilter/getIssueNote do before touching any note data.
-        String demoNo = String.valueOf(demographicNo);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "r", null)
-                || !isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
-            throw new AccessDeniedException(SEC_OBJECT_ECHART, "r");
         }
 
 //		CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) form;

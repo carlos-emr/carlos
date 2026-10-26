@@ -112,6 +112,7 @@ class NoteBrowserDocumentResourceAccessUnitTest extends CarlosUnitTestBase {
         }
         when(security.isAllowedAccessToPatientRecord(eq(login), anyInt())).thenReturn(true);
         when(security.hasPrivilege(login, "_queue.7", "r", (String) null)).thenReturn(true);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao.class);
         documents = createAndRegisterMock(DocumentDao.class);
         links = createAndRegisterMock(CtlDocumentDao.class);
         routing = createAndRegisterMock(PatientLabRoutingDao.class);

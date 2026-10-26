@@ -118,6 +118,11 @@ public class MsgCreateMessage2Action extends ActionSupport {
      */
     public String execute()
             throws IOException, ServletException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
             throw new SecurityException("No valid session found");
@@ -294,6 +299,8 @@ public class MsgCreateMessage2Action extends ActionSupport {
         request.setAttribute("ReSubject", subject);
         request.setAttribute("ReText", message);
         request.setAttribute("replyList", tickedRecipients(provider));
+        request.setAttribute("rejectedRecipientIds", provider == null ? java.util.Set.of()
+                : new java.util.HashSet<>(Arrays.asList(provider)));
         request.setAttribute("archiveMessageId", archiveMessageId(request));
         if (demographicNo > 0) {
             request.setAttribute("demographic_no", Integer.toString(demographicNo));

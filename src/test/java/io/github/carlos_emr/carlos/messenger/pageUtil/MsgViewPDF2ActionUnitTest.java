@@ -100,8 +100,9 @@ class MsgViewPDF2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
         doc2PdfMock = mockStatic(Doc2PDF.class, Mockito.CALLS_REAL_METHODS);
-        doc2PdfMock.when(() -> Doc2PDF.PrintPDFFromBin(any(HttpServletResponse.class), anyString()))
-                .thenAnswer(invocation -> streamed.add(invocation.getArgument(1)));
+        doc2PdfMock.when(() -> Doc2PDF.PrintPDFFromBytes(any(HttpServletResponse.class), any(byte[].class)))
+                .thenAnswer(invocation -> streamed.add(new String((byte[]) invocation.getArgument(1),
+                        StandardCharsets.US_ASCII).substring("%PDF-1.4 ".length())));
 
         when(messageTblDao.find(100)).thenReturn(message("FAKEPATIENTAFIRST", "FAKEPATIENTASECOND"));
     }
@@ -151,12 +152,12 @@ class MsgViewPDF2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAnswerNotFound_whenTheIndexIsBeyondTheMessagesPdfs() throws Exception {
+    void shouldAnswerBadRequest_whenTheIndexIsBeyondTheMessagesPdfs() throws Exception {
         String result = download("100", "2");
 
         assertThat(streamed).isEmpty();
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getStatus()).isEqualTo(400);
     }
 
     @Test
@@ -189,7 +190,9 @@ class MsgViewPDF2ActionUnitTest extends CarlosUnitTestBase {
     private static MessageTbl message(String... contents) {
         MessageTbl message = new MessageTbl();
         message.setSentByNo("101");
-        message.setPdfAttachment(pdfList(contents).getBytes(StandardCharsets.UTF_8));
+        String[] encoded = java.util.Arrays.stream(contents).map(content -> java.util.Base64.getEncoder()
+                .encodeToString(("%PDF-1.4 " + content).getBytes(StandardCharsets.US_ASCII))).toArray(String[]::new);
+        message.setPdfAttachment(pdfList(encoded).getBytes(StandardCharsets.UTF_8));
         return message;
     }
 

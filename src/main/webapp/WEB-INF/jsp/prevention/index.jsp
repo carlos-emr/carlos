@@ -870,11 +870,13 @@
                          Catalogue) the catalogue brand/generic/lot search is offered as well:
                          additive, so installing the catalogue never takes the curated brand
                          picker (with its DIN/dose/route prefill) away from clinicians. --%>
+                                <label for="immunization" class="visually-hidden">Vaccine brand or generic</label>
                                 <input type="text" id="immunization" class="form-control form-control-sm"
                                        style="width: 300px;" placeholder="Pick vaccine brand/generic" autocomplete="off">
                                 <div id="immunization_choices" class="autocomplete"></div>
                     <%if (SpringUtils.getBean(CanadianVaccineCatalogueManager.class).isCatalogueInstalled()) { %>
-                                <input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" class="form-control form-control-sm mt-1"
+                                <label for="lotNumberToAdd2" class="visually-hidden">National Vaccine Catalogue brand, generic or lot number</label>
+                                <input type="text" id="lotNumberToAdd2" class="form-control form-control-sm mt-1"
                                        style="width: 300px;" placeholder="Add by NVC brand/generic/lot#" autocomplete="off"
                                        aria-label="Add by National Vaccine Catalogue brand, generic or lot number">
                                 <div id="lotNumberToAdd2_choices" class="autocomplete"></div>

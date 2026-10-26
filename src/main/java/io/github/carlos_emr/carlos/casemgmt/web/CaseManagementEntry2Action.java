@@ -132,20 +132,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return false;
     }
 
-    /**
-     * Answers a {@code method=save} that no longer holds the note lock. The encounter page saves
-     * through XHR and keeps the editor and its text on a 409. The legacy native form on
-     * {@code CaseManagementEntry.jsp} would show a 409 as an empty page, so it gets the
-     * "note was not saved" page instead.
-     */
-    private String refuseSaveWithoutNoteLock() {
-        if (RequestNegotiation.isAjax(request)) {
-            response.setStatus(HttpServletResponse.SC_CONFLICT);
-            return NONE;
-        }
-        return "windowCloseError";
-    }
-
     private static String appendRemovedIssueMessage(String noteText, Locale locale, ResourceBundle props, CharSequence issueNames) {
         String originalNote = StringUtils.defaultString(noteText);
         return new StringBuilder(originalNote.length() + issueNames.length() + REMOVED_ISSUE_MESSAGE_OVERHEAD)
@@ -2114,15 +2100,24 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("change_flag", "false");
 
         String demono = getDemographicNo(request);
+        // Check the selected program editor, not the patient-wide cache another window may own.
+        // noteSave repeats this check after preparing display metadata, so a takeover in between
+        // cannot turn an initially valid request into a write under the replacement lock.
+        String unsavedNoteText = request.getParameter("caseNote_note");
+        if (unsavedNoteText == null) unsavedNoteText = this.getCaseNote_note();
+        CaseManagementEntryFormBean selectedForm = (CaseManagementEntryFormBean) session.getAttribute(
+                ChartProgramContext.formKey(request, demono)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- read of this session's validated patient/program editor form
+        if (selectedForm != null && selectedForm.getCaseNote() != null
+                && demono.equals(selectedForm.getCaseNote().getDemographic_no())
+                && fullFormNoteLock(demono, selectedForm.getCaseNote()) == null) {
+            return rejectedFullFormSave(unsavedNoteText, "view");
+        }
 
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
 
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
-        // Capture the raw draft before noteSave trims text or adds a signature.
-        String unsavedNoteText = request.getParameter("caseNote_note");
-        if (unsavedNoteText == null) unsavedNoteText = this.getCaseNote_note();
         long noteId = noteSave();
         if (noteId < 0) return rejectedFullFormSave(unsavedNoteText, "view");
 
@@ -2172,7 +2167,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (response.getStatus() != HttpServletResponse.SC_CONFLICT) return fallbackResult;
         request.setAttribute("noteRevisionConflict", Boolean.TRUE);
         request.setAttribute("unsavedNoteText", unsavedNoteText);
-        return "windowCloseError";
+        return RequestNegotiation.isAjax(request) ? NONE : "windowCloseError";
     }
 
     /** Preserve missing fields, clear explicit blanks, and validate every value before applying any. */

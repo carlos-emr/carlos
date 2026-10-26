@@ -259,6 +259,7 @@ class WLMutation2ActionsUnitTest extends CarlosUnitTestBase {
             mockRequest.setParameter("listId", "7");
             mockRequest.setParameter("demographicNo", "123");
             mockRequest.setParameter("consentNotSaved", "7,9");
+            when(mockWaitingListAvailability.isSelectable(providerPreference, 7)).thenReturn(true);
 
             new WLAdd2WaitingList2Action().execute();
 
@@ -273,6 +274,7 @@ class WLMutation2ActionsUnitTest extends CarlosUnitTestBase {
             mockRequest.setParameter("listId", "7");
             mockRequest.setParameter("demographicNo", "123");
             mockRequest.setParameter("consentNotSaved", "7&next=//example.org");
+            when(mockWaitingListAvailability.isSelectable(providerPreference, 7)).thenReturn(true);
 
             new WLAdd2WaitingList2Action().execute();
 

@@ -25,6 +25,9 @@ import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
+import io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -33,9 +36,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
 
@@ -63,11 +66,18 @@ class EmailManagerFieldLengthUnitTest {
     @Mock private EmailConfigDaoImpl emailConfigDao;
     @Mock private EmailLogDaoImpl emailLogDao;
     @Mock private LoggedInInfo loggedInInfo;
-    @InjectMocks private EmailManager emailManager;
+    @Mock private ClinicEmailFooterService clinicFooterService;
+    private EmailManager emailManager;
 
     @BeforeEach
     void authorize() {
+        emailManager = new EmailManager(null, null, securityInfoManager, null);
+        ReflectionTestUtils.setField(emailManager, "clinicFooterService", clinicFooterService);
+        ReflectionTestUtils.setField(emailManager, "emailConfigDao", emailConfigDao);
+        ReflectionTestUtils.setField(emailManager, "emailLogDao", emailLogDao);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        var clinic = ConfiguredClinicFooterFixture.service().snapshot();
+        when(clinicFooterService.snapshot()).thenReturn(clinic);
     }
 
     private static EmailData emailData() {
@@ -120,9 +130,7 @@ class EmailManagerFieldLengthUnitTest {
         // is never stored and must not block the send. The send then stops at the missing config.
         data.setPassword("p".repeat(EmailFieldLengthValidator.MAX_PASSWORD_CHARS + 1));
 
-        assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, data))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("No active email configuration");
+        assertThat(emailManager.sendEmail(loggedInInfo, data).getStatus()).isEqualTo(EmailStatus.FAILED);
         assertThat(data.getPassword()).isEmpty();
     }
 
@@ -133,9 +141,7 @@ class EmailManagerFieldLengthUnitTest {
         // The direct compose POST hands the raw request value to the manager.
         data.setSubject("Results\r\nBcc: attacker@example.com\u2028x");
 
-        assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, data))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("No active email configuration");
+        assertThat(emailManager.sendEmail(loggedInInfo, data).getStatus()).isEqualTo(EmailStatus.FAILED);
         assertThat(data.getSubject()).isEqualTo("ResultsBcc: attacker@example.comx");
     }
 
@@ -149,11 +155,10 @@ class EmailManagerFieldLengthUnitTest {
         data.setPassword("p".repeat(EmailFieldLengthValidator.MAX_PASSWORD_CHARS - 2) + "\r\n" + "pp\t");
         data.setPasswordClue("Your date\r\nof birth");
 
-        assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, data))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("No active email configuration");
-        assertThat(data.getPassword()).isEqualTo("p".repeat(EmailFieldLengthValidator.MAX_PASSWORD_CHARS));
-        assertThat(data.getPasswordClue()).isEqualTo("Your dateof birth");
+        assertThat(emailManager.sendEmail(loggedInInfo, data).getStatus()).isEqualTo(EmailStatus.FAILED);
+        // Passwords are scrubbed on every return, including sender-configuration refusal.
+        assertThat(data.getPassword()).isEmpty();
+        assertThat(data.getPasswordClue()).isEmpty();
     }
 
     @Test
@@ -165,9 +170,7 @@ class EmailManagerFieldLengthUnitTest {
         data.setEncryptedMessage("e".repeat(EmailFieldLengthValidator.MAX_BLOB_TEXT_UTF8_BYTES + 1));
         data.setPassword("p".repeat(EmailFieldLengthValidator.MAX_PASSWORD_CHARS + 1));
 
-        assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, data))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("No active email configuration");
+        assertThat(emailManager.sendEmail(loggedInInfo, data).getStatus()).isEqualTo(EmailStatus.FAILED);
         assertThat(data.getEncryptedMessage()).isEmpty();
         assertThat(data.getPassword()).isEmpty();
         assertThat(data.getPasswordClue()).isEmpty();

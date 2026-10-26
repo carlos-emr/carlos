@@ -66,7 +66,7 @@ class MasterRecordConsentPopupJspUnitTest {
     @Test
     void shouldPassTheConsentDescriptionAsAnEncodedString_toThePopup() throws IOException {
         assertThat(popupArguments())
-                .contains("'${carlos:forJavaScriptAttribute(carlos:forHtml(patientConsent.consentType.description))}'");
+                .contains("'${carlos:forJavaScriptAttribute(carlos:forHtmlContent(patientConsent.consentType.description))}'");
     }
 
     @Test
@@ -75,13 +75,13 @@ class MasterRecordConsentPopupJspUnitTest {
         assertThat(arguments).as("the page's popup calls").isNotEmpty();
         // A popup takes a script variable built on the page, or a quoted string whose value is encoded for that place.
         assertThat(arguments).allSatisfy(argument -> assertThat(argument).matches(
-                "[A-Za-z_][A-Za-z0-9_]*|'\\$\\{carlos:forJavaScriptAttribute\\(carlos:forHtml\\([^}]*\\)\\)\\}'"));
+                "[A-Za-z_][A-Za-z0-9_]*|'\\$\\{carlos:forJavaScriptAttribute\\(carlos:forHtmlContent\\([^}]*\\)\\)\\}'"));
     }
 
     @Test
     void shouldKeepTheDescriptionInsideOneQuotedString_forProseWithQuotes() {
         String description = "This patient's consent (email, text) covers \"all\" <b>contact</b> & more";
-        String encoded = SafeEncode.forJavaScriptAttribute(SafeEncode.forHtml(description));
+        String encoded = SafeEncode.forJavaScriptAttribute(SafeEncode.forHtmlContent(description));
         // Nothing that would end the attribute or the string is left in it.
         assertThat(encoded).doesNotContain("'", "\"", "<", ">").contains("\\x26lt;b\\x26gt;");
     }

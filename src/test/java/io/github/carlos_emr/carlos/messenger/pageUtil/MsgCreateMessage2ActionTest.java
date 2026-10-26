@@ -332,7 +332,9 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             String recoveredSubject = (String) getMockRequest().getAttribute("ReSubject");
             String recoveredBody = (String) getMockRequest().getAttribute("ReText");
             // A following HTTP request/action carries form values, never the old request attributes.
+            String recoveredSubmission = getMockRequest().getParameter(MessengerSubmissionGuard.PARAMETER);
             mockRequest = new org.springframework.mock.web.MockHttpServletRequest("POST", "/messenger/CreateMessage");
+            mockRequest.setParameter(MessengerSubmissionGuard.PARAMETER, recoveredSubmission);
             mockRequest.setSession(getMockSession());
             mockRequest.setParameter("archiveMessageId", recoveredId.toString());
             setUpActionContext();
@@ -498,17 +500,18 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
             assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("FAKE subject");
             assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
-            assertThat((String) getMockRequest().getAttribute("createMessageError")).contains("Failed to send");
+            assertThat((String) getMockRequest().getAttribute("createMessageError")).contains("message was not sent");
         }
 
         @Test
-        void shouldKeepDiscardedAttachmentsAbsent_whenTheInflightSendThrows() {
+        void shouldKeepDiscardedAttachmentsAbsent_whenTheInflightSendThrows() throws Exception {
             action.setAttachmentKey(thisWindow);
             action.setDemographic_no("101");
             duringSend = () -> MsgAttachmentStaging.discard(getMockSession(), thisWindow);
             sendFailure = new IllegalStateException("FAKE transport failure");
 
-            assertThatThrownBy(this::send).isSameAs(sendFailure);
+            assertThat(send()).isEqualTo("error");
+            assertThat(getMockResponse().getStatus()).isEqualTo(500);
 
             assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
             assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);

@@ -49,7 +49,7 @@ class EmailComposeErrorFieldJspRegressionTest {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/email/emailCompose.jsp"), StandardCharsets.UTF_8);
 
         assertThat(jsp)
-                .contains("id=\"emailErrorMessage\" value=\"${carlos:forHtmlAttribute(emailErrorMessage)}\"")
+                .containsPattern("id=\"emailErrorMessage\"\\s+value=\"\\$\\{carlos:forHtmlAttribute\\(emailErrorMessage\\)\\}\"")
                 .doesNotContain("value=\"${emailErrorMessage}\"");
     }
 }

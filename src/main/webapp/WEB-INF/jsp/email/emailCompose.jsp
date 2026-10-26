@@ -543,7 +543,7 @@
                             <div class="form-check form-switch mb-0">
                                 <input class="form-check-input" type="checkbox" id="encryptionSwitch"
                                        onClick="showEncryptionOptions()" ${ isEmailEncrypted ? 'checked' : '' }>
-                                <label class="form-check-label" for="encryptionSwitch" id="isEncryption">${emailComposeStateOn}</label>
+                                <label class="form-check-label${ isEmailEncrypted ? '' : ' off' }" for="encryptionSwitch" id="isEncryption">${ isEmailEncrypted ? emailComposeStateOn : emailComposeStateOff }</label>
                             </div>
                         </div>
                     </div>
@@ -574,7 +574,7 @@
                     <div class="alert alert-danger rounded-0 border-0 mb-0 d-flex align-items-center ${ isEmailEncrypted ? 'd-none' : '' }" id="encryptionDisabledWarning" role="alert">
                         <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeEncryptionDisabledWarning}
                     </div>
-                    <div class="card-body" id="encryptionOptions">
+                    <div class="card-body ${ isEmailEncrypted ? '' : 'd-none' }" id="encryptionOptions">
                         <c:if test="${portalEmailMisconfigured}">
                             <div class="alert alert-danger" role="alert"><fmt:message key="email.compose.portal.misconfigured"/></div>
                         </c:if>

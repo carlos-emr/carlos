@@ -31,7 +31,8 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Vector;
+import java.util.List;
+import org.apache.commons.codec.binary.Base64;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -87,7 +88,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * <ul>
  *   <li>Returns NONE after streaming PDF content directly to the response</li>
  *   <li>Rejects a missing, non-numeric or out-of-range file_id with HTTP 400</li>
- *   <li>Answers a session that holds no PDF attachment with HTTP 404</li>
+ *   <li>Answers a named message that holds no PDF attachment with HTTP 404</li>
  *   <li>Answers unreadable attachment XML, or an attachment that is not a PDF, with HTTP 500</li>
  *   <li>Shows each refusal on the CARLOS error page with a short translated message saying what to do
  *       ({@link ErrorPageMessage}); no request value is echoed</li>
@@ -106,12 +107,12 @@ public class MsgViewPDF2Action extends ActionSupport {
     static final String INVALID_FILE_ID = "messenger.ViewPDFFile.invalidFileId";
 
     /**
-     * Message shown on the error page with HTTP 404 when the session holds no PDF attachment to view.
+     * Message shown on the error page with HTTP 404 when the message holds no PDF attachment to view.
      */
     static final String NO_ATTACHMENT = "messenger.ViewPDFFile.noAttachment";
 
     /**
-     * Message shown on the error page with HTTP 500 when the attachment held in the session cannot be read.
+     * Message shown on the error page with HTTP 500 when the message attachment cannot be read.
      */
     static final String UNREADABLE = "messenger.ViewPDFFile.unreadable";
 
@@ -166,41 +167,44 @@ public class MsgViewPDF2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
-        // The PDFs of the message this download was chosen from, never another window's.
+        // Validate the index before reading any message or attachment data.
         int fileId;
         try {
-            fileId = Integer.parseInt(String.valueOf(this.getFile_id()).trim());
+            fileId = Integer.parseInt(this.getFile_id());
         } catch (NumberFormatException malformed) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_BAD_REQUEST, INVALID_FILE_ID);
             return NONE;
         }
-        String pdfFile = null;
+        // Authorize the named message, never the last attachment list opened in this session.
         int messageId = ConversionUtils.fromIntString(attId);
-        if (messageId > 0 && fileId >= 0) {
-            MessageTbl message = MsgAttachmentAccess.find(LoggedInInfo.getLoggedInInfoFromSession(request), messageId,
-                    request.getParameter("chartPatientNo"));
-            if (message != null && message.getPdfAttachment() != null) {
-                // Every CONTENT tag of the message's PDF list, in order; file_id is an index.
-                Vector<?> contents;
-                try {
-                    contents = Doc2PDF.getXMLTagValue(new String(message.getPdfAttachment(), StandardCharsets.UTF_8), "CONTENT");
-                } catch (Exception unreadable) {
-                    // No content in the log: the list is a patient's chart.
-                    MiscUtils.getLogger().error("A message's PDF attachment list could not be read");
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                    return NONE;
-                }
-                if (fileId < contents.size()) {
-                    pdfFile = (String) contents.elementAt(fileId);
-                }
-            }
-        }
-        if (pdfFile == null) {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        MessageTbl message = messageId > 0
+                ? MsgAttachmentAccess.find(LoggedInInfo.getLoggedInInfoFromSession(request), messageId,
+                        request.getParameter("chartPatientNo")) : null;
+        byte[] attachment = message == null ? null : message.getPdfAttachment();
+        if (attachment == null || attachment.length == 0) {
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_NOT_FOUND, NO_ATTACHMENT);
             return NONE;
         }
-        // Writes the PDF, or its own error status when the stored document cannot be decoded.
-        Doc2PDF.PrintPDFFromBin(response, pdfFile);
+        List<?> contents;
+        try {
+            contents = Doc2PDF.getXMLTagValue(new String(attachment, StandardCharsets.UTF_8), "CONTENT");
+        } catch (Exception unreadable) {
+            // No attachment content in the log: the list is a patient's chart.
+            MiscUtils.getLogger().error("A message's PDF attachment list could not be read");
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, UNREADABLE);
+            return NONE;
+        }
+        if (fileId < 0 || fileId >= contents.size()) {
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_BAD_REQUEST, INVALID_FILE_ID);
+            return NONE;
+        }
+        byte[] pdf = Base64.decodeBase64((String) contents.get(fileId));
+        if (!isPdf(pdf)) {
+            MiscUtils.getLogger().warn("A message attachment did not contain a PDF");
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, UNREADABLE);
+            return NONE;
+        }
+        Doc2PDF.PrintPDFFromBytes(response, pdf);
         return NONE;
     }
 

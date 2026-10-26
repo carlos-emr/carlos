@@ -2,7 +2,7 @@
  "format": 1,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-4+6ea61c42",
+ "SCHEMA_MAP_VERSION": "o19map-4+da891c7a",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -22961,8 +22961,8 @@
   "scheduleholiday": 28,
   "scheduletemplate": 1,
   "scheduletemplatecode": 23,
-  "secObjPrivilege": 536,
-  "secObjectName": 139,
+  "secObjPrivilege": 548,
+  "secObjectName": 140,
   "secRole": 33,
   "secUserRole": 2,
   "security": 1,
@@ -24741,7 +24741,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-4+a3deefa1",
+   "SCHEMA_MAP_VERSION": "o19map-4+57fc4305",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -57348,8 +57348,8 @@
     "scheduleholiday": 28,
     "scheduletemplate": 1,
     "scheduletemplatecode": 23,
-    "secObjPrivilege": 538,
-    "secObjectName": 140,
+    "secObjPrivilege": 550,
+    "secObjectName": 141,
     "secRole": 33,
     "secUserRole": 2,
     "security": 1,

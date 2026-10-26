@@ -85,6 +85,7 @@ class ScatterPlotRequestIsolationUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldBuildEachGraphFromOnlyItsRequestedPatientsReadings() throws Exception {
         when(security.hasPrivilege(eq(login), eq("_measurement"), eq("r"), anyString())).thenReturn(true);
+        when(security.hasPrivilege(eq(login), eq("_demographic"), eq("r"), anyString())).thenReturn(true);
         MeasurementType type = new MeasurementType();
         type.setValidation("1");
         when(types.findByTypeAndMeasuringInstruction("WT", "kg")).thenReturn(List.of(type));
@@ -124,6 +125,7 @@ class ScatterPlotRequestIsolationUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRefuseLockedRecord_beforeReadingOrRenderingAnyMeasurement() throws Exception {
         when(security.hasPrivilege(login, "_measurement", "r", "101")).thenReturn(true);
+        when(security.hasPrivilege(login, "_demographic", "r", "101")).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(false);
         MockHttpServletResponse response = new MockHttpServletResponse();
         new ScatterPlotChartServlet().service(request("000101"), response);

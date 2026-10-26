@@ -207,6 +207,8 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
                     anyInt())).thenReturn(List.of(appointment));
             when(mockBillingONCHeader1Dao.findByDemoNoWithItems(eq(42), anyInt(), anyInt()))
                 .thenReturn(Collections.emptyList());
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_appointment"), eq("r"),
+                    eq(Integer.valueOf(42)))).thenReturn(true);
 
             Response response = request().path("/schedule/42/appointmentHistory").post("{}");
 

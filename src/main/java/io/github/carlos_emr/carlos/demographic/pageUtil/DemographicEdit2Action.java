@@ -107,7 +107,7 @@ public class DemographicEdit2Action extends ActionSupport {
     }
 
     private SecurityInfoManager securityInfoManager() {
-        return securityInfoManager;
+        return securityInfoManager != null ? securityInfoManager : SpringUtils.getBean(SecurityInfoManager.class);
     }
 
     public DemographicEdit2Action() {
@@ -372,8 +372,6 @@ public class DemographicEdit2Action extends ActionSupport {
         request.setAttribute("userlastname", session.getAttribute("userlastname"));
         request.setAttribute("apptProvider", request.getParameter("apptProvider"));
         request.setAttribute("appointment", request.getParameter("appointment"));
-        request.setAttribute(PatientNavModel.REQUEST_ATTRIBUTE,
-                PatientNavModel.forRequest(request, demographic, PatientNavModel.Page.RECORD));
         request.setAttribute("oscarProps", oscarProps);
         request.setAttribute("firstNationCommunities", firstNationCommunities);
         request.setAttribute("phuLookupList", phuLookupList);
@@ -405,6 +403,8 @@ public class DemographicEdit2Action extends ActionSupport {
         request.setAttribute("waitingListLinkVisible", waitingListAvailability.hasCurrentLists());
         request.setAttribute("selectableWaitingLists", waitingListAvailability.findSelectableLists(
                 (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE)));
+        request.setAttribute(PatientNavModel.REQUEST_ATTRIBUTE,
+                PatientNavModel.forRequest(request, demographic, PatientNavModel.Page.RECORD));
         request.setAttribute("userPropertyDAO", userPropertyDAO);
         request.setAttribute("demographicDao", demographicDao);
         request.setAttribute("demographicExtDao", demographicExtDao);

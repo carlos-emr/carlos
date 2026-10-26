@@ -58,10 +58,10 @@ class BillingDigSearchJspRegressionTest {
 
         assertThat(jsp).doesNotContain("javascript:CodeAttach(");
         assertThat(jsp).contains(
-                "href=\"#\" onclick=\"CodeAttach('<%=" + ENCODE + "forJavaScriptAttribute(Dcode)%>|<%="
-                        + ENCODE + "forJavaScriptAttribute(DcodeDesc)%>'); return false;\">",
-                "href=\"#\" onclick=\"CodeAttach('<%=" + ENCODE + "forJavaScriptAttribute(Dcode2)%>|<%="
-                        + ENCODE + "forJavaScriptAttribute(DcodeDesc2)%>'); return false;\">");
+                "type=\"button\" class=\"link-button\" onclick=\"CodeAttach('<%=" + ENCODE + "forJavaScriptAttribute(Dcode)%>|<%="
+                        + ENCODE + "forJavaScriptAttribute(DcodeDesc)%>');\">",
+                "type=\"button\" class=\"link-button\" onclick=\"CodeAttach('<%=" + ENCODE + "forJavaScriptAttribute(Dcode2)%>|<%="
+                        + ENCODE + "forJavaScriptAttribute(DcodeDesc2)%>');\">");
     }
 
     @Test

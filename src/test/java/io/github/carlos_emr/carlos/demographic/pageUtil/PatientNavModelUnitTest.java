@@ -149,13 +149,45 @@ class PatientNavModelUnitTest {
     @DisplayName("should show the waiting list only while the setting allows it and a list exists")
     void shouldShowWaitingList_onlyWhenAllowedAndAListExists() {
         AtomicInteger lookups = new AtomicInteger();
-        Properties hidden = new Properties();
-        hidden.setProperty("DEMOGRAPHIC_WAITING_LIST", "true");
+        Properties enabled = new Properties();
+        enabled.setProperty("DEMOGRAPHIC_WAITING_LIST", "true");
 
-        assertThat(build(hidden, mock(UserPropertyDAO.class), () -> lookups.incrementAndGet() > 0).isWaitingListShown()).isFalse();
+        assertThat(build(new Properties(), mock(UserPropertyDAO.class), () -> lookups.incrementAndGet() > 0).isWaitingListShown()).isFalse();
         assertThat(lookups).as("no list lookup while the setting hides it").hasValue(0);
-        assertThat(build(new Properties(), mock(UserPropertyDAO.class), () -> true).isWaitingListShown()).isTrue();
-        assertThat(build(new Properties(), mock(UserPropertyDAO.class), () -> false).isWaitingListShown()).isFalse();
+        assertThat(build(enabled, mock(UserPropertyDAO.class), () -> true).isWaitingListShown()).isTrue();
+        assertThat(build(enabled, mock(UserPropertyDAO.class), () -> false).isWaitingListShown()).isFalse();
+    }
+
+    @Test
+    void shouldUseTheActionsWaitingListDecision_withoutRecheckingTheFallback() {
+        Properties enabled = new Properties();
+        enabled.setProperty("DEMOGRAPHIC_WAITING_LIST", "true");
+        MockHttpServletRequest request = signedIn();
+        AtomicInteger lookups = new AtomicInteger();
+        for (boolean visible : new boolean[]{true, false}) {
+            request.setAttribute("waitingListLinkVisible", visible);
+            PatientNavModel nav = PatientNavModel.build(request, patient(), PatientNavModel.Page.RECORD,
+                    enabled, mock(UserPropertyDAO.class), () -> lookups.incrementAndGet() > 0, false);
+            assertThat(nav.isWaitingListShown()).isEqualTo(visible);
+        }
+        assertThat(lookups).hasValue(0);
+    }
+
+    @Test
+    void shouldPreferHospitalBillingView_andFallBackToTheDefault() {
+        Properties clinic = new Properties();
+        clinic.setProperty("billregion", "ON");
+        clinic.setProperty("default_view", "MFP");
+        clinic.setProperty("hospital_view", "Hospital & Grid");
+        PatientNavModel nav = build(clinic, mock(UserPropertyDAO.class), () -> false);
+        assertThat(nav.getHospitalBillingUrl()).startsWith("/ctx/billing/CA/ON/billingShortcutPg1View?billRegion=ON&billForm=Hospital+%26+Grid&")
+                .contains("&demographic_no=123&providerview=999998&user_no=100001&")
+                .contains("&demographic_name=FAKE-Jones%2CFAKE-Jacky&")
+                .contains("&appointment_no=0&").contains("&apptProvider_no=none&")
+                .contains("&appointment_date=").endsWith("&start_time=00:00:00&bNewForm=1&status=t");
+        assertThat(nav.getCreateInvoiceUrl()).contains("&billForm=MFP&");
+        clinic.remove("hospital_view");
+        assertThat(build(clinic, mock(UserPropertyDAO.class), () -> false).getHospitalBillingUrl()).contains("&billForm=MFP&");
     }
 
     @Test

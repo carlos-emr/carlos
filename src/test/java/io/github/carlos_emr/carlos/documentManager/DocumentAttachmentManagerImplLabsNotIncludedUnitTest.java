@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -43,6 +44,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
@@ -64,6 +66,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -118,10 +121,16 @@ class DocumentAttachmentManagerImplLabsNotIncludedUnitTest extends CarlosUnitTes
 
         consultationLetter = tempDir.resolve("consultation-letter.pdf");
         hl7LabPdf = tempDir.resolve("hl7-lab-10.pdf");
+        try (PDDocument labPdf = new PDDocument()) {
+            labPdf.addPage(new PDPage());
+            labPdf.save(hl7LabPdf.toFile());
+        }
         consultationManager = mock(ConsultationManager.class);
         ConsultationRequest consultation = new ConsultationRequest();
         consultation.setDemographicId(PATIENT);
         when(consultationManager.getRequest(loggedInInfo, REQUEST)).thenReturn(consultation);
+        ConsultationRequestDao consultationRequestDao = mock(ConsultationRequestDao.class);
+        when(consultationRequestDao.find(REQUEST)).thenReturn(consultation);
         when(consultationManager.renderConsultationForm(any())).thenReturn(consultationLetter);
         when(consultationManager.getAttachedEForms(String.valueOf(REQUEST))).thenReturn(new ArrayList<>());
         when(consultationManager.getAttachedHRMDocuments(loggedInInfo, String.valueOf(PATIENT), String.valueOf(REQUEST)))
@@ -157,6 +166,8 @@ class DocumentAttachmentManagerImplLabsNotIncludedUnitTest extends CarlosUnitTes
         manager = spy(new DocumentAttachmentManagerImpl(labManager));
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "consultationManager", consultationManager);
+        injectDependency(manager, "consultationRequestDao", consultationRequestDao);
+        injectDependency(manager, "consultDocsDao", mock(ConsultDocsDao.class));
         injectDependency(manager, "labManager", labManager);
         injectDependency(manager, "nioFileManager", nioFileManager);
         injectDependency(manager, "attachmentOwnershipService", ownership);
@@ -250,8 +261,8 @@ class DocumentAttachmentManagerImplLabsNotIncludedUnitTest extends CarlosUnitTes
     }
 
     @Test
-    @DisplayName("should delete the page naming the left-out labs when a later attachment cannot be drawn")
-    void shouldDeleteNoticePage_whenLaterAttachmentFails() throws Exception {
+    @DisplayName("should delete the page naming the left-out labs when packet assembly fails")
+    void shouldDeleteNoticePage_whenPacketAssemblyFails() throws Exception {
         // The notice names lab disciplines and dates. The cleanup deletes only files in the CARLOS-owned
         // temp subtree, which is where NioFileManager.saveTempFile puts it in production.
         Path applicationTemp = Files.createDirectories(
@@ -263,14 +274,16 @@ class DocumentAttachmentManagerImplLabsNotIncludedUnitTest extends CarlosUnitTes
             notices.add(file);
             return file;
         });
-        when(labManager.renderLab(loggedInInfo, 10)).thenThrow(new PDFGenerationException("HL7 lab could not be drawn"));
+        doThrow(new PDFGenerationException("Packet assembly failed"))
+                .when(manager).concatPDF(any(), eq(String.valueOf(PATIENT)));
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
         listAttachedLabs(hl7Lab("10"), mdsLab("20"));
 
         try {
             assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, new MockHttpServletResponse()))
                     .isInstanceOf(PDFGenerationException.class);
 
-            assertThat(notices).as("the notice page was made before the HL7 lab failed").hasSize(1);
+            assertThat(notices).as("the notice page was made before packet assembly failed").hasSize(1);
             assertThat(notices.get(0)).doesNotExist();
         } finally {
             for (Path notice : notices) {

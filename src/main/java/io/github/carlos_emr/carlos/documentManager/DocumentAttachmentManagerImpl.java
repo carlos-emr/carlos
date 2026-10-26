@@ -1645,7 +1645,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         try (ByteArrayOutputStream notice = new ByteArrayOutputStream()) {
             notice.write(ConsultationLabsNotIncluded.noticePage(labsNotIncluded, locale));
             Path noticePath = nioFileManager.saveTempFile("consultationLabsNotIncluded" + new Date().getTime(), notice);
-            pdfDocumentList.add(noticePath.toString());
+            // The recipient sees omissions immediately after the consultation letter.
+            pdfDocumentList.add(1, noticePath.toString());
         } catch (IOException | DocumentException e) {
             throw new PDFGenerationException(
                     "The page naming the attached labs the consultation PDF cannot include could not be created", e);

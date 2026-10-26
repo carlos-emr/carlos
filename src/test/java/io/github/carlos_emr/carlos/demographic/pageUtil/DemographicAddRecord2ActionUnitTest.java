@@ -170,7 +170,7 @@ class DemographicAddRecord2ActionUnitTest extends CarlosWebTestBase {
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
     @ParameterizedTest
-    @CsvSource({"nameUsed,31", "pronouns,26", "gender,26"})
+    @CsvSource({"nameUsed,71", "pronouns,26", "gender,26"})
     void shouldRefuseOverlongIdentityFields_beforeChangingPatientData(String field, int length) throws Exception {
         allowPrivilege("_demographic", "w");
         mockRequest.setMethod("POST");

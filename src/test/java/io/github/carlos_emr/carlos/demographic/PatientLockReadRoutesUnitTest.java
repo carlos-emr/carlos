@@ -66,6 +66,7 @@ class PatientLockReadRoutesUnitTest extends CarlosUnitTestBase {
         servlet=mockStatic(ServletActionContext.class);servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
         sessions=mockStatic(LoggedInInfo.class);sessions.when(()->LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(user);
+        sessions.when(()->LoggedInInfo.requireLoggedInInfoFromSession(request)).thenCallRealMethod();
     }
     @AfterEach void closeStatics(){sessions.close();servlet.close();}
     private String execute(Route route)throws Exception{return switch(route){

@@ -472,7 +472,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewAttach?attachId=<carlos:encode value='<%= id %>' context="javaScript"/>&amp;chartPatientNo=<carlos:encode value='<%= (String) request.getAttribute("chartPatientNo") %>' context="javaScript"/>&amp;attachmentKey=<carlos:encode value='<%= forwardKey %>' context="javaScript"/>')">
+								href="ViewAttach?attachId=<carlos:encode value='<%= id %>' context="uriComponent"/>&amp;chartPatientNo=<carlos:encode value='<%= (String) request.getAttribute("chartPatientNo") %>' context="uriComponent"/>&amp;attachmentKey=<carlos:encode value='<%= forwardKey %>' context="uriComponent"/>" onclick="popupViewAttach(700,960,this.href);return false;">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -485,7 +485,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewPDFAttach?attachId=<carlos:encode value='<%= id %>' context="javaScript"/>&amp;chartPatientNo=<carlos:encode value='<%= (String) request.getAttribute("chartPatientNo") %>' context="javaScript"/>')">
+								href="ViewPDFAttach?attachId=<carlos:encode value='<%= id %>' context="uriComponent"/>&amp;chartPatientNo=<carlos:encode value='<%= (String) request.getAttribute("chartPatientNo") %>' context="uriComponent"/>" onclick="popupViewAttach(700,960,this.href);return false;">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -667,10 +667,10 @@ function fmtOscarMsg() {
 								<%
                                     String demoKeyJs = SafeEncode.forJavaScriptAttribute((String) (pageContext.getAttribute("demographicNumber")+""));
                                     %>
-                                    <a href="javascript:popupViewAttach(700,960,'../demographic/DemographicEdit?demographic_no=<%=demoKeyJs%>')"><fmt:message key="global.M" /></a>
+                                    <a href="../demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= String.valueOf(pageContext.getAttribute("demographicNumber")) %>' context="uriComponent"/>" onclick="popupViewAttach(700,960,this.href);return false;"><fmt:message key="global.M" /></a>
                                     <a href="<%=request.getContextPath()%>/encounter/IncomingEncounter?demographicNo=<carlos:encode value='<%= String.valueOf(pageContext.getAttribute("demographicNumber")) %>' context="uriComponent"/>&amp;curProviderNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>"
                                        onclick="popupViewAttach(700,960,this.href);return false;"><fmt:message key="global.E" /></a>
-                                    <a href="javascript:popupViewAttach(700,960,'../rx/choosePatient?providerNo=<carlos:encode value='<%= (String)request.getAttribute("providerNo") %>' context="javaScript"/>&demographicNo=<%=demoKeyJs%>')">Rx</a>
+                                    <a href="../rx/choosePatient?providerNo=<carlos:encode value='<%= (String)request.getAttribute("providerNo") %>' context="uriComponent"/>&amp;demographicNo=<carlos:encode value='<%= String.valueOf(pageContext.getAttribute("demographicNumber")) %>' context="uriComponent"/>" onclick="popupViewAttach(700,960,this.href);return false;">Rx</a>
                                 </span>
 								</td>
 								<td class="DoNotPrint">

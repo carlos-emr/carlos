@@ -1067,15 +1067,18 @@ class TestTheOntarioProfile(unittest.TestCase):
     def test_privilege_seed_floor_reflects_later_deletions(self):
         # 514 baseline tuples + the V1.0.6 INSERT IGNORE row - the carlosdoc
         # denial V1.0.9 deletes + V1.0.67's two _msgSMS grants + V1.0.75's
-        # doctor _portal.invite grant + V1.0.73's 19 _portal.* grants = 536,
+        # doctor _portal.invite grant + V1.0.73's 19 _portal.* grants,
+        # V1.0.60's nine booking-prompt grants and V1.0.80's three
+        # front-desk email grants = 548,
         # and 133 objects + V1.0.67's _msgSMS + V1.0.73's 5 _portal.*
-        # objects = 139, which is what a live target holds. (V1.0.71 and
+        # objects + V1.0.60's booking-prompt object = 140, which is what a
+        # live target holds. (V1.0.71 and
         # V1.0.46 seed with INSERT ... SELECT, which the counter does not
         # see and a P0 floor does not need.)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjPrivilege"],
-                         536)
+                         548)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjectName"],
-                         139)
+                         140)
 
 
 class TestTheBritishColumbiaProfile(unittest.TestCase):
@@ -1157,11 +1160,12 @@ class TestTheBritishColumbiaProfile(unittest.TestCase):
         # BC seeds two more privilege tuples and one more object than
         # Ontario; a floor carried over from Ontario would refuse every
         # BC host at P0 (both include V1.0.67's _msgSMS rows, V1.0.75's
-        # doctor _portal.invite grant and V1.0.73's _portal.* rows)
+        # doctor _portal.invite grant, V1.0.73's _portal.* rows, V1.0.60's
+        # booking-prompt rows and V1.0.80's front-desk email rows)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjPrivilege"],
-                         538)
+                         550)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjectName"],
-                         140)
+                         141)
 
     def test_no_ontario_only_table_leaks_into_the_bc_profile(self):
         # PROVINCE_SCOPED removals: these are Ontario CARLOS tables, and

@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.waitinglist.WaitingList;
+import io.github.carlos_emr.carlos.waitinglist.WaitingListAvailabilityService;
 
 /**
  * The patient's navigation down the left of the master record, for any page that shows it
@@ -102,14 +102,14 @@ public final class PatientNavModel {
      */
     public static PatientNavModel forRequest(HttpServletRequest request, Demographic demographic, Page page) {
         return build(request, demographic, page, CarlosProperties.getInstance(),
-                SpringUtils.getBean(UserPropertyDAO.class), () -> WaitingList.getInstance().getFound(),
+                SpringUtils.getBean(UserPropertyDAO.class), () -> SpringUtils.getBean(WaitingListAvailabilityService.class).hasCurrentLists(),
                 PatientPortalSettings.isConfigured());
     }
 
     /**
      * Builds the navigation from its sources, the same rules the record has always applied: the
      * eChart link carries no note reason while {@code disableTelProgressNoteTitleInEncouterNotes=yes};
-     * the waiting list shows unless {@code DEMOGRAPHIC_WAITING_LIST=true} and only when a list exists;
+     * the waiting list shows when {@code DEMOGRAPHIC_WAITING_LIST=true} and a current list exists;
      * the user's own settings decide the document browser link and whether popups open in tabs.
      */
     // FindSecBugs IMPROPER_UNICODE: two case folds, neither an access decision. The server's billregion setting
@@ -140,7 +140,7 @@ public final class PatientNavModel {
                         ? "" : telephoneNoteReason(request),
                 request.getParameter("apptProvider"),
                 request.getParameter("appointment"),
-                !"true".equals(properties.getProperty("DEMOGRAPHIC_WAITING_LIST"))
+                "true".equals(properties.getProperty("DEMOGRAPHIC_WAITING_LIST"))
                         && (request.getAttribute("waitingListLinkVisible") instanceof Boolean visible
                                 ? visible : waitingListFound.getAsBoolean()),
                 portalSwitchedOn,

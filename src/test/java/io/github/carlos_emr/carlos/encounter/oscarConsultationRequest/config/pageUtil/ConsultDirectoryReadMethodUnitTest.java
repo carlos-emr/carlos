@@ -61,7 +61,7 @@ class ConsultDirectoryReadMethodUnitTest extends CarlosUnitTestBase {
         registerMock(InstitutionDao.class, institutions);
         registerMock(DepartmentDao.class, departments);
         registerMock(ProfessionalSpecialistDao.class, specialists);
-        when(security.hasPrivilege(login, "_con", "u", null)).thenReturn(true);
+        when(security.hasPrivilege(login, "_admin,_admin.consult", "w", null)).thenReturn(true);
         for (Class<?> type : List.of(EctConEditInstitutions2Action.class,
                 EctConEditDepartments2Action.class, EctConEditSpecialists2Action.class)) {
             previousSecurity.put(type, ReflectionTestUtils.getField(type, "securityInfoManager"));
@@ -158,7 +158,7 @@ class ConsultDirectoryReadMethodUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"institution", "department", "specialist"})
     void shouldRejectDeletion_whenConsultationUpdatePrivilegeIsMissing(String type) {
         request.setMethod("POST");
-        when(security.hasPrivilege(login, "_con", "u", null)).thenReturn(false);
+        when(security.hasPrivilege(login, "_admin,_admin.consult", "w", null)).thenReturn(false);
         assertThatThrownBy(() -> action(type, true).execute()).isInstanceOf(SecurityException.class);
         verifyNoInteractions(institutions, departments, specialists);
     }

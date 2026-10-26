@@ -48,7 +48,9 @@ import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.email.core.EmailWorkflowUnitTestBase;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,6 +63,8 @@ import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.verify;
 
 /**
  * The Manage Emails resend when a sent email's attachments cannot be prepared again: staff get a
@@ -72,7 +76,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("email")
 @DisplayName("ManageEmails2Action resend")
-class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
+class ManageEmails2ActionResendUnitTest extends EmailWorkflowUnitTestBase {
 
     private static final String UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
@@ -104,12 +108,15 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
         when(emailLog.getDemographic()).thenReturn(patient);
         when(emailLog.getChartDisplayOption()).thenReturn(ChartDisplayOption.WITH_FULL_NOTE);
         when(emailComposeManager.prepareEmailForResend(any(), eq(5))).thenReturn(emailLog);
-        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes", "email.consent.yes"});
         when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of(), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
 
-        request = new MockHttpServletRequest("GET", "/admin/ManageEmails");
+        request = new MockHttpServletRequest("POST", "/admin/ManageEmails");
         request.setSession(new MockHttpSession());
+        LoggedInInfo login = mock(LoggedInInfo.class);
+        when(login.getLoggedInProviderNo()).thenReturn("999998");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
         request.addParameter("logId", "5");
         request.addHeader("Accept-Language", "fr-CA,fr;q=0.9");
     }
@@ -138,13 +145,16 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
         Path stored = Path.of("/FAKE-documents/FAKE-scan.pdf");
         Path copy = Path.of("/FAKE-temp/carlos-temp/FAKE-scan.pdf");
         when(documentAttachmentManager.renderDocument(any(), eq(DocumentType.DOC), eq(9))).thenReturn(stored);
-        when(emailComposeManager.applicationTempFile(stored)).thenReturn(copy);
+        EmailComposeWorkingDirectory workingDirectory = mock(EmailComposeWorkingDirectory.class);
+        doReturn(workingDirectory).when(submissionStates).createWorkingDirectory();
+        when(workingDirectory.adoptGeneratedPdf(stored)).thenReturn(copy);
 
         String result = resend(new ArrayList<>(), new boolean[1]);
 
         assertThat(result).isEqualTo("compose");
         assertThat(request.getAttribute("isEmailError")).isNull();
-        assertThat(document.getFilePath()).as("the preview and the send read the temp copy").isEqualTo(copy.toString());
+        assertThat(document.getFilePath()).as("the preview and the send read the owned working copy").isEqualTo(copy.toString());
+        verify(workingDirectory).adoptGeneratedPdf(stored);
     }
 
     private void assertGenericMessageAndQuietLog(String result, List<String> log, boolean anyThrowableLogged,
@@ -200,8 +210,9 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
 
         String result = resend(new ArrayList<>(), new boolean[1]);
 
-        assertThat(result).isNull();
-        assertThat(request.getAttribute("emailErrorMessage")).isNull();
+        assertThat(result).isEqualTo("compose");
+        assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
+        assertThat(request.getAttribute("emailErrorMessage")).isNotNull();
         assertThat(request.getAttribute("demographicId")).isNull();
     }
 
@@ -214,4 +225,17 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class);
         assertThat(request.getAttribute("emailErrorMessage")).isNull();
     }
+    @Test
+    @DisplayName("attachment authorization refusal remains an access denial and never a resend preparation error")
+    void shouldRefuse_whenAttachmentAuthorizationFails() throws Exception {
+        prepareResend(true);
+        when(documentAttachmentManager.renderDocument(any(), eq(DocumentType.EFORM), eq(7)))
+                .thenThrow(new SecurityException("attachment access denied"));
+
+        assertThatThrownBy(() -> resend(new ArrayList<>(), new boolean[1]))
+                .isInstanceOf(SecurityException.class);
+        assertThat(request.getAttribute("isEmailError")).isNull();
+        assertThat(request.getAttribute("emailErrorMessage")).isNull();
+    }
+
 }

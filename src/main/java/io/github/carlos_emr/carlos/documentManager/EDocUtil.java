@@ -1360,14 +1360,12 @@ public final class EDocUtil {
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
         File trustedFile;
-        try {
+        // resolvePath has already canonicalized the target. Check the allowed-temp branch
+        // before the document-only validator, which logs every containment rejection.
+        if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
+            trustedFile = PathValidationUtils.resolveTrustedPath(resolvedFile);
+        } else {
             trustedFile = PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
-        } catch (SecurityException e) {
-            if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
-                trustedFile = PathValidationUtils.resolveTrustedPath(resolvedFile);
-            } else {
-                throw e;
-            }
         }
         // Guarded here rather than in each caller: this resolver is the single point every raw
         // document-file read passes through, and the name is only trustworthy once it has been

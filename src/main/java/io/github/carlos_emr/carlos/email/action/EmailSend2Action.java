@@ -10,7 +10,6 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.regex.Pattern;
 import java.util.EnumMap;
 import java.util.List;
@@ -33,9 +32,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionState;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
-import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
-import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
@@ -93,7 +90,6 @@ public class EmailSend2Action extends ActionSupport {
     private static final String EMAIL_REFUSAL = "emailRefusal";
     private static final Logger logger = MiscUtils.getLogger();
     private final SecurityInfoManager securityInfoManager;
-    private final DemographicManager demographicManager;
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private transient EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
@@ -119,7 +115,6 @@ public class EmailSend2Action extends ActionSupport {
     private static final String PARAM_CONSENT_OVERRIDE_REASON = "consentOverrideReason";
     private transient EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
     private transient PdfPreviewCapabilityService pdfPreviewCapabilityService = SpringUtils.getBean(PdfPreviewCapabilityService.class);
-    private static final int MAXIMUM_MESSAGE_LENGTH = 10_000;
 
     private final transient AttachmentOwnershipService attachmentOwnershipService;
 
@@ -144,19 +139,7 @@ public class EmailSend2Action extends ActionSupport {
      * @param attachmentOwnershipService re-reads each attachment's owning patient before a send
      */
     EmailSend2Action(AttachmentOwnershipService attachmentOwnershipService) {
-        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailManager.class),
-                SpringUtils.getBean(EformDataManager.class), SpringUtils.getBean(EmailComposeManager.class),
-                SpringUtils.getBean(DemographicManager.class), attachmentOwnershipService);
-    }
-
-    EmailSend2Action(SecurityInfoManager securityInfoManager, EmailManager emailManager,
-            EformDataManager eformDataManager, EmailComposeManager emailComposeManager,
-            DemographicManager demographicManager, AttachmentOwnershipService attachmentOwnershipService) {
-        this.securityInfoManager = securityInfoManager;
-        this.emailManager = emailManager;
-        this.eformDataManager = eformDataManager;
-        this.emailComposeManager = emailComposeManager;
-        this.demographicManager = demographicManager;
+        this.securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         this.attachmentOwnershipService = attachmentOwnershipService;
     }
 
@@ -614,71 +597,6 @@ public class EmailSend2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    /**
-     * Re-populates the compose page from the rejected POST so the provider can shorten the
-     * reported fields and send again from the same window.
-     *
-     * <p>{@code isEmailSuccessful} is deliberately left unset: the page then renders the editable
-     * form, with the length errors above it, instead of the sent/failed result panel. The compose
-     * page reads most of its values from request attributes whose names differ from the POST
-     * parameter names ({@code encryptedMessage} is rendered from {@code encryptedMessageEmail},
-     * {@code patientChartOption} from {@code emailPatientChartOption}, and so on), so each one is
-     * copied across here. Every value is output-encoded by the page; values the page writes
-     * unencoded (the transaction type, the patient id and the eForm flags) are normalised to an
-     * enum name, an integer or a boolean first.</p>
-     */
-    private void restoreComposeForm() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        TransactionType transactionType = parseTransactionType(request.getParameter("transactionType"));
-        request.setAttribute("transactionType", transactionType);
-        // Range-checked, not just digit-checked: a ten-digit id passes NUMERIC_ID but would
-        // overflow the Integer the consent lookup below needs, turning the rejection into a 500.
-        Integer demographicNo = parseDemographicId(request.getParameter("demographicId"));
-        String demographicId = demographicNo == null ? null : demographicNo.toString();
-        request.setAttribute("demographicId", demographicId);
-        request.setAttribute("fdid", numericOrNull(request.getParameter("fdid")));
-        request.setAttribute("fid", numericOrNull(request.getParameter("fid")));
-        request.setAttribute("openEFormAfterEmail", "true".equals(request.getParameter("openEFormAfterEmail")));
-        request.setAttribute("deleteEFormAfterEmail", "true".equals(request.getParameter("deleteEFormAfterEmail")));
-        // Never auto-send the retry: the provider has to see and fix the reported fields. The
-        // explicit false also stops the page picking up a session-scoped value by EL scope lookup.
-        request.setAttribute("isEmailAutoSend", false);
-
-        // Sender and recipients. Only the hidden recipient inputs are submitted (the visible ones
-        // are disabled), and they are exactly what this send would have used, so they are echoed
-        // as the valid list; a recipient the provider removed stays removed.
-        request.setAttribute("senderAccounts", emailComposeManager.getAllSenderAccounts());
-        request.setAttribute("senderConfigId", numericOrNull(request.getParameter("senderConfigId")));
-        String[] recipients = request.getParameterValues("receiverEmailAddress");
-        request.setAttribute("receiverEmailList", recipients == null
-                ? Collections.emptyList() : new ArrayList<>(Arrays.asList(recipients)));
-        request.setAttribute("invalidReceiverEmailList", Collections.emptyList());
-        if (demographicNo != null) {
-            request.setAttribute("receiverName", demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo));
-            String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
-            request.setAttribute("emailConsentName", emailConsent[0]);
-            request.setAttribute("emailConsentStatus", emailConsent[1]);
-        }
-
-        // Provider-entered text, under the attribute names the page renders.
-        request.setAttribute("subjectEmail", request.getParameter("subjectEmail"));
-        request.setAttribute("bodyEmail", request.getParameter("bodyEmail"));
-        request.setAttribute("encryptedMessageEmail", request.getParameter("encryptedMessage"));
-        request.setAttribute("emailPDFPassword", request.getParameter("emailPDFPassword"));
-        request.setAttribute("emailPDFPasswordClue", request.getParameter("emailPDFPasswordClue"));
-        request.setAttribute("internalComment", request.getParameter("internalComment"));
-        request.setAttribute("emailAdditionalParams", request.getParameter("additionalURLParams"));
-        String chartOption = request.getParameter("patientChartOption");
-        request.setAttribute("emailPatientChartOption", isChartOption(chartOption) ? chartOption : null);
-
-        // Encryption choices. Echo what was submitted so the re-rendered form never carries a
-        // weaker encryption state than the one the provider chose (Copilot review on #3906).
-        request.setAttribute("isEmailEncrypted", "true".equals(request.getParameter("isEmailEncrypted")));
-        request.setAttribute("isEmailAttachmentEncrypted",
-                "true".equals(request.getParameter("isEmailAttachmentEncrypted")));
-    }
-
     private static String numericOrNull(String value) {
         return value != null && NUMERIC_ID.matcher(value).matches() ? value : null;
     }
@@ -714,15 +632,6 @@ public class EmailSend2Action extends ActionSupport {
             }
         }
         return null;
-    }
-
-    private static boolean isChartOption(String value) {
-        for (ChartDisplayOption option : ChartDisplayOption.values()) {
-            if (option.getValue().equals(value)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**

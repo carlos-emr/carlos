@@ -57,7 +57,6 @@ import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
@@ -86,27 +85,6 @@ public class ScatterPlotChartServlet extends HttpServlet {
             httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
             return;
         }
-        SecurityInfoManager security = SpringUtils.getBean(SecurityInfoManager.class);
-        try {
-            PatientRecordAccess.require(security, LoggedInInfo.getLoggedInInfoFromSession(request),
-                    demographicNo, "_measurement", "r");
-        } catch (SecurityException deniedRecord) {
-            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return;
-        }
-
-        // Security fix (issue #2623): patient-scoped authorization check,
-        // mirroring the pattern in MeasurementData2Action.java (measurements/web).
-        //
-        // A missing demographicNo is rejected outright, before any privilege
-        // check runs: hasPrivilege() falls back to a general role check when
-        // demographicNo is null, which would reopen the IDOR gap this fix is
-        // meant to close (flagged by automated review on this PR).
-        if (demographicNo == null) {
-            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return;
-        }
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             httpServletResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED);

@@ -47,7 +47,8 @@
     }
     // The page carries clinical text the user just typed; it must never be cached or replayed.
     response.setHeader("Cache-Control", "no-store");
-    String unsavedNote = request.getParameter("caseNote_note");
+    String unsavedNote = (String) request.getAttribute("unsavedNoteText");
+    if (unsavedNote == null) unsavedNote = request.getParameter("caseNote_note");
     boolean showUnsavedNote = unsavedNote != null && !unsavedNote.isBlank();
 %>
 <html>
