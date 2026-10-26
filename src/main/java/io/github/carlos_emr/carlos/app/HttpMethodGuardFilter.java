@@ -99,7 +99,10 @@ public class HttpMethodGuardFilter implements Filter {
      */
     private static final Set<String> MUTATOR_ACTION_NAMES = Set.of(
             "billingaddcode",         // BillingAddCode2Action (starts with "billing", not "add")
-            "reprocessbill",          // BillingReProcessBill2Action
+            // reprocessBill (BC) is dual-purpose too: GET opens Bill Status or a bill's adjust page,
+            // which is how every menu, list and Edit link reaches them. BillingReProcessBill2Action
+            // answers 405 to any non-POST request that carries a save parameter (billCheck or billingmasterNo),
+            // so a filter-level block would only break those links (#4343).
             // moveMOHFiles is dual-purpose: GET renders the file listing,
             // POST archives selected files. The action self-gates POST when
             // the `mohFile` mutation-intent parameter is present, so we don't
@@ -130,7 +133,16 @@ public class HttpMethodGuardFilter implements Filter {
             "save", "delete", "update", "create", "remove",
             "submit", "merge", "archive", "assign", "transfer",
             "approve", "reject", "toggle", "complete", "process",
-            "cancel", "close"
+            "cancel", "close",
+            // Chart notes (CaseManagementEntry): autosave stores the draft and saveAndExit saves the
+            // note, like save; the editor sends both by POST. saveAndExit also names the save of
+            // CaseManagementView (CPP) and form/BCAR2020, whose method=save is already POST-only.
+            "autosave", "saveandexit",
+            // ManageEmails2Action mutates status or creates token/PDF state for a copied email.
+            "setresolved", "resendemail",
+            // MfaActions2Action dispatches its privileged MFA-secret reset via ?method=resetMfa;
+            // classify it as a mutation so GET/HEAD are rejected before the action runs.
+            "resetmfa"
     );
 
     /**
@@ -151,11 +163,18 @@ public class HttpMethodGuardFilter implements Filter {
                                           // action name 'createdate' matches the unconditional
                                           // "create" mutator prefix, so we exempt it here and rely
                                           // on the action's own POST check for mutations.
-            "addappointment"             // ViewAppointmentWrite2Action — view gate that loads the
+            "addappointment",            // ViewAppointmentWrite2Action — view gate that loads the
                                           // add-appointment form. The name starts with "add" so it
                                           // matches MUTATOR_ACTION_PREFIXES, but the action itself
                                           // only renders a JSP — the actual write goes through
                                           // appointment/AddRecord (which IS a POST-only mutator).
+            "addrelation"                // AddDemographicRelationship2Action (demographic "Add
+                                          // Relation" popup, edit-view.jsp): GET with only `demo`
+                                          // renders the contact-search form (AddAlternateContact.jsp).
+                                          // The actual relationship persist only fires when
+                                          // linkingDemo+relation are present, and the action itself
+                                          // rejects that case with 405 unless the request is POST —
+                                          // see AddDemographicRelationship2Action.execute().
     );
 
     /**
@@ -298,7 +317,8 @@ public class HttpMethodGuardFilter implements Filter {
             "/eformViewForPdfGenerationServlet",
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
-            "/EFormImageViewForPdfGenerationServlet"
+            "/EFormImageViewForPdfGenerationServlet",
+            "/EFormApCacheForPdfGenerationServlet"
     );
 
     /**
@@ -366,7 +386,7 @@ public class HttpMethodGuardFilter implements Filter {
         String uri = httpRequest.getRequestURI();
         if (uri.indexOf('\0') >= 0) {
             LOGGER.warn("Blocked request with null byte in URI: {} (remote: {})",
-                    uri.replace('\0', '?'), httpRequest.getRemoteAddr());
+                    LogSafe.sanitize(uri.replace('\0', '?')), LogSafe.sanitize(httpRequest.getRemoteAddr()));
             ((HttpServletResponse) response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid request URI");
             return;
         }

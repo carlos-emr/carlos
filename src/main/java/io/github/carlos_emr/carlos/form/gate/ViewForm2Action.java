@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.form.gate;
 
 import java.io.IOException;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -59,7 +60,11 @@ public class ViewForm2Action extends ActionSupport {
             return NONE;
         }
 
-        request.getRequestDispatcher(internalView).forward(request, response);
+        if (request.getDispatcherType() == DispatcherType.INCLUDE) {
+            request.getRequestDispatcher(internalView).include(request, response);
+        } else {
+            request.getRequestDispatcher(internalView).forward(request, response);
+        }
         return NONE;
     }
 }

@@ -23,6 +23,14 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,6 +39,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -54,15 +65,132 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ConsultDocsDao consultDocsDao;
 
+    @Autowired
+    private EFormDataDao eFormDataDao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
+    private static final String PROVIDER_NO = "999001";
+    private static final String INSERT_DEMOGRAPHIC_SQL = "INSERT INTO demographic (demographic_no, first_name, last_name, sex, provider_no, patient_status) VALUES (:id, 'Test', 'Patient', 'M', :providerNo, 'AC')";
+
     private ConsultDocs createConsultDoc(int requestId, int documentNo, String docType, String deleted) {
+        return createConsultDoc(requestId, documentNo, docType, deleted, null);
+    }
+
+    private ConsultDocs createConsultDoc(int requestId, int documentNo, String docType, String deleted, String labType) {
         ConsultDocs doc = new ConsultDocs();
         doc.setRequestId(requestId);
         doc.setDocumentNo(documentNo);
         doc.setDocType(docType);
         doc.setDeleted(deleted);
-        consultDocsDao.persist(doc);
+        doc.setLabType(labType);
+        // Read/filter fixtures include pre-migration bare lab rows. New lab writes are
+        // validated separately by LabAttachmentSourceDaoIntegrationTest.
+        if ("L".equals(docType)) entityManager.persist(doc);
+        else consultDocsDao.persist(doc);
+        entityManager.flush();
         return doc;
     }
+
+    private void createDemographic(int demographicNo) {
+        entityManager.createNativeQuery(INSERT_DEMOGRAPHIC_SQL)
+                .setParameter("id", demographicNo)
+                .setParameter("providerNo", PROVIDER_NO)
+                .executeUpdate();
+        entityManager.flush();
+    }
+
+    private ConsultationRequest createConsultationRequest(int demographicNo) {
+        ConsultationRequest consult = new ConsultationRequest();
+        consult.setDemographicId(demographicNo);
+        consult.setProviderNo(PROVIDER_NO);
+        consult.setReferralDate(new Date());
+        consult.setServiceId(1);
+        consult.setStatus("1");
+        entityManager.persist(consult);
+        entityManager.flush();
+        return consult;
+    }
+
+    private EFormData createEFormData(int demographicNo, boolean patientIndependent) {
+        Date now = new Date();
+        EFormData eFormData = new EFormData();
+        eFormData.setDemographicId(demographicNo);
+        eFormData.setFormId(1);
+        eFormData.setFormName("TestForm");
+        eFormData.setSubject("Test Subject");
+        eFormData.setCurrent(true);
+        eFormData.setFormDate(now);
+        eFormData.setFormTime(now);
+        eFormData.setProviderNo(PROVIDER_NO);
+        eFormData.setFormData("<form>test</form>");
+        eFormData.setShowLatestFormOnly(false);
+        eFormData.setPatientIndependent(patientIndependent);
+        eFormData.setRoleType("");
+        entityManager.persist(eFormData);
+        entityManager.flush();
+        return eFormData;
+    }
+
+    private Document createDocument(char status) {
+        Date now = new Date();
+        Document document = new Document();
+        document.setDoctype("consult");
+        document.setDocdesc("Test document");
+        document.setDocfilename("test.pdf");
+        document.setDoccreator(PROVIDER_NO);
+        document.setResponsible(PROVIDER_NO);
+        document.setStatus(status);
+        document.setContenttype("application/pdf");
+        document.setPublic1(0);
+        document.setNumberofpages(1);
+        document.setObservationdate(now);
+        document.setUpdatedatetime(now);
+        document.setContentdatetime(now);
+        entityManager.persist(document);
+        entityManager.flush();
+        return document;
+    }
+
+    private void createCtlDocument(int demographicNo, Integer documentNo) {
+        createCtlDocument(demographicNo, documentNo, String.valueOf(Document.STATUS_ACTIVE));
+    }
+
+    private void createCtlDocument(int demographicNo, Integer documentNo, String status) {
+        CtlDocument ctlDocument = new CtlDocument();
+        ctlDocument.setId(new CtlDocumentPK("demographic", demographicNo, documentNo));
+        ctlDocument.setStatus(status);
+        entityManager.persist(ctlDocument);
+        entityManager.flush();
+    }
+
+    private PatientLabRouting createPatientLabRouting(int labNo, String labType, int demographicNo) {
+        PatientLabRouting patientLabRouting = new PatientLabRouting(labNo, labType, demographicNo);
+        entityManager.persist(patientLabRouting);
+        entityManager.flush();
+        return patientLabRouting;
+    }
+
+    private HRMDocument createHrmDocument() {
+        HRMDocument hrmDocument = new HRMDocument();
+        hrmDocument.setReportType("Diagnostic Imaging Report");
+        hrmDocument.setReportStatus("S");
+        hrmDocument.setTimeReceived(new Date());
+        entityManager.persist(hrmDocument);
+        entityManager.flush();
+        return hrmDocument;
+    }
+
+    private void matchHrmDocumentToDemographic(Integer hrmDocumentId, int demographicNo) {
+        HRMDocumentToDemographic link = new HRMDocumentToDemographic();
+        link.setHrmDocumentId(hrmDocumentId);
+        link.setDemographicNo(demographicNo);
+        link.setTimeAssigned(new Date());
+        entityManager.persist(link);
+        entityManager.flush();
+    }
+
 
     @Nested
     @DisplayName("CRUD operations")
@@ -140,5 +268,209 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
             List<ConsultDocs> results = consultDocsDao.findByRequestId(99999);
             assertThat(results).isEmpty();
         }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find only labs routed to the consultation demographic under the attachment's own source")
+        void shouldFindLabsOnlyForConsultationDemographic_whenConsultHasStaleLabRows() {
+            int demographicNo = 82001;
+            int otherDemographicNo = 82002;
+            createDemographic(demographicNo);
+            createDemographic(otherDemographicNo);
+            ConsultationRequest consult = createConsultationRequest(demographicNo);
+            createPatientLabRouting(7001, "MDS", demographicNo);
+            createPatientLabRouting(7002, "MDS", otherDemographicNo);
+            createPatientLabRouting(7004, "MDS", demographicNo);
+            createPatientLabRouting(7005, "MDS", demographicNo);
+            createConsultDoc(consult.getId(), 7001, ConsultDocs.DOCTYPE_LAB, null, "MDS");
+            createConsultDoc(consult.getId(), 7002, ConsultDocs.DOCTYPE_LAB, null, "MDS");
+            createConsultDoc(consult.getId(), 7003, ConsultDocs.DOCTYPE_LAB, null, "MDS");
+            createConsultDoc(consult.getId(), 7004, ConsultDocs.DOCTYPE_LAB, ConsultDocs.DELETED, "MDS");
+            // Routed to the patient, but stored with another source: not this attachment's lab.
+            createConsultDoc(consult.getId(), 7005, ConsultDocs.DOCTYPE_LAB, null, "HL7");
+
+            List<Object[]> results = consultDocsDao.findLabs(consult.getId());
+
+            assertThat(results).hasSize(1);
+            assertThat(((ConsultDocs) results.get(0)[0]).getDocumentNo()).isEqualTo(7001);
+            assertThat(((PatientLabRouting) results.get(0)[1]).getDemographicNo()).isEqualTo(demographicNo);
+        }
+    }
+
+    @Nested
+    @DisplayName("unavailable active consult attachments")
+    class UnavailableActiveConsultAttachments {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should report unavailable active eForm, document and HRM attachments for runtime warnings")
+        void shouldReportUnavailableActiveAttachments_forRuntimeWarnings() {
+            AttachmentFixture fixture = createAttachmentFixture();
+
+            List<ConsultDocs> results = consultDocsDao.findUnavailableActiveConsultAttachments(fixture.consultId);
+
+            assertThat(results)
+                    .extracting(ConsultDocs::getId)
+                    .containsExactlyInAnyOrder(
+                            fixture.wrongPatientEForm.getId(),
+                            fixture.missingEForm.getId(),
+                            fixture.deletedEForm.getId(),
+                            fixture.patientIndependentEForm.getId(),
+                            fixture.missingDocument.getId(),
+                            fixture.deletedDocument.getId(),
+                            fixture.wrongPatientDocument.getId(),
+                            fixture.activeHrmWithMissingTarget.getId());
+            // Labs are not named here: the consult form lists an unavailable lab itself until its
+            // source is selected again, and print and fax refuse it until then.
+            assertThat(results).extracting(ConsultDocs::getDocType).doesNotContain(ConsultDocs.DOCTYPE_LAB);
+            // The same order on every screen: by type, then id.
+            assertThat(results).extracting(ConsultDocs::getDocType).isSorted();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should report an HRM attachment whose report is gone, unmatched or matched to another patient")
+        void shouldReportHrmAttachment_whenReportIsMissingOrNotMatchedToConsultPatient() {
+            int demographicNo = 83001;
+            int otherDemographicNo = 83002;
+            createDemographic(demographicNo);
+            createDemographic(otherDemographicNo);
+            ConsultationRequest consult = createConsultationRequest(demographicNo);
+            HRMDocument matchedReport = createHrmDocument();
+            matchHrmDocumentToDemographic(matchedReport.getId(), demographicNo);
+            HRMDocument rematchedReport = createHrmDocument();
+            matchHrmDocumentToDemographic(rematchedReport.getId(), otherDemographicNo);
+            HRMDocument unmatchedReport = createHrmDocument();
+
+            createConsultDoc(consult.getId(), matchedReport.getId(), ConsultDocs.DOCTYPE_HRM, null);
+            ConsultDocs rematched = createConsultDoc(consult.getId(), rematchedReport.getId(), ConsultDocs.DOCTYPE_HRM, null);
+            ConsultDocs unmatched = createConsultDoc(consult.getId(), unmatchedReport.getId(), ConsultDocs.DOCTYPE_HRM, null);
+            ConsultDocs missingRecord = createConsultDoc(consult.getId(), 990009, ConsultDocs.DOCTYPE_HRM, null);
+            createConsultDoc(consult.getId(), 990010, ConsultDocs.DOCTYPE_HRM, ConsultDocs.DELETED);
+
+            List<ConsultDocs> results = consultDocsDao.findUnavailableActiveConsultAttachments(consult.getId());
+
+            assertThat(results)
+                    .extracting(ConsultDocs::getId)
+                    .containsExactlyInAnyOrder(rematched.getId(), unmatched.getId(), missingRecord.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should not report an HRM attachment whose report is matched to the consultation patient")
+        void shouldNotReportHrmAttachment_whenReportIsMatchedToConsultPatient() {
+            int demographicNo = 83101;
+            createDemographic(demographicNo);
+            ConsultationRequest consult = createConsultationRequest(demographicNo);
+            HRMDocument report = createHrmDocument();
+            matchHrmDocumentToDemographic(report.getId(), demographicNo);
+            createConsultDoc(consult.getId(), report.getId(), ConsultDocs.DOCTYPE_HRM, null);
+
+            assertThat(consultDocsDao.findUnavailableActiveConsultAttachments(consult.getId())).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should not report an HRM attachment whose report is matched to the consultation patient and another")
+        void shouldNotReportHrmAttachment_whenReportIsMatchedToBothPatients() {
+            int demographicNo = 83301;
+            int otherDemographicNo = 83302;
+            createDemographic(demographicNo);
+            createDemographic(otherDemographicNo);
+            ConsultationRequest consult = createConsultationRequest(demographicNo);
+            HRMDocument sharedReport = createHrmDocument();
+            matchHrmDocumentToDemographic(sharedReport.getId(), otherDemographicNo);
+            matchHrmDocumentToDemographic(sharedReport.getId(), demographicNo);
+            createConsultDoc(consult.getId(), sharedReport.getId(), ConsultDocs.DOCTYPE_HRM, null);
+
+            assertThat(consultDocsDao.findUnavailableActiveConsultAttachments(consult.getId())).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should render only the consult patient's own eForms that are not deleted or patient-independent")
+        void shouldListOnlyRenderableEForms_forTheConsultPatient() {
+            AttachmentFixture fixture = createAttachmentFixture();
+
+            List<EFormData> results = eFormDataDao.findByDemographicIdCurrentAttachedToConsult(String.valueOf(fixture.consultId));
+
+            // Each eForm left out here is reported by findUnavailableActiveConsultAttachments above.
+            assertThat(results).extracting(EFormData::getId).containsExactly(fixture.samePatientEFormId);
+        }
+
+        private AttachmentFixture createAttachmentFixture() {
+            int demographicNo = 81001;
+            int otherDemographicNo = 81002;
+            createDemographic(demographicNo);
+            createDemographic(otherDemographicNo);
+            ConsultationRequest consult = createConsultationRequest(demographicNo);
+
+            EFormData samePatientEForm = createEFormData(demographicNo, false);
+            EFormData patientIndependentEForm = createEFormData(otherDemographicNo, true);
+            EFormData wrongPatientEForm = createEFormData(otherDemographicNo, false);
+            EFormData deletedEForm = createEFormData(demographicNo, false);
+            // Deleting an eForm clears its status (EFormData.current), as RemEForm2Action does.
+            deletedEForm.setCurrent(false);
+            entityManager.flush();
+
+            Document validDocument = createDocument(Document.STATUS_ACTIVE);
+            createCtlDocument(demographicNo, validDocument.getDocumentNo());
+
+            Document validNonDeletedDocument = createDocument('S');
+            createCtlDocument(demographicNo, validNonDeletedDocument.getDocumentNo(), "S");
+
+            Document deletedDocument = createDocument(Document.STATUS_DELETED);
+            createCtlDocument(demographicNo, deletedDocument.getDocumentNo());
+
+            Document wrongPatientDocument = createDocument(Document.STATUS_ACTIVE);
+            createCtlDocument(otherDemographicNo, wrongPatientDocument.getDocumentNo());
+
+            createPatientLabRouting(990007, "MDS", demographicNo);
+            createPatientLabRouting(990008, "MDS", otherDemographicNo);
+
+            AttachmentFixture fixture = new AttachmentFixture();
+            fixture.consultId = consult.getId();
+            fixture.samePatientEFormId = samePatientEForm.getId();
+            fixture.deletedEForm = createConsultDoc(consult.getId(), deletedEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
+            fixture.validSamePatientEForm = createConsultDoc(consult.getId(), samePatientEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
+            fixture.patientIndependentEForm = createConsultDoc(consult.getId(), patientIndependentEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
+            fixture.wrongPatientEForm = createConsultDoc(consult.getId(), wrongPatientEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
+            fixture.missingEForm = createConsultDoc(consult.getId(), 990001, ConsultDocs.DOCTYPE_EFORM, null);
+            fixture.alreadyDeletedWrongPatientEForm = createConsultDoc(consult.getId(), wrongPatientEForm.getId(), ConsultDocs.DOCTYPE_EFORM, ConsultDocs.DELETED);
+            fixture.validDocument = createConsultDoc(consult.getId(), validDocument.getDocumentNo(), ConsultDocs.DOCTYPE_DOC, null);
+            fixture.validNonDeletedDocument = createConsultDoc(consult.getId(), validNonDeletedDocument.getDocumentNo(), ConsultDocs.DOCTYPE_DOC, null);
+            fixture.missingDocument = createConsultDoc(consult.getId(), 990002, ConsultDocs.DOCTYPE_DOC, null);
+            fixture.deletedDocument = createConsultDoc(consult.getId(), deletedDocument.getDocumentNo(), ConsultDocs.DOCTYPE_DOC, null);
+            fixture.wrongPatientDocument = createConsultDoc(consult.getId(), wrongPatientDocument.getDocumentNo(), ConsultDocs.DOCTYPE_DOC, null);
+            fixture.alreadyDeletedMissingDocument = createConsultDoc(consult.getId(), 990003, ConsultDocs.DOCTYPE_DOC, ConsultDocs.DELETED);
+            fixture.activeLabWithMissingTarget = createConsultDoc(consult.getId(), 990004, ConsultDocs.DOCTYPE_LAB, null);
+            fixture.validLab = createConsultDoc(consult.getId(), 990007, ConsultDocs.DOCTYPE_LAB, null);
+            fixture.wrongPatientLab = createConsultDoc(consult.getId(), 990008, ConsultDocs.DOCTYPE_LAB, null);
+            fixture.activeFormWithMissingTarget = createConsultDoc(consult.getId(), 990005, ConsultDocs.DOCTYPE_FORM, null);
+            fixture.activeHrmWithMissingTarget = createConsultDoc(consult.getId(), 990006, ConsultDocs.DOCTYPE_HRM, null);
+            return fixture;
+        }
+    }
+
+    private static class AttachmentFixture {
+        private Integer consultId;
+        private Integer samePatientEFormId;
+        private ConsultDocs deletedEForm;
+        private ConsultDocs validSamePatientEForm;
+        private ConsultDocs patientIndependentEForm;
+        private ConsultDocs wrongPatientEForm;
+        private ConsultDocs missingEForm;
+        private ConsultDocs alreadyDeletedWrongPatientEForm;
+        private ConsultDocs validDocument;
+        private ConsultDocs validNonDeletedDocument;
+        private ConsultDocs missingDocument;
+        private ConsultDocs deletedDocument;
+        private ConsultDocs wrongPatientDocument;
+        private ConsultDocs alreadyDeletedMissingDocument;
+        private ConsultDocs activeLabWithMissingTarget;
+        private ConsultDocs validLab;
+        private ConsultDocs wrongPatientLab;
+        private ConsultDocs activeFormWithMissingTarget;
+        private ConsultDocs activeHrmWithMissingTarget;
     }
 }

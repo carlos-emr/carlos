@@ -1,0 +1,46 @@
+<%-- Copyright (c) 2026 CARLOS Contributors. GPL version 2 or later. --%>
+<%--
+    Consultation fax outcome page for submissions whose queue state cannot be confirmed.
+    Displays localized guidance without a retry control or automatic navigation, since
+    resubmission could duplicate a fax. The action supplies demographicId as a request
+    attribute for the encoded return-to-consultations link; no mutation parameters are read.
+    @since 2026.08
+--%>
+<%@ page contentType="text/html; charset=UTF-8" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<c:url var="consultationListUrl" value="/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests">
+    <c:param name="de" value="${demographicId}"/>
+</c:url>
+<!DOCTYPE html>
+<html lang="<carlos:encode value='${pageContext.request.locale.toLanguageTag()}' context="htmlAttribute"/>">
+<head>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <title><fmt:message key="consultation.fax.uncertain.title"/></title>
+</head>
+<body>
+<main class="container py-4">
+    <div id="consult-fax-uncertain" class="alert alert-warning" role="alert">
+        <h1 class="h4"><fmt:message key="consultation.fax.uncertain.title"/></h1>
+        <p><fmt:message key="consultation.fax.uncertain.message"/></p>
+    </div>
+    <c:if test="${ not empty attachmentWarnings }">
+        <div id="consult-attachment-warnings" class="alert alert-warning" role="alert">
+            <fmt:message key="encounter.oscarConsultationRequest.msgAttachmentsUnavailable"/>
+            <ul class="mb-0">
+                <c:forEach items="${ attachmentWarnings }" var="attachmentWarning">
+                    <%-- Type and id only, worded from the bundle; see ConsultAttachmentWarning. --%>
+                    <c:set var="attachmentTypeLabel"><fmt:message key="${ attachmentWarning.typeLabelKey }"/></c:set>
+                    <c:set var="attachmentWarningText"><fmt:message key="${ attachmentWarning.messageKey }"><fmt:param value="${ attachmentTypeLabel }"/><fmt:param value="${ attachmentWarning.id }"/></fmt:message></c:set>
+                    <li><carlos:encode value="${ attachmentWarningText }"/></li>
+                </c:forEach>
+            </ul>
+        </div>
+    </c:if>
+    <%-- No automatic close, history-back navigation, fax form or retry control. --%>
+    <a class="btn btn-outline-secondary" href="<carlos:encode value='${consultationListUrl}' context="htmlAttribute"/>"><fmt:message key="consultation.fax.uncertain.return"/></a>
+</main>
+</body>
+</html>

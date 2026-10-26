@@ -31,6 +31,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -94,10 +95,10 @@
            style="border-collapse: collapse; width: 7in; padding-left: 3px;">
         <tr>
             <td style="text-align: left; height: 34px;"><span
-                    style="font-weight: bold;"><%=bean.patientLastName %>, <%=bean.patientFirstName%>
-		<%=bean.patientSex%> <%=bean.patientAge%></span></td>
+                    style="font-weight: bold;"><carlos:encode value='<%= bean.patientLastName %>' context="html"/>, <carlos:encode value='<%= bean.patientFirstName %>' context="html"/>
+		<carlos:encode value='<%= bean.patientSex %>' context="html"/> <carlos:encode value='<%= bean.patientAge %>' context="html"/></span></td>
             <td style="text-align: right; height: 34px;"><span
-                    style="font-weight: bold;">Dr. <%=providerBean.getProperty(bean.familyDoctorNo)%></span>
+                    style="font-weight: bold;">Dr. <carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo) %>' context="html"/></span>
             </td>
         </tr>
     </table>
@@ -125,15 +126,15 @@
                                 <tr>
                                     <td valign="top" align="left" class="TableWithBorder"><pre
                                             name='shTextarea'
-                                            style="font-size: 8pt;"><%=bean.socialHistory%>&nbsp;</pre>
+                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.socialHistory %>' context="html"/>&nbsp;</pre>
                                     </td>
                                     <td valign="top" class="TableWithBorder"><pre
                                             name='fhTextarea'
-                                            style="font-size: 8pt;"><%=bean.familyHistory%>&nbsp;</pre>
+                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.familyHistory %>' context="html"/>&nbsp;</pre>
                                     </td>
                                     <td valign="top" class="TableWithBorder"><pre
                                             name='mhTextarea'
-                                            style="font-size: 8pt;"><%=bean.medicalHistory%>&nbsp;</pre>
+                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.medicalHistory %>' context="html"/>&nbsp;</pre>
                                     </td>
                                 </tr>
                             </table>
@@ -154,10 +155,10 @@
                                 <tr width="100%">
                                     <td valign="top" class="TableWithBorder"><pre
                                             name='ocTextarea'
-                                            style="font-size: 8pt;"><%=bean.ongoingConcerns%>&nbsp;</pre>
+                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.ongoingConcerns %>' context="html"/>&nbsp;</pre>
                                     </td>
                                     <td valign="top" class="TableWithBorder"><pre
-                                            name='reTextarea' style="font-size: 8pt;"><%=bean.reminders%>&nbsp;</pre>
+                                            name='reTextarea' style="font-size: 8pt;"><carlos:encode value='<%= bean.reminders %>' context="html"/>&nbsp;</pre>
                                     </td>
                                 </tr>
                             </table>
@@ -175,7 +176,7 @@
                                 <tr>
                                     <td class="TableWithBorder" valign="top" style="text-align: left"
                                         width=100%>
-                                        <pre name='enTextarea' style="font-size: 8pt;"><%=bean.encounter%></pre>
+                                        <pre name='enTextarea' style="font-size: 8pt;"><carlos:encode value='<%= bean.encounter %>' context="html"/></pre>
                                     </td>
                                 </tr>
                             </table>

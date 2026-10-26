@@ -94,14 +94,14 @@
                                 <c:when test="${ not empty rbtGroups }">
                                     <c:forEach items="${ rbtGroups }" var="groupName">
                                         <tr class="">
-                                            <td title="${ groupName }">
-                                                <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup?groupName=${ groupName }">
+                                            <td title="${carlos:forHtmlAttribute(groupName)}">
+                                                <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup?groupName=${carlos:forUriComponent(groupName)}">
                                                     ${carlos:forHtml(groupName)}
                                                 </a>
                                             </td>
                                             <td>
                                                 <form method="post" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/delGroup" style="display:inline;">
-                                                    <input type="hidden" name="groupName" value="${ groupName }"/>
+                                                    <input type="hidden" name="groupName" value="${carlos:forHtmlAttribute(groupName)}"/>
                                                     <a class="float-end" href="javascript:void(0);"
                                                        onclick="if(confirm('Are you sure you want to delete this group?')){this.closest('form').submit();}"
                                                        title="delete group">
@@ -110,7 +110,7 @@
                                                 </form>
                                                 <span>&nbsp;</span>
                                                 <a class="float-end"
-                                                   href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup?groupName=${ groupName }"
+                                                   href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup?groupName=${carlos:forUriComponent(groupName)}"
                                                    title="edit group">
                                                     <i style="color:blue;" class="fa-solid fa-pen-to-square"></i>
                                                 </a>
@@ -184,7 +184,7 @@
                                                         <td>
                                                             <form method="post" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/remFromGroup" style="display:inline;">
                                                                 <input type="hidden" name="tid" value="${template}"/>
-                                                                <input type="hidden" name="groupName" value="${temp.groupName}"/>
+                                                                <input type="hidden" name="groupName" value="${carlos:forHtmlAttribute(temp.groupName)}"/>
                                                                 <a href="javascript:void(0);"
                                                                    onclick="if(confirm('Remove template from group?')){this.closest('form').submit();}"
                                                                    class="float-end" title="delete template from group">
@@ -262,7 +262,7 @@
                                     </c:forEach>
                                 </c:if>
                             </select>
-                            <input type="hidden" name="groupName" value="${templatesInGroup[0].groupName}">
+                            <input type="hidden" name="groupName" value="${carlos:forHtmlAttribute(templatesInGroup[0].groupName)}">
                         </div>
                     </form>
                 </div>
@@ -270,7 +270,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" id="templateToGroup-btn" class="btn btn-primary">
-                        Add Selected Template(s) to ${templatesInGroup[0].groupName}
+                        Add Selected Template(s) to ${carlos:forHtml(templatesInGroup[0].groupName)}
                     </button>
                 </div>
             </div>

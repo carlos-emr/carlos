@@ -240,20 +240,23 @@ class OnRaSettlementServiceUnitTest {
     }
 
     @Test
-    void shouldThrowBillingValidationException_whenAnyStatusUpdateFails() {
+    void shouldSkipUnmatchedClaimAndStillSettleHeader_whenRaLineHasNoBillingRow() {
+        // OSCAR 19 contract (onGenRAsettle.jsp): a claim the RA names that this
+        // database does not hold (billed by a predecessor system) is skipped; the
+        // other bills settle and the RA header is still marked S.
         when(raDetailDao.search_raerror35(eq(42), anyString(), anyString(), anyString()))
                 .thenReturn(Collections.emptyList());
         when(raDetailDao.search_ranoerror35(eq(42), anyString(), anyString(), anyString()))
                 .thenReturn(List.of(101, 102));
-        when(billingRaReportService.updateBillingStatus("101", "S")).thenReturn(true);
-        when(billingRaReportService.updateBillingStatus("102", "S")).thenReturn(false);
-        when(raHeaderDao.find(Integer.valueOf(42))).thenReturn(new RaHeader());
+        when(billingRaReportService.updateBillingStatus("101", "S")).thenReturn(false);
+        RaHeader header = new RaHeader();
+        when(raHeaderDao.find(Integer.valueOf(42))).thenReturn(header);
 
-        assertThatThrownBy(() -> service.settle("42", OnRaSettlementService.Mode.STANDARD))
-                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
-                .hasMessageContaining("1 bill")
-                .hasMessageContaining("102");
+        boolean ran = service.settle("42", OnRaSettlementService.Mode.STANDARD);
 
-        verify(raHeaderDao, never()).merge(org.mockito.ArgumentMatchers.any(RaHeader.class));
+        assertThat(ran).isTrue();
+        verify(billingRaReportService).updateBillingStatus("102", "S");
+        verify(raHeaderDao).merge(header);
+        assertThat(header.getStatus()).isEqualTo("S");
     }
 }

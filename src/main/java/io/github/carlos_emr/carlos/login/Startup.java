@@ -42,11 +42,17 @@ import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.ServletContext;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
+import java.util.Properties;
+import java.util.List;
 
 /**
  * This ContextListener is used to Initialize classes at startup - Initialize the DBConnection Pool.
@@ -55,6 +61,14 @@ import java.util.Objects;
  */
 public class Startup implements ServletContextListener {
 	private static final Logger logger = MiscUtils.getLogger();
+
+	/**
+	 * Set to {@code true}, {@code yes} or {@code on} to let startup generate a new
+	 * {@code encryption.util.secret.key} although data encrypted with the lost key exists, accepting
+	 * that the data becomes unreadable (#3939). Remove it once the new key has been generated.
+	 */
+	public static final String ACKNOWLEDGE_KEY_LOSS_PROPERTY = EncryptionUtils.SECRET_KEY_ENV_VAR + ".acknowledge_loss";
+
 	private CarlosProperties p = CarlosProperties.getInstance();
 
     public void contextInitialized(ServletContextEvent sc) {
@@ -90,25 +104,46 @@ public class Startup implements ServletContextListener {
             propFileName = System.getProperty("user.home") + sep + propName;
             logger.info("looking up " + propFileName);
 
-            try {
-                // This has been used to look in the users home directory that started tomcat
-                p.readFromFile(propFileName);
-                logger.info("loading properties from " + propFileName);
-            } catch (java.io.FileNotFoundException ex) {
-                logger.info(propFileName + " not found");
+            // Decide the /WEB-INF/ fallback from deployment-supplied config only: the singleton is
+            // pre-loaded with packaged /carlos.properties defaults, including db_username, so asking it
+            // always answers "configured" and the merge would never run.
+            DeploymentConfig deployment = readDeploymentProperties(propFileName);
+            Properties deploymentProperties = deployment.merged();
+
+            // Apply the same deployment snapshot used to decide fallback. User-home values win
+            // over the override file, and neither source is reopened during startup.
+            p.putAll(deploymentProperties);
+            if (deployment.userHomeFound()) {
+                logger.info("loading properties from {}", propFileName);
             }
-            if (p.isEmpty()) {
-                /* if the file not found in the user root, look in the WEB-INF directory */
+
+            if (!hasDatabaseConfiguration(deploymentProperties)) {
+                // The deployment supplied no usable DB config, so /WEB-INF/ is still the source of truth.
                 try {
-                    logger.info("looking up  /WEB-INF/" + propName);
+                    logger.info("looking up  /WEB-INF/{}", propName);
+                    // Keep the deployment key: a /WEB-INF/ placeholder would otherwise overwrite the
+                    // real generated key and break decryption of data stored since first startup.
                     p.readFromFile("/WEB-INF/" + propName);
-                    logger.info("loading properties from /WEB-INF/" + propName);
+                    for (String key : deploymentProperties.stringPropertyNames()) {
+                        String value = deploymentProperties.getProperty(key);
+                        if (value.isBlank() && (List.of("db_username", "db_name", "db_uri", "db_driver").contains(key)
+                                || EncryptionUtils.SECRET_KEY_ENV_VAR.equals(key))) {
+                            continue;
+                        }
+                        p.setProperty(key, value);
+                    }
+                    logger.info("loading properties from /WEB-INF/{}", propName);
                 } catch (java.io.FileNotFoundException e) {
-                    logger.error("Configuration file: " + propName + " cannot be found, it should be put either in the User's home or in WEB-INF ");
-                    return;
+                    /*
+                     * No configuration in either location means the app has no DB connection and,
+                     * critically, no encryption key. Booting on would defer the failure to the first
+                     * PHI/credential operation. Fail fast at startup instead.
+                     */
+                    throw new IllegalStateException("Configuration file " + propName
+                            + " not found in user home or WEB-INF; refusing to start.", e);
                 } catch (Exception e) {
-                    logger.error("Error", e);
-                    return;
+                    throw new IllegalStateException("Failed to read configuration file " + propName
+                            + "; refusing to start.", e);
                 }
             }
             try {
@@ -136,17 +171,30 @@ public class Startup implements ServletContextListener {
 			// 	Ensure that a secret key for encryption is available when OSCAR starts, either by retrieving a
 			// 	previously saved key or generating a new one and storing it for future use.
 			String secretKey = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-			if (Objects.isNull(secretKey)) {
-				try {
-					secretKey = EncryptionUtils.generateSecretKey();
-					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
-					EncryptionUtils.prepareSecretKeySpec();
-					logger.info("New Secret Key generated...");
-				} catch (IOException | NoSuchAlgorithmException e) {
-					logger.error("Error generating new Secret Key - ", e);
-				}
+			if (Objects.isNull(secretKey) || secretKey.isBlank()) {
+				generateKeyUnlessItOrphansData(propFileName);
 			} else {
 				logger.info("Using existing Secret Key...");
+				if (isKeyLossAcknowledged()) {
+					logger.warn("{} is set but has no effect while {} is configured. Remove it, so that a"
+									+ " future loss of the key stops startup instead of being accepted.",
+							ACKNOWLEDGE_KEY_LOSS_PROPERTY, EncryptionUtils.SECRET_KEY_ENV_VAR);
+				}
+			}
+
+			/*
+			 * EncryptionUtils may be loaded before the application properties are read, leaving its
+			 * cached SecretKeySpec unset even when a key already exists in the properties file.
+			 * Always prepare the key after startup has ensured a key exists so credential saves can
+			 * encrypt passwords reliably. An invalid existing key is NOT auto-rotated: regenerating
+			 * over it would permanently orphan everything already encrypted under the real key.
+			 * Instead, abort startup so an operator can restore the correct key.
+			 */
+			try {
+				EncryptionUtils.prepareSecretKeySpec();
+			} catch (IllegalArgumentException e) {
+				throw new IllegalStateException("Configured encryption key is invalid (" + e.getMessage()
+						+ "); refusing to start. Restore the correct encryption key, or remove it to have a new one generated.", e);
 			}
 
 			// CHECK FOR DEFAULT PROPERTIES
@@ -170,9 +218,250 @@ public class Startup implements ServletContextListener {
             }
 
             logger.debug("LAST LINE IN contextInitialized");
+        } catch (EncryptionKeyRefusedException e) {
+            // Already logged once, as the single operator-facing ERROR. Fail the deployment the same
+            // way as every other startup failure, without a second "Unexpected error." copy.
+            throw new RuntimeException(e);
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
             throw (new RuntimeException(e));
+        }
+    }
+
+    // Ask this about deployment-supplied properties only, never the singleton: packaged defaults
+    // always carry a db_username. Package-private for testing.
+    static boolean hasDatabaseConfiguration(Properties props) {
+        return List.of("db_username", "db_name", "db_uri", "db_driver").stream()
+                .allMatch(key -> props.getProperty(key) != null && !props.getProperty(key).isBlank());
+    }
+
+    /**
+     * One parsed deployment snapshot, retaining whether the user-home file was found.
+     *
+     * @param merged        the override file merged with the user-home file, user-home winning on
+     *                      conflict; this is what answers "did the deployment supply real config?"
+     * @param userHome      the original user-home slice, before it is merged over the override
+     * @param userHomeFound whether the user-home file was present and loaded, which an empty
+     *                      {@code userHome} cannot distinguish from a present-but-empty file
+     */
+    record DeploymentConfig(Properties merged, Properties userHome, boolean userHomeFound) {
+    }
+
+    /**
+     * Loads deployment-supplied configuration, excluding the packaged classpath defaults that make the
+     * singleton useless for an "is this configured?" check. Both channels count: the
+     * {@code carlos_override_properties} file and the user-home file, loaded last so it wins on conflict.
+     *
+     * @param userHomePropFileName absolute path of the user-home properties file for this context
+     * @return deployment-supplied properties; {@code merged} is empty when neither file exists
+     */
+    DeploymentConfig readDeploymentProperties(String userHomePropFileName) {
+        Properties merged = new Properties();
+        merged.putAll(p.getDeploymentOverrideProperties());
+
+        // The override snapshot was parsed by CarlosProperties at construction. Read user-home
+        // once and merge it last so fallback detection and application use identical values.
+        Properties userHome = new Properties();
+        boolean userHomeFound = loadIfPresent(userHome, userHomePropFileName);
+        merged.putAll(userHome);
+
+        return new DeploymentConfig(merged, userHome, userHomeFound);
+    }
+
+    /**
+     * Opens a configuration file for reading. Exists as a seam because the distinction this class
+     * depends on - a file that is absent versus one that exists but cannot be opened - cannot be
+     * produced through filesystem permissions when the test suite runs as root, which it does both
+     * locally and in CI. Package-private so tests can substitute a failing opener.
+     *
+     * <p>Implementations must follow the {@link java.nio.file.Files#newInputStream} contract that
+     * {@link #loadIfPresent} depends on: {@link NoSuchFileException} means absent, and every other
+     * {@link IOException} - {@link java.nio.file.AccessDeniedException} above all - means present but
+     * unusable.
+     */
+    @FunctionalInterface
+    interface ConfigFileOpener {
+        InputStream open(Path file) throws IOException;
+    }
+
+    /** Replaced by tests; always {@link Files#newInputStream} in production. */
+    static ConfigFileOpener configFileOpener = Files::newInputStream;
+
+    /**
+     * Merges one configuration file into {@code target}. Absent is normal - either channel may be
+     * unused, and an empty result is what drives the {@code /WEB-INF/} fallback. Unreadable is fatal.
+     *
+     * @return {@code true} when the file was present and loaded, {@code false} when it is simply
+     *         absent or no path is configured
+     */
+    private static boolean loadIfPresent(Properties target, String configuredPath) {
+        if (configuredPath == null || configuredPath.isBlank()) {
+            return false;
+        }
+        File file = PathValidationUtils.resolveConfiguredFile(configuredPath, "carlos properties file");
+        try (InputStream input = configFileOpener.open(file.toPath())) {
+            target.load(input);
+            return true;
+        } catch (NoSuchFileException e) {
+            // The only benign outcome: nothing is deployed at this path.
+            logger.info("{} not found", configuredPath);
+            return false;
+        } catch (IOException e) {
+            // Everything else means the file is there but we cannot use it - wrong permissions, wrong
+            // Tomcat user, an untraversable parent directory, a directory in place of a file. Treating
+            // any of those as "absent" would leave existingKey null and let a /WEB-INF/ placeholder key
+            // overwrite the real generated one, silently breaking decryption of every record stored
+            // since first startup. So refuse to boot instead.
+            //
+            // This is why the read goes through java.nio rather than FileInputStream: FileInputStream
+            // reports absent and permission-denied with the same FileNotFoundException, and the
+            // File.exists() probe that used to tell them apart itself returns false when the parent
+            // directory cannot be traversed - the exact misconfiguration most in need of detection.
+            throw new IllegalStateException(
+                    "Configuration file exists but could not be read: " + configuredPath, e);
+        }
+    }
+
+    /**
+     * Handles a missing or blank {@code encryption.util.secret.key} (#3939).
+     *
+     * <p>A new key cannot decrypt anything the lost key encrypted, so generating one on a server
+     * that already holds encrypted data silently orphans that data. The key is generated only when
+     * nothing encrypted is found (a fresh install), or when the operator has set
+     * {@link #ACKNOWLEDGE_KEY_LOSS_PROPERTY} to accept the loss. Otherwise startup is refused, as it
+     * is for an invalid key.</p>
+     *
+     * <p>The check fails closed: if the database cannot be read, CARLOS cannot show that nothing
+     * would be orphaned, so it refuses rather than guess. The database is needed to run anyway.</p>
+     */
+    private void generateKeyUnlessItOrphansData(String propFileName) {
+        EncryptedDataCountLoader.Result existing = EncryptedDataCountLoader.fromProperties(p).load();
+        boolean mayOrphanData = existing.total() > 0 || !existing.complete();
+        boolean lossAcknowledged = isKeyLossAcknowledged();
+        if (mayOrphanData && !lossAcknowledged) {
+            String message = refusalMessage(existing);
+            logger.error(message);
+            throw new EncryptionKeyRefusedException(message);
+        }
+
+        try {
+            String secretKey = EncryptionUtils.generateSecretKey();
+            p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
+        } catch (IOException | NoSuchAlgorithmException e) {
+            /*
+             * A usable encryption key is mandatory: it protects stored PHI and provider
+             * credentials. Fail fast rather than booting with no key, which would defer the
+             * failure to the first credential save (an opaque runtime error for clinicians).
+             */
+            throw new IllegalStateException("Unable to generate and persist a new encryption key at startup", e);
+        }
+
+        if (mayOrphanData) {
+            // ERROR, not WARN: data is now unreadable and people must act on it.
+            logger.error(() -> acknowledgedLossMessage(existing));
+        } else {
+            logger.info("New Secret Key generated...");
+            if (lossAcknowledged) {
+                logger.warn("{} is set but nothing encrypted was found, so no data was lost. Remove it, so that"
+                                + " a future loss of the key stops startup instead of being accepted.",
+                        ACKNOWLEDGE_KEY_LOSS_PROPERTY);
+            }
+        }
+    }
+
+    private boolean isKeyLossAcknowledged() {
+        // containsKey first: CarlosProperties.getProperty logs a warning for every absent key, and this
+        // flag is absent on every healthy server. Matched like other flags: true, yes or on.
+        return p.containsKey(ACKNOWLEDGE_KEY_LOSS_PROPERTY) && p.isPropertyActive(ACKNOWLEDGE_KEY_LOSS_PROPERTY);
+    }
+
+    /** One sanitized message: kinds and counts, the fix, and the override. Never values. */
+    private static String refusalMessage(EncryptedDataCountLoader.Result existing) {
+        String key = EncryptionUtils.SECRET_KEY_ENV_VAR;
+        StringBuilder message = new StringBuilder(key).append(" is missing or blank, ");
+        if (existing.complete()) {
+            message.append("but ").append(items(existing.total(), ""))
+                    .append(" in the database may be encrypted with the original key (")
+                    .append(existing.describeCounts())
+                    .append("). Refusing to start: a new key cannot decrypt data encrypted with the original key.");
+        } else {
+            message.append("and CARLOS could not check whether the database holds data encrypted with the original key")
+                    .append(" (could not read ").append(existing.describeFailures())
+                    .append("; found so far: ").append(existing.describeCounts())
+                    .append("). Refusing to start rather than risk making that data unreadable.");
+        }
+        message.append(" Fix: restore the original ").append(key)
+                .append(" from backup into the properties file, then restart.");
+        if (existing.onlySignatures()) {
+            // Signatures carry no encryption marker, so an older install whose signatures were
+            // never encrypted is refused too; its operator has no original key to restore.
+            // The question is the database's history, not this server's: a server rebuilt from a
+            // backup never had a key, yet its database's signatures may be encrypted. Restoring the
+            // key comes first; the case where the override is safe comes last and is narrow.
+            message.append(" Only signature images were found; without the key, a plaintext image cannot be told")
+                    .append(" apart from an encrypted one. Look for the key first. Plain OSCAR never had an ")
+                    .append(key).append(" line, so if the old server's properties file, or a backup of it, has one,")
+                    .append(" restore it. CARLOS and OpenO EMR (since September 2024) create the key by themselves, so")
+                    .append(" any database they have run on had a key, even if nobody set one, and even if this server")
+                    .append(" was later rebuilt from a backup without it. On the old server (or this one) or in its")
+                    .append(" backup, look in /etc/carlos-emr/carlos.properties (packaged install), in")
+                    .append(" <context>.properties in the home directory of the user Tomcat runs as (for example")
+                    .append(" carlos.properties or oscar.properties), and in the file named by")
+                    .append(" -Dcarlos_override_properties or, on an OpenO EMR server, -Doscar_override_properties. On")
+                    .append(" a packaged install, until the key is restored, do not run carlos-ctl init-config or")
+                    .append(" finish-install, and do not install, upgrade, reconfigure or remove the carlos-emr")
+                    .append(" packages: each of these can write a new key, and CARLOS then starts without this check.")
+                    .append(" Only if the database comes straight from OSCAR, or from an OpenO EMR build from before")
+                    .append(" December 2024, and no OpenO EMR build from December 2024 or later and no CARLOS ran on")
+                    .append(" it, other than starts refused like this one, are the signatures plaintext; then setting ")
+                    .append(ACKNOWLEDGE_KEY_LOSS_PROPERTY).append("=true loses nothing. If you are not sure, treat")
+                    .append(" them as encrypted and keep looking for the key. See \"Limits of the check\" in")
+                    .append(" https://github.com/carlos-emr/carlos/blob/develop/docs/email/provider-to-patient-email-operations.md")
+                    .append("#credential-encryption-key (the copy in the docs folder of your release may differ).");
+        }
+        if (!existing.complete()) {
+            message.append(" If the database could not be reached, fix that and restart so the check can run.");
+        }
+        message.append(" Only if the original key is lost for good: set ").append(ACKNOWLEDGE_KEY_LOSS_PROPERTY)
+                .append("=true and restart. CARLOS then generates a new key and everything encrypted with the old key")
+                .append(" stays unreadable");
+        if (existing.total() > 0) {
+            message.append(" (").append(existing.describeRemedies()).append(')');
+        }
+        return message.append('.').toString();
+    }
+
+    /** Logged when the override was used over data the new key cannot read. Never values. */
+    private static String acknowledgedLossMessage(EncryptedDataCountLoader.Result existing) {
+        StringBuilder message = new StringBuilder(ACKNOWLEDGE_KEY_LOSS_PROPERTY).append(" is set: generated a new ")
+                .append(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        if (existing.complete()) {
+            message.append(" over ").append(items(existing.total(), "possibly encrypted")).append(" (")
+                    .append(existing.describeCounts()).append("). Any data encrypted with the old key is now unreadable.");
+        } else {
+            message.append(". Any data encrypted with the old key is now unreadable. Found ")
+                    .append(items(existing.total(), ""))
+                    .append(" (").append(existing.describeCounts()).append("), but could not read ")
+                    .append(existing.describeFailures()).append(", so there may be more.");
+        }
+        if (existing.total() > 0) {
+            message.append(" Now: ").append(existing.describeRemedies()).append('.');
+        }
+        return message.append(" Then remove ").append(ACKNOWLEDGE_KEY_LOSS_PROPERTY)
+                .append(" from the properties file.").toString();
+    }
+
+    /** "1 item" or "N items", with an optional word before "item". */
+    private static String items(int count, String qualifier) {
+        return count + " " + qualifier + (qualifier.isEmpty() ? "" : " ") + (count == 1 ? "item" : "items");
+    }
+
+    /** Startup refused because a new key would orphan encrypted data; already logged when thrown. */
+    private static final class EncryptionKeyRefusedException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        EncryptionKeyRefusedException(String message) {
+            super(message);
         }
     }
 
@@ -184,7 +473,7 @@ public class Startup implements ServletContextListener {
         String propertyDir = p.getProperty(propName);
         if (propertyDir == null) {
             propertyDir = baseDir + "/" + context + endDir;
-            logger.debug("Setting property " + propName + " with value " + propertyDir);
+            logger.debug("Setting property {} with value {}", propName, propertyDir);
             p.setProperty(propName, propertyDir);
             // Create directory if it does not exist
             File propertyDirectory = PathValidationUtils.resolveConfiguredDirectory(propertyDir, propName);

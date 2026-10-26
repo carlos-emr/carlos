@@ -48,7 +48,7 @@
     - endDate     — End date filter currently applied (String)
 
     Security:
-    - Requires _report or _admin.reporting read privilege
+    - Requires _report or _admin read privilege
     - CSRF token auto-injected by CsrfGuardScriptInjectionFilter
 
     @since 2001-2002
@@ -62,9 +62,9 @@
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
 %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {

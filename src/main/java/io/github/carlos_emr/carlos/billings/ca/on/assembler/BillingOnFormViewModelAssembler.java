@@ -239,6 +239,10 @@ public class BillingOnFormViewModelAssembler {
             providerNo = !fromPicker.isEmpty() ? fromPicker : userNo;
         }
         b.providerNo(providerNo);
+        // Default to the encounter's provider. If that provider cannot bill,
+        // the picker retains its explicit placeholder instead of choosing a
+        // different physician merely because their name is first in the list.
+        if (providerView.isEmpty()) b.providerView(providerNo);
 
         // ---- demographic + age + referral + validation messages ----
 

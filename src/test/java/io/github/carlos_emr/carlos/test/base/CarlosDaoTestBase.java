@@ -33,7 +33,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.annotation.Rollback;
 
 import javax.sql.DataSource;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Arrays;
@@ -45,7 +44,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * This class handles:
  * - Database setup and teardown
  * - Transaction management
- * - Schema management compatibility with legacy SchemaUtils
+ * - Schema creation (via {@code hbm2ddl.auto=create} in the test persistence unit)
  */
 @TestPropertySource(properties = {
     "test.db.schema.auto=create",
@@ -104,76 +103,22 @@ public abstract class CarlosDaoTestBase extends CarlosTestBase {
     }
 
     /**
-     * Initialize schema - compatible with legacy SchemaUtils approach
+     * Initialize the test schema.
+     *
+     * <p>The test persistence unit uses {@code hbm2ddl.auto=create}, so Hibernate has already
+     * created the schema before any test runs — this is a no-op hook kept for the
+     * {@link #shouldCreateSchema()} logging point and as an override seam for subclasses.</p>
      */
-    protected void initializeSchema() throws Exception {
-        // Check if we need to create schema
+    protected void initializeSchema() {
         if (shouldCreateSchema()) {
             logger.info("Initializing database schema for test");
-
-            // Try to use legacy SchemaUtils if available
-            if (isLegacySchemaUtilsAvailable()) {
-                invokeLegacySchemaUtils();
-            } else {
-                // Use modern approach
-                createModernSchema();
-            }
-        }
-    }
-
-    /**
-     * Check if legacy SchemaUtils is available and can be used
-     */
-    private boolean isLegacySchemaUtilsAvailable() {
-        try {
-            Class<?> schemaUtilsClass = Class.forName("io.github.carlos_emr.carlos.commn.dao.utils.SchemaUtils");
-            return schemaUtilsClass != null;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-
-    /**
-     * Invoke legacy SchemaUtils for backward compatibility.
-     *
-     * <p>{@code ClassNotFoundException} and {@code NoSuchMethodException} mean
-     * the class or method does not exist — safe to fall back to the no-op schema
-     * setup.  {@code IllegalAccessException} means the class was found but is
-     * inaccessible from this call site, which is a configuration problem and is
-     * rethrown as {@link IllegalStateException} so the test fails with a clear
-     * diagnostic rather than silently using the no-op fallback.</p>
-     *
-     * <p>If {@code restoreTable} itself throws, {@code Method.invoke()} wraps
-     * the cause in {@code InvocationTargetException}, which propagates through
-     * {@code throws Exception} to {@link #initializeSchema()} and then to
-     * {@link #setUpDatabase()}, causing the test to fail visibly.</p>
-     */
-    private void invokeLegacySchemaUtils() throws Exception {
-        try {
-            // Use reflection to avoid compile-time dependency
-            Class<?> schemaUtilsClass = Class.forName("io.github.carlos_emr.carlos.commn.dao.utils.SchemaUtils");
-            Method restoreMethod = schemaUtilsClass.getMethod("restoreTable", String[].class);
-
-            String[] tables = cleanableTables();
-            if (tables.length > 0) {
-                restoreMethod.invoke(null, (Object) tables);
-            }
-        } catch (ClassNotFoundException | NoSuchMethodException e) {
-            logger.warn("Legacy SchemaUtils not available (class or method not found), " +
-                        "falling back to modern approach", e);
             createModernSchema();
-        } catch (IllegalAccessException e) {
-            // SchemaUtils exists but is inaccessible — configuration problem, not "not available".
-            throw new IllegalStateException(
-                "Legacy SchemaUtils found but not accessible via reflection — " +
-                "check module/access configuration", e);
         }
     }
 
     /**
-     * No-op fallback invoked when legacy SchemaUtils is unavailable.
-     * The test persistence unit uses {@code hbm2ddl.auto=create}, so Hibernate
-     * already creates the schema before any test runs.
+     * No-op schema creation: the test persistence unit uses {@code hbm2ddl.auto=create}, so
+     * Hibernate already creates the schema before any test runs.
      */
     private void createModernSchema() {
         // Schema is managed by hbm2ddl.auto=create in the test persistence unit.

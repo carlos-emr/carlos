@@ -85,7 +85,9 @@
 
 
     String formIdStr = "0";
-    if (request.getParameter("formId") != null) {   ////TEMPORARY
+    if (request.getAttribute("savedRhFormId") != null) {
+        formIdStr = (String) request.getAttribute("savedRhFormId");
+    } else if (request.getParameter("formId") != null) {
         formIdStr = request.getParameter("formId");
     }
 
@@ -173,18 +175,6 @@
     </script>
 
     <script type="text/javascript">
-        function hideExtraName(ele) {
-            //alert(ele);
-            if (ele.options[ele.selectedIndex].value != -1) {
-                hideItem('providerName');
-                //alert('hidding');
-            } else {
-                showItem('providerName');
-                document.getElementById('providerName').focus();
-                //alert('showing');
-            }
-        }
-
         function showHideItem(id) {
             if (document.getElementById(id).style.display == 'none')
                 document.getElementById(id).style.display = '';
@@ -220,7 +210,7 @@
         }
     </script>
 
-    <script type="text/javascript" src="formScripts.js">
+    <script type="text/javascript" src="${pageContext.request.contextPath}/form/formScripts.js">
 
     </script>
 
@@ -232,7 +222,7 @@
 
 
     <%
-        Hashtable h = null;
+        Map<String, Object> h = null;
         String newFlowNeeded = (String) request.getAttribute("newWorkFlowNeeded");
     %>
     <div>
@@ -244,11 +234,11 @@
                 WorkFlowFactory flowFactory = new WorkFlowFactory();
                 WorkFlow flow = flowFactory.getWorkFlow(workflowType);
 
-                ArrayList currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
+                List<Map<String, Object>> currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
 
                 if (currentWorkFlows != null && currentWorkFlows.size() > 0) {
                     request.setAttribute("currentWorkFlow", currentWorkFlows.get(0));
-                    h = (Hashtable) currentWorkFlows.get(0);
+                    h = currentWorkFlows.get(0);
                 }
 
                 if (h != null) {
@@ -280,9 +270,9 @@
             <label>Change State:</label>
             <select name="state">
                 <%
-                    ArrayList states = new ArrayList(flow.getStates());
+                    List<WFState> states = new ArrayList<WFState>(flow.getStates());
                     for (int i = 0; i < states.size(); i++) {
-                        WFState state = (WFState) states.get(i);
+                        WFState state = states.get(i);
                 %>
                 <option value="<carlos:encode value='<%= state.getKey() %>' context="htmlAttribute"/>"
                         <%= (state.getKey().equals(h.get("current_state")) ? " selected" : "")%>><carlos:encode value='<%= state.getName() %>' context="html"/>
@@ -608,7 +598,7 @@
             //Hack to display injections after a workflow has been closed.
             if (h == null && !props.getProperty("workflowId","").equals("") && !props.getProperty("workflowId","").equals("-1")){
                try{
-                   h = new  Hashtable();
+                   h = new  Hashtable<String, Object>();
                    h.put("ID", props.getProperty("workflowId",""));
                    String ddate = props.getProperty("edd","");
                    ddate = ddate.substring(0,10);
@@ -706,7 +696,6 @@
                 singleClick: true,
                 step: 1
             });
-            hideExtraName(document.getElementById('providerDrop'));
         </script>
     </body>
 </html>

@@ -57,17 +57,39 @@ public final class LoginInfoBean {
         maxduration = maxduration1;
     }
 
+    /**
+     * Starts a fresh failed-login tracking window: clears the failed-attempt counter and
+     * releases any lockout.
+     *
+     * <p>Historically the two assignments below declared locals that shadowed the instance
+     * fields, so the reset silently did nothing and a username entry could stay locked out
+     * (or keep a stale attempt count) forever. The window counter is left at zero here; the
+     * caller is responsible for recording the attempt that triggered the reset.
+     *
+     * @param starttime1 start time of the new tracking window
+     */
     public void initialLoginInfoBean(GregorianCalendar starttime1) {
         starttime = starttime1;
-        int times = 0;
-        int status = 1; // 1 - normal, 0 - block out
+        times = 0;
+        status = 1; // 1 - normal, 0 - block out
     }
 
+    /**
+     * Records a failed login attempt and blocks the entry once the configured threshold is
+     * exceeded.
+     *
+     * <p>When the previous tracking window has expired the entry is reset first and this
+     * failure is counted as the first attempt of the new window, matching what a brand-new
+     * entry created through {@link #LoginInfoBean(GregorianCalendar, int, int)} records for
+     * a first failure. Dropping it instead would grant one extra attempt per window.
+     *
+     * @param now current time, also the start of a new window when the old one has expired
+     * @param times1 legacy parameter, ignored; the internal counter is incremented by one
+     */
     public void updateLoginInfoBean(GregorianCalendar now, int times1) {
         //if time out, initial bean again.
         if (getTimeOutStatus(now)) {
             initialLoginInfoBean(now);
-            return;
         }
         //else times++. if times out, status block
         ++times;

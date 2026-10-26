@@ -93,5 +93,52 @@ public class FlowSheetCustomizationDaoIntegrationTest extends CarlosTestBase {
             long count = flowSheetCustomizationDao.getCountAll();
             assertThat(count).isEqualTo(1);
         }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return only clinic customizations for the clinic editor")
+        void shouldReturnClinicCustomizations_whenClinicScopeRequested() {
+            FlowSheetCustomization clinic = persistCustomization("issue3400", "", "0", false);
+            persistCustomization("issue3400", "provider-1", "0", false);
+            persistCustomization("issue3400", "provider-1", "42", false);
+            persistCustomization("issue3400", "", "0", true);
+            persistCustomization("other-flowsheet", "", "0", false);
+
+            List<FlowSheetCustomization> result =
+                    flowSheetCustomizationDao.getFlowSheetCustomizations("issue3400");
+
+            assertThat(result).containsExactly(clinic);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return clinic and matching provider customizations for the provider editor")
+        void shouldReturnClinicAndProviderCustomizations_whenProviderScopeRequested() {
+            FlowSheetCustomization clinic = persistCustomization("issue3400", "", "0", false);
+            FlowSheetCustomization provider = persistCustomization("issue3400", "provider-1", "0", false);
+            persistCustomization("issue3400", "provider-2", "0", false);
+            persistCustomization("issue3400", "provider-1", "42", false);
+            persistCustomization("issue3400", "provider-1", "0", true);
+            persistCustomization("other-flowsheet", "provider-1", "0", false);
+
+            List<FlowSheetCustomization> result =
+                    flowSheetCustomizationDao.getFlowSheetCustomizations("issue3400", "provider-1");
+
+            assertThat(result).containsExactly(clinic, provider);
+        }
+    }
+
+    private FlowSheetCustomization persistCustomization(
+            String flowsheet, String providerNo, String demographicNo, boolean archived) {
+        FlowSheetCustomization customization = new FlowSheetCustomization();
+        customization.setFlowsheet(flowsheet);
+        customization.setProviderNo(providerNo);
+        customization.setDemographicNo(demographicNo);
+        customization.setMeasurement("A1C");
+        customization.setAction(FlowSheetCustomization.ADD);
+        customization.setPayload("<item />");
+        customization.setArchived(archived);
+        flowSheetCustomizationDao.persist(customization);
+        return customization;
     }
 }

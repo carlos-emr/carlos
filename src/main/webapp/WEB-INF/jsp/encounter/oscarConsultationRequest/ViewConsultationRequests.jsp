@@ -37,7 +37,14 @@
 
     Features:
     - Bootstrap 5 responsive table with sortable columns
+    - Fetches one extra match to suppress empty final pages; submitting filters resets the offset
     - Filter by team, date range (referral or appointment date), and completion status
+    - Filter by Consultant (type-ahead over specialists referenced by consult requests, served by
+      encounter/consultation/searchConsultants) and by Provider (the patient's MRP). Both values
+      come from request attributes resolved by EctViewConsultationRequests2Action, never from raw
+      parameters: an unknown consultant or an out-of-scope provider is dropped on the server.
+      Text typed in the Consultant box but not picked from the list is cleared before every
+      submit, so it can never become a filter (issue #3976).
     - Clickable rows (mouse + keyboard) to open consultation detail popup
     - Overdue consultation highlighting based on user preferences
     - Bulk tickler creation for "Nothing Done" consultations older than one week
@@ -84,6 +91,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.consultation.dto.ConsultationListFilterDto" %>
+<%@ page import="io.github.carlos_emr.carlos.consultation.dto.ConsultationMrpOptionDto" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -118,6 +127,9 @@
     } catch (NumberFormatException e) {
         limit = 100;
     }
+    // Leave room for the lookahead row and avoid overflowing next-page offsets.
+    limit = Math.clamp(limit, 1, ConsultationRequestDao.MAX_LIST_RETURN_SIZE - 1);
+    offset = Math.clamp(offset, 0, Integer.MAX_VALUE - limit - 1);
 %>
 <security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r"
                    reverse="false"><%isSiteAccessPrivacy = true; %></security:oscarSec>
@@ -128,13 +140,25 @@
     List<ProviderData> pdList = null;
     HashMap<String, String> providerMap = new HashMap<String, String>();
 
-//multisites function
-    if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+    // Site access privacy is a MULTISITE feature: providersite rows only exist
+    // when multisite mode is on, so it is applied only then, mirroring the
+    // schedule (appointmentprovideradminday.jsp). The Flyway seed grants the
+    // admin role _site_access_privacy on every install, and without multisite
+    // there are no site assignments to restrict by and mgrSite below stays
+    // empty, so applying it would silently drop EVERY consult from the list
+    // (seen on the packaged demo install). Team access privacy filters on the
+    // plain provider.team column and stays enforced without multisite.
+    boolean restrictToSite = bMultisites && isSiteAccessPrivacy;
+    boolean restrictToTeam = isTeamAccessPrivacy;
+    boolean restrictToSiteOrTeam = restrictToSite || restrictToTeam;
 
-        if (isSiteAccessPrivacy)
+//multisites function
+    if (restrictToSiteOrTeam) {
+
+        if (restrictToSite)
             pdList = providerDataDao.findByProviderSite(curProvider_no);
 
-        if (isTeamAccessPrivacy)
+        if (restrictToTeam)
             pdList = providerDataDao.findByProviderTeam(curProvider_no);
 
         for (ProviderData providerData : pdList) {
@@ -207,12 +231,35 @@
             searchDate = "0";
         }
 
+        // Consultant / Provider (MRP) filters, already validated and scope-checked by the action.
+        // The attribute names differ from the parameter names on purpose (see
+        // ConsultationListFilterResolver): Struts answers a missing attribute from the action's value
+        // stack. The instanceof guards keep a wrong-typed value from ever reaching a cast.
+        Object consultantIdAttr = request.getAttribute("consultListConsultantId");
+        Integer consultantId = consultantIdAttr instanceof Integer ? (Integer) consultantIdAttr : null;
+        Object consultantLabelAttr = request.getAttribute("consultListConsultantLabel");
+        String consultantLabel = consultantId != null && consultantLabelAttr instanceof String ? (String) consultantLabelAttr : "";
+        Object filterProviderAttr = request.getAttribute("consultListFilterProviderNo");
+        String filterProviderNo = filterProviderAttr instanceof String ? (String) filterProviderAttr : null;
+        List<ConsultationMrpOptionDto> mrpOptions = new ArrayList<ConsultationMrpOptionDto>();
+        Object mrpOptionsAttr = request.getAttribute("consultListMrpOptions");
+        if (mrpOptionsAttr instanceof List) {
+            for (Object option : (List<?>) mrpOptionsAttr) {
+                if (option instanceof ConsultationMrpOptionDto) {
+                    mrpOptions.add((ConsultationMrpOptionDto) option);
+                }
+            }
+        }
+
         EctConsultationFormRequestUtil consultUtil;
         consultUtil = new EctConsultationFormRequestUtil();
 
-        if (isTeamAccessPrivacy) {
+        // Same gates as the row filters below: outside multisite mode the site
+        // restriction is off, so the dropdown lists every team unless team
+        // privacy narrows it.
+        if (restrictToTeam) {
             consultUtil.estTeamsByTeam(curProvider_no);
-        } else if (isSiteAccessPrivacy) {
+        } else if (restrictToSite) {
             consultUtil.estTeamsBySite(curProvider_no);
         } else {
             consultUtil.estTeams();
@@ -264,6 +311,44 @@
             .consult-table tbody tr {
                 cursor: pointer;
             }
+            .consultant-search {
+                position: relative;
+                min-width: 16rem;
+            }
+            .consultant-suggestions {
+                position: absolute;
+                z-index: 1000;
+                top: 100%;
+                left: 0;
+                right: 0;
+                max-height: 18rem;
+                overflow-y: auto;
+                margin: 0;
+                padding: 0;
+                list-style: none;
+                background: var(--carlos-bg, #fff);
+                border: 1px solid var(--carlos-border);
+                border-radius: 0 0 4px 4px;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            }
+            .consultant-suggestions li {
+                padding: 4px 8px;
+                cursor: pointer;
+                font-size: 0.875rem;
+            }
+            .consultant-suggestions li[aria-selected="true"],
+            .consultant-suggestions li:hover {
+                background: var(--carlos-primary);
+                color: #fff;
+            }
+            .consultant-suggestions li.consultant-no-match {
+                cursor: default;
+                font-style: italic;
+            }
+            .consultant-suggestions li.consultant-no-match:hover {
+                background: transparent;
+                color: inherit;
+            }
             .consult-table tbody tr:hover td {
                 filter: brightness(0.95);
             }
@@ -294,27 +379,204 @@
                 }
             }
 
+            // The filter form by id: with scheduleNav the main menu is included first, so
+            // document.forms[0] is not guaranteed to be this form.
+            function consultFilterForm() {
+                return document.getElementById('consultationFilterForm');
+            }
+
+            // Every submit path (filter button, sort headers, paging) calls this first. Text typed
+            // in the Consultant box that was never picked from the suggestions has no id, so it is
+            // cleared here and can never be submitted as a filter.
+            function sanitizeConsultationFilters() {
+                var search = document.getElementById('consultantSearch');
+                var id = document.getElementById('consultantId');
+                if (search && id && id.value === '') {
+                    search.value = '';
+                }
+            }
+
             function setOrder(val) {
-                if (document.forms[0].orderby.value == val) {
-                    if (document.forms[0].desc.value == '1') {
-                        document.forms[0].desc.value = '0';
+                var frm = consultFilterForm();
+                if (frm.orderby.value == val) {
+                    if (frm.desc.value == '1') {
+                        frm.desc.value = '0';
                     } else {
-                        document.forms[0].desc.value = '1';
+                        frm.desc.value = '1';
                     }
                 } else {
-                    document.forms[0].orderby.value = val;
-                    document.forms[0].desc.value = '0';
+                    frm.orderby.value = val;
+                    frm.desc.value = '0';
                 }
-                document.forms[0].submit();
+                sanitizeConsultationFilters();
+                frm.submit();
             }
 
             function gotoPage(next) {
-                var frm = document.forms[0];
+                var frm = consultFilterForm();
                 frm.limit.value = <%=limit%>;
                 if (next) frm.offset.value = <%=offset+limit%>;
                 else frm.offset.value = <%=offset-limit%>;
+                sanitizeConsultationFilters();
                 frm.submit();
             }
+
+            // Consultant type-ahead: min 2 characters, 300 ms debounce, fetch-based suggestion list
+            // (no jQuery UI on this page). Suggestions are written with textContent only.
+            document.addEventListener('DOMContentLoaded', function () {
+                var frm = consultFilterForm();
+                var search = document.getElementById('consultantSearch');
+                var hiddenId = document.getElementById('consultantId');
+                var list = document.getElementById('consultantSuggestions');
+                var clearBtn = document.getElementById('consultantClear');
+                if (!frm || !search || !hiddenId || !list) {
+                    return;
+                }
+                var MIN_CHARS = 2;
+                var DEBOUNCE_MS = 300;
+                var endpoint = search.getAttribute('data-search-url');
+                var noMatchText = search.getAttribute('data-no-matches') || '';
+                var timer = null;
+                var requestSeq = 0;
+                var activeIndex = -1;
+
+                function options() {
+                    return list.querySelectorAll('li[role="option"]');
+                }
+
+                function closeList() {
+                    list.hidden = true;
+                    list.textContent = '';
+                    activeIndex = -1;
+                    search.setAttribute('aria-expanded', 'false');
+                    search.removeAttribute('aria-activedescendant');
+                }
+
+                function setActive(index) {
+                    var opts = options();
+                    if (opts.length === 0) {
+                        return;
+                    }
+                    if (index < 0) index = opts.length - 1;
+                    if (index >= opts.length) index = 0;
+                    for (var i = 0; i < opts.length; i++) {
+                        opts[i].setAttribute('aria-selected', i === index ? 'true' : 'false');
+                    }
+                    activeIndex = index;
+                    search.setAttribute('aria-activedescendant', opts[index].id);
+                    opts[index].scrollIntoView({block: 'nearest'});
+                }
+
+                function choose(li) {
+                    hiddenId.value = li.getAttribute('data-value');
+                    search.value = li.textContent;
+                    closeList();
+                }
+
+                function render(items) {
+                    list.textContent = '';
+                    activeIndex = -1;
+                    if (!Array.isArray(items) || items.length === 0) {
+                        var none = document.createElement('li');
+                        none.className = 'consultant-no-match';
+                        none.textContent = noMatchText;
+                        list.appendChild(none);
+                    } else {
+                        items.forEach(function (item, i) {
+                            var li = document.createElement('li');
+                            li.id = 'consultantOption' + i;
+                            li.setAttribute('role', 'option');
+                            li.setAttribute('aria-selected', 'false');
+                            li.setAttribute('data-value', String(item.value));
+                            li.textContent = item.label;
+                            li.addEventListener('mousedown', function (e) {
+                                // mousedown, not click: fires before the input's blur closes the list.
+                                e.preventDefault();
+                                choose(li);
+                            });
+                            list.appendChild(li);
+                        });
+                    }
+                    list.hidden = false;
+                    search.setAttribute('aria-expanded', 'true');
+                }
+
+                function lookup(term) {
+                    var seq = ++requestSeq;
+                    fetch(endpoint + '?keyword=' + encodeURIComponent(term), {
+                        credentials: 'same-origin',
+                        headers: {'Accept': 'application/json'}
+                    }).then(function (r) {
+                        if (!r.ok) {
+                            throw new Error('HTTP ' + r.status);
+                        }
+                        return r.json();
+                    }).then(function (items) {
+                        // Ignore an answer to a keyword the user has since changed.
+                        if (seq === requestSeq && document.activeElement === search) {
+                            render(items);
+                        }
+                    }).catch(function () {
+                        if (seq === requestSeq) {
+                            closeList();
+                        }
+                    });
+                }
+
+                search.addEventListener('input', function () {
+                    // Any edit invalidates the previous pick until a suggestion is chosen again.
+                    hiddenId.value = '';
+                    clearTimeout(timer);
+                    // Invalidate any in-flight lookup now, not when the debounced one starts:
+                    // otherwise an answer for the previous text could still render (and be
+                    // picked) during the debounce window.
+                    requestSeq++;
+                    closeList();
+                    var term = search.value.trim();
+                    if (term.length < MIN_CHARS) {
+                        return;
+                    }
+                    timer = setTimeout(function () { lookup(term); }, DEBOUNCE_MS);
+                });
+
+                search.addEventListener('keydown', function (e) {
+                    var open = !list.hidden && options().length > 0;
+                    if (e.key === 'ArrowDown' && open) {
+                        e.preventDefault();
+                        setActive(activeIndex + 1);
+                    } else if (e.key === 'ArrowUp' && open) {
+                        e.preventDefault();
+                        setActive(activeIndex - 1);
+                    } else if (e.key === 'Enter' && open && activeIndex >= 0) {
+                        // Enter picks the highlighted consultant instead of submitting the form.
+                        e.preventDefault();
+                        choose(options()[activeIndex]);
+                    } else if (e.key === 'Escape' && !list.hidden) {
+                        e.preventDefault();
+                        closeList();
+                    }
+                });
+
+                search.addEventListener('blur', function () {
+                    closeList();
+                });
+
+                if (clearBtn) {
+                    clearBtn.addEventListener('click', function () {
+                        hiddenId.value = '';
+                        search.value = '';
+                        closeList();
+                        search.focus();
+                    });
+                }
+
+                // A filter submit (button or Enter) starts again at page 1; sort and paging call
+                // frm.submit() directly, which does not fire this event, and keep their offset.
+                frm.addEventListener('submit', function () {
+                    sanitizeConsultationFilters();
+                    frm.offset.value = '0';
+                });
+            });
         </script>
     </head>
 
@@ -345,7 +607,7 @@
         <div class="px-3">
 
             <!-- Filter Bar -->
-            <form action="${pageContext.request.contextPath}/encounter/ViewConsultation" method="get">
+            <form id="consultationFilterForm" action="${pageContext.request.contextPath}/encounter/ViewConsultation" method="get">
                 <div class="filter-bar">
                     <div class="row g-2 align-items-end">
                         <div class="col-auto">
@@ -371,6 +633,42 @@
                                         }
                                     }
                                 %>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <label class="form-label mb-0 small fw-bold" for="consultantSearch">
+                                <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgConsultant"/>
+                            </label>
+                            <div class="consultant-search">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" id="consultantSearch" class="form-control form-control-sm"
+                                           autocomplete="off" role="combobox" aria-autocomplete="list"
+                                           aria-expanded="false" aria-controls="consultantSuggestions"
+                                           maxlength="100"
+                                           placeholder="<fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.formConsultantPlaceholder"/>"
+                                           data-no-matches="<fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgConsultantNoMatches"/>"
+                                           data-search-url="${pageContext.request.contextPath}/encounter/consultation/searchConsultants"
+                                           value="<carlos:encode value='<%= consultantLabel %>' context="htmlAttribute"/>"/>
+                                    <button type="button" id="consultantClear" class="btn btn-outline-secondary"
+                                            title="<fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.btnClearConsultant"/>"
+                                            aria-label="<fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.btnClearConsultant"/>">
+                                        <i class="fas fa-times" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                                <ul id="consultantSuggestions" class="consultant-suggestions" role="listbox" hidden></ul>
+                            </div>
+                            <input type="hidden" name="consultantId" id="consultantId"
+                                   value="<carlos:encode value='<%= consultantId != null ? String.valueOf(consultantId) : "" %>' context="htmlAttribute"/>"/>
+                        </div>
+                        <div class="col-auto">
+                            <label class="form-label mb-0 small fw-bold" for="filterProviderNo">
+                                <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgProvider"/>
+                            </label>
+                            <select name="filterProviderNo" id="filterProviderNo" class="form-select form-select-sm">
+                                <option value=""><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.formAllProviders"/></option>
+                                <% for (ConsultationMrpOptionDto mrpOption : mrpOptions) { %>
+                                <option value="<carlos:encode value='<%= mrpOption.providerNo() %>' context="htmlAttribute"/>"<%= mrpOption.providerNo().equals(filterProviderNo) ? " selected" : "" %>><carlos:encode value='<%= mrpOption.label() %>' context="html"/></option>
+                                <% } %>
                             </select>
                         </div>
                         <div class="col-auto">
@@ -445,6 +743,26 @@
                     <carlos:encode value='<%= team %>' context="html"/>
                     <% } %>
                 </span>
+                <% if (consultantId != null) { %>
+                <span class="badge bg-secondary" id="consultantFilterBadge">
+                    <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgConsultant"/>:
+                    <carlos:encode value='<%= consultantLabel %>' context="html"/>
+                </span>
+                <% } %>
+                <% if (filterProviderNo != null) {
+                       String filterProviderLabel = filterProviderNo;
+                       for (ConsultationMrpOptionDto mrpOption : mrpOptions) {
+                           if (mrpOption.providerNo().equals(filterProviderNo)) {
+                               filterProviderLabel = mrpOption.label();
+                               break;
+                           }
+                       }
+                %>
+                <span class="badge bg-secondary" id="providerFilterBadge">
+                    <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgProvider"/>:
+                    <carlos:encode value='<%= filterProviderLabel %>' context="html"/>
+                </span>
+                <% } %>
             </div>
 
             <!-- Consultation Results Table -->
@@ -513,7 +831,11 @@
                         <%
                             EctViewConsultationRequestsUtil theRequests;
                             theRequests = new EctViewConsultationRequestsUtil();
-                            theRequests.estConsultationVecByTeam(LoggedInInfo.getLoggedInInfoFromSession(request), team, includeCompleted, startDate, endDate, orderby, desc, searchDate, offset, limit);
+                            theRequests.estConsultationVecByTeam(LoggedInInfo.getLoggedInInfoFromSession(request),
+                                    new ConsultationListFilterDto(team, includeCompleted, startDate, endDate, orderby, desc,
+                                            searchDate, offset, limit + 1, consultantId, filterProviderNo,
+                                            restrictToSiteOrTeam ? providerMap.keySet() : null,
+                                            bMultisites && restrictToSiteOrTeam ? new java.util.HashSet<>(mgrSite) : null));
                             boolean overdue;
                             UserPropertyDAO pref = (UserPropertyDAO) WebApplicationContextUtils.getWebApplicationContext(pageContext.getServletContext()).getBean(UserPropertyDAO.class);
                             String user = (String) session.getAttribute("user");
@@ -525,9 +847,9 @@
                                 timeperiod = up.getValue();
                             }
 
-                            for (int i = 0; i < theRequests.ids.size(); i++) {
+                            for (int i = 0; i < Math.min(limit, theRequests.ids.size()); i++) {
                                 //multisites. skip record if not belong to same site/team
-                                if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+                                if (restrictToSiteOrTeam) {
                                     if (providerMap.get(theRequests.providerNo.get(i)) == null) continue;
                                 }
 
@@ -550,13 +872,16 @@
                                 if (bMultisites) {
                                     siteName = theRequests.siteName.get(i);
                                 }
-                                if (status.equals("1") && dateGreaterThan(date, Calendar.WEEK_OF_YEAR, -1)) {
-                                    tickerList.add(demo);
-                                }
 
                                 //multisites. skip record if not belong to same site
-                                if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+                                // (mgrSite is only populated under multisite; without it
+                                // this check would drop every row).
+                                if (bMultisites && restrictToSiteOrTeam) {
                                     if (!mgrSite.contains(siteName)) continue;
+                                }
+                                if (EctViewConsultationRequestsUtil.isTicklerDemographic(demo)
+                                        && "1".equals(status) && dateGreaterThan(date, Calendar.WEEK_OF_YEAR, -1)) {
+                                    tickerList.add(demo);
                                 }
                                 overdue = false;
 
@@ -606,11 +931,11 @@
                                 <%}%>
                             </td>
                             <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
-                                <% if (urgency.equals("1")) { %>
+                                <% if ("1".equals(urgency)) { %>
                                 <span class="urgency-urgent"><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyUrgent"/></span>
-                                <% } else if (urgency.equals("2")) { %>
+                                <% } else if ("2".equals(urgency)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyNonUrgent"/>
-                                <% } else if (urgency.equals("3")) { %>
+                                <% } else if ("3".equals(urgency)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyReturn"/>
                                 <% } %>
                             </td>
@@ -669,7 +994,7 @@
                         <i class="fas fa-chevron-left me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgPrev"/>
                     </button><%
                         }
-                        if (theRequests.ids.size() == limit) {
+                        if (theRequests.ids.size() > limit) {
                     %><button type="button" class="btn btn-secondary btn-sm ms-1" onclick="gotoPage(true);">
                         <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgNext"/><i class="fas fa-chevron-right ms-1"></i>
                     </button><%

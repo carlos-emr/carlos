@@ -1,0 +1,47 @@
+[Unit]
+Description=CARLOS EMR weekly restore drill
+Documentation=file:///usr/share/doc/carlos-emr/README.Debian
+# The drill loads a dump INTO MariaDB. Persistent=true on the timer means a
+# missed Sunday run fires shortly after boot — potentially before the
+# database accepts connections — so order it the same way the backup is.
+After=mariadb.service network-online.target
+Wants=mariadb.service network-online.target
+# network-online matters for the boot-time catch-up: Persistent=true
+# fires a missed run right after boot, and against an offsite
+# repository a start before the WAN is up failed the run with the
+# alert equally undeliverable.
+
+[Service]
+Type=oneshot
+User=carlos-backup
+Group=carlos-backup
+UMask=0077
+EnvironmentFile=/etc/carlos-emr/backup.env
+# A backup nobody has restored is a hypothesis. This reads the repository,
+# restores the newest dump into a scratch database and counts rows in it. It
+# is the only thing in the package that can tell the difference between
+# "backups ran" and "backups work".
+ExecStart=/usr/lib/carlos-emr/carlos-emr-backup verify
+TimeoutStartSec=6h
+Nice=15
+IOSchedulingClass=idle
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectProc=invisible
+ProtectKernelLogs=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ReadWritePaths=/var/backups/carlos-emr /var/log/carlos-emr

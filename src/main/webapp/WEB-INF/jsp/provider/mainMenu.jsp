@@ -72,6 +72,11 @@
     Properties oscarVariables = CarlosProperties.getInstance();
     String prov = (oscarVariables.getProperty("billregion", "")).trim().toUpperCase();
     String resourcebaseurl = oscarVariables.getProperty("resource_base_url");
+    UserProperty savedHelpUrl = userPropertyDao.getProp("resource_baseurl");
+    if (savedHelpUrl != null && savedHelpUrl.getValue() != null && !savedHelpUrl.getValue().isBlank()) {
+        resourcebaseurl = savedHelpUrl.getValue();
+    }
+    pageContext.setAttribute("clinicHelpUrl", resourcebaseurl);
     String curUser_no = (String) session.getAttribute("user");
 
     String resourcehelpHtml = "";
@@ -103,7 +108,7 @@
     // Build menu destinations once so same-tab navigation and popup fallbacks cannot drift apart.
     String messengerUrl = request.getContextPath() + "/messenger/DisplayMessages?providerNo=" + curUser_no + "&userName=" + encodedUserName;
     String consultationUrl = request.getContextPath() + "/encounter/IncomingConsultation?providerNo=" + curUser_no + "&userName=" + encodedUserName;
-    String documentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + curUser_no + "&curUser=" + curUser_no;
+    String documentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + SafeEncode.forUriComponent(curUser_no);
     String reportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
     String ticklerUrl = request.getContextPath() + "/tickler/ViewTicklerMain";
     String administrationUrl = request.getContextPath() + "/administration";
@@ -180,7 +185,9 @@
                                     <li class="<%= inboxTabActive ? "nav-active" : "" %>">
                                         <a HREF="<%= scheduleNavActive ? request.getContextPath() + "/web/inboxhub/Inboxhub?method=displayInboxForm&scheduleNav=1" : "#" %>" id="inboxLink"
                                            TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>'>
-                                            <span id="oscar_new_lab"><fmt:message key="global.lab"/></span>
+                                            <span id="oscar_new_lab">
+                                                <oscar:newLab providerNo="<%=curUser_no%>"><fmt:message key="global.lab"/></oscar:newLab>
+                                            </span>
                                         </a>
                                         <oscar:newUnclaimedLab>
                                             <a id="unclaimedLabLink" class="tabalert" HREF="<%= scheduleNavActive ? request.getContextPath() + "/web/inboxhub/Inboxhub?method=displayInboxForm&unclaimed=1&scheduleNav=1" : "javascript:void(0)" %>"
@@ -196,7 +203,9 @@
                                 <a HREF="#"
                                    ONCLICK="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(ticklerUrl)%>', function(u){ popupPage2(u,'ticklerPage'); }, event);"
                                    TITLE='<fmt:message key="global.tickler"/>'>
-                                    <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
+                                    <span id="oscar_new_tickler">
+                                        <oscar:newTickler providerNo="<%=curUser_no%>"><fmt:message key="global.btntickler"/></oscar:newTickler>
+                                    </span></a>
                             </li>
                         </security:oscarSec>
 
@@ -206,7 +215,9 @@
                                     <a HREF="#"
                                        ONCLICK="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(messengerUrl)%>', function(u){ popupOscarRx(600,1024,u); }, event);"
                                        title="<fmt:message key="global.messenger"/>">
-                                        <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
+                                        <span id="oscar_new_msg">
+                                            <oscar:newMessage providerNo="<%=curUser_no%>"><fmt:message key="global.msg"/></oscar:newMessage>
+                                        </span></a>
                                 </li>
                             </security:oscarSec>
                         </caisi:isModuleLoad>
@@ -317,9 +328,17 @@
 
                         </security:oscarSec>
                         <li id="helpLink">
-                            <%if (resourcehelpHtml == "") { %>
+                            <%if (resourcehelpHtml == null || resourcehelpHtml.isEmpty()) { %>
                             <a href="javascript:void(0)"
-                               onClick="popupPage(600,750,'<%=resourcebaseurl%>')"><fmt:message key="global.help"/></a>
+                               data-help-url="${carlos:forHtmlAttribute(clinicHelpUrl)}"
+                               onclick="if (!this.dataset.helpUrl.trim()) return false;
+                                   try {
+                                   var helpUrl = new window.URL(this.dataset.helpUrl, window.location.href);
+                                   if (helpUrl.protocol === 'https:' || helpUrl.protocol === 'http:') {
+                                       popupPage(600,750,helpUrl.href);
+                                   }
+                                   } catch (invalidHelpUrl) { /* Invalid saved URLs cannot be opened. */ }
+                                   return false;"><fmt:message key="global.help"/></a>
                             <%} else {%>
                             <div id="help-link">
                                 <a href="javascript:void(0)"
@@ -386,6 +405,51 @@
 <script>
     var scheduleNavActive = <%=scheduleNavActive%>;
     var contextPath = document.getElementById("contextPath").value;
+
+    function normalizeScheduleMenuNavigationMode(mode) {
+        if (mode === 'tab' || mode === 'focused') {
+            return mode;
+        }
+        return 'popup';
+    }
+
+    function applyScheduleMenuNavigationPreference(mode) {
+        var normalizedMode = normalizeScheduleMenuNavigationMode(mode);
+        scheduleNavActive = normalizedMode === 'tab' || normalizedMode === 'focused';
+    }
+
+    var existingApplyScheduleNavigationPreference = window.applyScheduleNavigationPreference;
+    window.applyScheduleNavigationPreference = function(mode) {
+        applyScheduleMenuNavigationPreference(mode);
+        if (typeof existingApplyScheduleNavigationPreference === 'function'
+                && existingApplyScheduleNavigationPreference !== applyScheduleMenuNavigationPreference) {
+            existingApplyScheduleNavigationPreference(mode);
+        }
+    };
+
+    function handleScheduleMenuNavigationPreferenceMessage(message) {
+        if (message && message.mode) {
+            applyScheduleMenuNavigationPreference(message.mode);
+        }
+    }
+
+    try {
+        var scheduleNavigationPreferenceChannel = new BroadcastChannel('carlos_schedule_navigation_mode');
+        scheduleNavigationPreferenceChannel.onmessage = function(event) {
+            handleScheduleMenuNavigationPreferenceMessage(event.data);
+        };
+    } catch(e) { /* BroadcastChannel not supported */ }
+
+    try {
+        window.addEventListener('storage', function(event) {
+            if (event.key !== 'carlos_schedule_navigation_mode' || !event.newValue) {
+                return;
+            }
+            try {
+                handleScheduleMenuNavigationPreferenceMessage(JSON.parse(event.newValue));
+            } catch(e) {}
+        });
+    } catch(e) {}
 
     function appendScheduleMenuQueryParam(url, key, value) {
         var parts = String(url).split('#');

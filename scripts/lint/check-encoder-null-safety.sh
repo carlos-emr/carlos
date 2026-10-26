@@ -19,7 +19,8 @@
 # Fails the build if any non-commented JSP/JSPF content contains:
 #   1. <e:forXxx> without the owasp.encoder.jakarta taglib declared.
 #   2. <e:forXxx> or ${e:forXxx(...)} anywhere (use <carlos:encode> / ${carlos:forXxx}).
-#   3. <%= Encode.forXxx(...) %> scriptlet (use SafeEncode.forXxx).
+#   3. <%= Encode.forXxx(...) %> or <%= JavaScriptUtils.javaScriptEscape(...) %>
+#      scriptlet (use SafeEncode.forXxx / SafeEncode.forJavaScript).
 #
 # Intentional exceptions go in scripts/lint/encode-null-safety-allowlist.txt.
 #

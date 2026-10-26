@@ -49,6 +49,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao, io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib prefix="s" uri="/struts-tags" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -128,12 +129,11 @@
                         data: new FormData(formData[0]),
                         processData: false,
                         contentType: false,
-                        dataType: "text",
+                        dataType: "json",
                         success: function (response) {
                             HideSpin();
-                            const jsondata = JSON.parse(response.substring(response.indexOf('{'), response.indexOf('}') + 1));
-                            showResponse(file.name, jsondata.warnings, jsondata.importLog);
-                            resolve(jsondata);
+                            showResponse(file.name, response);
+                            resolve(response);
                         },
                         error: function (error) {
                             HideSpin();
@@ -144,12 +144,24 @@
                 });
             }
 
-            function showResponse(fileName, warnings, importLog) {
+            function importOutcome(imported, refused) {
+                if (!Number.isSafeInteger(imported) || !Number.isSafeInteger(refused) || imported < 0 || refused < 0) {
+                    return {heading: 'Import outcome unavailable', color: 'red'};
+                }
+                if (imported === 0) return {heading: 'No patients imported', color: 'red'};
+                if (refused > 0) return {heading: 'Import completed with refusals', color: '#8a5700'};
+                return {heading: 'Imported Successfully', color: 'green'};
+            }
+
+            function showResponse(fileName, response) {
+                const {warnings, importLog, importedPatients, refusedPatients} = response;
+                const outcome = importOutcome(importedPatients, refusedPatients);
                 const resultDiv = $('<div>');
 
                 resultDiv.append($('<h4>').text('File Name: ' + fileName));
 
-                resultDiv.append($('<h5>').text('Imported Successfully').css('color', 'green'));
+                resultDiv.append($('<h5>').text(outcome.heading).css('color', outcome.color));
+                resultDiv.append($('<p>').text('Patients imported: ' + importedPatients + '; refused: ' + refusedPatients));
 
                 if (warnings && warnings.length > 0) {
                     resultDiv.append($('<h5>').text('Warnings:'));
@@ -160,7 +172,9 @@
                     resultDiv.append(warningsList);
                 }
 
-                resultDiv.append($('<a>').attr('href', '<%=request.getContextPath() %>/form/importLogDownload?importlog=' + encodeURIComponent(importLog)).attr('target', '_blank').text('Download Import Event Log'));
+                if (importLog) {
+                    resultDiv.append($('<a>').attr('href', '<%=request.getContextPath() %>/form/importLogDownload?importlog=' + encodeURIComponent(importLog)).attr('target', '_blank').text('Download Import Event Log'));
+                }
                 resultDiv.append($('<hr>'));
 
                 $('#result').append(resultDiv);
@@ -171,7 +185,17 @@
 
                 errorDiv.append($('<h4>').text('File Name: ' + fileName));
 
-                errorDiv.append($('<h5>').text('500 Server Error: Invalid file').css('color', 'red'));
+                errorDiv.append($('<h5>').text('Import failed: check the file and try again').css('color', 'red'));
+                // Interceptor INPUT responses are HTML. Read only validation text; never insert their markup.
+                if (typeof responseText === 'string' && responseText.length > 0) {
+                    const rejected = new window.DOMParser().parseFromString(responseText, 'text/html');
+                    const warnings = rejected.querySelectorAll('#importValidationErrors li');
+                    if (warnings.length) {
+                        const list = $('<ul>');
+                        warnings.forEach(warning => list.append($('<li>').text(warning.textContent.trim())));
+                        errorDiv.append(list);
+                    }
+                }
                 errorDiv.append($('<hr>'));
 
                 $('#result').append(errorDiv);
@@ -184,6 +208,19 @@
     </head>
     <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
     <body vlink="#0000FF">
+<%-- Multipart rejections (an empty part, a file over the 50MB cap, too many
+     files, a field over struts.multipart.maxStringLength, a parse failure) are
+     produced by the interceptor stack BEFORE this page's action runs, and reach
+     this page through its "input" result. The action never executed, so any
+     error channel keyed off an attribute the action sets is empty here -- and
+     without this block the rejection renders the ordinary form again with no
+     explanation, which is indistinguishable from a page refresh. --%>
+<s:if test="hasActionErrors()">
+    <div id="importValidationErrors" class="alert alert-danger" role="alert">
+        <s:actionerror/>
+    </div>
+</s:if>
+
 
     <%
         CarlosProperties op = CarlosProperties.getInstance();

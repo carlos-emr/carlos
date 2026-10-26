@@ -124,6 +124,8 @@ INSERT INTO `appointment_status` VALUES
 (5,'E','Empty Room','#FFFF33','empty.gif',1,1,NULL,NULL),
 (6,'a','Customized 1','#897DF8','1.gif',1,1,NULL,NULL),
 (7,'b','Customized 2','#897DF8','2.gif',1,1,NULL,NULL),
+-- Customized 3 is intentionally seeded inactive (active=0); the schedule status
+-- cycle skips inactive statuses by design. Activate via Schedule status admin.
 (8,'c','Customized 3','#897DF8','3.gif',0,1,NULL,NULL),
 (9,'d','Customized 4','#897DF8','4.gif',1,1,NULL,NULL),
 (10,'e','emailed','#897DF8','5.gif',1,1,NULL,NULL),

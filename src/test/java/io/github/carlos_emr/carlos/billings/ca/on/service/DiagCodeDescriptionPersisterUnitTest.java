@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -57,6 +58,47 @@ class DiagCodeDescriptionPersisterUnitTest {
         assertThat(updated).isTrue();
         assertThat(code.getDescription()).isEqualTo("Acute infection");
         verify(dao).merge(code);
+    }
+
+    @Test
+    @DisplayName("should update the full four-character code named after the button label's last space")
+    void shouldUpdateFullCode_whenButtonLabelNamesFourCharacterCode() {
+        DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
+        DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
+        DiagnosticCode code = new DiagnosticCode();
+        when(dao.findByDiagnosticCode("2740")).thenReturn(List.of(code));
+
+        boolean updated = persister.updateDescription("Update 2740", "Gout");
+
+        assertThat(updated).isTrue();
+        assertThat(code.getDescription()).isEqualTo("Gout");
+        verify(dao).merge(code);
+        verify(dao, never()).findByDiagnosticCode("740");
+    }
+
+    @Test
+    @DisplayName("should refuse a missing description instead of blanking the stored text")
+    void shouldThrowTypedException_whenDescriptionIsMissing() {
+        DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
+        DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
+
+        assertThatThrownBy(() -> persister.updateDescription("Update 250", null))
+                .isInstanceOf(DiagDescriptionUpdateException.class)
+                .hasMessageContaining("missing description");
+
+        verify(dao, never()).findByDiagnosticCode(any());
+        verify(dao, never()).merge(any(DiagnosticCode.class));
+    }
+
+    @Test
+    @DisplayName("should read the code after the last space, or the legacy last three characters")
+    void shouldExtractCode_fromSubmitValueForms() {
+        assertThat(DiagCodeDescriptionPersister.codeFromSubmitValue("Update 250")).isEqualTo("250");
+        assertThat(DiagCodeDescriptionPersister.codeFromSubmitValue("Mettre à jour 2740")).isEqualTo("2740");
+        assertThat(DiagCodeDescriptionPersister.codeFromSubmitValue("update001")).isEqualTo("001");
+        assertThat(DiagCodeDescriptionPersister.codeFromSubmitValue("Update ")).isNull();
+        assertThat(DiagCodeDescriptionPersister.codeFromSubmitValue("x")).isNull();
+        assertThat(DiagCodeDescriptionPersister.codeFromSubmitValue(null)).isNull();
     }
 
     @Test
@@ -95,6 +137,26 @@ class DiagCodeDescriptionPersisterUnitTest {
                 .isInstanceOf(DiagDescriptionUpdateException.class)
                 .hasMessageContaining("001")
                 .hasCauseInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    @DisplayName("should omit diagnostic code before logging")
+    void shouldOmitDiagnosticCode_whenDaoLookupFails() {
+        DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
+        DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
+        when(dao.findByDiagnosticCode("1\r\n")).thenThrow(new RuntimeException("lock\r\nforged-exception"));
+
+        try (LogCapture capture = LogCapture.forLogger(DiagCodeDescriptionPersister.class)) {
+            assertThatThrownBy(() -> persister.updateDescription("update1\r\n", "Acute infection"))
+                    .isInstanceOf(DiagDescriptionUpdateException.class);
+
+            assertThat(capture.messages()).hasSize(1);
+            String logged = capture.messages().get(0);
+            assertThat(logged).doesNotContain("\r").doesNotContain("\n");
+            assertThat(logged).contains(RuntimeException.class.getName());
+            assertThat(logged).doesNotContain("1\r\n", "1\\r\\n", "lock\r\nforged-exception",
+                    "lock\\r\\nforged-exception", "forged-exception");
+        }
     }
 
     @Test

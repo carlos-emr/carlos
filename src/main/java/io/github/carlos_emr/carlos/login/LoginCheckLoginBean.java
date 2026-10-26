@@ -35,8 +35,6 @@ import java.security.MessageDigest;
 import java.util.Date;
 import java.util.List;
 
-import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
@@ -46,9 +44,9 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -73,7 +71,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <ul>
  *   <li>PIN required for WAN (remote) access when bRemotelockset == 1</li>
  *   <li>PIN required for LAN (local) access when bLocallockset == 1</li>
- *   <li>PIN can be encrypted based on CarlosProperties.isPINEncripted()</li>
+ *   <li>PIN supports legacy encrypted values and modern hashes</li>
  *   <li>PIN check disabled for users with MFA enabled</li>
  *   <li>PIN check disabled if global legacy PIN setting is off</li>
  * </ul>
@@ -166,20 +164,26 @@ public final class LoginCheckLoginBean {
     /** Security object for authenticated user (contains password hash, PIN, expiration, etc.) */
     private Security security = null;
 
+    /** True only after this bean has completed a successful credential check for the current request. */
+    private boolean authenticationSuccessful = false;
+
+    /** True only when the current successful authentication still needs a deferred PIN hash upgrade. */
+    private boolean pinHashUpgradeRequired = false;
+
     /**
      * Initializes the bean with authentication credentials.
      *
      * <p>This method must be called before {@link #authenticate()}. It sets the
-     * username, password, PIN, and IP address fields via their respective setters. The password and
-     * PIN setters preserve legacy space-to-backspace transformation behavior; username and IP are
-     * stored as supplied.
+     * username, password, PIN, and IP address fields via their respective setters. The
+     * PIN setter preserves legacy space-to-backspace transformation behavior. Passwords,
+     * usernames and IP addresses are stored as supplied.
      *
      * @param user_name String the username to authenticate
      * @param password String the plain-text password
      * @param pin1 String the 4-digit provider PIN (may be null if PIN not required)
      * @param ip1 String the client IP address for LAN/WAN detection
      * @see #setUsername for username storage
-     * @see #setPassword for legacy password space-to-backspace transformation
+     * @see #setPassword for exact password storage
      * @see #setPin for legacy PIN space-to-backspace transformation
      * @see #setIp for IP address storage
      */
@@ -210,7 +214,7 @@ public final class LoginCheckLoginBean {
      *   <li>Remote (WAN) access: PIN required if bRemotelockset == 1</li>
      *   <li>Local (LAN) access: PIN required if bLocallockset == 1</li>
      *   <li>PIN must be at least 3 characters</li>
-     *   <li>PIN encrypted if CarlosProperties.isPINEncripted() returns true</li>
+     *   <li>PIN supports legacy encrypted values and modern hashes</li>
      * </ul>
      *
      * <p>Password validation:
@@ -218,6 +222,8 @@ public final class LoginCheckLoginBean {
      *   <li>Legacy passwords (&lt; 20 chars): plain-text comparison</li>
      *   <li>Modern passwords (>= 20 chars): BCrypt validation via {@link SecurityManager}</li>
      *   <li>Successful legacy password login triggers automatic BCrypt migration</li>
+     *   <li>Historical space-to-backspace passwords are verified only after the exact value fails,
+     *       then migrated to a hash of the exact entered password</li>
      * </ul>
      *
      * <p>Return value formats:
@@ -235,6 +241,8 @@ public final class LoginCheckLoginBean {
      * @see SecurityManager#upgradeSavePasswordHash for legacy password migration
      */
     public String[] authenticate() {
+        authenticationSuccessful = false;
+        pinHashUpgradeRequired = false;
         // Retrieve Security record and populate provider info (firstname, lastname, etc.)
         security = getUserID();
 
@@ -245,16 +253,22 @@ public final class LoginCheckLoginBean {
             return cleanNullObj(LOG_PRE + "No Such User: " + username);
         }
 
-        // Encrypt PIN if encryption is enabled in configuration
-        String sPin = pin;
-        if (sPin != null && CarlosProperties.getInstance().isPINEncripted()) sPin = Misc.encryptPIN(sPin);
-
-        // Validate PIN for remote (WAN) access
-        if (this.isPinCheckEnabled() && isWAN() && security.getBRemotelockset() != null && security.getBRemotelockset().intValue() == 1 && (!sPin.equals(security.getPin()) || pin.length() < 3)) {
-            return cleanNullObj(LOG_PRE + "Pin-remote needed: " + username);
+        boolean isWan = isWAN();
+        boolean isPinCheckEnabled = this.isPinCheckEnabled();
+        boolean isRemotePinRequired = isPinCheckEnabled && isWan && isEnabled(security.getBRemotelockset());
+        boolean isLocalPinRequired = isPinCheckEnabled && !isWan && isEnabled(security.getBLocallockset());
+        boolean isPinRequired = isRemotePinRequired || isLocalPinRequired;
+        boolean isPinValid = true;
+        if (isPinRequired) {
+            isPinValid = this.securityManager.validatePin(pin, security);
+            if (isPinValid) {
+                pinHashUpgradeRequired = requiresDeferredPinHashUpgrade(security);
+            }
         }
-        // Validate PIN for local (LAN) access
-        else if (this.isPinCheckEnabled() && !isWAN() && security.getBLocallockset() != null && security.getBLocallockset().intValue() == 1 && (!sPin.equals(security.getPin()) || pin.length() < 3)) {
+
+        if (isRemotePinRequired && !isPinValid) {
+            return cleanNullObj(LOG_PRE + "Pin-remote needed: " + username);
+        } else if (isLocalPinRequired && !isPinValid) {
             return cleanNullObj(LOG_PRE + "Pin-local needed: " + username);
         }
 
@@ -284,6 +298,11 @@ public final class LoginCheckLoginBean {
             auth = MessageDigest.isEqual(
                     password.getBytes(StandardCharsets.UTF_8),
                     userpassword.getBytes(StandardCharsets.UTF_8));
+            if (!auth && password.indexOf(' ') >= 0) {
+                auth = MessageDigest.isEqual(
+                        password.replace(' ', '\b').getBytes(StandardCharsets.UTF_8),
+                        userpassword.getBytes(StandardCharsets.UTF_8));
+            }
             // Migrate legacy password to BCrypt on successful authentication
             if (auth) {
                 boolean isPasswordUpgraded = this.securityManager.upgradeSavePasswordHash(this.password, this.security);
@@ -296,10 +315,19 @@ public final class LoginCheckLoginBean {
         // Modern password (>= 20 chars): BCrypt validation
         else {
             auth = this.securityManager.validatePassword(this.password, this.security);
+            if (!auth && password.indexOf(' ') >= 0) {
+                // Older login code replaced ASCII spaces before checking or upgrading passwords.
+                // Verify that historical candidate without upgrading it to another backspace hash.
+                auth = this.securityManager.matchesPassword(password.replace(' ', '\b'), userpassword);
+                if (auth && !this.securityManager.upgradeSavePasswordHash(password, security)) {
+                    logger.error("Error while upgrading legacy space password hash");
+                }
+            }
         }
 
         // Return provider information array on successful authentication
         if (auth) {
+            authenticationSuccessful = true;
             String[] strAuth = new String[7];
             strAuth[0] = security.getProviderNo();
             strAuth[1] = firstname;
@@ -317,6 +345,32 @@ public final class LoginCheckLoginBean {
     }
 
     /**
+     * Best-effort PIN hash upgrade for the current authenticated login.
+     *
+     * <p>Call this only after the caller has completed all remaining post-authentication gates and
+     * is about to establish the final logged-in session. The upgrade is skipped unless this bean has
+     * already completed a successful credential check for the current request.</p>
+     */
+    void upgradeValidatedPinIfNeeded() {
+        if (!authenticationSuccessful || security == null || !pinHashUpgradeRequired) {
+            return;
+        }
+
+        try {
+            boolean isPinHashUpgraded = this.securityManager.upgradeSavePinHash(pin, security);
+            if (!isPinHashUpgraded) {
+                logger.error("Error while upgrading PIN hash");
+            }
+        } catch (RuntimeException e) {
+            logger.error("Error while upgrading PIN hash", e);
+        }
+    }
+
+    private boolean requiresDeferredPinHashUpgrade(Security security) {
+        return this.securityManager.isPinHashUpgradeNeeded(security);
+    }
+
+    /**
      * Cleans sensitive data and logs failed authentication attempt.
      *
      * <p>This method is called when authentication fails for reasons other than
@@ -325,7 +379,7 @@ public final class LoginCheckLoginBean {
      * <p>Security measures:
      * <ul>
      *   <li>Drops object references to userpassword and password fields after the failed attempt</li>
-     *   <li>Logs failed attempt with OWASP-encoded username for PHI protection</li>
+     *   <li>Logs failed attempt with log-safe username sanitization</li>
      *   <li>Returns null to indicate authentication failure</li>
      * </ul>
      *
@@ -334,9 +388,8 @@ public final class LoginCheckLoginBean {
      * @see #cleanNullObjExpire for expired password cleanup
      */
     private String[] cleanNullObj(String errorMsg) {
-        logger.warn(errorMsg);
-        // SECURITY: OWASP encode username for HTML context to prevent injection in logs
-        LogAction.addLogSynchronous("", "failed", LogConst.CON_LOGIN, Encode.forHtmlContent(username), ip);
+        logger.warn(LogSafe.sanitize(errorMsg));
+        LogAction.addLogSynchronous("", "failed", LogConst.CON_LOGIN, LogSafe.sanitize(username), ip);
         // Drop references after the failed attempt. These are immutable Strings, so this does not
         // wipe already-allocated heap contents.
         userpassword = null;
@@ -358,8 +411,16 @@ public final class LoginCheckLoginBean {
         return dummySecurity;
     }
 
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
+            justification = "Timing-only verification against the precomputed dummy BCrypt hash; "
+                    + "neither result can authorize a login")
     private void validateDummyPassword() {
         securityManager.validatePassword(password == null ? "" : password, missingUserDummySecurity());
+        if (password != null && password.indexOf(' ') >= 0) {
+            // A failed real BCrypt login with spaces performs the same compatibility check.
+            // Keep missing-user and legacy-plaintext failures at the same BCrypt work factor.
+            securityManager.matchesPassword(password.replace(' ', '\b'), MISSING_USER_DUMMY_PASSWORD_HASH);
+        }
     }
 
     /**
@@ -372,7 +433,7 @@ public final class LoginCheckLoginBean {
      * <p>Security measures:
      * <ul>
      *   <li>Drops object references to userpassword and password fields after the expired attempt</li>
-     *   <li>Logs expiration event with OWASP-encoded username for PHI protection</li>
+     *   <li>Logs expiration event with log-safe username sanitization</li>
      *   <li>Returns ["expired"] array to indicate account expiration</li>
      * </ul>
      *
@@ -381,9 +442,8 @@ public final class LoginCheckLoginBean {
      * @see #cleanNullObj for general authentication failure cleanup
      */
     private String[] cleanNullObjExpire(String errorMsg) {
-        logger.warn(errorMsg);
-        // SECURITY: OWASP encode username for HTML context to prevent injection in logs
-        LogAction.addLogSynchronous("", "expired", LogConst.CON_LOGIN, Encode.forHtmlContent(username), ip);
+        logger.warn(LogSafe.sanitize(errorMsg));
+        LogAction.addLogSynchronous("", "expired", LogConst.CON_LOGIN, LogSafe.sanitize(username), ip);
         // Drop references after the expired attempt. These are immutable Strings, so this does not
         // wipe already-allocated heap contents.
         userpassword = null;
@@ -439,6 +499,11 @@ public final class LoginCheckLoginBean {
         SecUserRoleDao secUserRoleDao = (SecUserRoleDao) SpringUtils.getBean(SecUserRoleDao.class);
         List<SecUserRole> roles = secUserRoleDao.getUserRoles(security.getProviderNo());
         for (SecUserRole role : roles) {
+            // Only active (activeyn = 1) role assignments belong in the session role string;
+            // an inactive assignment must not grant access. Boolean.TRUE.equals is null-tolerant.
+            if (!Boolean.TRUE.equals(role.getActive())) {
+                continue;
+            }
             if (rolename == null) {
                 rolename = role.getRoleName();
             } else {
@@ -476,16 +541,13 @@ public final class LoginCheckLoginBean {
     }
 
     /**
-     * Sets the password for authentication using the legacy space-to-backspace transformation.
-     *
-     * <p>This method replaces ASCII space characters with backspace characters. This preserves
-     * historical authentication behavior; it does not trim or remove all whitespace.
+     * Sets the exact password for authentication without trimming or replacing whitespace.
+     * Historical space-to-backspace compatibility is handled only after exact verification fails.
      *
      * @param password String the plain-text password
      */
     public void setPassword(String password) {
-        // Preserve legacy space-to-backspace behavior.
-        this.password = password == null ? "" : password.replace(' ', '\b');
+        this.password = password == null ? "" : password;
     }
 
     /**
@@ -535,5 +597,9 @@ public final class LoginCheckLoginBean {
 	private boolean isPinCheckEnabled() {
 		return MfaManager.isOscarLegacyPinEnabled() && !security.isUsingMfa();
 	}
+
+    private boolean isEnabled(Integer value) {
+        return Integer.valueOf(1).equals(value);
+    }
 
 }

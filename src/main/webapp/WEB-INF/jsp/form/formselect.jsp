@@ -80,15 +80,19 @@
                                         <td>
                                             <table>
                                                 <tr>
+                                                    <%-- min-width, not width: these labels are localized, so a fixed box
+                                                         clips the text (English "<< Delete" overflowed 80px by 18px) and
+                                                         a longer translation would clip further. min-width keeps the
+                                                         buttons aligned at their original size and lets them grow. --%>
                                                     <td><input type="button" name="button" id="add" class="btn function"
-                                                               style="width:80px"
+                                                               style="min-width:80px"
                                                                value="<fmt:message key="encounter.oscarMeasurements.MeasurementsAction.addBtn"/> >>"
                                                     /></td>
                                                 </tr>
                                                 <tr>
                                                     <td>
                                                         <input type="button" name="button" class="btn function"
-                                                               id="delete" style="width:80px"
+                                                               id="delete" style="min-width:80px"
                                                                value="<< <fmt:message key="encounter.oscarMeasurements.MeasurementsAction.deleteBtn"/>"/>
                                                     </td>
                                                 </tr>
@@ -116,9 +120,11 @@
                         </table>
                     </td>
                     <td>
-                        <input type="button" name="button" class="btn function" value="Move Up" style="width:100px"
+                        <%-- min-width for the same reason as the Add/Delete buttons above:
+                             "Move Down" overflowed its 100px box by 7px. --%>
+                        <input type="button" name="button" class="btn function" value="Move Up" style="min-width:100px"
                                id="up"/> <br>
-                        <input type="button" name="button" class="btn function" value="Move Down" style="width:100px"
+                        <input type="button" name="button" class="btn function" value="Move Down" style="min-width:100px"
                                id="down"/></td>
                 </tr>
             </table>

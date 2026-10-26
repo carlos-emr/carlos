@@ -60,6 +60,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
 /**
  * Renders scatter plot and line chart images (JPEG) for clinical measurements
  * such as blood pressure and vitals in the encounter view.
@@ -84,6 +87,48 @@ public class ScatterPlotChartServlet extends HttpServlet {
 
         if (demographicNo == null && bean != null) {
             demographicNo = bean.getDemographicNo();
+        }
+
+        // Security fix (issue #2623): patient-scoped authorization check,
+        // mirroring the pattern in MeasurementData2Action.java (measurements/web).
+        //
+        // A missing demographicNo is rejected outright, before any privilege
+        // check runs: hasPrivilege() falls back to a general role check when
+        // demographicNo is null, which would reopen the IDOR gap this fix is
+        // meant to close (flagged by automated review on this PR).
+        if (demographicNo == null) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            httpServletResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
+        Integer demographicNoInt;
+        try {
+            demographicNoInt = Integer.valueOf(demographicNo);
+            if (demographicNoInt <= 0) {
+                httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+        } catch (NumberFormatException e) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        // Authorization and DAO lookups must name the same patient, including for
+        // inputs such as 00123. Patient-specific overrides take precedence over
+        // general privileges; explicit chart restrictions are checked separately.
+        demographicNo = demographicNoInt.toString();
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", demographicNo)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
         }
 
         try {

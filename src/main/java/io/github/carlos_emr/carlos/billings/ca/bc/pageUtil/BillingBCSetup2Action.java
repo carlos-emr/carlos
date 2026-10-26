@@ -121,6 +121,8 @@ public final class BillingBCSetup2Action extends ActionSupport {
             // with the regex-validated values so downstream code can trust them.
             bean.setPatientNo(demoNo);
             bean.setApptNo(apptNo);
+            // The creator is an audit field: take it from the session, not the request.
+            bean.setCreator(loggedInInfo.getLoggedInProviderNo());
             if (request.getAttribute("serviceDate") != null) {
                 MiscUtils.getLogger().debug("service Date set to the appointment Date"
                         + (String) request.getAttribute("serviceDate"));
@@ -155,7 +157,6 @@ public final class BillingBCSetup2Action extends ActionSupport {
         bean.setProviderView(request.getParameter("providerview"));
         bean.setBillRegion(request.getParameter("billRegion"));
         bean.setBillForm(request.getParameter("billForm"));
-        bean.setCreator(request.getParameter("user_no"));
         bean.setPatientNo(request.getParameter("demographic_no"));
         bean.setApptNo(request.getParameter("appointment_no"));
         bean.setApptDate(request.getParameter("appointment_date"));

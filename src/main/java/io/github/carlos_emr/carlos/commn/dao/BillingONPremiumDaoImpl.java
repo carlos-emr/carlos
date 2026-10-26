@@ -64,8 +64,9 @@ public class BillingONPremiumDaoImpl extends AbstractDaoImpl<BillingONPremium> i
         super(BillingONPremium.class);
     }
 
+    // payDate is a SQL DATE; both report calendar boundaries are inclusive.
     public List<BillingONPremium> getActiveRAPremiumsByPayDate(Date startDate, Date endDate, Locale locale) {
-        String sql = "select bPrem from BillingONPremium bPrem where payDate >= ?1 and payDate < ?2 and status=?3";
+        String sql = "select bPrem from BillingONPremium bPrem where payDate >= ?1 and payDate <= ?2 and status=?3";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, startDate);
         query.setParameter(2, endDate);
@@ -77,7 +78,7 @@ public class BillingONPremiumDaoImpl extends AbstractDaoImpl<BillingONPremium> i
     }
 
     public List<BillingONPremium> getActiveRAPremiumsByProvider(Provider p, Date startDate, Date endDate, Locale locale) {
-        String sql = "select bPrem from BillingONPremium bPrem where payDate >= ?1 and payDate < ?2 and status=?3 and providerNo=?4";
+        String sql = "select bPrem from BillingONPremium bPrem where payDate >= ?1 and payDate <= ?2 and status=?3 and providerNo=?4";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, startDate);
         query.setParameter(2, endDate);

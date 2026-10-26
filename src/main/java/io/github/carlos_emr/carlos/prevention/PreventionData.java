@@ -41,6 +41,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
+import io.github.carlos_emr.carlos.commn.interfaces.Immunization.ImmunizationProperty;
 import io.github.carlos_emr.carlos.managers.DHIRSubmissionManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -64,19 +65,25 @@ public class PreventionData {
     }
 
     private static Date stringToDate(String date) {
-        if (date == null)
-            return null;
-        Date ret = UtilDateUtilities.StringToDate(date, "yyyy-MM-dd HH:mm");
-        if (ret != null) {
-            return ret;
+        if (date == null || date.isBlank()) return null;
+        try {
+            java.time.LocalDateTime value = date.length() == 10
+                    ? java.time.LocalDate.parse(date).atStartOfDay()
+                    : java.time.LocalDateTime.parse(date, java.time.format.DateTimeFormatter
+                        .ofPattern("uuuu-MM-dd HH:mm").withResolverStyle(java.time.format.ResolverStyle.STRICT));
+            return Date.from(value.atZone(java.time.ZoneId.systemDefault()).toInstant());
+        } catch (java.time.format.DateTimeParseException invalidDate) {
+            throw new IllegalArgumentException("Invalid prevention date", invalidDate);
         }
-        ret = UtilDateUtilities.StringToDate(date, "yyyy-MM-dd");
-
-        return ret;
-
     }
 
     private static PartialDate setPreventionDate(Prevention prevention, String date) {
+        // CDS imports may explicitly omit an unknown clinical date. The interactive action
+        // separately requires a date; preserve undated imports without inventing one.
+        if (date == null || date.isBlank()) {
+            prevention.setPreventionDate(null);
+            return null;
+        }
         PartialDate pd = null;
         if (date.length() == 4) {
             pd = new PartialDate();
@@ -100,15 +107,14 @@ public class PreventionData {
     }
 
     public static Integer insertPreventionData(String creator, String demoNo, String date, String providerNo, String providerName, String preventionType, String refused, String nextDate, String neverWarn, ArrayList<Map<String, String>> list, String snomedId, String din) {
-        Integer insertId = -1;
-        try {
+        return preventionTransaction().execute(status -> {
             Prevention prevention = new Prevention();
             prevention.setCreatorProviderNo(creator);
             prevention.setDemographicId(Integer.valueOf(demoNo));
             PartialDate pd = setPreventionDate(prevention, date);
             prevention.setProviderNo(providerNo);
             prevention.setPreventionType(preventionType);
-            prevention.setNextDate(UtilDateUtilities.StringToDate(nextDate, "yyyy-MM-dd"));
+            prevention.setNextDate(stringToDate(nextDate));
             prevention.setNever(neverWarn.trim().equals("1"));
             if (refused.trim().equals("1")) prevention.setRefused(true);
             else if (refused.trim().equals("2")) prevention.setIneligible(true);
@@ -119,9 +125,9 @@ public class PreventionData {
                 pd.setTableId(prevention.getId());
                 partialDateDao.persist(pd);
             }
-            if (prevention.getId() == null) return insertId;
+            if (prevention.getId() == null) throw new IllegalStateException("Prevention was not persisted");
 
-            insertId = prevention.getId();
+            Integer insertId = prevention.getId();
             for (int i = 0; i < list.size(); i++) {
                 Map<String, String> h = list.get(i);
                 for (Map.Entry<String, String> entry : h.entrySet()) {
@@ -130,23 +136,21 @@ public class PreventionData {
                     }
                 }
             }
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
-        }
-        return insertId;
+            return insertId;
+        });
+    }
+
+    private static org.springframework.transaction.support.TransactionTemplate preventionTransaction() {
+        return new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
     }
 
     public static void addPreventionKeyValue(String preventionId, String keyval, String val) {
-        try {
-            PreventionExt preventionExt = new PreventionExt();
-            preventionExt.setPreventionId(Integer.valueOf(preventionId));
-            preventionExt.setKeyval(keyval);
-            preventionExt.setVal(val);
-
-            preventionExtDao.persist(preventionExt);
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
-        }
+        PreventionExt preventionExt = new PreventionExt();
+        preventionExt.setPreventionId(Integer.valueOf(preventionId));
+        preventionExt.setKeyval(keyval);
+        preventionExt.setVal(val);
+        preventionExtDao.persist(preventionExt);
     }
 
     public static Map<String, String> getPreventionKeyValues(String preventionId) {
@@ -167,14 +171,21 @@ public class PreventionData {
     }
 
     public static void deletePreventionData(String id) {
-        try {
+        preventionTransaction().executeWithoutResult(status -> {
             Prevention prevention = preventionDao.find(Integer.valueOf(id));
+            if (prevention == null || prevention.isDeleted()) {
+                throw new IllegalArgumentException("Prevention record not found");
+            }
             prevention.setDeleted(true);
-
             preventionDao.merge(prevention);
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
-        }
+        });
+    }
+
+    public static void deletePreventionData(String id, String demographicNo) {
+        preventionTransaction().executeWithoutResult(status -> {
+            requirePreventionInChart(Integer.parseInt(id), Integer.parseInt(demographicNo));
+            deletePreventionData(id);
+        });
     }
 
     public static void setNextPreventionDate(String date, String id) {
@@ -202,8 +213,23 @@ public class PreventionData {
     }
 
     public static Integer updatetPreventionData(String id, String creator, String demoNo, String date, String providerNo, String providerName, String preventionType, String refused, String nextDate, String neverWarn, ArrayList<Map<String, String>> list, String snomedId) {
-        deletePreventionData(id);
-        return insertPreventionData(creator, demoNo, date, providerNo, providerName, preventionType, refused, nextDate, neverWarn, list, snomedId, null);
+        return preventionTransaction().execute(status -> {
+            requirePreventionInChart(Integer.parseInt(id), Integer.parseInt(demoNo));
+            deletePreventionData(id);
+            return insertPreventionData(creator, demoNo, date, providerNo, providerName,
+                    preventionType, refused, nextDate, neverWarn, list, snomedId, null);
+        });
+    }
+
+    /** Reject unrelated or deleted records while preserving access from a merged parent chart. */
+    public static void requirePreventionInChart(int id, int demographicNo) {
+        Prevention prevention = preventionDao.find(id);
+        if (prevention == null || prevention.isDeleted()
+                || (!Objects.equals(prevention.getDemographicId(), demographicNo)
+                    && !SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class)
+                        .getMergedDemographics(demographicNo).contains(prevention.getDemographicId()))) {
+            throw new IllegalArgumentException("Prevention record not found in this patient chart");
+        }
     }
 
     public static ArrayList<Map<String, Object>> getPreventionDataFromExt(String extKey, String extVal) {
@@ -282,6 +308,19 @@ public class PreventionData {
         return getPreventionData(loggedInInfo, null, demoNo);
     }
 
+    /**
+     * Returns the value of a single prevention extension key, or {@code null} when absent.
+     * Used where a detached Prevention needs one extension without initializing the lazy
+     * {@code preventionExts} collection.
+     */
+    private static String getPreventionExtValue(Integer preventionId, String key) {
+        List<PreventionExt> preventionExts = preventionExtDao.findByPreventionIdAndKey(preventionId, key);
+        if (preventionExts == null || preventionExts.isEmpty()) {
+            return null;
+        }
+        return preventionExts.get(0).getVal();
+    }
+
     public static List<Prevention> getPrevention(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
         return preventionDao.findByTypeAndDemoNo(preventionType, demographicId);
     }
@@ -310,8 +349,10 @@ public class PreventionData {
                 h.put("provider_no", prevention.getProviderNo());
                 if (!StringUtils.isEmpty(prevention.getProviderNo())) {
                     if ("-1".equals(prevention.getProviderNo())) {
-                        prevention.setPreventionExtendedProperties();
-                        h.put("provider_name", prevention.getPreventionExtendedProperties().get("providerName"));
+                        // External provider: the name lives in PreventionExt. A targeted lookup is
+                        // used because this entity is detached and its preventionExts collection is lazy.
+                        h.put("provider_name", getPreventionExtValue(prevention.getId(),
+                                ImmunizationProperty.providerName.name()));
                     } else {
                         h.put("provider_name", ProviderData.getProviderName(prevention.getProviderNo()));
                     }

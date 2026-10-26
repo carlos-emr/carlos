@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.webserv;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -55,7 +56,8 @@ import org.springframework.stereotype.Component;
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class DocumentWs extends AbstractWs {
-    private Logger logger = MiscUtils.getLogger();
+    private static final Logger logger = MiscUtils.getLogger();
+    private static final String EDOC_OBJECT = "_edoc";
 
     @Autowired
     private DocumentManager documentManager;
@@ -63,11 +65,21 @@ public class DocumentWs extends AbstractWs {
     @Autowired
     private ProgramManager programManager;
 
+    /**
+     * Unscoped gate first, then the linked patient's scope before the transfer is built.
+     *
+     * <p>{@code DocumentTransfer.toTransfer} embeds the document's file bytes, and
+     * {@code DocumentManager.getDocument} authorizes with an empty demographic scope, so the scoped
+     * re-check has to happen here. Only documents linked to a patient carry a scope; module rows
+     * that are not {@code demographic} keep the unscoped decision.</p>
+     */
     public DocumentTransfer getDocument(Integer documentId) {
+        requirePrivilege(EDOC_OBJECT, "r");
         try {
             LoggedInInfo loggedInInfo = getLoggedInInfo();
             Document document = documentManager.getDocument(loggedInInfo, documentId);
             CtlDocument ctlDocument = documentManager.getCtlDocumentByDocumentId(loggedInInfo, documentId);
+            requireDocumentReadPrivilege(ctlDocument);
             return (DocumentTransfer.toTransfer(document, ctlDocument));
         } catch (IOException e) {
             logger.error("Unexpected error", e);
@@ -76,12 +88,14 @@ public class DocumentWs extends AbstractWs {
     }
 
     public DocumentTransfer[] getDocumentsUpdateAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
+        requirePrivilege(EDOC_OBJECT, "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Document> documents = documentManager.getDocumentsUpdateAfterDate(loggedInInfo, updatedAfterThisDateExclusive, itemsToReturn);
-        return (DocumentTransfer.getTransfers(loggedInInfo, documents));
+        return (DocumentTransfer.getTransfers(loggedInInfo, filterReadableDocuments(loggedInInfo, documents)));
     }
 
     public DocumentTransfer[] getDocumentsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
+        requirePrivilege(EDOC_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Document> documents = documentManager.getDocumentsByProgramProviderDemographicDate(loggedInInfo, programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
         logger.debug("programId=" + programId + ", providerNo=" + providerNo + ", demographicId=" + demographicId + ", updatedAfterThisDateExclusive=" + DateFormatUtils.ISO_DATETIME_FORMAT.format(updatedAfterThisDateExclusive) + ", itemsToReturn=" + itemsToReturn + ", results=" + documents.size());
@@ -89,8 +103,55 @@ public class DocumentWs extends AbstractWs {
     }
 
     public DocumentTransfer[] getDocumentsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
+        requirePrivilege(EDOC_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Document> documents = documentManager.getDocumentsByDemographicIdUpdateAfterDate(loggedInInfo, demographicId, lastUpdate.getTime());
         return (DocumentTransfer.getTransfers(loggedInInfo, documents));
+    }
+
+    /**
+     * Patient scope of a document, or null when the row is not linked to a patient.
+     *
+     * <p>{@code ctl_document} is a generic join table: {@code moduleId} only means a demographic
+     * number when {@code module} is {@code demographic}, so anything else must stay unscoped rather
+     * than be read as a patient id.</p>
+     */
+    private Integer demographicScope(CtlDocument ctlDocument) {
+        if (ctlDocument == null || ctlDocument.getId() == null || !ctlDocument.isDemographicDocument()) {
+            return null;
+        }
+        return ctlDocument.getId().getModuleId();
+    }
+
+    private void requireDocumentReadPrivilege(CtlDocument ctlDocument) {
+        Integer demographicId = demographicScope(ctlDocument);
+        if (demographicId != null) {
+            requirePrivilege(EDOC_OBJECT, "r", String.valueOf(demographicId));
+        }
+    }
+
+    /**
+     * Drops documents whose patient the caller may not read, for the bulk sync endpoint.
+     *
+     * <p>Costs one {@code ctl_document} lookup per document on top of the one
+     * {@code DocumentTransfer.getTransfers} already performs. That duplication is deliberate: the
+     * transfer builds the file bytes, so the decision has to be made before it runs.</p>
+     */
+    private List<Document> filterReadableDocuments(LoggedInInfo loggedInInfo, List<Document> documents) {
+        List<Document> readable = new ArrayList<Document>();
+        if (documents == null) {
+            return readable;
+        }
+        for (Document document : documents) {
+            if (document == null) {
+                continue;
+            }
+            Integer demographicId = demographicScope(
+                    documentManager.getCtlDocumentByDocumentId(loggedInInfo, document.getId()));
+            if (demographicId == null || hasPrivilege(EDOC_OBJECT, "r", demographicId)) {
+                readable.add(document);
+            }
+        }
+        return readable;
     }
 }

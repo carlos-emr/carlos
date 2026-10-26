@@ -22,6 +22,23 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Appointment Status Settings
+
+    Purpose:
+      Lists appointment statuses and provides the administration controls used
+      to edit, reset, enable, and disable them.
+
+    Features:
+      Encoded status rendering, edit links, action feedback, and CSRF-protected
+      POST forms for reset and activation changes.
+
+    Request attributes:
+      allStatus - appointment statuses rendered in the settings table.
+      useStatus - status-usage data populated by the paired action.
+
+    @since 2026-08-07
+--%>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.AppointmentStatus" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -29,6 +46,9 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="/struts-tags" prefix="s" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -41,28 +61,38 @@
 
 <html>
 <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
+    <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/global.js"></script>
     <title><fmt:message key="admin.appt.status.mgr.title"/></title>
-    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+    <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/jquery/jquery-compat.js"></script>
     <script>
         jQuery.noConflict();
     </script>
+    <link rel="stylesheet" type="text/css" media="all" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/css/extractedFromPages.css"/>
+<style>
+    .inline-action { display: inline; }
+    .link-button { background: none; border: 0; color: #0000EE; cursor: pointer; padding: 0; text-decoration: underline; }
+    .status-header { background-color: #486ebd; }
+    .status-title { color: #FFFFFF; font-family: Helvetica, sans-serif; text-align: center; white-space: nowrap; }
+    .status-reset { color: #CCCCCC; font-family: Helvetica, sans-serif; text-align: right; white-space: nowrap; }
+</style>
 </head>
-<link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 <body>
-<%
-    String reseturl = request.getContextPath();
-    reseturl = reseturl + "/appointment/apptStatusSetting?dispatch=reset";
-%>
 <table border=0 cellspacing=0 cellpadding=0 width="100%">
-    <tr bgcolor="#486ebd">
-        <th align="CENTER" NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.appt.status.mgr.title"/></font></th>
-        <th align="right" NOWRAP><font face="Helvetica" color="#CCCCCC"><a
-                href=<%=reseturl%>>reset</a></font></th>
+    <tr class="status-header">
+        <th class="status-title"><fmt:message key="admin.appt.status.mgr.title"/></th>
+        <th class="status-reset">
+            <form class="inline-action" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/apptStatusSetting" method="post">
+                <input type="hidden" name="dispatch" value="reset"/>
+                <button class="link-button" type="submit"><fmt:message key="admin.appt.status.mgr.label.reset"/></button>
+            </form>
+        </th>
     </tr>
 </table>
+
+<s:actionerror/>
+<s:actionmessage/>
 
 
 <table class="borderAll" width="100%">
@@ -72,7 +102,6 @@
         <th><fmt:message key="admin.appt.status.mgr.label.color"/></th>
         <th><fmt:message key="admin.appt.status.mgr.label.enable"/></th>
         <th><fmt:message key="admin.appt.status.mgr.label.active"/></th>
-        <th>&nbsp;</th>
     </tr>
     <%
         List apptsList = (List) request.getAttribute("allStatus");
@@ -89,33 +118,40 @@
             strStatus = apptStatus.getStatus();
             strDesc = apptStatus.getDescription();
             strColor = apptStatus.getColor();
+            String displayColor = strColor != null && strColor.matches("#[0-9A-Fa-f]{6}")
+                    ? strColor : "#FFFFFF";
             iActive = apptStatus.getActive();
             iEditable = apptStatus.getEditable();
     %>
     <tr class=<%=(i % 2 == 0) ? "even" : "odd"%>>
-        <td class="nowrap"><%=strStatus%>
+        <td class="nowrap"><%=SafeEncode.forHtmlContent(strStatus)%>
         </td>
-        <td class="nowrap"><%=strDesc%>
+        <td class="nowrap"><%=SafeEncode.forHtmlContent(strDesc)%>
         </td>
-        <td class="nowrap" bgcolor="<%=strColor%>"><%=strColor%>
+        <td class="nowrap" style="background-color: <%=SafeEncode.forCssString(displayColor)%>"><%=SafeEncode.forHtmlContent(strColor)%>
         </td>
         <td class="nowrap"><%=iActive%>
         </td>
         <td class="nowrap">
             <%
                 String url = request.getContextPath();
-                url = url + "/appointment/apptStatusSetting?dispatch=modify&statusID=";
+                url = url + "/appointment/apptStatusSetting?dispatch=modify&id=";
                 url = url + iStatusID;
-            %> <a href=<%=url%>>Edit</a> &nbsp;&nbsp;&nbsp; <%
+            %> <a href="<%=SafeEncode.forHtmlAttribute(url)%>"><fmt:message key="oscar.appt.status.mgr.label.edit"/></a> &nbsp;&nbsp;&nbsp; <%
             int iToStatus = (iActive > 0) ? 0 : 1;
-            url = request.getContextPath();
-            url = url + "/appointment/apptStatusSetting?dispatch=changestatus&iActive=";
-            url = url + iToStatus;
-            url = url + "&statusID=";
-            url = url + iStatusID;
+            String activationMessageKey = (iActive > 0)
+                    ? "admin.appt.status.mgr.label.disable"
+                    : "admin.appt.status.mgr.label.enableAction";
             if (iEditable == 1) {
-        %> <a href=<%=url%>><%=(iActive > 0) ? "Disable" : "Enable"%>
-        </a>
+        %>
+            <form class="inline-action" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/apptStatusSetting" method="post">
+                <input type="hidden" name="dispatch" value="changestatus"/>
+                <input type="hidden" name="id" value="<%=iStatusID%>"/>
+                <input type="hidden" name="active" value="<%=iToStatus%>"/>
+                <button class="link-button" type="submit">
+                    <fmt:message key="<%=activationMessageKey%>"/>
+                </button>
+            </form>
             <%
                 }
             %>
@@ -131,7 +167,7 @@
     String strUseStatus = (String) request.getAttribute("useStatus");
     if (null != strUseStatus && strUseStatus.length() > 0) {
 %>
-The code [<%=strUseStatus%>] has been used before, please enable that
+The code [<%=SafeEncode.forHtmlContent(strUseStatus)%>] has been used before, please enable that
 status.
 <%
     }

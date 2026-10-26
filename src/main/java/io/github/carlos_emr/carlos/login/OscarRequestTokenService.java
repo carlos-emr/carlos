@@ -61,6 +61,8 @@ package io.github.carlos_emr.carlos.login;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Request;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopeEnforcement;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopes;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
@@ -71,9 +73,10 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class OscarRequestTokenService {
 
@@ -117,7 +120,7 @@ public class OscarRequestTokenService {
         String cbRaw = oreq.callback; // keep whatever the parser gives (was working before)
         String cbToStore;
 
-        if ("oob".equals(cbRaw)) {
+        if (isOutOfBandCallback(cbRaw)) {
             cbToStore = "oob";
         } else if (cbRaw != null && !cbRaw.isEmpty()) {
             // decode once (RFC3986) and normalize to plain canonical URL
@@ -125,13 +128,22 @@ public class OscarRequestTokenService {
             cbToStore = normalizeUrl(decoded);
         } else {
             // fallback to app-registered callback if your flow allows it
-            cbToStore = normalizeUrl(client.getCallbackUri());
+            String registeredCallback = client.getCallbackUri();
+            cbToStore = isOutOfBandCallback(registeredCallback) ? "oob" : normalizeUrl(registeredCallback);
         }
 
         reg.setCallback(cbToStore);   // <-- store plain URL now (not encoded)
 
-        if (oreq.scopesCsv != null && !oreq.scopesCsv.isBlank()) {
-            reg.setScopes(oreq.scopesCsv.split("\\s+"));
+        // OAuth1ParamParser leaves query and Authorization-header values percent-encoded (it only maps
+        // '+' to a space), so "demographic.read%20provider.read" would read as one unknown scope and,
+        // under enforcement (#4419), refuse every multi-scope request. Scopes are plain ASCII
+        // tokens, so one percent-decode is safe whichever source the value came from.
+        // OAuthScopes.parseScopeString decodes once and drops empty tokens, so stray whitespace is not
+        // rejected as an unknown scope; the interceptor reads stored scopes with the same helper.
+        String[] requestedScopes = OAuthScopes.parseScopeString(oreq.scopesCsv).toArray(new String[0]);
+        validateRequestedScopes(requestedScopes);
+        if (requestedScopes.length > 0) {
+            reg.setScopes(requestedScopes);
         }
         RequestToken rt = dataProvider.createRequestToken(reg);
 
@@ -142,6 +154,32 @@ public class OscarRequestTokenService {
         return Response.ok(body).type(MediaType.APPLICATION_FORM_URLENCODED).build();
     }
     
+    /**
+     * Validates the scopes requested at {@code /initiate} against the recognised vocabulary (issue #3083).
+     *
+     * <p>When scope enforcement is enabled, a request token may only be issued for known
+     * {@code <domain>.read}/{@code <domain>.write} scopes, and at least one scope must be requested; this
+     * stops arbitrary/meaningless scope strings (and empty grants that later read as "full access") from
+     * being persisted onto a token. Enforcement is off unless an operator turns it on
+     * ({@link OAuthScopeEnforcement}, #4419); while it is off this is a no-op.
+     *
+     * @throws OAuth1Exception 400 {@code invalid_scope} if no scopes are requested or any requested scope
+     *                         is outside the vocabulary
+     */
+    private static void validateRequestedScopes(String[] scopes) {
+        if (!OAuthScopeEnforcement.isEnabled()) {
+            return;
+        }
+        if (scopes == null || scopes.length == 0) {
+            throw new OAuth1Exception(400, "invalid_scope");
+        }
+        for (String scope : scopes) {
+            if (!OAuthScopes.isKnownScope(scope)) {
+                throw new OAuth1Exception(400, "invalid_scope");
+            }
+        }
+    }
+
     private static String enc(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
     }
@@ -166,23 +204,55 @@ public class OscarRequestTokenService {
         return out.toString();
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     private static String normalizeUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return url;
+        }
         try {
-            var u = java.net.URI.create(url).normalize();
-            String scheme = u.getScheme() == null ? null : u.getScheme().toLowerCase();
-            String host   = u.getHost()   == null ? null : u.getHost().toLowerCase();
+            var u = URI.create(url).normalize();
+            String scheme = normalizeScheme(u);
+            if (!isHttpScheme(scheme)) {
+                throw new OAuth1Exception(400, "invalid_callback_scheme");
+            }
+            String host = u.getHost();
+            if (host == null || host.isBlank()) {
+                throw new OAuth1Exception(400, "invalid_callback");
+            }
+            host = toAsciiLowerCase(host);
             int port = u.getPort();
-            if ((port == 80 && "http".equalsIgnoreCase(scheme)) ||
-                (port == 443 && "https".equalsIgnoreCase(scheme))) {
+            if ((port == 80 && "http".equals(scheme)) ||
+                (port == 443 && "https".equals(scheme))) {
                 port = -1; // drop default ports
             }
             String path = (u.getPath() == null || u.getPath().isEmpty()) ? "/" : u.getPath();
-            return new java.net.URI(scheme, u.getUserInfo(), host, port, path, u.getQuery(), u.getFragment()).toString();
-        } catch (Exception ignore) {
-            return url; // fail-safe
+            return new URI(scheme, u.getUserInfo(), host, port, path, u.getQuery(), u.getFragment()).toString();
+        } catch (OAuth1Exception e) {
+            throw e;
+        } catch (IllegalArgumentException | URISyntaxException e) {
+            throw new OAuth1Exception(400, "invalid_callback");
         }
+    }
+
+    private static String normalizeScheme(URI uri) {
+        String scheme = uri.getScheme();
+        return scheme == null ? null : toAsciiLowerCase(scheme);
+    }
+
+    private static boolean isHttpScheme(String scheme) {
+        return "http".equals(scheme) || "https".equals(scheme);
+    }
+
+    private static boolean isOutOfBandCallback(String callback) {
+        return callback != null && toAsciiLowerCase(callback).equals("oob");
+    }
+
+    private static String toAsciiLowerCase(String value) {
+        StringBuilder lowered = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            lowered.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+        }
+        return lowered.toString();
     }
 
 }

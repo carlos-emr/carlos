@@ -3,13 +3,15 @@
 > **Source of truth**: `CLAUDE.md` at repository root. Last synced: April 2026.
 > **Specialized agents**: See `.github/agents/` for domain-specific guidance (security, backend, testing, database, frontend).
 > **Path-specific rules**: See `.github/instructions/` for auto-applied rules on JSP, Action, test, and SQL files.
+> **Release policy**: `docs/release-process.md` is authoritative for branch targets, CalVer versions, snapshots, tags, hotfixes, and forward merges.
+> Start normal work from and target `develop`. Start a supported-release fix from and target the oldest affected `release/YYYY.MM`, then forward-merge it into newer lines while preserving target version and SCM metadata. Target `main` only for current-train release preparation or a necessary, narrowly scoped release-infrastructure correction. Never tag a snapshot or move, delete, or reuse a release tag, and never edit a Flyway migration present in a published tag.
 
 **PROJECT IDENTITY**: Always refer to this system as "CARLOS EMR" or "CARLOS" in user-facing displays and documentation.
 
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
+**Stack**: Java 25, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
 **Architecture**: Multi-layered healthcare web application with complex medical database schema
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
@@ -17,7 +19,7 @@
 
 | Category | Technology | Version |
 |----------|-----------|---------|
-| Language | Java | 21 |
+| Language | Java | 25 |
 | Framework | Spring Framework | 7.0.6 |
 | Security | Spring Security | 7.0.4 |
 | Web | Struts | 7.1.1 |

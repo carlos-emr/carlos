@@ -40,8 +40,8 @@ public abstract class BaseEFormView2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        if (!isMethodAllowed(request.getMethod())) {
-            response.setHeader("Allow", "GET, HEAD");
+        if (!isMethodAllowed(request)) {
+            response.setHeader("Allow", allowedMethods());
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
@@ -64,6 +64,13 @@ public abstract class BaseEFormView2Action extends ActionSupport {
         boolean allowed;
         String objectName;
         switch (privilege) {
+            case FIELDNOTE_READ:
+            case FIELDNOTE_WRITE:
+                objectName = "_admin.fieldnote";
+                allowed = securityInfoManager.hasPrivilege(loggedInInfo, objectName,
+                        privilege == EFormViewRoutes.Privilege.FIELDNOTE_WRITE
+                                ? SecurityInfoManager.WRITE : SecurityInfoManager.READ, null);
+                break;
             case EFORM_READ:
                 objectName = "_eform";
                 allowed = securityInfoManager.hasPrivilege(
@@ -97,9 +104,25 @@ public abstract class BaseEFormView2Action extends ActionSupport {
         return NONE;
     }
 
+    /**
+     * Returns whether the current request method is allowed for this view route.
+     * Subclasses may allow narrowly scoped POST bridges for non-mutating legacy flows.
+     */
+    protected boolean isMethodAllowed(HttpServletRequest request) {
+        return isReadMethod(request.getMethod());
+    }
+
+    /**
+     * Returns the RFC 7231 Allow header value for this route.
+     * Subclasses that accept additional methods should override this to keep 405 responses accurate.
+     */
+    protected String allowedMethods() {
+        return "GET, HEAD";
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private boolean isMethodAllowed(String method) {
+    private boolean isReadMethod(String method) {
         return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
     }
 }

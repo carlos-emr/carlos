@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.messenger.data;
 
 
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 import io.github.carlos_emr.carlos.commn.dao.GroupMembersDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupsDao;
@@ -150,8 +152,14 @@ public class MsgAddressBookMaker {
 
         // Add all provider members of this group
         GroupMembersDao gDao = SpringUtils.getBean(GroupMembersDao.class);
+        Set<String> recipients = new HashSet<>();
         for (Object[] g : gDao.findMembersByGroupId(groupId)) {
             Provider p = (Provider) g[1];
+            String providerNo = p.getProviderNo();
+            if (providerNo == null || providerNo.isEmpty() || providerNo.startsWith("-")
+                    || !"1".equals(p.getStatus()) || !recipients.add(providerNo)) {
+                continue;
+            }
 
             Element address = MsgCommxml.addNode(group, "address");
             address.setAttribute("id", p.getProviderNo());

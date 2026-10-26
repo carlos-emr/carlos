@@ -59,7 +59,6 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
@@ -121,7 +120,7 @@
         formdata.setReviewerId(currentDoc.getReviewerId());
         formdata.setReviewDateTime(currentDoc.getReviewDateTime());
         formdata.setContentDateTime(UtilDateUtilities.DateToString(currentDoc.getContentDateTime(), EDocUtil.CONTENT_DATETIME_FORMAT));
-        formdata.setHtml(UtilMisc.htmlEscape(currentDoc.getHtml()));
+        formdata.setHtml(currentDoc.getHtml());
         lastUpdate = currentDoc.getDateTimeStamp();
         fileName = currentDoc.getFileName();
     } else {
@@ -284,7 +283,7 @@
 
         var docSubClassList = [
             <% for (int i=0; i<subClasses.size(); i++) { %>
-            "<%=subClasses.get(i)%>"<%=(i<subClasses.size()-1)?",":""%>
+            "<carlos:encode value='<%= subClasses.get(i) %>' context='javaScript'/>"<%=(i<subClasses.size()-1)?",":""%>
             <% } %>
         ];
 
@@ -370,7 +369,7 @@
         </tr>
         <tr>
             <td>Added By:</td>
-            <td><%=EDocUtil.getProviderName(formdata.getDocCreator())%>
+            <td><carlos:encode value='<%= EDocUtil.getProviderName(formdata.getDocCreator()) %>' context='html'/>
             </td>
         </tr>
         <tr>
@@ -396,21 +395,21 @@
         </tr>
         <tr>
             <td><fmt:message key="dms.addDocument.formContentAddedUpdated"/>:</td>
-            <td><%=formdata.getContentDateTime()%>
+            <td><carlos:encode value='<%= formdata.getContentDateTime() %>' context='html'/>
             </td>
         </tr>
         <tr>
             <td>Source Author:</td>
-            <td><input type="text" name="source" size="15" value="<%=formdata.getSource()%>"/></td>
+            <td><input type="text" name="source" size="15" value="<carlos:encode value='<%= formdata.getSource() %>' context='htmlAttribute'/>"/></td>
         </tr>
         <tr>
             <td>Source Facility:</td>
-            <td><input type="text" name="sourceFacility" size="15" value="<%=formdata.getSourceFacility()%>"/></td>
+            <td><input type="text" name="sourceFacility" size="15" value="<carlos:encode value='<%= formdata.getSourceFacility() %>' context='htmlAttribute'/>"/></td>
         </tr>
         <tr>
             <td>Observation Date <font class="comment">(yyyy/mm/dd):</font></td>
             <td><input type="text" name="observationDate"
-                       id="observationDate" value="<%=formdata.getObservationDate()%>"><a
+                       id="observationDate" value="<carlos:encode value='<%= formdata.getObservationDate() %>' context='htmlAttribute'/>"><a
                     id="obsdate"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif"
                                       alt="Calendar" border="0"/></a></td>
         </tr>
@@ -425,7 +424,7 @@
         <tr>
             <td colspan="2">
                 <% if (formdata.getReviewerId() != null && !formdata.getReviewerId().equals("")) { %>
-                Reviewed: &nbsp; <%=EDocUtil.getProviderName(formdata.getReviewerId())%>
+                Reviewed: &nbsp; <carlos:encode value='<%= EDocUtil.getProviderName(formdata.getReviewerId()) %>' context='html'/>
                 &nbsp; [<%=formdata.getReviewDateTime()%>]
                 <% } else { %>
                 <input type="button" value="Reviewed" title="Click to set Reviewed" onclick="reviewed(this);"/>
@@ -439,8 +438,7 @@
         <tr>
             <td colspan="2">
 			    <textarea name="html" <% if (linkhtmlerrors.containsKey("uploaderror")) {%>
-                          class="warning" <%}%> wrap="off" style="width: 98%; height: 200px;"><%=formdata.getHtml()%>
-			    </textarea>
+                          class="warning" <%}%> wrap="off" style="width: 98%; height: 200px;"><carlos:encode value='<%= formdata.getHtml() %>' context='html'/></textarea>
             </td>
         </tr>
     </table>
