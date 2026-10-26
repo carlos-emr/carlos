@@ -51,9 +51,11 @@
             entry.append(element('pre', row.fingerprint));
             if (row.firstDevice && !row.expired && panel.dataset.write === 'true') {
                 const form = element('form');
+                form.className = 'mycarlos-device-approval-form';
                 form.method = 'post';
                 form.action = panel.dataset.endpoint;
                 const label = element('label', text('device.fingerprint'));
+                label.className = 'mycarlos-device-fingerprint';
                 const input = element('input');
                 input.type = 'text';
                 input.required = true;
@@ -63,13 +65,14 @@
                 input.spellcheck = false;
                 label.append(input);
                 const confirmation = element('label');
+                confirmation.className = 'mycarlos-device-confirmation';
                 const confirmed = element('input');
                 confirmed.type = 'checkbox';
                 confirmed.required = true;
                 confirmation.append(confirmed, document.createTextNode(text('first.confirm')));
                 const submit = element('button', text('first.action'));
                 submit.type = 'submit';
-                submit.className = 'portal-button';
+                submit.className = 'portal-button portal-button--primary';
                 form.append(label, confirmation, submit);
                 form.addEventListener('submit', event => {
                     event.preventDefault();

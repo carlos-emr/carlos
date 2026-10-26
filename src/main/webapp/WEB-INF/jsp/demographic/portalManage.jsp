@@ -61,6 +61,7 @@
     <title><fmt:message key="demographic.portal.title"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link href="${carlos:forHtmlAttribute(ctx)}/share/css/portal-manage.css" rel="stylesheet">
+    <c:if test="${portalCanReadDevices}"><link href="${carlos:forHtmlAttribute(ctx)}/share/css/mycarlos-devices.css" rel="stylesheet"></c:if>
 </head>
 <body class="portal-page">
 <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
