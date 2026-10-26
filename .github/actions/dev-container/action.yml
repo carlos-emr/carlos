@@ -84,7 +84,8 @@ runs:
     - name: Try to pull pre-built image from ghcr.io
       id: pull
       shell: bash
-      continue-on-error: true
+      # Expected Docker failures are reported through outputs with exit status 0.
+      # Unexpected script failures must stop setup before any local-build fallback.
       env:
         IMAGE: ${{ inputs.image }}
         ACTION_PATH: ${{ github.action_path }}
@@ -148,7 +149,7 @@ runs:
                .m2-cache/repository/com/github/librepdf
 
     - name: Build dev container (fallback)
-      if: steps.pull.outputs.pulled != 'true'
+      if: steps.pull.outputs.pulled == 'false' && steps.pull.outputs.reason == 'not-found'
       shell: bash
       run: |
         echo "Building container locally..."

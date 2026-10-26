@@ -15,7 +15,7 @@
 # codeql/); the top-level release/ directory is gitignored.
 #
 # KEEP THE BASE DIGEST IN SYNC with .devcontainer/development/Dockerfile so the
-# release WAR is compiled by the same JDK build that CI verified it with.
+# release and development builders declare the same JDK base image.
 #
 # License:
 # This file is part of the CARLOS EMR project and is subject to the licensing
@@ -28,9 +28,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # Maven and git come from the base image's Ubuntu archive, unpinned, exactly
 # as they do in the development container that verifies every PR. Pinning
 # apt versions here would break the build the moment the archive supersedes
-# them (Ubuntu keeps no old versions), while the build inputs that matter
-# are fixed elsewhere: dependencies-lock.json pins every artifact and the
-# pom pins every plugin, so Maven's own version does not change the WAR.
+# them (Ubuntu keeps no old versions). The dependency lock and pom constrain
+# artifacts and plugin versions; unpinned archive tooling still means builds
+# are not guaranteed to produce identical WAR bytes across time.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends maven git ca-certificates \
     && rm -rf /var/lib/apt/lists/*

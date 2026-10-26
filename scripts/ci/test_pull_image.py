@@ -56,6 +56,19 @@ esac
     def test_failed_tag_fails(self):
         self.assertEqual(self.classify('tag-failure'), {'pulled': 'false', 'reason': 'error'})
 
+    def test_missing_required_inputs_fail_without_reporting_fallback(self):
+        for variable in ('IMAGE', 'GITHUB_OUTPUT'):
+            with self.subTest(variable=variable), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / 'output'
+                env = {**os.environ, 'IMAGE': 'fixture/dev:latest',
+                       'GITHUB_OUTPUT': str(output)}
+                del env[variable]
+                result = subprocess.run(['bash', str(SCRIPT)], cwd=directory, env=env,
+                                        capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(variable, result.stderr)
+                self.assertFalse(output.exists())
+
 
 if __name__ == '__main__':
     unittest.main()
