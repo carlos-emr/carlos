@@ -19,7 +19,8 @@ jobs:
   script-regressions:
     name: Node Script Regressions
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # Leave room for cold Chromium dependency downloads before the browser checks.
+    timeout-minutes: 15
     env:
       CARLOS_CTL_SRC: ${{ github.workspace }}/.carlos-ctl
     steps:
