@@ -91,7 +91,9 @@
         try {
             const state = await request(operation === 'read' ? 'GET' : 'POST', {method: operation, ...fields});
             render(state);
-            status.textContent = state.refusedRequests && state.refusedRequests.length ? text('status.expired') : ''; 
+            status.textContent = state.refusedRequests && state.refusedRequests.length
+                ? text(state.refusedRequests.every(reason => reason === 'challenge_expired')
+                    ? 'status.expired' : 'status.unavailable') : ''; 
         } catch (_) {
             status.textContent = text('status.unavailable');
         } finally {

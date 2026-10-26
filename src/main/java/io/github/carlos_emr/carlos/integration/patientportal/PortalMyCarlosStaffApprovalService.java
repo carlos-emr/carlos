@@ -37,6 +37,7 @@ public final class PortalMyCarlosStaffApprovalService {
     private final java.util.function.Function<PatientPortalService, PortalMyCarlosApprovalClient> suppliedClient;
     private final SecureRandom random = new SecureRandom();
 
+    @org.springframework.beans.factory.annotation.Autowired
     public PortalMyCarlosStaffApprovalService(PortalMyCarlosDeviceApprovalTransactions transactions,
             EntityManagerFactory factory, SecurityInfoManager security, PropertyDao properties) {
         this(transactions, factory, security, properties, null, null, null);
