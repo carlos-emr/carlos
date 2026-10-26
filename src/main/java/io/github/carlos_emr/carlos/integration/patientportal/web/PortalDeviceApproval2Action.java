@@ -49,7 +49,7 @@ public final class PortalDeviceApproval2Action extends PortalJsonAction {
             var pending = json.putArray("pending");
             for (var row : state.pending()) pending.addObject().put("challengeId", row.challengeId())
                     .put("challengeSha256", row.challengeSha256()).put("fingerprint", row.fingerprint())
-                    .put("expiresAt", row.expiresAt().toString()).put("firstDevice", row.firstDevice());
+                    .put("expiresAt", row.expiresAt().toString()).put("firstDevice", row.firstDevice()).put("expired", row.expired());
             var devices = json.putArray("devices");
             for (var row : state.devices()) {
                 var device = devices.addObject().put("deviceKeyId", row.deviceKeyId()).put("fingerprint", row.fingerprint())

@@ -47,9 +47,9 @@
         });
         state.pending.forEach(row => {
             const entry = element('div');
-            entry.append(element('p', text(row.firstDevice ? 'first.body' : 'later.hint')));
+            entry.append(element('p', text(row.expired ? 'status.expired' : row.firstDevice ? 'first.body' : 'later.hint')));
             entry.append(element('pre', row.fingerprint));
-            if (row.firstDevice && panel.dataset.write === 'true') {
+            if (row.firstDevice && !row.expired && panel.dataset.write === 'true') {
                 const form = element('form');
                 form.method = 'post';
                 form.action = panel.dataset.endpoint;

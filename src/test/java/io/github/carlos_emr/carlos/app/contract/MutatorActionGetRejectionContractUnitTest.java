@@ -389,6 +389,8 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Read is GET; refresh/approval mutation intent is POST-only. Focused unit covers both GET and HEAD.
+        "io.github.carlos_emr.carlos.integration.patientportal.web.PortalDeviceApproval2Action",
         // Portal email recovery: GET only renders the stored state, whatever parameters it
         // carries; only POST runs a recovery operation. Covered by PortalEmailDelivery2ActionUnitTest.
         "io.github.carlos_emr.carlos.integration.patientportal.web.PortalEmailDelivery2Action",

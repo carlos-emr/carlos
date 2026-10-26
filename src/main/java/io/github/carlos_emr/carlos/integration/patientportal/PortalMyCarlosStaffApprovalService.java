@@ -57,7 +57,7 @@ public final class PortalMyCarlosStaffApprovalService {
     }
 
     public record Pending(String challengeId, String challengeSha256, String fingerprint, Instant expiresAt,
-            boolean firstDevice) {}
+            boolean firstDevice, boolean expired) {}
     public record Device(String deviceKeyId, String fingerprint, Instant acceptedAt, Instant removedAt) {}
     public record State(List<Pending> pending, List<Device> devices, List<String> refusedRequests) {
         public State { pending = List.copyOf(pending); devices = List.copyOf(devices); refusedRequests = List.copyOf(refusedRequests); }
@@ -76,22 +76,32 @@ public final class PortalMyCarlosStaffApprovalService {
         String enabled = PatientPortalSettings.rawProperty(ENABLED);
         if (enabled == null || "false".equals(enabled)) return false;
         if (!"true".equals(enabled)) throw new PatientPortalConfigurationException(ENABLED + " must be true or false");
-        return PatientPortalSettings.isConfigured() && PortalMyCarlosDeliverySettings.isEnabled();
+        if (!PatientPortalSettings.isConfigured() || !PortalMyCarlosDeliverySettings.isEnabled()) return false;
+        canonicalDemoPublicBase(PatientPortalSettings.rawProperty(PortalInviteSettings.PUBLIC_BASE_URL_KEY));
+        return true;
     }
 
     private PortalMyCarlosDeviceApprovalService.Current current() {
         if (suppliedCurrent != null) return Objects.requireNonNull(suppliedCurrent.get());
         if (!isEnabled()) throw new IllegalStateException("approval_unavailable");
-        String publicBase = PatientPortalSettings.rawProperty(PortalInviteSettings.PUBLIC_BASE_URL_KEY);
-        if (publicBase == null || publicBase.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 1024
-                || !publicBase.equals(publicBase.strip()) || publicBase.contains("\\")) {
-            throw new PatientPortalConfigurationException("patient_portal.public_base_url is invalid for myCarlos");
-        }
-        // This adapter currently requires the operator-supplied canonical public base. A general
-        // Java WHATWG normalizer remains an enablement gate; no response can choose this target.
-        publicBase = PatientPortalSettings.validatedHttpsUrl(publicBase, PortalInviteSettings.PUBLIC_BASE_URL_KEY);
+        String publicBase = canonicalDemoPublicBase(PatientPortalSettings.rawProperty(PortalInviteSettings.PUBLIC_BASE_URL_KEY));
         return PortalMyCarlosDeviceApprovalService.Current.fromValidated(
                 PatientPortalSettings.fromCarlosProperties(), publicBase, true, true);
+    }
+
+    /** The first synthetic milestone deliberately enables only this exact canonical URL subset. */
+    static String canonicalDemoPublicBase(String raw) {
+        try {
+            if (raw == null || raw.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 1024
+                    || !raw.matches("https://localhost(?::[1-9][0-9]{0,4})?(?:/[A-Za-z0-9_-]+)*")) {
+                throw new IllegalArgumentException();
+            }
+            URI uri = URI.create(raw);
+            if (uri.getPort() == 443 || uri.getPort() > 65535) throw new IllegalArgumentException();
+            return raw;
+        } catch (IllegalArgumentException failure) {
+            throw new PatientPortalConfigurationException("myCarlos approval requires an already canonical localhost HTTPS public base URL");
+        }
     }
 
     private PortalMyCarlosDeviceApprovalService core(PortalMyCarlosDeviceApprovalService.SourceAuthorization source) {
@@ -115,7 +125,7 @@ public final class PortalMyCarlosStaffApprovalService {
         var pending = service.readPendingForStaff(info, patient).stream().map(row -> new Pending(
                 PortalMyCarlosDeviceApprovalCodec.base64(row.challengeId().copy()),
                 HexFormat.of().formatHex(row.challengeHash().copy()), fingerprint(row.candidateKid()),
-                row.expiresAt(), "staff_first".equals(row.kind()))).toList();
+                row.expiresAt(), "staff_first".equals(row.kind()), !Instant.now().isBefore(row.expiresAt()))).toList();
         var history = service.readCurrentAndRetainedHistory(info, patient, 0, 50);
         if (history.more()) throw new IllegalStateException("approval history requires pagination");
         return new State(pending, history.devices().stream().map(row -> new Device(row.kid(), fingerprint(row.kid()), row.acceptedAt(), row.removedAt())).toList(), List.of());
@@ -138,8 +148,15 @@ public final class PortalMyCarlosStaffApprovalService {
             for (var request : page.records()) {
                 var challenge = prepareRequest(info, patient, request, refused);
                 if (challenge == null) continue;
-                publish(challenge, "challenge", client);
-                publish(challenge, "decision", client);
+                try {
+                    publish(challenge, "challenge", client);
+                    publish(challenge, "decision", client);
+                } catch (PublicationPending pending) {
+                    refused.add("publication_pending");
+                } catch (PatientPortalException failure) {
+                    if (!retainPublicationRefusal(request, failure)) throw failure;
+                    refused.add("challenge_expired");
+                }
             }
             if (page.nextCursor() == null) { complete = true; break; }
             after = page.nextCursor();
@@ -154,6 +171,8 @@ public final class PortalMyCarlosStaffApprovalService {
             PortalMyCarlosApprovalClient.Request request, List<String> refused) {
         if (request.demographicNo() != patient) return null;
         requireStaff(info, patient, SecurityInfoManager.WRITE);
+        String terminal = journal.publication(current(), request, null);
+        if (terminal != null) { refused.add(terminal); return null; }
         String saved = journal.record(current(), request, null);
         if (saved != null && !"prepared".equals(saved)) { refused.add(saved); return null; }
         var service = core(expected -> {
@@ -171,6 +190,12 @@ public final class PortalMyCarlosStaffApprovalService {
         }
         journal.record(current(), request, "prepared");
         return challenge;
+    }
+
+    boolean retainPublicationRefusal(PortalMyCarlosApprovalClient.Request request, PatientPortalException failure) {
+        if (failure.statusCode() != 410 || !"approval_expired".equals(failure.detail())) return false;
+        journal.publication(current(), request, "challenge_expired");
+        return true;
     }
 
     public State approveFirst(LoggedInInfo info, int patient, String challengeId, String expectedHash,
@@ -208,7 +233,7 @@ public final class PortalMyCarlosStaffApprovalService {
             String expectedPath = "/internal/carlos/mycarlos/device-approval-requests/" + challenge.requestId() + "/" + kind;
             if (!URI.create(cfg.internalOrigin).resolve(expectedPath).toASCIIString().equals(row.targetUri())) throw new IllegalStateException("approval target changed");
             Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
-            if (row.nextAttemptAt().isAfter(now) || row.leaseExpiresAt() != null && row.leaseExpiresAt().isAfter(now)) throw new IllegalStateException("approval publication pending retry");
+            if (row.nextAttemptAt().isAfter(now) || row.leaseExpiresAt() != null && row.leaseExpiresAt().isAfter(now)) throw new PublicationPending();
             var leased = state(row, row.failures(), now, nonce(), now.plusSeconds(60), null);
             dao.updateLeaseState(row, leased);
             return leased;
@@ -243,6 +268,10 @@ public final class PortalMyCarlosStaffApprovalService {
                 token, lease, published, Math.addExact(row.version(), 1));
     }
     private static String fingerprint(String kid) { return HexFormat.of().formatHex(PortalMyCarlosDeviceApprovalCodec.exact32(kid)); }
+
+    private static final class PublicationPending extends IllegalStateException {
+        PublicationPending() { super("approval publication pending retry"); }
+    }
 
     private static final class ClinicSigner implements PortalMyCarlosDeviceApprovalService.Signer {
         public PortalMyCarlosDeviceApprovalService.SigningIdentity currentIdentity() {

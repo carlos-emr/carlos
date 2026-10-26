@@ -69,4 +69,85 @@ class PortalMyCarlosApprovalJournalUnitTest {
         assertEquals(1, f.signs.get());
     }
 
+    @Test void shouldKeepMovingAfterPreparedChallengeExpires_whenFirstPublicationWasNeverAdmitted() throws Exception {
+        var f = new PortalMyCarlosDeviceApprovalStateTestSupport.Fixture();
+        var transactions = new PortalMyCarlosDeviceApprovalTransactions(f.owner.transactions,
+                new PortalMyCarlosKeyInventoryWorker(f.properties));
+        var properties = mock(PropertyDao.class);
+        Map<String, Property> rows = new HashMap<>();
+        when(properties.findByNameForUpdate(anyString())).thenAnswer(call -> rows.containsKey(call.getArgument(0))
+                ? List.of(rows.get(call.getArgument(0))) : List.of());
+        doAnswer(call -> { Property row = call.getArgument(0); rows.put(row.getName(), row); return null; }).when(properties).persist(any());
+        var staff = new PortalMyCarlosStaffApprovalService(transactions, f.owner.factory, f.security, properties,
+                () -> f.current, source -> f.service, ignored -> null);
+        var old = new PortalMyCarlosApprovalClient.Request(1, 1, f.first.path("intent").path("compact").textValue());
+        var refused = new java.util.ArrayList<String>();
+        assertNotNull(staff.prepareRequest(f.session, 1, old, refused));
+        // The first HTTP attempt never reached the portal. A later, authenticated retry is
+        // explicitly refused at new challenge admission after its deadline.
+        f.clock.value = f.clock.value.plusSeconds(601);
+        assertTrue(staff.retainPublicationRefusal(old,
+                PatientPortalException.ofStatus(410, "/internal/carlos/mycarlos/device-approval-requests/{request_id}/challenge", "approval_expired")));
+        var claims = PortalMyCarlosDeviceApprovalStateTestSupport.claims(f.first.path("intent").path("claims"));
+        claims.put("request_id", "ab7c68f9-2093-4e8e-a865-d592e550e4c4");
+        claims.put("iat", f.clock.instant().getEpochSecond());
+        claims.put("exp", f.clock.instant().plusSeconds(590).getEpochSecond());
+        var key = PortalMyCarlosDeviceApprovalStateTestSupport.privateKey(f.data.path("keys").path("first"),
+                "FAKE_ed25519_private_pkcs8_b64url", "Ed25519");
+        var fresh = new PortalMyCarlosApprovalClient.Request(2, 1,
+                PortalMyCarlosDeviceApprovalCrypto.sign(PortalMyCarlosDeviceApprovalTypes.Kind.INTENT, claims, f.scope, key));
+        f.nextChallenge = new PortalMyCarlosDeviceApprovalTypes.Bytes(java.util.HexFormat.of().parseHex("47".repeat(32)));
+        for (int poll = 0; poll < 2; poll++) {
+            refused.clear();
+            assertNull(staff.prepareRequest(f.session, 1, old, refused));
+            assertEquals(List.of("challenge_expired"), refused);
+            assertNotNull(staff.prepareRequest(f.session, 1, fresh, refused));
+        }
+        assertEquals(3, rows.size());
+        assertEquals(2, f.challengeRows.size());
+        assertEquals(2, f.signs.get());
+    }
+
+    @Test void shouldJournalMalformedRecipientAndContinue_whenOldSignedIntentHasInvalidScope() throws Exception {
+        for (String recipient : List.of("", "x".repeat(65))) {
+            var f = new PortalMyCarlosDeviceApprovalStateTestSupport.Fixture();
+            var transactions = new PortalMyCarlosDeviceApprovalTransactions(f.owner.transactions,
+                    new PortalMyCarlosKeyInventoryWorker(f.properties));
+            var properties = mock(PropertyDao.class);
+            Map<String, Property> rows = new HashMap<>();
+            when(properties.findByNameForUpdate(anyString())).thenAnswer(call -> rows.containsKey(call.getArgument(0))
+                    ? List.of(rows.get(call.getArgument(0))) : List.of());
+            doAnswer(call -> { Property row = call.getArgument(0); rows.put(row.getName(), row); return null; }).when(properties).persist(any());
+            var staff = new PortalMyCarlosStaffApprovalService(transactions, f.owner.factory, f.security, properties,
+                    () -> f.current, source -> f.service, ignored -> null);
+            var claims = PortalMyCarlosDeviceApprovalStateTestSupport.claims(f.first.path("intent").path("claims"));
+            claims.put("recipient_id", recipient);
+            byte[] payload = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(claims);
+            var key = PortalMyCarlosDeviceApprovalStateTestSupport.privateKey(f.data.path("keys").path("first"),
+                    "FAKE_ed25519_private_pkcs8_b64url", "Ed25519");
+            var signer = java.security.Signature.getInstance("Ed25519");
+            signer.initSign(key); signer.update(payload);
+            String invalid = PortalMyCarlosDeviceApprovalCodec.base64(payload) + "." + PortalMyCarlosDeviceApprovalCodec.base64(signer.sign());
+            var old = new PortalMyCarlosApprovalClient.Request(1, 1, invalid);
+            var fresh = new PortalMyCarlosApprovalClient.Request(2, 1, f.first.path("intent").path("compact").textValue());
+            for (int poll = 0; poll < 2; poll++) {
+                var refused = new java.util.ArrayList<String>();
+                assertNull(staff.prepareRequest(f.session, 1, old, refused));
+                assertEquals(List.of("invalid_proof"), refused);
+                assertNotNull(staff.prepareRequest(f.session, 1, fresh, refused));
+            }
+            assertEquals(2, rows.size());
+            assertEquals(1, f.challengeRows.size());
+        }
+    }
+    @Test void shouldRefuseNoncanonicalOperatorBases_whenDemoApprovalIsEnabled() {
+        assertEquals("https://localhost:8455/patient", PortalMyCarlosStaffApprovalService.canonicalDemoPublicBase("https://localhost:8455/patient"));
+        for (String raw : new String[]{"https://LOCALHOST:8455/patient", "https://localhost:443/patient",
+                "https://localhost:8455/a/../patient", "https://localhost:8455/patient/", "https://localhost:8455/é",
+                "https://localhost:8455/%70atient", "https://example.test/patient", "https://localhost:65536/patient",
+                "https://localhost:8455/" + "x".repeat(1024)}) {
+            assertThrows(PatientPortalConfigurationException.class, () -> PortalMyCarlosStaffApprovalService.canonicalDemoPublicBase(raw));
+        }
+    }
+
 }

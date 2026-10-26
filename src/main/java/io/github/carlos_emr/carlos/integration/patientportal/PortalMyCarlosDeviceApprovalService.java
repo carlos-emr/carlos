@@ -249,13 +249,13 @@ final class PortalMyCarlosDeviceApprovalService {
         return transactions.withSigningInventory(inventory -> {
             Current cfg = current();
             // Strict intent decoding supplies the recipient only as a candidate binding to recheck.
-            var untrusted = PortalMyCarlosDeviceApprovalCodec.envelope(exactIntent);
             String recipient;
-            try { recipient = JSON.readTree(untrusted.payload().copy()).path("recipient_id").asText();
-            }
-            catch (Exception failure) { throw refuse("invalid_proof");
-            }
-            var intent = verified(Kind.INTENT, exactIntent, cfg.scope(recipient), Map.of(), null);
+            Decoded intent;
+            try {
+                var untrusted = PortalMyCarlosDeviceApprovalCodec.envelope(exactIntent);
+                recipient = JSON.readTree(untrusted.payload().copy()).path("recipient_id").asText();
+                intent = verified(Kind.INTENT, exactIntent, cfg.scope(recipient), Map.of(), null);
+            } catch (java.io.IOException | IllegalArgumentException failure) { throw refuse("invalid_proof"); }
             UUID request = UUID.fromString(intent.claims().text("request_id"));
             var bound = bindings.findByClinicPatientForUpdate(cfg.clinic, patient);
             var prior = challenges.findByRequestForUpdate(cfg.clinic, request);

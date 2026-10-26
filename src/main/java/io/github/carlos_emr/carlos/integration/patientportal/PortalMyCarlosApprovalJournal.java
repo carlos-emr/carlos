@@ -25,12 +25,21 @@ final class PortalMyCarlosApprovalJournal {
     }
     String record(PortalMyCarlosDeviceApprovalService.Current cfg, PortalMyCarlosApprovalClient.Request request,
             String suppliedReason) {
+        return record("mycarlos.approval.import.", cfg, request, suppliedReason);
+    }
+    String publication(PortalMyCarlosDeviceApprovalService.Current cfg, PortalMyCarlosApprovalClient.Request request,
+            String suppliedReason) {
+        if (suppliedReason != null && !"challenge_expired".equals(suppliedReason)) throw new IllegalArgumentException("invalid publication outcome");
+        return record("mycarlos.approval.publication.", cfg, request, suppliedReason);
+    }
+    private String record(String prefix, PortalMyCarlosDeviceApprovalService.Current cfg,
+            PortalMyCarlosApprovalClient.Request request, String suppliedReason) {
         if (suppliedReason != null && !REASONS.contains(suppliedReason)) throw new IllegalArgumentException("unknown approval outcome");
         String identity = PortalMyCarlosDeviceApprovalCrypto.sha256(PortalMyCarlosDeviceApprovalCrypto.frame(
                 cfg.hash().copy(), PortalMyCarlosDeviceApprovalCodec.utf8(Integer.toString(request.demographicNo())),
                 PortalMyCarlosDeviceApprovalCodec.utf8(Long.toString(request.sequence()))));
         return transactions.withApprovalState(() -> {
-            String key = "mycarlos.approval.import." + identity;
+            String key = prefix + identity;
             var rows = properties.findByNameForUpdate(key).stream()
                     .filter(row -> row.getProviderNo() == null || row.getProviderNo().isBlank()).toList();
             if (rows.size() > 1) throw new IllegalStateException("ambiguous approval import history");
