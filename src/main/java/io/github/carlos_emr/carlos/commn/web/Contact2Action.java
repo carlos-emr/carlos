@@ -645,6 +645,7 @@ public class Contact2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String saveContact() {
+        if (!requireContactPost()) return NONE;
 
         String postMethod = request.getParameter("postMethod");
         String forward = "cForm";

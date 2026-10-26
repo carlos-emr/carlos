@@ -80,11 +80,42 @@ test('shared rendering keeps hostile message text inert and resetting hides and 
   assert.deepEqual(s.messages(), []);
   assert.equal(s.error.style.display, 'none');
 });
-test('all validation messages are encoded bundle strings and browser selectors match the rendered controls', () => {
+test('refused iframe text stays inert and restores editing without closing the draft', () => {
+  const s = setup(pages[1]);
+  const message = '<img src=x onerror="bad()"> & </script>';
+  const recovery = { hidden: true };
+  const button = { disabled: false };
+  const iframe = { contentWindow: { location: { href: '/tickler/Update' } },
+    contentDocument: { getElementById(id) {
+      assert.equal(id, 'tickler-edit-refused');
+      return { textContent: message, getAttribute(name) {
+        assert.equal(name, 'data-review-available');
+        return 'true';
+      } };
+    } } };
+  s.context.document.getElementById = id => ({ error: s.error, ticklerEditFrame: iframe,
+    'tickler-edit-recovery': recovery })[id];
+  s.context.document.querySelector = () => button;
+  s.context.enableSubmitButtons = () => { button.disabled = false; };
+  s.context.setTimeout = () => 1;
+  s.context.clearTimeout = () => {};
+  let submissions = 0;
+  s.form.submit = () => { submissions += 1; };
+  s.form.xml_appointment_date.value = '2026-03-04';
+  assert.equal(s.context.validate(s.form), true);
+  assert.equal(button.disabled, true);
+  iframe.onload();
+  assert.deepEqual(s.messages(), [message]);
+  assert.equal(button.disabled, false);
+  assert.equal(recovery.hidden, false);
+  assert.equal(submissions, 1);
+});
+test('inline validation messages are encoded bundle strings and recovery reads DOM text', () => {
   for (const page of pages) {
     const calls = [...page.source.matchAll(/CarlosTicklerValidation\.show\(([^\n]*)\);/g)];
     assert.ok(calls.length >= 1);
     for (const [, argument] of calls) {
+      if (page.name === 'ticklerEdit.jsp' && argument === 'refused.textContent') continue;
       const match = argument.match(/^'<carlos:encode value='<%= oscarBundle\.getString\("(tickler\.ticklerAdd\.[A-Za-z]+)"\) %>' context="javaScriptBlock"\/>'$/);
       assert.ok(match, 'Validation text must pass through the CARLOS JavaScript encoder');
       assert.ok(bundle.includes(match[1] + '='));

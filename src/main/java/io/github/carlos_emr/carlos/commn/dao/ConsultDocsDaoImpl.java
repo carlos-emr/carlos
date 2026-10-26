@@ -74,6 +74,16 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
                     + "AND ctl.id.module = :demographicModule AND ctl.id.moduleId = cr.demographicId)"
                     + "))";
 
+    /*
+     * An HRM report is listed for the consult only through a match to the consult's patient that
+     * points at an existing report, the same join HRMDocumentToDemographicDao.findByDemographicNo
+     * makes for the render. A report that is gone, or was re-matched to another patient, fails it.
+     */
+    private static final String HRM_UNAVAILABLE_CONDITION =
+            "(cd.docType = :hrmType AND NOT EXISTS (SELECT link.id FROM HRMDocumentToDemographic link, HRMDocument h, ConsultationRequest cr "
+                    + "WHERE cr.id = cd.requestId AND link.hrmDocumentId = cd.documentNo AND h.id = link.hrmDocumentId "
+                    + "AND link.demographicNo = cr.demographicId))";
+
     private static final String UNAVAILABLE_ACTIVE_CONSULT_ATTACHMENTS_QUERY =
             "SELECT cd FROM ConsultDocs cd "
                     + "WHERE cd.deleted IS NULL "
@@ -81,7 +91,9 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
                     + "AND EXISTS (SELECT cr.id FROM ConsultationRequest cr WHERE cr.id = cd.requestId) "
                     // Labs are not named here: an unavailable lab stays listed on the consult form by its
                     // source-qualified key until it is selected again, and print and fax refuse it.
-                    + "AND (" + EFORM_OR_DOCUMENT_UNAVAILABLE_CONDITION + ") "
+                    + "AND (" + EFORM_OR_DOCUMENT_UNAVAILABLE_CONDITION + " OR "
+                    + HRM_UNAVAILABLE_CONDITION
+                    + ") "
                     // A stable order, so every screen lists the same attachments the same way.
                     + "ORDER BY cd.docType, cd.documentNo";
 
@@ -165,6 +177,7 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
         query.setParameter("documentType", ConsultDocs.DOCTYPE_DOC);
         query.setParameter("deletedDocumentStatus", Document.STATUS_DELETED);
         query.setParameter("demographicModule", DEMOGRAPHIC_MODULE);
+        query.setParameter("hrmType", ConsultDocs.DOCTYPE_HRM);
     }
 
     @Override

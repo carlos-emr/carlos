@@ -9,11 +9,10 @@
  * session B both open the allergy list while the original is active. A amends it (severity 1); B,
  * whose list still shows the original as active, amends it too (severity 3).
  *
- * Asserted: A's amendment lands and archives the original (control); after B's amendment the chart
- * carries exactly ONE active version of that allergy (a refusal or a merge are both fine). The action
- * only checks that the archive target belongs to the patient, not that it is still active, so B's
- * stale form adds a second active allergy with the same description and a different severity and the
- * archive of an already-archived row is a silent no-op. The check fails at that last step.
+ * Asserted: A's amendment lands and archives the original (control); B's stale amendment is refused
+ * with exactly HTTP 409 and stores no replacement, so the chart carries exactly ONE active version of
+ * that allergy, with A's severity (issue #4410: RxAddAllergy2Action archives the original only while
+ * it is still active, in the same transaction as the replacement).
  *
  * Fixtures: one owned allergy seeded by SQL (marker description) for the owned FAKE- patient; cleanup
  * deletes every allergies row of the owned patient and asserts none remain. Session B takes the chart
@@ -83,28 +82,16 @@ async function workflow(s) {
       bPopup.waitForResponse(r => r.request().method() === 'POST' && /\/rx\/addAllergy2?$/.test(new URL(r.url()).pathname), { timeout: 20000 }),
       amend(bPopup, original, '3'),
     ]);
-    h.assert(response.status() < 500, `Session B's stale amendment answered HTTP ${response.status()}`);
-    // A correct application may store B's amendment (merge) or refuse it; either is acceptable here and the next step judges the
-    // outcome. An explicit stale-edit (conflict) refusal is consumed so the strict page check does not report it; a save that answered
-    // success must land, so give it a bounded moment and require the row then, so a dropped save cannot pass as one.
-    if (response.status() >= 400) {
-      // Only a refusal BECAUSE the original is no longer active counts: a CSRF, privilege or validation 4xx would
-      // also leave A's single active row behind and must not pass as conflict handling.
-      const body = await response.text().catch(() => '');
-      h.assert([409, 412].includes(response.status())
-        || /conflict|stale|no longer active|already (?:been )?(?:archived|amended|modified|changed)|(?:modified|changed|updated) (?:by|in) another/i.test(body),
-      `Session B's stale amendment was refused with HTTP ${response.status()}, but not as a stale-edit conflict (expected 409/412 or a conflict message)`);
-      await bPopup.waitForTimeout(500);
-      consumeExpectedFailure(s.recorder, mark, { status: response.status(), path: /\/rx\/addAllergy2?$/ });
-      return;
-    }
-    const stored = `SELECT COUNT(*) FROM allergies WHERE demographic_no=${patient} AND severity_of_reaction='3'`;
-    const deadline = Date.now() + 5000;
-    while (Date.now() < deadline && sql.value(stored) === '0') await bPopup.waitForTimeout(200);
-    h.assert(sql.value(stored) !== '0', `Session B's amendment answered HTTP ${response.status()} but no severity-3 allergy was stored`);
+    h.assert(response.status() === 409, `Session B's stale amendment answered HTTP ${response.status()} instead of a conflict`);
+    await bPopup.waitForTimeout(500);
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/rx\/addAllergy2?$/ });
+    h.assert(sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${patient} AND severity_of_reaction='3'`) === '0',
+      'The rejected amendment still created its replacement allergy');
   });
   await s.step('the chart carries one active version of the allergy', async () => {
     const count = sql.value(active);
+    h.assert(sql.value(`SELECT severity_of_reaction FROM allergies WHERE demographic_no=${patient} AND archived=0`) === '1',
+      'The stale amendment changed the winning allergy severity');
     h.assert(count === '1',
       `After two sessions amended the same allergy the chart carries ${count} active allergies with the same description and different severities. `
       + 'RxAddAllergy2Action only checks that allergyToArchive belongs to the patient, not that it is still active, so the stale amendment adds a '

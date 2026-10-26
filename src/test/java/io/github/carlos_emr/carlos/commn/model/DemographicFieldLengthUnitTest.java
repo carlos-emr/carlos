@@ -105,4 +105,37 @@ class DemographicFieldLengthUnitTest {
 
         assertThat(demographic.validateFieldLengths()).isEmpty();
     }
+    @Test
+    void shouldRejectIdentityText_whenItExceedsThePersistedColumns() {
+        Demographic demographic = new Demographic();
+        demographic.setPrefName("P".repeat(31));
+        demographic.setPronoun("p".repeat(26));
+        demographic.setGender("g".repeat(26));
+        assertThat(demographic.validateFieldLengths()).containsExactly(
+                "Preferred name exceeds maximum length of 30 characters.",
+                "Pronoun exceeds maximum length of 25 characters.",
+                "Gender exceeds maximum length of 25 characters.");
+    }
+
+    @Test
+    void shouldValidateAliasFallback_whenItWillBePersistedAsPreferredName() {
+        Demographic demographic = new Demographic();
+        demographic.setAlias("A".repeat(31));
+        assertThat(demographic.validateFieldLengths()).containsExactly(
+                "Preferred name exceeds maximum length of 30 characters.");
+    }
+
+    @Test
+    void shouldAcceptUnicodeCodePoints_atTheDatabaseColumnLimits() {
+        Demographic demographic = new Demographic();
+        demographic.setLastName("😀".repeat(30));
+        demographic.setPrefName("😀".repeat(30));
+        demographic.setPronoun("😀".repeat(25));
+        demographic.setGender("😀".repeat(25));
+        assertThat(demographic.validateFieldLengths()).isEmpty();
+        demographic.setPrefName("😀".repeat(31));
+        assertThat(demographic.validateFieldLengths()).containsExactly(
+                "Preferred name exceeds maximum length of 30 characters.");
+    }
+
 }

@@ -315,7 +315,7 @@
         <action name="report/ViewReportonbilledphcp" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
             <result name="success">/WEB-INF/jsp/report/reportonbilledphcp.jsp</result>
         </action>
-        <action name="report/ViewReportonbilledvisitprovider" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
+        <action name="report/ViewReportonbilledvisitprovider" class="io.github.carlos_emr.carlos.report.gate.ViewBilledVisitProvider2Action">
             <result name="success">/WEB-INF/jsp/report/reportonbilledvisitprovider.jsp</result>
         </action>
 

@@ -35,16 +35,17 @@ test('discontinuation failure keeps the dialog and explains partial persistence 
     const alerts = [];
     const context = {
         ctx: '/carlos', CarlosAjax: {request(url, options) { requests.push(options); }},
-        jsMsg: {discontinueIncomplete: 'review medication and encounter note before retrying'},
         alert: message => alerts.push(message), reportRefusedRequest() {alerts.push('request refused');},
         document: { getElementById() {assert.fail('failure must not hide the dialog or mark the drug discontinued');}},
     };
     vm.runInNewContext(code, context);
     context.Discontinue2('42', 'allergy', 'owned note', 'drug');
-    requests[0].onFailure({status: 500, responseJSON: {error: 'INCOMPLETE_RX_DISCONTINUE'}});
+    // The discontinue and its chart note commit together: a failed or stale request saved nothing.
+    requests[0].onFailure({status: 500, responseJSON: {error: 'RX_DISCONTINUE_FAILED'}});
+    requests[0].onFailure({status: 409});
     requests[0].onFailure({status: 403});
     requests[0].onSuccess({status: 200, responseText: '<html>login</html>'});
     requests[0].onSuccess({status: 200, responseText: '{"id":99}'});
-    assert.deepEqual(alerts, ['review medication and encounter note before retrying',
-        'request refused', 'request refused', 'request refused']);
+    assert.deepEqual(alerts, ['request refused', 'request refused', 'request refused', 'request refused',
+        'request refused']);
 });

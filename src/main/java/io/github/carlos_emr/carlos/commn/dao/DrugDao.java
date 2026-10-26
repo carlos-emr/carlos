@@ -40,6 +40,9 @@ public interface DrugDao extends AbstractDao<Drug> {
 
     public boolean addNewDrug(Drug d);
 
+    /** Archives an active, patient-owned drug once; false means no active matching row remains. */
+    boolean discontinueIfActive(int drugId, int demographicNo, Date date, String reason);
+
     public List<Drug> findByPrescriptionId(Integer prescriptionId);
 
     public List<Drug> findByDemographicId(Integer demographicId);

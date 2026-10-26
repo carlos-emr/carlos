@@ -123,9 +123,11 @@
         </action>
         <action name="appointment/AddRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentaddarecord.jsp</result>
+            <result name="input">/WEB-INF/jsp/appointment/addappointment.jsp</result>
         </action>
         <action name="appointment/UpdateRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentUpdateRecord2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentupdatearecord.jsp</result>
+            <result name="input">/WEB-INF/jsp/appointment/editappointment.jsp</result>
         </action>
         <action name="appointment/DeleteRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentDeleteRecord2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentdeletearecord.jsp</result>
@@ -190,6 +192,7 @@
         </action>
         <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
             <result name="close">/WEB-INF/jsp/tickler/ticklerEditSuccess.jsp</result>
+            <result name="conflict">/WEB-INF/jsp/tickler/ticklerEditConflict.jsp</result>
             <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
             <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>

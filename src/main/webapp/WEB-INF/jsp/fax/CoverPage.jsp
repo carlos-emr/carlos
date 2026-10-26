@@ -117,7 +117,8 @@
 
         // Action to remove additional recipients from the form.
         function removeRecipient(element) {
-            $(element).parent().parent().parent().remove();
+            // Keep the Copies controls and other recipients when removing this row.
+            $(element).closest('#fax-additional-recipients > .row').remove();
         }
 
         // Show loading screen after submiting and validating the form.
@@ -167,12 +168,78 @@
             width: auto \9;
         }
 
+        /* Keep composition and review in a predictable reading order at every popup size. */
+        .fax-compose {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-items: stretch;
+            gap: 1rem;
+        }
+
+        .fax-compose-wide {
+            grid-column: 1 / -1;
+        }
+
+        .fax-section {
+            min-width: 0;
+            border: 1px solid var(--bs-border-color);
+        }
+
+        .fax-section .card-header {
+            padding: .75rem 1rem;
+        }
+
+        .fax-section .card-title {
+            margin: 0;
+            font-size: 1.125rem;
+        }
+
+        .fax-section .card-body {
+            padding: 1rem;
+        }
+
+        .fax-section .card-body > .container {
+            max-width: none;
+            padding-right: 0;
+            padding-left: 0;
+        }
+
+        .fax-section .form-control,
+        .fax-section .form-select {
+            min-width: 0;
+        }
+
+        .fax-review-warning {
+            overflow-wrap: anywhere;
+        }
+
         #form-control-buttons {
-            margin-bottom: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: .75rem;
+            padding: 1rem;
+            border-top: 1px solid var(--bs-border-color);
+            background-color: var(--bs-tertiary-bg);
         }
 
         #form-control-buttons button {
-            margin-left: 15px;
+            min-width: 6rem;
+        }
+
+        /* Retain the existing visual Cancel/Send order and the form's DOM/tab order. */
+        #btnSend {
+            order: 1;
+        }
+
+        .fax-preview {
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 767.98px) {
+            .fax-compose {
+                grid-template-columns: minmax(0, 1fr);
+            }
         }
 
         ul.ui-widget {
@@ -275,7 +342,7 @@
 				<c:set var="formAction" value="${ctx}/encounter/oscarConsultationRequest/ConsultationFormFax" />
 			</c:if>
 			
-			<form id="coverPageForm" class="d-flex flex-wrap align-items-center gap-2" action='${ formAction }' onsubmit="return submitForm(event)" method="post" novalidate>
+			<form id="coverPageForm" class="fax-compose" action='${ formAction }' onsubmit="return submitForm(event)" method="post" novalidate>
 			
 				<input type="hidden" name="requestId" value="<carlos:encode value='${ reqId }' context="htmlAttribute"/>" />
 				<input type="hidden" name="reqId" value="<carlos:encode value='${ reqId }' context="htmlAttribute"/>" />
@@ -288,7 +355,7 @@
 		  		<input type="hidden" name="documents" value="<carlos:encode value='${ documents }' context="htmlAttribute"/>" />
 		  		<input type="hidden" name="transType" value="<carlos:encode value='${ transType }' context="htmlAttribute"/>" />
 							
-				<div class="card">
+				<div class="card fax-section">
 				  	<div class="card-header">
 						<h3 class="card-title"><fmt:message key="coverPage.card.from"/></h3>
 					</div>
@@ -330,7 +397,7 @@
 					</div>
 				</div>
 				
-				<div class="card">
+				<div class="card fax-section">
 				  	<div class="card-header">
 						<h3 class="card-title"><fmt:message key="coverPage.card.to"/></h3>
 					</div>
@@ -353,7 +420,7 @@
 					</div>
 				</div>
 		
-				<div class="card">
+				<div class="card fax-section fax-compose-wide">
 				  	<div class="card-header">
 						<h3 class="card-title"><fmt:message key="coverPage.card.copies"/></h3>
 					</div>
@@ -404,8 +471,14 @@
                     </div>
                 </div>
 
+                <c:if test="${ transactionType eq 'CONSULTATION' and (not empty documents or not empty attachmentWarnings) }">
+                    <div class="card fax-section fax-compose-wide">
+                        <div class="card-header">
+                            <h3 class="card-title"><fmt:message key="coverPage.card.attachments"/></h3>
+                        </div>
+                        <div class="card-body">
                 <c:if test="${ not empty attachmentWarnings and transactionType eq 'CONSULTATION' }">
-                    <div id="consult-attachment-warnings" class="alert alert-warning" role="alert">
+                    <div id="consult-attachment-warnings" class="alert alert-warning fax-review-warning" role="alert">
                         <fmt:message key="encounter.oscarConsultationRequest.msgAttachmentsUnavailable"/>
                         <ul class="mb-0">
                             <c:forEach items="${ attachmentWarnings }" var="attachmentWarning">
@@ -432,11 +505,6 @@
                 </c:if>
 
                 <c:if test="${ not empty documents and transactionType eq 'CONSULTATION' }">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title"><fmt:message key="coverPage.card.attachments"/></h3>
-                        </div>
-                        <div class="card-body">
                             <div class="container">
                                 <div class="row">
                                     <ol class="list-group list-group-numbered col-sm-12">
@@ -447,11 +515,12 @@
                                     </ol>
                                 </div>
                             </div>
+                </c:if>
                         </div>
                     </div>
                 </c:if>
 
-                <div class="card">
+                <div class="card fax-section fax-compose-wide">
                     <div class="card-header">
                         <h3 class="card-title"><fmt:message key="coverPage.card.coverPage"/></h3>
                     </div>
@@ -482,28 +551,24 @@
                         </div>
                     </div>
                 </div>
-                <div class="container" id="form-control-buttons">
-                    <div class="row">
-                        <div class="col-sm-12">
+                <div class="fax-compose-wide" id="form-control-buttons">
                             <input type="hidden" id="submitMethod" name="method" value="queue"/>
-                            <button type="submit" id="btnSend" class="btn btn-primary btn-md float-end" value="Send"
+                            <button type="submit" id="btnSend" class="btn btn-primary btn-md" value="Send"
                                     <c:if test="${ not empty faxCleanupFailed }">disabled="disabled"</c:if>>
                                 <span class="btn-label"><i class="fa-solid fa-paper-plane"></i></span>
                                 <fmt:message key="coverPage.btn.send"/>
                             </button>
                             <button formnovalidate="formnovalidate" id="btnCancel" type="submit"
-                                    class="btn btn-danger btn-md float-end" value="Cancel"
+                                    class="btn btn-danger btn-md" value="Cancel"
                                     onclick="document.getElementById('submitMethod').value = 'cancel'">
                                 <i class="fa-solid fa-circle-xmark"></i>
                                 <fmt:message key="coverPage.btn.cancel"/>
                             </button>
-                        </div>
-                    </div>
                 </div>
             </form>
             <%-- Only show preview before submission, not after --%>
             <c:if test="${ transactionType ne 'CONSULTATION' and (empty faxSuccessful or not faxSuccessful) }">
-                <div class="card" id="preview-panel">
+                <div class="card fax-section fax-preview" id="preview-panel">
                     <div class="card-header">
                         <h3 class="card-title"><fmt:message key="coverPage.card.preview"/></h3>
                     </div>

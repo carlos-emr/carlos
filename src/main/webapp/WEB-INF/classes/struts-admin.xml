@@ -92,6 +92,7 @@
         <!-- Security Management -->
         <action name="admin/SecurityUpdate" class="io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action">
             <result name="success">/WEB-INF/jsp/admin/securityupdate.jsp</result>
+            <result name="conflict">/WEB-INF/jsp/admin/securityupdatesecurity.jsp</result>
         </action>
         <action name="admin/SecurityDelete" class="securityDelete2Action">
             <result name="success">/WEB-INF/jsp/admin/securitydelete.jsp</result>

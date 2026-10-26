@@ -35,6 +35,7 @@
         <action name="messenger/CreateMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2Action">
             <result name="success">/WEB-INF/jsp/messenger/SentMessage.jsp</result>
             <result name="error">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>
+            <result name="conflict">/WEB-INF/jsp/messenger/SubmissionConflict.jsp</result>
         </action>
         <action name="messenger/ViewCreateMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewCreateMessage2Action">
             <result name="success">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>

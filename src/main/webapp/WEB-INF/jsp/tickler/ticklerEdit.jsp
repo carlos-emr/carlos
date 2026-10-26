@@ -74,6 +74,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
+<%@page import="io.github.carlos_emr.carlos.tickler.pageUtil.TicklerEditVersion" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.TicklerComment" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -414,6 +415,14 @@
                             enableSubmitButtons();
                             return;
                         }
+                        var refused = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-edit-refused');
+                        if (refused) {
+                            CarlosTicklerValidation.show(refused.textContent);
+                            document.getElementById('tickler-edit-recovery').hidden =
+                                refused.getAttribute('data-review-available') !== 'true';
+                            enableSubmitButtons();
+                            return;
+                        }
                         // Verify success by checking for sentinel element in the response
                         var saveOk = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-edit-ok');
                         if (!saveOk) {
@@ -483,11 +492,16 @@
         <form name="serviceform" action="<%=request.getContextPath()%>/tickler/EditTickler" method="post">
             <input type="hidden" name="method" value="editTickler"/>
             <input type="hidden" name="ticklerNo" value="<%=ticklerNo%>"/>
+            <input type="hidden" name="ticklerEditVersion" value="<carlos:encode value='<%= TicklerEditVersion.of(t) %>' context="htmlAttribute"/>"/>
             <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= request.getParameter("parentAjaxId") != null ? request.getParameter("parentAjaxId") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <div class="page-header-bar">
                 <h2 class="page-header-title"><fmt:message key="tickler.ticklerEdit.title"/></h2>
             </div>
             <div id="error" class="alert alert-danger" style="display:none;" role="alert"></div>
+            <div id="tickler-edit-recovery" class="alert alert-warning" hidden>
+                <a id="reviewCurrentTickler" target="_blank" rel="noopener"
+                   href="<%=request.getContextPath()%>/tickler/ViewTicklerEdit?tickler_no=<%=ticklerNo%>"><fmt:message key="tickler.ticklerEdit.linkReviewCurrent"/></a>
+            </div>
 
             <%-- 1. Compact demographic card --%>
             <div class="demo-card">

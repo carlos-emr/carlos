@@ -28,6 +28,13 @@ async function workflow(s) {
   const {sql, patient, marker, context, recorder} = s;
   const queryName = `${marker} Fav "A&B" O'Neil`;
   const favourites = `demographicQueryFavourites WHERE queryName LIKE ${h.sqlString(marker + '%')}`;
+  const setNames = ['GET', 'HEAD'].map(method => `PW${marker.slice(-10)}${method}`);
+  const sets = `demographicSets WHERE set_name IN (${setNames.map(h.sqlString).join(',')})`;
+  h.assert(sql.value(`SELECT COUNT(*) FROM ${sets}`) === '0', 'Patient-set probe names already exist');
+  s.cleanup(() => {
+    sql.execute(`DELETE FROM ${sets}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM ${sets}`) === '0', 'Owned patient-set probes were not removed');
+  });
   let secondPatient;
   let favouriteId;
   s.cleanup(() => {
@@ -143,13 +150,20 @@ async function workflow(s) {
       `GET of report/DeleteDemographicReport was not rejected (status ${unsafeGet.status()}, archived=${archivedByGet})`);
   });
 
-  await s.step('a GET of the tool with Save Query intent stores nothing (405)', async () => {
-    const getName = `${marker}-GET`;
-    const unsafeSave = await context.request.get(h.appUrl(s.config.baseUrl, '/report/DemographicReport'),
-      {params: {query: 'Save Query', queryName: getName, select: 'demographic_no', lastName: marker}, maxRedirects: 0});
-    const stored = sql.value(`SELECT COUNT(*) FROM demographicQueryFavourites WHERE queryName=${h.sqlString(getName)}`);
-    h.assert(unsafeSave.status() === 405 && stored === '0',
-      `GET of report/DemographicReport?query=Save Query was not rejected (status ${unsafeSave.status()}, rows stored=${stored})`);
+  await s.step('GET and HEAD refuse saved-query and patient-set writes without changing either table', async () => {
+    for (const [index, method] of ['GET', 'HEAD'].entries()) {
+      for (const query of ['Save Query', 'Run Query And Save to Patient Set']) {
+        const queryNameProbe = `${marker}-${method}`;
+        const response = await context.request.fetch(h.appUrl(s.config.baseUrl, '/report/DemographicReport'), {
+          method, params: {query, queryName: queryNameProbe, setName: setNames[index],
+            select: 'demographic_no', lastName: marker}, maxRedirects: 0,
+        });
+        const stored = sql.value(`SELECT COUNT(*) FROM demographicQueryFavourites WHERE queryName=${h.sqlString(queryNameProbe)}`);
+        const setRows = sql.value(`SELECT COUNT(*) FROM ${sets}`);
+        h.assert(response.status() === 405 && stored === '0' && setRows === '0',
+          `${method} ${query} was not refused without writes (HTTP ${response.status()}, favourites=${stored}, set rows=${setRows})`);
+      }
+    }
   });
 }
 

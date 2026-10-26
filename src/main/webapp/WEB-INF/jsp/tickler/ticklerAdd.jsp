@@ -470,6 +470,11 @@
                     }
                     // Verify server confirmed save before proceeding
                     try {
+                        if (iframe.contentDocument && iframe.contentDocument.getElementById('tickler-message-too-long')) {
+                            alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.errorMessageTooLong") %>' context="javaScriptBlock"/>');
+                            enableSubmitButtons();
+                            return;
+                        }
                         var saveOk = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-save-ok');
                         if (!saveOk) {
                             console.error('[ticklerAdd] Server did not confirm tickler save — possible server-side error');

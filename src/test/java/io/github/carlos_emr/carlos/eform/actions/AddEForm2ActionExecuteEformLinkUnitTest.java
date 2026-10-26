@@ -293,6 +293,34 @@ class AddEForm2ActionExecuteEformLinkUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should hand only the saved eForm id to the POST fax handoff, without a redirect or a render")
+    void shouldHandSavedEFormToPostHandoff_whenSavingWithFax() throws Exception {
+        mockRequest.setContextPath("/carlos");
+        mockRequest.setParameter("recipient", "Dr & Smith");
+        mockRequest.setParameter("recipientFaxNumber", "555 1234");
+        mockRequest.setParameter("letterheadFax", "Clinic#1");
+
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+
+        // The target names the NEW saved revision (42), not the template id (efmfid=1), so the
+        // fax carries exactly what was just stored. EFormFaxPreparation.jsp posts it with a CSRF
+        // token; the clinical fields themselves are never replayed to the fax route.
+        assertThat(mockRequest.getAttribute("preparedFaxTarget")).isEqualTo(
+                "/carlos/fax/faxAction?method=prepareFax&transactionId=42&transactionType=EFORM"
+                        + "&demographicNo=123&recipient=Dr+%26+Smith&recipientFaxNumber=555+1234"
+                        + "&letterheadFax=Clinic%231");
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        assertThat(mockResponse.getHeader("Location")).isNull();
+        assertThat(mockResponse.getHeader("Cache-Control")).isEqualTo("no-store");
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+        // Preparation renders on its own POST, and a faxed eForm never writes chart template notes.
+        verify(mockDocumentAttachmentManager, never()).stageEFormPacketForFaxPreview(any(), any(), any());
+        verify(mockDocumentAttachmentManager, never()).renderEFormPacketWithCompleteness(any(), any(), any());
+        eFormUtilMock.verify(() -> EFormUtil.writeEformTemplate(any(), any(), any(), any(), any(), any(), any()),
+                never());
+    }
+
+    @Test
     void shouldSaveOnlyOnce_whenSamePostIsReplayed() {
         assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
         assertThat(submissionAction().execute()).isEqualTo("none");

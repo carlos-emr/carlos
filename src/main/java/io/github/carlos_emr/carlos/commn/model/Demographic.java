@@ -67,6 +67,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public static final int FIRST_NAME_MAX_LENGTH = 30;
     public static final int MIDDLE_NAMES_MAX_LENGTH = 100;
     public static final int ALIAS_MAX_LENGTH = 70;
+    public static final int PREF_NAME_MAX_LENGTH = 30;
+    public static final int PRONOUN_MAX_LENGTH = 25;
+    public static final int GENDER_MAX_LENGTH = 25;
     public static final int ADDRESS_MAX_LENGTH = 60;
     public static final int CITY_MAX_LENGTH = 50;
     public static final int PROVINCE_MAX_LENGTH = 20;
@@ -285,6 +288,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         addFieldLengthError(errors, "First name", firstName, FIRST_NAME_MAX_LENGTH);
         addFieldLengthError(errors, "Middle names", middleNames, MIDDLE_NAMES_MAX_LENGTH);
         addFieldLengthError(errors, "Preferred name", alias, ALIAS_MAX_LENGTH);
+        errors.addAll(validateIdentityFieldLengths(getPrefName(), pronoun, gender));
         addFieldLengthError(errors, "Address", address, ADDRESS_MAX_LENGTH);
         addFieldLengthError(errors, "City", city, CITY_MAX_LENGTH);
         addFieldLengthError(errors, "Province", province, PROVINCE_MAX_LENGTH);
@@ -320,8 +324,17 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         return errors;
     }
 
+    /** Validates these submitted values before an update mutates a managed patient entity. */
+    public static List<String> validateIdentityFieldLengths(String preferredName, String pronouns, String gender) {
+        List<String> errors = new ArrayList<>();
+        addFieldLengthError(errors, "Preferred name", preferredName, PREF_NAME_MAX_LENGTH);
+        addFieldLengthError(errors, "Pronoun", pronouns, PRONOUN_MAX_LENGTH);
+        addFieldLengthError(errors, "Gender", gender, GENDER_MAX_LENGTH);
+        return errors;
+    }
+
     private static void addFieldLengthError(List<String> errors, String fieldName, String value, int maxLength) {
-        if (StringUtils.length(value) > maxLength) {
+        if (value != null && value.codePointCount(0, value.length()) > maxLength) {
             String unit = maxLength == 1 ? "character" : "characters";
             errors.add(fieldName + " exceeds maximum length of " + maxLength + " " + unit + ".");
         }
@@ -862,7 +875,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      *
      * @return Returns the preferred name.
      */
-    @jakarta.persistence.Column(name = "pref_name")
+    @jakarta.persistence.Column(name = "pref_name", length = PREF_NAME_MAX_LENGTH)
     public String getPrefName() {
         if (getAlias() != null && !getAlias().isEmpty()) {
             return getAlias();
@@ -1221,7 +1234,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setPhoneComment(String phoneComment) {
         this.phoneComment = phoneComment;
     }
-    @jakarta.persistence.Column(name = "gender")
+    @jakarta.persistence.Column(name = "gender", length = GENDER_MAX_LENGTH)
 
     public String getGender() {
         if (gender == null) {
@@ -1233,7 +1246,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setGender(String gender) {
         this.gender = gender;
     }
-    @jakarta.persistence.Column(name = "pronoun")
+    @jakarta.persistence.Column(name = "pronoun", length = PRONOUN_MAX_LENGTH)
 
     public String getPronoun() {
         if (pronoun == null) {

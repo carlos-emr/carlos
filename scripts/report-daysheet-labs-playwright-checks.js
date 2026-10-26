@@ -352,12 +352,19 @@ async function workflow(s) {
   });
 
   // ── Correct behaviour the application does not have yet (asserted last) ────────────────────
-  await s.step('a GET carrying the PHCP role-update parameters does not change secUserRole', async () => {
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/report/ViewReportonbilledvisitprovider'
-      + `?buttonUpdate=Update&providerId=${nurse}&name${nurse}=doctor`), { maxRedirects: 0 });
-    await response.dispose();
-    h.assert(sql.value(`SELECT GROUP_CONCAT(role_name) FROM secUserRole WHERE provider_no=${q(nurse)}`) === 'nurse',
-      'A tokenless GET changed a security role (report/ViewReportonbilledvisitprovider mutates on GET)');
+  await s.step('GET, HEAD and tokenless POST cannot change PHCP security roles', async () => {
+    const url = h.appUrl(s.config.baseUrl, '/report/ViewReportonbilledvisitprovider');
+    const params = {buttonUpdate: 'Update', providerId: nurse, [`name${nurse}`]: 'doctor'};
+    for (const method of ['GET', 'HEAD', 'POST']) {
+      const response = await s.context.request.fetch(url, {
+        method, ...(method === 'POST' ? {form: params} : {params}), maxRedirects: 0,
+      });
+      const status = response.status();
+      await response.dispose();
+      h.assert(sql.value(`SELECT GROUP_CONCAT(role_name) FROM secUserRole WHERE provider_no=${q(nurse)}`) === 'nurse',
+        `${method} without a CSRF token changed a PHCP security role`);
+      if (method !== 'POST') h.assert(status === 405, `${method} role update returned ${status}, expected 405`);
+    }
   });
   await s.step('Non Rostered Only leaves the rostered patient off the day sheet', async () => {
     const sheet = await daySheet('day sheet non-rostered', { providerNo: provider, nonRostered: true });

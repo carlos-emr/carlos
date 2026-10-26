@@ -11,7 +11,6 @@ package io.github.carlos_emr.carlos.tickler.pageUtil;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -20,10 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 /**
  * Regression coverage for redirects issued after Tickler Manager bulk actions.
@@ -48,9 +45,9 @@ class DbTicklerMain2ActionTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should preserve schedule navigation after completing selected ticklers")
     void shouldPreserveScheduleNavigation_afterCompletingSelectedTicklers() throws Exception {
-        Tickler tickler = mock(Tickler.class);
-        when(tickler.getId()).thenReturn(123);
-        when(ticklerManager.getTickler(any(LoggedInInfo.class), anyInt())).thenReturn(tickler);
+        when(ticklerManager.updateStatusIfCurrent(any(), eq(123), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C)))
+                .thenReturn(true);
+        mockRequest.addParameter("expectedStatus_123", "A");
         mockRequest.addParameter("checkbox", "123");
         mockRequest.addParameter("submit_form", "Complete");
         mockRequest.addParameter("scheduleNav", "1");
@@ -89,4 +86,35 @@ class DbTicklerMain2ActionTest extends CarlosWebTestBase {
         assertThat(mockResponse.getRedirectedUrl()).isEqualTo(
                 "/carlos/tickler/ViewTicklerMain?sort_column=service_date&sort_order=ASC&scheduleNav=1");
     }
+    @Test
+    void shouldReportConflictsSeparately_whenOnlySomeSelectedRowsAreStale() throws Exception {
+        mockRequest.addParameter("checkbox", "123", "124");
+        mockRequest.addParameter("expectedStatus_123", "A");
+        mockRequest.addParameter("expectedStatus_124", "C");
+        mockRequest.addParameter("submit_form", "Delete");
+        when(ticklerManager.updateStatusIfCurrent(any(), eq(123), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.D)))
+                .thenReturn(false);
+        when(ticklerManager.updateStatusIfCurrent(any(), eq(124), any(), eq(Tickler.STATUS.C), eq(Tickler.STATUS.D)))
+                .thenReturn(true);
+
+        new DbTicklerMain2Action().execute();
+
+        assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/carlos/tickler/ViewTicklerMain?conflictCount=1");
+        verify(ticklerManager).updateStatusIfCurrent(any(), eq(124), any(), eq(Tickler.STATUS.C), eq(Tickler.STATUS.D));
+        verify(ticklerManager, never()).updateStatus(any(), any(), any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"active", "D,C", " A"})
+    void shouldRefuseMissingOrMalformedRenderedStatus_withoutFallingBackToUnconditionalUpdate(String expected) throws Exception {
+        mockRequest.addParameter("checkbox", "123");
+        mockRequest.addParameter("submit_form", "Complete");
+        if (expected != null) mockRequest.addParameter("expectedStatus_123", expected);
+        new DbTicklerMain2Action().execute();
+        assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/carlos/tickler/ViewTicklerMain?conflictCount=1");
+        verify(ticklerManager).updateStatusIfCurrent(any(), eq(123), any(), isNull(), eq(Tickler.STATUS.C));
+        verify(ticklerManager, never()).updateStatus(any(), any(), any(), any());
+    }
+
 }
