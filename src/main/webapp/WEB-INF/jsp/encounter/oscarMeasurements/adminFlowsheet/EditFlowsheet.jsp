@@ -90,8 +90,10 @@
             if (!action.equals(cust.getAction())) continue;
             if (!measurement.equals(cust.getMeasurement())) continue;
 
-            boolean isClinicLevel = FlowSheetCustomizationService.ScopeLevel.CLINIC == SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
-            boolean isProviderLevel = currentProvider.equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo());
+            FlowSheetCustomizationService.ScopeLevel customizationScope = SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
+            boolean isClinicLevel = FlowSheetCustomizationService.ScopeLevel.CLINIC == customizationScope;
+            boolean isProviderLevel = currentProvider.equals(cust.getProviderNo())
+                    && FlowSheetCustomizationService.ScopeLevel.PROVIDER == customizationScope;
 
             // Patient scope: inherit from clinic or provider
             if (demographic != null && !demographic.isEmpty()) {
@@ -134,8 +136,9 @@
                         == SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
             } else {
                 // Provider scope: providerNo=currentProvider AND demographicNo="0"
-                isCurrentScopeMatch = currentProvider.equals(cust.getProviderNo()) &&
-                                      "0".equals(cust.getDemographicNo());
+                isCurrentScopeMatch = currentProvider.equals(cust.getProviderNo())
+                        && FlowSheetCustomizationService.ScopeLevel.PROVIDER
+                        == SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
             }
 
             if (isCurrentScopeMatch) {
@@ -665,9 +668,9 @@ Flowsheet: <span style="font-weight:normal"><carlos:encode value='<%= displayNam
                                     </td>
                                     <td>
 
-                                        <%if (cust.getProviderNo().isEmpty()) { %>
+                                        <%if ("clinic".equals(custLevel)) { %>
                                         All patients
-                                        <%} else if (cust.getDemographicNo().equals("0")) { %>
+                                        <%} else if ("provider".equals(custLevel)) { %>
                                         Your patients
                                         <%} else { %>
                                         <a href="<%=request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= cust.getDemographicNo() %>' context="uriComponent"/>"

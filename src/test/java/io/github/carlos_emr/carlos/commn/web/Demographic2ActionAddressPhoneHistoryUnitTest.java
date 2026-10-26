@@ -183,6 +183,41 @@ class Demographic2ActionAddressPhoneHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRecordExtensionRemovalAndRestoration_whenArchiveHasNoExtensionRows() throws Exception {
+        version("20 FAKE Second Ave", "613-555-0100", "613-555-0300", "12", "345");
+        version("20 FAKE Second Ave", "613-555-0100", "613-555-0300", "", "");
+        when(extArchiveDao.getDemographicExtArchiveByArchiveId(2L)).thenReturn(List.of());
+        version("20 FAKE Second Ave", "613-555-0100", "613-555-0300", "12", "345");
+
+        assertThat(history("phone")).containsExactly("613-555-0100x12", "613-555-0100", "613-555-0100x12");
+        assertThat(history("phone2")).containsExactly("613-555-0300x345", "613-555-0300", "613-555-0300x345");
+    }
+
+    @Test
+    void shouldAvoidDuplicatePhoneEntries_whenBlankExtensionStorageChanges() throws Exception {
+        version("20 FAKE Second Ave", "613-555-0100", "613-555-0300", "", "");
+        version("20 FAKE Second Ave", "613-555-0100", "613-555-0300", null, null);
+        version("20 FAKE Second Ave", "613-555-0100", "613-555-0300", " ", " ");
+
+        assertThat(history("phone")).containsExactly("613-555-0100");
+        assertThat(history("phone2")).containsExactly("613-555-0300");
+    }
+
+    @Test
+    void shouldRecordCellRemovalAndRestoration_whenCellExtensionRowIsRemoved() throws Exception {
+        version("20 FAKE Second Ave", "", "", "", "");
+        when(extArchiveDao.getDemographicExtArchiveByArchiveId(1L))
+                .thenReturn(List.of(ext(1L, "demo_cell", "613-555-0101")));
+        version("20 FAKE Second Ave", "", "", "", "");
+        when(extArchiveDao.getDemographicExtArchiveByArchiveId(2L)).thenReturn(List.of());
+        version("20 FAKE Second Ave", "", "", "", "");
+        when(extArchiveDao.getDemographicExtArchiveByArchiveId(3L))
+                .thenReturn(List.of(ext(3L, "demo_cell", "613-555-0101")));
+
+        assertThat(history("cell")).containsExactly("613-555-0101", "", "613-555-0101");
+    }
+
+    @Test
     void shouldListThePhones_whenAnExtensionRowHasNoValue() throws Exception {
         version("20 FAKE Second Ave", "613-555-0100", "613-555-0300", null, null);
         version("20 FAKE Second Ave", "613-555-0177", "613-555-0300", null, null);

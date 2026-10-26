@@ -72,12 +72,18 @@ async function assertRefusedLanding({ recorder, page }, label, reasonKey, reason
     `${label}: the refusal offers no Log Out`);
 }
 
+function schedulelessRole(marker) {
+  h.assert(/^FAKE-PW[0-9a-f]{16}$/.test(marker), 'The owned role requires the complete run marker');
+  // secObjPrivilege.roleUserGroup is varchar(30); keep every marker bit within that key.
+  return `${marker}-nosch`;
+}
+
 async function workflow(s) {
   const { sql, marker, provider, config } = s;
   const q = h.sqlString;
   const fixture = throwawayLoginFixture({ sql, marker, provider, testUser: config.testUser });
   s.cleanup(() => fixture.cleanup());
-  const scheduleless = `${marker}-noschedule`;
+  const scheduleless = schedulelessRole(marker);
   let roleOwned = false;
   s.cleanup(() => {
     if (!roleOwned) return;
@@ -158,4 +164,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('schedule-role-access', workflow, { openPatient: false });
-module.exports = { workflow };
+module.exports = { workflow, schedulelessRole };

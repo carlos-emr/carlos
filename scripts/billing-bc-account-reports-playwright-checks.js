@@ -157,6 +157,7 @@ async function workflow(s) {
   };
   const pdfReport = async (repType) => {
     const report = await createReport(repType, 'pdf');
+    // Keep totals beside their labels; default Poppler reading order can interleave adjacent columns.
     return pdfTextBuffer(report.bytes, { layout: true }).replace(/\s+/g, ' ');
   };
 
@@ -210,6 +211,11 @@ async function workflow(s) {
     h.assert(report.bytes.length > 0, 'The spreadsheet summary is empty');
     const head = report.bytes.subarray(0, 512).toString('latin1');
     h.assert(!head.startsWith('%PDF-') && !/<html|<!doctype/i.test(head), 'The spreadsheet summary is a PDF or an HTML page');
+    const text = report.bytes.toString('utf8');
+    const printedAmounts = (text.match(/\$33\.70/g) || []).length;
+    h.assert(printedAmounts === 2,
+      `The spreadsheet summary prints ${printedAmounts} CAD payment/total amounts, not the expected two $33.70 values`);
+    h.assert(!/[\u00a4\u20ac]/.test(text), 'The spreadsheet summary changed CAD into a host-locale currency');
   });
   await admin.close();
 }

@@ -29,6 +29,8 @@ const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { seedOwnedBill, openHistory, openCorrection, billDate } = require('./billing-on-invoice-third-party-playwright-checks');
 const { masterRecordLink } = require('./lib/master-record-link');
+const { selectBillingSiteAndProvider, validateBillingContext } = require('./lib/billing-site-context');
+const { createOwnedBillingPhysician } = require('./lib/owned-billing-physician');
 
 const FORM_ROUTE = '/billing/CA/ON/ManageBillingform';
 const LOCATION_ROUTE = '/billing/CA/ON/ManageBillingLocation';
@@ -90,6 +92,11 @@ async function manageForm(admin, frame, billingform, reportAction) {
 
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
+  const fixtureBrowser = s.context.browser();
+  h.assert(fixtureBrowser && typeof fixtureBrowser.isConnected === 'function', 'Owned billing browser identity is required');
+  const physician = createOwnedBillingPhysician(s);
+  const billSession = physician.dependentSession;
+  let billingContext;
   const hex = marker.slice(7).toUpperCase();
   const token = lettersOnly(marker);
   const free = query => sql.value(query) === '0';
@@ -129,6 +136,8 @@ async function workflow(s) {
   const codes = [codeA, codeB, privateCode].map(h.sqlString).join(',');
 
   s.cleanup(() => {
+    h.assert(fixtureBrowser.isConnected() === false,
+      'Owned billing configuration retained: workflow browser close is unconfirmed');
     sql.execute(`DELETE FROM ctl_billingservice WHERE servicetype IN (${types});
       DELETE FROM ctl_diagcode WHERE servicetype IN (${types});
       DELETE FROM ctl_billingtype WHERE servicetype IN (${types});
@@ -287,6 +296,10 @@ async function workflow(s) {
 
   await s.step('the bill form offers the owned form with its codes, private code and location', async () => {
     bill = await openBillForm();
+    await physician.selectClinic(bill);
+    billingContext = await selectBillingSiteAndProvider(bill, physician.providerNo);
+    physician.assertContext(billingContext);
+    validateBillingContext(sql, provider, billingContext);
     await bill.locator(`a[onclick*="'Layer1','','show'"]`).first().click();
     await bill.locator('#Layer1 a', { hasText: formName }).click();
     h.assert(await bill.locator('#billForm').inputValue() === typeId, 'Choosing the owned form did not select it');
@@ -372,7 +385,11 @@ async function workflow(s) {
 
   let correction, ownedBill;
   await s.step('correction ▸ service code Search lists exactly the owned codes by their marked descriptions', async () => {
-    const owned = seedOwnedBill(s, { payProgram: 'HCP', status: 'O', code: codeA, fee: '12.34', date: billDate(), dx: dxA });
+    const owned = seedOwnedBill(billSession, { payProgram: 'HCP', status: 'O', code: codeA, fee: '12.34', date: billDate(), dx: dxA, billingContext });
+    const clinicPredicate = billingContext.multisites ? `clinic=${h.sqlString(billingContext.clinic)}` : 'clinic IS NULL';
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE id=${owned.headerId}
+      AND demographic_no=${patient} AND provider_no=${h.sqlString(billingContext.providerNo)} AND ${clinicPredicate}`) === '1',
+    'The owned admin-config correction header did not retain its native clinic/provider');
     ownedBill = owned;
     const history = await openHistory(s);
     correction = await openCorrection(s, history, owned.headerId);

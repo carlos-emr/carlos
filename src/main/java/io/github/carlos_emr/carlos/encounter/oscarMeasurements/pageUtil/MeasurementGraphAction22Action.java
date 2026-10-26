@@ -82,6 +82,7 @@ import org.jfree.data.xy.XYDataset;
 import io.github.carlos_emr.carlos.PMmodule.utility.UtilDateUtilities;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
+import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -130,8 +131,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         PatientRecordAccess.require(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
                 patient, "_measurement", "r");
 
-
         Integer demographicNo = Integer.valueOf(patient);
+        // Every graph draws this patient's name, age and values (measurements, labs, medications).
+        // A module right does not override a patient lock (_demographic$N / _eChart$N).
+        PatientReadAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                demographicNo, "_measurement", SecurityInfoManager.READ);
         String typeIdName = request.getParameter("type");
         String typeIdName2 = request.getParameter("type2");
 

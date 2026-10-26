@@ -66,8 +66,36 @@ class DocumentCommentPromptRegressionTest {
     @Test
     void shouldKeepSavedComment_forTheNextPrompt() throws IOException {
         assertThat(function(read(DOCUMENT_JS), "addDocComment"))
-                .contains("commentDisplayEl.textContent = commentInputEl.value;")
+                .contains("commentInputEl.value = submittedComment;")
+                .contains("commentDisplayEl.textContent = submittedComment;")
                 .doesNotContain("commentInputEl.value = \"\"");
+    }
+
+    @Test
+    void shouldKeepSavedState_untilTheServerConfirmsTheCommentWrite() throws IOException {
+        String comment = function(read(DOCUMENT_JS), "addDocComment");
+        int post = comment.indexOf("return postForm(");
+        int httpCheck = comment.indexOf("if (!response.ok)");
+        int bodyCheck = comment.indexOf("if (!json || typeof json.date !== \"string\" || !json.date)");
+        int saveHidden = comment.indexOf("commentInputEl.value = submittedComment;");
+        int showComment = comment.indexOf("commentDisplayEl.textContent = submittedComment;");
+        int failure = comment.indexOf(".catch(");
+
+        assertThat(post).as("the comment is sent to the server").isGreaterThanOrEqualTo(0);
+        assertThat(httpCheck).as("HTTP failures are refused").isGreaterThan(post);
+        assertThat(bodyCheck).as("the expected save confirmation is checked").isGreaterThan(httpCheck);
+        assertThat(saveHidden).as("only a confirmed comment becomes the next prompt's default").isGreaterThan(bodyCheck);
+        assertThat(showComment).as("only a confirmed comment is displayed as saved").isGreaterThan(bodyCheck);
+        assertThat(failure).as("failed writes have a recovery path").isGreaterThan(showComment);
+
+        assertThat(comment.substring(0, bodyCheck))
+                .as("preparing the request must not replace saved form state")
+                .contains("const data = new URLSearchParams(serializeForm(formid));", "data.set(\"comment\", submittedComment);")
+                .doesNotContain(".val(", "commentInputEl.value =", "commentDisplayEl.textContent =", "statusEl.value =");
+        assertThat(comment.substring(failure))
+                .as("a failed write tells the reviewer and preserves the saved comment and status")
+                .contains("alert(")
+                .doesNotContain(".value =", ".textContent =", ".val(");
     }
 
     @Test

@@ -16,20 +16,27 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 
 const TIMEOUT = 20000;
 
 async function workflow(s) {
   const { sql, patient, master } = s;
-  s.cleanup(() => {
-    sql.execute(`DELETE FROM demographicExtArchive WHERE archiveId IN (SELECT id FROM demographicArchive WHERE demographic_no=${patient})
-      OR demographic_no=${patient};
+  const foreignMarker = newOwnedMarker();
+  const foreignPatient = createOwnedPatient(sql, {marker: foreignMarker, provider: s.provider, firstName: 'ArchiveControl'});
+  let foreignArchive;
+  let collidingArchiveId;
+  s.cleanup(() => removeOwnedPatient(sql, foreignPatient, foreignMarker));
+  const clearOwnedHistory = () => {
+    // Legacy orphan rows can carry a reused archiveId belonging to another patient.
+    // Cleanup ownership comes from demographic_no, never an archive-id match alone.
+    sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${patient};
       DELETE FROM demographiccust WHERE demographic_no=${patient}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM demographiccust WHERE demographic_no=${patient})
-      + (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${patient}
-        OR archiveId IN (SELECT id FROM demographicArchive WHERE demographic_no=${patient}))`) === '0',
+      + (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${patient})`) === '0',
     'The owned patient\'s custom-field and extension archive rows were not removed');
-  });
+  };
+  s.cleanup(clearOwnedHistory);
   sql.execute(`UPDATE demographic SET address='10 FAKE Start Rd', city='Faketown', province='ON', postal='K1A0A1',
     phone='613-555-0100' WHERE demographic_no=${patient}`);
   await master.reload({ waitUntil: 'load' });
@@ -52,6 +59,10 @@ async function workflow(s) {
 
   await s.step('the address history lists each address the patient had, with the date it was entered', async () => {
     await update({ address: '20 FAKE Second Ave' });
+    collidingArchiveId = sql.value(`SELECT MAX(id) FROM demographicArchive WHERE demographic_no=${patient}`);
+    h.assert(/^[1-9]\d*$/.test(collidingArchiveId), 'The address update created no owned archive');
+    foreignArchive = h.insertId(sql, `INSERT INTO demographicExtArchive(archiveId,demographic_no,provider_no,key_val,value)
+      VALUES(${collidingArchiveId},${foreignPatient},${h.sqlString(s.provider)},'cleanup_guard','foreign archive control')`, 'foreign demographic archive');
     await update({ address: '30 FAKE Third St' });
     const rows = await history('Address History');
     for (const address of ['20 FAKE Second Ave', '30 FAKE Third St']) {
@@ -96,6 +107,13 @@ async function workflow(s) {
     h.assert(phones.some(phone => phone.startsWith('613-555-0188')), `The home phone history was not read: ${JSON.stringify(phones)}`);
     h.assert(new Set(phones).size === phones.length, `A home phone is listed more than once: ${JSON.stringify(phones)}`);
     h.assert(!phones.some(phone => phone.endsWith('x')), `A home phone without an extension ends in "x": ${JSON.stringify(phones)}`);
+  });
+
+  await s.step('owned history cleanup preserves another patient\'s archive row with a colliding archive id', async () => {
+    clearOwnedHistory();
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographicExtArchive WHERE id=${foreignArchive}
+      AND demographic_no=${foreignPatient} AND archiveId=${collidingArchiveId}
+      AND value='foreign archive control'`) === '1', 'History cleanup removed another patient\'s archive row');
   });
 }
 

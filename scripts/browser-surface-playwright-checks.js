@@ -141,10 +141,12 @@ async function login(context) {
 }
 
 async function openPatientFromSearch(context, schedulePage) {
-  const searchPopup = context.waitForEvent('page');
-  searchPopup.catch(() => {});
-  await schedulePage.locator('a').filter({ hasText: /^Search$/ }).click();
-  const searchPage = await searchPopup;
+  const searchLink = schedulePage.locator('a').filter({ hasText: /^Search$/ });
+  await searchLink.waitFor({ state: 'visible', timeout: 15000 });
+  const [searchPage] = await Promise.all([
+    context.waitForEvent('page'),
+    searchLink.click(),
+  ]);
   wirePage(searchPage, 'search');
   await searchPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
 
@@ -155,12 +157,12 @@ async function openPatientFromSearch(context, schedulePage) {
   ]);
   await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
-  const patientPopup = context.waitForEvent('page');
-  // Handle an early waiter rejection even if the click itself fails first, so
-  // the main finally block can remove this check's patient fixture.
-  patientPopup.catch(() => {});
-  await searchPage.locator(`a[onclick*='DemographicEdit?demographic_no=${demographicNo}']`).first().click();
-  const patientPage = await patientPopup;
+  const patientLink = searchPage.locator(`a[onclick*='DemographicEdit?demographic_no=${demographicNo}']`).first();
+  await patientLink.waitFor({ state: 'visible', timeout: 15000 });
+  const [patientPage] = await Promise.all([
+    context.waitForEvent('page'),
+    patientLink.click(),
+  ]);
   wirePage(patientPage, 'patient');
   await patientPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   return patientPage;
@@ -244,6 +246,8 @@ async function checkPatientPopups(context, patientPage) {
     '/tickler/ViewTicklerMain',
     'tickler'
   );
+  assert(new URL(tickler.url()).searchParams.get('demoview') === String(demographicNo),
+    'tickler popup did not open for the owned patient');
   await tickler.locator('body').waitFor({ state: 'visible', timeout: 15000 });
   await assertDataTablesAvailable(tickler, 'tickler');
   await tickler.screenshot({ path: buildArtifactPath(screenshotDir, 'surface-tickler'), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
@@ -256,6 +260,8 @@ async function checkPatientPopups(context, patientPage) {
     'ViewDisplayDemographicConsultationRequests',
     'consultation'
   );
+  assert(new URL(consultation.url()).searchParams.get('de') === String(demographicNo),
+    'consultation popup did not open for the owned patient');
   await consultation.locator('body').waitFor({ state: 'visible', timeout: 15000 });
   await assertDataTablesAvailable(consultation, 'consultation');
   await consultation.screenshot({ path: buildArtifactPath(screenshotDir, 'surface-consultation'), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename

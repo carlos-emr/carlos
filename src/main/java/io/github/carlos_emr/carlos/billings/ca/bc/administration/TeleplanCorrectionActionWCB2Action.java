@@ -124,14 +124,18 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         String savedId = request.getParameter("id");
         String savedBillingNo = request.getParameter("billingNo");
         if (savedId == null || !BILL_NUMBER.matcher(savedId).matches()
-                || savedBillingNo == null || !BILL_NUMBER.matcher(savedBillingNo).matches()) {
+                || request.getParameterValues("id").length != 1
+                || savedBillingNo == null || !BILL_NUMBER.matcher(savedBillingNo).matches()
+                || request.getParameterValues("billingNo").length != 1) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
 
-        String where = "success";
-
-        //TeleplanCorrectionFormWCB data = (TeleplanCorrectionFormWCB) form;
+        // Use the same canonical numeric values for persistence and redirect. Struts can otherwise
+        // bind repeated parameters differently from HttpServletRequest.getParameter's first value.
+        int savedBillId = Integer.parseInt(savedId);
+        setId(Integer.toString(savedBillId));
+        setBillingNo(Integer.toString(Integer.parseInt(savedBillingNo)));
 
         try {
 
@@ -144,7 +148,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
             }
 
             if (!StringUtils.isNullOrEmpty(status)) {
-                status = MSPReconcile.NOTSUBMITTED.equals(this.getStatus()) ? MSPReconcile.WCB : status;
+                status = MSPReconcile.NOTSUBMITTED.equals(status) ? MSPReconcile.WCB : status;
                 msp.updateBillingStatusWCB(this.getBillingNo(), status, this.getId());
             }
             BillingHistoryDAO dao = new BillingHistoryDAO();
@@ -168,8 +172,10 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
 
             Billing billing = billingDao.find(Integer.parseInt(this.getBillingNo()));
             if (billing != null) {
-                billing.setStatus(this.getStatus());
-                billingDao.merge(billing);
+                if (!StringUtils.isNullOrEmpty(status)) {
+                    billing.setStatus(status);
+                    billingDao.merge(billing);
+                }
             }
 
             String feeItem = this.getW_feeitem();
@@ -248,11 +254,12 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
             }
 
         } catch (Exception ex) {
-            log.error("WCB Teleplan Correction Query Error: " + ex.getMessage() + " - ", ex);
+            log.error("WCB Teleplan Correction Query Error", ex);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
-        // Back to the saved bill's correction page; the id was checked to be a number above.
-        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingTeleplanCorrectionWCB?billing_no=" + savedId);
+        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingTeleplanCorrectionWCB?billing_no=" + savedBillId);
         return NONE;
     }
 

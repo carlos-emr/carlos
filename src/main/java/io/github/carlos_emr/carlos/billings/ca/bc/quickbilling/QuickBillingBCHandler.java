@@ -48,7 +48,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.ListIterator;
 import java.util.Properties;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -65,9 +64,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
-import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
-import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote;
-import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
@@ -116,10 +112,6 @@ public class QuickBillingBCHandler {
     private ProviderDataDao providerDao;
     private Properties oscarProperties;
     private BillingBillingManager bmanager;
-    private Billing billing;
-    private BillingmasterDAO billingmasterDAO;
-    private BillingHistoryDAO billingHistoryDAO;
-    private Billingmaster billingmaster;
     private int numberSaved;
 
     /**
@@ -131,9 +123,6 @@ public class QuickBillingBCHandler {
         providerDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
         oscarProperties = CarlosProperties.getInstance();
         bmanager = new BillingBillingManager();
-        billing = new Billing();
-        billingmasterDAO = (BillingmasterDAO) SpringUtils.getBean(BillingmasterDAO.class);
-        billingHistoryDAO = new BillingHistoryDAO();
 
     }
 
@@ -148,9 +137,6 @@ public class QuickBillingBCHandler {
         providerDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
         oscarProperties = CarlosProperties.getInstance();
         bmanager = new BillingBillingManager();
-        billing = new Billing();
-        billingmasterDAO = (BillingmasterDAO) SpringUtils.getBean(BillingmasterDAO.class);
-        billingHistoryDAO = new BillingHistoryDAO();
 
     }
 
@@ -187,20 +173,6 @@ public class QuickBillingBCHandler {
      */
     private void setNumberSaved(int numberSaved) {
         this.numberSaved = numberSaved;
-    }
-
-    /**
-     * Reset the form and session objects for
-     * fresh entries.
-     */
-    public void reset() {
-        quickBillingBCFormBean.setIsHeaderSet(false);
-        quickBillingBCFormBean.setBillingProvider("");
-        quickBillingBCFormBean.setBillingProviderNo("");
-        quickBillingBCFormBean.setServiceDate("");
-        quickBillingBCFormBean.setVisitLocation("");
-        quickBillingBCFormBean.setBillingData(new ArrayList<BillingSessionBean>());
-
     }
 
     /**
@@ -422,58 +394,40 @@ public class QuickBillingBCHandler {
      * @return true if bills were saved successfully
      */
     public boolean saveBills() {
-
-        String dataCenterId = oscarProperties.getProperty("dataCenterId");
-        // Take the bills out of the session form first: a second Submit of the same page (a double
-        // click) then finds none and saves nothing, and the list being saved cannot change mid-save.
-        ArrayList<BillingSessionBean> billingSessionBeans = quickBillingBCFormBean.takeBillingData();
-        ListIterator<BillingSessionBean> it = billingSessionBeans.listIterator();
-        int invoiceCount = billingSessionBeans.size();
-
-        while (it.hasNext()) {
-            BillingSessionBean billingSessionBean = it.next();
-
-            try {
-                billing = getBillingObj(billingSessionBean, BILL_ACCOUNT_STATUS);
-            } catch (ParseException e) {
-                log.error("There was an error extracting the billing object: ", e);
-            }
-
-            ArrayList<BillingItem> billItems = billingSessionBean.getBillItem();
-
-            for (BillingItem item : billItems) {
-
-                // save indivdual bills.
-                //billing.setBillingNo(0);
-                billingmasterDAO.save(billing);
-
-                billingmaster = saveBill(
-                        billing.getId(),
-                        billing.getStatus(),
-                        dataCenterId,
-                        item.getDispLineTotal(),
-                        "" + PAYMENT_MODE,
-                        billingSessionBean,
-                        "" + item.getUnit(),
-                        "" + item.getServiceCode()
-                );
-
-                billingmasterDAO.save(billingmaster);
-
-                // billing history entry
-                String billingMasterNo = "" + billingmaster.getBillingmasterNo();
-
-                billingHistoryDAO.createBillingHistoryArchive(billingMasterNo);
-                BillingNote billingNote = new BillingNote();
-
-                billingNote.addNote(billingMasterNo, billingSessionBean.getCreator(), billingSessionBean.getMessageNotes());
-
-            }
-
+        setNumberSaved(0);
+        ArrayList<BillingSessionBean> invoices = quickBillingBCFormBean.beginBillingSave();
+        if (invoices == null) {
+            return true;
         }
-        setNumberSaved(invoiceCount);
-        return true;
-
+        ArrayList<BillingSessionBean> saved = new ArrayList<>();
+        try {
+            if (invoices.isEmpty()) {
+                return true;
+            }
+            QuickBillingBCInvoicePersister persister = SpringUtils.getBean(QuickBillingBCInvoicePersister.class);
+            String dataCenterId = oscarProperties.getProperty("dataCenterId");
+            for (BillingSessionBean invoice : invoices) {
+                // Build all lines before writing anything. A bad date must never reuse a previous patient's bill.
+                Billing header = getBillingObj(invoice, BILL_ACCOUNT_STATUS);
+                ArrayList<Billingmaster> lines = new ArrayList<>();
+                for (BillingItem item : invoice.getBillItem()) {
+                    lines.add(saveBill(0, header.getStatus(), dataCenterId, item.getDispLineTotal(),
+                            PAYMENT_MODE, invoice, String.valueOf(item.getUnit()), item.getServiceCode()));
+                }
+                if (lines.isEmpty()) {
+                    throw new IllegalArgumentException("Quick billing invoice has no service lines");
+                }
+                persister.saveInvoice(header, lines, invoice.getCreator(), invoice.getMessageNotes());
+                saved.add(invoice);
+                setNumberSaved(saved.size());
+            }
+            return true;
+        } catch (ParseException | RuntimeException e) {
+            log.error("Unable to save BC quick billing invoices", e);
+            return false;
+        } finally {
+            quickBillingBCFormBean.finishBillingSave(saved);
+        }
     }
 
     /**

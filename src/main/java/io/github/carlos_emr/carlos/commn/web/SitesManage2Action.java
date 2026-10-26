@@ -140,6 +140,8 @@ public class SitesManage2Action extends ActionSupport {
             }
             // The form does not carry these, and the saved site replaces the stored row: keep the stored values.
             // SiteDao.save reloads the site's providers itself.
+            s.setAddress(stored.getAddress());
+            s.setCity(stored.getCity());
             s.setSiteLogoId(stored.getSiteLogoId());
             s.setSiteUrl(stored.getSiteUrl());
             if (!IsPropertiesOn.isProviderFormalizeEnable()) {

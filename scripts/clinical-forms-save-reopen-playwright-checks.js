@@ -233,11 +233,52 @@ async function revealSavedForm(page, link) {
   await link.waitFor({ state: 'visible' });
 }
 
+/**
+ * SetupForm lazily creates clinic-wide VT measurement definitions, even on an open-only
+ * visit. They belong in explicit environment initialization, before the suite's residue
+ * baseline. Refuse a missing initializer before this workflow writes registrations or opens
+ * the form; never delete or silently allow clinic-wide dictionary rows after a browser run.
+ */
+function requireVascularDictionaryReady(sql, xml = require('node:fs').readFileSync(
+  require('node:path').join(__dirname, '../src/main/webapp/form/VTForm.xml'), 'utf8')) {
+  // A reader for this checked-in definition's two scalar keys, not a general XML parser.
+  h.assert(typeof xml === 'string' && !/<!DOCTYPE|<!ENTITY/i.test(xml), 'Invalid VT definition fixture');
+  const blocks = [...xml.matchAll(/<measurement>([\s\S]*?)<\/measurement>/g)];
+  h.assert(blocks.length > 0 && blocks.length === (xml.match(/<measurement>/g) || []).length
+    && blocks.length === (xml.match(/<\/measurement>/g) || []).length, 'Incomplete VT measurement definitions');
+  const decode = text => text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+  const definitions = blocks.map(([ , block]) => {
+    const read = tag => {
+      const matches = [...block.matchAll(new RegExp(`<${tag}>([^<]*)<\\/${tag}>`, 'g'))];
+      h.assert(matches.length === 1, `VT definition must have one ${tag}`);
+      const text = matches[0][1];
+      h.assert(!/&(?!lt;|gt;|quot;|apos;|amp;)/.test(text), 'Unsupported VT definition entity');
+      return decode(text).trim();
+    };
+    const type = read('type'), instruction = read('measuringInstrc');
+    h.assert(type.length > 0, 'VT definition has no measurement type');
+    return { type, instruction };
+  });
+  const keys = definitions.map(({ type, instruction }) => JSON.stringify([type, instruction]));
+  h.assert(new Set(keys).size === keys.length, 'Duplicate VT measurement definition key');
+  const required = definitions.map(({ type, instruction }) =>
+    `SELECT ${h.sqlString(type)} AS vtType,${h.sqlString(instruction)} AS vtInstruction`).join(' UNION ALL ');
+  const missing = sql.rows(`SELECT vt_expected.vtType,vt_expected.vtInstruction FROM (${required}) vt_expected
+    WHERE NOT EXISTS (SELECT 1 FROM measurementType mt
+      WHERE mt.type=vt_expected.vtType AND mt.measuringInstruction=vt_expected.vtInstruction)`);
+  h.assert(Array.isArray(missing) && missing.every(row => Array.isArray(row) && row.length === 2
+    && row.every(value => typeof value === 'string')), 'VT dictionary precondition returned invalid rows');
+  h.assert(missing.length === 0,
+    `VT dictionary initialization is required before the suite residue baseline; missing keys: ${JSON.stringify(missing)}`);
+}
+
 async function workflow(s, { forms = FORMS, foldSavedForms = false, select = validatePin() } = {}) {
   const { sql, patient, provider, marker } = s;
   const wanted = new Set(select);
   const results = [];
   const chosen = forms.filter(form => form.concerns.some(concern => wanted.has(claims.claimKey(form.claim, concern))));
+  if (chosen.some(form => form.key === 'VT' || form.key === 'VT2')) requireVascularDictionaryReady(sql);
   if (chosen.some(form => form.key === 'VT' || form.key === 'VT2')) {
     const catalog = vascularTrackerCatalogFixture(sql);
     // SetupForm can initialize shared definitions even if the native popup fails.
@@ -912,9 +953,16 @@ function concernLabel(form, concern) {
 
 // What scripts/form-claims.test.js and scripts/playwright-pin-validation.test.js read; the tail of this file is
 // evaluated alone by scripts/pdf-preflight.test.js, so it names as few globals as it can.
-const testing = { validatePin, claimForms: CLAIM_FORMS, labelFor, PINNED,
+const testing = { validatePin, claimForms: CLAIM_FORMS, labelFor, PINNED, requireVascularDictionaryReady,
   generatedLabel: (form, concern) => `${form.title}: ${concernLabel(form, concern)}` };
 if (require.main === module) runWorkflow(NAME, workflow, {
-  preflight: () => require('./lib/export-content-helpers').requirePoppler('pdftotext'),
+  preflight: ({ sql } = {}) => {
+    require('./lib/export-content-helpers').requirePoppler('pdftotext');
+    const selected = new Set(validatePin());
+    if (FORMS.some(form => (form.key === 'VT' || form.key === 'VT2')
+      && form.concerns.some(concern => selected.has(claims.claimKey(form.claim, concern))))) {
+      requireVascularDictionaryReady(sql);
+    }
+  },
 });
 module.exports = { workflow, FORMS, ...testing };

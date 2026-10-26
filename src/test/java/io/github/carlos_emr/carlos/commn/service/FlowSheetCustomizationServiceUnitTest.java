@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -159,6 +160,15 @@ class FlowSheetCustomizationServiceUnitTest {
     @Nested
     @DisplayName("cascade blocking with unset fields")
     class CascadeBlocking {
+
+        @ParameterizedTest
+        @ValueSource(strings = {"", "   "})
+        void shouldKeepProviderScope_whenCurrentPatientIsBlank(String demographicNo) {
+            CascadeCheckResult result = service.checkCanArchive(customization("999998", null),
+                    "provider", "999998", demographicNo);
+
+            assertThat(result.isBlocked()).isFalse();
+        }
 
         @Test
         void shouldReportClinicBlockingLevel_whenBlockingRowHasNullFields() {
