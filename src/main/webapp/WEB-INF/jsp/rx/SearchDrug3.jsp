@@ -230,7 +230,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="${ctx}/share/javascript/screen.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/rx.js"></script>
         <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
-        <script type="text/javascript" src="${ctx}/share/javascript/rx-patient-context.js" data-demographic-no="<%= rxSessionBean.getDemographicNo() %>"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-patient-context.js" data-demographic-no="<%= rxSessionBean.getDemographicNo() %>"
+                data-chart-context="<carlos:encode value='<%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) %>' context="htmlAttribute"/>"></script>
         <script src="${ctx}/share/javascript/allergy-alerts.js"></script>
         <script src="${ctx}/share/javascript/rx-interaction-warnings.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/Oscar.js"></script>

@@ -380,7 +380,7 @@ public class CaseManagementNote extends BaseObject {
         this.update_date = update_date;
     }
     @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
-    @org.hibernate.annotations.Formula("(select min(cmn.update_date) from casemgmt_note cmn where cmn.uuid = uuid)")
+    @org.hibernate.annotations.Formula("(select min(cmn.update_date) from casemgmt_note cmn where cmn.uuid = {alias}.uuid)")
 
     public Date getCreate_date() {
         return create_date;
@@ -534,7 +534,7 @@ public class CaseManagementNote extends BaseObject {
     public void setRevision(String rev) {
         this.revision = rev;
     }
-    @org.hibernate.annotations.Formula("(select count(cmn.uuid) from casemgmt_note cmn where cmn.uuid = uuid)")
+    @org.hibernate.annotations.Formula("(select count(cmn.uuid) from casemgmt_note cmn where cmn.uuid = {alias}.uuid)")
 
     public String getRevision() {
         return this.revision;

@@ -30,6 +30,7 @@ const ui = require('./lib/playwright-ui');
 const claims = require('./lib/form-claims');
 const { markProblems, takeProblems } = require('./lib/form-problems');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { vascularTrackerCatalogFixture } = require('./lib/vascular-tracker-catalog-fixture');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { pdfText } = require('./form-print-pdf-playwright-checks');
 
@@ -237,6 +238,13 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
   const wanted = new Set(select);
   const results = [];
   const chosen = forms.filter(form => form.concerns.some(concern => wanted.has(claims.claimKey(form.claim, concern))));
+  if (chosen.some(form => form.key === 'VT' || form.key === 'VT2')) {
+    const catalog = vascularTrackerCatalogFixture(sql);
+    // SetupForm can initialize shared definitions even if the native popup fails.
+    // Register first so all owned form/measurement children are removed before them.
+    s.cleanup(() => catalog.cleanup());
+    catalog.begin();
+  }
   const registrations = chosen.map(form => ({
     form, name: `${marker} ${form.key}`, value: `${form.path}?fixture=${marker}&row=${form.key}&${form.query || ''}demographic_no=`,
   }));

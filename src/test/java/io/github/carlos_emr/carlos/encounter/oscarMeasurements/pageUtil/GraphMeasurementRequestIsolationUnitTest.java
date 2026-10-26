@@ -12,8 +12,11 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.stream.Stream;
 import org.apache.struts2.ServletActionContext;
+import org.jfree.chart.ChartUtils;
+import org.jfree.chart.JFreeChart;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -130,5 +133,59 @@ class GraphMeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(request.getSession().getAttribute("EctSessionBean")).isSameAs(global);
         assertThat(global.demographicNo).isEqualTo("202");
         assertThat(request.getSession().getAttribute("eChartID")).isEqualTo("202");
+    }
+
+    @Test
+    void shouldRefuseLockedRecord_beforePatientNameOrGraphDataLookup() {
+        request.setParameter("demographicNo", "000101");
+        when(security.hasPrivilege(login, "_measurement", "r", "101")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(false);
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var names = mockStatic(DemographicNameAgeString.class);
+             var jdbc = mockStatic(LegacyJdbcQuery.class);
+             var handlers = mockConstruction(EctMeasurementsDataBeanHandler.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            assertThatThrownBy(() -> new MeasurementGraphAction22Action().execute())
+                    .isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
+            verify(security).isAllowedAccessToPatientRecord(login, 101);
+            names.verifyNoInteractions();
+            jdbc.verifyNoInteractions();
+            assertThat(handlers.constructed()).isEmpty();
+            verifyNoInteractions(measurements, extensions);
+            assertGlobalUnchanged();
+        }
+    }
+
+    @Test
+    void shouldRenderRequestedGraph_whenModuleAndRecordAccessAreAllowed() throws Exception {
+        request.setParameter("demographicNo", "000101");
+        when(security.hasPrivilege(login, "_measurement", "r", "101")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(true);
+        DemographicNameAgeString nameLookup = mock(DemographicNameAgeString.class);
+        when(nameLookup.getNameAgeString(login, 101)).thenReturn("Allowed patient");
+        JFreeChart graph = mock(JFreeChart.class);
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var names = mockStatic(DemographicNameAgeString.class);
+             var images = mockStatic(ChartUtils.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            names.when(DemographicNameAgeString::getInstance).thenReturn(nameLookup);
+            MeasurementGraphAction22Action action = new MeasurementGraphAction22Action() {
+                @Override
+                JFreeChart defaultChart(Integer patient, String firstType, String secondType,
+                                        String patientName, String chartTitle) {
+                    assertThat(patient).isEqualTo(101);
+                    assertThat(patientName).isEqualTo("Allowed patient");
+                    return graph;
+                }
+            };
+            assertThat(action.execute()).isNull();
+            assertThat(response.getContentType()).isEqualTo("image/png");
+            verify(security).isAllowedAccessToPatientRecord(login, 101);
+            verify(nameLookup).getNameAgeString(login, 101);
+            images.verify(() -> ChartUtils.writeChartAsPNG(any(java.io.OutputStream.class), eq(graph), eq(1000), eq(600)));
+            assertGlobalUnchanged();
+        }
     }
 }

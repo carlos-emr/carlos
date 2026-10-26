@@ -38,10 +38,10 @@ function fixture() {
   return { requests, alerts, context, restore() { restored = true; } };
 }
 
-function addFavoriteFixture(name) {
+function addFavoriteFixture(name, chartContext) {
   const requests = [];
   const context = {
-    ctx: '/carlos', RxPatientContext: patientContext.create('1001'),
+    ctx: '/carlos', RxPatientContext: patientContext.create('1001', chartContext),
     window: { prompt: () => name, location: { href: '/carlos/rx/choosePatient?demographicNo=1001&rx2=true' } },
     CarlosAjax: { request(url, options) { requests.push({ url, options }); } },
   };
@@ -61,6 +61,16 @@ test('adding a card favourite returns to the same patient prescribing page only 
   assert.equal(f.context.window.location.href, '/carlos/rx/choosePatient?demographicNo=1001&rx2=true');
   options.onSuccess({ status: 200 });
   assert.equal(f.context.window.location.href, '/carlos/rx/choosePatient?demographicNo=1001');
+});
+
+test('adding a favourite returns to its prescribing page with the originating chart program context', () => {
+  const f = addFavoriteFixture('Program favourite', 'originating-chart-context');
+  f.requests[0].options.onSuccess({ status: 200 });
+  const destination = new URL(f.context.window.location.href, 'https://emr.example');
+  assert.equal(destination.origin, 'https://emr.example');
+  assert.equal(destination.pathname, '/carlos/rx/choosePatient');
+  assert.deepEqual(destination.searchParams.getAll('demographicNo'), ['1001']);
+  assert.deepEqual(destination.searchParams.getAll('chartContext'), ['originating-chart-context']);
 });
 
 for (const name of [null, '']) {

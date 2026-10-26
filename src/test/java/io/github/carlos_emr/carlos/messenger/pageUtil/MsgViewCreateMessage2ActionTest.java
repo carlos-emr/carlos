@@ -120,6 +120,21 @@ class MsgViewCreateMessage2ActionTest extends CarlosWebTestBase {
                 .isEqualTo("<root>FAKE chart item</root>");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {1000000000, Integer.MAX_VALUE})
+    void shouldCopySavedItems_whenComposeLinkUsesFullIntegerIdentifier(int messageId) throws Exception {
+        allowPrivilege("_msg", "r");
+        String source = MsgAttachmentStaging.forwardKey(getMockSession(), messageId);
+        MsgAttachmentStaging.stageItems(getMockSession(), source, "<root>FAKE large-ID item</root>");
+        getMockRequest().setParameter(MsgViewCreateMessage2Action.FORWARD_MESSAGE_PARAMETER, Integer.toString(messageId));
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        String handedOver = (String) getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
+        assertThat(MsgAttachmentStaging.peek(getMockSession(), handedOver).itemAttachment())
+                .isEqualTo("<root>FAKE large-ID item</root>");
+    }
+
     @Test
     @DisplayName("should start a new message when the Compose link names no valid message")
     void shouldStartNewMessage_whenForwardMessageIsNotAMessageId() throws Exception {

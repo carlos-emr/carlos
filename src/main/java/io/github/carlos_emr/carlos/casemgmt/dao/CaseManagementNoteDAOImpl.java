@@ -27,6 +27,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.casemgmt.dao;
@@ -37,12 +38,13 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.Objects;
 import java.util.UUID;
 
 import java.util.Arrays;
@@ -421,21 +423,26 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
                 }
             }
 
-        // make unique for uuid
+        // Keep the newest revision per UUID; database timestamp precision can leave tied updates.
         HashMap<String, CaseManagementNote> uniqueForUuid = new HashMap<String, CaseManagementNote>();
         for (CaseManagementNote note : notes) {
             CaseManagementNote existingNote = uniqueForUuid.get(note.getUuid());
-            if (existingNote == null || note.getUpdate_date().after(existingNote.getUpdate_date()))
+            if (existingNote == null || note.getUpdate_date().after(existingNote.getUpdate_date())
+                    || (note.getUpdate_date().compareTo(existingNote.getUpdate_date()) == 0
+                        && note.getId() > existingNote.getId()))
                 uniqueForUuid.put(note.getUuid(), note);
         }
 
-        // sort by observationdate
-        TreeMap<Date, CaseManagementNote> sortedResults = new TreeMap<Date, CaseManagementNote>();
+        // Observation dates are sort keys, not note identities: distinct UUIDs can share one date.
+        List<CaseManagementNote> sortedResults = new ArrayList<>(uniqueForUuid.size());
         for (CaseManagementNote note : uniqueForUuid.values()) {
-            sortedResults.put(note.getObservation_date(), note);
+            Objects.requireNonNull(note.getObservation_date(), "Missing note observation date");
+            sortedResults.add(note);
         }
+        sortedResults.sort(Comparator.comparing(CaseManagementNote::getObservation_date)
+                .thenComparing(CaseManagementNote::getId));
 
-        return (sortedResults.values());
+        return sortedResults;
     }
 
 

@@ -123,7 +123,9 @@ public final class RxShowAllergy2Action extends ActionSupport {
         }
         reorder(request);
         try {
-            response.sendRedirect(request.getContextPath() + "/rx/showAllergy?demographicNo=" + Encode.forUriComponent(demoNoParam));
+            String chartContext = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request);
+            response.sendRedirect(request.getContextPath() + "/rx/showAllergy?demographicNo=" + Encode.forUriComponent(demoNoParam)
+                    + (chartContext == null ? "" : "&chartContext=" + Encode.forUriComponent(chartContext)));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

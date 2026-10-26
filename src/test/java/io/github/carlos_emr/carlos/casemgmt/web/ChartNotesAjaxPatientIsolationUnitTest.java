@@ -64,31 +64,23 @@ class ChartNotesAjaxPatientIsolationUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should take entry metadata only from this chart's own patient")
-    void shouldUseSessionBean_onlyForTheChartsOwnPatient() throws IOException {
+    void shouldUsePatientMetadata_whenAnotherChartIsOpen() throws IOException {
         String source = source();
 
         assertThat(source)
                 .contains("chartPatientNo = EncounterPatientContext.requireDemographicNo(request);")
-                .contains("boolean ownChartBean = chartPatientNo != null && chartPatientNo.equals(bean.demographicNo);")
+                .contains("EncounterPatientContext.entryOrLoggedIn(request, loggedInInfo, chartPatientNo)")
+                .doesNotContain("session.getAttribute(\"EctSessionBean\")")
                 .contains("String provNo = EncounterPatientContext.entryProvider(request, loggedInInfo, chartPatientNo);")
                 .doesNotContain("provNo = ownChartBean")
                 .doesNotContain("String provNo = bean.providerNo;");
     }
 
     @Test
-    @DisplayName("should append and consume only this chart's pending message")
-    void shouldConsumePendingMessage_onlyFromTheChartsOwnEntry() throws IOException {
-        String source = source();
-
-        assertThat(source)
-                .contains("String oscarMsg = ownChartBean && bean.oscarMsg != null ? bean.oscarMsg : \"\";")
-                .doesNotContain("String oscarMsg = bean.oscarMsg != null ? bean.oscarMsg : \"\";");
-        // The shared bean's message and reason are cleared only inside the block that the own-chart
-        // message above opens, so another chart's pending message is left for that chart.
-        assertThat(source).containsPattern(Pattern.compile(
-                "boolean hasOscarMsg = renderMoreNotesScript && !oscarMsg\\.equals\\(\"\"\\);\\s*"
-                        + "if \\(hasOscarMsg\\) \\{\\s*bean\\.reason = \"\";\\s*bean\\.oscarMsg = \"\";"));
-        assertThat(source.split("bean\\.oscarMsg = \"\";", -1)).as("the message is cleared in one place").hasSize(2);
+    @DisplayName("should leave the pending message with the requesting chart window")
+    void shouldUseWindowMessage_whenNotesListLoads() throws IOException {
+        assertThat(source()).contains("pendingEncounterMessage")
+                .doesNotContain("bean.oscarMsg", "bean.reason =");
     }
 
     @Test
@@ -98,4 +90,12 @@ class ChartNotesAjaxPatientIsolationUnitTest extends CarlosUnitTestBase {
                 .contains("List<String> templateNames = bean.templateNames != null ? bean.templateNames : List.of();")
                 .doesNotContain("bean.templateNames.size()");
     }
+    @Test
+    @DisplayName("should use the canonical patient for session keys and form fields")
+    void shouldUseCanonicalPatient_whenAliasIsAccepted() throws IOException {
+        String source = source();
+        assertThat(source).contains("String demographicNo = chartPatientNo;")
+                .doesNotContain("request.getParameter(\"demographicNo\")");
+    }
+
 }

@@ -74,7 +74,7 @@
 
     CaseManagementNoteExt cme = new CaseManagementNoteExt();
 
-    String frmName = "caseManagementEntryForm" + request.getParameter("demographicNo");
+    String frmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, request.getParameter("demographicNo"));
     CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
 
     String encTimeMandatoryValue = CarlosProperties.getInstance().getProperty("ENCOUNTER_TIME_MANDATORY", "false");
@@ -165,6 +165,9 @@
 
 
 <script type="text/javascript" src="${pageContext.request.contextPath}/js/validateTextInputs.js"></script>
+<script>
+window.carlosChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+</script>
 <!--js code for newCaseManagementView.jsp -->
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp"></script>
 

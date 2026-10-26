@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -95,6 +97,9 @@ class CaseManagementPrintSelectedNotesUnitTest extends CarlosUnitTestBase {
         when(properties.getProperty("CMESort", "")).thenReturn("");
         when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDirectory.toString());
 
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("demographicNo", Integer.toString(PATIENT));
+        ChartProgramContext.remember(request, null);
         try (var configuration = mockStatic(CarlosProperties.class);
              var pdfs = mockConstruction(CaseManagementPrintPdf.class);
              var _ = mockStatic(ConcatPDF.class)) {
@@ -102,7 +107,7 @@ class CaseManagementPrintSelectedNotesUnitTest extends CarlosUnitTestBase {
 
             new CaseManagementPrint().doPrint(loggedInInfo, PATIENT, false, new String[]{"11", "12"},
                     false, false, false, false, false, false, null, null,
-                    new MockHttpServletRequest(), new ByteArrayOutputStream());
+                    request, new ByteArrayOutputStream());
 
             assertThat(pdfs.constructed()).hasSize(1);
             @SuppressWarnings("unchecked")
@@ -126,7 +131,9 @@ class CaseManagementPrintSelectedNotesUnitTest extends CarlosUnitTestBase {
         LoggedInInfo login = mock(LoggedInInfo.class);
         when(login.getLoggedInProviderNo()).thenReturn("999998");
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addParameter("demographicNo", String.valueOf(OTHER_PATIENT), "900003");
+        request.setParameter("demographicNo", Integer.toString(PATIENT));
+        ChartProgramContext.remember(request, null);
+        request.setParameter("demographicNo", String.valueOf(OTHER_PATIENT), "900003");
         request.addParameter("extPrintMeasurements", "true");
         request.addParameter("pStartDate", "");
         request.addParameter("pEndDate", "");

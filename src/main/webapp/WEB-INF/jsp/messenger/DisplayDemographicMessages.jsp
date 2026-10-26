@@ -49,12 +49,11 @@
   
   Request parameters:
   - demographic_no: Patient ID to filter messages
-  - orderby: Sort column and direction
+  - orderby: Validated sort column and direction; defaults to !date
   - moreMessages: Pagination flag
   
   Session attributes:
   - msgSessionBean: Message display session state
-  - orderby: Current sort preference
   
   Display settings:
   - Initial display: 20 messages
@@ -79,6 +78,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message key="messenger.ViewMessage.msgAttachments" var="attachmentLabel"/>
 <%
     // Build role string for security check
     String userrole = (String) session.getAttribute("userrole");
@@ -100,16 +100,11 @@
 <%
     // Handle sorting logic - toggle between ascending and descending
     // Prefix with "!" indicates descending order
-    if (request.getParameter("orderby") != null) {
-        String orderby = request.getParameter("orderby");
-        String sessionOrderby = (String) session.getAttribute("orderby");
-        if (sessionOrderby != null && sessionOrderby.equals(orderby)) {
-            // Toggle sort direction if clicking same column
-            orderby = "!" + orderby;
-        }
-        session.setAttribute("orderby", orderby);
+    String orderby = request.getParameter("orderby");
+    if (orderby == null || !orderby.matches("!?(status|from|subject|date|sentto|linked)")) {
+        orderby = "!date";
     }
-    String orderby = (String) session.getAttribute("orderby");
+
 
     // Handle pagination - show more messages beyond initial display
     String moreMessages = "false";
@@ -146,7 +141,7 @@
     }
 
 %>
-<jsp:useBean id="DisplayMessagesBeanId" scope="session"
+<jsp:useBean id="DisplayMessagesBeanId" scope="request"
              class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayMessagesBean"/>
 <% 
     if (bean == null) {
@@ -157,9 +152,9 @@
         }
     }
 
-    DisplayMessagesBeanId.setProviderNo(bean.getProviderNo());
+    DisplayMessagesBeanId.setProviderNo(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
 %>
-<jsp:setProperty name="DisplayMessagesBeanId" property="*"/>
+
 
 <html>
     <head>
@@ -244,40 +239,40 @@
                                         <th bgcolor="#DDDDFF" width="75">&nbsp;</th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
-                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=from&amp;moreMessages=true">
+                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=<%= "from".equals(orderby) ? "!from" : "from" %>&amp;moreMessages=true">
                                             <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                         </a> <%} else {%> <a
-                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=from&amp;moreMessages=false">
+                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=<%= "from".equals(orderby) ? "!from" : "from" %>&amp;moreMessages=false">
                                             <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
-                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=subject&amp;moreMessages=true">
+                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=<%= "subject".equals(orderby) ? "!subject" : "subject" %>&amp;moreMessages=true">
                                             <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                         </a> <%} else {%> <a
-                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=subject&amp;moreMessages=false">
+                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=<%= "subject".equals(orderby) ? "!subject" : "subject" %>&amp;moreMessages=false">
                                             <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
-                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=date&amp;moreMessages=true">
+                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=<%= "date".equals(orderby) ? "!date" : "date" %>&amp;moreMessages=true">
                                             <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                         </a> <%} else {%> <a
-                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=date&amp;moreMessages=false">
+                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=<%= "date".equals(orderby) ? "!date" : "date" %>&amp;moreMessages=false">
                                             <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%>
                                             <a
-                                                    href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=linked&amp;moreMessages=true">
+                                                    href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=<%= "linked".equals(orderby) ? "!linked" : "linked" %>&amp;moreMessages=true">
                                                 <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                             </a>
                                             <%} else {%>
                                             <a
-                                                    href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=linked&amp;moreMessages=false">
+                                                    href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=<%= "linked".equals(orderby) ? "!linked" : "linked" %>&amp;moreMessages=false">
                                                 <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                             </a>
                                             <%}%>
@@ -300,7 +295,7 @@
                                             width="75"><input type="checkbox" name="messageNo" value="<carlos:encode value='<%= dm.getMessageId() %>' context="htmlAttribute"/>"/> <%
                                             String atta = dm.getAttach();
                                             if (atta.equals("1")) {
-                                        %><img src="img/clip4.jpg">
+                                        %><img src="${pageContext.request.contextPath}/messenger/img/clip4.jpg" alt="${carlos:forHtmlAttribute(attachmentLabel)}">
                                             <%
                                                 }
                                             %> &nbsp;
