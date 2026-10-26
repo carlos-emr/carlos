@@ -20,7 +20,11 @@
       data-patient="${carlos:forHtmlAttribute(demographicNo)}" data-document="${carlos:forHtmlAttribute(documentId)}"
       data-delivery="${carlos:forHtmlAttribute(deliveryId)}" data-next="${carlos:forHtmlAttribute(nextCursor)}">
     <header><h1><fmt:message key="mycarlos.delivery.title"/></h1>
-        <p class="document-title"><carlos:encode value="${documentTitle}"/></p></header>
+        <p class="document-title"><carlos:encode value="${documentTitle}"/></p>
+        <c:if test="${available}"><p><fmt:message key="mycarlos.delivery.serviceDate"/>: <span id="delivery-service-date"><c:choose>
+            <c:when test="${empty serviceDate}"><fmt:message key="mycarlos.delivery.dateNotRecorded"/></c:when>
+            <c:otherwise><carlos:encode value="${serviceDate}"/></c:otherwise>
+        </c:choose></span></p></c:if></header>
     <p><fmt:message key="mycarlos.delivery.description"/></p>
     <div id="delivery-message" role="status" aria-live="polite"></div>
     <c:choose>
@@ -60,6 +64,7 @@
         <c:forEach items="${['staged','waiting','picked_up','expired','removed','fenced','error']}" var="status">
             <span data-status="${carlos:forHtmlAttribute(status)}"><fmt:message key="mycarlos.delivery.status.${status}"/></span>
         </c:forEach>
+        <span data-copy="dateNotRecorded"><fmt:message key="mycarlos.delivery.dateNotRecorded"/></span>
         <span data-copy="retry"><fmt:message key="mycarlos.delivery.retry"/></span>
         <span data-copy="retried"><fmt:message key="mycarlos.delivery.retried"/></span>
         <span data-copy="error"><fmt:message key="mycarlos.delivery.error"/></span>

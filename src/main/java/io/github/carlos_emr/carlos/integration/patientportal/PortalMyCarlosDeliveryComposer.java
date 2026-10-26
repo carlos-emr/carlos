@@ -46,12 +46,12 @@ final class PortalMyCarlosDeliveryComposer {
             for (String value : new String[] {clinicName, providerName, patientName, title}) label(value, 240);
             label(type, 64);
             date(birthDate);
-            date(serviceDate);
+            if (!serviceDate.isEmpty()) date(serviceDate);
         }
         @Override public String toString() { return "DeliveryDocument[REDACTED]"; }
     }
 
-    /** Frozen M0 labels and dates must be acceptable before signing or encryption. */
+    /** Native M0 label and known-date policy, checked before signing or encryption. */
     private static void label(String value, int maximum) {
         if (value.isEmpty() || value.codePointCount(0, value.length()) > maximum
                 || value.codePoints().anyMatch(Character::isISOControl)) throw invalid();

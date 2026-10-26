@@ -231,8 +231,8 @@ class PortalMyCarlosDeliveryProducerUnitTest {
     }
 
     @Test
-    void shouldRejectDatesAndLabelsThatFrozenNativeM0Refuses_beforeCreatingAnyDeliveryCopy() {
-        for (String invalidDate : new String[] {"", "2026-2-03", "2026-02-29", "2026-04-31", "0000-01-01", "2026-10-26T00:00:00Z"}) {
+    void shouldRejectMalformedKnownDatesAndLabelsThatNativeM0Refuses_beforeCreatingAnyDeliveryCopy() {
+        for (String invalidDate : new String[] {"2026-2-03", "2026-02-29", "2026-04-31", "0000-01-01", "2026-10-26T00:00:00Z"}) {
             assertThrows(IllegalArgumentException.class, () -> new PortalMyCarlosDeliveryComposer.Document("clinic-a", "FAKE Clinic", "FAKE Provider",
                     "FAKE Patient", "1990-01-01", "FAKE document", "document", invalidDate));
             assertThrows(IllegalArgumentException.class, () -> new PortalMyCarlosDeliveryComposer.Document("clinic-a", "FAKE Clinic", "FAKE Provider",
@@ -244,6 +244,21 @@ class PortalMyCarlosDeliveryProducerUnitTest {
         }
         assertDoesNotThrow(() -> new PortalMyCarlosDeliveryComposer.Document("clinic-a", "😀".repeat(240), "FAKE Provider",
                 "FAKE Patient", "2000-02-29", "FAKE document", "document", "2024-02-29"));
+    }
+
+    @Test
+    void shouldEncodeExplicitUnknownDateAsEmptyString_inActualSignedDeliveryManifest() throws Exception {
+        var f = fixture(); var expected = compose(f); var known = document();
+        var unknown = new PortalMyCarlosDeliveryComposer.Document(known.clinicId(), known.clinicName(), known.providerName(),
+                known.patientName(), known.birthDate(), known.title(), known.type(), "");
+        var copy = PortalMyCarlosDeliveryComposer.compose(expected.deliveryId(), expected.recipientId(), expected.device(), unknown,
+                expected.originalPdf().copy(), expected.createdAt(), expected.expiresAt(), signer(f), clinicPrivate(f));
+        var actual = JSON.readTree(PortalMyCarlosDeviceApprovalCodec.envelope(copy.manifest()).payload().copy());
+        assertTrue(actual.at("/document/service_date").isTextual());
+        assertEquals("", actual.at("/document/service_date").textValue());
+        assertEquals("1985-06-15", actual.at("/patient/birth_date").textValue());
+        assertThrows(IllegalArgumentException.class, () -> new PortalMyCarlosDeliveryComposer.Document("clinic-a", "FAKE Clinic", "FAKE Provider",
+                "FAKE Patient", "", "FAKE document", "document", ""));
     }
 
     static PortalMyCarlosDeliveryComposer.Copy compose(JsonNode f) throws Exception {

@@ -83,18 +83,23 @@ class PortalDelivery2ActionUnitTest {
             assertFalse(response.getContentAsString().contains("clinical title"));
         }
     }
-    @Test void shouldExplainMissingSavedServiceDate_withoutExposingInternalDetails() throws Exception {
-        var request = request("POST", "send"); var response = new MockHttpServletResponse();
-        var application = mock(PortalMyCarlosDeliveryApplicationService.class);
-        when(application.send(any(), anyInt(), anyInt(), anyString(), anyString(), any()))
-                .thenThrow(mock(PortalMyCarlosDeliveryApplicationService.MissingServiceDate.class));
-        try (var servlet = mockStatic(ServletActionContext.class); var beans = mockStatic(SpringUtils.class);
-             var identity = mockStatic(LoggedInInfo.class); var enabled = mockStatic(PortalMyCarlosDeliveryApplicationService.class);
-             var portal = mockStatic(PatientPortalSettings.class)) {
-            configure(servlet, beans, identity, enabled, request, response);
-            beans.when(() -> SpringUtils.getBean(PortalMyCarlosDeliveryApplicationService.class)).thenReturn(application);
-            assertEquals("none", action().execute()); assertEquals(400, response.getStatus());
-            assertTrue(response.getContentAsString().contains("mycarlos.delivery.missingServiceDate"));
+    @Test void shouldReturnKnownAndExplicitUnknownDate_withoutInventingOrRequiringOne() throws Exception {
+        for (String date : new String[] {null, "2026-10-17"}) {
+            var request = request("GET", "read"); var response = new MockHttpServletResponse();
+            var application = mock(PortalMyCarlosDeliveryApplicationService.class);
+            when(application.read(any(), eq(6001), eq(44), eq(0L), any())).thenReturn(
+                    new PortalMyCarlosDeliveryApplicationService.State("FAKE Document", List.of(), List.of(), null, null, date));
+            try (var servlet = mockStatic(ServletActionContext.class); var beans = mockStatic(SpringUtils.class);
+                 var identity = mockStatic(LoggedInInfo.class); var enabled = mockStatic(PortalMyCarlosDeliveryApplicationService.class);
+                 var portal = mockStatic(PatientPortalSettings.class)) {
+                configure(servlet, beans, identity, enabled, request, response);
+                beans.when(() -> SpringUtils.getBean(PortalMyCarlosDeliveryApplicationService.class)).thenReturn(application);
+                var action = action(); assertEquals("none", action.execute()); assertEquals(200, response.getStatus());
+                var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+                if (date == null) assertTrue(json.get("serviceDate").isNull());
+                else assertEquals(date, json.get("serviceDate").textValue());
+                assertEquals(date, action.getServiceDate());
+            }
         }
     }
 

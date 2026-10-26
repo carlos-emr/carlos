@@ -32,7 +32,7 @@ const rowData = (index, status = 'picked_up') => ({
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function mount(rows) {
     const ids = Object.fromEntries(['mycarlos-send', 'delivery-form', 'delivery-message', 'delivery-history',
-        'delivery-more', 'delivery-send', 'delivery-check', 'delivery-empty', 'delivery-no-device'].map(id => [id, new Element()]));
+        'delivery-more', 'delivery-send', 'delivery-check', 'delivery-empty', 'delivery-no-device', 'delivery-service-date'].map(id => [id, new Element()]));
     ids['delivery-device'] = new Element('select');
     const option = new Element('option'); option.value = 'FAKE-current-device';
     ids['delivery-device'].append(option); ids['delivery-device'].value = option.value;
@@ -43,7 +43,7 @@ function mount(rows) {
         row.dataset = {delivery: item.deliveryId, device: item.deviceKeyId, status: item.status};
         row.append(new Element('td'), new Element('td')); ids['delivery-history'].append(row);
     }
-    const copies = ['retry', 'retried', 'error', 'busy', 'sync'].map(key => {
+    const copies = ['retry', 'retried', 'error', 'busy', 'sync', 'dateNotRecorded'].map(key => {
         const element = new Element(); element.dataset.copy = key; element.textContent = key; return element;
     });
     const statuses = ['staged', 'waiting', 'picked_up', 'error'].map(key => {
@@ -63,7 +63,7 @@ function mount(rows) {
     vm.runInNewContext(fs.readFileSync(path.join(__dirname,
         '../src/main/webapp/share/javascript/demographic/mycarlos-send.js'), 'utf8'), context);
     return {ids, calls, payload: deliveries => ({ok: true, devices: [{deviceKeyId: option.value,
-        acceptedAt: '2026-10-26T00:00:00Z', fingerprint: '0'.repeat(64)}], deliveries, nextCursor: null})};
+        acceptedAt: '2026-10-26T00:00:00Z', fingerprint: '0'.repeat(64)}], deliveries, nextCursor: null, serviceDate: null})};
 }
 
 test('21st pending copy reached through Older deliveries retries its exact UUID/device with CSRF', async () => {
@@ -104,4 +104,14 @@ test('waiting-for-pickup rows offer status checking rather than an upload retry'
     const {ids} = mount([rowData(21, 'waiting')]);
     assert.equal(ids['delivery-history'].querySelectorAll().length, 0);
     assert.equal(ids['delivery-check'].disabled, false);
+});
+
+
+test('service date display distinguishes explicit unknown from a known saved date', async () => {
+    const {ids, calls, payload} = mount([]);
+    ids['delivery-check'].click(); await tick(); calls[0].resolve(payload([])); await tick();
+    assert.equal(ids['delivery-service-date'].textContent, 'dateNotRecorded');
+    ids['delivery-check'].click(); await tick();
+    calls[1].resolve({...payload([]), serviceDate: '2026-10-17'}); await tick();
+    assert.equal(ids['delivery-service-date'].textContent, '2026-10-17');
 });

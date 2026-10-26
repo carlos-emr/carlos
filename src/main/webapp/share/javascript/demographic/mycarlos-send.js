@@ -109,6 +109,7 @@
                 throw failure;
             }
             reconcileDevices(result.devices);
+            document.getElementById('delivery-service-date').textContent = result.serviceDate || copy.dateNotRecorded;
             if (!older) history.replaceChildren();
             append(result.deliveries);
             next = result.nextCursor;

@@ -73,7 +73,10 @@ public final class PortalMyCarlosDeliveryApplicationService {
         public String getStatus() { return status; }
         @Override public String toString() { return "StaffDelivery[REDACTED]"; }
     }
-    public record State(String title, List<Device> devices, List<Delivery> deliveries, String nextCursor, String syncStatus) {
+    public record State(String title, List<Device> devices, List<Delivery> deliveries, String nextCursor, String syncStatus, String serviceDate) {
+        public State(String title, List<Device> devices, List<Delivery> deliveries, String nextCursor, String syncStatus) {
+            this(title, devices, deliveries, nextCursor, syncStatus, null);
+        }
         public State { devices = List.copyOf(devices); deliveries = List.copyOf(deliveries); }
         @Override public String toString() { return "StaffDeliveryState[REDACTED]"; }
     }
@@ -158,7 +161,7 @@ public final class PortalMyCarlosDeliveryApplicationService {
             deliveries.add(new Delivery(snapshot.deliveryId(), snapshot.device().kid(), Instant.ofEpochSecond(snapshot.createdAt()), state));
         }
         String next = references.size() > 20 ? Long.toString(references.get(19).id()) : null;
-        return new State(document.getDocdesc(), devices, deliveries, next, null);
+        return new State(document.getDocdesc(), devices, deliveries, next, null, serviceDate(document));
     }
 
     public State send(LoggedInInfo info, int patient, int documentId, String deliveryId, String deviceKid,
@@ -191,8 +194,7 @@ public final class PortalMyCarlosDeliveryApplicationService {
             if (created < 0 || created > Long.MAX_VALUE - PortalMyCarlosDeliveryCodec.MAX_LIFETIME) throw unavailable();
             DocumentManifest manifest = manifest(info, patient, document, source, target.binding().recipientId(), runtime.current().clinic, created);
             // Validate all frozen wire metadata before rendering or signing the original.
-            var details = new PortalMyCarlosDeliveryComposer.Document(manifest.clinicId(), manifest.clinicName(), manifest.providerName(),
-                    manifest.patientName(), manifest.patientBirthDate(), manifest.documentTitle(), manifest.documentType(), manifest.serviceDate());
+            var details = deliveryDocument(manifest);
             var signing = PDFSigningConfig.fromCarlosProperties();
             try (var working = EmailComposeWorkingDirectory.create()) {
                 // Reuse the existing permission-aware renderer and private temp custody, with no email log or SMTP work.
@@ -233,19 +235,25 @@ public final class PortalMyCarlosDeliveryApplicationService {
         }
         String sync = runtime.sync().poll().name().toLowerCase(java.util.Locale.ROOT);
         var state = read(info, patient, documentId, 0, portal);
-        return new State(state.title(), state.devices(), state.deliveries(), state.nextCursor(), sync);
+        return new State(state.title(), state.devices(), state.deliveries(), state.nextCursor(), sync, state.serviceDate());
     }
 
-    public static final class MissingServiceDate extends IllegalArgumentException {
-        private static final long serialVersionUID = 1L;
-        MissingServiceDate() { super("saved document service date is required"); }
+    /** PDF null and delivery empty string are the explicit v1 representations of an unknown date. */
+    static PortalMyCarlosDeliveryComposer.Document deliveryDocument(DocumentManifest manifest) {
+        return new PortalMyCarlosDeliveryComposer.Document(manifest.clinicId(), manifest.clinicName(), manifest.providerName(),
+                manifest.patientName(), manifest.patientBirthDate(), manifest.documentTitle(), manifest.documentType(),
+                manifest.serviceDate() == null ? "" : manifest.serviceDate());
+    }
+
+    private static String serviceDate(Document document) {
+        if (document.getObservationdate() == null) return null;
+        return document.getObservationdate() instanceof java.sql.Date sqlDate ? sqlDate.toLocalDate().toString()
+                : Instant.ofEpochMilli(document.getObservationdate().getTime()).atZone(ZoneId.systemDefault()).toLocalDate().toString();
     }
 
     DocumentManifest manifest(LoggedInInfo info, int patient, Document document, String source,
             String recipient, String clinicId, long created) {
-        if (document.getObservationdate() == null) throw new MissingServiceDate();
-        String date = document.getObservationdate() instanceof java.sql.Date sqlDate ? sqlDate.toLocalDate().toString()
-                : Instant.ofEpochMilli(document.getObservationdate().getTime()).atZone(ZoneId.systemDefault()).toLocalDate().toString();
+        String date = serviceDate(document);
         var chart = demographics.getDemographic(info, patient); var clinic = clinics.getClinic();
         if (chart == null || clinic == null || info.getLoggedInProvider() == null) throw unavailable();
         String name = required(chart.getLastName()) + ", " + required(chart.getFirstName());

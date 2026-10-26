@@ -45,7 +45,7 @@ public final class PortalDelivery2Action extends PortalJsonAction {
             else if ("send".equals(operation)) state = service.send(info, patient, document, deliveryId, request.getParameter("deviceKeyId"), portalService());
             else state = service.refresh(info, patient, document, portalService());
             if (page) return SUCCESS;
-            var json = newPayload().put("ok", true).put("title", state.title());
+            var json = newPayload().put("ok", true).put("title", state.title()).put("serviceDate", state.serviceDate());
             if (state.nextCursor() == null) json.putNull("nextCursor"); else json.put("nextCursor", state.nextCursor());
             if (state.syncStatus() == null) json.putNull("syncStatus"); else json.put("syncStatus", state.syncStatus());
             var devices = json.putArray("devices");
@@ -56,9 +56,6 @@ public final class PortalDelivery2Action extends PortalJsonAction {
                     .put("deviceKeyId", row.deviceKeyId()).put("queuedAt", row.queuedAt().toString()).put("status", row.status());
             return write(response, 200, json);
         } catch (PatientPortalException failure) { return portalFailure(response, failure); }
-        catch (PortalMyCarlosDeliveryApplicationService.MissingServiceDate failure) {
-            return badRequest(response, getText("mycarlos.delivery.missingServiceDate"));
-        }
         catch (IllegalArgumentException failure) { return badRequest(response, getText("mycarlos.delivery.changed")); }
         catch (IllegalStateException | IOException failure) {
             if (page) { available = false; return SUCCESS; }
@@ -85,6 +82,7 @@ public final class PortalDelivery2Action extends PortalJsonAction {
     public int getDocumentId() { return document; }
     public String getDeliveryId() { return deliveryId; }
     public boolean isAvailable() { return available; }
+    public String getServiceDate() { return state == null ? null : state.serviceDate(); }
     public String getDocumentTitle() { return state == null ? "" : state.title(); }
     public List<PortalMyCarlosDeliveryApplicationService.Device> getDevices() { return state == null ? List.of() : state.devices(); }
     public List<PortalMyCarlosDeliveryApplicationService.Delivery> getDeliveries() { return state == null ? List.of() : state.deliveries(); }
