@@ -28,6 +28,13 @@ final class PortalMyCarlosDeliveryClient {
         this.job = job;
     }
 
+    boolean configuredFor(String clinic, String internalOrigin) {
+        try {
+            return portal.myCarlosClinicId().equals(clinic) && portal.myCarlosDeliveryTarget(1).equals(
+                    java.net.URI.create(internalOrigin + "/internal/carlos/patients/1/mycarlos/deliveries"));
+        } catch (IllegalArgumentException invalidConfiguration) { return false; }
+    }
+
     String upload(int demographic, String deliveryId, String deviceKid, byte[] persistedBody) {
         if (demographic <= 0) throw invalid();
         uuid(deliveryId, true);
@@ -44,10 +51,15 @@ final class PortalMyCarlosDeliveryClient {
     }
 
     Page events(long after) {
+        return page(fetchEvents(after), after);
+    }
+
+    /** Raw bounded bytes are retained before interpreting any event or checkpoint. */
+    byte[] fetchEvents(long after) {
         if (after < 0) throw invalid();
         String response = portal.exchangeJob(job, PortalJob.PERMISSION_DELIVERY_EVENTS_READ, "GET",
                 ROOT + "delivery-events?after=" + after + "&limit=25", new byte[0], 200);
-        return page(utf8(response), after);
+        return utf8(response);
     }
 
     /** Caller must commit verified events and contiguous checkpoint BEFORE invoking this method. */

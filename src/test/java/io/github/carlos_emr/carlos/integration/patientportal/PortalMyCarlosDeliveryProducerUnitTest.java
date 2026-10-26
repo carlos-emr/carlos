@@ -160,7 +160,7 @@ class PortalMyCarlosDeliveryProducerUnitTest {
         invalidPayloads.add(claims.deepCopy().put("jti", "not-a-uuid").toString());
         List<DynamicTest> tests = new ArrayList<>();
         for (int i = 0; i < invalidPayloads.size(); i++) {
-            String compact = signReceipt(invalidPayloads.get(i).getBytes(StandardCharsets.UTF_8), f);
+            String compact = signDevicePayload(invalidPayloads.get(i).getBytes(StandardCharsets.UTF_8), f);
             tests.add(DynamicTest.dynamicTest("authentic hostile receipt " + i, () -> assertThrows(
                     IllegalArgumentException.class, () -> PortalMyCarlosDeliveryReceiptVerifier.verify(compact, binding))));
         }
@@ -173,7 +173,7 @@ class PortalMyCarlosDeliveryProducerUnitTest {
         String original = f.at("/portal/receipts/0/receipt").textValue();
         byte[] exact = (" \n" + new String(PortalMyCarlosDeviceApprovalCodec.envelope(original).payload().copy(),
                 StandardCharsets.UTF_8) + "\n").getBytes(StandardCharsets.UTF_8);
-        String compact = signReceipt(exact, f);
+        String compact = signDevicePayload(exact, f);
         assertEquals(compact, PortalMyCarlosDeliveryReceiptVerifier.verify(compact,
                 binding(f, f.at("/sender/manifest_claims/delivery_id").textValue())).compact());
     }
@@ -282,7 +282,7 @@ class PortalMyCarlosDeliveryProducerUnitTest {
                         Arrays.copyOfRange(sealed, 32, sealed.length));
     }
 
-    private static String signReceipt(byte[] exact, JsonNode f) throws Exception {
+    static String signDevicePayload(byte[] exact, JsonNode f) throws Exception {
         byte[] prefix = HexFormat.of().parseHex("302e020100300506032b657004220420");
         byte[] secret = seed(f.at("/keys/device/ed25519_seed_text").textValue());
         PrivateKey key = KeyFactory.getInstance("Ed25519").generatePrivate(new PKCS8EncodedKeySpec(
