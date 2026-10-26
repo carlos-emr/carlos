@@ -1031,7 +1031,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         if (progList.isEmpty()) {
-            return null;
+            return Collections.emptyList();
         }
 
         List<AccessType> rt = new ArrayList<AccessType>();
@@ -1225,6 +1225,14 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
+    public void replaceTmpSave(String providerNo, String demographicNo, String programId, String noteId, String note) {
+        // The public manager transaction owns both operations. Calling the delete and insert
+        // separately from an action committed the deletion even when the replacement failed.
+        deleteTmpSave(providerNo, demographicNo, programId);
+        tmpSave(providerNo, demographicNo, programId, noteId, note);
+    }
+
+    @Override
     public void deleteTmpSave(String providerNo, String demographicNo, String programId) {
         Integer intDemoNo = ConversionUtils.fromIntString(demographicNo);
         Integer intProgramId = ConversionUtils.fromIntString(programId);
@@ -1276,9 +1284,22 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
     }
 
-    // we want to load a temp saved note only if it's more recent than date
+    /**
+     * Restores a temporary note saved more recently than the supplied date.
+     *
+     * @param providerNo String identifying the provider who saved the draft
+     * @param demographicNo String containing the numeric patient identifier
+     * @param programId String containing the numeric program identifier
+     * @param date Date used as the lower bound for the saved draft
+     * @return CaseManagementTmpSave matching the context and date, or null when
+     *         patient or program context is missing or nonnumeric, or no draft matches
+     */
     @Override
     public CaseManagementTmpSave restoreTmpSave(String providerNo, String demographicNo, String programId, Date date) {
+        if (demographicNo == null || demographicNo.isEmpty() || !StringUtils.isNumeric(demographicNo)
+                || programId == null || programId.isEmpty() || !StringUtils.isNumeric(programId)) {
+            return null;
+        }
         CaseManagementTmpSave obj = caseManagementTmpSaveDao.find(providerNo, Integer.valueOf(demographicNo),
                 Integer.valueOf(programId), date);
         return obj;
@@ -1323,6 +1344,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         ProgramProvider pp = (ProgramProvider) ppList.get(0);
         Secrole role = pp.getRole();
+        if (role == null || role.getId() == null) {
+            return filteredNotes;
+        }
 
         Map programAccessMap = ProgramAccessCache.getAccessMap(Long.valueOf(programId));
         // Load up access list from program
@@ -1334,8 +1358,11 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // iterate through the issue list
         for (CaseManagementNote cmNote : notes) {
+            if (cmNote == null) continue;
             String noteRole = cmNote.getReporter_caisi_role();
-            String noteRoleName = RoleCache.getRole(Long.valueOf(noteRole)).getName().toLowerCase();
+            String noteRoleName = safeGetRoleName(noteRole);
+            if (noteRoleName.isEmpty()) continue;
+            long noteRoleId = Long.parseLong(noteRole);
             ProgramAccess pa = null;
             boolean add = false;
 
@@ -1350,7 +1377,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                 }
             } else {
                 logger.debug(noteRoleName + " is null");
-                if (Long.parseLong(noteRole) == role.getId().longValue()) {
+                if (noteRoleId == role.getId().longValue()) {
                     // default
                     logger.debug("noteRole " + noteRole + " = Provider Role from secRole " + role.getId());
                     add = true;
@@ -1359,7 +1386,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
             // apply defaults
             if (!add) {
-                if (Long.parseLong(noteRole) == role.getId().longValue()) {
+                if (noteRoleId == role.getId().longValue()) {
                     logger.debug("noteRole " + noteRole + " = Provider Role from secRole " + role.getId());
                     add = true;
                 }
@@ -1511,11 +1538,39 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return map;
     }
 
+    /**
+     * Parses the positive Long identifiers accepted by the program access DAOs.
+     *
+     * @param programId String containing the program identifier
+     * @return Long identifier, or null for missing, non-positive or out-of-range values
+     */
+    private static Long positiveProgramId(String programId) {
+        if (programId == null) return null;
+        try {
+            long value = Long.parseLong(programId);
+            return value > 0 ? value : null;
+        } catch (NumberFormatException invalidProgram) {
+            return null;
+        }
+    }
+
+    /**
+     * Counts matching issues visible through the provider's program role.
+     *
+     * @param providerNo String identifying the provider
+     * @param programId String containing a positive Long program identifier
+     * @param search String containing the issue search text
+     * @return Integer match count, or zero for invalid program context or absent membership
+     */
     @Override
     public Integer searchIssuesCount(String providerNo, String programId, String search) {
+        // No selected program is an empty issue search, not an invalid numeric query.
+        Long programKey = positiveProgramId(programId);
+        if (programKey == null) return 0;
+
         // Get Role - if no ProgramProvider record found, show no issues.
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
-                Long.valueOf(programId));
+                programKey);
         if (ppList == null || ppList.isEmpty()) {
             return 0;
         }
@@ -1524,7 +1579,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // get program accesses... program allows either all roles or not all roles
         // (does this mean no roles?)
-        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
+        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(programKey);
         Map<String, ProgramAccess> paMap = convertProgramAccessListToMap(paList);
 
         // get all roles
@@ -1553,15 +1608,29 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return issueDAO.searchCount(search, allowableSearchRoles);
     }
 
+    /**
+     * Searches the first page of issues visible through the provider's program role.
+     *
+     * @param providerNo String identifying the provider
+     * @param programId String containing a positive Long program identifier
+     * @param search String containing the issue search text
+     * @return {@code List<Issue>} results, empty for invalid program context or absent membership
+     */
     @Override
     public List<Issue> searchIssues(String providerNo, String programId, String search) {
         return searchIssues(providerNo, programId, search, 0, AbstractDao.MAX_LIST_RETURN_SIZE);
     }
 
     /**
-     * @param providerNo
-     * @param programId
-     * @param search
+     * Searches a page of issues visible through the provider's program role.
+     *
+     * @param providerNo String identifying the provider
+     * @param programId String containing a positive Long program identifier
+     * @param search String containing the issue search text
+     * @param startIndex int offset into the matching results
+     * @param numToReturn int maximum number of matching issues to return
+     * @return {@code List<Issue>} results, empty for invalid program context or absent membership
+     * @throws IllegalArgumentException if numToReturn exceeds the DAO result limit
      */
     @Override
     public List<Issue> searchIssues(String providerNo, String programId, String search, int startIndex,
@@ -1572,9 +1641,13 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                     "Can only return a maximum of " + AbstractDao.MAX_LIST_RETURN_SIZE + " results");
         }
 
+        // No selected program is an empty issue search, not an invalid numeric query.
+        Long programKey = positiveProgramId(programId);
+        if (programKey == null) return new ArrayList<>();
+
         // Get Role - if no ProgramProvider record found, show no issues.
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
-                Long.valueOf(programId));
+                programKey);
         if (ppList == null || ppList.isEmpty()) {
             return new ArrayList<Issue>();
         }
@@ -1583,7 +1656,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // get program accesses... program allows either all roles or not all roles
         // (does this mean no roles?)
-        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
+        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(programKey);
         Map<String, ProgramAccess> paMap = convertProgramAccessListToMap(paList);
 
         // get all roles
@@ -1623,7 +1696,14 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     /**
-     * Filters a list of CaseManagementIssue objects based on role.
+     * Filters a list of CaseManagementIssue objects based on the provider's program role.
+     *
+     * @param loggedInInfo LoggedInInfo containing the caller's authenticated context
+     * @param providerNo String identifying the provider
+     * @param issues {@code List<CaseManagementIssue>} objects to filter
+     * @param programId String containing a positive Long program identifier
+     * @return {@code List<CaseManagementIssue>} objects visible to the role, empty for invalid
+     *         program context or absent membership
      */
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
@@ -1637,9 +1717,13 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             return issues;
         }
 
+        // No selected program is an empty issue search, not an invalid numeric query.
+        Long programKey = positiveProgramId(programId);
+        if (programKey == null) return new ArrayList<>();
+
         // Get Role - if no ProgramProvider record found, show no issues.
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
-                Long.valueOf(programId));
+                programKey);
         if (ppList == null || ppList.isEmpty()) {
             return new ArrayList<CaseManagementIssue>();
         }
@@ -1648,7 +1732,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         Secrole role = pp.getRole();
 
         // Load up access list from program
-        List<ProgramAccess> programAccessList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
+        List<ProgramAccess> programAccessList = programAccessDAO.getAccessListByProgramId(programKey);
         Map<String, ProgramAccess> programAccessMap = convertProgramAccessListToMap(programAccessList);
 
         // iterate through the issue list
@@ -1879,6 +1963,59 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         auditSignedNote(revision);
         copyRevisionMetadata(previous == null ? null : previous.getId(), revision);
         return revision;
+    }
+
+    @Override
+    public CompactSaveResult saveCompactNoteRevision(LoggedInInfo login, CaseManagementNote submitted,
+            List<CaseManagementIssue> submittedIssues, String originatingProgram) {
+        if (login == null || !Objects.equals(login.getLoggedInProviderNo(), submitted.getProviderNo())) {
+            throw new SecurityException("Compact note writer does not match the login");
+        }
+        // Lock and validate the revision before issue writes. Keep the submitted note
+        // and issue identities untouched so the same editor can retry a failed commit.
+        CaseManagementNote previous = previousRevision(submitted);
+        CaseManagementNote note = submitted.copyForRevision();
+        note.setId(submitted.getId());
+        note.setRevision(revisionAfter(previous));
+        ProgramManager programs = SpringUtils.getBean(ProgramManager.class);
+        if (isPositiveProgram(originatingProgram)) {
+            note.setReporter_caisi_role(writerRoleForChart(programs, note.getProviderNo(),
+                    note.getProgram_no(), originatingProgram).getId().toString());
+        } else {
+            try {
+                note.setReporter_caisi_role(programs.getProgramProvider(note.getProviderNo(),
+                        note.getProgram_no()).getRole().getId().toString());
+            } catch (Exception missingLegacyRole) {
+                note.setReporter_caisi_role("0");
+            }
+        }
+        Map<CaseManagementIssue, CaseManagementIssue> copies = new IdentityHashMap<>();
+        List<CaseManagementIssue> issues = new ArrayList<>();
+        for (CaseManagementIssue source : submittedIssues) {
+            if (!Objects.equals(String.valueOf(source.getDemographic_no()), note.getDemographic_no())) {
+                throw new SecurityException("Issue belongs to a different demographic");
+            }
+            CaseManagementIssue copy = new CaseManagementIssue(source);
+            copy.setId(source.getId() != null && source.getId() > 0 ? source.getId() : null);
+            copy.setProgram_id(source.getProgram_id());
+            copy.setNotes(new HashSet<>());
+            copies.put(source, copy);
+            issues.add(copy);
+        }
+        List<CaseManagementIssue> selected = new ArrayList<>();
+        for (CaseManagementIssue source : submitted.getIssues()) {
+            CaseManagementIssue copy = copies.get(source);
+            if (copy == null) throw new IllegalArgumentException("Selected issue is missing from the compact form");
+            selected.add(copy);
+        }
+        saveAndUpdateCaseIssues(issues);
+        // New issue IDs affect hashing; assemble the selected set after persistence.
+        note.setIssues(new LinkedHashSet<>(selected));
+        note = saveNoteRevisionSimple(note);
+        if (originatingProgram != null) {
+            deleteTmpSave(note.getProviderNo(), note.getDemographic_no(), originatingProgram);
+        }
+        return new CompactSaveResult(note, List.copyOf(issues));
     }
 
     private CaseManagementNote previousRevision(CaseManagementNote note) {
@@ -2338,7 +2475,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     /**
      * Gets all the notes.
      * Caisi - filter notes.
-     * Grab the last one, where I am providers, and it's not signed.
+     * Grab the last unsigned note by this provider in the requested program.
+     * Cross-program read permission does not make another program's note an editor or append target.
      *
      * @param programId the program ID
      * @param demono the demographic number
@@ -2375,12 +2513,16 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         if (programId == null || programId.length() == 0) {
             programId = "0";
         }
+        long requestedProgramId = Long.parseLong(programId);
 
         entries = filterNotes1(providerNo, entries, programId);
 
         Collections.sort(entries, EChartNoteEntry.getDateComparatorDesc());
 
         for (EChartNoteEntry entry : entries) {
+            if (entry.getProgramId() != requestedProgramId) {
+                continue;
+            }
             CaseManagementNote n = getNote(String.valueOf(entry.getId()));
             if (n.getProviderNo().equals(providerNo)) {
                 return n;
@@ -2480,16 +2622,74 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
                                                      Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString) throws Exception {
+        // Preserve the historical contract for REST and other integrations whose
+        // originating program is the note's program.
+        return saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, locale,
+                now, userName, user, remoteAddr, lastSavedNoteString, note.getProgram_no(), false, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram) throws Exception {
+        return saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, locale,
+                now, userName, user, remoteAddr, lastSavedNoteString, draftProgram, true, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram, CaseManagementIssue removedIssue) throws Exception {
+        if (removedIssue == null || removedIssue.getId() == null || removedIssue.getId() <= 0
+                || !Objects.equals(note.getDemographic_no(), String.valueOf(removedIssue.getDemographic_no()))) {
+            throw new SecurityException("Issue deletion does not belong to the note patient");
+        }
+        return saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, locale,
+                now, userName, user, remoteAddr, lastSavedNoteString, draftProgram, true, removedIssue);
+    }
+
+    private CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram, boolean explicitChartOrigin,
+                                                     CaseManagementIssue removedIssue) throws Exception {
+        // A failed transaction leaves the editor's submitted object available for retry.
+        // Do not retain a failed attempt's added signature or revision counter on it.
+        CaseManagementNote submitted = note;
+        note = submitted.copyForRevision();
+        note.setId(submitted.getId());
         ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
         AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
 
         Long old_note_id = note.getId();
 
         boolean inCaisi = CarlosProperties.getInstance().isCaisiLoaded();
+
+        if (removedIssue != null) {
+            // Lock the source revision before removing its issue. CPP medical history below
+            // must be derived after the deletion, and all later failures roll it back.
+            previousRevision(note);
+            CaseManagementIssue storedIssue = caseManagementIssueDAO.findById(removedIssue.getId());
+            if (storedIssue == null
+                    || !Objects.equals(note.getDemographic_no(), String.valueOf(storedIssue.getDemographic_no()))
+                    || removedIssue.getIssue_id() != storedIssue.getIssue_id()) {
+                throw new StaleNoteRevisionException();
+            }
+            // The native editor offers Delete only for unused issues. Recheck the
+            // stored links: a stale form must never delete historical note associations.
+            if (!storedIssue.getNotes().isEmpty()) throw new StaleNoteRevisionException();
+            deleteIssueById(storedIssue);
+            if (inCaisi) removeIssueFromCPP(note.getDemographic_no(), storedIssue);
+        }
 
         String role = null;
         String team = null;
@@ -2500,11 +2700,22 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             newNote = true;
         }
 
-        try {
-            role = String.valueOf(
-                    (programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
-        } catch (Exception e) {
-            role = "0";
+        String roleName;
+        if (explicitChartOrigin && isPositiveProgram(draftProgram)) {
+            // Preserve the writer's existing role in the stored note's program.
+            // A shared-note editor may instead belong only to the originating chart.
+            Secrole writerRole = writerRoleForChart(programManager, note.getProviderNo(), note.getProgram_no(), draftProgram);
+            role = writerRole.getId().toString();
+            roleName = writerRole.getRoleName();
+        } else {
+            // Legacy integrations and the global program retain their historical policy.
+            try {
+                role = String.valueOf(
+                        (programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
+            } catch (Exception e) {
+                role = "0";
+            }
+            roleName = getRoleName(note.getProviderNo(), note.getProgram_no());
         }
         /*
          * if (!"true".equals(session.getAttribute("archiveView")))
@@ -2533,8 +2744,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         note.setReporter_program_team(team);
 
         OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
-
-        String roleName = getRoleName(note.getProviderNo(), note.getProgram_no());
 
         // Keep the version being archived stable through the note and appointment commit.
         // A lookup/lock failure must roll back, rather than masquerading as no appointment.
@@ -2621,15 +2830,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             saveCPP(cpp, note.getProviderNo());
         }
 
-        int revision;
-
-        if (note.getRevision() != null) {
-            revision = Integer.parseInt(note.getRevision());
-            ++revision;
-        } else
-            revision = 1;
-
-        note.setRevision(String.valueOf(revision));
+        // Derive the published count from the locked database row. A legacy
+        // UUID-null source reports zero until its first revision initializes the chain.
+        note.setRevision(revisionAfter(previousRevision(note)));
 
         /* save note including add signature */
         note = saveNoteRevision(cpp, note, note.getProviderNo(), userName, lastSavedNoteString, roleName).note();
@@ -2643,10 +2846,12 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             appointmentDao.merge(appointment);
         }
 
-        try {
-            this.deleteTmpSave(note.getProviderNo(), note.getDemographic_no(), note.getProgram_no());
-        } catch (Exception e) {
-            logger.warn("warn", e);
+        if (draftProgram != null) {
+            // A shared note keeps its original program, while the draft belongs
+            // to the chart that submitted it. Both writes share this transaction.
+            // A cleanup failure must roll back the revision, rather than report a
+            // successful save while a stale draft is still available to restore.
+            this.deleteTmpSave(note.getProviderNo(), note.getDemographic_no(), draftProgram);
         }
 
         if (old_note_id != null) {
@@ -2681,6 +2886,40 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                 note.getDemographic_no(), note.getAuditString());
 
         return note;
+    }
+
+    private static boolean isPositiveProgram(String program) {
+        if (program == null) return false;
+        try {
+            return Long.parseLong(program) > 0;
+        } catch (NumberFormatException invalidProgram) {
+            return false;
+        }
+    }
+
+    private static String revisionAfter(CaseManagementNote previous) {
+        if (previous == null) return "1";
+        int baseline;
+        try { baseline = Math.max(1, Integer.parseInt(previous.getRevision())); }
+        catch (NumberFormatException legacyCounter) { baseline = 1; }
+        return Integer.toString(Math.addExact(baseline, 1));
+    }
+
+    private static Secrole writerRoleInProgram(ProgramManager programs, String provider, String program) {
+        if (!isPositiveProgram(program)) return null;
+        ProgramProvider membership = programs.getProgramProvider(provider, program);
+        Secrole role = membership == null ? null : membership.getRole();
+        return role != null && role.getId() != null && role.getId() > 0
+                && StringUtils.isNotBlank(role.getRoleName()) ? role : null;
+    }
+
+    private static Secrole writerRoleForChart(ProgramManager programs, String provider, String storedProgram, String originatingProgram) {
+        Secrole role = writerRoleInProgram(programs, provider, storedProgram);
+        if (role == null && !Objects.equals(storedProgram, originatingProgram)) {
+            role = writerRoleInProgram(programs, provider, originatingProgram);
+        }
+        if (role == null) throw new SecurityException("No writer role for the chart program");
+        return role;
     }
 
     @Override
@@ -2752,7 +2991,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             Long roleId = Long.valueOf(roleIdStr);
             logger.debug("Looking up role ID: " + roleId);
             Secrole secrole = RoleCache.getRole(roleId);
-            if (secrole != null) {
+            if (secrole != null && StringUtils.isNotBlank(secrole.getName())) {
                 String name = secrole.getName().toLowerCase();
                 logger.debug("Found role: " + name + " for ID: " + roleId);
                 return name;

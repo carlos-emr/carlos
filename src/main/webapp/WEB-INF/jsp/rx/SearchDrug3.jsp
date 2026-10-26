@@ -230,7 +230,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="${ctx}/share/javascript/screen.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/rx.js"></script>
         <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
-        <script type="text/javascript" src="${ctx}/share/javascript/rx-patient-context.js" data-demographic-no="<%= rxSessionBean.getDemographicNo() %>"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-patient-context.js" data-demographic-no="<%= rxSessionBean.getDemographicNo() %>"
+                data-chart-context="<carlos:encode value='<%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) %>' context="htmlAttribute"/>"></script>
         <script src="${ctx}/share/javascript/allergy-alerts.js"></script>
         <script src="${ctx}/share/javascript/rx-interaction-warnings.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/Oscar.js"></script>
@@ -2264,8 +2265,9 @@ function addFav(randomId,brandName){
         var url= ctx + "/rx/addFavorite2";
         var data="parameterValue=addFav2&randomId="+randomId+"&favoriteName="+favoriteName;
         CarlosAjax.request(url, {method: 'post',parameters:data, onSuccess:function(transport){
-              // Reload this window's patient, not the most recently opened Rx patient (#3875).
-              window.location.href = RxPatientContext.withPatient(ctx + "/rx/searchDrug");
+              // Return to this patient's prescribing cards; searchDrug renders the legacy
+              // search results instead (#5248).
+              window.location.href = RxPatientContext.withPatient(ctx + "/rx/choosePatient");
    }
 					})
 }
@@ -2687,6 +2689,10 @@ function updateQty(element){
         var elemId=element.id;
         var ar=elemId.split("_");
         var rand=ar[1];
+        var card = document.getElementById('set_' + rand);
+        if (!card) return false;
+        var calculation = {};
+        card._rxCalculation = calculation;
         var data="parameterValue=updateDrug&randomId="+rand+"&action=updateQty&quantity="+encodeURIComponent(element.value);
         var url= ctx + "/rx/WriteScript";
 
@@ -2713,8 +2719,9 @@ function updateQty(element){
         CarlosAjax.request(url, {method: 'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
           onSuccess:function(transport){
-                // A declined/closed card can disappear while this calculation is in flight.
-                if (!document.getElementById('set_' + rand)) return;
+                // Staging starts an async quantity calculation. Its old answer must not erase
+                // directions parsed since then, or update a discarded/replaced card (#5183).
+                if (document.getElementById('set_' + rand) !== card || card._rxCalculation !== calculation) return;
                 var json = null;
                 try { json = JSON.parse(transport.responseText); } catch(e) { return; }
                 document.getElementById(methodStr).textContent=json.method;
@@ -2750,6 +2757,10 @@ function updateQty(element){
         var elemId=element.id;
         var ar=elemId.split("_");
         var rand=ar[1];
+        var card = document.getElementById('set_' + rand);
+        if (!card) return false;
+        var calculation = {};
+        card._rxCalculation = calculation;
         var instruction="parameterValue=updateDrug&instruction="+encodeURIComponent(element.value)+"&action=parseInstructions&randomId="+rand;
         var url= ctx + "/rx/UpdateScript";
         var quantity="quantity_"+rand;
@@ -2768,8 +2779,7 @@ function updateQty(element){
         CarlosAjax.request(url, {method: 'POST',parameters:instruction,synchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
           onSuccess:function(transport){
-                // A declined/closed card can disappear while this calculation is in flight.
-                if (!document.getElementById('set_' + rand)) return;
+                if (document.getElementById('set_' + rand) !== card || card._rxCalculation !== calculation) return;
                 var json = null;
                 try { json = JSON.parse(transport.responseText); } catch(e) { return; }
                 if(json.policyViolations != null && json.policyViolations.length>0) {

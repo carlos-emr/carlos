@@ -82,8 +82,9 @@ public class LabFilingService {
             versions.add(labNo);
             // A consistent numeric lock order prevents deadlocks; selection uses VERSION order.
             for (int version : versions) routingDao.lockRoutingReport(version);
-            // Patient-specific restrictions override global write access. Resolve every affected
-            // version on the server, after acquiring the report locks and before any mutation.
+            // Patient-specific restrictions, including patient locks, override global write access.
+            // Resolve every affected version on the server, after acquiring the report locks and
+            // before any mutation.
             var patients = new LinkedHashSet<Integer>();
             for (int version : versions) {
                 for (var route : patientRoutingDao.findByLabNoAndLabType(version, labType)) {
@@ -94,6 +95,10 @@ public class LabFilingService {
             for (int patient : patients) {
                 if (!security.hasPrivilege(info, "_lab", "w", String.valueOf(patient))) {
                     throw new SecurityException("Missing patient-specific lab write access");
+                }
+                // _lab$N alone misses a chart lock (_demographic$N / _eChart$N) on the same patient.
+                if (!security.isAllowedAccessToPatientRecord(info, patient)) {
+                    throw new SecurityException("access to patient record is restricted");
                 }
             }
             List<Provider> providers = new ArrayList<>();

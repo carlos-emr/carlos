@@ -23,6 +23,7 @@
 
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -38,6 +39,7 @@ const DEFAULT_CSRF_TOKEN_NAME = 'CSRF-TOKEN';
 
 const findings = [];
 const visited = [];
+const recorder = h.createRecorder();
 
 const scheduleLinks = [
   { label: 'schedule-tickler-link', selector: 'a:has(#oscar_new_tickler)', path: '/tickler/ViewTicklerMain' },
@@ -122,6 +124,7 @@ function isSevereConsoleMessage(message) {
 }
 
 function wirePage(page, label) {
+  h.wireStrictPage(page, label, recorder, { baseline: [] });
   page.on('response', (response) => {
     const responseUrl = response.url();
     const status = response.status();
@@ -136,10 +139,6 @@ function wirePage(page, label) {
   });
   page.on('pageerror', (error) => {
     findings.push({ label, type: 'pageerror', text: error.stack || error.message });
-  });
-  page.on('dialog', async (dialog) => {
-    findings.push({ label, type: 'dialog', text: dialog.message() });
-    await dialog.accept();
   });
 }
 
@@ -340,6 +339,7 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   const browser = await chromium.launch(launchOptions);
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    context.on('page', page => h.wireStrictPage(page, 'schedule-links-page', recorder, { baseline: [] }));
     const schedulePage = await login(context);
 
     await selectProviderFromLastNameSearch(context, schedulePage);
@@ -356,6 +356,7 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     if (blockingFindings.length) {
       throw new Error(`schedule link browser check found ${blockingFindings.length} issue(s)`);
     }
+    h.assertStrictPage(recorder);
 
     console.log(testProviderSearchOnly
       ? 'PASS schedule provider search submitted a CSRF-protected selection'
@@ -366,5 +367,6 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
 })().catch((error) => {
   console.error('FAIL schedule link Playwright check');
   console.error(error.stack || error.message);
+  console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
   process.exit(1);
 });

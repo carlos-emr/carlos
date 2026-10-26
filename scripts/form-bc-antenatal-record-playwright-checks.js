@@ -7,8 +7,8 @@
  * The BC seed registers both forms but leaves them off the encounter's form list (encounterForm.hidden=0;
  * hidden is the display order, 0 means not shown). The check adds them through Administration > Select Forms,
  * the way a clinic switches them on, and removes them again at the end. It records every encounterForm row
- * first, asserts the exact normalized menu order after each mutation (#4945), and restores every
- * recorded raw display order in cleanup. The form list is clinic-wide, so the check must not run
+ * first, asserts the exact normalized menu order after each mutation (Select Forms renumbers the shown
+ * forms 1..n, #4945 fixed by #4952), and restores every recorded raw display order in cleanup. The form list is clinic-wide, so the check must not run
  * concurrently with other checks (live wrapper: EXCLUSIVE=1).
  *
  * Steps:

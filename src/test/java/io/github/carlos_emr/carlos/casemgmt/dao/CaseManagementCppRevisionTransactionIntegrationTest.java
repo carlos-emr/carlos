@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -180,6 +181,34 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         tx.executeWithoutResult(status -> assertSuccessfulSave(fixture, result.note(), archived));
         assertThat(draft.getId()).isEqualTo(fixture.originalId());
         assertThat(draft.getIssues()).allSatisfy(issue -> assertThat(issue.getId()).isNull());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2,0,1,2", "2,1,0,2", "0,2,0,1"})
+    void shouldCommitContiguousPositionsAndPreserveHistory_whenMovingCppRevision(
+            int oldPosition, int newPosition, int firstPosition, int secondPosition) {
+        Fixture fixture = tx.execute(status -> fixture(true));
+        Long secondId = tx.execute(status -> {
+            caseManagementNoteDAO.getNote(fixture.originalId()).setPosition(oldPosition);
+            caseManagementNoteDAO.getNote(fixture.siblingId()).setPosition(oldPosition == 0 ? 1 : 0);
+            CaseManagementNote second = createNote(demo, "Second sibling", new Date(1000));
+            second.setPosition(oldPosition == 0 ? 2 : 1);
+            return second.getId();
+        });
+        CaseManagementNote submitted = draft(fixture);
+        submitted.setPosition(newPosition);
+        CaseManagementNote saved = service(extensions).saveCppNoteRevision(submitted, "Doctor", "",
+                Map.of(fixture.siblingId(), firstPosition, secondId, secondPosition), List.of()).note();
+
+        // Read in a separate committed transaction, not from the objects passed into the service.
+        tx.executeWithoutResult(status -> {
+            assertThat(caseManagementNoteDAO.getMostRecentNote(saved.getUuid()).getPosition()).isEqualTo(newPosition);
+            assertThat(caseManagementNoteDAO.getNote(fixture.siblingId()).getPosition()).isEqualTo(firstPosition);
+            assertThat(caseManagementNoteDAO.getNote(secondId).getPosition()).isEqualTo(secondPosition);
+            assertThat(caseManagementNoteDAO.getNote(fixture.originalId()).getPosition()).isEqualTo(oldPosition);
+            assertThat(caseManagementNoteDAO.getNote(fixture.originalId()).getNote()).isEqualTo("Original signed history");
+            assertThat(saved.getId()).isNotEqualTo(fixture.originalId());
+        });
     }
 
     @Test

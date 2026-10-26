@@ -115,6 +115,21 @@ class CaseManagementGroupNoteHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRenderOnlySharedRevisionsForLegacyHistory_whenCumulativeOwnerHistoryContainsPrivateText() {
+        CaseManagementNote privateRow = note(501, "Private sibling");
+        when(manager.getHistory("502")).thenReturn(List.of(privateRow, selected));
+
+        assertThat(action.history()).isEqualTo("showHistory");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        @SuppressWarnings("unchecked") List<CaseManagementNote> visible = (List<CaseManagementNote>) request.getAttribute("history");
+        assertThat(visible).extracting(CaseManagementNote::getId).containsExactly(502L);
+        assertThat(visible.getFirst().getHistory()).isNull();
+        assertThat(request.getAttribute("showStoredNoteHistory")).isEqualTo(false);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
     void shouldExposeOnlyLinkedEarlierRevisions_whenTheUuidChainContainsPrivateAndFutureRows() {
         CaseManagementNote older = note(500, "Earlier explicitly shared");
         CaseManagementNote privateRow = note(501, "Private sibling");

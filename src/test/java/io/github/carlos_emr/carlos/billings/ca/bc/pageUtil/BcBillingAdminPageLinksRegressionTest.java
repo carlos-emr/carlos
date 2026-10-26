@@ -150,6 +150,18 @@ class BcBillingAdminPageLinksRegressionTest {
     }
 
     @Test
+    @DisplayName("should label each Teleplan File2 menu item for what its route does")
+    void shouldLabelTeleplanFile2Items_forTheirRoutes() throws IOException {
+        // #4439 D4: the generation item read "Simulate Submission File2" and the simulation "Generate Teleplan File2".
+        assertThat(read(LEFT_NAV))
+                .contains("rel=\"${ctx}/billing/CA/BC/GenerateTeleplanFile\"><fmt:message key=\"admin.admin.genTeleplanFile2\"/>")
+                .contains("rel=\"${ctx}/billing/CA/BC/SimulateTeleplanFile\"><fmt:message key=\"admin.admin.simulateSubFile2\"/>");
+        assertThat(read(ADMIN_JSP))
+                .contains("/billing/CA/BC/GenerateTeleplanFile\");return false;'><fmt:message key=\"admin.admin.genTeleplanFile2\"/>")
+                .contains("/billing/CA/BC/SimulateTeleplanFile\");return false;'><fmt:message key=\"admin.admin.simulateSubFile2\"/>");
+    }
+
+    @Test
     @DisplayName("should map each gate to its page")
     void shouldMapEachGate_toItsPage() throws IOException {
         String struts = read(STRUTS_BILLING);

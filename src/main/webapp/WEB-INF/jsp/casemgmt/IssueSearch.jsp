@@ -51,7 +51,7 @@
 
 <%
     String demographicNo = request.getParameter("demographicNo");
-    String sessionFrmName = "caseManagementEntryForm" + demographicNo;
+    String sessionFrmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
     CaseManagementEntryFormBean form = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
     pageContext.setAttribute("caseManagementEntryForm", form);
 %>
@@ -66,8 +66,15 @@
 
 <body>
 <form action="<%= request.getContextPath() %>/CaseManagementEntry" method="post">
+    <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+    <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+    <% } %>
     <c:url value="/casemgmt/ViewCaseManagementEntry?demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&demoName=${requestScope.demoName}&demoAge=${requestScope.demoAge}&demoDOB=${requestScope.demoDOB}"
-           var="url"/>
+           var="url">
+        <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+        <c:param name="chartContext" value="<%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) %>"/>
+        <% } %>
+    </c:url>
     <script type="text/javascript">
         function backToNote(from) {
 
@@ -86,8 +93,8 @@
         }
 
     </script>
-    <input type="hidden" name="demographicNo" id="demographicNo"/>
-    <input type="hidden" name="providerNo" id="providerNo"/>
+    <input type="hidden" name="demographicNo" id="demographicNo" value="${carlos:forHtmlAttribute(param.demographicNo)}"/>
+    <input type="hidden" name="providerNo" id="providerNo" value="${carlos:forHtmlAttribute(param.providerNo)}"/>
     <input type="hidden" name="method" value="issueSearch"/>
     <input type="hidden" name="lastPage" value="true"/>
     <input type="hidden" name="change_diagnosis" value="${carlos:forHtmlAttribute(change_diagnosis)}"/>

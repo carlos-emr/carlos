@@ -70,6 +70,13 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(MessengerDemographicManager.class, mockDemoManager);
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
+        var message = new io.github.carlos_emr.carlos.commn.model.MessageTbl();
+        message.setSentByNo(TEST_PROVIDER);
+        var messages = mock(io.github.carlos_emr.carlos.commn.dao.MessageTblDao.class);
+        when(messages.find(100)).thenReturn(message);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.commn.dao.MessageTblDao.class, messages);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao.class));
         String loggedInInfoKey = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(loggedInInfoKey, mockLoggedInInfo);
         setSessionAttribute("user", TEST_PROVIDER);
@@ -132,8 +139,8 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should redirect when message is not found")
-    void shouldRedirect_whenMessageNotFound() throws Exception {
+    @DisplayName("should return 404 when message is not found")
+    void shouldReturn404_whenMessageNotFound() throws Exception {
         // Given - valid ID but no message exists
         allowPrivilege("_msg", "r");
         addRequestParameter("messageID", "12345");
@@ -145,7 +152,8 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
 
         // Then
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(getMockResponse().getRedirectedUrl()).contains("DisplayMessages");
+        assertThat(getMockResponse().getStatus()).isEqualTo(404);
+        verify(mockMessagingManager, never()).getInboxMessage(any(), anyInt());
     }
 
     @Test

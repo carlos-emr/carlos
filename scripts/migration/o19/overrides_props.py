@@ -28,7 +28,8 @@ rewrites the ones CARLOS renamed (BUNDLE_PREFIX_RENAMES, below) before
 carrying it.
 """
 
-PROPS_MAP_VERSION = "o19map-3"
+# Keep the shared manifest generation token with the schema conversion rules.
+PROPS_MAP_VERSION = "o19map-4"
 
 KEYS = {
     # --- clinic identity / billing (carry) --------------------------------

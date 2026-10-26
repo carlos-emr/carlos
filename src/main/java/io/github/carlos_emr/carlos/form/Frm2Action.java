@@ -74,6 +74,19 @@ public final class Frm2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_form)");
         }
 
+        String submitType = request.getParameter("submit");
+        // Every save comes as the form page's POST. Only the read-only graph and print-all views
+        // open by GET. Refuse before the record class is constructed or any identifier is parsed.
+        if (!"POST".equals(request.getMethod()) && !isReadOnlySubmit(submitType)) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            } catch (IOException e) {
+                log.error("Could not send 405 for a form save sent without POST", e);
+            }
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         int newID = -1;
         FrmRecord rec = null;
@@ -118,17 +131,6 @@ public final class Frm2Action extends ActionSupport {
             return NONE;
         }
 
-        String submitType = request.getParameter("submit");
-        // Every save comes as the form page's POST. Only the read-only graph and print-all views open by GET.
-        if (!"POST".equals(request.getMethod()) && !isReadOnlySubmit(submitType)) {
-            response.setHeader("Allow", "POST");
-            try {
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            } catch (IOException e) {
-                log.error("Could not send 405 for a form save sent without POST", e);
-            }
-            return NONE;
-        }
         String id = request.getParameter("formId");
         Integer formId = null;
 

@@ -45,10 +45,12 @@
  * rows, note locks and drafts by key and asserts each is gone, and restores the provider's
  * encounterWindow (editor layout) row exactly.
  */
+const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { readPatientState, assertPatientStateUnchanged } = require('./echart-two-patient-isolation-playwright-checks');
+const { checkLegacyMessageHandoff } = require('./lib/legacy-message-handoff-checks');
 
 const TIMEOUT = 20000;
 const OBSERVED = '2026-02-03';
@@ -61,6 +63,105 @@ const norm = text => text.replace(/\s+/g, ' ').trim();
 function patientKey(value) {
   h.assert(/^[1-9]\d*$/.test(String(value)), 'An owned patient key is invalid');
   return String(value);
+}
+
+/** Observe one native Exit without weakening unrelated browser diagnostics. */
+function observeLegacyExit(page, recorder, { base, patient, chartContext, timeout = TIMEOUT }) {
+  const target = new URL(h.appUrl(base, '/encounter/SaveEncounter2'));
+  const guard = new URL(h.appUrl(base, '/csrfguard'));
+  const frame = page.mainFrame();
+  const candidates = [];
+  const failuresBefore = new WeakMap();
+  let exitRequest;
+  let exitCount = 0;
+  let acknowledged = false;
+  let closed = false;
+  let ambiguity = false;
+  const onRequest = request => {
+    let issuingFrame;
+    try { issuingFrame = request.frame(); } catch { return; }
+    if (issuingFrame !== frame) return;
+    if (request.url() === target.href && request.method() === 'POST' && request.isNavigationRequest()) {
+      const body = new URLSearchParams(request.postData() || '');
+      if (body.getAll('btnPressed').length === 1 && body.get('btnPressed') === 'Exit'
+          && body.getAll('demographicNo').length === 1 && body.get('demographicNo') === String(patient)
+          && body.getAll('chartContext').length === 1 && body.get('chartContext') === chartContext) {
+        exitRequest = request;
+        exitCount++;
+      }
+      return;
+    }
+    if (exitRequest && request.url() === guard.href && request.method() === 'GET'
+        && request.resourceType() === 'script' && frame.url() === target.href
+        && request.headers().referer === target.href) {
+      let resolve;
+      const terminal = new Promise(done => { resolve = done; });
+      candidates.push({ request, terminal, resolve, state: null, entry: null });
+    }
+  };
+  // prepend establishes the exact count immediately before the common listener;
+  // the later observer may claim only the entry appended for this same event.
+  const beforeFailure = request => failuresBefore.set(request, recorder.requestFailures.length);
+  const onFailure = request => {
+    const candidate = candidates.find(value => value.request === request);
+    if (!candidate) return;
+    const index = failuresBefore.get(request);
+    const entry = recorder.requestFailures.at(-1);
+    const error = request.failure()?.errorText;
+    if (candidate.state || index === undefined || recorder.requestFailures.length !== index + 1
+        || !entry || entry.url !== request.url() || entry.resourceType !== 'script' || entry.errorText !== error) {
+      ambiguity = true;
+    } else candidate.entry = entry;
+    candidate.state = 'failed';
+    candidate.error = error;
+    candidate.resolve();
+  };
+  const onFinished = request => {
+    const candidate = candidates.find(value => value.request === request);
+    if (candidate) { if (candidate.state) ambiguity = true; candidate.state = 'finished'; candidate.resolve(); }
+  };
+  const onClosed = () => { closed = true; };
+  page.on('request', onRequest);
+  page.prependListener('requestfailed', beforeFailure);
+  page.on('requestfailed', onFailure);
+  page.on('requestfinished', onFinished);
+  page.on('close', onClosed);
+  return {
+    acknowledge(response) {
+      h.assert(exitCount === 1 && response.request() === exitRequest && response.url() === target.href
+        && response.status() === 200 && Object.hasOwn(response.headers(), h.APPLICATION_HEADER),
+      'Exit did not acknowledge the exact owned native form POST');
+      acknowledged = true;
+    },
+    async settle() {
+      h.assert(acknowledged && closed && page.isClosed(), 'Exit has no acknowledged native closing phase');
+      let timer;
+      try {
+        await Promise.race([Promise.all(candidates.map(value => value.terminal)), new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error('The owned Exit script has no terminal browser event')), timeout);
+        })]);
+      } finally { clearTimeout(timer); }
+      h.assert(!ambiguity && candidates.length <= 1, 'Exit script failure ownership is ambiguous or duplicated');
+      const candidate = candidates[0];
+      if (!candidate || candidate.state === 'finished') return;
+      h.assert(candidate.error === 'net::ERR_ABORTED' && candidate.entry
+        && recorder.requestFailures.filter(entry => entry === candidate.entry).length === 1,
+      'The owned Exit script failure was not one uniquely recorded navigation abort');
+      const artifact = fs.mkdtempSync('/tmp/carlos-legacy-exit-') + '/acknowledgment.json';
+      fs.writeFileSync(artifact, JSON.stringify({ patient: String(patient), nativeExitStatus: 200,
+        nativeExitAcknowledged: true, editorClosed: true, exactRequestAndEntry: true,
+        rawFailure: { ...candidate.entry } }, null, 2) + '\n', { mode: 0o600 });
+      recorder.requestFailures.splice(recorder.requestFailures.indexOf(candidate.entry), 1);
+      return artifact;
+    },
+    dispose() {
+      page.off('request', onRequest);
+      page.off('requestfailed', beforeFailure);
+      page.off('requestfailed', onFailure);
+      page.off('requestfinished', onFinished);
+      page.off('close', onClosed);
+    },
+  };
 }
 
 async function run(s) {
@@ -223,10 +324,12 @@ async function run(s) {
     return {
       patient: await page.locator('form[name="encForm"] input[name="demographicNo"]').inputValue(),
       revision: await revision.count() === 1 ? await revision.inputValue() : null,
+      chartContext: await page.locator('form[name="encForm"] input[name="chartContext"]').inputValue(),
       namesA: namesA(text), namesB: namesB(text),
     };
   }
   const assertOwnEditor = (owner, patient, label) => {
+    h.assert(owner.chartContext, `${label} has no bound chart program context`);
     h.assert(owner.patient === String(patient)
       && (String(patient) === String(A) ? owner.namesA && !owner.namesB : owner.namesB && !owner.namesA),
     `${label} is not headed with its own patient alone`);
@@ -264,7 +367,8 @@ async function run(s) {
       const before = snapshot(d.other);
       const editor = d.editor();
       const text = `${marker}-${d.label}-legacy-editor`;
-      const base = (await editorOwner(editor)).revision;
+      const originalOwner = await editorOwner(editor);
+      const base = originalOwner.revision;
       await editor.locator('textarea[name="enTextarea"]').fill(text);
       await press(editor, 'Save', `${d.label} legacy Save`, {redisplaysEditor: false});
       // The rows first, so that a Save which wrote the other chart says so rather than only failing
@@ -278,10 +382,11 @@ async function run(s) {
       await editorLoaded(editor, `${d.label}'s editor after its Save`);
       const owner = await editorOwner(editor);
       assertOwnEditor(owner, d.patient, `${d.label}'s editor after its Save`);
+      h.assert(owner.chartContext === originalOwner.chartContext, `${d.label}'s Save changed its chart program context`);
       h.assert(owner.revision === revision
         && norm(await editor.locator('textarea[name="enTextarea"]').inputValue()) === text,
       `${d.label}'s redisplayed editor does not show the revision it saved`);
-      saved[d.label] = {revision, text};
+      saved[d.label] = {revision, text, chartContext: owner.chartContext};
     });
   }
 
@@ -291,6 +396,8 @@ async function run(s) {
     await popup.locator('pre[name="enTextarea"]').waitFor({state: 'attached', timeout: TIMEOUT});
     h.assert(new URL(popup.url()).searchParams.get('demographicNo') === String(A)
       && new URL(popup.url()).searchParams.get('echartid') === saved.A.revision, 'Print opened another chart or revision');
+    h.assert(new URL(popup.url()).searchParams.get('chartContext') === saved.A.chartContext,
+      'Print lost the legacy editor\'s chart program context');
     const text = norm(await popup.locator('body').innerText());
     h.assert(namesA(text) && !namesB(text) && text.includes(saved.A.text) && !text.includes(saved.B.text),
       'A\'s Print did not print A\'s revision alone');
@@ -339,6 +446,7 @@ async function run(s) {
    * day sheet that opened it.
    */
   async function signAndSave(editor, button = 'Sign & Save') {
+    const chartContext = (await editorOwner(editor)).chartContext;
     const closed = editor.waitForEvent('close', {timeout: TIMEOUT});
     closed.catch(() => {});
     const refreshed = schedule.waitForEvent('framenavigated', {predicate: frame => frame === schedule.mainFrame(),
@@ -346,7 +454,10 @@ async function run(s) {
     const response = editor.waitForResponse(r => r.request().method() === 'POST'
       && new URL(r.url()).pathname.endsWith('/encounter/SaveEncounter2'), {timeout: TIMEOUT});
     await editor.locator(`form[name="encForm"] input[type="button"][value="${button}"]`).click();
-    h.assert((await response).status() === 200, `${button} did not answer its closing page`);
+    const saved = await response;
+    h.assert(saved.status() === 200, `${button} did not answer its closing page`);
+    h.assert(new URLSearchParams(saved.request().postData() || '').get('chartContext') === chartContext,
+      `${button} lost the legacy editor's chart program context`);
     await closed;
     h.assert(await refreshed, `${button} did not refresh the day sheet that opened the editor`);
     await schedule.waitForLoadState('load', {timeout: TIMEOUT});
@@ -455,24 +566,22 @@ async function run(s) {
     await editor.locator('textarea[name="enTextarea"]').fill(`${marker}-A-legacy-exit`);
     const closed = editor.waitForEvent('close', {timeout: TIMEOUT});
     closed.catch(() => {});
-    const failureMark = recorder.requestFailures.length;
-    const dialogs = await h.withExpectedDialogs(editor, async () => {
-      const response = editor.waitForResponse(r => r.request().method() === 'POST'
-        && new URL(r.url()).pathname.endsWith('/encounter/SaveEncounter2'), {timeout: TIMEOUT});
-      await editor.locator('form[name="encForm"] input[type="button"][value="Exit"]').click();
-      h.assert((await response).status() === 200, 'Exit did not answer its closing page');
-      await closed;
-    });
-    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Exit did not ask for confirmation once');
-    // The closing page closes its window at once, so the CSRFGuard script the server adds to it is
-    // abandoned mid-load. That one aborted request is the window's own closing, not a finding.
-    for (let i = recorder.requestFailures.length - 1; i >= failureMark; i--) {
-      const entry = recorder.requestFailures[i];
-      if (entry.resourceType === 'script' && /ERR_ABORTED/.test(entry.errorText || '')
-          && new URL(entry.url).pathname.endsWith('/csrfguard')) {
-        recorder.requestFailures.splice(i, 1);
-      }
-    }
+    const ownership = observeLegacyExit(editor, recorder, { base, patient: A,
+      chartContext: (await editorOwner(editor)).chartContext });
+    let dialogs;
+    try {
+      dialogs = await h.withExpectedDialogs(editor, async () => {
+        const response = editor.waitForResponse(r => r.request().method() === 'POST'
+          && new URL(r.url()).pathname.endsWith('/encounter/SaveEncounter2'), {timeout: TIMEOUT});
+        response.catch(() => {});
+        await editor.locator('form[name="encForm"] input[type="button"][value="Exit"]').click();
+        ownership.acknowledge(await response);
+        await closed;
+      });
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Exit did not ask for confirmation once');
+      const artifact = await ownership.settle();
+      if (artifact) console.log(`  Exact native Exit abort acknowledgment ${artifact}`);
+    } finally { ownership.dispose(); }
     assertPatientStateUnchanged(before.A, snapshot(A), 'A\'s Exit (A\'s rows)');
     assertPatientStateUnchanged(before.B, snapshot(B), 'A\'s Exit');
     await other.close();
@@ -535,7 +644,8 @@ async function run(s) {
     assertOwnEditor(owner, B, 'B\'s editor after a double-clicked Save');
     h.assert(owner.revision === after.at(-1), 'B\'s editor after a double-clicked Save does not show the revision it saved');
   });
+  await checkLegacyMessageHandoff(s, { patient: A, otherPatient: B, trackEditorModules });
 }
 
 if (require.main === module) runWorkflow('legacy-encounter-editor-isolation', run, { openPatient: true, openMaster: false });
-module.exports = { run };
+module.exports = { run, observeLegacyExit };

@@ -105,6 +105,14 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @Override
+    public List<Integer> findDemographicNos(Integer ticklerNo) {
+        return entityManager.createQuery(
+                "select t.demographicNo from Tickler t where t.id = :id", Integer.class)
+                .setParameter("id", ticklerNo)
+                .getResultList();
+    }
+
+    @Override
     public Tickler find(Integer id) {
         TypedQuery<Tickler> query = entityManager.createQuery(
                 "select distinct t from Tickler t "
@@ -570,6 +578,10 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
             query = query + " and t.message = ?" + paramIndex++;
             paramList.add(filter.getMessage());
         }
+        if (!filter.getExcludedDemographicNos().isEmpty()) {
+            query += " and (t.demographicNo is null or t.demographicNo not in (?" + paramIndex++ + "))";
+            paramList.add(filter.getExcludedDemographicNos());
+        }
 
         return query;
     }
@@ -768,6 +780,11 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
             sb.append(" AND t.message = ?");
             sb.append(paramIndex++);
             paramList.add(filter.getMessage());
+        }
+
+        if (!filter.getExcludedDemographicNos().isEmpty()) {
+            sb.append(" AND (t.demographicNo IS NULL OR t.demographicNo NOT IN (?").append(paramIndex++).append("))");
+            paramList.add(filter.getExcludedDemographicNos());
         }
 
         if (filter.getSearchTerm() != null && !filter.getSearchTerm().trim().isEmpty()) {

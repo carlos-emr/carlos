@@ -184,6 +184,53 @@ class MeasurementRequestIsolationIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldPreserveStoredReadingsAndNotes_whenMeasurementWritePatientIsLocked() {
+        String patient = a.getDemographicNo().toString();
+        when(security.isAllowedAccessToPatientRecord(login, a.getDemographicNo())).thenReturn(false);
+        List<?> before = measurementSnapshot();
+        long notesBefore = noteCount(a);
+        assertThat(before).hasSize(4);
+        session.setAttribute("textOnEncounter", "Retained note draft");
+        MockHttpServletRequest request = request(a);
+        request.setParameter("numType", "1");
+        request.setParameter("inputType-0", common.getType());
+        request.setParameter("inputTypeDisplayName-0", common.getTypeDisplayName());
+        request.setParameter("inputValue-0", "70");
+        request.setParameter("inputMInstrc-0", "");
+        request.setParameter("comments-0", "A new clinical reading");
+        request.setParameter("date-0", "2026-10-15");
+        try (var spring = mockStatic(SpringUtils.class, CALLS_REAL_METHODS);
+             var servlet = mockStatic(ServletActionContext.class)) {
+            spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            assertThatThrownBy(() -> new EctMeasurements2Action().execute())
+                    .isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
+            verify(security).hasPrivilege(login, "_measurement", "w", patient);
+            verify(security).isAllowedAccessToPatientRecord(login, a.getDemographicNo());
+        }
+        assertThat(measurementSnapshot()).usingRecursiveComparison().isEqualTo(before);
+        assertThat(noteCount(a)).isEqualTo(notesBefore);
+        assertThat(tombstones()).isEmpty();
+        assertThat(session.getAttribute("textOnEncounter")).isEqualTo("Retained note draft");
+        assertGlobalUnchanged();
+    }
+
+    private List<?> measurementSnapshot() {
+        return tx.execute(status -> entityManager.createQuery(
+                "select m.id,m.demographicId,m.type,m.dataField,m.measuringInstruction,m.comments,m.dateObserved,m.createDate "
+                        + "from Measurement m where m.demographicId in :ids order by m.id")
+                .setParameter("ids", List.of(a.getDemographicNo(), b.getDemographicNo())).getResultList());
+    }
+
+    private long noteCount(Demographic patient) {
+        Number count = tx.execute(status -> (Number) entityManager.createNativeQuery(
+                "select count(*) from casemgmt_note where demographic_no=?1")
+                .setParameter(1, patient.getDemographicNo().toString()).getSingleResult());
+        return count.longValue();
+    }
+
+    @Test
     void shouldCommitOnlyAsDeletionAndTombstoneLeavingBUnchanged() throws Exception {
         try (var spring = mockStatic(SpringUtils.class, CALLS_REAL_METHODS)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);

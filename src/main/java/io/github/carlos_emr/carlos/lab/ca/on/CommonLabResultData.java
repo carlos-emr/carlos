@@ -752,6 +752,26 @@ public class CommonLabResultData {
                 plr.setLabType(labType);
                 patientLabRoutingDao.persist(plr);
 
+                if ("BCP".equals(labType)) {
+                    var pidDao = SpringUtils.getBean(io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7PidDao.class);
+                    var linkDao = SpringUtils.getBean(io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao.class);
+                    for (var pid : pidDao.findByMessageId(Integer.parseInt(labArray[i]))) {
+                        var link = linkDao.find(pid.getId());
+                        if (link == null) {
+                            link = new io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link();
+                            link.setId(pid.getId());
+                            link.setDemographicNo(Integer.parseInt(demographicNo));
+                            link.setStatus("N");
+                            linkDao.persist(link);
+                        } else {
+                            link.setDemographicNo(Integer.parseInt(demographicNo));
+                            // Patient matching must not clear an existing clinical acknowledgement.
+                            if (link.getStatus() == null || "P".equals(link.getStatus())) link.setStatus("N");
+                            linkDao.merge(link);
+                        }
+                    }
+                }
+
                 if (CarlosProperties.getInstance().isPropertyActive("queens_resident_tagging")) {
                     DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
                     List<DemographicCust> demographicCust = demographicCustDao.findAllByDemographicNumber(Integer.parseInt(demographicNo));

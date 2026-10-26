@@ -651,6 +651,7 @@
                                                                 } %> : </b></td>
                                                         <td align="left"><input type="text" name="postal"
                                                                                 size="30" <%=getDisabled("postal")%>
+                                                                                data-original-province="<carlos:encode value='<%= StringUtils.trimToEmpty(province) %>' context="htmlAttribute"/>"
                                                                                 value="<%=StringUtils.trimToEmpty(demographic.getPostal())%>"
                                                                                 onBlur="upCaseCtrl(this)"
                                                                                 onChange="isPostalCode()"></td>

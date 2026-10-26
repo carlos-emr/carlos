@@ -22,17 +22,15 @@ import org.openpdf.text.pdf.*;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
-import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
-import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.ConsultationSignatureService;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.ClinicLogoUtility;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -51,8 +49,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.Set;
@@ -343,7 +339,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable datelineborder = new PdfPTable(1);
         datelineborder.setWidthPercentage(100f);
         PdfPCell datecell = new PdfPCell();
-        datecell.setPhrase(new Phrase(String.format("%s %s", getResource("msgDate"), reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.referalDate), heading));
+        datecell.setPhrase(PdfFonts.phrase(String.format("%s %s", getResource("msgDate"), reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.referalDate), heading));
         datecell.setBorder(0);
         datecell.setColspan(1);
         datecell.setPaddingTop(5f);
@@ -369,7 +365,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable headerborder = new PdfPTable(1);
         headerborder.setWidthPercentage(100f);
         PdfPCell headercell = new PdfPCell();
-        headercell.setPhrase(new Phrase(getResource("consultationRequestHeader"), boldFontHeading));
+        headercell.setPhrase(PdfFonts.phrase(getResource("consultationRequestHeader"), boldFontHeading));
         headercell.setBorder(0);
         headercell.setColspan(1);
         headercell.setPaddingTop(5f);
@@ -395,31 +391,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
 
         PdfPTable infoTable = new PdfPTable(1);
 
-        String filename = "";
-        if (props.getProperty("multisites") != null && "on".equalsIgnoreCase(props.getProperty("multisites"))) {
-            DocumentDao documentDao = (DocumentDao) SpringUtils.getBean(DocumentDao.class);
-            SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
-            Site site = siteDao.getById(Integer.valueOf(reqFrm.siteName));
-            if (site != null) {
-                if (site.getSiteLogoId() != null) {
-                    io.github.carlos_emr.carlos.commn.model.Document d = documentDao.getDocument(String.valueOf(site.getSiteLogoId()));
-                    // Validate the DB-stored logo filename stays within DOCUMENT_DIR - a docfilename
-                    // like "../../outside.png" would otherwise resolve outside it and be opened below.
-                    File documentDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-                    filename = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).getPath();
-                } else {
-                    //If no logo file uploaded for this site, use the default one defined in carlos properties file.
-                    filename = props.getProperty("faxLogoInConsultation");
-                }
-            }
-        } else {
-            filename = props.getProperty("faxLogoInConsultation");
-        }
-
-        File imageFile = PathValidationUtils.resolveTrustedPath(new File(filename));
-        Path path = imageFile.toPath();
-        if (Files.exists(path)) {
-            addImage(infoTable, filename, PageSize.LETTER.getWidth() * 0.5f, 50f);
+        // The consultation form stores a site NAME, not its numeric database ID.
+        // Resolve that explicit contract without changing this letter's existing
+        // 50pt/padding-zero logo geometry to the fax cover's different layout.
+        File imageFile = ClinicLogoUtility.resolveConsultationLogo(reqFrm.siteName);
+        if (imageFile != null) {
+            addImage(infoTable, imageFile.getPath(), PageSize.LETTER.getWidth() * 0.5f, 50f);
         }
         return infoTable;
 
@@ -483,19 +460,19 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
 
         cell.setHorizontalAlignment(alignment);
 
-        cell.setPhrase(new Phrase(getResource("msgConsReq"), boldFontHeading));
+        cell.setPhrase(PdfFonts.phrase(getResource("msgConsReq"), boldFontHeading));
 
         if ("1".equals(reqFrm.pwb)) {
-            cell.setPhrase(new Phrase(getResource("msgPleaseReplyPatient"), boldFontHeading));
+            cell.setPhrase(PdfFonts.phrase(getResource("msgPleaseReplyPatient"), boldFontHeading));
         }
 
         // If not set to Patient Will Book then maybe a Custom Appointment Instruction is used.
         else if (CarlosProperties.getInstance().getBooleanProperty("CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP", "true")) {
-            cell.setPhrase(new Phrase(reqFrm.getAppointmentInstructionsLabel(), boldFontHeading));
+            cell.setPhrase(PdfFonts.phrase(reqFrm.getAppointmentInstructionsLabel(), boldFontHeading));
         } else if (IsPropertiesOn.isMultisitesEnable()) {
-            cell.setPhrase(new Phrase("Please reply", boldFontHeading));
+            cell.setPhrase(PdfFonts.phrase("Please reply", boldFontHeading));
         } else {
-            cell.setPhrase(new Phrase(
+            cell.setPhrase(PdfFonts.phrase(
                     String.format("%s %s %s", getResource("msgPleaseReplyPart1"),
                             clinic.getClinicName(),
                             getResource("msgPleaseReplyPart2")), boldFontHeading));
@@ -550,7 +527,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
 
         PdfPTable infoTable = new PdfPTable(1);
-        PdfPCell cell = new PdfPCell(new Phrase(letterheadName, heading));
+        PdfPCell cell = new PdfPCell(PdfFonts.phrase(letterheadName, heading));
         cell.setBorder(0);
         cell.setPadding(0);
         infoTable.addCell(cell);
@@ -558,13 +535,13 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         // add the address details
         Phrase addressPhrase = new Phrase("", heading);
         if (reqFrm.letterheadAddress != null && reqFrm.letterheadAddress.trim().length() > 0) {
-            addressPhrase.add(reqFrm.getLetterheadAddress());
+            PdfFonts.addText(addressPhrase, reqFrm.getLetterheadAddress(), heading);
         } else {
-            addressPhrase.add(clinic.getClinicAddress());
+            PdfFonts.addText(addressPhrase, clinic.getClinicAddress(), heading);
 
-            addressPhrase.add(String.format("%s, %s. %s", clinic.getClinicCity(),
+            PdfFonts.addText(addressPhrase, String.format("%s, %s. %s", clinic.getClinicCity(),
                     clinic.getClinicProvince(),
-                    clinic.getClinicPostal()));
+                    clinic.getClinicPostal()), heading);
         }
 
         cell.setPhrase(addressPhrase);
@@ -573,15 +550,15 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         // add the telecom info
         Phrase telecomPhrase = new Phrase("", heading);
         if (reqFrm.letterheadPhone != null && reqFrm.letterheadPhone.trim().length() > 0) {
-            telecomPhrase.add(String.format("Phone: %s", reqFrm.getLetterheadPhone()));
+            PdfFonts.addText(telecomPhrase, String.format("Phone: %s", reqFrm.getLetterheadPhone()), heading);
         } else {
-            telecomPhrase.add(String.format("Phone: %s", clinic.getClinicPhone()));
+            PdfFonts.addText(telecomPhrase, String.format("Phone: %s", clinic.getClinicPhone()), heading);
         }
 
         if (reqFrm.letterheadFax != null && reqFrm.letterheadFax.trim().length() > 0) {
-            telecomPhrase.add(String.format(" Fax: %s", reqFrm.getLetterheadFax()));
+            PdfFonts.addText(telecomPhrase, String.format(" Fax: %s", reqFrm.getLetterheadFax()), heading);
         } else {
-            telecomPhrase.add(String.format(" Fax: %s", clinic.getClinicFax()));
+            PdfFonts.addText(telecomPhrase, String.format(" Fax: %s", clinic.getClinicFax()), heading);
         }
 
         cell.setPhrase(telecomPhrase);
@@ -816,7 +793,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable signatureBlock = new PdfPTable(1);
         signatureBlock.setWidthPercentage(100f);
 
-        PdfPCell labelCell = new PdfPCell(new Phrase(signatureLabel, signatureFont));
+        PdfPCell labelCell = new PdfPCell(PdfFonts.phrase(signatureLabel, signatureFont));
         labelCell.setBorder(0);
         labelCell.setPadding(0);
         labelCell.setPaddingBottom(SIGNATURE_LABEL_BOTTOM_PADDING);
@@ -1025,8 +1002,9 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             phrase = "";
         }
 
-        Phrase phraseObj = new Phrase(phrase, font != null ? font : this.font);
-        cell.setPhrase(phraseObj);
+        // Record values can be in any script; addText draws characters DejaVu lacks (Chinese,
+        // Japanese, Korean, emoji) in the bundled fallback faces instead of dropping them (#5046).
+        cell.setPhrase(PdfFonts.phrase(phrase, font != null ? font : this.font));
         cell.setBorder(0);
         return cell;
     }

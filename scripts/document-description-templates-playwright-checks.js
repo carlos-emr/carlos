@@ -10,7 +10,7 @@
  *
  * User path: Schedule ▸ Administration ▸ Document Description Template (frame) ▸ document type ▸
  * shortcut + description ▸ Add; the entry ▸ Update; the entry ▸ Delete (POST DocumentDescriptionTemplate).
- * Then, signed in as a provider with only the doctor role: Schedule ▸ Preferences ▸ Document
+ * Then, signed in with a copy of the doctor role stripped of administration grants: Schedule ▸ Preferences ▸ Document
  * description template link ▸ clear "use clinic default" ▸ Add, Update, Delete; Schedule ▸ Inbox ▸
  * Incoming Docs ▸ Data Entry Mode Fast ▸ document type ▸ shortcut button; Schedule ▸ Administration ▸
  * Document Description Template.
@@ -21,12 +21,13 @@
  * entries; Update keeps it the doctor's; Delete removes it. Incoming Docs offers the doctor's own
  * shortcuts while they use their own list, and the clinic's once they use the clinic default, and a
  * shortcut fills the description. Crafted requests from the doctor's session to read, add, change or
- * delete another provider's entries are refused by the application and change no row. The doctor
- * role's seeded _admin.document grant opens the clinic-wide list from Administration.
+ * delete another provider's entries are refused by the application and change no row. Opening the
+ * clinic editor or changing its entries is refused without administration grants. A fresh login
+ * with the seeded doctor role's _admin.document grant opens the clinic-wide list from Administration.
  * Fixtures: the test login's own entry, a clinic-wide entry for the doctor's steps and the doctor login
- * (lib/throwaway-login-fixture.js, role doctor; its preferences, entry mode included, go with it);
- * every entry carries the run marker. Cleanup deletes the entries by marker and the throwaway login,
- * and asserts they are gone.
+ * (lib/throwaway-login-fixture.js, owned role copied from doctor without _admin* grants; its
+ * preferences, entry mode included, go with it). Every entry carries the run marker. Cleanup deletes
+ * the entries, throwaway login and owned role/grants, and asserts they are gone.
  */
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
@@ -47,6 +48,7 @@ const STEP = {
   doctorOwnList: 'the doctor\'s Add, Update and Delete change only an entry of their own',
   incomingDocs: 'Incoming Docs offers the doctor\'s own shortcuts, then the clinic\'s, and a shortcut fills the description',
   crossProvider: 'the doctor\'s session cannot read, add, change or delete another provider\'s entries',
+  clinicDenied: 'a provider without administration grants cannot open or change the clinic-wide list',
   doctorClinicList: 'the doctor\'s _admin.document grant opens the clinic-wide list from Administration',
 };
 
@@ -76,15 +78,37 @@ async function workflow(s) {
   const { sql, marker, provider, config, recorder } = s;
   const q = h.sqlString;
   const fixture = throwawayLoginFixture({ sql, marker, provider, testUser: config.testUser });
+  const role = `docTemplates${marker.slice(-16)}`;
+  let roleCreated = false;
   const ownedWhere = `description LIKE ${q(`${marker}%`)}`;
   const owned = () => sql.value(`SELECT COUNT(*) FROM documentDescriptionTemplate WHERE ${ownedWhere}`);
   s.cleanup(() => {
     sql.execute(`DELETE FROM documentDescriptionTemplate WHERE ${ownedWhere}`);
     h.assert(owned() === '0', 'Owned description templates were not removed');
     fixture.cleanup();
+    if (roleCreated) {
+      h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)} AND description=${q(marker)}`) === '1',
+        'The owned template role changed before cleanup');
+      h.assert(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE role_name=${q(role)}`) === '0',
+        'The owned template role still has assignments');
+      sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${q(role)}; DELETE FROM secRole WHERE role_name=${q(role)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)}`) === '0'
+        && sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)}`) === '0', 'The owned template role was not removed');
+    }
   });
-  fixture.create({ roleNames: ['doctor'] });
-  h.assert(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(fixture.providerNo)} AND role_name<>'doctor'`) === '0',
+  h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)}`) === '0'
+    && sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)}`) === '0', 'The owned role name is already in use');
+  sql.execute(`INSERT INTO secRole (role_name,description) VALUES (${q(role)},${q(marker)})`);
+  roleCreated = true;
+  // The seeded doctor has _admin.document x. Keep normal provider navigation but remove every
+  // administration grant, so own-list success cannot accidentally depend on clinic-list rights.
+  sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
+    SELECT ${q(role)},objectName,privilege,priority,${q(provider)} FROM secObjPrivilege
+    WHERE roleUserGroup='doctor' AND LEFT(objectName,6)<>'_admin'`);
+  h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND LEFT(objectName,6)='_admin'`) === '0',
+    'The personal-template role holds administration grants');
+  fixture.create({ roleNames: [role] });
+  h.assert(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(fixture.providerNo)} AND role_name<>${q(role)}`) === '0',
     'The doctor login holds other roles');
   const shortcut = marker.slice(-12);
   const clinic = { description: `${marker} clinic O'Neil "A&B+"`, edited: `${marker} clinic edited` };
@@ -161,12 +185,10 @@ async function workflow(s) {
   context.setDefaultTimeout(TIMEOUT);
   context.on('page', page => h.wireStrictPage(page, 'doctor', recorder));
   let schedule;
-  let scheduleUrl;
   let own;
 
   await s.step(STEP.doctorOpens, async () => {
     schedule = await h.login(context, { ...config, testUser: fixture.username }, recorder, { label: 'doctor-login' });
-    scheduleUrl = schedule.url();
     const prefs = await clickOpensPopupOrNavigates(schedule, schedule.getByTitle(/Edit your personal setting/i).first(),
       { context, recorder, label: 'doctor-preferences', timeout: TIMEOUT }).then(outcome => outcome.page);
     const entry = prefs.locator(`a[href$="${PAGE}"]`).first();
@@ -299,12 +321,50 @@ async function workflow(s) {
     }
   });
 
+  await s.step(STEP.clinicDenied, async () => {
+    const where = `id=${keptId} AND provider_no IS NULL AND description=${q(kept.description)}
+      AND doctype=${q(type)} AND descriptionShortcut=${q(kept.shortcut)}`;
+    const token = await own.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    h.assert(token, 'The personal-template page has no CSRF token');
+    const pageResponse = await context.request.get(h.appUrl(config.baseUrl, `${PAGE}?setDefault=true`));
+    try {
+      await h.assertRefused(s, { response: pageResponse, table: 'documentDescriptionTemplate', where, before: '1',
+        label: 'opening the clinic-wide editor without administration grants' });
+    } finally { await pageResponse.dispose(); }
+    const probes = [
+      ['adding a clinic-wide entry', { method: 'addDocumentDescription', providerNo: 'null', doctype: type,
+        description: `${marker} forbidden clinic`, shortcut: 'forbidden' }],
+      ['changing a clinic-wide entry', { method: 'updateDocumentDescription', id: keptId, providerNo: 'null', doctype: type,
+        description: `${marker} changed clinic`, shortcut: 'changed' }],
+      ['moving a clinic-wide entry into the provider list', { method: 'updateDocumentDescription', id: keptId,
+        providerNo: fixture.providerNo, doctype: type, description: `${marker} moved clinic`, shortcut: 'moved' }],
+      ['deleting a clinic-wide entry', { method: 'deleteDocumentDescription', id: keptId }],
+    ];
+    for (const [label, form] of probes) {
+      const response = await context.request.post(h.appUrl(config.baseUrl, ENDPOINT), {
+        form, maxRedirects: 0, headers: { 'CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      try {
+        await h.assertRefused(s, { response, table: 'documentDescriptionTemplate', where, before: '1', label });
+        h.assert(sql.value(`SELECT COUNT(*) FROM documentDescriptionTemplate WHERE description=${q(`${marker} forbidden clinic`)}`) === '0',
+          'A refused clinic-wide Add stored an entry');
+      } finally { await response.dispose(); }
+    }
+  });
+
   await s.step(STEP.doctorClinicList, async () => {
     h.assert(sql.value(`SELECT IFNULL(MAX(privilege),'none') FROM secObjPrivilege WHERE roleUserGroup='doctor' AND objectName='_admin.document'`) === 'x',
       'Precondition: the doctor role no longer holds the seeded _admin.document grant');
-    const home = await context.newPage();
-    await home.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
-    const doctorFrame = await openClinicList(home, context, recorder, 'doctor-administration');
+    // A fresh login must pick up the seeded doctor role, including _admin.document. Do not
+    // weaken the role used by all preceding personal-template and denial checks.
+    sql.execute(`INSERT INTO secUserRole (provider_no,role_name,activeyn,lastUpdateDate)
+      VALUES (${q(fixture.providerNo)},'doctor',1,NOW())`);
+    const clinicContext = await h.newContext(s.context.browser(), config);
+    s.cleanup(() => clinicContext.close());
+    clinicContext.setDefaultTimeout(TIMEOUT);
+    clinicContext.on('page', page => h.wireStrictPage(page, 'doctor-clinic', recorder));
+    const home = await h.login(clinicContext, { ...config, testUser: fixture.username }, recorder, { label: 'doctor-clinic-login' });
+    const doctorFrame = await openClinicList(home, clinicContext, recorder, 'doctor-administration');
     await h.assertNotErrorPage(doctorFrame, 'doctor clinic description templates');
     await doctorFrame.locator('#docType').selectOption(type);
     await doctorFrame.locator(`#docDescList option[value="${keptId}"]`).waitFor({ state: 'attached', timeout: TIMEOUT });

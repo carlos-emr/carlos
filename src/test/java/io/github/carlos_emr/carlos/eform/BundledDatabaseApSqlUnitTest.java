@@ -108,11 +108,19 @@ class BundledDatabaseApSqlUnitTest extends CarlosUnitTestBase {
         assertThatCode(() -> EFormSqlSafety.validateLegacySqlSafety(sql)).doesNotThrowAnyException();
         // Execute the exact projection shipped in the AP, rather than a duplicate
         // expression in the test. Bind clinical strings, including hostile content.
-        var matcher = Pattern.compile("(?m)^\\s*(.*?)\\s*AS\\s+datafield\\s*,\\s*$", Pattern.CASE_INSENSITIVE).matcher(sql);
-        assertThat(matcher.find()).isTrue();
+        // A line scan rather than a regex: the projection is the one line ending "AS datafield,".
+        String projectionSuffix = " AS datafield,";
+        String projection = sql.lines()
+                .map(String::strip)
+                .filter(line -> line.length() > projectionSuffix.length() && line.regionMatches(true,
+                        line.length() - projectionSuffix.length(), projectionSuffix, 0, projectionSuffix.length()))
+                .map(line -> line.substring(0, line.length() - projectionSuffix.length()).strip())
+                .findFirst()
+                .orElse(null);
+        assertThat(projection).isNotBlank();
         String json;
         try (var connection = DriverManager.getConnection("jdbc:h2:mem:bundled_latest_lab;MODE=MySQL");
-             var statement = connection.prepareStatement("SELECT JSON_OBJECT('measurementValue': " + matcher.group(1)
+             var statement = connection.prepareStatement("SELECT JSON_OBJECT('measurementValue': " + projection
                      + ") FROM (SELECT CAST(? AS VARCHAR) AS dataField) m")) {
             statement.setString(1, input);
             try (var rows = statement.executeQuery()) {

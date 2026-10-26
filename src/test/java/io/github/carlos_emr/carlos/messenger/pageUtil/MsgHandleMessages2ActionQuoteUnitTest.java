@@ -80,8 +80,11 @@ class MsgHandleMessages2ActionQuoteUnitTest extends CarlosUnitTestBase {
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
         loggedInInfoStatic = mockStatic(LoggedInInfo.class);
+        LoggedInInfo login = mock(LoggedInInfo.class);
+        when(login.getLoggedInProviderNo()).thenReturn("101");
         loggedInInfoStatic.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(mock(LoggedInInfo.class));
+                .thenReturn(login);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao.class);
     }
 
     @AfterEach
@@ -99,6 +102,9 @@ class MsgHandleMessages2ActionQuoteUnitTest extends CarlosUnitTestBase {
         message.setDate(new Date());
         message.setTime(new Date());
         when(messagingManager.getMessage(any(LoggedInInfo.class), eq(MESSAGE_NO))).thenReturn(message);
+        message.setSentByNo("101");
+        when(createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.MessageTblDao.class).find(MESSAGE_NO))
+                .thenReturn(message);
         request.setParameter(button, button);
 
         MsgHandleMessages2Action action = new MsgHandleMessages2Action();

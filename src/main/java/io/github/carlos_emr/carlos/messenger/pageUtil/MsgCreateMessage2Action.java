@@ -229,7 +229,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
             // A reply or forward of a message whose chart items were saved has sent them; the next
             // reply or forward of that message starts without them, as it did when sending cleared
             // the messenger bean (issue #4673).
-            MsgAttachmentStaging.releaseSource(session, attachmentKey);
+            MsgAttachmentStaging.releaseSource(session, attachmentKey, staged);
 
             return SUCCESS;
         } catch (RuntimeException e) {
@@ -256,10 +256,29 @@ public class MsgCreateMessage2Action extends ActionSupport {
         request.setAttribute("ReSubject", subject);
         request.setAttribute("ReText", message);
         request.setAttribute("replyList", tickedRecipients(provider));
+        request.setAttribute("archiveMessageId", archiveMessageId(request));
         if (demographicNo > 0) {
             request.setAttribute("demographic_no", Integer.toString(demographicNo));
         }
         return ERROR;
+    }
+
+    /** Optional compose carrier only; the archive endpoint still authorizes the requested message. */
+    private static Integer archiveMessageId(HttpServletRequest request) {
+        String[] values = request.getParameterValues("archiveMessageId");
+        if (values == null || values.length == 0) return null;
+        Integer selected = null;
+        for (String value : values) {
+            if (value == null || !value.matches("[0-9]{1,10}")) return null;
+            try {
+                int candidate = Integer.parseInt(value);
+                if (candidate <= 0 || selected != null && selected != candidate) return null;
+                selected = candidate;
+            } catch (NumberFormatException invalidMessage) {
+                return null;
+            }
+        }
+        return selected;
     }
 
     /**
