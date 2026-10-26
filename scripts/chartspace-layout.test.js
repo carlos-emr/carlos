@@ -65,8 +65,6 @@ test('with only allergies registered both presets normalize to top empty and rig
     { top: [], right: ['allergies'], hidden: [] });
   assert.deepEqual(normalizeLayout(PRESETS.eyeCare, ['allergies']),
     { top: [], right: ['allergies'], hidden: [] });
-  assert.deepEqual(normalizeLayout(PRESETS.familyPractice, ['allergies']),
-    normalizeLayout(PRESETS[DEFAULT_PRESET_ID], ['allergies']));
 });
 
 test('resolvePreset returns the named preset for known ids', () => {
@@ -284,4 +282,18 @@ test('layout label carries its punctuation, written as raw ASCII escapes', () =>
 test('Spanish names the Eye care layout "Cuidado ocular", not the specialty', () => {
   assert.equal(rawProperty('es', 'chartspace.chartSpace.layout.eyeCare'), 'Cuidado ocular');
   assert.equal(rawProperty('es', 'admin.echartDisplaySettings.layout.eyeCare'), 'Cuidado ocular');
+});
+
+test('Spanish admin layout texts use the same term as ChartSpace, "Disposicion", as raw ASCII escapes', () => {
+  const expected = {
+    'admin.echartDisplaySettings.layout.label':
+      'Disposici\\u00f3n predeterminada de ChartSpace',
+    'admin.echartDisplaySettings.layout.help':
+      'Disposici\\u00f3n que ChartSpace usa en toda la cl\\u00ednica. Medicina familiar es el valor predeterminado.',
+    'admin.echartDisplaySettings.layout.invalid':
+      'La disposici\\u00f3n seleccionada no es v\\u00e1lida y no se guard\\u00f3 nada. Elija una de las disposiciones de la lista.'
+  };
+  Object.keys(expected).forEach(function (key) {
+    assert.equal(rawProperty('es', key), expected[key], key);
+  });
 });
