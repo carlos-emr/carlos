@@ -44,6 +44,8 @@ class QueryByExampleSqlValidatorUnitTest {
             "appdefinition",
             "appuser",
             "casemgmt_note_lock",
+            "consent_migration_audit",
+            "emailfooterlogo",
             "emailconfig",
             "emaillog",
             "fax_config",
@@ -51,7 +53,13 @@ class QueryByExampleSqlValidatorUnitTest {
             "oscarcommlocations",
             "oscarjob",
             "oscarkeys",
+            "outboundemailarchive",
+            "outboundemailarchiveattachment",
+            "outboundemailarchivedeletion",
+            "outboundemailarchivelegalholdevent",
             "pagemonitor",
+            "patient_portal_invite_delivery",
+            "portal_booking_offer",
             "professionalspecialists",
             "property",
             "publickeys",
@@ -63,6 +71,9 @@ class QueryByExampleSqlValidatorUnitTest {
             "serviceclient",
             "serviceoauthnonce",
             "servicerequesttoken",
+            "sms_config",
+            "sms_provider_rate_limit",
+            "sms_transaction",
             "studylogin");
 
     private final Properties properties = properties("oscar_mcmaster?useUnicode=true");

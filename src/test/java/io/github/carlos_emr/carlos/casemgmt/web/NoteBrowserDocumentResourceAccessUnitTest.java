@@ -188,13 +188,19 @@ class NoteBrowserDocumentResourceAccessUnitTest extends CarlosUnitTestBase {
             }
             case "edoc-module" -> when(security.hasPrivilege(login, "_edoc", "w", (String) null)).thenReturn(false);
             case "edoc-patient" -> when(security.hasPrivilege(login, "_edoc", "w", "1001")).thenReturn(false);
-            case "foreign" -> { filings.clear(); filings.add(link("demographic", 2002)); }
-            case "provider-link" -> { filings.clear(); filings.add(link("provider", 1001)); }
-            case "unfiled" -> { filings.clear(); filings.add(link("demographic", 0)); }
-            case "program" -> { document.setRestrictToProgram(true); document.setProgramId(9); }
+            case "foreign" -> { filings.clear();
+                filings.add(link("demographic", 2002)); }
+            case "provider-link" -> { filings.clear();
+                filings.add(link("provider", 1001)); }
+            case "unfiled" -> { filings.clear();
+                filings.add(link("demographic", 0)); }
+            case "program" -> { document.setRestrictToProgram(true);
+                document.setProgramId(9); }
             case "source-queue" -> {
                 QueueDocumentLink queue = new QueueDocumentLink();
-                queue.setDocId(42); queue.setQueueId(9); queue.setStatus("A");
+                queue.setDocId(42);
+                queue.setQueueId(9);
+                queue.setStatus("A");
                 when(queues.getQueueFromDocument(42)).thenReturn(List.of(queue));
             }
             case "missing" -> when(documents.find(42)).thenReturn(null);
@@ -217,7 +223,9 @@ class NoteBrowserDocumentResourceAccessUnitTest extends CarlosUnitTestBase {
         domain.setProgramId(9L);
         when(programs.getProgramDomain(login, "4249")).thenReturn(List.of(domain));
         QueueDocumentLink queue = new QueueDocumentLink();
-        queue.setDocId(42); queue.setQueueId(9); queue.setStatus("A");
+        queue.setDocId(42);
+        queue.setQueueId(9);
+        queue.setStatus("A");
         when(queues.getQueueFromDocument(42)).thenReturn(List.of(queue));
         when(security.hasPrivilege(login, "_queue.9", "r", (String) null)).thenReturn(true);
         if (operation == Operation.UNDELETE) document.setStatus('D');
@@ -255,9 +263,16 @@ class NoteBrowserDocumentResourceAccessUnitTest extends CarlosUnitTestBase {
 
     private AbstractNoteBrowserDocumentMutation2Action action(Operation operation) {
         AbstractNoteBrowserDocumentMutation2Action action = switch (operation) {
-            case DELETE -> { var a = new NoteBrowserDocumentDelete2Action(); a.setDelDocumentNo("42"); yield a; }
-            case UNDELETE -> { var a = new NoteBrowserDocumentUndelete2Action(); a.setUndelDocumentNo("42"); yield a; }
-            case REFILE -> { var a = new NoteBrowserDocumentRefile2Action(); a.setRefileDocumentNo("42"); a.setQueueId("7"); yield a; }
+            case DELETE -> { var a = new NoteBrowserDocumentDelete2Action();
+                a.setDelDocumentNo("42");
+                yield a; }
+            case UNDELETE -> { var a = new NoteBrowserDocumentUndelete2Action();
+                a.setUndelDocumentNo("42");
+                yield a; }
+            case REFILE -> { var a = new NoteBrowserDocumentRefile2Action();
+                a.setRefileDocumentNo("42");
+                a.setQueueId("7");
+                yield a; }
         };
         action.setDemographicNo("1001");
         return action;
@@ -281,7 +296,9 @@ class NoteBrowserDocumentResourceAccessUnitTest extends CarlosUnitTestBase {
 
     private PatientLabRouting route(int patient) {
         PatientLabRouting route = new PatientLabRouting();
-        route.setLabNo(42); route.setLabType("DOC"); route.setDemographicNo(patient);
+        route.setLabNo(42);
+        route.setLabType("DOC");
+        route.setDemographicNo(patient);
         return route;
     }
 

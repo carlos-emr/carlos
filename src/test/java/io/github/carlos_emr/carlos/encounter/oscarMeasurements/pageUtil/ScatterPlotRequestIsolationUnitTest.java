@@ -59,7 +59,8 @@ class ScatterPlotRequestIsolationUnitTest extends CarlosUnitTestBase {
     void shouldReturn400BeforeSpringLookupDespiteSessionChart(String kind) throws Exception {
         MockHttpServletRequest request = request(null);
         switch (kind) {
-            case "aliases" -> { request.setParameter("demographicNo", "101"); request.setParameter("demographic_no", "202"); }
+            case "aliases" -> { request.setParameter("demographicNo", "101");
+                request.setParameter("demographic_no", "202"); }
             case "duplicates" -> request.setParameter("demographicNo", "101", "202");
             case "overflow" -> request.setParameter("demographicNo", "2147483648");
             case "blank" -> request.setParameter("demographicNo", "");
