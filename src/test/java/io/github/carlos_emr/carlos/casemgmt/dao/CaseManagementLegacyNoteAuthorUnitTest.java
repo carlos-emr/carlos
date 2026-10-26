@@ -28,7 +28,7 @@ class CaseManagementLegacyNoteAuthorUnitTest {
     };
 
     @Test
-    void missingRevisionUuidUsesOnlyTheRecordedAuthor() {
+    void shouldReturnRecordedAuthor_whenRevisionUuidMissing() {
         Provider author = new Provider();
         author.setProviderNo("LEGACY1");
         Query query = mock(Query.class);
@@ -44,7 +44,7 @@ class CaseManagementLegacyNoteAuthorUnitTest {
     }
 
     @Test
-    void missingUuidAndAuthorDoesNotInventAnEditor() {
+    void shouldReturnNoEditor_whenRevisionUuidAndAuthorMissing() {
         for (String provider : Arrays.asList(null, "", " ")) {
             assertThat(dao.getEditors(note(null, provider))).isEmpty();
         }
@@ -52,7 +52,7 @@ class CaseManagementLegacyNoteAuthorUnitTest {
     }
 
     @Test
-    void missingRevisionUuidNeverLoadsOtherNotesAsHistory() {
+    void shouldReturnNoHistory_whenRevisionUuidMissing() {
         for (String uuid : Arrays.asList(null, "", " ")) {
             assertThat(dao.getHistory(note(uuid, "LEGACY1"))).isEmpty();
         }
@@ -60,7 +60,7 @@ class CaseManagementLegacyNoteAuthorUnitTest {
     }
 
     @Test
-    void realRevisionUuidRetainsItsEditorGroup() {
+    void shouldRetainEditorGroup_whenRevisionUuidPresent() {
         Query query = mock(Query.class);
         when(entityManager.createQuery(anyString())).thenReturn(query);
         Provider first = new Provider();

@@ -2530,6 +2530,8 @@ def main() -> int:
                          "parser, and its o19_preflight.py generated-data "
                          "block is rewritten (or, with --check, compared)")
     args = ap.parse_args()
+    if args.oscar_commit is not None and not re.fullmatch(r"[0-9a-f]{40}", args.oscar_commit):
+        return ap.error("--oscar-commit must be a full lowercase commit SHA")
     global CTL_SRC
     CTL_SRC = args.ctl_src
 
@@ -2579,9 +2581,7 @@ def main() -> int:
         if cp.returncode == 0:
             commit = cp.stdout.strip()
 
-    if args.oscar_commit:
-        if not re.fullmatch(r"[0-9a-f]{40}", args.oscar_commit):
-            return ap.error("--oscar-commit must be a full lowercase commit SHA")
+    if args.oscar_commit is not None:
         if commit != "unknown" and commit != args.oscar_commit:
             return ap.error("--oscar-commit differs from the source checkout HEAD")
         commit = args.oscar_commit
