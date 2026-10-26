@@ -120,7 +120,7 @@
     EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
 EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
 
-    String pId = (String) session.getAttribute("case_program_id");
+    String pId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
     Program program = null;
     if (pId == null) {
         pId = "";
@@ -129,22 +129,16 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         program = programDao.getProgram(Integer.valueOf(pId));
     }
 
-    String demographicNo = request.getParameter("demographicNo");
-    EctSessionBean bean;
-    if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
-        return;
-    }
-    // The session bean follows whichever chart was entered last in any window of this login
-    // (issues #4556, #4673). Only this chart's own patient may supply its entry metadata and its
-    // pending message; another chart's are neither shown here nor consumed.
     String chartPatientNo;
     try {
         chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
     } catch (IllegalArgumentException invalidPatient) {
-        chartPatientNo = null;
+        response.sendError(400);
+        return;
     }
-    boolean ownChartBean = chartPatientNo != null && chartPatientNo.equals(bean.demographicNo);
+    String demographicNo = chartPatientNo;
+    EctSessionBean bean = EncounterPatientContext.entryOrLoggedIn(request, loggedInInfo, chartPatientNo);
+    // Encounter metadata belongs to the explicitly named chart.
 
     // This chart's own entry provider: the patient's remembered entry, or the logged-in provider
     // when this login has not entered the chart. The login-wide bean's belongs to whichever chart
@@ -182,7 +176,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     Date dToday = new Date();
     String strToday = jsfmt.format(dToday);
 
-    String frmName = "caseManagementEntryForm" + demographicNo;
+    String frmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
     CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
 
     if (cform == null) {
@@ -902,13 +896,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         }
     }
 
-    String oscarMsg = ownChartBean && bean.oscarMsg != null ? bean.oscarMsg : "";
-    boolean hasOscarMsg = renderMoreNotesScript && !oscarMsg.equals("");
-    if (hasOscarMsg) {
-        bean.reason = "";
-        bean.oscarMsg = "";
-    }
-
     String noteBody = null;
     if (renderMoreNotesScript && request.getParameter("noteBody") != null) {
         noteBody = request.getParameter("noteBody").replaceAll("<br>|<BR>", "\n");
@@ -957,7 +944,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             var params = "method=updateNoteLock&demographicNo=" + demographicNo;
             jQuery.ajax({
                 type: "POST",
-                url: "<%=ctx%>/CaseManagementEntry",
+                url: chartActionUrl("/CaseManagementEntry"),
                 data: params,
                 success: function () {
                     //force save when exiting chart in case we loaded edited note in other chart
@@ -984,9 +971,9 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     document.forms["caseManagementEntryForm"].noteId.value = "<%=savedId%>";
 
-    // Empty means absent or already consumed in this chart; only legacy layouts use the shared bean.
+    // The chart render owns its message; asynchronous fragments never borrow another window's bean.
     var encounterMessage = typeof pendingEncounterMessage === 'string'
-        ? pendingEncounterMessage : "<carlos:encode value='<%= oscarMsg %>' context="javaScriptBlock"/>";
+        ? pendingEncounterMessage : "";
     if (encounterMessage && document.getElementById(caseNote)) {
         document.getElementById(caseNote).value += "\n\n" + encounterMessage;
         if (typeof pendingEncounterMessage === 'string') pendingEncounterMessage = '';

@@ -67,7 +67,13 @@
         </action>
         <!-- DEPRECATED: This action is used by the legacy encounter page (encounter/Index.jsp) -->
         <action name="messenger/ViewMessageByPosition" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessageByPosition2Action">
-            <result name="success">/messenger/ViewMessage</result>
+            <result name="success" type="redirectAction">
+                <param name="actionName">messenger/ViewMessage</param>
+                <param name="messageID">${messageID}</param>
+                <param name="from">encounter</param>
+                <param name="demographic_no">${demographic_no}</param>
+                <param name="messagePosition">${messagePosition}</param>
+            </result>
         </action>
         <!-- POST demographic_no + item keys; the action renders each item server-side (no
              client-posted HTML) and either streams a preview PDF (NONE) or stores the PDFs on

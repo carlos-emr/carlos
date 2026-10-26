@@ -19,7 +19,8 @@ jobs:
   script-regressions:
     name: Node Script Regressions
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # Leave room for cold Chromium dependency downloads before the browser checks.
+    timeout-minutes: 15
     env:
       CARLOS_CTL_SRC: ${{ github.workspace }}/.carlos-ctl
     steps:
@@ -88,3 +89,5 @@ jobs:
         run: node scripts/calendar-eform-browser-check.js
       - name: Check prevention print popup navigation in Chromium
         run: node scripts/prevention-print-popup-browser-check.js
+      - name: Check signed-note lifecycle locators in Chromium
+        run: node scripts/echart-note-lifecycle-browser-check.js

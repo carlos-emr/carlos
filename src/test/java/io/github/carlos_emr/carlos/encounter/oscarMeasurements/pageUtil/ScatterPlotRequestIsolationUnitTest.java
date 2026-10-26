@@ -48,6 +48,7 @@ class ScatterPlotRequestIsolationUnitTest extends CarlosUnitTestBase {
         login = mock(LoggedInInfo.class);
         session = new MockHttpSession();
         LoggedInInfo.setLoggedInInfoIntoSession(session, login);
+        when(security.isAllowedAccessToPatientRecord(eq(login), anyInt())).thenReturn(true);
         EctSessionBean global = new EctSessionBean();
         global.demographicNo = "202";
         session.setAttribute("EctSessionBean", global);
@@ -118,6 +119,19 @@ class ScatterPlotRequestIsolationUnitTest extends CarlosUnitTestBase {
         verify(measurements, times(2)).findObservationDatesByDemographicNoTypeAndMeasuringInstruction(101, "WT", "kg");
         verify(measurements).findObservationDatesByDemographicNoTypeAndMeasuringInstruction(202, "WT", "kg");
         assertThat(((EctSessionBean) session.getAttribute("EctSessionBean")).demographicNo).isEqualTo("202");
+    }
+
+    @Test
+    void shouldRefuseLockedRecord_beforeReadingOrRenderingAnyMeasurement() throws Exception {
+        when(security.hasPrivilege(login, "_measurement", "r", "101")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(false);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        new ScatterPlotChartServlet().service(request("000101"), response);
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentType()).isNull();
+        verify(security).isAllowedAccessToPatientRecord(login, 101);
+        verifyNoInteractions(measurements, types, validations);
     }
 
     private MockHttpServletRequest request(String patient) {

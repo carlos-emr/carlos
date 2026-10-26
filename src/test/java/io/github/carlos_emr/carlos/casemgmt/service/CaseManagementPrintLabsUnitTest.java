@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
@@ -141,6 +143,10 @@ class CaseManagementPrintLabsUnitTest extends CarlosUnitTestBase {
         when(properties.getProperty("CMESort", "")).thenReturn("");
         when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDirectory.toString());
         List<String> printed = new ArrayList<>();
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("demographicNo", Integer.toString(PATIENT));
+        // This section-only fixture uses an explicitly issued legacy context.
+        ChartProgramContext.remember(request, null);
         try (var configuration = mockStatic(CarlosProperties.class);
              var notes = mockConstruction(CaseManagementPrintPdf.class);
              var labs = mockConstruction(CommonLabResultData.class, (mock, context) ->
@@ -154,7 +160,7 @@ class CaseManagementPrintLabsUnitTest extends CarlosUnitTestBase {
             new CaseManagementPrint().doPrint(login, PATIENT, false, new String[0],
                     false, false, includeLabs, false, false, useRange,
                     useRange ? day : null, useRange ? day : null,
-                    new MockHttpServletRequest(), new ByteArrayOutputStream());
+                    request, new ByteArrayOutputStream());
             assertThat(labs.constructed()).hasSize(includeLabs ? 1 : 0);
             for (LabPDFCreator pdf : pdfs.constructed()) verify(pdf).printPdf();
             assertThat(notes.constructed()).hasSize(1);

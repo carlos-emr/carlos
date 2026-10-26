@@ -405,7 +405,8 @@ async function writeToEncounter(s, charts, A, B) {
       }
       await route.continue();
     };
-    await context.route('**/CaseManagementView', hold);
+    const noteListUrl = url => url.pathname.endsWith('/CaseManagementView');
+    await context.route(noteListUrl, hold);
     try {
       await view.locator('input[name="writeToEncounter"]').click();
       const deadline = Date.now() + TIMEOUT;
@@ -426,7 +427,7 @@ async function writeToEncounter(s, charts, A, B) {
     }, text, { timeout: TIMEOUT });
     // B's own page carries the token as written, so A's list could not have hidden it by encoding.
     h.assert((await chartB.content()).includes(token), 'B\'s chart page does not carry the message token as written');
-    await context.unroute('**/CaseManagementView', hold);
+    await context.unroute(noteListUrl, hold);
     // Closing B's second chart window releases its note lock by a beacon, which the browser
     // reports as an aborted ping because the window is gone.
     const mark = s.recorder.requestFailures.length;
@@ -478,7 +479,8 @@ async function filterHandoff(s, charts, A, B, notes) {
     const isNoteList = request => request.method() === 'POST'
       && new URL(request.url()).pathname.endsWith('/CaseManagementView')
       && new URLSearchParams(request.postData() || '').get('method') === 'viewNotesOpt';
-    await chartA.route('**/CaseManagementView', async route => {
+    const noteListUrl = url => url.pathname.endsWith('/CaseManagementView');
+    await chartA.route(noteListUrl, async route => {
       if (!held && isNoteList(route.request())) {
         held = true;
         await released;
@@ -504,7 +506,7 @@ async function filterHandoff(s, charts, A, B, notes) {
       release();
     }
     await waitForListed(chartA, [noteA], 'A\'s note list does not show only the note its filter selects');
-    await chartA.unroute('**/CaseManagementView');
+    await chartA.unroute(noteListUrl);
   });
 }
 

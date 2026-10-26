@@ -155,6 +155,10 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     static Stream<Arguments> unconditionalMutators() {
         return Stream.of(
+            Arguments.of("io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
+                    "_prevention", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action",
+                    "_demographic", "w"),
             Arguments.of("io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerCreateGroup2Action",
                     "_admin", "w"),
             // --- login ---
@@ -489,6 +493,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Message view (#4133): viewing permits GET; linkMsgDemo=true writes a msgDemoMap row and
         // must be a POST. Covered by MsgViewMessage2ActionUnitTest.
         "io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessage2Action",
+        // A patient's message list permits GET; a selected messageNo array unlinks messages
+        // and requires POST. Covered by MsgDisplayDemographicMessages2ActionUnitTest.
+        "io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayDemographicMessages2Action",
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         // Lab display settings (#3977): the view permits GET; dboperation=Save must be a POST.
         // Covered by LabDisplaySettings2ActionUnitTest.
@@ -713,6 +720,8 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
+        "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action",
         // The form package is not in IN_SCOPE_PACKAGE_PREFIXES; its legacy form dispatcher registers here.
         "io.github.carlos_emr.carlos.form.Frm2Action",
         // measurements.web is not in IN_SCOPE_PACKAGE_PREFIXES; its data dispatcher registers here.

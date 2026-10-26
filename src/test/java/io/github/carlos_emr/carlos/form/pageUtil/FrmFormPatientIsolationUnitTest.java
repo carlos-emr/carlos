@@ -79,6 +79,7 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
             }
         };
         request = new MockHttpServletRequest(context);
+        request.setMethod("POST");
         request.setContextPath("/carlos");
         response = new MockHttpServletResponse();
         user = new LoggedInInfo();
@@ -91,6 +92,8 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("EctSessionBean", lastChart);
         security = createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(eq(user), anyString(), anyString(), anyString())).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(user, 202)).thenReturn(true);
         forms = createAndRegisterMock(EncounterFormDao.class);
         EncounterForm registered = new EncounterForm();
         registered.setFormValue("../form/SetupForm.do?formName=VTForm&demographic_no=");
@@ -144,6 +147,7 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @CsvSource({"101,202,0", "202,101,0", "101,202,88", "202,101,88"})
     void shouldRenderRequestedPatient_whenAnotherChartWasOpenedLast(String patient, String other, String formId) throws Exception {
+        request.setMethod("GET");
         request.setParameter("demographic_no", patient);
         request.setParameter("value(formId)", formId);
         lastChart.setDemographicNo(other);
@@ -369,6 +373,99 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
             }).isInstanceOf(SecurityException.class);
             verifyNoInteractions(forms, measurements, demographics, charts);
             assertThat(records.constructed()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"setup,0", "setup,88", "save,0", "save,88", "exit,0", "exit,88"})
+    void shouldRefuseAnExcludedRecord_beforeReadingOrWritingTheRequestedForm(String operation, String formId)
+            throws Exception {
+        request.setMethod("setup".equals(operation) ? "GET" : "POST");
+        request.setParameter("demographic_no", "101");
+        request.setParameter("value(formId)", formId);
+        request.setParameter("submit", operation);
+        // Module grants remain intact, as with a separate _eChart$patient record exclusion.
+        when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
+        ResultSet owned = ownedForm("101");
+        RxPatientData.Patient rxPatient = mock(RxPatientData.Patient.class);
+        when(rxPatient.getPrescribedDrugsUnique()).thenReturn(new RxPrescriptionData.Prescription[0]);
+        when(rxPatient.getActiveAllergies()).thenReturn(new Allergy[0]);
+        var types = EctFindMeasurementTypeUtil.loadMeasurementTypes(definition());
+        try (var servlet = servlet(); var jdbc = mockStatic(LegacyJdbcQuery.class, CALLS_REAL_METHODS);
+             var rx = mockStatic(RxPatientData.class); var definitions = mockStatic(EctFindMeasurementTypeUtil.class);
+             var records = mockConstruction(FrmRecordHelp.class, (record, context) ->
+                     when(record.saveFormRecord(any(), anyString(), any(Object[].class))).thenReturn(77))) {
+            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(LegacyJdbcQuery.TrustedSql.class), eq(88), eq(101)))
+                    .thenReturn(owned);
+            rx.when(() -> RxPatientData.getPatient(user, 101)).thenReturn(rxPatient);
+            definitions.when(() -> EctFindMeasurementTypeUtil.checkMeasurmentTypes(any(), eq("VTForm"))).thenReturn(types);
+            definitions.when(() -> EctFindMeasurementTypeUtil.loadMeasurementTypes(any(InputStream.class))).thenReturn(types);
+            jdbc.clearInvocations();
+            rx.clearInvocations();
+            definitions.clearInvocations();
+
+            assertThatThrownBy(() -> {
+                if ("setup".equals(operation)) new FrmSetupForm2Action().execute();
+                else new FrmForm2Action().execute();
+            }).isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
+
+            verifyNoInteractions(forms, measurements, demographics, charts, owned);
+            jdbc.verifyNoInteractions();
+            rx.verifyNoInteractions();
+            definitions.verifyNoInteractions();
+            assertThat(records.constructed()).isEmpty();
+            assertThat(request.getAttribute("formPatient")).isNull();
+            assertThat(request.getAttribute("formValues")).isNull();
+            assertThat(response.getForwardedUrl()).isNull();
+            assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(request.getSession().getAttribute("EctSessionBean")).isSameAs(lastChart);
+            assertThat(lastChart.getDemographicNo()).isEqualTo("202");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRetainFormOnlyAccess_withoutAChartProgramOrEchartModuleGrant(boolean setup) throws Exception {
+        when(security.hasPrivilege(eq(user), anyString(), anyString(), anyString())).thenAnswer(call ->
+                List.of("_form", "_demographic").contains(call.getArgument(1)));
+        if (setup) shouldRenderRequestedPatient_whenAnotherChartWasOpenedLast("101", "202", "0");
+        else shouldSaveOnlyRequestedPatient_whenSessionPointsAtAnotherChart("101", "202", "exit", "0");
+        verify(security, never()).hasPrivilege(eq(user), eq("_eChart"), anyString(), anyString());
+        verify(security, never()).hasPrivilege(eq(user), eq("_casemgmt.notes"), anyString(), anyString());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"GET,save,0", "HEAD,save,0", "PUT,save,0", "GET,exit,0", "HEAD,exit,0", "PUT,exit,0",
+            "GET,save,88", "HEAD,save,88", "PUT,save,88", "GET,exit,88", "HEAD,exit,88", "PUT,exit,88"})
+    void shouldRefuseNonPostSubmission_beforeAnyClinicalOrFormAccess(String method, String operation, String formId)
+            throws Exception {
+        request.setMethod(method);
+        request.setParameter("demographic_no", "101");
+        request.setParameter("value(formId)", formId);
+        request.setParameter("submit", operation);
+        ResultSet owned = ownedForm("101");
+        var types = EctFindMeasurementTypeUtil.loadMeasurementTypes(definition());
+        try (var servlet = servlet(); var jdbc = mockStatic(LegacyJdbcQuery.class, CALLS_REAL_METHODS);
+             var definitions = mockStatic(EctFindMeasurementTypeUtil.class);
+             var records = mockConstruction(FrmRecordHelp.class, (record, context) ->
+                     when(record.saveFormRecord(any(), anyString(), any(Object[].class))).thenReturn(77))) {
+            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(LegacyJdbcQuery.TrustedSql.class), eq(88), eq(101)))
+                    .thenReturn(owned);
+            definitions.when(() -> EctFindMeasurementTypeUtil.loadMeasurementTypes(any(InputStream.class))).thenReturn(types);
+            jdbc.clearInvocations();
+            definitions.clearInvocations();
+
+            assertThat(new FrmForm2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(405);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            verifyNoInteractions(security, forms, measurements, demographics, charts, owned);
+            jdbc.verifyNoInteractions();
+            definitions.verifyNoInteractions();
+            assertThat(records.constructed()).isEmpty();
+            assertThat(response.getForwardedUrl()).isNull();
+            assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(lastChart.getDemographicNo()).isEqualTo("202");
         }
     }
 

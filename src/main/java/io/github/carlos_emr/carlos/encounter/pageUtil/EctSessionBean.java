@@ -37,13 +37,13 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
-import io.github.carlos_emr.carlos.commn.dao.MessageTblDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EChart;
 import io.github.carlos_emr.carlos.commn.model.EncounterTemplate;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
-import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.messenger.service.MessageEncounterService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -136,6 +136,20 @@ public class EctSessionBean implements java.io.Serializable {
      */
     public void setUpEncounterPage(LoggedInInfo loggedInInfo) {
         resetAll();
+        requireRecordAccess(loggedInInfo, demographicNo);
+
+        // Legacy CAISI editors consume the same explicit, patient-linked handoff as modern
+        // charts. Authorize before loading clinical rows: a numeric message ID is not access
+        // to its body, and an old bean's message must never survive a refused or absent handoff.
+        if (oscarMsgID != null && !oscarMsgID.isBlank()) {
+            if (!oscarMsgID.matches("[0-9]{1,10}") || Integer.parseInt(oscarMsgID) <= 0) {
+                throw new IllegalArgumentException("Invalid encounter message ID");
+            }
+            int patient = Integer.parseInt(demographicNo);
+            if (patient <= 0) throw new IllegalArgumentException("Invalid encounter patient");
+            oscarMsg = SpringUtils.getBean(MessageEncounterService.class)
+                    .load(loggedInInfo, Integer.parseInt(oscarMsgID), patient);
+        }
 
         templateNames = new ArrayList<String>();
         measurementGroupNames = new ArrayList<String>();
@@ -204,22 +218,6 @@ public class EctSessionBean implements java.io.Serializable {
             }
         }
 
-        if (oscarMsgID != null) {
-            MessageTblDao mtDao = SpringUtils.getBean(MessageTblDao.class);
-            MessageTbl mt = mtDao.find(ConversionUtils.fromIntString(oscarMsgID));
-            if (mt != null) {
-                String message = mt.getMessage();
-                String subject = mt.getSubject();
-                String sentby = mt.getSentBy();
-                String sentto = mt.getSentTo();
-                String thetime = ConversionUtils.toTimeString(mt.getTime());
-                String thedate = ConversionUtils.toDateString(mt.getDate());
-                oscarMsg = "From: " + sentby + "\n" + "To: " + sentto + "\n" + "Date: " + thedate + " " + thetime
-                        + "\n" + "Subject: " + subject + "\n" + message;
-            }
-        }
-
-
     }
 
     /**
@@ -234,6 +232,7 @@ public class EctSessionBean implements java.io.Serializable {
      */
     public void setUpEncounterPage(LoggedInInfo loggedInInfo, String echartid, String demographicNo) {
         resetAll();
+        requireRecordAccess(loggedInInfo, demographicNo);
 
         CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
@@ -283,6 +282,16 @@ public class EctSessionBean implements java.io.Serializable {
         }
         patientAge = UtilDateUtilities
                 .calcAge(UtilDateUtilities.calcDate(yearOfBirth, monthOfBirth, dateOfBirth));
+    }
+
+    /** Record exclusions apply before either the entry or print bean loads clinical rows. */
+    private static void requireRecordAccess(LoggedInInfo loggedInInfo, String patient) {
+        int patientNo = Integer.parseInt(patient);
+        if (patientNo <= 0) throw new IllegalArgumentException("Invalid encounter patient");
+        if (loggedInInfo == null || !SpringUtils.getBean(SecurityInfoManager.class)
+                .isAllowedAccessToPatientRecord(loggedInInfo, patientNo)) {
+            throw new SecurityException("Patient record access denied");
+        }
     }
 
     public String getTeam() {

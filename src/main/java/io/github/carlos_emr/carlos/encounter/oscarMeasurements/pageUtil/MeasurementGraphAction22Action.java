@@ -86,6 +86,7 @@ import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -127,9 +128,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
             return NONE;
         }
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", patient)) {
-            throw new SecurityException("missing required sec object (_measurement)");
-        }
+        PatientRecordAccess.require(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                patient, "_measurement", "r");
 
         Integer demographicNo = Integer.valueOf(patient);
         // Every graph draws this patient's name, age and values (measurements, labs, medications).

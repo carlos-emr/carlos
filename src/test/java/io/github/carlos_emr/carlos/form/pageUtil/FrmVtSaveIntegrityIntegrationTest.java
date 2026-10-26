@@ -76,6 +76,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -128,6 +129,7 @@ class FrmVtSaveIntegrityIntegrationTest {
 
         var security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), anyString(), anyString(), eq("101"))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), eq(101))).thenReturn(true);
         var forms = mock(EncounterFormDao.class);
         var registration = new EncounterForm();
         registration.setFormTable("formVTForm");
@@ -183,6 +185,7 @@ class FrmVtSaveIntegrityIntegrationTest {
             }
         });
         response = new MockHttpServletResponse();
+        request.setMethod("POST");
         var login = new LoggedInInfo();
         var provider = new Provider();
         provider.setProviderNo("999998");
@@ -231,6 +234,28 @@ class FrmVtSaveIntegrityIntegrationTest {
 
     private int measurementRows() {
         return jdbc.queryForObject("SELECT COUNT(*) FROM measurements", Integer.class);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"GET,save", "HEAD,save", "PUT,save", "GET,exit", "HEAD,exit", "PUT,exit"})
+    void shouldKeepRealClinicalTablesUnchanged_whenAValidSubmissionUsesAnotherHttpMethod(String method, String submit)
+            throws Exception {
+        request.setMethod(method);
+        request.setParameter("value(BPValue)", "120/80");
+        request.setParameter("value(WTValue)", "75");
+        request.setParameter("value(WTDate)", "2026-10-15");
+        List<Map<String, Object>> formsBefore = jdbc.queryForList("SELECT * FROM formVTForm ORDER BY ID");
+        List<Map<String, Object>> measurementsBefore = jdbc.queryForList("SELECT * FROM measurements ORDER BY id");
+
+        submit(submit);
+
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(jdbc.queryForList("SELECT * FROM formVTForm ORDER BY ID")).isEqualTo(formsBefore);
+        assertThat(jdbc.queryForList("SELECT * FROM measurements ORDER BY id")).isEqualTo(measurementsBefore);
+        verifyNoInteractions(measurements);
+        assertThat(response.getForwardedUrl()).isNull();
+        assertThat(response.getRedirectedUrl()).isNull();
     }
 
     @SuppressWarnings("unchecked")

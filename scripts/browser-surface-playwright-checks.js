@@ -46,6 +46,7 @@ const screenshotDir = process.env.SURFACE_SCREENSHOT_DIR || '/tmp';
 
 const badResponses = [];
 const consoleIssues = [];
+const recorder = h.createRecorder();
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -100,10 +101,7 @@ function isSevereConsoleMessage(message) {
 }
 
 function wirePage(page, label) {
-  page.on('dialog', async (dialog) => {
-    consoleIssues.push({ label, type: 'dialog', text: dialog.message() });
-    await dialog.accept();
-  });
+  h.wireStrictPage(page, label, recorder, { baseline: [] });
   page.on('response', (response) => {
     const responseUrl = response.url();
     const status = response.status();
@@ -302,6 +300,7 @@ async function checkAdminPage(context, appPath, label, requiredText) {
     sql.execute(`UPDATE demographic SET postal='K1A0B1' WHERE demographic_no=${demographicNo} AND last_name=${h.sqlString(ownedMarker)}`);
     browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    context.on('page', page => h.wireStrictPage(page, 'browser-surface-page', recorder, { baseline: [] }));
     const schedulePage = await login(context);
     const patientPage = await openPatientFromSearch(context, schedulePage);
 
@@ -315,6 +314,7 @@ async function checkAdminPage(context, appPath, label, requiredText) {
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     assert(fatalConsoleIssues.length === 0,
       `unexpected browser console failures: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
+    h.assertStrictPage(recorder);
 
     console.log('PASS demographic, tickler, consultation, and admin browser surfaces rendered correctly');
   } finally {
@@ -330,6 +330,7 @@ async function checkAdminPage(context, appPath, label, requiredText) {
 })().catch((error) => {
   console.error('FAIL browser surface Playwright check');
   console.error(error.stack || error.message);
+  console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
   if (badResponses.length) {
     console.error(`HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
   }

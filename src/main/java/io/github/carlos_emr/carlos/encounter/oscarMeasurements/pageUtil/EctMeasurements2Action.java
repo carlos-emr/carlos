@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
@@ -111,9 +112,8 @@ public class EctMeasurements2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
             return NONE;
         }
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w", demographicNo)) {
-            throw new SecurityException("missing required sec object (_measurement)");
-        }
+        PatientRecordAccess.require(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                demographicNo, "_measurement", "w");
 
         boolean ajax = (request.getParameter("ajax") != null) ? Boolean.valueOf(request.getParameter("ajax")) : false;
         boolean skipCreateNote = (request.getParameter("skipCreateNote") != null)

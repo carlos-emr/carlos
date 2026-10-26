@@ -60,11 +60,11 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
       const session = {
         config, sql, patient, provider, marker, context, recorder, master, schedule,
         cleanup(fn) { cleanups.push(fn); },
-        async chart() {
+        async chart({navbarTimeout = 20000} = {}) {
           h.assert(master, 'This workflow did not request a patient fixture');
           if (!chart || chart.isClosed()) {
             chart = await openChart(context, master, recorder, 20000);
-            await waitForNavbars(chart, 20000);
+            await waitForNavbars(chart, navbarTimeout);
           }
           return chart;
         },

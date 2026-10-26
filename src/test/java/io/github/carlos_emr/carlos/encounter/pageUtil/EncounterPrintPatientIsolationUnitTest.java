@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EChart;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.beans.Introspector;
@@ -48,8 +49,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
  * The legacy encounter prints show the patient their own request names (issue #4673).
@@ -75,12 +78,15 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
     private EChartDao charts;
     private DemographicManager demographics;
     private LoggedInInfo login;
+    private SecurityInfoManager security;
 
     @BeforeEach
     void registerPatientRecords() {
         charts = createAndRegisterMock(EChartDao.class);
         demographics = createAndRegisterMock(DemographicManager.class);
         login = mock(LoggedInInfo.class);
+        security = createAndRegisterMock(SecurityInfoManager.class);
+        when(security.isAllowedAccessToPatientRecord(login, Integer.valueOf(A))).thenReturn(true);
         Demographic patient = new Demographic();
         patient.setDemographicNo(Integer.valueOf(A));
         patient.setLastName("FAKE-Alpha");
@@ -96,6 +102,21 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
     @Nested
     @DisplayName("print bean")
     class PrintBean {
+
+        @Test
+        void shouldClearPriorTextAndRefuseBeforeClinicalReads_whenPrintedRecordIsExcluded() {
+            when(security.isAllowedAccessToPatientRecord(login, Integer.valueOf(A))).thenReturn(false);
+            EctSessionBean printed = new EctSessionBean();
+            printed.encounter = "FAKE stale chart text";
+            printed.oscarMsg = "FAKE stale message";
+
+            assertThatThrownBy(() -> printed.setUpEncounterPage(login, "41", A))
+                    .isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
+
+            assertThat(printed.encounter).isEmpty();
+            assertThat(printed.oscarMsg).isEmpty();
+            verifyNoInteractions(charts, demographics);
+        }
 
         @Test
         @DisplayName("should print the requested revision when it is this patient's")
