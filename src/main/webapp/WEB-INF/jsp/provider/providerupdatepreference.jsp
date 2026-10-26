@@ -69,10 +69,16 @@
 <%@ page import="java.util.UUID" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
+<%
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
+%>
 <html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <% if (showScheduleNav) { %>
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+        <% } %>
         <script LANGUAGE="JavaScript">
             <!--
             function start() {
@@ -84,6 +90,9 @@
     </head>
 
     <body>
+    <% if (showScheduleNav) { %>
+        <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+    <% } %>
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="90%">
             <tr bgcolor="#486ebd">
@@ -208,10 +217,16 @@
                 localStorage.setItem('carlos_schedule_navigation_mode', JSON.stringify(scheduleNavigationPreferencePayload));
             } catch (e) {}
             <% } %>
+            <% if (showScheduleNav) { %>
+            // Opened same-tab via the schedule shell rather than as a popup; navigate back
+            // instead of self.close(), which browsers ignore for tabs the script did not open.
+            window.location.href = "<%= SafeEncode.forJavaScript(request.getContextPath()) %>/provider/ViewProviderPreference?scheduleNav=1";
+            <% } else { %>
             if (self.opener && typeof self.opener.refresh1 === 'function') {
                 self.opener.refresh1();
             }
             self.close();
+            <% } %>
         </script>
         <% } else { %>
         <div style="color: red; font-weight: bold; padding: 20px; text-align: center;">
@@ -226,7 +241,10 @@
         <hr width="90%"/>
         <form><input type="button"
                      value=
-                         <fmt:message key="global.btnClose"/> onClick="self.close()">
+                         <fmt:message key="global.btnClose"/>
+                     onClick="<%= showScheduleNav
+                             ? "window.location.href='" + SafeEncode.forJavaScriptAttribute(request.getContextPath()) + "/provider/ViewProviderPreference?scheduleNav=1'"
+                             : "self.close()" %>">
         </form>
     </center>
     </body>

@@ -42,7 +42,7 @@ class ProviderPropertyActionScheduleNavigationModeTest extends CarlosUnitTestBas
     private static final String PROVIDER_NO = "999998";
 
     @Test
-    @DisplayName("focused mode does not enable legacy encounter tabs")
+    @DisplayName("focused mode enables legacy encounter tabs")
     void shouldPersistScheduleNavigationMode_whenFocusedSelected() throws Exception {
         UserPropertyDAO dao = mock(UserPropertyDAO.class);
         MockHttpServletRequest request = requestWithMode(UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED);
@@ -51,7 +51,7 @@ class ProviderPropertyActionScheduleNavigationModeTest extends CarlosUnitTestBas
 
         verify(dao).saveProp(PROVIDER_NO, UserProperty.SCHEDULE_NAVIGATION_MODE,
                 UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED);
-        verify(dao).saveProp(PROVIDER_NO, UserProperty.ENCOUNTER_OPEN_IN_TAB, "no");
+        verify(dao).saveProp(PROVIDER_NO, UserProperty.ENCOUNTER_OPEN_IN_TAB, "yes");
     }
 
     @Test

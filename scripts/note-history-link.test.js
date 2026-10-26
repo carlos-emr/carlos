@@ -8,12 +8,13 @@ const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
 const handler = source.match(/    function showHistory\(noteId, event\) \{[\s\S]*?\n    \}/)[0];
+for (const tab of [false, true]) {
 for (const [patient, note] of [['101', '501'], ['101&noteId=999', '501&demographicNo=999']]) {
-  test(`history link carries separate patient and note values: ${patient}`, () => {
+  test(`history link carries separate patient and note values: ${patient}, tabs=${tab}`, () => {
     let opened;
     const event = {};
     let stopped;
-    const sandbox = {ctx: '/carlos', demographicNo: patient, Event: {stop: value => { stopped = value; }},
+    const sandbox = {ctx: '/carlos', demographicNo: patient, openEncounterInTab: tab, Event: {stop: value => { stopped = value; }},
       window: {open: url => { opened = url; }}};
     vm.createContext(sandbox);
     vm.runInContext(handler, sandbox);
@@ -23,6 +24,8 @@ for (const [patient, note] of [['101', '501'], ['101&noteId=999', '501&demograph
     assert.equal(url.pathname, '/carlos/CaseManagementEntry');
     assert.deepEqual([...url.searchParams], [['method', 'notehistory'], ['noteId', note], ['demographicNo', patient]]);
   });
+}
+
 }
 
 const ticklerSource = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/ticklerNoteDialog.js'), 'utf8');

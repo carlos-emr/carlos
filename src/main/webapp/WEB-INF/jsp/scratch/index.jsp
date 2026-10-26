@@ -62,6 +62,8 @@
   
 
   List<ScratchPad> dateIdList= scratchData.getAllDates(user_no);
+
+  boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 %>
 
 <html lang="${pageContext.request.locale.language}">
@@ -71,6 +73,9 @@
 <title><fmt:message key="ScratchPad.title"/></title>
 
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <% if (showScheduleNav) { %>
+    <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+    <% } %>
 
     <script type="text/javascript">
         let dirty = false;
@@ -195,11 +200,13 @@
         }
     </script>
     <style>
-        :root * {
+        /* Scoped to .container: an unscoped :root * !important previously leaked into the
+           included mainMenu.jsp top bar and clobbered its Font Awesome icon glyphs. */
+        .container * {
             font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
         }
 
-        :root * :not(h2):not(h4) {
+        .container * :not(h2):not(h4) {
             font-size: 12px;
             line-height: 1 !important;
             overscroll-behavior: none;
@@ -221,7 +228,7 @@
             justify-content: center;
         }
 
-        table {
+        .container table {
             border-collapse: collapse;
             width: 100%;
             display:flex;
@@ -230,11 +237,11 @@
             align-items: stretch;
             flex-direction: column;
         }
-        table tr {
+        .container table tr {
             display:flex;
             flex-direction: row;
         }
-        table tr td {
+        .container table tr td {
             padding: 10px;
             vertical-align: top;
         }
@@ -264,6 +271,9 @@
 </head>
 
 <body>
+<% if (showScheduleNav) { %>
+    <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+<% } %>
 <div class="container">
     <div class="heading">
         <div class="page-title">
