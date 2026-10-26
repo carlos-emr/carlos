@@ -2,6 +2,7 @@
 'use strict';
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
+const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
@@ -10,6 +11,77 @@ const { readPatientState } = require('./echart-two-patient-isolation-playwright-
 const q = h.sqlString;
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const positive = value => /^[1-9]\d*$/.test(String(value));
+
+function assertSelectionPopupResponse(response, { baseUrl }) {
+  const expected = new URL(h.appUrl(baseUrl, '/casemgmt/ViewGroupNoteSelect'));
+  h.assert(response, 'Native Group popup did not produce an observed document response');
+  const actual = new URL(response.url());
+  h.assert(actual.origin === expected.origin && actual.pathname === expected.pathname && response.request().method() === 'GET',
+    `Native Group popup opened an unexpected document route (HTTP ${response.status()})`);
+  h.assert(response.status() === 200 && Object.hasOwn(response.headers(), h.APPLICATION_HEADER),
+    `Native Group popup GET returned HTTP ${response.status()} without its expected application view`);
+}
+
+async function openSelectionPopup(context, chart, config) {
+  // Observe the context before clicking: a popup's initial response can arrive
+  // before Playwright emits its page event.
+  const responses = [];
+  const observe = answer => { if (answer.request().isNavigationRequest()) responses.push(answer); };
+  context.on('response', observe);
+  const opened = context.waitForEvent('page');
+  try {
+    await chart.locator('#groupNoteImg').click();
+    const page = await opened;
+    await page.waitForLoadState('networkidle');
+    assertSelectionPopupResponse(responses.filter(answer => answer.frame() === page.mainFrame()).at(-1), { baseUrl: config.baseUrl });
+    return page;
+  } finally { context.off('response', observe); }
+}
+
+/** Persist only the exact newly owned policy graph, before its first native read. */
+function writeStagedGroupPolicy(directory, policy, columns, scope) {
+  const names = ['programs', 'memberships', 'admissions'];
+  h.assert(same(Object.keys(policy), names) && same(Object.keys(columns), names)
+    && /^FAKE-PW[0-9a-f]{16}$/.test(scope.marker) && positive(scope.provider) && positive(scope.facility)
+    && scope.programs.length === 2 && scope.patients.length === 4
+    && [...scope.programs, ...scope.patients].every(positive)
+    && new Set(scope.programs).size === 2 && new Set(scope.patients).size === 4,
+  'Invalid owned group policy evidence scope');
+  const cell = (table, row, name) => {
+    const index = columns[table].indexOf(name);
+    h.assert(index >= 0 && row.length === columns[table].length, 'Incomplete owned policy schema');
+    return row[index];
+  };
+  for (const name of names) h.assert(Array.isArray(columns[name]) && new Set(columns[name]).size === columns[name].length
+    && columns[name].every(column => /^[A-Za-z][A-Za-z0-9_]*$/.test(column)) && Array.isArray(policy[name]),
+  'Unexpected owned policy evidence table');
+  h.assert(policy.programs.length === 2 && policy.programs.every((row, index) => cell('programs', row, 'id') === scope.programs[index]
+    && cell('programs', row, 'facilityId') === scope.facility
+    && cell('programs', row, 'name') === `${scope.marker}-group-select-${['A', 'B'][index]}`),
+  'Group policy evidence contains an unowned program');
+  h.assert(policy.memberships.length === 2 && policy.memberships.every(row => scope.programs.includes(cell('memberships', row, 'program_id'))
+    && cell('memberships', row, 'provider_no') === scope.provider)
+    && new Set(policy.memberships.map(row => cell('memberships', row, 'program_id'))).size === 2,
+  'Group policy evidence contains an unowned membership');
+  const pairs = policy.admissions.map(row => {
+    h.assert(cell('admissions', row, 'provider_no') === scope.provider, 'Group policy evidence contains an unowned admission provider');
+    return [cell('admissions', row, 'client_id'), cell('admissions', row, 'program_id')].join(':');
+  }).sort();
+  const [owner, first, other, second] = scope.patients;
+  const [programA, programB] = scope.programs;
+  h.assert(same(pairs, [[owner, programA], [owner, programB], [first, programA], [other, programB], [second, programA]]
+    .map(pair => pair.join(':')).sort()), 'Group policy evidence contains a foreign, missing or duplicate admission');
+  const stat = fs.lstatSync(directory);
+  h.assert(stat.isDirectory() && !stat.isSymbolicLink() && (stat.mode & 0o777) === 0o700, 'Group evidence needs its private owned directory');
+  const file = path.join(directory, 'staged-policy.json');
+  const fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
+  try {
+    fs.fchmodSync(fd, 0o600);
+    fs.writeFileSync(fd, JSON.stringify({ scope, columns, rows: policy }, null, 2) + '\n');
+    fs.fsyncSync(fd);
+  } finally { fs.closeSync(fd); }
+  return file;
+}
 
 function assertSelectionRequest(request, { baseUrl, patient, program, note, token, recipient }) {
   const address = new URL(request.url());
@@ -225,9 +297,12 @@ async function workflow(s) {
   }
   for (const program of programs) {
     h.assert(sql.value(`SELECT COUNT(*) FROM program WHERE name=${q(program.name)}`) === '0', 'Group program marker collision');
-    program.id = h.insertId(sql, `INSERT INTO program(facilityId,name,type,maxAllowed,programStatus,transgender,firstNation,
+    // Program's mapped getters canonicalize these nullable legacy columns on a
+    // native read. Seed their ordinary 0/30 values before the exact snapshot.
+    program.id = h.insertId(sql, `INSERT INTO program(facilityId,name,type,maxAllowed,programStatus,holdingTank,allowBatchAdmission,
+      allowBatchDischarge,hic,defaultServiceRestrictionDays,transgender,firstNation,
       alcohol,physicalHealth,mentalHealth,housing,exclusiveView,ageMin,ageMax,enableEncounterTime,enableEncounterTransportationTime,
-      enableOCAN) VALUES (${facility.id},${q(program.name)},'service',10,'active',0,0,0,0,0,0,'none',0,150,0,0,0)`, 'group selection program');
+      enableOCAN) VALUES (${facility.id},${q(program.name)},'service',10,'active',0,0,0,0,30,0,0,0,0,0,0,'none',0,150,0,0,0)`, 'group selection program');
     sql.execute(`INSERT INTO program_provider(program_id,provider_no,role_id,team_id) VALUES (${program.id},${q(login.providerNo)},${doctor[0][0]},0)`);
   }
   h.assert(sql.value(`SELECT COUNT(*) FROM provider_default_program WHERE provider_no=${q(login.providerNo)}`) === '0', 'New group writer already has a default');
@@ -251,6 +326,12 @@ async function workflow(s) {
     memberships: sql.rows(`SELECT * FROM program_provider WHERE program_id IN (${set(programIds())}) ORDER BY id`),
     admissions: sql.rows(`SELECT * FROM admission WHERE client_id IN (${set(ids())}) ORDER BY am_id`),
   };
+  evidence.stagedPolicy = writeStagedGroupPolicy(evidenceDirectory, stagedPolicy, {
+    programs: sql.rows('SHOW COLUMNS FROM program').map(row => row[0]),
+    memberships: sql.rows('SHOW COLUMNS FROM program_provider').map(row => row[0]),
+    admissions: sql.rows('SHOW COLUMNS FROM admission').map(row => row[0]),
+  }, { marker, provider: login.providerNo, facility: facility.id, programs: programIds(), patients: ids() });
+  saveEvidence();
   context = await h.newContext(s.context.browser(), config);
   s.cleanup(() => context.close());
   context.on('page', page => h.wireStrictPage(page, 'group-note-selection', recorder, { baseline: [] }));
@@ -283,13 +364,7 @@ async function workflow(s) {
     await page.evaluate(() => { if(typeof clearAutoSaveTimer === 'function')clearAutoSaveTimer(); });
     return page;
   };
-  const popup = async chart => {
-    const opened = context.waitForEvent('page');
-    await chart.locator('#groupNoteImg').click();
-    const page = await opened;await page.waitForLoadState('networkidle');
-    h.assert(new URL(page.url()).pathname.endsWith('/casemgmt/ViewGroupNoteSelect'), 'Native Group opened an obsolete JSP or unmapped route');
-    return page;
-  };
+  const popup = chart => openSelectionPopup(context, chart, config);
   let primary;
   let token;
   let csrf;
@@ -487,5 +562,6 @@ async function workflow(s) {
   if(primaryFailure)throw primaryFailure;
   h.assertStrictPage(recorder);
 }
-module.exports={workflow,assertSelectionRequest,assertSelectionRedirect,assertParallelSelectionDelta,assertClearedSelectionDelta};
+module.exports={workflow,assertSelectionRequest,assertSelectionRedirect,assertParallelSelectionDelta,assertClearedSelectionDelta,
+  assertSelectionPopupResponse,openSelectionPopup,writeStagedGroupPolicy};
 if(require.main===module)runWorkflow('group-note-selection',workflow,{openPatient:false,openMaster:false});

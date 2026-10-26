@@ -4,7 +4,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const { assertSelectionRequest, assertSelectionRedirect, assertParallelSelectionDelta, assertClearedSelectionDelta } = require('./group-note-selection-playwright-checks');
+const os = require('node:os');
+const path = require('node:path');
+const { EventEmitter } = require('node:events');
+const { assertSelectionRequest, assertSelectionRedirect, assertParallelSelectionDelta, assertClearedSelectionDelta,
+  assertSelectionPopupResponse, openSelectionPopup, writeStagedGroupPolicy } = require('./group-note-selection-playwright-checks');
 const expected = { baseUrl: new URL('https://example.test/carlos'), patient: '101', program: '7', note: '51', token: 'issued.context', recipient: '202' };
 function nativeRequest(change = {}) {
   const body = new URLSearchParams({ demographicNo: expected.patient, programId: expected.program, noteId: expected.note,
@@ -13,6 +17,78 @@ function nativeRequest(change = {}) {
   return { method: () => change.method || 'POST', url: () => change.url || 'https://example.test/carlos/casemgmt/SaveGroupNoteSelection',
     postData: () => body.toString() };
 }
+function popupResponse(change = {}) {
+  return { url: () => change.url || 'https://example.test/carlos/casemgmt/ViewGroupNoteSelect',
+    status: () => change.status || 200, request: () => ({ method: () => change.method || 'GET' }),
+    headers: () => change.headers || { 'x-permitted-cross-domain-policies': 'none' } };
+}
+test('the native popup accepts only its mapped successful application document', () => {
+  assert.doesNotThrow(() => assertSelectionPopupResponse(popupResponse(), expected));
+  assert.throws(() => assertSelectionPopupResponse(popupResponse({ status: 409 }), expected), /HTTP 409/);
+  assert.throws(() => assertSelectionPopupResponse(popupResponse({ headers: {} }), expected), /HTTP 200/);
+  assert.throws(() => assertSelectionPopupResponse(popupResponse({ url: 'https://foreign.test/carlos/casemgmt/ViewGroupNoteSelect' }), expected), /unexpected document route/);
+  assert.throws(() => assertSelectionPopupResponse(popupResponse({ url: 'https://example.test/carlos/casemgmt/groupNoteSelect.jsp' }), expected), /unexpected document route/);
+  assert.throws(() => assertSelectionPopupResponse(popupResponse({ method: 'POST' }), expected), /unexpected document route/);
+  assert.throws(() => assertSelectionPopupResponse(null, expected), /observed document response/);
+});
+for (const status of [200, 409]) test(`popup response arriving before its page event retains HTTP ${status}`, async () => {
+  const context = new EventEmitter();
+  context.waitForEvent = name => new Promise(resolve => context.once(name, resolve));
+  const frame = {};
+  const page = { mainFrame: () => frame, waitForLoadState: async () => {} };
+  const answer = popupResponse({ status });
+  answer.frame = () => frame;
+  answer.request = () => ({ method: () => 'GET', isNavigationRequest: () => true });
+  const chart = { locator: () => ({ click: async () => { context.emit('response', answer); context.emit('page', page); } }) };
+  if (status === 200) assert.equal(await openSelectionPopup(context, chart, { baseUrl: expected.baseUrl }), page);
+  else await assert.rejects(openSelectionPopup(context, chart, { baseUrl: expected.baseUrl }), /HTTP 409/);
+  assert.equal(context.listenerCount('response'), 0);
+});
+
+function stagedPolicy() {
+  const scope = {marker:'FAKE-PW0123456789abcdef',provider:'800001',facility:'4',programs:['7','8'],patients:['101','202','303','404']};
+  return {scope,columns:{programs:['id','facilityId','name','description'],memberships:['id','program_id','provider_no'],
+    admissions:['am_id','client_id','program_id','provider_no']},
+  policy:{programs:[['7','4',`${scope.marker}-group-select-A`,'café 中文\nexact'],['8','4',`${scope.marker}-group-select-B`,null]],
+    memberships:[['1','7','800001'],['2','8','800001']],
+    admissions:[['1','101','7','800001'],['2','101','8','800001'],['3','202','7','800001'],['4','303','8','800001'],['5','404','7','800001']]}};
+}
+test('owned initial policy evidence is private, exact and cannot be overwritten', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(),'carlos-group-policy-unit-'));
+  fs.chmodSync(directory,0o700);
+  try {
+    const {policy,columns,scope} = stagedPolicy();
+    const file = writeStagedGroupPolicy(directory,policy,columns,scope);
+    assert.equal(fs.statSync(file).mode&0o777,0o600);
+    assert.deepEqual(JSON.parse(fs.readFileSync(file,'utf8')),{scope,columns,rows:policy});
+    assert.throws(()=>writeStagedGroupPolicy(directory,policy,columns,scope),/EEXIST/);
+    assert.deepEqual(JSON.parse(fs.readFileSync(file,'utf8')),{scope,columns,rows:policy});
+  } finally {fs.rmSync(directory,{recursive:true,force:true});}
+});
+for (const [label,alter] of Object.entries({
+  foreignProgram:value=>{value.policy.programs[0][0]='99';},
+  foreignFacility:value=>{value.policy.programs[0][1]='99';},
+  foreignProgramName:value=>{value.policy.programs[0][2]='unowned';},
+  foreignMembership:value=>{value.policy.memberships[0][2]='999998';},
+  foreignAdmission:value=>{value.policy.admissions[0][1]='999';},
+  foreignAdmissionProvider:value=>{value.policy.admissions[0][3]='999998';},
+  duplicateAdmission:value=>{value.policy.admissions[4]=value.policy.admissions[0].slice();},
+  extraTable:value=>{value.policy.security=[['do not export']];},
+})) test(`policy evidence rejects ${label} before writing`,()=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-group-policy-unit-'));fs.chmodSync(directory,0o700);
+  try {const value=stagedPolicy();alter(value);assert.throws(()=>writeStagedGroupPolicy(directory,value.policy,value.columns,value.scope));
+    assert.deepEqual(fs.readdirSync(directory),[]);
+  } finally {fs.rmSync(directory,{recursive:true,force:true});}
+});
+test('policy evidence refuses a symlink destination without changing its target',()=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-group-policy-unit-'));fs.chmodSync(directory,0o700);
+  try {
+    const target=path.join(directory,'target');fs.writeFileSync(target,'unchanged');
+    fs.symlinkSync(target,path.join(directory,'staged-policy.json'));
+    const {policy,columns,scope}=stagedPolicy();assert.throws(()=>writeStagedGroupPolicy(directory,policy,columns,scope));
+    assert.equal(fs.readFileSync(target,'utf8'),'unchanged');
+  } finally {fs.rmSync(directory,{recursive:true,force:true});}
+});
 test('the genuine mapped selection POST and empty native clear retain exact identity', () => {
   assert.doesNotThrow(() => assertSelectionRequest(nativeRequest(), expected));
   assert.doesNotThrow(() => assertSelectionRequest(nativeRequest({ edit: body => body.delete('group_client_id') }), { ...expected, recipient: undefined }));

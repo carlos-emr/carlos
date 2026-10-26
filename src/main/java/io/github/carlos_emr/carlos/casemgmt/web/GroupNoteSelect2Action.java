@@ -130,7 +130,7 @@ public class GroupNoteSelect2Action extends ActionSupport {
         detached.setGroupNoteTotalAnonymous(Integer.parseInt(count));
         synchronized (WebUtils.getSessionMutex(request.getSession())) {
             if (request.getSession().getAttribute(selection.formKey()) != selection.form()
-                    || !selection.noteId().equals(selection.form().getNoteId())) {
+                    || !selection.noteId().equals(selectedNoteId(selection.form()))) {
                 return refuse(response, 409, null);
             }
         }
@@ -138,7 +138,7 @@ public class GroupNoteSelect2Action extends ActionSupport {
         // Do not publish over another editor which became current while the persistence call ran.
         synchronized (WebUtils.getSessionMutex(request.getSession())) {
             if (request.getSession().getAttribute(selection.formKey()) == selection.form()
-                    && selection.noteId().equals(selection.form().getNoteId())) {
+                    && selection.noteId().equals(selectedNoteId(selection.form()))) {
                 selection.form().setGroupNote(true);
                 selection.form().setGroupNoteClientIds(detached.getGroupNoteClientIds());
                 selection.form().setGroupNoteTotalAnonymous(detached.getGroupNoteTotalAnonymous());
@@ -207,8 +207,7 @@ public class GroupNoteSelect2Action extends ActionSupport {
         String key = ChartProgramContext.formKey(request, demographicNo);
         Object value = request.getSession().getAttribute(key);
         if (!(value instanceof CaseManagementEntryFormBean form)
-                || !(noteId.equals(form.getNoteId()) || "0".equals(noteId)
-                && (form.getNoteId() == null || form.getNoteId().isEmpty()))) {
+                || !noteId.equals(selectedNoteId(form))) {
             refuse(response, 409, null); return null;
         }
         if ("0".equals(noteId)) return new Selection(login, form, key, noteId);
@@ -218,6 +217,15 @@ public class GroupNoteSelect2Action extends ActionSupport {
             refuse(response, 403, null); return null;
         }
         return new Selection(login, form, key, noteId);
+    }
+
+    private static String selectedNoteId(CaseManagementEntryFormBean form) {
+        // Native edit and committed revisions publish caseNote; the independent legacy
+        // noteId field can be absent or stale and must not authorize a different editor.
+        CaseManagementNote selected = form.getCaseNote();
+        if (selected == null) return null;
+        Long id = selected.getId();
+        return id == null || id <= 0 ? "0" : id.toString();
     }
 
     private List<Member> members(Selection selection) {

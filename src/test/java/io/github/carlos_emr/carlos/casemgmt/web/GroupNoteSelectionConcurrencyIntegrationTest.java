@@ -153,7 +153,7 @@ class GroupNoteSelectionConcurrencyIntegrationTest extends CaseManagementNoteDao
                 if(recipient!=null)request.setParameter("group_client_id",recipient);
                 ChartProgramContext.remember(request,"7");request.setParameter("chartContext",ChartProgramContext.token(request));
                 LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(),login);
-                var form=new CaseManagementEntryFormBean();form.setNoteId(source.getId().toString());form.setCaseNote(source);
+                var form=new CaseManagementEntryFormBean();form.setCaseNote(source);
                 String key=ChartProgramContext.formKey(request,"1");request.getSession().setAttribute(key,form);
                 try(MockedStatic<SpringUtils> beans=mockStatic(SpringUtils.class);MockedStatic<ServletActionContext> servlet=mockStatic(ServletActionContext.class)){
                     beans.when(()->SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);beans.when(()->SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
@@ -185,7 +185,7 @@ class GroupNoteSelectionConcurrencyIntegrationTest extends CaseManagementNoteDao
             assertThat(entityManager.createNativeQuery("SELECT * FROM casemgmt_note WHERE note_id IN (:a,:b) ORDER BY note_id")
                     .setParameter("a",source.getId()).setParameter("b",bystander.getId()).getResultList()).usingRecursiveComparison().isEqualTo(notesBefore);
             assertThat(x.request().getSession().getAttribute(x.key())).isSameAs(x.form());assertThat(y.request().getSession().getAttribute(y.key())).isSameAs(y.form());
-            assertThat(x.form().getNoteId()).isEqualTo(source.getId().toString());assertThat(y.form().getNoteId()).isEqualTo(source.getId().toString());
+            assertThat(x.form().getNoteId()).isNull();assertThat(y.form().getNoteId()).isNull();
             assertThat(x.form().getCaseNote()).isSameAs(source);assertThat(y.form().getCaseNote()).isSameAs(source);
             assertThat(x.form().getGroupNoteClientIds()).containsExactly("202");assertThat(y.form().getGroupNoteClientIds()).containsExactly(clearSecond?new String[0]:new String[]{"303"});
             System.out.println("GROUP_CONCURRENCY_PROOF clearSecond="+clearSecond+" active="+active+" events="+events);

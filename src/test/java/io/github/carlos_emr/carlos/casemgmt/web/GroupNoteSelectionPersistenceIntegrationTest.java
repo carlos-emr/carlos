@@ -80,7 +80,7 @@ class GroupNoteSelectionPersistenceIntegrationTest extends CaseManagementNoteDao
         var login = mock(LoggedInInfo.class);when(login.getLoggedInProviderNo()).thenReturn("999998");
         Facility facility=new Facility();facility.setEnableGroupNotes(true);when(login.getCurrentFacility()).thenReturn(facility);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(),login);
-        var form = new CaseManagementEntryFormBean();form.setNoteId(source.getId().toString());form.setCaseNote(source);
+        var form = new CaseManagementEntryFormBean();form.setCaseNote(source);
         request.getSession().setAttribute(ChartProgramContext.formKey(request,"1"),form);
         var security=mock(SecurityInfoManager.class);
         when(security.hasPrivilege(eq(login),anyString(),anyString(),anyString())).thenReturn(true);

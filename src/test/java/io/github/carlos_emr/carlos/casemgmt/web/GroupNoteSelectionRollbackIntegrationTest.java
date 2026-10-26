@@ -113,7 +113,7 @@ class GroupNoteSelectionRollbackIntegrationTest extends CaseManagementNoteDaoBas
             var login=mock(LoggedInInfo.class);when(login.getLoggedInProviderNo()).thenReturn("999998");
             var facility=new Facility();facility.setEnableGroupNotes(true);when(login.getCurrentFacility()).thenReturn(facility);
             LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(),login);
-            var form=new CaseManagementEntryFormBean();form.setNoteId(source.getId().toString());form.setCaseNote(source);
+            var form=new CaseManagementEntryFormBean();form.setCaseNote(source);
             String key=ChartProgramContext.formKey(request,"1");request.getSession().setAttribute(key,form);
             var security=mock(SecurityInfoManager.class);
             when(security.hasPrivilege(eq(login),anyString(),anyString(),anyString())).thenReturn(true);

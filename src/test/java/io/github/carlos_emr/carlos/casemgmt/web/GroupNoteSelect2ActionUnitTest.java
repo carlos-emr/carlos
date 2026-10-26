@@ -110,7 +110,8 @@ class GroupNoteSelect2ActionUnitTest extends CarlosUnitTestBase {
         note = new CaseManagementNote(); note.setId(51L); note.setDemographic_no("101");
         when(notes.getNote("51")).thenReturn(note);
         when(notes.filterNotes(eq(login), eq("4250"), anyCollection(), eq("7"))).thenReturn(List.of(note));
-        form = new CaseManagementEntryFormBean(); form.setNoteId("51"); form.setCaseNote(note);
+        // Native edit publishes the selected clinical note without populating the legacy noteId field.
+        form = new CaseManagementEntryFormBean(); form.setCaseNote(note);
         key = ChartProgramContext.formKey(request, "101"); session.setAttribute(key, form);
         Admission admission = mock(Admission.class); when(admission.getClientId()).thenReturn(202);
         when(admissions.getCurrentAdmissionsByProgramId("7")).thenReturn(List.of(admission));
@@ -144,14 +145,54 @@ class GroupNoteSelect2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.savedProgram).isEqualTo("7");
         assertThat(form.isGroupNote()).isTrue();
     }
-    @Test
-    void shouldPreserveNativeUnsavedMessageWithoutLoadingAdmissionsOrNote_whenUsingNativeGroupSelection() throws Exception {
-        request.setParameter("noteId","0"); form.setNoteId(null);
+    @ParameterizedTest @NullSource @ValueSource(strings={"52"})
+    void shouldRenderSelectedClinicalNote_whenLegacyNoteIdIsAbsentOrStale(String legacyNoteId) throws Exception {
+        form.setNoteId(legacyNoteId);
+        String result = action.execute();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(result).isEqualTo("success");
+        assertThat(request.getAttribute("groupNoteId")).isEqualTo("51");
+        assertThat(form.getNoteId()).isEqualTo(legacyNoteId);
+        assertThat(action.saved).isNull();
+    }
+    @ParameterizedTest @NullSource @ValueSource(strings={"52"})
+    void shouldSaveSelectedClinicalNote_whenLegacyNoteIdIsAbsentOrStale(String legacyNoteId) throws Exception {
+        form.setNoteId(legacyNoteId); request.setMethod("POST"); request.setParameter("group_client_id","202");
+        String result = action.save();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(result).isEqualTo("success");
+        assertThat(action.saved.getNoteId()).isEqualTo("51");
+        assertThat(action.saved.getGroupNoteClientIds()).containsExactly("202");
+        assertThat(form.getNoteId()).isEqualTo(legacyNoteId);
+        assertThat(form.getCaseNote()).isSameAs(note);
+        assertThat(form.isGroupNote()).isTrue();
+    }
+    @ParameterizedTest @NullSource @ValueSource(longs={0,-1})
+    void shouldPreserveNativeUnsavedMessageWithoutLoadingAdmissionsOrNote_whenUsingNativeGroupSelection(Long selectedId) throws Exception {
+        var unsaved = new CaseManagementNote(); unsaved.setId(selectedId); unsaved.setDemographic_no("101");
+        form.setCaseNote(unsaved); request.setParameter("noteId","0");
         assertThat(action.execute()).isEqualTo("success");
         assertThat(request.getAttribute("groupNoteUnsaved")).isEqualTo(true);
         verify(notes,never()).getNote(anyString());
         verifyNoInteractions(admissions, demographics, links);
         assertThat(action.saved).isNull();
+    }
+    @Test
+    void shouldRefuseUnsavedGuidance_whenTheSelectedClinicalNoteIsSaved() throws Exception {
+        request.setParameter("noteId","0");
+        String result = action.execute();
+        assertThat(response.getStatus()).isEqualTo(409); assertThat(result).isEqualTo("none");
+        verify(notes,never()).getNote(anyString()); verifyNoInteractions(admissions,demographics,links);
+        assertThat(action.saved).isNull();
+    }
+    @ParameterizedTest @ValueSource(strings={"GET","POST"})
+    void shouldRefuseMissingClinicalEditor_whenLegacyNoteIdMatchesTheRequest(String method) throws Exception {
+        form.setCaseNote(null); form.setNoteId("51"); request.setMethod(method);
+        String result = "POST".equals(method) ? action.save() : action.execute();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(result).isEqualTo("none");
+        verify(notes,never()).getNote(anyString()); verifyNoInteractions(admissions,demographics,links);
+        assertThat(action.saved).isNull(); assertThat(form.isGroupNote()).isFalse();
     }
     @Test
     void shouldAllowEmptySelectionToClearExistingSharing_whenUsingNativeGroupSelection() throws Exception {
@@ -163,12 +204,34 @@ class GroupNoteSelect2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldNotRepublishOverAnotherEditorDuringPersistence_whenUsingNativeGroupSelection() throws Exception {
         request.setMethod("POST"); request.setParameter("group_client_id", "202");
-        var replacement = new CaseManagementEntryFormBean(); replacement.setNoteId("52");
+        var replacement = new CaseManagementEntryFormBean(); replacement.setCaseNote(selectedNote(52L));
         action.duringSave = () -> session.setAttribute(key, replacement);
         assertThat(action.save()).isEqualTo("success");
         assertThat(session.getAttribute(key)).isSameAs(replacement);
         assertThat(replacement.isGroupNote()).isFalse();
         assertThat(form.isGroupNote()).isFalse();
+    }
+    @Test
+    void shouldRefuseChangedClinicalEditor_beforeGroupPersistence() throws Exception {
+        // Keep the legacy value unchanged to ensure the second guard rechecks the actual editor.
+        form.setNoteId("51"); request.setMethod("POST"); request.setParameter("group_client_id","202");
+        var replacement = selectedNote(52L);
+        when(links.findLinksByNoteId(51)).thenAnswer(call -> { form.setCaseNote(replacement); return List.of(); });
+        String result = action.save();
+        assertThat(response.getStatus()).isEqualTo(409); assertThat(result).isEqualTo("none");
+        assertThat(form.getCaseNote()).isSameAs(replacement);
+        assertThat(action.saved).isNull(); assertThat(form.isGroupNote()).isFalse();
+    }
+    @Test
+    void shouldNotRepublishSelection_whenTheSameFormChangesClinicalEditorDuringPersistence() throws Exception {
+        form.setNoteId("51"); request.setMethod("POST"); request.setParameter("group_client_id","202");
+        var replacement = selectedNote(52L);
+        action.duringSave = () -> form.setCaseNote(replacement);
+        assertThat(action.save()).isEqualTo("success"); assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(action.saved.getNoteId()).isEqualTo("51");
+        assertThat(session.getAttribute(key)).isSameAs(form);
+        assertThat(form.getCaseNote()).isSameAs(replacement);
+        assertThat(form.isGroupNote()).isFalse(); assertThat(form.getGroupNoteClientIds()).isNull();
     }
     @ParameterizedTest @ValueSource(strings={"GET","HEAD","PUT","DELETE","PATCH"})
     void shouldRefuseNonPostSaveBeforeAnyRead_whenUsingNativeGroupSelection(String method) throws Exception {
@@ -243,10 +306,12 @@ class GroupNoteSelect2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo("none"); assertThat(response.getStatus()).isEqualTo(403);
         verifyNoInteractions(admissions, demographics, links);
     }
-    @Test
-    void shouldRefuseStalePopupBeforeLoadingNoteOrChangingForm_whenUsingNativeGroupSelection() throws Exception {
-        form.setNoteId("52"); request.setMethod("POST");
-        assertThat(action.save()).isEqualTo("none"); assertThat(response.getStatus()).isEqualTo(409);
+    @ParameterizedTest @ValueSource(strings={"GET","POST"})
+    void shouldRefuseStalePopupBeforeLoadingNoteOrChangingForm_whenUsingNativeGroupSelection(String method) throws Exception {
+        form.setCaseNote(selectedNote(52L)); form.setNoteId("51"); request.setMethod(method);
+        String result = "POST".equals(method) ? action.save() : action.execute();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(result).isEqualTo("none");
         assertThat(form.isGroupNote()).isFalse(); verify(notes,never()).getNote(anyString());
         verifyNoInteractions(admissions, demographics, links);
     }
@@ -375,6 +440,11 @@ class GroupNoteSelect2ActionUnitTest extends CarlosUnitTestBase {
     void shouldKeepNonDecimalCountsRefused_whenZeroCompatibilityIsAllowed(String count) throws Exception {
         request.setMethod("POST");request.setParameter("num_anonymous",count);
         assertThat(action.save()).isEqualTo("none");assertThat(response.getStatus()).isEqualTo(400);assertThat(action.saved).isNull();
+    }
+
+    private static CaseManagementNote selectedNote(long id) {
+        var selected = new CaseManagementNote(); selected.setId(id); selected.setDemographic_no("101");
+        return selected;
     }
 
 }
