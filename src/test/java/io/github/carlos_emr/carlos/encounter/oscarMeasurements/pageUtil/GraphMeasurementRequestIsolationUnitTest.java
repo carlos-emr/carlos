@@ -182,8 +182,14 @@ class GraphMeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
             };
             assertThat(action.execute()).isNull();
             assertThat(response.getContentType()).isEqualTo("image/png");
-            verify(security).isAllowedAccessToPatientRecord(login, 101);
-            verify(nameLookup).getNameAgeString(login, 101);
+            // Composed read guards may repeat policy checks; the canonical patient must
+            // be authorized before the first identifying or clinical lookup.
+            verify(security, atLeastOnce()).hasPrivilege(login, "_measurement", "r", "101");
+            var accessBeforeName = inOrder(security, nameLookup);
+            accessBeforeName.verify(security, atLeastOnce()).isAllowedAccessToPatientRecord(login, 101);
+            accessBeforeName.verify(nameLookup).getNameAgeString(login, 101);
+            verify(security, never()).isAllowedAccessToPatientRecord(login, 202);
+            verify(nameLookup, never()).getNameAgeString(login, 202);
             images.verify(() -> ChartUtils.writeChartAsPNG(any(java.io.OutputStream.class), eq(graph), eq(1000), eq(600)));
             assertGlobalUnchanged();
         }
