@@ -25,11 +25,13 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.utility.DateUtils;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.openpdf.text.DocumentException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -37,6 +39,7 @@ import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationLabsNotIncluded;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -766,6 +769,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                     }
                 }
             }
+            Locale readerLocale = LocaleUtils.resolveBundleLocale(request);
+            List<String> labsNotIncluded = ConsultationLabsNotIncluded.describe(
+                    AttachmentOwnershipService.labsNotRenderable(listedLabs), readerLocale);
+            request.setAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE, labsNotIncluded);
             List<LabResultData> attachedLabs = retainOwnedAttachments(DocumentType.LAB, ownerDemographicNo,
                     AttachmentOwnershipService.renderableLabsOnly(listedLabs),
                     LabResultData::getSegmentID);
@@ -787,6 +794,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 throw new PDFGenerationException("One or more consultation attachments could not be rendered");
             }
 
+            attachLabsNotIncludedNotice(labsNotIncluded, readerLocale, pdfDocumentList);
             Path result = concatPDF(pdfDocumentList, demographicId);
             cleanupRenderedTempInputs(pdfDocumentList, result);
             return result;
@@ -1624,4 +1632,25 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
         return archiveDocumentNos != null ? archiveDocumentNos : Set.of();
     }
+    /**
+     * Adds the page that names the attached labs the packet cannot draw, when there are any. The
+     * receiver of a print or fax has no other way to learn that a lab was attached (issue #4693),
+     * so a page that cannot be made fails the packet rather than leaving them out silently.
+     */
+    private void attachLabsNotIncludedNotice(List<String> labsNotIncluded, Locale locale,
+                                             ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+        if (labsNotIncluded.isEmpty()) {
+            return;
+        }
+        try (ByteArrayOutputStream notice = new ByteArrayOutputStream()) {
+            notice.write(ConsultationLabsNotIncluded.noticePage(labsNotIncluded, locale));
+            Path noticePath = nioFileManager.saveTempFile("consultationLabsNotIncluded" + new Date().getTime(), notice);
+            pdfDocumentList.add(noticePath.toString());
+        } catch (IOException | DocumentException e) {
+            throw new PDFGenerationException(
+                    "The page naming the attached labs the consultation PDF cannot include could not be created", e);
+        }
+        logger.info("Consultation PDF names {} attached lab(s) it cannot include", labsNotIncluded.size());
+    }
+
 }

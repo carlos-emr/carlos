@@ -10,14 +10,22 @@ const jsp = fs.readFileSync(path.join(__dirname,
 const ready = jsp.slice(jsp.indexOf('    document.addEventListener("DOMContentLoaded"'),
   jsp.indexOf('    document.addEventListener("keydown"'));
 function handler(name) {
-  const start = jsp.indexOf(`    function ${name}()`);
+  const start = jsp.indexOf(`    function ${name}(`);
   assert.notEqual(start, -1);
   return jsp.slice(start, jsp.indexOf('\n    }', start) + 6);
 }
+const lengthBindings = {TextEncoder,
+ EMAIL_MAX_SUBJECT_CHARS:1024, EMAIL_MAX_BLOB_TEXT_UTF8_BYTES:49149,
+ EMAIL_MAX_PASSWORD_CHARS:50, EMAIL_MAX_PASSWORD_CLUE_CHARS:1024,
+ emailComposeSubjectTooLongMsg:'',emailComposeBodyTooLongMsg:'',emailComposeEncryptedMessageTooLongMsg:'',
+ emailComposePasswordTooLongMsg:'',emailComposeClueTooLongMsg:'',emailComposeInternalCommentTooLongMsg:'',
+};
+
 function fixture({ accepted = false, recorded = false, uncertain = false, pendingCopy = false, followUp = false,
   confirm = true, valid = true, portalPending = false } = {}) {
   const calls = { submitted: 0, closed: 0, confirmed: 0, initialized: 0, opened: 0 };
   const fields = {
+    emailRejectedForLength: {value: 'false'},
     isEmailError: { value: 'false' }, isEmailSuccessful: { value: String(accepted) },
     isEmailStatusRecorded: { value: String(recorded) },
     emailComposeForm: { submit() { calls.submitted++; } },
@@ -106,6 +114,8 @@ test('Portal mode validates an encrypted email without requiring the password fi
       validateField: (field, _message, errors, key) => { if (!field.value) errors[key] = true; },
       clearError() {},
     });
+    Object.assign(context, lengthBindings);
+    vm.runInContext(handler('measureLength')+handler('withoutControlChars')+handler('checkLength'), context);
     vm.runInContext(handler('validateForm').replace('${portalEmailEnabled}', String(portalEnabled))
       .replace('${portalEmailMisconfigured}', 'false'), context);
     assert.equal(context.validateForm(), portalEnabled);
@@ -131,6 +141,8 @@ test('a malformed Portal setting stops an encrypted send on the page, but not an
       clearError() {},
     });
     // A malformed setting renders portalEmailEnabled as true, so no manual password is asked for.
+    Object.assign(context, lengthBindings);
+    vm.runInContext(handler('measureLength')+handler('withoutControlChars')+handler('checkLength'), context);
     vm.runInContext(handler('validateForm').replace('${portalEmailEnabled}', 'true')
       .replace('${portalEmailMisconfigured}', 'true'), context);
     assert.equal(context.validateForm(), !encrypted);

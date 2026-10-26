@@ -125,7 +125,7 @@ class ConsultDirectoryReadMethodUnitTest extends CarlosUnitTestBase {
         ProfessionalSpecialist specialist = new ProfessionalSpecialist();
         ReflectionTestUtils.setField(specialist, "id", 7);
         when(specialists.find(7)).thenReturn(specialist);
-        try (var scripts = mockConstruction(EctConConstructSpecialistsScriptsFile.class)) {
+        {
             assertThat(action(type, true).execute()).isEqualTo("delete");
             switch (type) {
                 case "institution" -> verify(institutions).remove(7);
@@ -136,7 +136,6 @@ class ConsultDirectoryReadMethodUnitTest extends CarlosUnitTestBase {
                 }
                 default -> throw new AssertionError(type);
             }
-            assertThat(scripts.constructed()).hasSize(1);
         }
     }
 
@@ -147,7 +146,7 @@ class ConsultDirectoryReadMethodUnitTest extends CarlosUnitTestBase {
         when(institutions.find(7)).thenReturn(new Institution());
         when(departments.find(7)).thenReturn(new Department());
         when(specialists.find(7)).thenReturn(new ProfessionalSpecialist());
-        try (var scripts = mockConstruction(EctConConstructSpecialistsScriptsFile.class)) {
+        {
             assertThat(action(type, false).execute()).isEqualTo(ActionSupport.SUCCESS);
             verify(institutions, never()).remove(anyInt());
             verify(departments, never()).remove(anyInt());

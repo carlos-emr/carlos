@@ -21,6 +21,15 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -29,9 +38,11 @@ import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.*;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -94,6 +105,7 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
         mockRequest.setMethod("POST");
+        mockRequest.setParameter("demographicNo", "1001");
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
@@ -106,6 +118,27 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eChart"), eq("w"), isNull()))
                 .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_edoc"), eq("w"), nullable(String.class)))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_queue.7"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 1001)).thenReturn(true);
+        CtlDocumentDao links = createAndRegisterMock(CtlDocumentDao.class);
+        when(links.findByDocumentNoAndModule(anyInt(), eq("demographic"))).thenAnswer(call -> {
+            CtlDocument link = new CtlDocument();
+            link.setId(new CtlDocumentPK("demographic", 1001, call.getArgument(0)));
+            link.setStatus("A");
+            return List.of(link);
+        });
+        DocumentDao documents = createAndRegisterMock(DocumentDao.class);
+        when(documents.find(anyInt())).thenAnswer(call -> {
+            Document document = new Document();
+            document.setDocumentNo(call.getArgument(0));
+            document.setRestrictToProgram(false);
+            return document;
+        });
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
     }
 
     @AfterEach
@@ -377,5 +410,133 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
         assertThat(undeleteAction.getUndelDocumentNo()).isEqualTo("43");
         assertThat(refileAction.getRefileDocumentNo()).isEqualTo("44");
         assertThat(refileAction.getQueueId()).isEqualTo("7");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Delete", "Undelete", "Refile"})
+    @DisplayName("native mutations preserve their signed program through the actual Struts redirect")
+    void shouldPreserveOriginalProgram_whenAnotherWindowOpenedSamePatient(String operation) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        String original = programToken(session, "1001", "7");
+        String later = programToken(session, "1001", "8");
+        mockRequest.setSession(session);
+        mockRequest.setParameter("demographicNo", "1001");
+        mockRequest.setParameter("demographic_no", "1001");
+        mockRequest.setParameter("chartContext", original);
+        AbstractNoteBrowserDocumentMutation2Action action = nativeAction(operation);
+
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute()).isEqualTo("success");
+            verifyMutation(documents, operation);
+        }
+
+        assertThat(action.getChartContext()).isEqualTo(original).isNotEqualTo(later);
+        NoteBrowserDocumentMutationStrutsConfigUnitTest.executeRedirect(operation, action, mockRequest, mockResponse);
+        MockHttpServletRequest returned = returnedBrowser(session);
+        assertThat(returned.getParameterValues("chartContext")).containsExactly(original);
+        assertThat(ChartProgramContext.resolve(returned)).isEqualTo("7");
+        MockHttpServletRequest legacy = new MockHttpServletRequest();
+        legacy.setSession(session);
+        legacy.setParameter("demographic_no", "1001");
+        assertThat(ChartProgramContext.resolve(legacy)).isEqualTo("8");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Delete", "Undelete", "Refile"})
+    @DisplayName("native legacy mutations omit the absent context from the actual redirect")
+    void shouldPreserveLegacyRequests_withoutAddingBlankChartContext(String operation) throws Exception {
+        AbstractNoteBrowserDocumentMutation2Action action = nativeAction(operation);
+        mockRequest.setParameter("demographicNo", "1001");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute()).isEqualTo("success");
+            verifyMutation(documents, operation);
+        }
+        assertThat(action.getChartContext()).isNull();
+        NoteBrowserDocumentMutationStrutsConfigUnitTest.executeRedirect(operation, action, mockRequest, mockResponse);
+        MockHttpServletRequest returned = returnedBrowser(new MockHttpSession());
+        assertThat(returned.getParameterValues("chartContext")).isNull();
+        assertThat(ChartProgramContext.token(returned)).isNull();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"Delete, blank", "Undelete, blank", "Refile, blank",
+            "Delete, forged", "Undelete, forged", "Refile, forged",
+            "Delete, patient", "Undelete, patient", "Refile, patient",
+            "Delete, ambiguous", "Undelete, ambiguous", "Refile, ambiguous"})
+    @DisplayName("invalid supplied contexts are refused before any native document mutation")
+    void shouldRejectInvalidContext_beforeDocumentWrite(String operation, String invalid) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        String original = programToken(session, "1001", "7");
+        String later = programToken(session, "1001", "8");
+        mockRequest.setSession(session);
+        mockRequest.setParameter("demographicNo", "patient".equals(invalid) ? "1002" : "1001");
+        mockRequest.setParameter("chartContext", switch (invalid) {
+            case "blank" -> new String[]{""};
+            case "forged" -> new String[]{"forged.context"};
+            case "ambiguous" -> new String[]{original, later};
+            default -> new String[]{original};
+        });
+        AbstractNoteBrowserDocumentMutation2Action action = nativeAction(operation);
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+            documents.verifyNoInteractions();
+        }
+        assertThat(mockResponse.getRedirectedUrl()).isNull();
+    }
+
+    private AbstractNoteBrowserDocumentMutation2Action nativeAction(String operation) {
+        AbstractNoteBrowserDocumentMutation2Action action = switch (operation) {
+            case "Delete" -> {
+                NoteBrowserDocumentDelete2Action delete = new NoteBrowserDocumentDelete2Action();
+                delete.setDelDocumentNo("42");
+                yield delete;
+            }
+            case "Undelete" -> {
+                NoteBrowserDocumentUndelete2Action undelete = new NoteBrowserDocumentUndelete2Action();
+                undelete.setUndelDocumentNo("42");
+                yield undelete;
+            }
+            case "Refile" -> {
+                NoteBrowserDocumentRefile2Action refile = new NoteBrowserDocumentRefile2Action();
+                refile.setRefileDocumentNo("42");
+                refile.setQueueId("7");
+                yield refile;
+            }
+            default -> throw new IllegalArgumentException(operation);
+        };
+        action.setDemographicNo("1001");
+        return action;
+    }
+
+    private void verifyMutation(MockedStatic<EDocUtil> documents, String operation) throws Exception {
+        switch (operation) {
+            case "Delete" -> documents.verify(() -> EDocUtil.deleteDocument("42"));
+            case "Undelete" -> documents.verify(() -> EDocUtil.undeleteDocument("42"));
+            case "Refile" -> documents.verify(() -> EDocUtil.refileDocument("42", "7"));
+            default -> throw new IllegalArgumentException(operation);
+        }
+        documents.verifyNoMoreInteractions();
+    }
+
+    private String programToken(MockHttpSession session, String patient, String program) {
+        MockHttpServletRequest chart = new MockHttpServletRequest();
+        chart.setSession(session);
+        chart.setParameter("demographicNo", patient);
+        ChartProgramContext.remember(chart, program);
+        return ChartProgramContext.token(chart);
+    }
+
+    private MockHttpServletRequest returnedBrowser(MockHttpSession session) {
+        java.net.URI redirect = java.net.URI.create(mockResponse.getRedirectedUrl());
+        assertThat(redirect.getPath()).contains("casemgmt/ViewNoteBrowser");
+        MockHttpServletRequest returned = new MockHttpServletRequest();
+        returned.setSession(session);
+        for (String pair : redirect.getRawQuery().split("&")) {
+            String[] parts = pair.split("=", 2);
+            returned.addParameter(java.net.URLDecoder.decode(parts[0], java.nio.charset.StandardCharsets.UTF_8),
+                    java.net.URLDecoder.decode(parts.length == 1 ? "" : parts[1], java.nio.charset.StandardCharsets.UTF_8));
+        }
+        assertThat(returned.getParameter("demographic_no")).isEqualTo("1001");
+        return returned;
     }
 }

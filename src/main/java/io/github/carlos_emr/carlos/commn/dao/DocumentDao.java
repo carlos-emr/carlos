@@ -192,6 +192,9 @@ public interface DocumentDao extends AbstractDao<Document> {
      */
     public List<String> findDocumentDescriptions(String keyword);
 
+    /** Candidate pages only: callers must authorize stored owners before exposing descriptions. */
+    public List<Document> findDocumentDescriptionCandidates(String keyword, Integer beforeDocumentNo, int limit);
+
     /**
      * Returns lightweight document DTOs for a demographic, bypassing the EAGER
      * DocumentReview collection load. Uses JPQL constructor expression projection.

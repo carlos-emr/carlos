@@ -48,7 +48,7 @@ import org.w3c.dom.NodeList;
 
 import io.github.carlos_emr.carlos.encounter.immunization.config.data.EctImmImmunizationSetData;
 import io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData;
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.util.UtilXML;
 
 import org.apache.struts2.ActionSupport;
@@ -74,15 +74,29 @@ public final class EctImmSaveConfig2Action extends ActionSupport {
             return NONE;
         }
 
-        EctSessionBean bean = null;
-        bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
+        // The patient this form names (ScheduleConfig.jsp posts demographic_no), never the login-wide
+        // EctSessionBean: that bean follows whichever chart was entered last in any window, so the
+        // template used to be added to another patient's schedule (issue #4673).
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demographicNo))) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
         try {
             //String sCfgDoc = UtilMisc.decode64(request.getParameter("xmlDoc"));
             //Document cfgDoc = UtilXML.parseXML(sCfgDoc);
             //NodeList cfgSets = cfgDoc.getElementsByTagName("immunizationSet");
 
             EctImmImmunizationData imm = new EctImmImmunizationData();
-            Immunizations current = imm.getCurrentSchedule(bean.demographicNo);
+            Immunizations current = imm.getCurrentSchedule(demographicNo);
             int expectedVersion = current == null ? 0 : current.getId();
             Document doc;
             Element root;
@@ -118,7 +132,7 @@ public final class EctImmSaveConfig2Action extends ActionSupport {
  */
             if (doc != null) {
                 String sXML = UtilXML.toXML(doc);
-                if (!imm.saveImmunizations(bean.demographicNo, bean.providerNo, sXML, expectedVersion)) {
+                if (!imm.saveImmunizations(demographicNo, providerNo, sXML, expectedVersion)) {
                     response.sendError(HttpServletResponse.SC_CONFLICT, "The immunization schedule changed. Reload it before saving, deleting, or restoring.");
                     return NONE;
                 }

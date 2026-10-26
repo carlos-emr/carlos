@@ -30,23 +30,26 @@
 
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Vector;
+
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.ErrorPageMessage;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.Doc2PDF;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -54,15 +57,20 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 /**
  * Struts2 action for viewing PDF attachments stored in XML format within messages.
  *
- * <p>This action retrieves and displays PDF attachments that have been stored in an
- * XML structure within the session. It handles PDF files that were attached to messages
- * using the XML-based attachment system where multiple PDF files can be embedded within
- * a single XML document structure with CONTENT tags.</p>
+ * <p>This action retrieves and displays one PDF attachment of the message named by
+ * {@code attId}, which the attachment list ({@code ViewPDFAttachment.jsp}) posts with the
+ * file's index. It handles PDF files that were attached to messages using the XML-based
+ * attachment system where multiple PDF files can be embedded within a single XML document
+ * structure with CONTENT tags.</p>
+ *
+ * <p>The list used to be read from the session, where the attachment list last opened in any
+ * window had copied its message's PDFs, so with two viewer windows open a download from one
+ * returned the other message's document, possibly for another patient (issue #4673).</p>
  *
  * <p>Key functionality:</p>
  * <ul>
  *   <li>Validates read permissions for messaging</li>
- *   <li>Retrieves PDF attachment XML from session</li>
+ *   <li>Retrieves the PDF attachment XML of the message named by {@code attId}</li>
  *   <li>Extracts specific PDF by file ID from XML structure</li>
  *   <li>Streams PDF content directly to browser</li>
  * </ul>
@@ -133,26 +141,21 @@ public class MsgViewPDF2Action extends ActionSupport {
      * <p>This method performs the following operations:</p>
      * <ol>
      *   <li>Validates that the user has read permissions for messaging</li>
-     *   <li>Reads file_id, the 0-based index of the PDF to show</li>
-     *   <li>Retrieves the PDF attachment XML from the session</li>
+     *   <li>Retrieves the PDF attachment XML of the message named by {@code attId}</li>
      *   <li>Parses the XML to extract CONTENT tags containing PDFs</li>
      *   <li>Retrieves the specific PDF by its index (file_id)</li>
      *   <li>Checks that it is a PDF, then streams it to the browser</li>
      * </ol>
      *
-     * <p>The method expects the PDF attachment data to be stored in the session
-     * under the key "PDFAttachment" as an XML string. The file_id parameter
-     * indicates which PDF to extract from the XML (0-based index).</p>
+     * <p>The PDF attachment XML is read from the message named by {@code attId}; the
+     * file_id parameter indicates which PDF to extract from the XML (0-based index).
+     * Without a message nothing is streamed.</p>
      *
-     * <p>Every path owns the response and returns {@link #NONE}. In the order they
-     * are checked: a missing or non-numeric file_id gets HTTP 400, a session with no
-     * PDF attachment gets HTTP 404, attachment XML that cannot be read gets HTTP 500,
-     * an out-of-range file_id gets HTTP 400, an attachment that does not decode to a
-     * PDF (one that failed to render when it was attached) gets HTTP 500, and a PDF
-     * that cannot be written gets HTTP 500 from {@link Doc2PDF#PrintPDFFromBytes} if
-     * nothing has been sent yet (a stream cut off part-way keeps its 200).</p>
+     * <p>The action owns its response: it streams the PDF, or answers 400 for a malformed index
+     * and 404 when the message has no such PDF, and always returns {@code NONE}, so no page is
+     * ever rendered after the PDF bytes.</p>
      *
-     * @return {@link #NONE} always, after streaming the PDF or sending an error response
+     * @return {@link #NONE}, after the response has been written
      * @throws IOException if there's an error writing to response stream
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks read permissions for messaging
@@ -163,50 +166,41 @@ public class MsgViewPDF2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
-        // A malformed request is rejected before looking at what the session holds
-        int fileID;
+        // The PDFs of the message this download was chosen from, never another window's.
+        int fileId;
         try {
-            fileID = Integer.parseInt(this.getFile_id());
-        } catch (NumberFormatException e) {
-            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_BAD_REQUEST, INVALID_FILE_ID);
+            fileId = Integer.parseInt(String.valueOf(this.getFile_id()).trim());
+        } catch (NumberFormatException malformed) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-
-        // Retrieve PDF attachment XML from session; ViewPDFAttachment.jsp puts it there
-        String pdfAttachment = (String) request.getSession().getAttribute("PDFAttachment");
-        if (pdfAttachment == null || pdfAttachment.isEmpty()) {
-            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_NOT_FOUND, NO_ATTACHMENT);
+        String pdfFile = null;
+        int messageId = ConversionUtils.fromIntString(attId);
+        if (messageId > 0 && fileId >= 0) {
+            MessageTbl message = MsgAttachmentAccess.find(LoggedInInfo.getLoggedInInfoFromSession(request), messageId,
+                    request.getParameter("chartPatientNo"));
+            if (message != null && message.getPdfAttachment() != null) {
+                // Every CONTENT tag of the message's PDF list, in order; file_id is an index.
+                Vector<?> contents;
+                try {
+                    contents = Doc2PDF.getXMLTagValue(new String(message.getPdfAttachment(), StandardCharsets.UTF_8), "CONTENT");
+                } catch (Exception unreadable) {
+                    // No content in the log: the list is a patient's chart.
+                    MiscUtils.getLogger().error("A message's PDF attachment list could not be read");
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    return NONE;
+                }
+                if (fileId < contents.size()) {
+                    pdfFile = (String) contents.elementAt(fileId);
+                }
+            }
+        }
+        if (pdfFile == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         }
-
-        // Extract all CONTENT tags from XML
-        List<?> attachments;
-        try {
-            attachments = Doc2PDF.getXMLTagValue(pdfAttachment, "CONTENT");
-        } catch (Exception e) {
-            // The session holds attachment XML this action cannot read: a server-side fault
-            MiscUtils.getLogger().error("Could not read the PDF attachments held in the session", e);
-            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, UNREADABLE);
-            return NONE;
-        }
-
-        // Reject invalid file_id values before accessing the attachment list
-        if (fileID < 0 || fileID >= attachments.size()) {
-            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_BAD_REQUEST, INVALID_FILE_ID);
-            return NONE;
-        }
-
-        // Base64 decoding is lenient: an attachment that failed to render is stored with
-        // "null" as its content, which decodes to a few bytes that are not a PDF
-        byte[] pdf = Base64.decodeBase64((String) attachments.get(fileID));
-        if (!isPdf(pdf)) {
-            MiscUtils.getLogger().warn("PDF attachment {} held in the session is not a PDF", fileID);
-            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, UNREADABLE);
-            return NONE;
-        }
-
-        // Stream PDF to browser; Doc2PDF sends its own error response if it cannot
-        Doc2PDF.PrintPDFFromBytes(response, pdf);
+        // Writes the PDF, or its own error status when the stored document cannot be decoded.
+        Doc2PDF.PrintPDFFromBin(response, pdfFile);
         return NONE;
     }
 
@@ -230,6 +224,30 @@ public class MsgViewPDF2Action extends ActionSupport {
      * Index of the PDF file to retrieve from the XML structure.
      */
     String file_id = null;
+
+    /**
+     * The message whose PDF attachments the file index refers to.
+     */
+    String attId = null;
+
+    /**
+     * Sets the message the attachment belongs to.
+     *
+     * @param attId String the message id posted by the attachment list
+     */
+    @StrutsParameter
+    public void setAttId(String attId) {
+        this.attId = attId;
+    }
+
+    /**
+     * Gets the message the attachment belongs to.
+     *
+     * @return String the message id
+     */
+    public String getAttId() {
+        return attId;
+    }
 
     /**
      * Sets the attachment parameter.

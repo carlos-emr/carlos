@@ -129,6 +129,29 @@ class DemographicAddRecord2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should refuse a 71-character Name Used with the form's error and save nothing")
+    void shouldReturnValidationError_whenNameUsedExceedsSeventyCharacters() throws Exception {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "Valid");
+        addRequestParameter("first_name", "Valid");
+        addRequestParameter("sex", "F");
+        addRequestParameter("nameUsed", "D".repeat(Demographic.ALIAS_MAX_LENGTH + 1));
+
+        String result = executeAction(action);
+
+        // Issue #5128: over the alias column the save is refused, never a 500.
+        assertThat(result).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        @SuppressWarnings("unchecked")
+        List<String> fieldLengthValidationErrors =
+                (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
+        assertThat(fieldLengthValidationErrors)
+                .containsExactly("Preferred name exceeds maximum length of 70 characters.");
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
+    @Test
     @DisplayName("should return validationError when last name exceeds thirty characters")
     void shouldReturnValidationError_whenLastNameExceedsThirtyCharacters() throws Exception {
         allowPrivilege("_demographic", "w");

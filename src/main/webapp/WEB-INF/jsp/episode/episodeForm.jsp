@@ -58,6 +58,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Episode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="java.util.List" %>
 
 <%
@@ -105,12 +106,12 @@
                 $('input[name="episode.codingSystem"]').val($("#search_coding_system").val());
 
                 <%if(episode != null) { %>
-                $("#code").val('<%=episode.getCode()%>');
-                $('input[name="episode.status"]').val('<%=episode.getStatus()%>');
+                $("#code").val('<%=SafeEncode.forJavaScript(episode.getCode())%>');
+                $('input[name="episode.status"]').val('<%=SafeEncode.forJavaScript(episode.getStatus())%>');
                 $('input[name="episode.id"]').val('<%=episode.getId()%>');
-                $("#description").val('<%=episode.getDescription()%>');
-                $('select[name="episode.codingSystem"]').val('<%=episode.getCodingSystem()%>');
-                $('#search_coding_system').val('<%=episode.getCodingSystem()%>');
+                $("#description").val('<%=SafeEncode.forJavaScript(episode.getDescription())%>');
+                $('select[name="episode.codingSystem"]').val('<%=SafeEncode.forJavaScript(episode.getCodingSystem())%>');
+                $('#search_coding_system').val('<%=SafeEncode.forJavaScript(episode.getCodingSystem())%>');
                 $('input[name="episode.demographicNo"]').val('<%=episode.getDemographicNo()%>');
                 $("#startDate").val('<%=episode.getStartDateStr()%>');
                 $("#endDate").val('<%=episode.getEndDateStr()%>');

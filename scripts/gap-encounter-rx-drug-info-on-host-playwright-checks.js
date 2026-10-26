@@ -20,11 +20,14 @@ const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageFromSearch } = require('./rx-edit-discontinue-playwright-checks');
+const { splitLogEvents } = require('./lib/server-log');
+const { requiredRxServerLog, verifyActiveRxServerLog } = require('./lib/rx-server-log-prerequisite');
 
 const DRUG_TERM = process.env.RX_INFO_DRUG_TERM || 'LIPITOR 20';
 const DRUG_NAME = process.env.RX_INFO_DRUG_NAME || 'LIPITOR 20MG';
 
 async function workflow(s) {
+  const log = requiredRxServerLog();
   const { patient, config, sql } = s;
   const appHost = new URL(config.baseUrl).host;
   s.cleanup(() => {
@@ -48,6 +51,7 @@ async function workflow(s) {
     rx = await s.popup(chart, chart.locator('#menuTitleRx a').first(), 'rx-page');
     await rx.locator('#searchString').waitFor({ state: 'visible' });
     await rx.waitForLoadState('networkidle').catch(() => {});
+    await verifyActiveRxServerLog(log, s, rx);
     const card = await stageFromSearch(rx, DRUG_TERM, DRUG_NAME);
     await rx.locator(`#instructions_${card}`).fill('1 tab PO BID x 14 days');
     await rx.locator(`label[for="jsonDxSearch_${card}"]`).click();
@@ -124,6 +128,42 @@ async function workflow(s) {
     const storedValues = sql.rows(`SELECT GN, BN, regional_identifier FROM drugs WHERE demographic_no=${patient} AND drugid=${drug}`);
     h.assert(JSON.stringify(storedValues) === JSON.stringify([[generic, brand, din]]),
       'Viewing drug reference information changed the saved drug names or DIN');
+  });
+
+  await s.step('Info for a DIN this DrugRef does not know lists name-search results instead of a blank page', async () => {
+    // #4554: an old or imported DIN can be missing from the DrugRef extract. The exact DIN lookup still
+    // comes first; when it finds nothing, rx/drugInfo searches the saved generic name rather than showing
+    // nothing or another product's monograph. 00000000 is not a DIN Health Canada assigns. The page is
+    // read through the session's request context, the way the Info address was checked above.
+    const target = new URL(`${config.baseUrl}/rx/drugInfo`);
+    target.searchParams.set('GN', generic);
+    target.searchParams.set('DIN', '00000000');
+    const response = await s.context.request.get(target.toString(), { maxRedirects: 0 });
+    const html = await response.text();
+    await response.dispose();
+    h.assert(response.status() === 200, `rx/drugInfo answered HTTP ${response.status()} for an unknown DIN`);
+    h.assert(!html.includes('id="drug-reference-details"'), 'An unknown DIN showed a product monograph');
+    h.assert(/id="drug-info-matches"[\s\S]*?<a /.test(html), 'An unknown DIN did not offer name-search results');
+  });
+
+  await s.step('missing DIN fallback does not log a DrugRef server exception', async () => {
+    // #5006: DrugRef resolved the DIN with getSingleResult, so an absent DIN was logged as an ERROR
+    // (NoResultException from TablesDao.getDrugIdFromDIN) on every such Info open, although the
+    // page went on to a correct name search. The log read is bracketed by a mark taken right before
+    // the request, so only what this lookup caused is judged. The log source is required up front.
+    const mark = log.mark();
+    const target = new URL(`${config.baseUrl}/rx/drugInfo`);
+    target.searchParams.set('GN', generic);
+    target.searchParams.set('DIN', '00000000');
+    const response = await s.context.request.get(target.toString(), { maxRedirects: 0 });
+    await response.dispose();
+    h.assert(response.status() === 200, `rx/drugInfo answered HTTP ${response.status()} for an unknown DIN`);
+    // The log is written asynchronously; give the lookup's events time to arrive before judging.
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const logged = splitLogEvents(log.since(mark))
+      .filter(event => /NoResultException|getDrugIdFromDIN|getDrugpKeyFromDIN/.test(event.text));
+    h.assert(logged.length === 0, `An unknown DIN logged ${logged.length} DrugRef exception event(s) in ${log.source}: `
+      + logged.map(event => `${event.level} ${event.logger}`).join('; '));
   });
 }
 

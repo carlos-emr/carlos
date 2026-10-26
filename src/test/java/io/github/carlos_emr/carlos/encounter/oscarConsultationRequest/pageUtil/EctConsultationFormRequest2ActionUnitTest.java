@@ -44,6 +44,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -91,6 +94,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.MockedConstruction;
@@ -152,7 +158,11 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(ConsultationSignatureService.class, consultationSignatureService);
         registerMock(ConsultationRequestDao.class, consultationRequestDao);
         registerMock(ConsultationRequestExtDao.class, mock(ConsultationRequestExtDao.class));
-        registerMock(ProfessionalSpecialistDao.class, mock(ProfessionalSpecialistDao.class));
+        ProfessionalSpecialistDao specialists = mock(ProfessionalSpecialistDao.class);
+        ProfessionalSpecialist activeConsultant = new ProfessionalSpecialist();
+        ReflectionTestUtils.setField(activeConsultant, "id", 7);
+        when(specialists.find((Object) 7)).thenReturn(activeConsultant);
+        registerMock(ProfessionalSpecialistDao.class, specialists);
         registerMock(DemographicManager.class, demographicManager);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
@@ -482,6 +492,53 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
     }
 
+    /**
+     * Issue #4693: the packet names the attached labs it cannot include on a page of its own; the
+     * clinician who pressed Print is told in the same reply that brings the PDF.
+     */
+    @Test
+    @DisplayName("should warn in the preview reply about attached labs the PDF could not include")
+    void shouldWarnAboutLabsNotIncluded_forDirectPrintPreview() throws Exception {
+        action.setSignatureImg("123");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(invocation -> {
+            request.setAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE,
+                    List.of("MDS lab result: Hem/Chem/Other, 2024-03-05 10:22:00"));
+            return pdfPath;
+        });
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        JsonNode json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.get("consultPDF").asText()).isEqualTo(PDF_BASE64);
+        assertThat(json.get("warningMessage").asText())
+                .startsWith("The PDF was created, but these attached lab results could not be included in it:")
+                .contains("\n- MDS lab result: Hem/Chem/Other, 2024-03-05 10:22:00\n");
+    }
+
+    @Test
+    @DisplayName("should keep the signature warning when the preview also leaves out labs")
+    void shouldKeepSignatureWarning_whenPreviewAlsoLeavesOutLabs() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.PERSIST_FAILED, ""));
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(invocation -> {
+            request.setAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE, List.of("Lab result (source not confirmed)"));
+            return pdfPath;
+        });
+
+        action.execute();
+
+        String warning = new ObjectMapper().readTree(response.getContentAsString()).get("warningMessage").asText();
+        assertThat(warning).contains("The captured signature could not be saved and will not appear on the PDF.");
+        assertThat(warning).contains("- Lab result (source not confirmed)");
+    }
+
     @Test
     @DisplayName("returns an error without rendering when direct print preview targets a missing consultation")
     void shouldReturnErrorWithoutRendering_whenDirectPrintPreviewTargetMissing() throws Exception {
@@ -586,7 +643,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("123"); // submitted form value — now untrusted for fallback
         request.setParameter("newSignature", "true");
 
@@ -610,7 +667,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setRequestId("../9");
         action.setDemographicNo("1");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
 
         String result = action.execute();
 
@@ -628,7 +685,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setRequestId("9");
         action.setDemographicNo("1");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
 
         String result = action.execute();
 
@@ -651,7 +708,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setRequestId("9");
         action.setDemographicNo("1");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
 
         String result = action.execute();
 
@@ -668,7 +725,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setRequestId("9");
         action.setDemographicNo("2");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
 
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
@@ -742,7 +799,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "false");
 
@@ -761,7 +818,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         capturePersistedConsultationRequest();
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         request.setParameter("newSignature", "true");
         org.mockito.Mockito.doThrow(new IllegalArgumentException("ambiguous lab source"))
                 .when(documentAttachmentManager).attachToConsult(eq(loggedInInfo),
@@ -788,7 +845,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("123");
         request.setParameter("newSignature", "true");
 
@@ -821,7 +878,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.setSubmission("Submit");
         action.setService("");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
 
         when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
                 .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
@@ -832,153 +889,64 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(persisted[0].getServiceId()).isNull();
     }
 
-    /**
-     * Regression for #2241. A blank consultant left {@code specId} null, and the Health Care Team
-     * branch then unboxed it via {@code Integer.valueOf(specId)} before reaching the null-tolerant
-     * lookup — a NullPointerException on the create path only; the update path already passed the
-     * Integer through untouched.
-     */
-    @Test
-    @DisplayName("persists the consultation instead of throwing when the consultant is blank on create")
-    void shouldPersistConsultation_whenConsultantIsBlankOnCreate() throws Exception {
-        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
-
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "0", "-1", "abc", "2147483648", "999999"})
+    void shouldRejectConsultant_beforeAnyCreateSideEffect(String specialist) throws Exception {
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("");
+        action.setSpecialist(specialist);
+        action.setReasonForConsultation("Entered referral reason");
+        action.setClinicalInformation("Entered clinical information");
+        action.setAppointmentNotes("Entered appointment notes");
 
-        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
-                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+        assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);
 
-        // The NPE lived inside the Health Care Team branch, which is skipped entirely when the
-        // property is off. Without forcing it on, this test passes against the unfixed action and
-        // proves nothing.
-        CarlosProperties carlosProperties = mock(CarlosProperties.class);
-        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
-                .thenReturn(true);
-        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
-            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
-
-            action.execute();
-        }
-
-        assertThat(persisted[0]).isNotNull();
-        assertThat(persisted[0].getServiceId()).isEqualTo(1);
+        assertThat(request.getAttribute("demographicId")).isEqualTo("1");
+        assertThat(request.getAttribute("errorMessage")).asString().contains("active consultant");
+        assertThat(((java.util.Map<?, ?>) request.getAttribute("consultationSubmittedValues")).get("reasonForConsultation"))
+                .isEqualTo("Entered referral reason");
+        verify(consultationRequestDao, never()).persist(any());
+        verifyNoInteractions(consultationManager, digitalSignatureManager);
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), anyInt());
     }
 
-    /**
-     * The Health Care Team bridge is OFF in the shipped carlos.properties, and with it off a blank
-     * consultant left {@code specId} null all the way to {@code professionalSpecialistDao.find(null)}.
-     * Hibernate rejects a null identifier with {@link IllegalArgumentException} instead of returning
-     * null, so on a default install every new consultation without a consultant died in the Struts
-     * global {@code Exception -> error} mapping: nothing persisted, nothing logged, and the clinician
-     * was told the form "could not be printed". The mocked DAO has to reject null the way the real one
-     * does, or this test passes against the unfixed action.
-     */
-    @Test
-    @DisplayName("persists the consultation without a specialist lookup when the consultant is blank and the health care team bridge is off")
-    void shouldPersistConsultationWithoutSpecialistLookup_whenConsultantIsBlankAndHealthCareTeamOffOnCreate() throws Exception {
-        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
-        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
-        when(professionalSpecialistDao.find((Object) null))
-                .thenThrow(new IllegalArgumentException("Identifier may not be null"));
-        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"0", "-1", "abc", "2147483648", "999999"})
+    void shouldRejectConsultant_beforeArchivingOrMutatingExistingRequest(String specialist) throws Exception {
+        ConsultationRequest stored = consultationRequest(1);
+        ProfessionalSpecialist original = new ProfessionalSpecialist();
+        stored.setProfessionalSpecialist(original);
+        stored.setReasonForReferral("Original reason");
+        when(consultationRequestDao.find(9)).thenReturn(stored);
+        action.setSubmission("Update");
+        action.setSpecialist(specialist);
+        action.setReasonForConsultation("Unsaved reason");
 
+        assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);
+
+        assertThat(stored.getProfessionalSpecialist()).isSameAs(original);
+        assertThat(stored.getReasonForReferral()).isEqualTo("Original reason");
+        assertThat(request.getAttribute("reqId")).isEqualTo("9");
+        verify(consultationRequestDao, never()).merge(any());
+        verifyNoInteractions(consultationManager, digitalSignatureManager);
+    }
+
+    @Test
+    void shouldRejectInactiveConsultant_beforeSaving() throws Exception {
+        ProfessionalSpecialist inactive = new ProfessionalSpecialist();
+        ReflectionTestUtils.setField(inactive, "id", 8);
+        inactive.setDeleted(true);
+        ProfessionalSpecialistDao specialists = mock(ProfessionalSpecialistDao.class);
+        when(specialists.find((Object) 8)).thenReturn(inactive);
+        registerMock(ProfessionalSpecialistDao.class, specialists);
         action.setSubmission("Submit");
-        action.setService("1");
-        action.setSpecialist("");
+        action.setSpecialist("8");
 
-        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
-                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
-
-        CarlosProperties carlosProperties = mock(CarlosProperties.class);
-        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
-                .thenReturn(false);
-        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
-            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
-
-            action.execute();
-        }
-
-        assertThat(persisted[0]).isNotNull();
-        assertThat(persisted[0].getProfessionalSpecialist()).isNull();
-        verify(professionalSpecialistDao, never()).find((Object) null);
-    }
-
-    /**
-     * The update branch guarded the null lookup but seeded its local with a bare
-     * {@code new ProfessionalSpecialist()}, attached that placeholder to the consultation, and merged.
-     * The association cascades MERGE, so every edit that left the consultant blank INSERTed an
-     * all-NULL professionalSpecialists row and re-pointed the request at it. A blank consultant on
-     * an edit must clear the link, and must not consult the DAO at all.
-     */
-    @Test
-    @DisplayName("clears the specialist instead of attaching a blank placeholder when the consultant is blank on update")
-    void shouldClearSpecialist_whenConsultantIsBlankOnUpdate() throws Exception {
-        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
-        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
-        ConsultationRequest stored = consultationRequest(1);
-        stored.setProfessionalSpecialist(new ProfessionalSpecialist());
-        when(consultationRequestDao.find(9)).thenReturn(stored);
-
-        action.setSubmission("Update");
-        action.setService("1");
-        action.setSpecialist("");
-
-        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
-                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
-
-        CarlosProperties carlosProperties = mock(CarlosProperties.class);
-        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
-                .thenReturn(false);
-        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
-            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
-
-            action.execute();
-        }
-
-        ArgumentCaptor<ConsultationRequest> mergedConsultation =
-                ArgumentCaptor.forClass(ConsultationRequest.class);
-        verify(consultationRequestDao).merge(mergedConsultation.capture());
-        assertThat(mergedConsultation.getValue().getProfessionalSpecialist()).isNull();
-        verifyNoInteractions(professionalSpecialistDao);
-    }
-
-    /**
-     * The consultant field is authoritative on an edit: an id that does not resolve (the bridge's 0,
-     * a deleted specialist) clears the link the same way a blank does, instead of silently keeping
-     * whoever the request pointed at before.
-     */
-    @Test
-    @DisplayName("clears the specialist when the consultant id does not resolve on update")
-    void shouldClearSpecialist_whenConsultantIdDoesNotResolveOnUpdate() throws Exception {
-        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
-        when(professionalSpecialistDao.find((Object) 0)).thenReturn(null);
-        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
-        ConsultationRequest stored = consultationRequest(1);
-        stored.setProfessionalSpecialist(new ProfessionalSpecialist());
-        when(consultationRequestDao.find(9)).thenReturn(stored);
-
-        action.setSubmission("Update");
-        action.setService("1");
-        action.setSpecialist("0");
-
-        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
-                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
-
-        CarlosProperties carlosProperties = mock(CarlosProperties.class);
-        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
-                .thenReturn(false);
-        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
-            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
-
-            action.execute();
-        }
-
-        ArgumentCaptor<ConsultationRequest> mergedConsultation =
-                ArgumentCaptor.forClass(ConsultationRequest.class);
-        verify(consultationRequestDao).merge(mergedConsultation.capture());
-        assertThat(mergedConsultation.getValue().getProfessionalSpecialist()).isNull();
+        assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);
+        verify(consultationRequestDao, never()).persist(any());
+        verifyNoInteractions(consultationManager, digitalSignatureManager);
     }
 
     /**
@@ -990,7 +958,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     void shouldMergeNullServiceId_whenServiceIsBlankOnUpdate() throws Exception {
         action.setSubmission("Update");
         action.setService("");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
 
         when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
                 .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
@@ -1027,7 +995,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "false");
 
@@ -1050,7 +1018,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "true");
 
@@ -1075,7 +1043,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "true");
 
@@ -1103,7 +1071,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "false");
 
@@ -1127,7 +1095,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "false");
 
@@ -1151,7 +1119,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "true");
 
@@ -1300,7 +1268,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     void shouldReturnInput_beforeAnyWriteWhenCreateAttachmentNotOwned() throws Exception {
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setDocNo(new String[] {"10"});
         action.setLabNo(new String[] {"999"});
         org.mockito.Mockito.doThrow(new SecurityException("attachment does not belong to the consultation patient"))
@@ -1328,7 +1296,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setDocNo(new String[] {"999"});
         org.mockito.Mockito.doThrow(new SecurityException("attachment does not belong to the consultation patient"))
                 .when(documentAttachmentManager).verifyConsultAttachments(eq(loggedInInfo), eq(9), eq(1),
@@ -1371,7 +1339,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setDocNo(new String[] {"10"});
 
         assertThatThrownBy(() -> action.execute())
@@ -1390,7 +1358,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setLabNo(new String[] {"20"});
 
         assertThatThrownBy(() -> action.execute())
@@ -1409,7 +1377,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update And Fax");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         CarlosProperties properties = mock(CarlosProperties.class);
         when(properties.isConsultationFaxEnabled()).thenReturn(true);
         try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
@@ -1431,7 +1399,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
         action.setSubmission("Update");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
                 .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
 
@@ -1446,7 +1414,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         ConsultationRequest[] persisted = capturePersistedConsultationRequest();
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setDocNo(new String[] {"10"});
         when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
                 .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
@@ -1543,9 +1511,50 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
             eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("9"), anyBoolean()))
                     .thenReturn(new ArrayList<>(List.of(ownDoc, foreignDoc)));
 
-            List<String> names = action.faxCoverDocumentNames(loggedInInfo, "9", "1");
+            List<String> names = action.faxCoverAttachments(loggedInInfo, "9", "1", Locale.ENGLISH).documents();
 
             assertThat(names).containsExactly("Own referral letter", "Own lab", "Own eForm");
+        }
+    }
+
+    /**
+     * Issue #4693: the faxed packet cannot hold a CML, MDS or PathNet lab. The cover page used to
+     * list only what the packet contains, so the sender never learned that such a lab was left out.
+     * It is now named apart from the attachments the fax does contain.
+     */
+    @Test
+    @DisplayName("should name each attached lab the fax cannot include, apart from what it does include")
+    void shouldNameLabsNotIncluded_onFaxCover() {
+        PatientLabRoutingDao patientLabRoutingDao = mock(PatientLabRoutingDao.class);
+        registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
+        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
+        registerMock(AttachmentOwnershipService.class, new AttachmentOwnershipService(mock(CtlDocumentDao.class),
+                patientLabRoutingDao, mock(EFormDataDao.class), mock(HRMDocumentToDemographicDao.class), consultationRequestDao));
+        // Number 20 is also one of the patient's HL7 labs; only the listed type keeps the MDS lab out
+        // of the "included" names.
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30, 20));
+        LabResultData hl7Lab = new LabResultData(LabResultData.HL7TEXT);
+        hl7Lab.setSegmentID("30");
+        hl7Lab.discipline = "CHEM";
+        LabResultData mdsLab = new LabResultData(LabResultData.MDS);
+        mdsLab.setSegmentID("20");
+        mdsLab.discipline = "Hem/Chem/Other";
+        mdsLab.dateTime = "2024-03-05 10:22:00";
+        when(consultationManager.getAttachedEForms("9")).thenReturn(List.of());
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+             MockedConstruction<CommonLabResultData> labConstruction = mockConstruction(CommonLabResultData.class,
+                     (labData, context) -> when(labData.populateLabResultsData(any(), eq("1"), eq("9"), anyBoolean()))
+                             .thenReturn(new ArrayList<>(List.of(hl7Lab, mdsLab))))) {
+            eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("9"), anyBoolean())).thenReturn(new ArrayList<>());
+
+            EctConsultationFormRequest2Action.FaxCoverAttachments cover =
+                    action.faxCoverAttachments(loggedInInfo, "9", "1", Locale.ENGLISH);
+
+            assertThat(cover.documents()).containsExactly("CHEM");
+            assertThat(cover.labsNotIncluded()).containsExactly("MDS lab result: Hem/Chem/Other, 2024-03-05 10:22:00");
         }
     }
 }

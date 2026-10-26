@@ -33,6 +33,7 @@ import java.io.IOException;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
+import jakarta.persistence.NoResultException;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -101,17 +102,24 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
      *   <li>{@code demographic_no} - The patient demographic number.</li>
      * </ul>
      *
-     * @return {@code SUCCESS} if the operation completes (or fails gracefully).
+     * @return {@code SUCCESS} with the resolved ID; {@code NONE} after a 404 for an inaccessible
+     *         chart or missing position, or a 500 for a database failure
      * @throws IOException if there's an I/O error
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks read permissions for messaging
      */
     public String execute() throws IOException, ServletException {
+        this.messageID = null;
         HttpServletRequest request = ServletActionContext.getRequest();
 
         // Verify user has read permission for messages
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_msg", "r", null)) {
             throw new SecurityException("missing required sec object (_msg)");
+        }
+        this.demographic_no = request.getParameter("demographic_no");
+        if (!MsgAttachmentAccess.canReadChart(LoggedInInfo.getLoggedInInfoFromSession(request), demographic_no)) {
+            ServletActionContext.getResponse().sendError(404);
+            return NONE;
         }
 
         // Get provider number from session
@@ -165,17 +173,23 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
             }
             query.setFirstResult(firstResult);
             query.setMaxResults(1);
-            Integer messageIdResult = (Integer) query.getSingleResult();
+            Number messageIdResult = (Number) query.getSingleResult();
 
             if (messageIdResult != null) {
                 this.messageID = messageIdResult.toString();
             }
+        } catch (NoResultException emptyPosition) {
+            // An empty or exhausted patient message list is an ordinary 404, not a server error.
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error retrieving message by position", e);
-            // Optionally add an action error to be displayed on the page
-            addActionError("Could not retrieve the requested message.");
+            ServletActionContext.getResponse().sendError(500);
+            return NONE;
         }
 
+        if (messageID == null) {
+            ServletActionContext.getResponse().sendError(404);
+            return NONE;
+        }
         return SUCCESS;
     }
 

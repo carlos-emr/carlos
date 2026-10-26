@@ -83,7 +83,7 @@
             }
         </script>
     </head>
-    <body class="BodyStyle" vlink="#0000FF" onLoad="setValues()">
+    <body class="BodyStyle" vlink="#0000FF">
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
@@ -103,9 +103,9 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn" valign="top">&nbsp; <a
-                    href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode?addNew=true">Add Code</a></td>
+                    href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingAddCode?addNew=true">Add Code</a></td>
             <td class="MainTableRightColumn">
-                <form action="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode" method="get">
+                <form action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCodeAdjust" method="get">
                     <%if (request.getAttribute("returnMessage") != null) { %>
                     <table>
                         <tr>
@@ -143,8 +143,9 @@
                 %>
                 <table border=1 width="80%">
                     <tr>
+                        <%-- The list shows only codes matching bCode, so the sort link keeps the search. --%>
                         <th>Service Code<a
-                                href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode?sortOrder=<%=newOrder%>"><%=arrow%>
+                                href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCodeAdjust?sortOrder=<%=newOrder%>&bCode=<carlos:encode value='<%= bCode %>' context="uriComponent"/>"><%=arrow%>
                         </a></th>
                         <th>Description</th>
                         <th>Price</th>
@@ -162,7 +163,7 @@
                         <td><carlos:encode value='<%= bcd.getValue() %>' context="html"/>
                         </td>
                         <td><a
-                                href="<%= request.getContextPath() %>/billing/CA/BC/billingEditCode?codeId=<carlos:encode value='<%= String.valueOf(bcd.getBillingserviceNo()) %>' context="uriComponent"/>&code=<carlos:encode value='<%= bcd.getServiceCode() %>' context="uriComponent"/>&desc=<carlos:encode value='<%= bcd.getDescription() %>' context="uriComponent"/>&value=<carlos:encode value='<%= bcd.getValue() %>' context="uriComponent"/>">Edit</a>
+                                href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingEditCode?codeId=<carlos:encode value='<%= String.valueOf(bcd.getBillingserviceNo()) %>' context="uriComponent"/>&code=<carlos:encode value='<%= bcd.getServiceCode() %>' context="uriComponent"/>&desc=<carlos:encode value='<%= bcd.getDescription() %>' context="uriComponent"/>&value=<carlos:encode value='<%= bcd.getValue() %>' context="uriComponent"/>">Edit</a>
                             <br>
                             <a href="javascript:void(0);" onclick="deletePrivateCode('<carlos:encode value='<%= String.valueOf(bcd.getBillingserviceNo()) %>' context="javaScriptAttribute"/>');">Delete</a></td>
                     </tr>

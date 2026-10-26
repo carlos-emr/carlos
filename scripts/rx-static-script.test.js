@@ -17,6 +17,7 @@ function setup(prompt = 'Synthetic favorite') {
   const requests = [], alerts = [], location = { href: 'history' };
   const context = vm.createContext({
     window: { prompt: () => prompt, location }, location,
+    RxPatientContext: require('../src/main/webapp/share/javascript/rx-patient-context.js').create('fixture'),
     document: { querySelector: () => ({ value: 'csrf-fixture' }) },
     alert: message => alerts.push(message), oscarLog: () => {},
     fetch: (url, options) => new Promise((resolve, reject) => requests.push({ url, ...options, resolve, reject })),

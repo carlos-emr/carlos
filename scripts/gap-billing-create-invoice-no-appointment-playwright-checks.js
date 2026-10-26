@@ -25,6 +25,7 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { createBillingFixture } = require('./billing-on-ohip-simulation-report-playwright-checks');
 const { openHistory, historyRow } = require('./billing-on-invoice-third-party-playwright-checks');
 const g = require('./lib/gap-billing-support');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 async function workflow(s) {
   const { sql, patient } = s;
@@ -38,7 +39,7 @@ async function workflow(s) {
   let form;
 
   await s.step('Create Invoice opens the bill form for appointment 0 with an editable service date', async () => {
-    const link = s.master.locator('a[onclick*="/billing?billRegion=ON"]').first();
+    const link = masterRecordLink(s.master, '/billing?billRegion=ON').first();
     h.assert(await link.count() === 1, 'The Master Record does not offer Create Invoice');
     form = await s.popup(s.master, link, 'bill-form');
     await form.locator('select[name="xml_billtype"]').waitFor({ state: 'visible', timeout: 30000 });
@@ -81,7 +82,7 @@ async function workflow(s) {
   await s.step('the Master Record Billing History lists the new invoice with its code, dx and fee', async () => {
     // The save popup refreshes the Master Record that opened it: let it finish reloading first.
     await s.master.waitForLoadState('load').catch(() => {});
-    await s.master.locator('a[onclick*="/billing/CA/ON/ViewBillingONHistory"]').first().waitFor({ state: 'attached', timeout: 20000 });
+    await masterRecordLink(s.master, '/billing/CA/ON/ViewBillingONHistory').first().waitFor({ state: 'attached', timeout: 20000 });
     const history = await openHistory(s);
     const row = historyRow(history, headerId);
     h.assert(await row.count() === 1, 'Billing History does not list the new invoice exactly once');

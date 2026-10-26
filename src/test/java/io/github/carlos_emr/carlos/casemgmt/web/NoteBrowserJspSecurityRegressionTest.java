@@ -116,4 +116,16 @@ class NoteBrowserJspSecurityRegressionTest {
 
         assertThat(mutationPostPattern.matcher(jsp).find()).isTrue();
     }
+
+    @Test
+    void documentListIsDomainAndStoredOwnerFilteredBeforeRendering() throws Exception {
+        String jsp = Files.readString(NOTE_BROWSER);
+        assertThat(jsp).contains("DocumentListAccess.mayReadPatient(")
+                .contains("if (canReadDocuments) {")
+                .contains("DocumentListAccess.readableDocuments(")
+                .contains("canReadDocuments ? EDocUtil.getDoctypes(")
+                .contains("documentSecurity.isAllowedAccessToPatientRecord(loggedInInfo, patientNumber)");
+        assertThat(jsp.indexOf("if (canReadDocuments) {")).isLessThan(jsp.indexOf("EDocUtil.listDocs("));
+    }
+
 }

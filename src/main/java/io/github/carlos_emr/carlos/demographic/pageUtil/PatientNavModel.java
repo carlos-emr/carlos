@@ -81,9 +81,15 @@ public final class PatientNavModel {
     }
 
     private final Inputs in;
+    private final String hospitalBillingView;
 
     PatientNavModel(Inputs inputs) {
+        this(inputs, inputs.defaultBillingView());
+    }
+
+    private PatientNavModel(Inputs inputs, String hospitalBillingView) {
         this.in = inputs;
+        this.hospitalBillingView = hospitalBillingView;
     }
 
     /**
@@ -134,12 +140,14 @@ public final class PatientNavModel {
                         ? "" : telephoneNoteReason(request),
                 request.getParameter("apptProvider"),
                 request.getParameter("appointment"),
-                !"true".equals(properties.getProperty("DEMOGRAPHIC_WAITING_LIST")) && waitingListFound.getAsBoolean(),
+                !"true".equals(properties.getProperty("DEMOGRAPHIC_WAITING_LIST"))
+                        && (request.getAttribute("waitingListLinkVisible") instanceof Boolean visible
+                                ? visible : waitingListFound.getAsBoolean()),
                 portalSwitchedOn,
                 properties.getProperty("clinic_no", "").startsWith("1022"),
                 "yes".equals(propertyValue(userProperties, currentProviderNo, UserProperty.EDOC_BROWSER_IN_MASTER_FILE)),
                 "yes".equalsIgnoreCase(propertyValue(userProperties, currentProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB)),
-                page));
+                page), properties.getProperty("hospital_view", properties.getProperty("default_view")));
     }
 
     private static String telephoneNoteReason(HttpServletRequest request) {
@@ -236,8 +244,16 @@ public final class PatientNavModel {
     }
 
     public String getCreateInvoiceUrl() {
-        return in.contextPath() + "/billing?billRegion=" + enc(in.billingRegion())
-                + "&billForm=" + enc(in.defaultBillingView()) + "&hotclick=&appointment_no=0"
+        return billingUrl("/billing", in.defaultBillingView());
+    }
+
+    public String getHospitalBillingUrl() {
+        return billingUrl("/billing/CA/ON/billingShortcutPg1View", hospitalBillingView);
+    }
+
+    private String billingUrl(String route, String form) {
+        return in.contextPath() + route + "?billRegion=" + enc(in.billingRegion())
+                + "&billForm=" + enc(form) + "&hotclick=&appointment_no=0"
                 + "&demographic_name=" + enc(in.lastName()) + "%2C" + enc(in.firstName())
                 + "&demographic_no=" + no() + "&providerview=" + enc(in.patientProviderNo())
                 + "&user_no=" + enc(in.currentProviderNo()) + "&apptProvider_no=none"

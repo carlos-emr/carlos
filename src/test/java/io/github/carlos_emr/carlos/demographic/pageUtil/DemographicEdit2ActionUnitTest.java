@@ -39,6 +39,8 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
+import io.github.carlos_emr.carlos.commn.model.WaitingListName;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -49,6 +51,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
+import io.github.carlos_emr.carlos.waitinglist.WaitingListAvailabilityService;
 
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.*;
@@ -104,6 +107,20 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
     @Nested
     @DisplayName("Security Enforcement")
     class SecurityEnforcement {
+
+        @Test
+        void shouldRestoreSecurityServiceAndRefuseRead_whenTransientReferenceIsAbsent() throws Exception {
+            java.lang.reflect.Field field = DemographicEdit2Action.class.getDeclaredField("securityInfoManager");
+            field.setAccessible(true);
+            field.set(action, null);
+            denyPrivilege("_demographic", "r");
+
+            assertThatThrownBy(() -> executeAction(action))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("missing required sec object (_demographic)");
+            verifySecurityCheck("_demographic", "r");
+            verify(mockDemographicDao, never()).getDemographic(anyString());
+        }
 
         @Test
         @DisplayName("should throw SecurityException when session is null")
@@ -273,6 +290,7 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
         @Mock private ProgramManager mockProgramManager;
         @Mock private ProgramDao mockProgramDao;
         @Mock private OscarLogDao mockOscarLogDao;
+        @Mock private WaitingListAvailabilityService mockWaitingListAvailability;
 
         private MockedStatic<LogAction> logActionMock;
 
@@ -320,6 +338,7 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
             replaceSpringUtilsBean(DemographicManager.class, mockDemographicManager);
             replaceSpringUtilsBean(ProgramManager.class, mockProgramManager);
             replaceSpringUtilsBean(ProgramDao.class, mockProgramDao);
+            replaceSpringUtilsBean(WaitingListAvailabilityService.class, mockWaitingListAvailability);
         }
 
         /** Stubs default return values for DAO/manager calls and creates test fixture. */
@@ -365,6 +384,36 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
 
             assertThat(mockRequest.getAttribute("demographic")).isEqualTo(testDemographic);
             assertThat(mockRequest.getAttribute("demographic_no")).isEqualTo(DEMO_NO);
+        }
+
+        @Test
+        @DisplayName("should publish the waiting lists the provider may use for the Master Record (issue #4229)")
+        void shouldPublishWaitingListAvailability_forMasterRecord() throws Exception {
+            ProviderPreference preference = new ProviderPreference();
+            preference.setMyGroupNo("clinicA");
+            setSessionAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, preference);
+            WaitingListName physio = new WaitingListName();
+            physio.setId(7);
+            physio.setName("Physio");
+            when(mockWaitingListAvailability.hasCurrentLists()).thenReturn(true);
+            when(mockWaitingListAvailability.findSelectableLists(preference)).thenReturn(List.of(physio));
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute("waitingListLinkVisible")).isEqualTo(Boolean.TRUE);
+            assertThat(mockRequest.getAttribute("selectableWaitingLists")).isEqualTo(List.of(physio));
+        }
+
+        @Test
+        @DisplayName("should publish no waiting lists and hide the link when none are available")
+        void shouldPublishNoWaitingLists_whenNoneAvailable() throws Exception {
+            when(mockWaitingListAvailability.hasCurrentLists()).thenReturn(false);
+            when(mockWaitingListAvailability.findSelectableLists(any())).thenReturn(List.of());
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute("waitingListLinkVisible")).isEqualTo(Boolean.FALSE);
+            assertThat((List<?>) mockRequest.getAttribute("selectableWaitingLists")).isEmpty();
         }
 
         @Test

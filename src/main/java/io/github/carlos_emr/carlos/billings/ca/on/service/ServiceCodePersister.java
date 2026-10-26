@@ -104,7 +104,11 @@ public class ServiceCodePersister {
         b.setSliFlag(false);
         b.setTerminationDate(ConversionUtils.fromDateString("9999-12-31"));
 
-        dao.persist(b);
+        if (serviceCode.startsWith("_")) {
+            if (!dao.persistPrivateCodeIfAbsent(b)) return 0;
+        } else {
+            dao.persist(b);
+        }
         return b.getId();
     }
 
@@ -187,6 +191,10 @@ public class ServiceCodePersister {
         }
         int rc = addCodeByStr(serviceCode, request.description(), request.value(), "0.00",
                 request.billingServiceDate(), request.gstFlag());
+        if (rc == 0) {
+            formFields.put("service_code", serviceCode);
+            return new PrivateCodeMutationResult("error", MSG_SEARCH_FIRST, "search", formFields);
+        }
         if (rc > 0) {
             formFields.put("service_code", serviceCode);
             String message = new StringBuilder()

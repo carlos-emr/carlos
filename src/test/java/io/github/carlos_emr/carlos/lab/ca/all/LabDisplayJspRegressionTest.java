@@ -104,6 +104,30 @@ class LabDisplayJspRegressionTest {
                 Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp",
+            "src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplayAjax.jsp"})
+    @DisplayName("should open the test-history popup from a real URL, not a javascript: link")
+    void shouldOpenTestHistoryPopup_fromRealUrl(String file) throws IOException {
+        String jsp = Files.readString(Path.of(file), StandardCharsets.UTF_8);
+        // A javascript: link is percent-decoded before it runs: URLEncoder's %26 and %27 came back as
+        // & and ', which cut the test name short or made the link a syntax error.
+        assertThat(jsp).doesNotContain("javascript:popupStart('660','900'");
+        int count = 0;
+        for (String line : jsp.split("\n")) {
+            if (!line.contains("href=\"") || !line.contains("/lab/CA/ON/ViewLabValues?")) {
+                continue;
+            }
+            count++;
+            assertThat(line).as("%s test-history link %d", file, count)
+                    .contains("onclick=\"popupStart('660','900',this.href); return false;\"")
+                    .contains("&amp;labType=HL7&amp;identifier=")
+                    .doesNotContain("identifier='");
+        }
+        assertThat(count).as("%s test-history links", file).isPositive();
+    }
+
     @Test
     @DisplayName("should render the inline embedded PDF preview in lab display")
     void shouldRenderEmbeddedPdfPreview_inLabDisplay() throws IOException {

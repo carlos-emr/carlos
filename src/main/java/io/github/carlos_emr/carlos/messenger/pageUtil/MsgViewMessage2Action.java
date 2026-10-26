@@ -35,6 +35,8 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.MessagingManager;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -70,9 +72,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>Manages attachment indicators for regular and PDF attachments</li>
  * </ul>
  *
- * <p>The action stores extensive message data in the session for display,
- * including message body, subject, sender, recipients, date/time, and attachment
- * information. It then redirects to the ViewMessage.jsp page for rendering.</p>
+ * <p>The action publishes display data in the current request before forwarding to its JSP.
+ * A local sender or recipient may open the message from a mailbox. A shared chart reader
+ * must explicitly name an accessible patient linked to that message; that view resolves
+ * only the selected patient's identity and does not change the message's read state.</p>
  * 
  * @version 2.0 Struts2 migration
  * @since 2003-07-21
@@ -142,8 +145,8 @@ public class MsgViewMessage2Action extends ActionSupport {
      * 
      * @return {@link #SUCCESS} on the happy path (forwards to the ViewMessage JSP
      *         via the Struts result mapping); {@link #NONE} when an invalid
-     *         {@code messageID} or a not-found message triggers an early redirect
-     *         to {@code DisplayMessages}
+     *         {@code messageID} triggers an early redirect to {@code DisplayMessages},
+     *         or after a 404 for a missing or unauthorized saved message
      * @throws IOException if the early-return redirect cannot be written
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if the session is missing or the user lacks
@@ -207,6 +210,15 @@ public class MsgViewMessage2Action extends ActionSupport {
         } else {
             from = "messenger";
         }
+        // This request's own view mode and, when it was opened from a patient's message list, that
+        // patient. The page offers Write to Encounter for that patient among the message's linked
+        // patients; it compared them with a demographic_no attribute nothing set, so the button never
+        // showed, and it read the mode from the session, which another window's view could change.
+        request.setAttribute("from", from);
+        int listedPatient = ConversionUtils.fromIntString(demographic_no);
+        if ("encounter".equals(from) && listedPatient > 0) {
+            request.setAttribute("demographic_no", Integer.toString(listedPatient));
+        }
 
         // Whitelist 'orderBy' to allowed column names to prevent trust boundary violation
         String rawOrderBy = request.getParameter("orderBy");
@@ -227,8 +239,28 @@ public class MsgViewMessage2Action extends ActionSupport {
             return NONE;
         }
 
+        // A message ID is not permission to read or relink that message. Apply the same
+        // sender/recipient boundary as its saved attachments before loading any view data.
+        MessageTbl authorizedMessage = MsgAttachmentAccess.find(loggedInInfo, parsedMessageNo);
+        boolean sharedChart = authorizedMessage == null;
+        String chartPatient = "encounter".equals(from) ? demographic_no : request.getParameter("chartPatientNo");
+        if (sharedChart && !linkRequested) {
+            authorizedMessage = MsgAttachmentAccess.find(loggedInInfo, parsedMessageNo, chartPatient);
+        }
+        if (authorizedMessage == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+        if (sharedChart) {
+            chartPatient = Integer.toString(ConversionUtils.fromIntString(chartPatient));
+            request.setAttribute("chartPatientNo", chartPatient);
+            request.setAttribute("demographic_no", chartPatient);
+            request.setAttribute("from", "encounter");
+        }
+
         // Retrieve the message and process its content
-        MsgDisplayMessage msgDisplayMessage = messagingManager.getInboxMessage(loggedInInfo, parsedMessageNo);
+        MsgDisplayMessage msgDisplayMessage = sharedChart ? sharedChartMessage(authorizedMessage)
+                : messagingManager.getInboxMessage(loggedInInfo, parsedMessageNo);
 
         // Early return if message not found
         if (msgDisplayMessage == null) {
@@ -248,37 +280,45 @@ public class MsgViewMessage2Action extends ActionSupport {
 
         // Get demographics already attached to this message
         Integer msgId = ConversionUtils.fromIntString(msgDisplayMessage.getMessageId());
-        Map<Integer, String> attachedDemographics = (msgId > 0)
-                ? messengerDemographicManager.getAttachedDemographicNameMap(loggedInInfo, msgId)
-                : new HashMap<>();
+        Map<Integer, String> attachedDemographics;
+        if (sharedChart) {
+            Integer selectedPatient = Integer.valueOf(chartPatient);
+            var selected = SpringUtils.getBean(DemographicManager.class).getDemographic(loggedInInfo, selectedPatient);
+            attachedDemographics = selected == null ? Map.of() : Map.of(selectedPatient, selected.getFormattedName());
+        } else {
+            attachedDemographics = msgId > 0
+                    ? messengerDemographicManager.getAttachedDemographicNameMap(loggedInInfo, msgId) : new HashMap<>();
+        }
 
-        // Store all message data in session for display.
-        // All values below are either validated (parseInt/whitelist) or sourced from
-        // the database via authenticated DAO lookup. Output encoding is in ViewMessage.jsp.
-        request.getSession().setAttribute("attachedDemographics", attachedDemographics); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageMessage", msgDisplayMessage.getMessageBody()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageSubject", msgDisplayMessage.getThesubject()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageSentby", msgDisplayMessage.getSentby()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageSentto", msgDisplayMessage.getSentto()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageTime", msgDisplayMessage.getThetime()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageDate", msgDisplayMessage.getThedate()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageAttach", msgDisplayMessage.getAttach()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // The message shown, for ViewMessage.jsp, which this request forwards to. Request
+        // attributes: in the session, a second window opening another message at the same time
+        // could replace them between this action and the page, which then showed that message
+        // (with its linked patients) under this one's id (issue #4673). All values below are
+        // either validated (parseInt/whitelist) or sourced from the database via authenticated
+        // DAO lookup. Output encoding is in ViewMessage.jsp.
+        request.setAttribute("attachedDemographics", attachedDemographics);
+        request.setAttribute("viewMessageMessage", msgDisplayMessage.getMessageBody());
+        request.setAttribute("viewMessageSubject", msgDisplayMessage.getThesubject());
+        request.setAttribute("viewMessageSentby", msgDisplayMessage.getSentby());
+        request.setAttribute("viewMessageSentto", msgDisplayMessage.getSentto());
+        request.setAttribute("viewMessageTime", msgDisplayMessage.getThetime());
+        request.setAttribute("viewMessageDate", msgDisplayMessage.getThedate());
+        request.setAttribute("viewMessageAttach", msgDisplayMessage.getAttach());
+        request.setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach());
         String canonicalMessageNo = String.valueOf(parsedMessageNo);
-        request.getSession().setAttribute("viewMessageId", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageNo", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessagePosition", messagePosition); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("from", from); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- whitelisted to "encounter"|"messenger"
-        request.getSession().setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- authenticated provider number from LoggedInInfo session
+        request.setAttribute("viewMessageId", canonicalMessageNo);
+        request.setAttribute("viewMessageNo", canonicalMessageNo);
+        request.setAttribute("viewMessagePosition", messagePosition);
+        request.setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- authenticated provider number from LoggedInInfo session
 
         if (orderBy != null) {
-            request.getSession().setAttribute("orderBy", orderBy); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            request.setAttribute("orderBy", orderBy); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         }
 
         MiscUtils.getLogger().debug("viewMessagePosition: " + messagePosition + "IsLastMsg: " + request.getAttribute("viewMessageIsLastMsg"));
 
         // Mark message as read unless viewing sent items (boxType 1)
-        if (!"1".equals(boxType)) {
+        if (!sharedChart && !"1".equals(boxType)) {
             Long msgIdLong = ConversionUtils.fromLongString(msgDisplayMessage.getMessageId());
             if (msgIdLong > 0L) {
                 messagingManager.setMessageRead(loggedInInfo, msgIdLong, providerNo);
@@ -294,5 +334,23 @@ public class MsgViewMessage2Action extends ActionSupport {
         // user back to DisplayMessages. Request params (messageID, boxType,
         // linkMsgDemo) remain available to the JSP on the forwarded request.
         return SUCCESS;
+    }
+
+    /** Builds the authorized chart view without resolving names of unrelated linked patients. */
+    private static MsgDisplayMessage sharedChartMessage(MessageTbl message) {
+        MsgDisplayMessage shown = new MsgDisplayMessage();
+        shown.setMessageId(message.getId().toString());
+        shown.setStatus(message.getActionStatus());
+        shown.setMessageBody(message.getMessage());
+        shown.setThesubject(message.getSubject());
+        shown.setSentby(message.getSentBy());
+        shown.setSentto(message.getSentTo());
+        shown.setThedate(message.getDate() == null ? "" : new SimpleDateFormat("dd-MM-yyyy").format(message.getDate()));
+        shown.setThetime(message.getTime() == null ? "" : message.getTime().toString());
+        shown.setAttach(message.getAttachment() == null || message.getAttachment().isEmpty() ? "0" : "1");
+        shown.setPdfAttach(message.getPdfAttachment() == null ? "0" : "1");
+        shown.setType(message.getType() == null ? 0 : message.getType());
+        shown.setTypeLink(message.getType_link());
+        return shown;
     }
 }

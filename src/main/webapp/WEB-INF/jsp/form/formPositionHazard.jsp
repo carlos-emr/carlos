@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -52,6 +53,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <html>
     <% response.setHeader("Cache-Control", "no-cache");%>
@@ -60,8 +62,6 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="form.PositionHazard.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css" media="screen"
-              href="<%= request.getContextPath() %>/form/positionHazardStyle.css">
         <link rel="stylesheet" type="text/css" media="print" href="<%= request.getContextPath() %>/form/print.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
@@ -130,6 +130,7 @@
 
     <body style="page: doublepage; page-break-after: right">
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
         <input type="hidden" name="demographic_no"
                value="<%= props.getProperty("demographic_no", "0") %>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
@@ -787,7 +788,7 @@
                 <td style="width:600px; padding:10px">
                     <label for="Nanotechnology">Type/materials used:</label><br/>
                     <textarea style="width:600px;font-size:12px" name="Nanotechnology" cols="85"
-                              rows="3"><%=props.getProperty("Nanotechnology", "")%></textarea>
+                              rows="3"><%=SafeEncode.forHtmlContent(props.getProperty("Nanotechnology", ""))%></textarea>
                 </td>
             </tr>
         </table>
@@ -859,7 +860,7 @@
                     <label style="font-weight:bold" for="AdditionalNotes">Additional Notes or other hazards not
                         included:</label><br/>
                     <textarea name="AdditionalNotes" style="font-family:courier; font-size:12px;width:600px" cols="85"
-                              rows="3"><%=props.getProperty("AdditionalNotes", "")%></textarea>
+                              rows="3"><%=SafeEncode.forHtmlContent(props.getProperty("AdditionalNotes", ""))%></textarea>
                 </td>
             </tr>
         </table>

@@ -32,6 +32,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -94,5 +96,28 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/logoutPage");
         verify(securityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), anyString());
         assertThat(response.getContentType()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"actualLab", "lab", "ChartMeds", ""})
+    @DisplayName("should refuse a locked patient's graph before drawing any of the patient's data")
+    void shouldRefuseGraph_whenPatientRecordIsLocked(String method) {
+        LoggedInInfo user = new LoggedInInfo();
+        request.getSession().setAttribute("userrole", "doctor");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
+        request.setParameter("demographic_no", "42");
+        if (!method.isEmpty()) request.setParameter("method", method);
+        org.mockito.Mockito.lenient().when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        org.mockito.Mockito.when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), org.mockito.ArgumentMatchers.eq(42)))
+                .thenReturn(false);
+        try (MockedStatic<io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString> names =
+                     mockStatic(io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString.class)) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> new MeasurementGraphAction22Action().execute())
+                    .isInstanceOf(SecurityException.class);
+            names.verifyNoInteractions();
+        }
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEmpty();
     }
 }

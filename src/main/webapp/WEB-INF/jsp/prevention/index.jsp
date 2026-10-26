@@ -126,9 +126,9 @@
     }
     DemographicData demoData = new DemographicData();
     String nameAge = demoData.getNameAgeString(loggedInInfo, demographic_no);
-    Demographic demo = demoData.getDemographic(loggedInInfo, demographic_no);
-    String hin = demo.getHin() + demo.getVer();
-    String mrp = demo.getProviderNo();
+    // One patient lookup for all the per-type loops below, instead of one or more per type.
+    PreventionPageData pageData = new PreventionPageData(loggedInInfo, demographic_no);
+    Demographic demo = pageData.getDemographic();
     PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
 
     PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
@@ -140,7 +140,7 @@
     Prevention p = PreventionData.getPrevention(loggedInInfo, Integer.valueOf(demographic_no));
 
     Integer demographicId = Integer.parseInt(demographic_no);
-    Date demographicDateOfBirth = PreventionData.getDemographicDateOfBirth(loggedInInfo, Integer.valueOf(demographic_no));
+    Date demographicDateOfBirth = pageData.getDateOfBirth();
     String demographicDob = UtilDateUtilities.DateToString(demographicDateOfBirth);
 
     PreventionDS pf = SpringUtils.getBean(PreventionDS.class);
@@ -296,15 +296,32 @@
                     display(spaces);
                     showImmunizationOnlyPrintButton();
                 } else {
-                    if (onPrint())
-                        document.printFrm.submit();
+                    submitPrint(false);
                 }
             }
 
             function printImmOnly() {
-                document.printFrm.immunizationOnly.value = "true";
-                document.printFrm.submit();
-                document.printFrm.immunizationOnly.value = "false";
+                submitPrint(true);
+            }
+
+            /*
+             * The only way the print form is sent. Its onsubmit refuses every submission, because
+             * the vaccine search boxes sit inside it: Enter in one of them used to submit the form
+             * implicitly, so typing a vaccine printed. form.submit() fires no submit event and the
+             * CARLOS CSRFGuard client adds the token to it. The form posts only the ticked type
+             * names; the server reads what it prints from the chart.
+             */
+            function submitPrint(immunizationsOnly) {
+                if (!onPrint()) {
+                    return;
+                }
+                var form = document.printFrm;
+                form.immunizationOnly.value = immunizationsOnly ? "true" : "false";
+                try {
+                    form.submit();
+                } finally {
+                    form.immunizationOnly.value = "false";
+                }
             }
 
             function showImmunizationOnlyPrintButton() {
@@ -777,10 +794,15 @@
                     <br>
                 </oscar:oscarPropertiesCheck></td>
 
-            <form name="printFrm" method="post" onsubmit="return onPrint();"
+            <%-- Sent only by submitPrint(); see the note there for why onsubmit refuses. --%>
+            <form name="printFrm" method="post" onsubmit="return false;"
                   action="<rewrite:reWrite jspPage="/prevention/printPrevention" context="htmlAttribute"/>">
                 <input type="hidden" name="immunizationOnly" value="false"/>
                 <td valign="top" class="MainTableRightColumn">
+
+                    <% if (printError) { %>
+                    <div class="alert alert-danger" role="alert">An error occurred while trying to print</div>
+                    <% } %>
 
                     <%if (dhirEnabled && !isSSOLoggedIn && !hideSSOWarning) {%>
                     <div class="alert alert-warning d-flex align-items-center" id="ssoWarning" role="alert">
@@ -811,13 +833,6 @@
                     <%
                         if (warnings.size() > 0 || recomendations.size() > 0 || dsProblems) { %>
                     <div class="recommendations">
-                        <%
-                            if (printError) {
-                        %>
-                        <div class="alert alert-danger" role="alert">An error occurred while trying to print</div>
-                        <%
-                            }
-                        %>
                         <span style="font-size: larger;">Prevention Recommendations</span>
                         <div class="mt-1">
                             <%
@@ -906,18 +921,15 @@
 
                     <div>
                         <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
-                        <input type="hidden" name="hin" value="<carlos:encode value='<%= hin %>' context="htmlAttribute"/>"/>
-                        <input type="hidden" name="mrp" value="<carlos:encode value='<%= mrp %>' context="htmlAttribute"/>"/>
-                        <input type="hidden" name="module" value="prevention">
                                 <%
                  if (!io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("PREVENTION_CLASSIC_VIEW","yes")){
                    ArrayList<Map<String,Object>> hiddenlist = new ArrayList<Map<String,Object>>();
                   for (int i = 0 ; i < prevList.size(); i++){
                   		HashMap<String,String> h = prevList.get(i);
                         String prevName = h.get("name");
-                        ArrayList<Map<String,Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, Integer.valueOf(demographic_no));
+                        ArrayList<Map<String,Object>> alist = pageData.getPreventionData(prevName);
 
-                        boolean show = pdc.display(loggedInInfo, h, demographic_no,alist.size());
+                        boolean show = pdc.display(h, demo, alist.size());
                         if(!show){
                             Map<String,Object> h2 = new HashMap<String,Object>();
                             h2.put("prev",h);
@@ -938,8 +950,9 @@
 
                             %>
                             <div style="position: relative; float: left; padding-right: 10px;">
+                                <%-- Valued by type name: the server prints that type's chart records. --%>
                                 <input style="display: none;" type="checkbox" name="printHP"
-                                       value="<%=i%>" checked/> <%
+                                       value="<carlos:encode value='<%= prevName %>' context="htmlAttribute"/>" checked/> <%
                             } else {
 
                             %>
@@ -1035,8 +1048,10 @@
 
                                     %>
                                     <div style="position: relative; float: left; padding-right: 10px;">
+                                        <%-- The hidden list numbered this box by its own position, which printed
+                                             a different type; it is valued by type name like the visible list. --%>
                                         <input style="display: none;" type="checkbox" name="printHP"
-                                               value="<%=i%>" checked/> <%} else {%>
+                                               value="<carlos:encode value='<%= prevName %>' context="htmlAttribute"/>" checked/> <%} else {%>
                                         <div style="position: relative; float: left; padding-right: 25px;">
                                             <span style="display: none;" name="printSp">&nbsp;</span> <%
                                             }
@@ -1122,7 +1137,7 @@
                                        onclick="var el=document.getElementById('<%="prev"+setNum%>'); el.style.display=(el.style.display==='none'?'':'none'); return false;"
                                        style="font-size: xx-small;">show/hide</a>
                                     <div class="preventionSet"
-                                         <%=pdc.getDisplay(loggedInInfo, setHash,demographic_no)%>;
+                                         <%=pdc.getDisplay(setHash, demo)%>;
                                     " id="<%="prev" + setNum%>">
                                     <%
                                         for (int i = 0; i < prevs.length; i++) {
@@ -1143,7 +1158,7 @@
                                         </div>
                                         <%
                                             String prevType = h.get("name");
-                                            ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevType, Integer.valueOf(demographic_no));
+                                            ArrayList<Map<String, Object>> alist = pageData.getPreventionData(prevType);
 
                                             String result;
                                             for (int k = 0; k < alist.size(); k++) {
@@ -1180,95 +1195,11 @@
 			</input>
             </td>
 
+            <%-- The print form posts the patient and the ticked type names only. It used to repeat every
+                 record's comments, reasons, vaccine names and lots here as hidden fields, which the
+                 packaged WAF refused on this route whenever a comment read like an attack signature
+                 ("...; find attached..."), so printing failed for that patient. --%>
             <input type="hidden" id="demographicNo" name="demographicNo" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
-
-            <%
-                for (int i = 0; i < prevList.size(); i++) {
-                    HashMap<String, String> h = prevList.get(i);
-                    String prevName = h.get("name");
-                    ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, Integer.valueOf(demographic_no));
-
-                    if (alist.size() > 0) { %>
-            <input type="hidden" id="preventionHeader<%=i%>"
-                   name="preventionHeader<%=i%>" value="<carlos:encode value='<%= h.get("name") %>' context="htmlAttribute"/>">
-
-            <%
-                for (int k = 0; k < alist.size(); k++) {
-                    Map<String, Object> hdata = alist.get(k);
-                    Map<String, String> hExt = PreventionData.getPreventionKeyValues((String) hdata.get("id"));
-            %>
-
-            <input type="hidden" id="preventProcedureProvider<%=i%>-<%=k%>"
-                   name="preventProcedureProvider<%=i%>-<%=k%>" value="<carlos:encode value='<%= hdata.get("provider_name") != null ? String.valueOf(hdata.get("provider_name")) : "" %>' context="htmlAttribute"/>"/>
-
-            <input type="hidden" id="preventProcedureStatus<%=i%>-<%=k%>"
-                   name="preventProcedureStatus<%=i%>-<%=k%>"
-                   value="<carlos:encode value='<%= hdata.get("refused") != null ? String.valueOf(hdata.get("refused")) : "" %>' context="htmlAttribute"/>">
-            <input type="hidden" id="preventProcedureAge<%=i%>-<%=k%>"
-                   name="preventProcedureAge<%=i%>-<%=k%>"
-                   value="<carlos:encode value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' context="htmlAttribute"/>">
-            <input type="hidden" id="preventProcedureDate<%=i%>-<%=k%>"
-                   name="preventProcedureDate<%=i%>-<%=k%>"
-                   value="<carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="htmlAttribute"/>">
-            <% String comments = hExt.get("comments");
-                if (comments != null && !comments.isEmpty()) {%>
-            <input type="hidden" id="preventProcedureComments<%=i%>-<%=k%>"
-                   name="preventProcedureComments<%=i%>-<%=k%>"
-                   value="<carlos:encode value='<%= comments %>' context="htmlAttribute"/>">
-            <% } %>
-
-            <% String result = hExt.get("result");
-                if (result != null && !result.isEmpty()) {%>
-            <input type="hidden" id="preventProcedureResult<%=i%>-<%=k%>"
-                   name="preventProcedureResult<%=i%>-<%=k%>"
-                   value="<carlos:encode value='<%= result %>' context="htmlAttribute"/>">
-            <% } %>
-
-            <% String reason = hExt.get("reason");
-                if (reason != null && !reason.isEmpty()) {%>
-            <input type="hidden" id="preventProcedureReason<%=i%>-<%=k%>"
-                   name="preventProcedureReason<%=i%>-<%=k%>"
-                   value="<carlos:encode value='<%= reason %>' context="htmlAttribute"/>">
-            <% } %>
-
-            <% String nameOfVaccine = hExt.get("name");
-                if (nameOfVaccine != null && !nameOfVaccine.isEmpty()) {%>
-            <input type="hidden" id="preventProcedureNameOfVaccine<%=i%>-<%=k%>"
-                   name="preventProcedureNameOfVaccine<%=i%>-<%=k%>"
-                   value="<carlos:encode value='<%= nameOfVaccine %>' context="htmlAttribute"/>">
-            <% } %>
-
-            <% String manufacture = hExt.get("manufacture");
-                if (manufacture != null && !manufacture.isEmpty()) {%>
-            <input type="hidden" id="preventProcedureManufacture<%=i%>-<%=k%>"
-                   name="preventProcedureManufacture<%=i%>-<%=k%>"
-                   value="<carlos:encode value='<%= manufacture %>' context="htmlAttribute"/>">
-            <% } %>
-
-            <% String lotID = hExt.get("lot");
-                if (lotID != null && !lotID.isEmpty()) {%>
-            <input type="hidden" id="preventProcedureLotID<%=i%>-<%=k%>"
-                   name="preventProcedureLotID<%=i%>-<%=k%>"
-                   value="<carlos:encode value='<%= lotID %>' context="htmlAttribute"/>">
-            <% } %>
-
-            <% String doseAdministered = hExt.get("dose");
-                if (doseAdministered != null && !doseAdministered.isEmpty()) {%>
-            <input type="hidden" id="preventProcedureDoseAdministered<%=i%>-<%=k%>"
-                   name="preventProcedureDoseAdministered<%=i%>-<%=k%>"
-                   value="<carlos:encode value='<%= doseAdministered %>' context="htmlAttribute"/>">
-            <% } %>
-
-            <% String locationOfShot = hExt.get("location");
-                if (locationOfShot != null && !locationOfShot.isEmpty()) {%>
-            <input type="hidden" id="preventProcedureLocationOfShot<%=i%>-<%=k%>"
-                   name="preventProcedureLocationOfShot<%=i%>-<%=k%>"
-                   value="<carlos:encode value='<%= locationOfShot %>' context="htmlAttribute"/>">
-            <% }
-            }
-            }
-            } //for there are preventions
-            %>
             </form>
         </tr>
     </table>
@@ -1368,6 +1299,17 @@
 
             input.addEventListener('keydown', function(e) {
                 var items = dropdown.querySelectorAll('.ac-item');
+                if (e.key === 'Enter') {
+                    // An IME's Enter confirms the composed text; it neither picks nor submits.
+                    if (e.isComposing || e.keyCode === 229) return;
+                    // The box sits inside the print form: Enter must never submit it. Enter picks
+                    // the highlighted suggestion, else the first one shown, else does nothing.
+                    e.preventDefault();
+                    if (items.length && dropdown.style.display !== 'none') {
+                        items[activeIdx >= 0 ? activeIdx : 0].dispatchEvent(new MouseEvent('mousedown'));
+                    }
+                    return;
+                }
                 if (!items.length) return;
                 if (e.key === 'ArrowDown') {
                     e.preventDefault();
@@ -1385,9 +1327,6 @@
                     items.forEach(function(el) { el.setAttribute('aria-selected', 'false'); });
                     items[activeIdx].setAttribute('aria-selected', 'true');
                     input.setAttribute('aria-activedescendant', items[activeIdx].id);
-                } else if (e.key === 'Enter' && activeIdx >= 0) {
-                    e.preventDefault();
-                    items[activeIdx].dispatchEvent(new MouseEvent('mousedown'));
                 } else if (e.key === 'Escape') {
                     dropdown.style.display = 'none';
                     input.setAttribute('aria-expanded', 'false');
@@ -1568,6 +1507,17 @@
             /* Keyboard navigation */
             input.addEventListener('keydown', function(e) {
                 var items = dropdown.querySelectorAll('.ac-item');
+                if (e.key === 'Enter') {
+                    // An IME's Enter confirms the composed text; it neither picks nor submits.
+                    if (e.isComposing || e.keyCode === 229) return;
+                    // The box sits inside the print form: Enter must never submit it. Enter picks
+                    // the highlighted suggestion, else the first one shown, else does nothing.
+                    e.preventDefault();
+                    if (items.length && dropdown.style.display !== 'none') {
+                        items[activeIdx >= 0 ? activeIdx : 0].dispatchEvent(new MouseEvent('mousedown'));
+                    }
+                    return;
+                }
                 if (!items.length) return;
                 if (e.key === 'ArrowDown') {
                     e.preventDefault();
@@ -1585,9 +1535,6 @@
                     items.forEach(function(el) { el.setAttribute('aria-selected', 'false'); });
                     items[activeIdx].setAttribute('aria-selected', 'true');
                     input.setAttribute('aria-activedescendant', items[activeIdx].id);
-                } else if (e.key === 'Enter' && activeIdx >= 0) {
-                    e.preventDefault();
-                    items[activeIdx].dispatchEvent(new MouseEvent('mousedown'));
                 } else if (e.key === 'Escape') {
                     dropdown.style.display = 'none';
                     input.setAttribute('aria-expanded', 'false');

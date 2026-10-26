@@ -34,6 +34,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -110,6 +111,7 @@ function cleanupSyntheticPatient() {
     'Owned new-patient fixture identity changed');
     sql(`DELETE FROM admission WHERE client_id=${leftover}`);
     sql(`DELETE FROM demographicArchive WHERE demographic_no=${leftover}`);
+    sql(`DELETE FROM demographiccust WHERE demographic_no=${leftover}`);
     sql(`DELETE FROM demographic WHERE demographic_no=${leftover} AND last_name='${fixtureLastName}'`);
     assert(sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${leftover}`) === '0',
       'Owned new-patient fixture was not removed');
@@ -130,7 +132,7 @@ const signalHandlers = installCleanupSignalHandlers(() => {
   const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
   initMysqlDefaults();
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const schedulePage = await login(context, config, recorder);
 
     // User path: Search popup from the schedule banner.

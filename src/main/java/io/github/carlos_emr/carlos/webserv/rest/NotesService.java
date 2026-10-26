@@ -110,6 +110,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 
 
 @Path("/notes")
@@ -336,7 +337,11 @@ public class NotesService extends AbstractServiceImpl {
             logger.debug("autosave noteId={}", note != null ? note.getNoteId() : null);
         }
 
+        if (note == null || note.getNote() == null) {
+            throw new WebApplicationException("Missing draft text", Response.Status.BAD_REQUEST);
+        }
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //  LoggedInInfo.loggedInInfo.get();
+        requireDraftPatientAccess(loggedInInfo, demographicNo, "w");
         String providerNo = loggedInInfo.getLoggedInProvider().getProviderNo();
 
         // Ownership check (IDOR hardening, issue #2839 class): this endpoint writes a draft
@@ -350,12 +355,11 @@ public class NotesService extends AbstractServiceImpl {
 
         String programId = getProgram(loggedInInfo, providerNo);
         String noteStr = note.getNote();
-        String noteId = "" + note.getNoteId();
-
-        try {
-            Integer.parseInt(noteId);
-        } catch (Exception e) {
-            noteId = null;
+        String noteId = note.getNoteId() == null ? "0" : Integer.toString(Math.max(0, note.getNoteId()));
+        if (note.getNoteId() != null && note.getNoteId() > 0) {
+            CaseManagementNote original = caseManagementMgr.getNote(noteId);
+            if (original == null) throw new WebApplicationException("Draft note no longer exists", Response.Status.CONFLICT);
+            requireDraftNoteAccess(loggedInInfo, demographicNo, programId, original);
         }
 
         // The draft carries a noteId that getCurrentNote later restores from. Bind it to
@@ -383,24 +387,40 @@ public class NotesService extends AbstractServiceImpl {
 
 		}		
 		*/
-        if (noteStr == null || noteStr.length() == 0) {
-            return null;
-        }
-
-        //delete from tmp save and then add another
         try {
-            caseManagementMgr.deleteTmpSave(providerNo, "" + demographicNo, programId);
-            caseManagementMgr.tmpSave(providerNo, "" + demographicNo, programId, noteId, noteStr);
+            caseManagementMgr.replaceTmpSave(providerNo, "" + demographicNo, programId, noteId, noteStr);
         } catch (Exception e) {
-            // Autosave failed. Do NOT echo the note back with HTTP 200 as if it saved: deleteTmpSave may
-            // already have removed the previous draft and the new draft was not persisted, so the client
-            // must learn the save failed and keep its dirty in-memory copy to retry. (Narrowed from
+            // Autosave failed. Do NOT echo the note back with HTTP 200 as if it saved: the client
+            // must keep its dirty in-memory copy to retry. The manager rolls back replacement of
+            // the previous draft. (Narrowed from
             // Throwable so JVM Errors are not swallowed.)
             logger.error("AutoSave failed for the draft note; returning an error so the client retains its unsaved copy", e);
             throw new WebApplicationException("Autosave failed", Response.Status.INTERNAL_SERVER_ERROR);
         }
 
         return note;
+    }
+
+    /** Draft producers and consumers share the named patient's clinical access boundary. */
+    private void requireDraftPatientAccess(LoggedInInfo login, Integer patient, String right) {
+        if (patient == null || patient <= 0) {
+            throw new WebApplicationException("Invalid draft patient", Response.Status.BAD_REQUEST);
+        }
+        if (login == null || login.getLoggedInProvider() == null
+                || !securityInfoManager.hasPrivilege(login, "_eChart", right, patient.toString())
+                || !securityInfoManager.hasPrivilege(login, "_casemgmt.notes", right, patient.toString())
+                || !securityInfoManager.isAllowedAccessToPatientRecord(login, patient)) {
+            throw new WebApplicationException("Draft access denied", Response.Status.FORBIDDEN);
+        }
+    }
+
+    /** Preserve permitted cross-program editing while refusing another patient's or hidden note. */
+    private void requireDraftNoteAccess(LoggedInInfo login, Integer patient, String program, CaseManagementNote note) {
+        if (!patient.toString().equals(note.getDemographic_no())
+                || (program != null && !"0".equals(program) && caseManagementMgr.filterNotes(login,
+                login.getLoggedInProviderNo(), List.of(note), program).isEmpty())) {
+            throw new WebApplicationException("Draft note access denied", Response.Status.FORBIDDEN);
+        }
     }
 
     private String getProgram(LoggedInInfo loggedInInfo, String providerNo) {
@@ -444,6 +464,10 @@ public class NotesService extends AbstractServiceImpl {
         // PHI: note may contain clinical content; log only identifier
         if (logger.isDebugEnabled()) {
             logger.debug("saveNote noteId={}", note != null ? note.getNoteId() : null);
+        }
+        // A request without a note body has nothing to save, as a note without text below.
+        if (note == null) {
+            return null;
         }
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //LoggedInInfo.loggedInInfo.get();
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1148,7 +1172,7 @@ public class NotesService extends AbstractServiceImpl {
 
 
     private String getString(ObjectNode jsonobject, String key) {
-        if (jsonobject.has(key)) {
+        if (jsonobject != null && jsonobject.hasNonNull(key)) {
             return jsonobject.get(key).asText();
         }
         return null;
@@ -1169,10 +1193,12 @@ public class NotesService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public NoteTo1 getCurrentNote(@PathParam("demographicNo") Integer demographicNo, ObjectNode jsonobject) {
+        if (jsonobject == null) throw new WebApplicationException("Missing note request", Response.Status.BAD_REQUEST);
         if (logger.isDebugEnabled()) {
-            logger.debug("getCurrentNote {}", jsonobject);
+            logger.debug("getCurrentNote request received");
         }
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //LoggedInInfo.loggedInInfo.get();
+        requireDraftPatientAccess(loggedInInfo, demographicNo, "r");
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -1234,7 +1260,10 @@ public class NotesService extends AbstractServiceImpl {
 
 
         logger.debug("Get Note for editing");
-        EctSessionBean bean = (session != null) ? (EctSessionBean) session.getAttribute("EctSessionBean") : null;
+        // This patient's own chart entry, never the login-wide EctSessionBean: that bean names
+        // whichever chart was entered last in any window (issue #4673).
+        EctSessionBean bean = demographicNo == null || demographicNo <= 0 ? null
+                : EncounterPatientContext.findEncounter(getHttpServletRequest(), String.valueOf(demographicNo));
         String encType = getString(jsonobject, "encType");
 
         logger.debug("Encounter Type : {}", encType);
@@ -1276,15 +1305,17 @@ public class NotesService extends AbstractServiceImpl {
         // get the last temp note?
         else if (tmpsavenote != null && !forceNote.equals("true")) {
             logger.debug("tempsavenote is NOT NULL == noteId :{}", tmpsavenote.getNoteId());
-            if (tmpsavenote.getNoteId() > 0) {
+            if (tmpsavenote.getNoteId() != null && tmpsavenote.getNoteId() > 0) {
 //				session.setAttribute("newNote", "false");
-                // The restored draft's noteId originates from a caller-supplied tmpSave
-                // payload, so it is no more trusted than the explicit nId branch below:
-                // check it belongs to this patient before returning the stored note's
-                // uuid/provider/encounter metadata (IDOR hardening, issue #2839 class).
-                note = requireOwnedNote(String.valueOf(tmpsavenote.getNoteId()), demoNo, "r");
-                logger.debug("Restoring {}", note.getId());
-            } else {
+                note = caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId()));
+                if (note != null) {
+                    requireDraftNoteAccess(loggedInInfo, demographicNo, programIdString, note);
+                    CaseManagementNote draftView = note.copyForRevision();
+                    draftView.setId(note.getId());
+                    note = draftView;
+                }
+            }
+            if (note == null) {
                 logger.debug("creating new note");
 //				session.setAttribute("newNote", "true");
 //				session.setAttribute("issueStatusChanged", "false");
@@ -1305,17 +1336,22 @@ public class NotesService extends AbstractServiceImpl {
 
         }
         // get an existing non-temp note?
-        else if (nId != null && Integer.parseInt(nId) > 0) {
+        else if (nId != null && requestedNoteId(nId) > 0) {
             logger.debug("Using nId {} to fetch note", nId);
 //			session.setAttribute("newNote", "false");
-            note = requireOwnedNote(nId, demoNo, "r");
+            note = caseManagementMgr.getNote(nId);
+            if (note == null) throw new WebApplicationException("Note not found", Response.Status.NOT_FOUND);
+            requireDraftNoteAccess(loggedInInfo, demographicNo, programIdString, note);
+            CaseManagementNote editorView = note.copyForRevision();
+            editorView.setId(note.getId());
+            note = editorView;
 
             if (note.getHistory() == null || note.getHistory().equals("")) {
                 // old note - we need to save the original in here
                 note.setHistory(note.getNote());
 
-                caseManagementMgr.saveNoteSimple(note);
-//				addNewNoteLink(Long.parseLong(nId));
+                // The editor's read model may show its initial history; reading a note
+                // does not migrate or persist clinical content under read-only grants.
             }
 
         }
@@ -1439,6 +1475,14 @@ public class NotesService extends AbstractServiceImpl {
         returnNote.setAppointmentNo(nd.getAppointmentNo());
 
         return returnNote;
+    }
+
+    private static int requestedNoteId(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException invalidId) {
+            throw new WebApplicationException("Invalid note identifier", Response.Status.BAD_REQUEST);
+        }
     }
 
 

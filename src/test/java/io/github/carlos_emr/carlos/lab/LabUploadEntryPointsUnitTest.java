@@ -340,40 +340,66 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
                 .consume(request.getSession(), receipt)).isEqualTo(outcome);
     }
 
-    /** Runs the signed feed on a saved copy in {@code root} (standing in for DOCUMENT_DIR) and returns that copy. */
+    /** Runs the signed feed with distinct upload/staging/saved paths and the real storage helper. */
     private Path runSignedFeed(boolean signatureValid) throws Exception {
-        Path file = Files.writeString(root.resolve("synthetic.hl7"), "SYNTHETIC");
+        Path uploaded = Files.writeString(root.resolve("synthetic.enc"), "SYNTHETIC");
+        Path staged = Files.createTempFile("lab-upload-entry-staged", ".tmp");
+        Path saved = root.resolve("synthetic.hl7");
         request.setParameter("service", "synthetic");
         request.setParameter("key", "test");
         request.setParameter("signature", "test");
         request.setParameter("use_http_response_code", "true");
         PublicKey key = mock(PublicKey.class);
+        boolean[] replay = {false};
         try (MockedStatic<ServletActionContext> context = mockStatic(ServletActionContext.class);
                 MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class);
                 MockedStatic<Utilities> utilities = mockStatic(Utilities.class);
                 MockedStatic<HandlerClassFactory> handlers = mockStatic(HandlerClassFactory.class);
-                MockedStatic<LabUpload2Action> feed = mockStatic(LabUpload2Action.class)) {
+                MockedStatic<LabUpload2Action> feed = mockStatic(LabUpload2Action.class, invocation -> replay[0]
+                        ? invocation.callRealMethod() : RETURNS_DEFAULTS.answer(invocation))) {
             context.when(ServletActionContext::getRequest).thenReturn(request);
             context.when(ServletActionContext::getResponse).thenReturn(response);
-            paths.when(() -> PathValidationUtils.validateUpload(any(File.class))).thenReturn(file.toFile());
+            paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile())).thenReturn(uploaded.toFile());
+            paths.when(() -> PathValidationUtils.createSecureTempFile("LabUploadVerify", ".tmp"))
+                    .thenReturn(staged.toFile());
             InputStream encrypted = spy(new java.io.ByteArrayInputStream("SYNTHETIC".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-            paths.when(() -> PathValidationUtils.openValidatedUploadInputStream(file.toFile())).thenReturn(encrypted);
-            paths.when(() -> PathValidationUtils.validateExistingDocumentPath(file.toString())).thenReturn(file.toFile());
+            paths.when(() -> PathValidationUtils.openValidatedUploadInputStream(uploaded.toFile())).thenReturn(encrypted);
+            paths.when(() -> PathValidationUtils.validateExistingDocumentPath(saved.toString())).thenReturn(saved.toFile());
             paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(root.toFile());
-            paths.when(() -> PathValidationUtils.validateExistingPath(file.toFile(), root.toFile())).thenReturn(file.toFile());
-            utilities.when(() -> Utilities.saveFile(any(InputStream.class), anyString())).thenReturn(file.toString());
+            paths.when(() -> PathValidationUtils.validateExistingPath(saved.toFile(), root.toFile())).thenReturn(saved.toFile());
+            utilities.when(() -> Utilities.saveFile(any(InputStream.class), anyString())).thenAnswer(invocation -> {
+                // Create the durable copy only when the receiver calls the saver after verification.
+                assertThat(staged).exists();
+                assertThat(Files.readString(staged)).isEqualTo("SYNTHETIC");
+                try (InputStream verified = invocation.getArgument(0)) {
+                    Files.write(saved, verified.readAllBytes());
+                }
+                return saved.toString();
+            });
             handlers.when(() -> HandlerClassFactory.getHandler("CML")).thenReturn(handler);
             feed.when(() -> LabUpload2Action.getClientInfo("synthetic")).thenReturn(new ArrayList<>(List.of(key, "CML")));
             feed.when(() -> LabUpload2Action.decryptMessage(any(InputStream.class), eq("test"), eq(key)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
-            feed.when(() -> LabUpload2Action.validateSignature(key, "test", file.toFile())).thenReturn(signatureValid);
+            feed.when(() -> LabUpload2Action.validateSignature(key, "test", staged.toFile())).thenReturn(signatureValid);
+            feed.when(() -> LabUpload2Action.validateSignature(key, "test", saved.toFile())).thenReturn(true);
+            replay[0] = true;
             LabUpload2Action action = new LabUpload2Action();
-            action.setImportFile(file.toFile());
+            action.setImportFile(uploaded.toFile());
             signedFeedResult = action.execute();
-            paths.verify(() -> PathValidationUtils.openValidatedUploadInputStream(file.toFile()));
+            paths.verify(() -> PathValidationUtils.openValidatedUploadInputStream(uploaded.toFile()));
+            feed.verify(() -> LabUpload2Action.validateSignature(key, "test", staged.toFile()));
+            if (signatureValid) {
+                feed.verify(() -> LabUpload2Action.validateSignature(key, "test", saved.toFile()));
+            } else {
+                utilities.verifyNoInteractions();
+            }
             verify(encrypted, atLeastOnce()).close();
+            assertThat(staged).doesNotExist();
+        } finally {
+            Files.deleteIfExists(staged);
+            Files.deleteIfExists(uploaded);
         }
-        return file;
+        return saved;
     }
 
     private SubmitLabByForm2Action runManualForm(boolean failRouting) throws Exception {

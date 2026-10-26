@@ -28,7 +28,7 @@
  * (issue #3377) -- both green through every check the suite had.
  *
  * READ-ONLY. It opens each item and closes it again; it submits no form, so it
- * seeds nothing and has nothing to clean up. The three items that would not be
+ * seeds nothing and has nothing to clean up. The items that would not be
  * read-only are listed in SKIP_ITEMS with the reason.
  *
  * Defaults are for the local devcontainer:
@@ -68,6 +68,12 @@ const SKIP_ITEMS = [
     match: /^log\s*out$/i,
     reason: 'ends the session the remaining items need',
   },
+  {
+    // Both BC File2 items: their labels are swapped (#4439 D4), so which label the generating one carries
+    // depends on whether that is fixed. The simulation is read-only; billing-bc-teleplan-file covers both.
+    match: /^\s*(simulate\s+submission|generate\s+teleplan)\s+file2\s*$/i,
+    reason: 'on BC, opening Generate Teleplan File writes a Teleplan batch (#4439 D3); billing-bc-teleplan-file covers both items and restores what they write',
+  },
 ];
 
 async function main() {
@@ -102,8 +108,23 @@ async function main() {
     // is itself broken.
     assertStrictPage(recorder, ['login', 'administration']);
 
-    const items = dedupe(await catalogueLinks(adminPage))
-      .filter((item) => !only || item.text.toLowerCase().includes(only));
+    const catalogue = dedupe(await catalogueLinks(adminPage));
+
+    // Finding 191 / issue #4564: the HSFO and HSFO2 submission entries pointed at
+    // admin/RecommitHSFO and admin/RecommitHSFO2, which have no route, and were
+    // retired. They only rendered on a site that set hsfo.loginSiteCode or
+    // hsfo2.loginSiteCode, so on an install that leaves both unset (the default)
+    // this assertion cannot see them and passes regardless: it is only a
+    // browser-level guard when run against a deployment that sets one of those
+    // properties (the packaged-install validation for #4564 did). The
+    // unconditional guard is AdministrationHsfoRemovalUnitTest, which reads
+    // leftNav.jspf itself. Checked on the whole catalogue, before the
+    // ADMIN_LINKS_ONLY filter narrows it.
+    const retiredHsfo = catalogue.filter((item) => /hsfo/i.test(`${item.text} ${item.href || ''} ${item.route || ''}`));
+    assert(retiredHsfo.length === 0,
+      `The Administration panel offers retired HSFO entries (finding 191): ${retiredHsfo.map((item) => item.text).join(', ')}`);
+
+    const items = catalogue.filter((item) => !only || item.text.toLowerCase().includes(only));
     assert(items.length > 0, 'The Administration panel offered no navigable links at all');
 
     const result = await auditCatalogue({

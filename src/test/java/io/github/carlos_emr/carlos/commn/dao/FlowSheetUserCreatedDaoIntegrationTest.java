@@ -92,4 +92,36 @@ public class FlowSheetUserCreatedDaoIntegrationTest extends CarlosTestBase {
             assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
         }
     }
+
+    private FlowSheetUserCreated persistProviderFlowsheet(String scope, String name, String template) throws Exception {
+        FlowSheetUserCreated flowsheet = new FlowSheetUserCreated();
+        EntityDataGenerator.generateTestDataForModelClass(flowsheet);
+        flowsheet.setScope(scope);
+        flowsheet.setScopeProviderNo("999001");
+        flowsheet.setName(name);
+        flowsheet.setTemplate(template);
+        flowsheet.setArchived(false);
+        dao.persist(flowsheet);
+        return flowsheet;
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find provider flowsheets stored with either spelling of the provider scope")
+    void shouldFindProviderFlowsheets_inBothStoredScopes() throws Exception {
+        // "provider" as saved before a namespace rename; "providers" as saved while it was in place.
+        FlowSheetUserCreated before = persistProviderFlowsheet(FlowSheetUserCreated.SCOPE_PROVIDER, "fpw1", "fakeTemplateOld");
+        FlowSheetUserCreated during = persistProviderFlowsheet(FlowSheetUserCreated.SCOPE_PROVIDER_RENAMED, "fpw2", "fakeTemplateNew");
+        FlowSheetUserCreated clinic = persistProviderFlowsheet(FlowSheetUserCreated.SCOPE_CLINIC, "fpw3", "fakeTemplateClinic");
+
+        assertThat(dao.findByProviderScope("fakeTemplateOld", "999001")).isEqualTo(before);
+        assertThat(dao.findByProviderScope("fakeTemplateNew", "999001")).isEqualTo(during);
+        assertThat(dao.findByProviderScopeName("fpw1", "999001")).isEqualTo(before);
+        assertThat(dao.findByProviderScopeName("fpw2", "999001")).isEqualTo(during);
+        assertThat(dao.findByProviderScope("fakeTemplateClinic", "999001")).isNull();
+        // The Flowsheet Manager lists provider flowsheets with scope=provider.
+        assertThat(dao.findActiveByScope(FlowSheetUserCreated.SCOPE_PROVIDER)).contains(before, during).doesNotContain(clinic);
+        assertThat(dao.findActiveByScope(FlowSheetUserCreated.SCOPE_PROVIDER_RENAMED)).contains(before, during);
+        assertThat(dao.findActiveByScope(FlowSheetUserCreated.SCOPE_CLINIC)).contains(clinic).doesNotContain(before, during);
+    }
 }

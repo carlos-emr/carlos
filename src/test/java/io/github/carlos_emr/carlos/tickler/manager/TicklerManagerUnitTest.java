@@ -29,10 +29,13 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
 import io.github.carlos_emr.carlos.managers.TicklerManagerImpl;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.tickler.TicklerUnitTestBase;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -103,6 +106,51 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         injectDependency(ticklerManager, "ticklerCommentDao", mockTicklerCommentDao);
         injectDependency(ticklerManager, "ticklerDocsDao", mockTicklerDocsDao);
         injectDependency(ticklerManager, "securityInfoManager", mockSecurityInfoManager);
+    }
+
+    @Nested
+    @DisplayName("Scalar note authorization lookup")
+    class ScalarNoteAuthorizationLookup {
+        @Test
+        void shouldAuditScalarPatientLookup_withoutLoadingTicklerDetails() {
+            when(mockTicklerDao.findDemographicNos(17)).thenReturn(List.of(TEST_DEMO_NO));
+            assertThat(ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17)).isEqualTo(TEST_DEMO_NO);
+            logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo,
+                    "TicklerManager.getTickler", "id=17"));
+            logActionMock.verifyNoMoreInteractions();
+            verify(mockTicklerDao).findDemographicNos(17);
+            verifyNoMoreInteractions(mockTicklerDao);
+        }
+
+        @Test
+        void shouldAuditMissingScalarPatient_withoutLoadingAnyEntity() {
+            assertThat(ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17)).isNull();
+            logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo,
+                    "TicklerManager.getTickler", ""));
+            logActionMock.verifyNoMoreInteractions();
+            verify(mockTicklerDao).findDemographicNos(17);
+            verifyNoMoreInteractions(mockTicklerDao);
+        }
+
+        @Test
+        void shouldKeepExistingTicklerAuditIdentity_whenTheStoredPatientIsUnassigned() {
+            when(mockTicklerDao.findDemographicNos(17)).thenReturn(java.util.Collections.singletonList(null));
+            assertThat(ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17)).isNull();
+            logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo,
+                    "TicklerManager.getTickler", "id=17"));
+            logActionMock.verifyNoMoreInteractions();
+            verify(mockTicklerDao).findDemographicNos(17);
+            verifyNoMoreInteractions(mockTicklerDao);
+        }
+
+        @Test
+        void shouldRejectMissingReadPrivilege_beforeScalarLookupOrAudit() {
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", "r", null)).thenReturn(false);
+            assertThatThrownBy(() -> ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17))
+                    .isInstanceOf(RuntimeException.class).hasMessageContaining("_tickler");
+            logActionMock.verifyNoInteractions();
+            verifyNoInteractions(mockTicklerDao);
+        }
     }
 
     @Nested
@@ -327,4 +375,57 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         }
     }
 
+    @Nested
+    @DisplayName("Clinical record retention on deletion")
+    @Tag("delete")
+    class DeleteTickler {
+
+        @ParameterizedTest
+        @EnumSource(value = Tickler.STATUS.class, names = {"A", "C"})
+        @DisplayName("should retain the task and comments and append history when marking deleted")
+        void shouldRetainClinicalRecord_whenMarkingDeleted(Tickler.STATUS initialStatus) {
+            Integer ticklerId = 77;
+            Tickler tickler = createTestTicklerWithId(ticklerId);
+            tickler.setStatus(initialStatus);
+            var comment = new io.github.carlos_emr.carlos.commn.model.TicklerComment();
+            comment.setId(101);
+            tickler.getComments().add(comment);
+            TicklerUpdate history = new TicklerUpdate();
+            history.setId(102);
+            tickler.getUpdates().add(history);
+            when(mockTicklerDao.find(ticklerId)).thenReturn(tickler);
+
+            ticklerManager.deleteTickler(mockLoggedInInfo, ticklerId, TEST_PROVIDER);
+
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.D);
+            assertThat(tickler.getMessage()).isEqualTo(TEST_MESSAGE);
+            assertThat(tickler.getComments()).singleElement().isSameAs(comment);
+            assertThat(tickler.getUpdates()).singleElement().isSameAs(history);
+            var update = org.mockito.ArgumentCaptor.forClass(TicklerUpdate.class);
+            verify(mockTicklerUpdateDao).persist(update.capture());
+            assertThat(update.getValue().getTicklerNo()).isEqualTo(77);
+            assertThat(update.getValue().getStatus()).isEqualTo(Tickler.STATUS.D);
+            assertThat(update.getValue().getProviderNo()).isEqualTo(TEST_PROVIDER);
+            verify(mockTicklerDao).find(ticklerId);
+            verify(mockTicklerDao).merge(tickler);
+            verifyNoMoreInteractions(mockTicklerDao, mockTicklerUpdateDao);
+            verifyNoInteractions(mockTicklerCommentDao, mockTicklerDocsDao);
+        }
+
+        @Test
+        @DisplayName("should retain an already deleted task without rewriting history")
+        void shouldRetainDeletedTask_whenDeletedAgain() {
+            Integer ticklerId = 78;
+            Tickler tickler = createTestTicklerWithId(ticklerId);
+            tickler.setStatus(Tickler.STATUS.D);
+            when(mockTicklerDao.find(ticklerId)).thenReturn(tickler);
+
+            ticklerManager.deleteTickler(mockLoggedInInfo, ticklerId, TEST_PROVIDER);
+
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.D);
+            verify(mockTicklerDao).find(ticklerId);
+            verifyNoMoreInteractions(mockTicklerDao);
+            verifyNoInteractions(mockTicklerUpdateDao, mockTicklerCommentDao, mockTicklerDocsDao);
+        }
+    }
 }

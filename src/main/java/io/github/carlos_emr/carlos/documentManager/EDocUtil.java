@@ -449,6 +449,9 @@ public final class EDocUtil {
                 doc.setDocfilename(newDocument.getFileName());
                 doc.setContenttype(newDocument.getContentType());
                 doc.setContentdatetime(newDocument.getContentDateTime());
+                // The replacement's page count, as adding a document stores it (0 when it is not a PDF);
+                // the inbox view, the document display and Split read it.
+                doc.setNumberofpages(newDocument.getNumberOfPages());
             }
 
             doc.setAbnormal(Boolean.parseBoolean(newDocument.getAbnormal()));
@@ -1425,19 +1428,15 @@ public final class EDocUtil {
             }
 
             // Get the canonical path to resolve any symbolic links or relative paths
-            String canonicalPath = inputFile.getCanonicalPath();
+            File canonicalFile = inputFile.getCanonicalFile();
 
-            // Accepted: a file in an allowed temp directory or in the document directory. The temp
-            // check runs first because validateExistingPath logs every rejection at ERROR before it
-            // throws: trying the document directory first logged a false "outside allowed directory"
-            // error for every legitimate staged file, once per fax cover-page preview image. The
-            // order does not change what is accepted; both are canonical-path containment checks.
-            if (PathValidationUtils.isInAllowedTempDirectory(inputFile)) {
-                return canonicalPath;
+            // Preserve the existing allowed-temp policy, checking its canonical target before
+            // the document-only validator logs a rejection. Operate on that same canonical file.
+            if (PathValidationUtils.isInAllowedTempDirectory(canonicalFile)) {
+                return canonicalFile.getPath();
             }
             try {
-                PathValidationUtils.validateExistingPath(inputFile, documentDir);
-                return canonicalPath;
+                return PathValidationUtils.validateExistingPath(canonicalFile, documentDir).getPath();
             } catch (SecurityException e) {
                 logger.error("Security violation: Attempted to access file outside allowed directory");
                 throw new SecurityException("Access denied: File is outside the allowed directories");

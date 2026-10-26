@@ -30,13 +30,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Small HTTP-method guard helpers shared by the migrated Ontario billing
- * Struts actions.
+ * Struts actions and the BC billing deletes.
  *
  * <p>The older actions relied on framework defaults and scattered inline
  * checks. Centralizing the POST guard keeps the write-action contract obvious
  * and consistent across the remaining multi-method actions.</p>
  */
-final class BillingRequestGuards {
+public final class BillingRequestGuards {
 
     private static final String POST = "POST";
 
@@ -49,7 +49,7 @@ final class BillingRequestGuards {
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    static boolean requirePost(HttpServletRequest request, HttpServletResponse response) {
+    public static boolean requirePost(HttpServletRequest request, HttpServletResponse response) {
         if (POST.equalsIgnoreCase(request.getMethod())) {
             return true;
         }

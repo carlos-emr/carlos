@@ -34,7 +34,9 @@
     ================
     Purpose: Query-by-example report entry page. Allows authorized providers
              to enter or select a saved SQL query and execute it against the
-             database, viewing results inline.
+             database, viewing results inline. Queries run as the read-only
+             reporting database account, never the application account
+             (docs/query-by-example-least-privilege.md).
 
     Features:
     - Bootstrap 5 / HTML5 compliant layout
@@ -47,6 +49,10 @@
     Parameters (set by backing Action):
     - favorites   — Collection of favourite query objects (query property)
     - results     — HTML string of query results (rendered unescaped; backend-generated)
+    - queryReportingUnavailable — the reporting account is not provisioned or was refused;
+                                  shown on open and after a submission that did not run
+    - queryAccessDenied         — the database refused a table or column the reporting
+                                  account is not granted (restricted, hidden or unclassified)
 
     Security:
     - Requires _report or _admin read privilege
@@ -169,9 +175,20 @@
                             <fmt:message key="oscarReport.RptByExample.MsgDisabled"/>
                         </div>
                     </c:if>
+                    <%-- Queries run as the read-only reporting database account (issue #3372). --%>
+                    <c:if test="${queryReportingUnavailable}">
+                        <div class="alert alert-warning" role="alert" id="queryReportingUnavailable">
+                            <fmt:message key="oscarReport.RptByExample.MsgReportingUnavailable"/>
+                        </div>
+                    </c:if>
                     <c:if test="${queryValidationError}">
                         <div class="alert alert-danger" role="alert">
                             <fmt:message key="oscarReport.RptByExample.MsgValidationError"/>
+                        </div>
+                    </c:if>
+                    <c:if test="${queryAccessDenied}">
+                        <div class="alert alert-danger" role="alert" id="queryAccessDenied">
+                            <fmt:message key="oscarReport.RptByExample.MsgAccessDenied"/>
                         </div>
                     </c:if>
                     <c:if test="${queryTimeout}">

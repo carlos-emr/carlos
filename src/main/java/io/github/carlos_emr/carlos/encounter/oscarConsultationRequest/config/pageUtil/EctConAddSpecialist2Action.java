@@ -66,8 +66,15 @@ public class EctConAddSpecialist2Action extends ActionSupport {
     public String execute()
             throws ServletException, IOException {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "w", null)) {
-            throw new SecurityException("missing required sec object (_con)");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_admin,_admin.consult", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.consult)");
+        }
+
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
         ProfessionalSpecialist professionalSpecialist = null;
@@ -115,9 +122,6 @@ public class EctConAddSpecialist2Action extends ActionSupport {
                 }
             }
             if (!saveSpecialist(professionalSpecialist)) return NONE;
-
-            EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
-            constructSpecialistsScriptsFile.makeString(request.getLocale());
         } else {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;

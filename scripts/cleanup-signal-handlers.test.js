@@ -69,7 +69,7 @@ test('a failing cleanup is reported on stderr and the process still exits with t
 // helper, which waits for an in-flight write to settle before cleaning up.
 const ADOPTERS = [
   'add-login-account', 'demographic-add', 'document-upload', 'echart-new-patient-notes',
-  'login', 'report-demographic-navigation', 'rx-preview-pharmacy', 'tickler-crud',
+  'eform-admin-crud', 'login', 'report-demographic-navigation', 'rx-preview-pharmacy', 'tickler-crud',
   'tickler-note-dialog', 'flowsheet-admin', 'flu-billing-report', 'rx-fax-reprint-represcribe',
 ];
 

@@ -54,6 +54,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -83,6 +85,7 @@ class DownloadEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase 
     @BeforeEach
     void setUp() {
         securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
         hl7TextMessageDao = mock(Hl7TextMessageDao.class);
         patientLabRoutingDao = mock(PatientLabRoutingDao.class);
         loggedInInfo = mock(LoggedInInfo.class);
@@ -190,6 +193,20 @@ class DownloadEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase 
 
         assertThatThrownBy(() -> action().execute()).isInstanceOf(SecurityException.class);
         verifyNoInteractions(hl7TextMessageDao);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void refusesCanonicalPatientLockEvenWhenEveryScopedReadPrivilegeIsGranted(String method) throws Exception {
+        request.setMethod(method);
+        request.setParameter("demographicNo", "999");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any())).thenReturn(true);
+        when(patientLabRoutingDao.findByLabNoAndLabType(789, "HL7")).thenReturn(List.of(new PatientLabRouting(789, "HL7", 55)));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 55)).thenReturn(false);
+        assertThatThrownBy(() -> action().execute()).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(hl7TextMessageDao);
+        logActionMock.verifyNoInteractions();
+        assertThat(response.getContentType()).isNull();
         assertThat(response.getContentAsByteArray()).isEmpty();
     }
 }

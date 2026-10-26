@@ -165,6 +165,12 @@ public class MsgDisplayMessages2Action extends ActionSupport {
         }
         String loggedInProviderNo = loggedInInfo.getLoggedInProviderNo();
 
+        if ("3".equals(request.getParameter("boxType"))
+                && !MsgAttachmentAccess.canReadChart(loggedInInfo, request.getParameter("demographic_no"))) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+
         // Initialize forward location
         String findForward = "success";
 
@@ -184,30 +190,15 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request -- session bean built from authenticated providerNo and DAO-loaded provider name
         }
 
-        // Process user actions based on button clicks
-        if (request.getParameter("btnSearch") != null) {
-            // Apply search filter to message list
-            MsgDisplayMessagesBean displayMsgBean = (MsgDisplayMessagesBean) request.getSession().getAttribute("DisplayMessagesBeanId");
-            if (displayMsgBean != null) {
-                displayMsgBean.setFilter(request.getParameter("searchString"));
-            } else {
-                MiscUtils.getLogger().warn("DisplayMessagesBeanId is null in session during search; possible session timeout.");
-                response.sendRedirect(request.getContextPath() + "/index");
-                return null;
-            }
+        // Search and sort belong to this request, so another inbox window cannot change them.
+        MsgDisplayMessagesBean displayMsgBean = new MsgDisplayMessagesBean();
+        displayMsgBean.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        if (request.getParameter("btnClearSearch") == null) {
+            displayMsgBean.setFilter(request.getParameter("searchString"));
+        }
+        request.setAttribute("DisplayMessagesBeanId", displayMsgBean);
 
-        } else if (request.getParameter("btnClearSearch") != null) {
-            // Remove search filter to show all messages
-            MsgDisplayMessagesBean displayMsgBean = (MsgDisplayMessagesBean) request.getSession().getAttribute("DisplayMessagesBeanId");
-            if (displayMsgBean != null) {
-                displayMsgBean.clearFilter();
-            } else {
-                MiscUtils.getLogger().warn("DisplayMessagesBeanId is null in session during clear search; possible session timeout.");
-                response.sendRedirect(request.getContextPath() + "/index");
-                return null;
-            }
-            
-        } else if (request.getParameter("btnDelete") != null) {
+        if (request.getParameter("btnDelete") != null) {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
                 throw new SecurityException("missing required sec object (_msg) for write");
             }

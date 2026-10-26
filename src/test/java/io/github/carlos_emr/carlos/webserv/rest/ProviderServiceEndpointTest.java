@@ -22,6 +22,8 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
@@ -40,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.OscarLogManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -70,6 +73,9 @@ class ProviderServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private DemographicManager mockDemographicManager;
 
+    @Mock
+    private SecurityInfoManager mockSecurityInfoManager;
+
     @Override
     protected Object getServiceBean() {
         ProviderService service = new ProviderService();
@@ -77,7 +83,13 @@ class ProviderServiceEndpointTest extends CarlosRestTestBase {
         injectDependency(service, "providerManager", mockProviderManager);
         injectDependency(service, "oscarLogManager", mockOscarLogManager);
         injectDependency(service, "demographicManager", mockDemographicManager);
+        injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
         return service;
+    }
+
+    private void grantAppointmentRead() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_appointment"), eq("r"), isNull()))
+            .thenReturn(true);
     }
 
     private Provider createTestProvider(String providerNo, String firstName, String lastName) {
@@ -169,6 +181,7 @@ class ProviderServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with teams list")
         void shouldReturn200WithTeams_whenActiveTeamsExist() {
+            grantAppointmentRead();
             when(mockProviderManager.getActiveTeams(any(LoggedInInfo.class)))
                 .thenReturn(List.of("TeamA", "TeamB"));
 
@@ -186,6 +199,7 @@ class ProviderServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with empty list when no teams")
         void shouldReturn200WithEmptyList_whenNoActiveTeams() {
+            grantAppointmentRead();
             when(mockProviderManager.getActiveTeams(any(LoggedInInfo.class)))
                 .thenReturn(Collections.emptyList());
 
