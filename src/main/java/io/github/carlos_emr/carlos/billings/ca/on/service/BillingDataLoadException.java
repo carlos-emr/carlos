@@ -32,11 +32,11 @@ import java.util.Map;
  * records exist" and act on incomplete data (e.g., generate a report
  * that's missing rows, mark a queue empty when it's actually not).
  *
- * <p>Carries a structured {@link Phase} discriminator and a string-keyed
- * {@code context} map so the operator-facing JSP can render
- * "Operation: load batch header / Context: bid=12345" without parsing
- * the message string. Throw sites supply only PHI-safe keys (bill ids,
- * date ranges, status filters — not HIN, demographic identity, etc.).</p>
+ * <p>Carries a structured {@link Phase} discriminator for fixed public guidance
+ * and a string-keyed {@code context} map for internal diagnostics. Error pages
+ * may display the phase enum, but must not expose context values or the raw
+ * message. Bill identifiers, date ranges and other diagnostic values can reveal
+ * clinical information even when they do not contain a name or HIN.</p>
  *
  * <p>Unchecked so legacy call sites surface the failure without a
  * checked exception signature change. Action layers catch this and
@@ -86,9 +86,9 @@ public class BillingDataLoadException extends RuntimeException {
     }
 
     /**
-     * Unmodifiable, insertion-ordered context map. Keys are PHI-safe
-     * diagnostic identifiers (bill id, date range, status filter, etc.);
-     * never raw demographic identity.
+     * Unmodifiable, insertion-ordered internal diagnostic context.
+     * Values can contain clinical identifiers and must not be rendered
+     * on error pages or included in operational logs.
      */
     public Map<String, String> context() {
         return context;

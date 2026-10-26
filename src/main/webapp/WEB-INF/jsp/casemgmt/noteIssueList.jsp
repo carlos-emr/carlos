@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    AJAX issue-list fragment for the active note, including encounter type and clinical flags.
+    Uses demographicNo and newNoteIdx request parameters and caseManagementEntryForm
+    (request model or patient-specific session fallback). Refresh must finish before saving.
+    @since 2026-09-27 (soft-wrap and save-order documentation)
+--%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean, io.github.carlos_emr.carlos.commn.model.Facility" %>
 <%@page import="org.owasp.encoder.Encode" %>
@@ -94,7 +100,7 @@
         <c:when test="${not empty ajaxsave}">
             <fmt:message key="encounter.encounterDate.title"/>&nbsp;
             <span id="obs${caseManagementEntryForm.caseNote.id}">
-                <fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy H:mm"/>
+                <fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy HH:mm"/>
             </span>&nbsp;
             <fmt:message key="encounter.noteRev.title"/>
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
@@ -106,7 +112,7 @@
             <img src="${ctx}/images/cal.gif" id="observationDate_cal" alt="calendar">&nbsp;
             <input type="text" id="observationDate" name="observation_date" ondblclick="this.value='';"
                    style="border: none; width: 140px;" readonly
-                   value="<fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy H:mm"/>">
+                   value="<fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy HH:mm"/>">
             rev
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
                 ${caseManagementEntryForm.caseNote.revision}
@@ -256,7 +262,7 @@
 
 
 
-<div id="noteIssues">
+<div id="noteIssues" data-saved-note-id="${carlos:forHtmlAttribute(ajaxsave)}">
     <div id="noteIssues-resolved" style="margin: 0; background-color: #CCCCFF; display: none;">
         <b><fmt:message key="encounter.referenceResolvedIssues.title"/></b>
         <% int countResolvedIssue = -1; %>
@@ -427,12 +433,14 @@
 
 <div id='autosaveTime' class='sig' style='text-align:center; margin:0px;'></div>
 <script type="text/javascript">
+(function () {
+    // AJAX responses re-evaluate this fragment, so keep its declarations isolated.
 
     //check to see if we need to update div containers to most recent note id
     //this happens only when we're called thru ajaxsave
     <c:if test="${not empty ajaxsave}">
-        var origId = "${origNoteId}";
-        var newId = "${ajaxsave}";
+        var origId = "${carlos:forJavaScriptBlock(origNoteId)}";
+        var newId = "${carlos:forJavaScriptBlock(ajaxsave)}";
         var oldDiv;
         var newDiv;
         var prequel = ["n", "sig", "signed", "full", "bgColour", "print", "editWarn"];
@@ -445,20 +453,28 @@
         }
         updatedNoteId = newId;
 
-        // Assuming noteTxt comes from request attribute or is passed in a similar way
-        var noteTxt = "${fn:escapeXml(noteTxt)}"; // Escape any special characters in noteTxt
+        var noteTxt = "${carlos:forJavaScriptBlock(noteTxt)}";
         completeChangeToView(noteTxt, newId);
 
         if (origId.substr(0, 1) == "0") {
-            $("nc" + origId).id = "nc" + numNotes;
-            ++numNotes;
+            // A first save turns a new-note container into a saved one so the print
+            // loops (nc1..maxNcId) can find it. The container is not "nc" + origId: the
+            // page renders the initial note as nc<offset><idx> ("nc00" for n0) and
+            // newNote() as nc0N, so walk up from the note div renamed above instead.
+            var savedNoteDiv = $("n" + newId);
+            var noteContainer = savedNoteDiv != null ? savedNoteDiv.parentNode : null;
+            if (noteContainer != null && noteContainer.id != null && noteContainer.id.indexOf("nc") == 0
+                    && typeof maxNcId == "number" && !isNaN(maxNcId)) {
+                maxNcId = maxNcId + 1;
+                noteContainer.id = "nc" + maxNcId;
+            }
         }
 
         <c:if test="${not empty DateError}">
-            alert("${DateError}");
+            alert("${carlos:forJavaScriptBlock(DateError)}");
         </c:if>
     </c:if>
-    const backgroundColorId = "bgColour" + "<%=noteIndex%>";
+    const backgroundColorId = "bgColour" + "${carlos:forJavaScriptBlock(noteIndex)}";
     const backgroundColorInput = document.getElementById(backgroundColorId);
     let txtColour = "#000000";
     let background = "#CCCCFF";
@@ -475,7 +491,7 @@
     }
 
 
-	const summaryId = "summary" + "${noteIndex}";
+	const summaryId = "summary" + "${carlos:forJavaScriptBlock(noteIndex)}";
 	const summaryDiv = document.getElementById(summaryId);
 	if (summaryDiv) {
 		summaryDiv.style.color = txtColour;
@@ -502,8 +518,8 @@
     }
 
     //do we have a custom encounter type?  if so add an option to the encounter type select
-    var encounterType = '${caseManagementEntryForm.caseNote.encounter_type}';
-    var selectEnc = "${encSelect}";
+    var encounterType = '${carlos:forJavaScriptBlock(caseManagementEntryForm.caseNote.encounter_type)}';
+    var selectEnc = "${carlos:forJavaScriptBlock(encSelect)}";
     const selectElement = document.getElementById(selectEnc);
     if (selectElement) {
         if ( selectElement.value == "" && encounterType != "" ) {
@@ -533,18 +549,19 @@
 
 
     //store observation date so we know if user changes it
-   if (observationDateInput) {
+    if (observationDateInput) {
         origObservationDate = observationDateInput.value;
 
         //create calendar
         Calendar.setup({
             inputField: "observationDate",
-            ifFormat: "%d-%b-%Y %H:%M ",
+            ifFormat: "%d-%b-%Y %H:%M",
             showsTime: true,
             button: "observationDate_cal",
             singleClick: true,
             step: 1
         });
     }
+}());
 </script>
 </div>

@@ -79,8 +79,11 @@
 	<bean id="jakarta.xml.ws.WebServiceContext"
 	      class="org.apache.cxf.jaxws.context.WebServiceContextImpl"/>
 	
-	<bean id="authenticationInWSS4JInterceptor" class="io.github.carlos_emr.carlos.webserv.AuthenticationInWSS4JInterceptor" autowire="byType" />
+	<!-- Use annotated injection only: byType also autowires WSS4J's Map<String, Object>
+	     properties setter, eagerly creating unrelated request-dependent beans at startup. -->
+	<bean id="authenticationInWSS4JInterceptor" class="io.github.carlos_emr.carlos.webserv.AuthenticationInWSS4JInterceptor" />
 	<bean id="oscarUsernameTokenValidator" class="io.github.carlos_emr.carlos.webserv.OscarUsernameTokenValidator" autowire="byType" />
+	<bean id="loopbackOnlyInInterceptor" class="io.github.carlos_emr.carlos.webserv.LoopbackOnlyInInterceptor" />
 
 	<!-- HTTP policy for lab upload service to handle long-running batch operations -->
 	<bean id="labUploadHttpServerPolicy" class="org.apache.cxf.transports.http.configuration.HTTPServerPolicy">
@@ -89,8 +92,24 @@
 	</bean>
 
 	<!-- www service endpoints -->
-	<jaxws:endpoint implementor="#systemInfoWs" address="/SystemInfoService"/>		
-	<jaxws:endpoint implementor="#loginWs" address="/LoginService" />	
+	<!-- SystemInfoService is a liveness / system-info endpoint. It previously ran
+	     with no interceptor, so an unauthenticated off-host caller could read
+	     server time, timezone, liveness and an internal paging constant.
+	     Authentication is the wrong gate here (a liveness probe cannot present a
+	     WS-Security token), so it is restricted to the host loopback address: a
+	     local monitor calling Tomcat directly is allowed, any client arriving
+	     through nginx (which presents the real client IP via RemoteIpValve) is
+	     refused. The debian nginx config also 404s this path at the edge, so
+	     neither gate is load-bearing on its own. -->
+	<jaxws:endpoint implementor="#systemInfoWs" address="/SystemInfoService">
+		<jaxws:inInterceptors>
+			<ref bean="loopbackOnlyInInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>
+	<!-- LoginService MUST stay unauthenticated: it is how SOAP clients obtain a
+	     security token. Its brute-force exposure is bounded by the front-door
+	     rate limit on /carlos/ws/LoginService (see debian nginx config). -->
+	<jaxws:endpoint implementor="#loginWs" address="/LoginService" />
 	
 	<jaxws:endpoint implementor="#scheduleWs" address="/ScheduleService">
 		<jaxws:inInterceptors>
@@ -202,9 +221,8 @@
 		
 	
 
-		<jaxrs:features>
-			<cxf:logging />
-		</jaxrs:features>
+        <!-- This surface carries Ocean integration credentials. Do not enable CXF
+             payload logging here: both request and response bodies contain settings. -->
 
 		<!-- REST data services are exposed on BOTH the session surface (/ws/rs, here)
 		     and the OAuth surface (/ws/services, applicationContextREST.xml). Keep the two
@@ -237,6 +255,9 @@
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.ReportByTemplateService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.ResourceService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.DiseaseRegistryService" autowire="byName" />
+			<!-- Constructor injection requires both dependencies at startup; OceanSettingDaoImpl
+                 is discovered by spring_jpa.xml and spring_managers.xml component scans. -->
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.OceanService" autowire="constructor" />
 <!--			<bean class="org.oscarehr.webservbserv.rest.SystemInfoService" autowire="byName" /> -->
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.LabService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.MeasurementService" autowire="byName" />
@@ -295,12 +316,8 @@
             <util:constant static-field="com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL"/>
         </property> -->
 
-        <!-- Combined introspector so BOTH Jackson and JAXB annotations are honored.
-             Jackson is primary (so @JsonInclude, @JsonPropertyOrder, @JsonProperty, etc.
-             take effect — e.g. ErrorResponse omits null "details"); JAXB is secondary so
-             existing @XmlRootElement/@XmlElement DTOs still serialize. This mirrors the
-             jacksonObjectMapper in applicationContextREST.xml; keeping the two in sync
-             avoids order-dependent bean-override drift between the /rs and /services servers. -->
+        <!-- Honor date-only Jackson annotations on REST DTOs, as on the OAuth
+             surface, while retaining JAXB names and XML compatibility. -->
         <property name="annotationIntrospector">
             <bean class="com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair">
                 <constructor-arg>

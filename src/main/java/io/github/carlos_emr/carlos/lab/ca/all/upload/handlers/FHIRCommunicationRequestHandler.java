@@ -51,6 +51,7 @@ import org.hl7.fhir.dstu3.model.CommunicationRequest;
 
 import org.hl7.fhir.dstu3.model.Reference;
 
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 
@@ -65,6 +66,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -126,9 +128,9 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             
             // Validate the file path using PathValidationUtils
             File baseDir = new File(baseDocDir);
-            File targetFile = new File(fileName);
+            File targetFile;
             try {
-                targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
+                targetFile = PathValidationUtils.validateExistingPath(fileName, baseDir);
             } catch (SecurityException e) {
                 logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
@@ -161,6 +163,13 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             ByteArrayInputStream is = new ByteArrayInputStream(document);
             String incomingDocumentFilename = communicationRequest.getIdentifierFirstRep().getValue().replace('/', '-') + "_" + (new Date().getTime()) + ".pdf";
             String filePath = Utilities.savePdfFile(is, incomingDocumentFilename);
+            if (filePath == null) {
+                // savePdfFile returns null when the destination is invalid, the name collides, or the
+                // write fails. Dereferencing it turned that into an NPE instead of a parse failure.
+                logger.error("PDF save returned no path; not creating a document record");
+                return null;
+            }
+            discardOnRollback(new File(filePath), PathValidationUtils.getRequiredDocumentDirectory());
 
             int fileNameIdx = filePath.lastIndexOf("/");
             filePath = filePath.substring(fileNameIdx + 1);
@@ -188,7 +197,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
 
             for (Reference ref : refs) {
-                providerInboxRoutingDao.addToProviderInbox(ref.getReference().substring("Practitioner/".length()), Integer.parseInt(doc_no), "DOC");
+                providerInboxRoutingDao.addToProviderInboxStrict(ref.getReference().substring("Practitioner/".length()), Integer.parseInt(doc_no), "DOC");
             }
 
             LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, ipAddr, "", "DocUpload.FHIRCommunicationRequest");
@@ -201,5 +210,21 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
         }
 
         return "success";
+    }
+
+    /**
+     * Deletes a PDF this handler wrote if the surrounding transaction rolls back.
+     *
+     * <p>Inside {@code FileUploadCheck.storeIfNew} a later failure, or this handler returning
+     * {@code null}, rolls back the document, routing and checksum rows; the file on disk is not
+     * transactional, so without this it stayed behind and every retry wrote another. A commit, a
+     * commit whose outcome is unknown (the rows may exist), or no transaction at all keeps the file,
+     * as before. A delete that fails is retried when the JVM shuts down.</p>
+     *
+     * @param saved the PDF written by {@link Utilities#savePdfFile}
+     * @param documentDir the document directory the file must lie in before it is deleted
+     */
+    static void discardOnRollback(File saved, File documentDir) {
+        FileUploadCheck.discardOnRollback(saved, documentDir);
     }
 }

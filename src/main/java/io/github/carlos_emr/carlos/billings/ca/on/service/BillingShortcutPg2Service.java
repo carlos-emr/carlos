@@ -34,7 +34,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
@@ -228,8 +228,8 @@ public class BillingShortcutPg2Service {
             ctx.refDoctor = "N/A";
             ctx.refDoctorOhip = "000000";
         } else {
-            String rd = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd");
-            String rdohip = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip");
+            String rd = DemographicXml.referralDoctor(demo.getFamilyDoctor());
+            String rdohip = DemographicXml.referralDoctorOhip(demo.getFamilyDoctor());
             ctx.refDoctor = rd == null ? "" : rd;
             ctx.refDoctorOhip = rdohip == null ? "" : rdohip;
         }

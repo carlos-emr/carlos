@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr;
 
+import io.github.carlos_emr.carlos.utility.BuildInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -41,6 +42,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -76,8 +78,19 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class CarlosProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
+    private final Properties deploymentOverrideProperties = new Properties();
     private static CarlosProperties carlosProperties = new CarlosProperties();
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
+    /**
+     * Keys already reported as "missing or not configured". That warning is per key per JVM, not
+     * per lookup: several of these keys are read on every page render, and at the WARN root default
+     * a per-lookup warning made the journal mostly this one line. The set is bounded as defence in
+     * depth (keys are code literals, a few hundred at most, but the lookup API is open to any
+     * caller): once {@link #MAX_MISSING_KEYS_REMEMBERED} distinct keys are held, further unknown
+     * keys are still warned about, on every lookup, and simply not remembered.
+     */
+    private static final Set<String> MISSING_KEYS_WARNED = ConcurrentHashMap.newKeySet();
+    private static final int MAX_MISSING_KEYS_REMEMBERED = 2048;
 
     /**
      * Blacklisted namespace patterns for property values that should be ignored.
@@ -99,6 +112,19 @@ public class CarlosProperties extends Properties {
     );
 
     /**
+     * Once per key while the bounded set has room; every time once it is full. Never silent.
+     */
+    private static boolean shouldWarnMissingKey(String key) {
+        if (MISSING_KEYS_WARNED.contains(key)) {
+            return false;
+        }
+        if (MISSING_KEYS_WARNED.size() >= MAX_MISSING_KEYS_REMEMBERED) {
+            return true;
+        }
+        return MISSING_KEYS_WARNED.add(key);
+    }
+
+    /**
      * Gets the singleton instance of CarlosProperties.
      * 
      * @return the CarlosProperties instance
@@ -117,28 +143,30 @@ public class CarlosProperties extends Properties {
      * @return the validated property value, or null if not found
      */
     public String getProperty(String key) {
-        if (key.equals("FORMS_PROMOTEXT")) {
-            return "";
-        }
-
         if (key == null || key.trim().isEmpty()) {
             MiscUtils.getLogger().warn("Attempted to retrieve property with blank key.");
             throw new IllegalArgumentException("Property key cannot be blank.");
+        }
+
+        if (key.equals("FORMS_PROMOTEXT")) {
+            return "";
         }
 
         String value = super.getProperty(key);
 
         // If no value, return the default if one is configured
         if (value == null) {
-            // key is caller-supplied and may carry CR/LF; sanitize before logging to
-            // prevent log forging (CodeQL log-injection). Default values come from the
-            // internal PROPERTY_DEFAULTS map and are trusted.
-            String warning = new StringBuilder()
-                .append("Property '").append(LogSafe.sanitize(key))
-                .append("' is missing or not configured. Using default value: '")
-                .append(getDefaultValue(key)).append("'.")
-                .toString();
-            MiscUtils.getLogger().warn(warning);
+            if (shouldWarnMissingKey(key)) {
+                // key is caller-supplied and may carry CR/LF; sanitize before logging to
+                // prevent log forging (CodeQL log-injection). Default values come from the
+                // internal PROPERTY_DEFAULTS map and are trusted.
+                String warning = new StringBuilder()
+                    .append("Property '").append(LogSafe.sanitize(key))
+                    .append("' is missing or not configured. Using default value: '")
+                    .append(getDefaultValue(key)).append("'.")
+                    .toString();
+                MiscUtils.getLogger().warn(warning);
+            }
             return getDefaultValue(key);
         }
 
@@ -196,14 +224,28 @@ public class CarlosProperties extends Properties {
         try {
             readFromFile("/carlos.properties");
 
-            String overrideProperties = System.getProperty("carlos_override_properties");
-            if (overrideProperties != null) {
-                MiscUtils.getLogger().info("Applying override properties : " + overrideProperties);
-                readFromFile(overrideProperties);
-            }
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
+        String overrideProperties = System.getProperty("carlos_override_properties");
+        if (overrideProperties != null && !overrideProperties.isBlank()) {
+            File file = PathValidationUtils.resolveConfiguredFile(overrideProperties, "carlos override properties");
+            try (InputStream input = java.nio.file.Files.newInputStream(file.toPath())) {
+                deploymentOverrideProperties.load(input);
+                putAll(deploymentOverrideProperties);
+            } catch (java.nio.file.NoSuchFileException e) {
+                MiscUtils.getLogger().info("Override properties file not found");
+            } catch (IOException e) {
+                throw new IllegalStateException("Configured override properties could not be read", e);
+            }
+        }
+    }
+
+    /** Returns a copy of the constructor's parsed override, for startup fallback and application. */
+    public Properties getDeploymentOverrideProperties() {
+        Properties snapshot = new Properties();
+        snapshot.putAll(deploymentOverrideProperties);
+        return snapshot;
     }
 
     public void readFromFile(String url) throws IOException {
@@ -360,12 +402,26 @@ public class CarlosProperties extends Properties {
         return getProperty("db_driver");
     }
 
+    /**
+     * Build date of the deployed WAR. Read from the in-WAR build stamp via
+     * {@link BuildInfo}, never from a properties override: a {@code buildDate} key in an
+     * operator's carlos.properties copy is ignored so it cannot mask a WAR upgrade.
+     *
+     * @return the build date, or empty when the artifact carries no stamp
+     */
     public static String getBuildDate() {
-        return carlosProperties.getProperty("buildDate");
+        return BuildInfo.getInstance().getBuildDate();
     }
 
+    /**
+     * Build tag of the deployed WAR (project version plus optional CI job / build number).
+     * Read from the in-WAR build stamp via {@link BuildInfo}, never from a properties
+     * override: a {@code buildVersion} key in an operator's carlos.properties copy is ignored.
+     *
+     * @return the build tag as described by {@link BuildInfo#getBuildTag()}
+     */
     public static String getBuildTag() {
-        return carlosProperties.getProperty("buildVersion");
+        return BuildInfo.getInstance().getBuildTag();
     }
 
     public boolean faxEnabled() {
@@ -398,6 +454,28 @@ public class CarlosProperties extends Properties {
 
     public boolean isConsultationSignatureEnabled() {
         return isPropertyActive("consultation_signature_enabled");
+    }
+
+    /**
+     * Whether appointment statuses are editable: the add/edit appointment status pull-down,
+     * the Administration "Appointment Status Setting" page link, and custom-status handling.
+     *
+     * <p>Enabled unless {@code ENABLE_EDIT_APPT_STATUS} is explicitly set to a non-active value
+     * (anything other than {@code true}/{@code yes}/{@code on}). An absent or blank key counts as
+     * enabled: the OSCAR-era installer wrote {@code yes}, but neither CARLOS installer (legacy
+     * deb or turnkey .deb) sets it, and the shipped default was commented out, so defaulting off
+     * silently degraded status to a free-text box prefilled with {@code t} and hid the admin page.
+     *
+     * @return {@code true} unless the key is set to a non-active value
+     */
+    public boolean isAppointmentStatusEditingEnabled() {
+        // Raw read: an absent key is the normal, enabled case here, so it must not trip
+        // getProperty(String)'s "property is missing" warning.
+        String value = super.getProperty("ENABLE_EDIT_APPT_STATUS");
+        if (value == null || value.trim().isEmpty()) {
+            return true;
+        }
+        return isPropertyActive("ENABLE_EDIT_APPT_STATUS");
     }
 
 

@@ -49,4 +49,22 @@ public class OscarMySQL5Dialect extends MySQLDialect {
         super();
     }
 
+    /**
+     * Uses the shared MySQL/MariaDB locking syntax. MariaDB rejects MySQL's
+     * alias-qualified {@code FOR UPDATE OF alias} clause.
+     * @return false so locking clauses cover the selected tables without an OF list
+     */
+    @Override
+    protected boolean supportsAliasLocks() {
+        return false;
+    }
+
+    /**
+     * Keeps pessimistic read locks compatible with MariaDB as well as MySQL.
+     * @return false to use {@code LOCK IN SHARE MODE}, not MySQL-only FOR SHARE
+     */
+    @Override
+    protected boolean supportsForShare() {
+        return false;
+    }
 }

@@ -60,6 +60,9 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
     // ★ NEW: configurable clock skew (seconds)
     private static final long ALLOWED_SKEW_SECONDS = 300L;
 
+    /** Media type whose body params join the OAuth1 signature base string (RFC 5849 s3.4.1.3.1). */
+    private static final String FORM_URLENCODED = "application/x-www-form-urlencoded";
+
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
@@ -104,8 +107,8 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         }
 
         // --- 3) Base URL
-        final String scheme = req.getScheme().toLowerCase();
-        final String host   = req.getServerName().toLowerCase();
+        final String scheme = req.getScheme().toLowerCase(Locale.ROOT);
+        final String host   = req.getServerName().toLowerCase(Locale.ROOT);
         final int    port   = req.getServerPort();
         final boolean defaultPort =
                 ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
@@ -137,7 +140,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
 
         // c) Body params (x-www-form-urlencoded)
         String ctype = req.getContentType();
-        if (ctype != null && ctype.toLowerCase().startsWith("application/x-www-form-urlencoded")) {
+        if (ctype != null && ctype.regionMatches(true, 0, FORM_URLENCODED, 0, FORM_URLENCODED.length())) {
             req.getParameterMap().forEach((k, vals) -> {
                 if (!k.startsWith("oauth_")) for (String v : vals) all.add(new NameValue(k, v));
             });
@@ -156,7 +159,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
 
         // --- 6) Base string & HMAC-SHA1 ---
         final String baseString =
-                req.getMethod().toUpperCase() + '&' + pct(baseUrl) + '&' + pct(norm.toString());
+                req.getMethod().toUpperCase(Locale.ROOT) + '&' + pct(baseUrl) + '&' + pct(norm.toString());
         final String signingKey =
                 pct(cfg.getConsumerSecret()) + '&' + pct(tokenSecret == null ? "" : tokenSecret);
         final String computed = base64(hmacSha1(baseString, signingKey));
@@ -207,7 +210,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
                 out.append((char) c);
             } else {
                 out.append('%');
-                String hex = Integer.toHexString(c).toUpperCase();
+                String hex = Integer.toHexString(c).toUpperCase(Locale.ROOT);
                 if (hex.length() == 1) out.append('0');
                 out.append(hex);
             }

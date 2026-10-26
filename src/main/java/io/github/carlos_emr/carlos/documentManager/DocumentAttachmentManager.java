@@ -47,6 +47,22 @@ import java.util.*;
 public interface DocumentAttachmentManager {
 
     /**
+     * Request attribute holding the {@link ConsultAttachmentWarning}s for a consult: the
+     * attachments a render left out, or (on the fax cover page and after a save) the ones whose
+     * target is no longer available.
+     */
+    String ATTACHMENT_WARNINGS_ATTRIBUTE = "attachmentWarnings";
+
+    /**
+     * Request attribute that lets {@link #renderConsultationFormWithAttachments} leave out an
+     * attachment that fails to render, recording a warning instead. Only a caller that shows
+     * those warnings and checks explicit provider approval before disclosure may set it. Without it, a failed
+     * attachment fails the whole render, so a printed or faxed consult is never silently missing
+     * content.
+     */
+    String ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE = "allowSkippedConsultAttachments";
+
+    /**
      * Retrieves all attachments associated with a specific consultation request.
      *
      * <p>This method returns a list of document identifiers that are currently attached to
@@ -55,6 +71,9 @@ public interface DocumentAttachmentManager {
      *
      * @param loggedInInfo LoggedInInfo the current user's session information for security and audit purposes
      * @param requestId Integer the unique identifier of the consultation request
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve
      * @param demographicNo Integer the patient's unique demographic identifier
      * @return List&lt;String&gt; list of document identifiers attached to the consultation
@@ -71,6 +90,9 @@ public interface DocumentAttachmentManager {
      *
      * @param loggedInInfo LoggedInInfo the current user's session information for security and audit purposes
      * @param fdid Integer the unique identifier of the eForm (form data ID)
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve
      * @param demographicNo Integer the patient's unique demographic identifier
      * @return List&lt;String&gt; list of document identifiers attached to the eForm
@@ -86,6 +108,9 @@ public interface DocumentAttachmentManager {
      *
      * @param loggedInInfo LoggedInInfo the current user's session information for security and audit purposes
      * @param fdid Integer the unique identifier of the eForm (form data ID)
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve
      * @param demographicNo Integer the patient's unique demographic identifier
      * @return List&lt;EctFormData.PatientForm&gt; list of patient encounter forms attached to the eForm
@@ -112,13 +137,22 @@ public interface DocumentAttachmentManager {
      * allowing healthcare providers to include relevant medical records, laboratory results,
      * imaging reports, and other clinical information as part of the referral process.</p>
      *
+     * <p>The submitted ids replace the consultation's attachments of this type, so an attachment
+     * left out is detached. The exception is an attachment whose target is no longer available
+     * (see {@link #getUnavailableConsultAttachmentWarnings(Integer)}): the form cannot list it, so
+     * it stays attached and later renders keep warning about it. It is already attached rather than
+     * selected, so it is not put through the selection's patient and access check, which every
+     * submitted id still passes.</p>
+     *
      * @param loggedInInfo LoggedInInfo the current user's session information for security and audit purposes
      * @param documentType DocumentType the type of documents being attached
      * @param attachments String[] array of document identifiers to attach to the consultation
      * @param providerNo String the provider number performing the attachment operation
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's unique demographic identifier
-     * @throws SecurityException if the user lacks the required "_con" write privilege
+     * @throws SecurityException if the user lacks the required "_con" write privilege, if any id is
+     *                           submitted and the user may not access the patient's record, or if a
+     *                           newly attached DOC/LAB/EFORM/HRM id does not belong to {@code demographicNo}
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo);
 
@@ -147,9 +181,33 @@ public interface DocumentAttachmentManager {
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's unique demographic identifier
      * @param editOnOcean Boolean true if the consultation was created by OceanMD and requires automatic synchronization, false for standard attach/detach operations
-     * @throws SecurityException if the user lacks the required "_con" write privilege
+     * @throws SecurityException if the user lacks the required "_con" write privilege, if any id is
+     *                           submitted and the user may not access the patient's record, or if a
+     *                           newly attached DOC/LAB/EFORM/HRM id does not belong to {@code demographicNo}
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo, Boolean editOnOcean);
+
+    /**
+     * Checks, without writing anything, that every attachment a consultation save would newly add
+     * belongs to the consultation's patient (issue #3867).
+     *
+     * <p>{@link #attachToConsult} enforces the same rule, but a caller that saves the consultation
+     * and then several attachment types performs one write per call; calling this first lets it
+     * reject a bad request before the consultation, or any attachment type, has been written.
+     * Ids already attached to {@code requestId} are not re-checked here: {@code attachToConsult}
+     * detaches those that no longer verify instead of failing the save.</p>
+     *
+     * @param loggedInInfo the current user's session information
+     * @param requestId the consultation being edited, or {@code null} for one not yet saved
+     * @param demographicNo the consultation's patient
+     * @param attachmentsByType submitted attachment ids grouped by type; FORM entries are not checked
+     * @throws SecurityException if the user lacks {@code _con} write for the patient, if any id is
+     *                           submitted and the user may not access the patient's record, or if any newly
+     *                           attached DOC/LAB/EFORM/HRM id is malformed, unknown or not the patient's
+     * @since 2026-09-24
+     */
+    public void verifyConsultAttachments(LoggedInInfo loggedInInfo, Integer requestId, Integer demographicNo,
+                                         Map<DocumentType, String[]> attachmentsByType);
 
     /**
      * Attaches documents to an electronic form (eForm).
@@ -254,12 +312,46 @@ public interface DocumentAttachmentManager {
      * supporting documentation. This consolidated PDF is suitable for specialist referrals,
      * e-referral system transmission, or archival purposes.</p>
      *
+     * <p>An attachment that fails to render (including a stored PDF that cannot be opened) fails
+     * the whole render, unless the request carries {@link #ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE};
+     * then it is left out. Either way it is added to the {@link #ATTACHMENT_WARNINGS_ATTRIBUTE}
+     * list as {@link ConsultAttachmentWarning.Reason#NOT_RENDERED}, so a caller that fails can
+     * name it. Documents, eForms and HRM reports whose target no longer exists, was deleted or
+     * belongs to another patient, and HRM reports whose file is missing or unreadable, are always
+     * left out, with the warning {@link #getUnavailableConsultAttachmentWarnings} gives them. Labs
+     * follow the lab-source rules instead: a lab whose source must be selected again stops the
+     * render, and lab sources the PDF cannot hold require explicit omission approval (#4693).</p>
+     *
+     * <p>The patient is the saved consultation's own. A missing {@code demographicId} attribute is
+     * set from it; one that names another patient is refused.</p>
+     *
      * @param request HttpServletRequest the HTTP request containing consultation parameters
      * @param response HttpServletResponse the HTTP response for potential streaming operations
      * @return Path the file system path to the rendered PDF document containing the consultation form and attachments
-     * @throws PDFGenerationException if an error occurs during the PDF rendering or concatenation process
+     * @throws PDFGenerationException if an error occurs during the PDF rendering or concatenation process,
+     *         including an attachment that fails to render when skipping is not allowed
+     * @throws SecurityException if the {@code reqId} consultation is missing, malformed or unknown,
+     *                           the {@code demographicId} attribute names another patient, the user
+     *                           lacks {@code _con} read for the patient or access to the patient's
+     *                           record, or a {@code reqId} parameter conflicts with the attribute
      */
     public Path renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
+
+    /**
+     * Lists, without rendering anything, the warnings for document, eForm and HRM attachments a
+     * consultation lists whose target no longer exists, was deleted, or does not belong to its
+     * patient, and for attached HRM reports whose report file is missing or cannot be read. These
+     * are the attachments a render leaves out, so a screen shown before the render (the fax cover
+     * page) can name them. Labs are not listed: the consult form shows an unavailable lab itself
+     * until its source is selected again. Form attachments are not checked.
+     *
+     * @param requestId the consultation request id
+     * @return one warning per unavailable attachment, naming its type and id: {@link
+     *         ConsultAttachmentWarning.Reason#UNAVAILABLE}, or {@link
+     *         ConsultAttachmentWarning.Reason#FILE_UNAVAILABLE} for an HRM report whose file is
+     *         missing or unreadable; empty when there are none
+     */
+    public List<ConsultAttachmentWarning> getUnavailableConsultAttachmentWarnings(Integer requestId);
 
     /**
      * Renders an electronic form (eForm) along with all its associated attachments as a single PDF.

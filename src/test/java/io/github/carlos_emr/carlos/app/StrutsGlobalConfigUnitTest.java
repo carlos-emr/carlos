@@ -54,6 +54,23 @@ import org.xml.sax.SAXException;
 @Tag("fast")
 class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
 
+    @Test
+    void shouldServeMohStylesheets_withoutBypassingBillingActions() throws Exception {
+        String exclusion = collectConstants(parseXml(resolveProjectPath(STRUTS_XML)))
+                .get("struts.action.excludePattern");
+        for (String context : List.of("", "/carlos")) {
+            for (String stylesheet : List.of("ES", "OU")) {
+                assertThat((context + "/billing/CA/ON/" + stylesheet + ".xsl").matches(exclusion)).isTrue();
+                assertThat(resolveProjectPath(Path.of("src/main/webapp/billing/CA/ON/" + stylesheet + ".xsl")))
+                        .isRegularFile();
+            }
+            for (String route : List.of("billingLreport", "BillingDocumentErrorReportUpload",
+                    "InrUpdateINRbilling", "DbUpdateINRbilling", "unlisted.xsl")) {
+                assertThat((context + "/billing/CA/ON/" + route).matches(exclusion)).isFalse();
+            }
+        }
+    }
+
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final String EXPECTED_STRUTS_DOCTYPE =
             "<!DOCTYPE struts PUBLIC \"-//Apache Software Foundation//DTD Struts Configuration 6.5//EN\" "
@@ -96,6 +113,105 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
 
         assertThat(violations)
                 .as("Struts packages must explicitly enable strict-method-invocation")
+                .isEmpty();
+    }
+
+    /**
+     * Every module package must extend {@code carlos-default} (declared in struts.xml), not
+     * {@code struts-default} directly, and an action that names a stack must name one of the two
+     * CARLOS stacks. Those stacks are struts-default's {@code defaultStack} and {@code basicStack}
+     * with {@link io.github.carlos_emr.carlos.app.CarlosExceptionMappingInterceptor} in the
+     * exception slot, and nothing else: this test reads {@code struts-default.xml} out of the Struts
+     * jar on the classpath and compares entry for entry, parameter for parameter, so a Struts upgrade
+     * that changes the stock stack fails here instead of silently leaving CARLOS on the old one. A
+     * package or action that reaches past these stacks is one whose failures vanish into the error
+     * page again.
+     */
+    @Test
+    @DisplayName("module packages should inherit the exception-logging stacks from carlos-default")
+    void shouldInheritExceptionLogging_fromCarlosDefaultPackage()
+            throws IOException, ParserConfigurationException, SAXException {
+        Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
+        Document parent = parseXml(strutsXmlPath);
+        Path strutsDir = strutsXmlPath.getParent();
+
+        Element carlosDefault = null;
+        NodeList parentPackages = parent.getElementsByTagName("package");
+        for (int i = 0; i < parentPackages.getLength(); i++) {
+            Element candidate = (Element) parentPackages.item(i);
+            if ("carlos-default".equals(candidate.getAttribute("name"))) {
+                carlosDefault = candidate;
+            }
+        }
+        assertThat(carlosDefault).as("struts.xml should declare the carlos-default package").isNotNull();
+        assertThat(carlosDefault.getAttribute("abstract")).isEqualTo("true");
+        assertThat(carlosDefault.getAttribute("extends")).isEqualTo("struts-default");
+        assertThat(carlosDefault.getAttribute("strict-method-invocation")).isEqualTo("true");
+
+        Map<String, String> declaredInterceptors = new LinkedHashMap<>();
+        NodeList interceptorNodes = carlosDefault.getElementsByTagName("interceptor");
+        for (int i = 0; i < interceptorNodes.getLength(); i++) {
+            Element interceptor = (Element) interceptorNodes.item(i);
+            declaredInterceptors.put(interceptor.getAttribute("name"), interceptor.getAttribute("class"));
+        }
+        assertThat(declaredInterceptors)
+                .as("carlos-default should declare exactly the CARLOS exception interceptor")
+                .containsExactly(Map.entry("carlosException",
+                        "io.github.carlos_emr.carlos.app.CarlosExceptionMappingInterceptor"));
+
+        java.io.InputStream stockConfig = Thread.currentThread().getContextClassLoader().getResourceAsStream("struts-default.xml");
+        assertThat(stockConfig).as("struts-default.xml should be on the test classpath (struts2-core)").isNotNull();
+        Document strutsDefault = newHardenedDocumentBuilder().parse(new InputSource(stockConfig));
+        Map<String, List<String>> stockStacks = describeStacks(strutsDefault);
+        Map<String, List<String>> carlosStacks = describeStacks(parent);
+        assertThat(carlosStacks.keySet()).containsExactlyInAnyOrder("carlosDefaultStack", "carlosBasicStack");
+        List<String> expectedDefaultStack = withCarlosException(stockStacks.get("defaultStack"));
+        // COOP is set by the servlet filter for actions, static resources, forwards and errors.
+        // Struts' coop interceptor would overwrite it and sever legitimate popup openers.
+        assertThat(expectedDefaultStack).anyMatch(entry -> entry.startsWith("coop "));
+        expectedDefaultStack.removeIf(entry -> entry.startsWith("coop "));
+        assertThat(carlosStacks)
+                .as("carlosDefaultStack must replace exception logging and delegate COOP to the servlet filter")
+                .containsEntry("carlosDefaultStack", expectedDefaultStack)
+                .as("carlosBasicStack must be struts-default's basicStack with carlosException in the exception slot")
+                .containsEntry("carlosBasicStack", withCarlosException(stockStacks.get("basicStack")));
+
+        NodeList defaultRefs = carlosDefault.getElementsByTagName("default-interceptor-ref");
+        assertThat(defaultRefs.getLength()).isEqualTo(1);
+        assertThat(((Element) defaultRefs.item(0)).getAttribute("name")).isEqualTo("carlosDefaultStack");
+
+        List<String> violations = new ArrayList<>();
+        NodeList includes = parent.getElementsByTagName("include");
+        for (int i = 0; i < includes.getLength(); i++) {
+            if (includes.item(i) instanceof Element include) {
+                String fileName = include.getAttribute("file");
+                Document doc = parseXml(strutsDir.resolve(fileName));
+                NodeList packages = doc.getElementsByTagName("package");
+                for (int p = 0; p < packages.getLength(); p++) {
+                    Element packageElement = (Element) packages.item(p);
+                    String extendsValue = packageElement.getAttribute("extends");
+                    if (!"carlos-default".equals(extendsValue)) {
+                        violations.add(packageViolation(fileName, packageElement,
+                                "extends " + extendsValue + " instead of carlos-default"));
+                    }
+                    if (packageElement.getElementsByTagName("default-interceptor-ref").getLength() > 0) {
+                        violations.add(packageViolation(fileName, packageElement,
+                                "overrides default-interceptor-ref"));
+                    }
+                }
+                NodeList refs = doc.getElementsByTagName("interceptor-ref");
+                for (int r = 0; r < refs.getLength(); r++) {
+                    String refName = ((Element) refs.item(r)).getAttribute("name");
+                    if ("defaultStack".equals(refName) || "basicStack".equals(refName)) {
+                        violations.add(fileName + " references the struts-default stack " + refName
+                                + " directly; name the carlos* stack so the exception interceptor still logs");
+                    }
+                }
+            }
+        }
+
+        assertThat(violations)
+                .as("Struts packages and actions must stay on the exception-logging stacks")
                 .isEmpty();
     }
 
@@ -321,6 +437,41 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
         return children;
     }
 
+    /**
+     * One line per interceptor-ref of each stack, name plus its params in document order, so two
+     * stacks compare as plain lists.
+     */
+    private static Map<String, List<String>> describeStacks(Document doc) {
+        Map<String, List<String>> stacks = new LinkedHashMap<>();
+        NodeList stackNodes = doc.getElementsByTagName("interceptor-stack");
+        for (int i = 0; i < stackNodes.getLength(); i++) {
+            Element stack = (Element) stackNodes.item(i);
+            List<String> entries = new ArrayList<>();
+            NodeList refs = stack.getElementsByTagName("interceptor-ref");
+            for (int r = 0; r < refs.getLength(); r++) {
+                Element ref = (Element) refs.item(r);
+                StringBuilder entry = new StringBuilder(ref.getAttribute("name"));
+                NodeList params = ref.getElementsByTagName("param");
+                for (int p = 0; p < params.getLength(); p++) {
+                    Element param = (Element) params.item(p);
+                    entry.append(' ').append(param.getAttribute("name")).append('=').append(param.getTextContent().trim());
+                }
+                entries.add(entry.toString());
+            }
+            stacks.put(stack.getAttribute("name"), entries);
+        }
+        return stacks;
+    }
+
+    private static List<String> withCarlosException(List<String> stockStack) {
+        assertThat(stockStack).as("struts-default.xml should be readable from the Struts jar").isNotNull();
+        List<String> expected = new ArrayList<>();
+        for (String entry : stockStack) {
+            expected.add("exception".equals(entry) ? "carlosException" : entry);
+        }
+        return expected;
+    }
+
     private static String packageViolation(String fileName, Element packageElement, String detail) {
         return "%s package %s %s".formatted(fileName, packageElement.getAttribute("name"), detail);
     }
@@ -373,7 +524,7 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
     private static void setAttributeIfSupported(DocumentBuilderFactory dbf, String name, String value) {
         try {
             dbf.setAttribute(name, value);
-        } catch (IllegalArgumentException ignored) {
+        } catch (IllegalArgumentException _) {
             // Some bundled Xerces implementations do not expose JAXP accessExternal* attributes.
         }
     }

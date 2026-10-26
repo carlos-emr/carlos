@@ -2,9 +2,9 @@
 <jasperReport name="pdf_rep_payref" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20">
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
-	<import value="net.sf.jasperreports.engine.*" />
-	<import value="java.util.*" />
-	<import value="net.sf.jasperreports.engine.data.*" />
+	<import>net.sf.jasperreports.engine.*</import>
+	<import>java.util.*</import>
+	<import>net.sf.jasperreports.engine.data.*</import>
 	<parameter name="startDate" class="java.lang.String">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
@@ -26,11 +26,11 @@
 	<parameter name="account" class="java.lang.String">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="provider" class="java.lang.String" isForPrompting="false" />
-	<parameter name="payee" class="java.lang.String" isForPrompting="false" />
-	<parameter name="sumPayed" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary" isForPrompting="false" />
-	<parameter name="sumRefunded" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary" isForPrompting="false" />
-	<queryString>
+	<parameter name="provider" class="java.lang.String" forPrompting="false" />
+	<parameter name="payee" class="java.lang.String" forPrompting="false" />
+	<parameter name="sumPayed" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary" forPrompting="false" />
+	<parameter name="sumRefunded" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary" forPrompting="false" />
+	<query>
 		<![CDATA[select provider.first_name,provider.provider_no,provider.last_name,billing.billing_date,billing.billingtype,billingmaster.service_date, billingmaster.billingmaster_no,billing.billing_no,
 billing.demographic_name,billing.demographic_no,billingmaster.billing_unit,billingmaster.billing_code,billingmaster.bill_amount,billingmaster.billingstatus
 from provider,billing,billingmaster
@@ -38,7 +38,7 @@ where billingmaster.billing_no=billing.billing_no
 and billing.provider_no = provider.provider_no
 and billing.provider_no = 999993
 order by billing.billingtype;]]>
-	</queryString>
+	</query>
 	<field name="billingtype" class="java.lang.String" />
 	<field name="paymentDate" class="java.lang.String" />
 	<field name="demoNo" class="java.lang.String" />
@@ -61,17 +61,17 @@ order by billing.billingtype;]]>
 	<field name="adjustmentCodeDesc" class="java.lang.String" />
 	<field name="adjustmentCodeAmt" class="java.lang.String" />
 	<variable name="test" class="java.lang.String" resetType="None">
-		<variableExpression><![CDATA["test"]]></variableExpression>
+		<expression><![CDATA["test"]]></expression>
 		<initialValueExpression><![CDATA["test"]]></initialValueExpression>
 	</variable>
 	<variable name="invTotal" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amount})]]></expression>
 	</variable>
 	<variable name="methTotal" class="java.lang.Double" resetType="Group" resetGroup="payMeth" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amount})]]></expression>
 	</variable>
 	<group name="payMeth">
-		<groupExpression><![CDATA[$F{type}]]></groupExpression>
+		<expression><![CDATA[$F{type}]]></expression>
 		<groupHeader>
 			<band />
 		</groupHeader>
@@ -85,14 +85,10 @@ order by billing.billingtype;]]>
 		</title>
 	<pageHeader height="57" splitType="Stretch">
 		<element kind="line" mode="Opaque" x="0" y="27" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="43" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="staticText" mode="Transparent" x="0" y="1" width="412" height="24" forecolor="#000000" backcolor="#FFFFFF" key="staticText" hTextAlign="Left" vTextAlign="Middle" fontSize="14.0" rotation="None">
 			<paragraph lineSpacing="Single" />
@@ -536,19 +532,13 @@ order by billing.billingtype;]]>
 			<expression><![CDATA[$P{sumRefunded}.getOther()]]></expression>
 		</element>
 		<element kind="line" mode="Opaque" x="1" y="2" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line-1">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="120" width="140" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line-2">
-			<graphicElement fill="Solid">
-				<pen lineWidth="0.5" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="154" y="120" width="140" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line-3">
-			<graphicElement fill="Solid">
-				<pen lineWidth="0.5" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="textField" mode="Transparent" x="84" y="122" width="52" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-37" hTextAlign="Right" vTextAlign="Top" fontSize="8.0" rotation="None" textAdjust="StretchHeight" blankWhenNull="false" pattern="">
 			<paragraph lineSpacing="Single" />

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.validator;
 
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingReviewServiceParam;
+
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -51,7 +53,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *       service date is within a year of it.</li>
  *   <li><b>Service-code validity</b> — for each submitted
  *       {@code serviceCodeN}, look up in {@code billingservice} and emit
- *       an error if the code isn't found / has been terminated.</li>
+ *       an error if the code isn't found, is not yet effective on the
+ *       service date, or has been terminated.</li>
  *   <li><b>Diagnostic-code validity</b> — for each submitted
  *       {@code dxCodeN}, look up in {@code diagnostic_code} and emit an
  *       error if the code isn't found.</li>
@@ -96,8 +99,13 @@ public class BillingOnReviewValidator {
 
     /**
      * Validates the submitted service codes / dx codes / A003A guard.
-     * The {@code billReferenceDate} is the date used for service-code
-     * termination-date filtering ({@code findBillingCodesByCodeAndTerminationDate}).
+     * The {@code billReferenceDate} is the bill's service date: a submitted
+     * service code is valid only when the fee row in effect on that date (the
+     * latest effective date on or before it) has not terminated
+     * ({@code findBillingCodesByCodeAndTerminationDate}). A code used before its
+     * first effective date, or after termination, is reported exactly like an
+     * unknown code, so the form's date-filtered code lists are enforced here
+     * for stale or crafted submissions too.
      */
     public Result validate(HttpServletRequest request, String demoNo, String billReferenceDate) {
         List<Message> messages = new ArrayList<>();
@@ -113,9 +121,18 @@ public class BillingOnReviewValidator {
             if (serviceCode.isEmpty()) {
                 continue;
             }
-            // Replace _ with \_ so SQL LIKE doesn't treat it as wildcard.
+            if (!BillingReviewServiceParam.isValidMultiplier(request.getParameter("serviceUnit" + i))
+                    || !BillingReviewServiceParam.isValidMultiplier(request.getParameter("serviceAt" + i))) {
+                codeValid = false;
+                messages.add(new Message(Message.Severity.ERROR,
+                        "Service units and percent must be decimal numbers of at most four characters. Please go back to correct them."));
+            }
+            // Pass the code through unescaped. The DAO compares with JPQL '=' and a bound
+            // parameter, where '_' is already a literal. The old LIKE-style '\_' escaping made
+            // every underscore code (the "_"-prefixed private codes, e.g. _OMA_A003) miss and
+            // be reported invalid.
             List<Object> svcCodes = billingServiceDao.findBillingCodesByCodeAndTerminationDate(
-                    serviceCode.trim().replace("_", "\\_"), filterDate);
+                    serviceCode.trim(), filterDate);
             if (svcCodes.isEmpty()) {
                 codeValid = false;
                 messages.add(new Message(Message.Severity.ERROR,
@@ -228,7 +245,7 @@ public class BillingOnReviewValidator {
         }
         try {
             return Integer.parseInt(demoNo);
-        } catch (NumberFormatException nfe) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }
@@ -236,4 +253,5 @@ public class BillingOnReviewValidator {
     private static String nullToEmpty(String s) {
         return s == null ? "" : s;
     }
+
 }

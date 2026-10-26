@@ -37,6 +37,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.awt.Color;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -58,7 +60,6 @@ import org.openpdf.text.html.simpleparser.HTMLWorker;
 import org.openpdf.text.pdf.*;
 import org.openpdf.text.pdf.events.PdfPageEventForwarder;
 import org.openrtf.text.rtf.RtfWriter2;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
@@ -101,7 +102,14 @@ public class LabPDFCreator extends PdfPageEventHelper {
     private Font boldFont;
     private String dateLabReceived;
 
-    private List<String> embeddedDocumentsToAppend = new ArrayList<String>();
+    /** Decoded PDFs from ED OBXs, appended after the lab by {@link #addEmbeddedDocuments}. */
+    private final List<byte[]> embeddedDocumentsToAppend = new ArrayList<>();
+
+    /** Printed in place of an ED OBX whose PDF is appended to the report. */
+    static final String APPENDED_PDF_NOTE = "PDF Report (Appended to end of Laboratory Report)";
+
+    /** Printed in place of an ED OBX that is not a PDF (an image, say), which cannot be appended. */
+    static final String NOT_PRINTABLE_NOTE = "Embedded document in a format other than PDF; it cannot be printed.";
     List<String> allLicenseNames = new ArrayList<String>();
 
     public static byte[] getPdfBytes(String segmentId, String providerNo) throws IOException, DocumentException {
@@ -188,8 +196,8 @@ public class LabPDFCreator extends PdfPageEventHelper {
         }
 
         //Create the document we are going to write to
-        document = new Document();
-        PdfWriter writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
+        document = new Document(PageSize.LETTER);
+        PdfWriter writer = PdfWriterFactory.newInstanceWithWrappedFooter(document, os, FontSettings.HELVETICA_10PT);
 
         try {
             // Add this class's onEndPage handler to the factory-installed PdfPageEventForwarder
@@ -201,13 +209,12 @@ public class LabPDFCreator extends PdfPageEventHelper {
                 writer.setPageEvent(this);
             }
 
-            document.setPageSize(PageSize.LETTER);
             document.addTitle("CARLOS Laboratory Report");
             document.addCreator("CARLOS EMR");
             document.open();
 
             //Create the fonts that we are going to use
-            bf = BaseFont.createFont(BaseFont.TIMES_ROMAN, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            bf = PdfFonts.createFont(BaseFont.TIMES_ROMAN, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             font = new Font(bf, 9, Font.NORMAL);
             boldFont = new Font(bf, 10, Font.BOLD);
 
@@ -245,7 +252,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
             table.setWidthPercentage(100);
             PdfPCell cell = new PdfPCell();
             cell.setBorder(0);
-            cell.setPhrase(new Phrase("  "));
+            cell.setPhrase(new Phrase("  ", font));
             table.addCell(cell);
             cell.setBorder(15);
             cell.setBackgroundColor(new Color(210, 212, 255));
@@ -280,7 +287,17 @@ public class LabPDFCreator extends PdfPageEventHelper {
         os.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF stream flush
     }
 
-    public void addEmbeddedDocuments(File currentPDF, OutputStream os) {
+    /**
+     * Writes {@code currentPDF} followed by the lab's embedded documents to {@code os}.
+     *
+     * <p>{@code currentPDF} must live in an allowed temp directory (see
+     * {@link PathValidationUtils#validateUpload(File)}); every caller renders the lab into a
+     * secure temp file first. A source anywhere else is refused and nothing is written, and the
+     * failure is reported to the caller without patient filenames or exception messages.</p>
+     *
+     * @throws IOException if any required PDF cannot be included
+     */
+    public void addEmbeddedDocuments(File currentPDF, OutputStream os) throws IOException {
         List<Object> alist = new ArrayList<Object>();
 
         try {
@@ -288,17 +305,17 @@ public class LabPDFCreator extends PdfPageEventHelper {
             try (InputStream mainPDF = new FileInputStream(validatedPDF)) {
                 alist.add(mainPDF);
 
-                for (String data : embeddedDocumentsToAppend) {
-                    InputStream tmp = new ByteArrayInputStream(Base64.decodeBase64(data));
-                    alist.add(tmp);
+                for (byte[] pdf : embeddedDocumentsToAppend) {
+                    alist.add(new ByteArrayInputStream(pdf));
                 }
 
-                ConcatPDF.concat(alist, os);
+                ConcatPDF.concatRequired(alist, os);
             }
-        } catch (SecurityException e) {
-            MiscUtils.getLogger().error("Security violation: PDF temp file path rejected: {}", currentPDF, e);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            // A missing or invalid lab/attachment must not become a successful partial PDF.
+            // Causes can contain patient filenames; callers often log the exception they receive.
+            MiscUtils.getLogger().error("Lab PDF source rejected or assembly failed ({})", e.getClass().getSimpleName());
+            throw new IOException("Lab PDF could not be assembled completely");
         }
     }
 
@@ -373,7 +390,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 				
 				// blank filler
 				cell.setPadding(3);
-				cell.setPhrase(new Phrase("  "));				
+				cell.setPhrase(new Phrase("  ", font));
 				cell.setBorder(0);				
 				if (handler.getMsgType().equals("ExcellerisON")) {
 					cell.setColspan(8);
@@ -391,7 +408,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 				table.addCell(cell);
 				
 				// place holder after lab title
-				cell.setPhrase(new Phrase("  "));
+				cell.setPhrase(new Phrase("  ", font));
 				cell.setBorder(0);
 				if (handler.getMsgType().equals("ExcellerisON")) {
 					cell.setColspan(6);
@@ -582,11 +599,11 @@ public class LabPDFCreator extends PdfPageEventHelper {
                                 infoTable.setWidthPercentage(100);
                                 cell.setPhrase(new Phrase(handler.getOBXName(j, k).replaceAll("<br\\s*/*>", " "), lineFont));
                                 infoTable.addCell(cell);
-                                cell.setPhrase(new Phrase(handler.getOBXResult(j, k).replaceAll("<br\\s*/*>", " "), lineFont));
+                                cell.setPhrase(new Phrase(resultText(handler, j, k).replaceAll("<br\\s*/*>", " "), lineFont));
                                 infoTable.addCell(cell);
                                 table.addCell(infoTable);
                             } else {
-                                String data = handler.getOBXResult(j, k);
+                                String data = resultText(handler, j, k);
                                 if (data.isEmpty()) {
                                     data = "\n";
                                 }
@@ -639,7 +656,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
                                 }
                             }
 
-                            cell.setPhrase(new Phrase(handler.getOBXResult(j, k).replaceAll("<br\\s*/*>", "\n").replace("\t", "\u00a0\u00a0\u00a0\u00a0"), lineFont));
+                            cell.setPhrase(new Phrase(resultText(handler, j, k).replaceAll("<br\\s*/*>", "\n").replace("\t", "\u00a0\u00a0\u00a0\u00a0"), lineFont));
                             table.addCell(cell);
 
                             //if there are duplicate Times, display only the first
@@ -698,14 +715,8 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
                             if (handler.getMsgType().equals("PATHL7")) {
 
-                                if (handler.getOBXValueType(j, k).equals("ED")) {
-                                    if (((PATHL7Handler) handler).isLegacy(j, k)) {
-                                        embeddedDocumentsToAppend.add(((PATHL7Handler) handler).getLegacyOBXResult(j, k));
-                                    } else {
-                                        embeddedDocumentsToAppend.add(handler.getOBXResult(j, k));
-                                    }
-
-                                    cell.setPhrase(new Phrase("PDF Report (Appended to end of Laboratory Report)", lineFont));
+                                if (handler.isOBXEmbeddedDocument(j, k)) {
+                                    cell.setPhrase(new Phrase(embeddedDocumentResult(handler, j, k).replaceAll("<br\\s*/*>", "\n"), lineFont));
                                     table.addCell(cell);
                                 } else {
                                     cell.setPhrase(new Phrase(handler.getOBXResult(j, k).replaceAll("<br\\s*/*>", "\n").replace("\t", "\u00a0\u00a0\u00a0\u00a0"), lineFont));
@@ -745,9 +756,9 @@ public class LabPDFCreator extends PdfPageEventHelper {
 								if (isLongText) {
 									cell.setColspan(4);
 								}
-								if (handler instanceof ExcellerisOntarioHandler &&  handler.getOBXValueType(j, k).equals("ED")) {
-									embeddedDocumentsToAppend.add(handler.getOBXResult(j, k));
-									cell.setPhrase(new Phrase("PDF Report (Appended to end of Laboratory Report)", lineFont));
+								if (handler.isOBXEmbeddedDocument(j, k)) {
+									// Any lab type's ED OBX: the shared loader decides what prints, as on screen.
+									cell.setPhrase(new Phrase(embeddedDocumentResult(handler, j, k).replaceAll("<br\\s*/*>", "\n"), lineFont));
 									table.addCell(cell);
 								} else if (handler instanceof ExcellerisOntarioHandler && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) {
 									cell.setPhrase(new Phrase(((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue(j, k).replaceAll("<br\\s*/*>", "\n"), lineFont));
@@ -779,7 +790,10 @@ public class LabPDFCreator extends PdfPageEventHelper {
                                 }
 
                                 table.addCell(cell);
-                                cell.setPhrase(new Phrase(handler.getOBXReferenceRange(j, k), lineFont));
+                                // Handler break markers are layout, while all other range text stays literal in the PDF.
+                                String referenceRange = StringUtils.defaultString(handler.getOBXReferenceRange(j, k))
+                                        .replaceAll("(?i)<br\\s*/?>", "\n");
+                                cell.setPhrase(new Phrase(referenceRange, lineFont));
                                 table.addCell(cell);
                                 cell.setPhrase(new Phrase(handler.getOBXUnits(j, k), lineFont));
                                 table.addCell(cell);
@@ -846,7 +860,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
                         cell.setColspan(7);
 
                         table.setWidthPercentage(100);
-                        cell.setPhrase(new Phrase(handler.getOBXResult(j, k).replaceAll("<br\\s*/*>", "\n"), font));
+                        cell.setPhrase(new Phrase(resultText(handler, j, k).replaceAll("<br\\s*/*>", "\n"), font));
                         table.addCell(cell);
 
                         cell.setColspan(1);
@@ -1164,7 +1178,6 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
             Rectangle page = document.getPageSize();
             PdfContentByte cb = writer.getDirectContent();
-            BaseFont bf = BaseFont.createFont(BaseFont.TIMES_ROMAN, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             int pageNum = document.getPageNumber();
             float width = page.getWidth();
             float height = page.getHeight();
@@ -1226,6 +1239,51 @@ public class LabPDFCreator extends PdfPageEventHelper {
         if (this.os != null) {
             os.flush();
         }
+    }
+
+    /**
+     * The printed result of an OBX: for an ED OBX {@link #embeddedDocumentResult}, otherwise
+     * {@link MessageHandler#getOBXResult(int, int)}. May contain {@code <br />} markers.
+     */
+    String resultText(MessageHandler handler, int j, int k) {
+        if (handler.isOBXEmbeddedDocument(j, k)) {
+            return embeddedDocumentResult(handler, j, k);
+        }
+        String result = handler.getOBXResult(j, k);
+        return result == null ? "" : result;
+    }
+
+    /**
+     * What prints for an ED OBX of any lab type, classified and decoded by
+     * {@link EmbeddedLabDocumentLoader} exactly as the lab views and the download endpoint do: a
+     * PDF is queued for {@link #addEmbeddedDocuments} and noted in the cell; declared text prints
+     * as {@link MessageHandler#getOBXEmbeddedDocumentText(int, int)} (with the Excelleris OBX-4
+     * label); anything else prints a note instead of encoded bytes. Like the download endpoint no
+     * size limit applies: the payload is already in memory with the message.
+     *
+     * @return the cell text, possibly with {@code <br />} markers; never {@code null}
+     */
+    String embeddedDocumentResult(MessageHandler handler, int j, int k) {
+        EmbeddedLabDocumentLoader.Document embedded = EmbeddedLabDocumentLoader.load(handler, j, k, 0);
+        switch (embedded.status()) {
+            case PDF:
+                embeddedDocumentsToAppend.add(embedded.bytes());
+                return APPENDED_PDF_NOTE;
+            case TEXT:
+                if (handler instanceof ExcellerisOntarioHandler excelleris && !excelleris.getOBXSubId(j, k).isEmpty()) {
+                    return excelleris.getOBXSubIdWithEmbeddedDocumentText(j, k);
+                }
+                return handler.getOBXEmbeddedDocumentText(j, k);
+            case EMPTY:
+                return "";
+            default:
+                return NOT_PRINTABLE_NOTE;
+        }
+    }
+
+    /** The number of PDFs queued for {@link #addEmbeddedDocuments}; for tests. */
+    int embeddedDocumentCount() {
+        return embeddedDocumentsToAppend.size();
     }
 
     public MessageHandler getHandler() {

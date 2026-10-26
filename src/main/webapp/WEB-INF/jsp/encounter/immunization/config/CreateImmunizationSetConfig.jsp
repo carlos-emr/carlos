@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -63,7 +64,7 @@
         MiscUtils.getLogger().error("there was a boo-boo co=" + co + " ro=" + ro, e);
     }
 
-    setName = ((String) request.getAttribute("setName"));
+    setName = ((String) request.getAttribute("name"));
 %>
 
 
@@ -92,7 +93,7 @@
     </script>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/styles.css">
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="window.focus();">
     <% 
@@ -146,13 +147,13 @@
                     </tr>
                     <tr>
                         <td><fmt:message key="encounter.immunization.config.createImmunizationSetConfig.msgSetName"/>:
-                            <%=setName%>
+                            <carlos:encode value='<%= setName %>' context="html"/>
                         </td>
                     </tr>
                     <tr>
                         <td><form action="${pageContext.request.contextPath}/encounter/immunization/config/CreateImmunizationSetConfig" method="post">
 
-                            <input type="hidden" name="setName" id="setName" value="<%=setName%>"/>
+                            <input type="hidden" name="name" id="setName" value="<carlos:encode value='<%= setName %>' context="htmlAttribute"/>"/>
                             <table border=1>
                                 <%for (int i = 0; i < rows; i++) { %>
                                 <tr>

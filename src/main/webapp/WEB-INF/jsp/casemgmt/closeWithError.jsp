@@ -28,12 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%-- Shown in place of the chart when a note save is refused (lost note lock or an invalid date).
+     Nothing was saved, so the clinician's submitted note text is echoed back to be copied. --%>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String error = "Your note was not saved as you did not have the exclusive note lock";
 
     if (request.getAttribute("DateError") != null) {
         error = (String) request.getAttribute("DateError");
     }
+    // The page carries clinical text the user just typed; it must never be cached or replayed.
+    response.setHeader("Cache-Control", "no-store");
+    String unsavedNote = request.getParameter("caseNote_note");
+    boolean showUnsavedNote = unsavedNote != null && !unsavedNote.isBlank();
 %>
 <html>
 <head>
@@ -51,5 +60,11 @@
 <h3 style="text-align:center;">
     <%=error %>
 </h3>
+<% if (showUnsavedNote) { %>
+<p id="unsavedNoteHint"><fmt:message key="casemgmt.closeWithError.unsavedNoteHint"/></p>
+<label for="unsavedNoteText"><fmt:message key="casemgmt.closeWithError.unsavedNoteLabel"/></label>
+<textarea id="unsavedNoteText" readonly rows="12" style="width:100%;box-sizing:border-box;"
+          aria-describedby="unsavedNoteHint"><carlos:encode value="<%= unsavedNote %>"/></textarea>
+<% } %>
 </body>
 </html>

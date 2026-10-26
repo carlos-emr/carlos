@@ -16,7 +16,7 @@ import java.util.List;
  * <p>
  * Email logs track:
  * <ul>
- *   <li>Email delivery status (SUCCESS, FAILED, RESOLVED)</li>
+ *   <li>Email delivery status (PENDING, SUCCESS, FAILED, RESOLVED)</li>
  *   <li>Transaction context (EFORM, CONSULTATION, TICKLER, DIRECT)</li>
  *   <li>Associated patient demographics and healthcare provider</li>
  *   <li>Encryption status for PHI-containing emails</li>
@@ -57,34 +57,58 @@ public interface EmailLogDao extends AbstractDao<EmailLog> {
      * @param dateEnd Date the end of the date range filter (inclusive); null to ignore end date
      * @param demographicNo String the patient demographic number to filter by; null to include all patients
      * @param senderEmailAddress String the sender's email address to filter by; null to include all senders
-     * @param emailStatus String the delivery status to filter by (SUCCESS, FAILED, RESOLVED); null to include all statuses
+     * @param emailStatus String the delivery status to filter by (PENDING, SUCCESS, FAILED, RESOLVED); null to include all statuses
      * @return List&lt;EmailLog&gt; list of email log records matching the specified criteria, ordered by timestamp
      */
     public List<EmailLog> getEmailStatusByDateDemographicSenderStatus(Date dateBegin, Date dateEnd, String demographicNo, String senderEmailAddress, String emailStatus);
 
     /**
-     * Updates the delivery status and error information for an email log record.
-     * <p>
-     * This method is used by email sending services to update the status of email delivery attempts.
-     * It supports tracking both successful deliveries and failed attempts with error diagnostics.
-     * For failed emails, the errorMessage parameter should contain specific SMTP error codes or
-     * exception messages to aid in troubleshooting.
-     * </p>
-     * <p>
-     * Typical workflow:
-     * <ol>
-     *   <li>Email log created with initial status (typically FAILED for new records)</li>
-     *   <li>Email sending service attempts delivery</li>
-     *   <li>This method updates status to SUCCESS or maintains FAILED with error details</li>
-     *   <li>Status may be updated to RESOLVED when issues are addressed</li>
-     * </ol>
-     * </p>
+     * Replaces the stored body of one email, in its own transaction.
      *
-     * @param id Integer the unique identifier of the email log record to update
-     * @param status EmailLog.EmailStatus the new delivery status (SUCCESS, FAILED, or RESOLVED)
-     * @param errorMessage String the error message for failed deliveries; null for successful deliveries
-     * @param timestamp Date the timestamp of the status update; typically the current time
-     * @return int the number of records updated (should be 1 for successful update, 0 if ID not found)
+     * <p>Used to drop a one-time credential from the outbox once it can no longer be needed: the row
+     * stays as the record that the email existed, without keeping what it carried. Only the body column
+     * is written, so a status change made at the same time by another request is never overwritten.
+     *
+     * @return the number of rows matched: 0 when the row is missing
      */
-    public int updateEmailStatus(Integer id, EmailLog.EmailStatus status, String errorMessage, Date timestamp);
+    public int replaceBody(Integer id, String replacement);
+
+    /**
+     * Lists at most {@code limit} uncleared emails of {@code type}, after the id, whose invitation code
+     * is no longer needed. An email qualifies in either of two ways.
+     *
+     * <ul>
+     *   <li><b>Settled</b>, and unchanged since before {@code changedBefore}: SUCCESS proves transport
+     *   returned; BLOCKED proves consent refused it before dispatch. FAILED counts only when the portal
+     *   invitation attempt naming the email recorded a definite "not sent" after its code went live
+     *   (terminal state SEND_FAILED, outcome SEND_REFUSED), and RESOLVED only when it ended NOT_ARRIVED
+     *   (staff confirmed it never arrived once the portal showed its code dead). Other FAILED and RESOLVED
+     *   rows, such as staff abandonment, which can be written while the original send is still running,
+     *   and PENDING ones, do not count as settled.</li>
+     *   <li><b>Aged</b>, whatever its status: its code is past its life plus a margin. When every attempt
+     *   naming the email recorded the portal's expiry, that expiry must be before {@code expiredBefore};
+     *   when none did, the email row's last change must be before {@code agedBefore}.</li>
+     * </ul>
+     */
+    List<Integer> findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType type,
+            Date changedBefore, Date expiredBefore, Date agedBefore, String body, int afterId, int limit);
+
+    /** Rechecks the same rule atomically before replacing only the body. */
+    int replaceBodyIfUnchangedBefore(Integer id, EmailLog.TransactionType type, Date changedBefore,
+            Date expiredBefore, Date agedBefore, String replacement);
+
+    /**
+     * Atomically changes an email status only when the persisted row is still in the expected
+     * state. Callers must check the returned row count: zero means the record was removed or a
+     * concurrent request won the transition.
+     *
+     * @param id the email log identifier
+     * @param expectedStatus the only status from which the transition is allowed
+     * @param newStatus the target status
+     * @param errorMessage the status detail to persist
+     * @param timestamp the timestamp to persist
+     * @return one when the transition was applied, otherwise zero
+     */
+    public int transitionEmailStatus(Integer id, EmailLog.EmailStatus expectedStatus,
+            EmailLog.EmailStatus newStatus, String errorMessage, Date timestamp);
 }

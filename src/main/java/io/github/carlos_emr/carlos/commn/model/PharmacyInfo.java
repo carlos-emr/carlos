@@ -87,6 +87,18 @@ public class PharmacyInfo extends AbstractModel<Integer> implements Comparable<P
 
     private Character status;
 
+    /**
+     * Legacy pharmacyInfo.uid: NOT NULL with no database default, and nothing in the application reads it. Without
+     * this mapping every insert omitted the column, so a permissive sql_mode silently stored 0 and a strict
+     * sql_mode rejected the row (error 1364), which broke Add Pharmacy in the Rx pharmacy manager.
+     *
+     * <p>Insert-only on purpose ({@code updatable = false}). The edit paths (PharmacyInfoDaoImpl.updatePharmacy,
+     * PharmacyInfoConverter, the contact form) merge a freshly built, detached instance whose uid is this default
+     * 0. Left updatable, every edit would overwrite a stored uid with 0, which the unmapped column never did.
+     */
+    @Column(name = "uid", updatable = false)
+    private int uid = 0;
+
     @Transient
     private Boolean persistent;
 
@@ -200,6 +212,14 @@ public class PharmacyInfo extends AbstractModel<Integer> implements Comparable<P
 
     public void setStatus(Character status) {
         this.status = status;
+    }
+
+    public int getUid() {
+        return uid;
+    }
+
+    public void setUid(int uid) {
+        this.uid = uid;
     }
 
     /**

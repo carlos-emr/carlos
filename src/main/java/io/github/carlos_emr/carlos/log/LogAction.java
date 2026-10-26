@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.DeamonThreadFactory;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -152,6 +153,43 @@ public class LogAction {
     }
 
     /**
+     * As {@link #addLogSynchronous(LoggedInInfo, String, String)}, in the caller's thread and
+     * transaction, also recording the content, its id and the patient, so the entry can be found
+     * by those columns rather than by searching the data text.
+     */
+    public static void addLogSynchronous(LoggedInInfo loggedInInfo, String action, String content, String contentId,
+            Integer demographicNo, String data) {
+        LogAction.addLogSynchronous(createPatientLogEntry(loggedInInfo, action, content, contentId, demographicNo, data));
+    }
+
+    /**
+     * Persists the patient audit entry in the caller's thread, propagating any failure so a
+     * transactional caller can roll back its change instead of committing without an audit.
+     * Use this for mutations that require their audit entry to succeed in the same transaction.
+     *
+     * @throws RuntimeException if the audit entry cannot be constructed or persisted
+     */
+    public static void addLogSynchronousOrThrow(LoggedInInfo loggedInInfo, String action, String content, String contentId,
+            Integer demographicNo, String data) {
+        getOscarLogDao().persist(createPatientLogEntry(loggedInInfo, action, content, contentId, demographicNo, data));
+    }
+
+    private static OscarLog createPatientLogEntry(LoggedInInfo loggedInInfo, String action, String content, String contentId,
+            Integer demographicNo, String data) {
+        OscarLog logEntry = new OscarLog();
+        if (loggedInInfo.getLoggedInSecurity() != null)
+            logEntry.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        if (loggedInInfo.getLoggedInProvider() != null) logEntry.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        logEntry.setAction(action);
+        logEntry.setContent(content);
+        logEntry.setContentId(contentId);
+        logEntry.setIp(loggedInInfo.getIp());
+        logEntry.setDemographicId(demographicNo);
+        logEntry.setData(data);
+        return logEntry;
+    }
+
+    /**
      * This method will add a log entry asynchronously in a separate thread.
      */
     public static void addLog(String provider_no, String action, String content, String data) {
@@ -172,7 +210,53 @@ public class LogAction {
         addLog(provider_no, action, content, contentId, ip, demographicNo, null);
     }
 
+    /**
+     * Copies {@code demographicNo} onto the audit row when it is a number. A value that does not
+     * parse is dropped and only its length is logged: callers have passed free text (a note body)
+     * in this slot, and echoing it, as {@code NumberFormatException}'s message does, would write
+     * PHI into the application log. The audit row is still written, without a patient.
+     */
+    private static void setDemographicIdIfNumeric(OscarLog logEntry, String demographicNo) {
+        String trimmed = StringUtils.trimToNull(demographicNo);
+        if (trimmed == null) {
+            return;
+        }
+        try {
+            logEntry.setDemographicId(Integer.parseInt(trimmed));
+        } catch (NumberFormatException e) {
+            // Deliberately not passing e: its message is the unparsable input.
+            logger.error("Audit log demographicNo is not a number (length {}); the audit row is saved without a patient",
+                    trimmed.length());
+        }
+    }
+
+    /**
+     * Best-effort audit: queues the entry for asynchronous persistence and never throws. If the
+     * executor is saturated it persists synchronously, but a persistence failure is only logged
+     * (see {@link #addLogSynchronous(OscarLog)}). Use {@link #addLogStrict} where serving data
+     * must depend on the audit record having been written.
+     */
     public static void addLog(LoggedInInfo loggedInInfo, String action, String content, String contentId, String demographicNo, String data) {
+        executeAsync(buildEntry(loggedInInfo, action, content, contentId, demographicNo, data));
+    }
+
+    /**
+     * Strict audit: persists the entry in the calling thread (joining the caller's transaction
+     * if there is one) and lets any persistence failure propagate. Unlike the best-effort
+     * {@code addLog}/{@code addLogSynchronous} methods, a caller can rely on a normal return
+     * meaning the record was handed to the DAO without error, and can refuse to disclose the
+     * audited data when it throws.
+     *
+     * @throws RuntimeException any failure from {@code OscarLogDao.persist}
+     * @since 2026-10-01
+     */
+    public static void addLogStrict(LoggedInInfo loggedInInfo, String action, String content, String contentId,
+            String demographicNo, String data) {
+        getOscarLogDao().persist(buildEntry(loggedInInfo, action, content, contentId, demographicNo, data));
+    }
+
+    private static OscarLog buildEntry(LoggedInInfo loggedInInfo, String action, String content, String contentId,
+            String demographicNo, String data) {
         OscarLog logEntry = new OscarLog();
         if (loggedInInfo.getLoggedInSecurity() != null)
             logEntry.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
@@ -182,14 +266,9 @@ public class LogAction {
         logEntry.setContentId(contentId);
         logEntry.setIp(loggedInInfo.getIp());
 
-        try {
-            demographicNo = StringUtils.trimToNull(demographicNo);
-            if (demographicNo != null) logEntry.setDemographicId(Integer.parseInt(demographicNo));
-        } catch (Exception e) {
-            logger.error("Unexpected error", e);
-        }
+        setDemographicIdIfNumeric(logEntry, demographicNo);
         logEntry.setData(data);
-        executeAsync(logEntry);
+        return logEntry;
     }
 
     /**
@@ -204,12 +283,7 @@ public class LogAction {
         oscarLog.setContentId(contentId);
         oscarLog.setIp(ip);
 
-        try {
-            demographicNo = StringUtils.trimToNull(demographicNo);
-            if (demographicNo != null) oscarLog.setDemographicId(Integer.parseInt(demographicNo));
-        } catch (Exception e) {
-            logger.error("Unexpected error", e);
-        }
+        setDemographicIdIfNumeric(oscarLog, demographicNo);
 
         oscarLog.setData(data);
 
@@ -239,7 +313,10 @@ public class LogAction {
             getOscarLogDao().persist(oscarLog);
         } catch (Exception e) {
             logger.error("Error in logger.", e);
-            logger.error("Error logging entry : " + oscarLog);
+            // Not the entry itself: OscarLog.toString() is reflective and prints data, which carries the
+            // audited note text (e.g. CaseManagementNote.getAuditString()), and demographic_no. Nor its
+            // content or contentId: callers pass free text and patient identifiers in those slots.
+            logger.error("Audit entry not persisted: action={}", LogSafe.sanitize(oscarLog.getAction()));
         }
     }
 

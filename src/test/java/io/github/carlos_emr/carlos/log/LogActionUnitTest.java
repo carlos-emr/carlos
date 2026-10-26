@@ -5,16 +5,29 @@ import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 class LogActionUnitTest {
@@ -24,6 +37,59 @@ class LogActionUnitTest {
         LogAction.setOscarLogDaoForTesting(null);
         LogAction.resetExecutorServiceForTesting();
         Thread.interrupted();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @Tag("create")
+    void shouldRecordContentIdAndPatient_whenLoggingSynchronously(boolean requireAudit) {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+
+        Security security = new Security();
+        security.setSecurityNo(99);
+        when(loggedInInfo.getLoggedInSecurity()).thenReturn(security);
+        when(loggedInInfo.getLoggedInProvider()).thenReturn(mock(Provider.class));
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(loggedInInfo.getIp()).thenReturn("127.0.0.1");
+        if (requireAudit) LogAction.addLogSynchronousOrThrow(loggedInInfo, "retire", "consent", "11", 100, "data");
+        else LogAction.addLogSynchronous(loggedInInfo, "retire", "consent", "11", 100, "data");
+
+        verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                "retire".equals(log.getAction())
+                        && Integer.valueOf(99).equals(log.getSecurityId())
+                        && "999998".equals(log.getProviderNo())
+                        && "consent".equals(log.getContent())
+                        && "11".equals(log.getContentId())
+                        && Integer.valueOf(100).equals(log.getDemographicId())
+                        && "127.0.0.1".equals(log.getIp())
+                        && "data".equals(log.getData())));
+    }
+
+    @Test
+    @Tag("create")
+    void shouldPropagateAuditFailure_whenCallerRequiresAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        IllegalStateException failure = new IllegalStateException("synthetic audit failure");
+        doThrow(failure).when(oscarLogDao).persist(any(OscarLog.class));
+
+        assertThatThrownBy(() -> LogAction.addLogSynchronousOrThrow(mock(LoggedInInfo.class),
+                "change", "consent", "11", 100, "data"))
+                .isSameAs(failure);
+    }
+
+    @Test
+    @Tag("create")
+    void shouldKeepLegacyFailureHandling_whenLoggingSynchronously() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        doThrow(new IllegalStateException("synthetic audit failure")).when(oscarLogDao).persist(any(OscarLog.class));
+
+        assertThatCode(() -> LogAction.addLogSynchronous(mock(LoggedInInfo.class),
+                "change", "consent", "11", 100, "data"))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -40,6 +106,148 @@ class LogActionUnitTest {
                         && "view".equals(log.getAction())
                         && "document".equals(log.getContent())
                         && "123".equals(log.getContentId())));
+    }
+
+    private static final String NOTE_TEXT_WITH_PHI = "Jane Roe reports chest pain\nIssues\nHypertension\n";
+
+    /**
+     * The unparsable value must reach neither a message nor an attached exception (a
+     * {@code NumberFormatException} message is the input itself); the rejected-executor warning of the
+     * synchronous test path is unrelated and carries no input.
+     */
+    private static void assertThatNothingEchoesThePhi(LogCapture capture) {
+        assertThat(capture.events()).anyMatch(event -> event.getLevel() == Level.ERROR);
+        assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR && event.getThrown() != null);
+        assertThat(capture.events()).noneMatch(event -> event.getMessage().getFormattedMessage().contains("Jane Roe")
+                || event.getMessage().getFormattedMessage().contains("chest pain")
+                || (event.getThrown() != null && String.valueOf(event.getThrown().getMessage()).contains("chest pain")));
+    }
+
+    @Test
+    @Tag("create")
+    void shouldSaveRowWithoutPatientAndNotLogInput_whenDemographicNoIsNotNumeric() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            LogAction.addLog("999998", "read", "note", "501", "127.0.0.1", NOTE_TEXT_WITH_PHI);
+
+            verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                    log.getDemographicId() == null && "501".equals(log.getContentId())));
+            assertThatNothingEchoesThePhi(capture);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    void shouldSaveRowWithoutPatientAndNotLogInput_whenLoggedInInfoDemographicNoIsNotNumeric() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+        LoggedInInfo info = mock(LoggedInInfo.class);
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            LogAction.addLog(info, "read", "note", "501", NOTE_TEXT_WITH_PHI, "data");
+
+            verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                    log.getDemographicId() == null && "data".equals(log.getData())));
+            assertThatNothingEchoesThePhi(capture);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    void shouldRecordPatientAndData_whenDemographicNoIsNumericWithWhitespace() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            LogAction.addLog("999998", "read", "note", "501", "127.0.0.1", " 101 ", "note body");
+
+            verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                    Integer.valueOf(101).equals(log.getDemographicId()) && "note body".equals(log.getData())));
+            assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    void shouldLeavePatientUnset_whenDemographicNoIsBlank() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            LogAction.addLog("999998", "read", "note", "501", "127.0.0.1", "  ", "data");
+
+            verify(oscarLogDao).persist(argThat((OscarLog log) -> log.getDemographicId() == null));
+            assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    void shouldPropagatePersistenceFailure_fromStrictAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        RuntimeException failure = new IllegalStateException("synthetic persistence failure");
+        doThrow(failure).when(oscarLogDao).persist(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+
+        assertThatThrownBy(() -> LogAction.addLogStrict(loggedInInfo(), "read", "LabEmbeddedDocument", "456",
+                "123", "segment=1,group=0,disposition=inline")).isSameAs(failure);
+
+        verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                "999998".equals(log.getProviderNo())
+                        && "read".equals(log.getAction())
+                        && "LabEmbeddedDocument".equals(log.getContent())
+                        && "456".equals(log.getContentId())
+                        && Integer.valueOf(123).equals(log.getDemographicId())
+                        && "segment=1,group=0,disposition=inline".equals(log.getData())));
+    }
+
+    @Test
+    @Tag("create")
+    void shouldSwallowPersistenceFailure_fromBestEffortAuditFallback() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao).persist(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        // Saturated executor: the best-effort addLog falls back to a synchronous persist.
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+
+        assertThatCode(() -> LogAction.addLog(loggedInInfo(), "read", "LabEmbeddedDocument", "456", "123", "data"))
+                .doesNotThrowAnyException();
+
+        verify(oscarLogDao).persist(any());
+    }
+
+    @Test
+    @Tag("create")
+    void shouldNotLogAuditedData_whenPersistenceFails() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao).persist(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            LogAction.addLog("999998", "read", "Jane Roe 4034-chart", "chest-pain-501", "127.0.0.1", "101", NOTE_TEXT_WITH_PHI);
+
+            assertThat(capture.events()).anyMatch(event -> event.getMessage().getFormattedMessage().contains("action=read"));
+            assertThat(capture.events()).noneMatch(event -> event.getMessage().getFormattedMessage().contains("Jane Roe")
+                    || event.getMessage().getFormattedMessage().contains("chest pain")
+                    || event.getMessage().getFormattedMessage().contains("chest-pain-501")
+                    || event.getMessage().getFormattedMessage().contains("101"));
+        }
+    }
+
+    private static LoggedInInfo loggedInInfo() {
+        LoggedInInfo info = mock(LoggedInInfo.class);
+        Provider provider = mock(Provider.class);
+        when(info.getLoggedInProvider()).thenReturn(provider);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        when(info.getIp()).thenReturn("127.0.0.1");
+        return info;
     }
 
     @Test

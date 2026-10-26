@@ -56,6 +56,8 @@ import org.openpdf.text.DocumentException;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Struts2 action (2Action pattern) that generates a comprehensive PDF export of a
  * patient's electronic chart (E-Chart). The printed output includes the master
@@ -111,6 +113,9 @@ public class EChartPrint2Action extends ActionSupport {
      * @throws Exception if PDF generation or database access fails
      * @throws SecurityException if the provider lacks {@code _demographic} read privilege
      */
+    // FindSecBugs HRS_REQUEST_PARAMETER_TO_HTTP_HEADER: demographicNo reaches the Content-Disposition filename, but
+    // the digits-only guard below rejects anything else first, so CR/LF can never reach the header.
+    @SuppressFBWarnings(value = "HRS_REQUEST_PARAMETER_TO_HTTP_HEADER", justification = "demographicNo is rejected unless it matches \\d+ before it is used in the Content-Disposition filename, so it cannot carry CR/LF")
     public String print() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String demographicNo = request.getParameter("demographicNo");

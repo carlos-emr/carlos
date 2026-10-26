@@ -21,10 +21,19 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: Supports billingONMRI in the Ontario billing workflow.
-  Expected request model data includes: mriModel.
+  Purpose: Supports billingONMRI in the Ontario billing workflow (Generate
+    OHIP File: the diskette list and the Create Report form).
+  Features: lists the year's OHIP disks with their download links, posts
+    Create Report to /billing/CA/ON/ViewOngenreport and Regenerate to
+    /billing/CA/ON/ViewOnregenreport, and shows the per-provider notices
+    the generation action stashes (skipped providers, invalid group numbers).
+  Parameters: year (archive year), providers, billcenter, xml_vdate,
+    xml_appointment_date, useProviderMOH (the Create Report form fields).
+  Expected request model data includes: mriModel, and optionally
+    skippedProviders and ohipInvalidGroupProviders.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
+  @since 2026-08-04
 --%>
 <!DOCTYPE html>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
@@ -33,6 +42,7 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="dms.documentReport.msgCsrfTokenMissing" var="billingCsrfMissing"/>
 
 <html>
 <head>
@@ -62,8 +72,13 @@
         function recreate(si) {
             var ret = confirm("Are you sure you want to regenerate the file? \n\nWARNING: This should only be performed in very specific circumstances. If you are unsure, consult your OSCAR administrator before using this feature.");
             if (!ret) return;
-            // ViewOnregenreport is a mutation gate (POST-only). Build a form on
-            // the fly so CSRFGuard auto-injects the token alongside our params.
+            // Native submit() does not wait for CSRFGuard to observe a new form.
+            // Copy the current session token before submitting this POST.
+            var token = document.querySelector("form[name='form1'] input[name='CSRF-TOKEN']");
+            if (!token || !token.value) {
+                alert('<carlos:encode value="${billingCsrfMissing}" context="javaScriptBlock"/>');
+                return;
+            }
             var ss = document.forms[0].billcenter[document.forms[0].billcenter.selectedIndex].value;
             var su = document.forms[0].useProviderMOH.checked;
             var f = document.createElement("form");
@@ -76,6 +91,11 @@
                 input.value = (n === "diskId" ? si : (n === "billcenter" ? ss : su));
                 f.appendChild(input);
             });
+            var csrf = document.createElement("input");
+            csrf.type = "hidden";
+            csrf.name = "CSRF-TOKEN";
+            csrf.value = token.value;
+            f.appendChild(csrf);
             document.body.appendChild(f);
             f.submit();
         }
@@ -118,6 +138,40 @@
 <body>
 
 <h3><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></h3>
+<c:if test="${not empty ohipInvalidGroupProviders}">
+    <div class="alert alert-danger" role="alert" id="ohip-provider-validation">
+        <strong>OHIP file not generated.</strong>
+        <p>The billing group number stored for the following providers cannot be read as an
+            OHIP group number. It must be four letters or digits (0000 for solo billing); a
+            shorter all-digit value is padded with leading zeros automatically, so only a
+            value that cannot be normalized that way is reported here. Correct it in the
+            provider record (Administration &gt; Provider) and run the report again.</p>
+        <ul>
+            <c:forEach var="providerNo" items="${ohipInvalidGroupProviders}">
+                <li>Provider <carlos:encode value="${providerNo}" context="html"/></li>
+            </c:forEach>
+        </ul>
+        <p class="mb-0">No files were generated and no billing records were changed.</p>
+    </div>
+</c:if>
+<c:if test="${not empty ohipGenerationWarnings}">
+    <div class="alert alert-warning" role="alert" id="ohip-generation-warnings">
+        <strong>OHIP files generated with warnings.</strong>
+        <ul class="mb-0">
+            <c:forEach var="warning" items="${ohipGenerationWarnings}">
+                <li><carlos:encode value="${warning}" context="html"/></li>
+            </c:forEach>
+        </ul>
+    </div>
+</c:if>
+<c:if test="${not empty ohipGenerationError}">
+    <div class="alert alert-danger" role="alert" id="ohip-generation-validation">
+        <strong>OHIP file generation stopped.</strong>
+        <p><carlos:encode value="${ohipGenerationError}" context="html"/></p>
+        <p class="mb-0">Nothing was written for the provider or disk named above. Any disks
+            completed earlier in the same run are listed below and remain valid.</p>
+    </div>
+</c:if>
 
 <div class="container-fluid">
 
