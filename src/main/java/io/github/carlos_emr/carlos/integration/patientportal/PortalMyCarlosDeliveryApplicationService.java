@@ -52,7 +52,7 @@ public final class PortalMyCarlosDeliveryApplicationService {
     public PortalMyCarlosDeliveryApplicationService(PortalMyCarlosDeviceApprovalTransactions transactions,
             EntityManagerFactory factory, SecurityInfoManager security, PropertyDao properties, ClinicDAO clinics,
             CtlDocumentDao ownership, @Qualifier("documentDao") DocumentDao documents,
-            DocumentAttachmentManager renderer, @Qualifier("demographicManager") DemographicManager demographics) {
+            DocumentAttachmentManager renderer, DemographicManager demographics) {
         this.transactions = Objects.requireNonNull(transactions); this.factory = Objects.requireNonNull(factory);
         this.security = Objects.requireNonNull(security); this.properties = Objects.requireNonNull(properties);
         this.clinics = Objects.requireNonNull(clinics); this.ownership = Objects.requireNonNull(ownership);

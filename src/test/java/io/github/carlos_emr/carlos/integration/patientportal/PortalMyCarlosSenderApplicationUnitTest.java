@@ -77,7 +77,7 @@ class PortalMyCarlosSenderApplicationUnitTest {
         verifyNoInteractions(ownership, documents, renderer, transactions);
     }
 
-    @Test void shouldResolveExistingNamedDependencies_whenLegacyAndScannedBeansCoexist() throws Exception {
+    @Test void shouldResolveExistingDocumentDao_whenLegacyAndScannedRepositoriesCoexist() throws Exception {
         var unmerged = mock(DocumentDao.class);
         when(security.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
@@ -94,7 +94,6 @@ class PortalMyCarlosSenderApplicationUnitTest {
             context.registerBean("documentDao", DocumentDao.class, () -> documents);
             context.registerBean("documentDaoImpl", DocumentDao.class, () -> unmerged);
             context.registerBean(DocumentAttachmentManager.class, () -> renderer);
-            context.registerBean("demographicManager", DemographicManager.class, () -> mock(DemographicManager.class));
             context.registerBean("demographicManagerImpl", DemographicManager.class, () -> mock(DemographicManager.class));
             context.register(PortalMyCarlosDeliveryApplicationService.class);
             context.refresh();
