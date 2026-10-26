@@ -164,6 +164,8 @@
     // Lab & messaging preferences
     boolean labAckComment = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.LAB_ACK_COMMENT, "no"));
     String patientNameLen = props.getOrDefault(UserProperty.PATIENT_NAME_LENGTH, "");
+    boolean groupEchartDocuments = "true".equals(org.apache.commons.lang3.StringUtils.trimToEmpty(
+            props.get(UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE)));
     String displayDocAs = props.getOrDefault(UserProperty.DISPLAY_DOCUMENT_AS, "");
     boolean eDocInReport = "yes".equalsIgnoreCase(
             props.getOrDefault(UserProperty.EDOC_BROWSER_IN_DOCUMENT_REPORT, "no"));
@@ -1048,6 +1050,15 @@
                     <input type="text" name="patient_name_length"
                            value="<carlos:encode value='<%= patientNameLen %>' context="htmlAttribute"/>"
                            class="pref-input input-xs">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label"><label for="echartDocumentGrouping"><fmt:message key="provider.providerpreference.label.echartDocumentGrouping"/></label></div>
+                <div class="pref-value">
+                    <select id="echartDocumentGrouping" name="<%= UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE %>" class="pref-input form-select-sm">
+                        <option value="false" <%=!groupEchartDocuments ? "selected" : ""%>><fmt:message key="provider.providerpreference.documentGrouping.none"/></option>
+                        <option value="true" <%=groupEchartDocuments ? "selected" : ""%>><fmt:message key="provider.providerpreference.documentGrouping.type"/></option>
+                    </select>
                 </div>
             </div>
             <div class="pref-row">
