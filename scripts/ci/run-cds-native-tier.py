@@ -49,6 +49,7 @@ CLASSES = (
     'CdsClinicalStorageMariaDbIntegrationTest', 'CdsAppointmentStorageMariaDbIntegrationTest',
     'CdsHistoryVisibilityMariaDbIntegrationTest', 'CdsDemographicStorageMariaDbIntegrationTest',
     'CdsReportStorageMariaDbIntegrationTest',
+    'CdsHrmRepairAdmissionMariaDbIntegrationTest',
     'CdsImportLedgerMariaDbIntegrationTest', 'CdsTargetReceiptMariaDbIntegrationTest',
 )
 
@@ -229,7 +230,8 @@ def main():
                 properties = private / filename
                 properties.write_text('jdbcUrl=jdbc:mysql://' + name + ':3306/' + database
                                       + '?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci'
-                                      + '&allowPublicKeyRetrieval=true&useSSL=false\njdbcUser=root\njdbcPassword=' + password + '\n')
+                                      + '&allowPublicKeyRetrieval=true&useSSL=false\njdbcUser=root\njdbcPassword=' + password
+                                      + '\nownedDisposableDatabase=true\n')
                 properties.chmod(0o600)
             if args.classpath_file:
                 if args.classpath_file.is_symlink() or not args.classpath_file.is_file() or args.classpath_file.stat().st_size > (1 << 20):
