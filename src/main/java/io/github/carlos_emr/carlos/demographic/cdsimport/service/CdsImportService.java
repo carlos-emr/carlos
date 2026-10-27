@@ -42,6 +42,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /** Authorized application boundary shared by HTTP adapters and the verified foreground CLI. */
 @Service
@@ -61,6 +62,7 @@ public class CdsImportService {
     private final AtomicReference<Map<String, Object>> administrativeCleanup=new AtomicReference<>(Map.of());
     private final CdsImportReviewService reviews;
     private final CdsImportFailureEvidenceService failureEvidence;
+    private final CdsImportObservationService observations;
     private volatile String housekeepingAlert;
     private final java.util.concurrent.atomic.AtomicReference<String> fatalRun=new java.util.concurrent.atomic.AtomicReference<>();
     private final java.util.concurrent.atomic.AtomicReference<String> fatalReview=new java.util.concurrent.atomic.AtomicReference<>();
@@ -69,7 +71,17 @@ public class CdsImportService {
 
     public CdsImportService(CdsImportLedgerService ledger, CdsImportJobService jobs, CdsImportExecutionService execution,
             CdsImportResultService results, CdsImportAccessService access, CdsImportConfigurationService configuration, CdsImportCleanupService cleanup, CdsImportReviewService reviews, CdsImportFailureEvidenceService failureEvidence) {
+        this(ledger, jobs, execution, results, access, configuration, cleanup, reviews, failureEvidence,
+                new CdsImportObservationService(ledger, reviews, access));
+    }
+
+    @Autowired
+    public CdsImportService(CdsImportLedgerService ledger, CdsImportJobService jobs, CdsImportExecutionService execution,
+            CdsImportResultService results, CdsImportAccessService access, CdsImportConfigurationService configuration,
+            CdsImportCleanupService cleanup, CdsImportReviewService reviews, CdsImportFailureEvidenceService failureEvidence,
+            CdsImportObservationService observations) {
         this.ledger=ledger; this.jobs=jobs; this.execution=execution; this.results=results; this.access=access; this.configuration=configuration; this.cleanup=cleanup; this.reviews=reviews; this.failureEvidence=failureEvidence;
+        this.observations=Objects.requireNonNull(observations);
     }
 
     @PostConstruct public void start() {
@@ -101,9 +113,17 @@ public class CdsImportService {
     }
 
     public CdsImportJobDto status(LoggedInInfo viewer, String run) { CdsImportJobDto job=ledger.status(run); access.requireView(viewer, job); return job; }
-    public CdsImportJobDto status(CdsImportActorDto actor, String run) throws IOException { requireActor(actor, run); return ledger.status(run); }
-    public Map<String, Object> summary(LoggedInInfo viewer, String run) { status(viewer, run); return operatorSummary(run); }
-    public Map<String, Object> summary(CdsImportActorDto actor, String run) throws IOException { requireActor(actor, run); return operatorSummary(run); }
+    public CdsImportJobDto status(CdsImportActorDto actor, String run) throws IOException { return requireActor(actor, run).job(); }
+    public Map<String, Object> summary(LoggedInInfo viewer, String run) { return operatorSummary(run, observations.summary(viewer, run)); }
+    public Map<String, Object> summary(CdsImportActorDto actor, String run) throws IOException {
+        var context=actorContext(actor, run);
+        try {
+            return operatorSummary(run, observations.summary(actor, context));
+        } catch (CdsImportObservationService.AuthorizationRevoked revoked) {
+            ledger.authorizationStopped(run, ledger.status(run).ownerEpoch());
+            throw revoked.failure();
+        }
+    }
     public List<CdsImportPatientDto> patients(LoggedInInfo viewer, String run, String after, int limit) { status(viewer, run); return ledger.patients(run, after, limit); }
     public List<CdsImportPatientDto> patients(CdsImportActorDto actor, String run, String after, int limit) throws IOException { requireActor(actor, run); return ledger.patients(run, after, limit); }
     public List<CdsImportDiagnosticDto> diagnostics(LoggedInInfo viewer, String run, long after, int limit) { status(viewer, run); return ledger.diagnostics(run, after, limit); }
@@ -184,16 +204,22 @@ public class CdsImportService {
 
     private void requireNoPendingReview(String run) { if (reviews.hasPending(run)) throw new CdsImportException("IMPORT_REVIEW_PENDING"); }
 
-    private void requireActor(CdsImportActorDto actor, String run) throws IOException {
-        CdsImportJobDto job=ledger.status(run);
-        if (actor==null || !Objects.equals(job.operator(), actor.operator()) || !Objects.equals(job.providerNo(), actor.providerNo())) throw new SecurityException("IMPORT_ACCESS_DENIED");
-        var document=jobs.load(run); if (!document.actor().equals(actor)) throw new SecurityException("IMPORT_ACCESS_DENIED");
-        try { access.context(actor, document.command(), null); }
-        catch (SecurityException revoked) { ledger.authorizationStopped(run, ledger.status(run).ownerEpoch()); throw revoked; }
+    private CdsImportJobService.ReadContext actorContext(CdsImportActorDto actor, String run) throws IOException {
+        var binding=jobs.binding(run);
+        CdsImportObservationService.requireActorIdentity(actor, binding.job());
+        var context=jobs.loadContext(binding);
+        if (!context.document().actor().equals(actor)) throw new SecurityException("IMPORT_ACCESS_DENIED");
+        return context;
     }
-    private Map<String, Object> operatorSummary(String run) {
-        Map<String, Object> value=new java.util.LinkedHashMap<>(ledger.summary(run));
-        value.putAll(reviews.summary(run));
+
+    private CdsImportJobService.ReadContext requireActor(CdsImportActorDto actor, String run) throws IOException {
+        var context=actorContext(actor, run);
+        try { access.context(actor, context.document().command(), null); }
+        catch (SecurityException revoked) { ledger.authorizationStopped(run, ledger.status(run).ownerEpoch()); throw revoked; }
+        return context;
+    }
+    private Map<String, Object> operatorSummary(String run, Map<String, Object> observation) {
+        Map<String, Object> value=new java.util.LinkedHashMap<>(observation);
         // A stopped report can be delivered before its already accepted review reaches
         // this node's queue. Report delivery cannot terminate that pending operation.
         if (value.get("pendingReviewCount") instanceof Number count && count.longValue()>0) {

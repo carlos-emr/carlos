@@ -104,7 +104,8 @@ public class CdsImportExecutionService {
         String currentUnit=null;
         CdsImportMaintenanceService.Owner completedOwner=null;
         try {
-            var document=jobs.load(runId);
+            var readContext=jobs.loadContext(runId);
+            var document=readContext.document();
             access.context(document.actor(), document.command(), null);
             if (reportOnly && !Set.of("COMPLETE", "DRY_RUN_COMPLETE", "INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "DRY_RUN_INCOMPLETE", "REVIEW_REQUIRED").contains(job.state())) return ledger.status(runId);
             // The durable current control is authoritative; a stale queue boolean is never new consent.
@@ -198,11 +199,11 @@ public class CdsImportExecutionService {
                     for (CdsImportUnitDto unit:ready) {
                         attemptBudget.run();
                         currentPatient=unit.patientKey(); currentUnit=unit.unitKey();
-                        var work=planning.work(runId, unit);
+                        var work=planning.work(runId, unit, readContext);
                         owner.read(() -> access.context(work.actor(), work.command(), ledger.patientStatus(runId, unit.patientKey()).targetDemographicNo()));
                         final long preparationEpoch=epoch;
                         try (var control=ioControl(runId, preparationEpoch, coordinator, "IMPORT_PREPARATION_TIMEOUT", attemptBudget)) {
-                            planning.publishValues(runId, preparationEpoch, work, control);
+                            planning.publishValues(runId, preparationEpoch, work, control, readContext);
                             owner.readIo(() -> {nativeRecords.prepare(runId, preparationEpoch, unit, work.record(), work.command(), work.snapshot(), work.xmlRelative()); return null; });
                         }
                         attemptBudget.run();

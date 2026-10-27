@@ -172,7 +172,15 @@ public class CdsImportReviewService {
         ledger.touch(run); ledger.actorEvent(run, currentActor, "REVIEW_FATAL_RETRY_REQUESTED"); return row.getId();
     }
     public Map<String, Object> summary(String runId) {
-        return transaction.execute(status -> {
+        return transaction.execute(status -> summaryProjection(runId));
+    }
+
+    Map<String, Object> summaryInReadTransaction(String runId) {
+        CdsImportLedgerService.requireObservationTransaction();
+        return summaryProjection(runId);
+    }
+
+    private Map<String, Object> summaryProjection(String runId) {
             var rows=reviews.pendingRun(runId, 2); var latest=reviews.latest(runId);
             long drafts=reviews.inactiveDraftCount(runId);
             Map<String, Object> value=new LinkedHashMap<>(); value.put("pendingReviewCount", rows.size()); value.put("inactiveDraftCount", drafts);
@@ -180,7 +188,6 @@ public class CdsImportReviewService {
             value.put("reviewErrorCode", latest==null?null:latest.getSafeErrorCode());
             value.put("unwrittenRevisionApprovalAllowed", rows.isEmpty() && drafts==0 && revisionRequestAllowed(runs.get(runId)));
             return value;
-        });
     }
 
     /** Availability to request review; the worker still validates immutable lineage and evidence under ownership. */

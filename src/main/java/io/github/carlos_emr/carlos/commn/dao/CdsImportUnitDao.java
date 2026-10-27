@@ -69,6 +69,11 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit> {
         return entityManager.createQuery("select u.category,count(u),sum(case when u.state='COMMITTED' then 1 else 0 end),sum(case when u.state='ALREADY_COMPLETE' then 1 else 0 end) from CdsImportUnit u where u.runId=:run group by u.category order by u.category", Object[].class)
                 .setParameter("run", runId).setMaxResults(limit).getResultList();
     }
+    /** Summary totals share the bounded category scan, including the exact pending state. */
+    public List<Object[]> summaryCategories(String runId, int limit) {
+        return entityManager.createQuery("select u.category,count(u),sum(case when u.state='COMMITTED' then 1 else 0 end),sum(case when u.state='ALREADY_COMPLETE' then 1 else 0 end),sum(case when u.state='EXPECTED' then 1 else 0 end) from CdsImportUnit u where u.runId=:run group by u.category order by u.category", Object[].class)
+                .setParameter("run", runId).setMaxResults(limit).getResultList();
+    }
     public long incomplete(String runId, String patientKey) {
         return entityManager.createQuery("select count(u) from CdsImportUnit u where u.runId=:run and u.patientKey=:patient and u.state not in ('COMMITTED','ALREADY_COMPLETE')", Long.class)
                 .setParameter("run", runId).setParameter("patient", patientKey).getSingleResult();

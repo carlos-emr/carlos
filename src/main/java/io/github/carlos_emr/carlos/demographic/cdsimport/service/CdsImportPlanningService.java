@@ -494,9 +494,19 @@ public class CdsImportPlanningService {
     }
 
     public CdsImportWorkDto work(String runId, CdsImportUnitDto unit) throws IOException {
+        if (unit.spoolLocation().lastIndexOf('#') < 1) throw new CdsImportException("WORK_LOCATION_INVALID");
+        return workWithinRoot(unit, jobs.root(runId));
+    }
+
+    CdsImportWorkDto work(String runId, CdsImportUnitDto unit, CdsImportJobService.ReadContext context) throws IOException {
+        java.util.Objects.requireNonNull(context).requireRun(runId);
+        return workWithinRoot(unit, context.document().jobRoot());
+    }
+
+    private CdsImportWorkDto workWithinRoot(CdsImportUnitDto unit, Path root) throws IOException {
         String location = unit.spoolLocation(); int separator = location.lastIndexOf('#');
         if (separator < 1) throw new CdsImportException("WORK_LOCATION_INVALID");
-        Path root = jobs.root(runId), path = CdsPaths.within(Path.of(location.substring(0, separator)), root);
+        Path path = CdsPaths.within(Path.of(location.substring(0, separator)), root);
         String[] parts = location.substring(separator + 1).split(":", -1);
         if (parts.length != 3 || !parts[2].matches("[0-9a-f]{64}")) throw new CdsImportException("WORK_LOCATION_INVALID");
         long offset, length;
@@ -571,18 +581,28 @@ public class CdsImportPlanningService {
 
     /** Whole value-file digest was computed once while parsing; publication never hashes per field page. */
     public void publishValues(String runId, long epoch, CdsImportWorkDto work) throws IOException {
-        publishValuesOwned(runId, epoch, work, null);
+        publishValuesOwned(runId, epoch, work, null, null);
     }
 
     void publishValues(String runId, long epoch, CdsImportWorkDto work, CdsImportExecutionControl shared) throws IOException {
         java.util.Objects.requireNonNull(shared).requireBinding(runId, epoch);
-        publishValuesOwned(runId, epoch, work, shared);
+        publishValuesOwned(runId, epoch, work, shared, null);
     }
 
-    private void publishValuesOwned(String runId, long epoch, CdsImportWorkDto work, CdsImportExecutionControl shared) throws IOException {
+    void publishValues(String runId, long epoch, CdsImportWorkDto work, CdsImportExecutionControl shared,
+            CdsImportJobService.ReadContext context) throws IOException {
+        java.util.Objects.requireNonNull(shared).requireBinding(runId, epoch);
+        java.util.Objects.requireNonNull(context).requireRun(runId);
+        publishValuesOwned(runId, epoch, work, shared, context.document().jobRoot());
+    }
+
+    private void publishValuesOwned(String runId, long epoch, CdsImportWorkDto work, CdsImportExecutionControl shared,
+            Path validatedRoot) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
         if (shared!=null) shared.check(false);
-        Path metadata = CdsPaths.within(work.parseResultFile().getParent().resolve("values-meta.json"), jobs.root(runId));
+        Path selectedMetadata = work.parseResultFile().getParent().resolve("values-meta.json");
+        Path root = validatedRoot == null ? jobs.root(runId) : validatedRoot;
+        Path metadata = CdsPaths.within(selectedMetadata, root);
         JsonNode value = JSON.readTree(CdsImportJobService.boundedFile(metadata, 65536));
         JsonNode sealed=JSON.readTree(CdsImportJobService.boundedFile(metadata.getParent().resolve("parse.seal"), 65536));
         if (!hashFile(metadata).equals(sealed.path("metadataSha256").asText())

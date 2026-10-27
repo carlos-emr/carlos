@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportJobCom
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDocumentDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsUploadDto;
@@ -165,7 +166,23 @@ public class CdsImportJobService {
     }
 
     public CdsImportJobDocumentDto load(String runId) throws IOException {
-        Path location = Path.of(ledger.snapshotLocation(runId));
+        return loadContext(runId).document();
+    }
+
+    ReadContext loadContext(String runId) throws IOException {
+        return loadContext(binding(runId));
+    }
+
+    /** One current protected lookup; callers can deny ownership before reading the private file. */
+    CdsImportJobBindingDto binding(String runId) {
+        return ledger.jobBinding(runId);
+    }
+
+    /** The lookup transaction has ended before any private metadata file is read. */
+    ReadContext loadContext(CdsImportJobBindingDto binding) throws IOException {
+        CdsImportLedgerService.requireNoTransaction();
+        Objects.requireNonNull(binding);
+        Path location = Path.of(binding.documentLocation());
         Path root = CdsPaths.within(location, configuration.stagingRoot()).getParent();
         String name = location.getFileName().toString();
         if (!name.matches("job-[0-9a-f]{64}\\.json")) throw new CdsImportException("JOB_DOCUMENT_LOCATION_INVALID");
@@ -174,7 +191,7 @@ public class CdsImportJobService {
             throw new CdsImportException("JOB_DOCUMENT_HASH_MISMATCH");
         }
         CdsImportJobDocumentDto document = JSON.readValue(bytes, CdsImportJobDocumentDto.class);
-        CdsImportJobDto job = ledger.status(runId);
+        CdsImportJobDto job = binding.job();
         if (!root.equals(document.jobRoot()) || !job.operator().equals(document.actor().operator())
                 || !job.providerNo().equals(document.command().providerNo())
                 || !job.sourceNamespace().equals(document.command().sourceNamespace())
@@ -182,7 +199,41 @@ public class CdsImportJobService {
                 || document.acceptedRulesetDigest() != null && !job.rulesetDigest().equals(document.acceptedRulesetDigest())) {
             throw new CdsImportException("JOB_DOCUMENT_BINDING_MISMATCH");
         }
-        return document;
+        return new ReadContext(binding, document);
+    }
+
+    /** Invocation-local immutable file binding, never a cached authorization or mutable run state. */
+    static final class ReadContext {
+        private final CdsImportJobBindingDto binding;
+        private final CdsImportJobDocumentDto document;
+
+        private ReadContext(CdsImportJobBindingDto binding, CdsImportJobDocumentDto document) {
+            this.binding = binding;
+            this.document = document;
+        }
+
+        CdsImportJobDto job() { return binding.job(); }
+        CdsImportJobDocumentDto document() { return document; }
+
+        void requireRun(String run) {
+            if (!Objects.equals(run, job().id())) throw new IllegalArgumentException("Import job context binding differs");
+        }
+
+        void requireCurrent(CdsImportJobBindingDto current) {
+            var before = binding.job();
+            var now = current.job();
+            if (!Objects.equals(before.id(), now.id())
+                    || !Objects.equals(binding.documentLocation(), current.documentLocation())
+                    || !Objects.equals(before.operator(), now.operator())
+                    || !Objects.equals(before.providerNo(), now.providerNo())
+                    || !Objects.equals(before.sourceNamespace(), now.sourceNamespace())
+                    || !Objects.equals(before.profile(), now.profile())
+                    || !Objects.equals(before.sourceDigest(), now.sourceDigest())
+                    || !Objects.equals(before.optionsDigest(), now.optionsDigest())
+                    || !Objects.equals(before.rulesetDigest(), now.rulesetDigest())) {
+                throw new CdsImportException("JOB_DOCUMENT_BINDING_MISMATCH");
+            }
+        }
     }
 
     public Path root(String runId) throws IOException { return load(runId).jobRoot(); }

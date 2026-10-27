@@ -32,6 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -41,11 +42,14 @@ class CdsImportLedgerControlUnitTest {
     private final CdsImportRunDao runs=mock(CdsImportRunDao.class);
     private final CdsImportEventDao events=mock(CdsImportEventDao.class);
     private final CdsImportAdmissionDao admission=mock(CdsImportAdmissionDao.class);
+    private final CdsImportPatientDao patients=mock(CdsImportPatientDao.class);
+    private final CdsImportUnitDao unitRows=mock(CdsImportUnitDao.class);
+    private final PlatformTransactionManager manager=mock(PlatformTransactionManager.class);
     private CdsImportLedgerService ledger;
     private CdsImportRun run;
     @BeforeEach void setup() {
-        var manager=mock(PlatformTransactionManager.class);when(manager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
-        ledger=new CdsImportLedgerService(runs,mock(CdsImportPatientDao.class),mock(CdsImportUnitDao.class),mock(CdsImportDependencyDao.class),mock(CdsImportLineageDao.class),mock(CdsImportCheckpointDao.class),mock(CdsImportDiagnosticDao.class),admission,events,mock(CdsImportIdentityDao.class),manager);
+        when(manager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+        ledger=new CdsImportLedgerService(runs,patients,unitRows,mock(CdsImportDependencyDao.class),mock(CdsImportLineageDao.class),mock(CdsImportCheckpointDao.class),mock(CdsImportDiagnosticDao.class),admission,events,mock(CdsImportIdentityDao.class),manager);
         run=row("run","RUNNING");run.setOwnerEpoch(7);run.setCancelRequested(true);
         when(runs.lock("run")).thenReturn(run);when(runs.get("run")).thenReturn(run);
         when(events.pendingResumeEvent("run")).thenReturn(12L);
@@ -89,7 +93,7 @@ class CdsImportLedgerControlUnitTest {
     @Test void fatalResumeIsRetiredOnlyByHealthySupervisionWithItsExactObservedControl() throws Exception {
         var state=mock(CdsImportLedgerService.class);var status=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
         when(state.status("run")).thenReturn(status);when(status.ownerEpoch()).thenReturn(7L);when(state.pendingResumeEvent("run")).thenReturn(12L);
-        var jobs=mock(CdsImportJobService.class);var fatal=new AssertionError("synthetic exhausted worker");when(jobs.load("run")).thenThrow(fatal);
+        var jobs=mock(CdsImportJobService.class);var fatal=new AssertionError("synthetic exhausted worker");when(jobs.loadContext("run")).thenThrow(fatal);
         var coordinator=mock(CdsImportCoordinatorService.class);when(coordinator.acquire()).thenReturn(mock(CdsImportCoordinatorService.Owner.class));
         var engine=new CdsImportExecutionService(state,mock(CdsImportUnitService.class),jobs,mock(CdsImportPlanningService.class),mock(CdsImportNativeService.class),mock(CdsImportAccessService.class),mock(CdsImportConfigurationService.class),mock(CdsImportMaintenanceService.class),mock(CdsImportResultService.class),coordinator,mock(CdsImportFileVerificationService.class),mock(CdsImportTargetSafetyService.class),mock(CdsImportFailureEvidenceService.class),new CdsFieldParser());
         assertThatThrownBy(()->engine.execute("run")).isSameAs(fatal);
@@ -124,6 +128,66 @@ class CdsImportLedgerControlUnitTest {
     }
     private long claimPhase(String phase,CdsImportCoordinatorService.Owner coordinator,CdsImportMaintenanceService.Owner window) {
         return "PLANNING".equals(phase)?ledger.claimPlanning("run",coordinator,window):ledger.claimExecution("run",coordinator,window);
+    }
+    @Test void summaryRetainsExactPendingUnknownInventoryAndHelperAccounting() {
+        run.setDiscoveredFiles(-1);run.setPatientXmlFiles(-1);run.setSourceBytes(-1);
+        when(patients.sourcePatients("run")).thenReturn(2L);
+        when(patients.outcomes("run",17)).thenReturn(List.of(new Object[]{"PLANNED",2L},new Object[]{"REFUSED",1L}));
+        when(unitRows.summaryCategories("run",129)).thenReturn(List.of(
+                new Object[]{"ClinicalNotes",4L,1L,1L,1L},new Object[]{"ClinicalNotes_FIELDS",2L,1L,0L,1L}));
+        var summary=ledger.summary("run");
+        assertThat(summary).containsEntry("identifiedPatients",3L).containsEntry("targetCopiesPlanned",3L)
+                .containsEntry("sourcePatientsIdentified",2L).containsEntry("sourcePatients",null)
+                .containsEntry("expectedPatients",null).containsEntry("expectedUnits",null).containsEntry("sourceBytes",null)
+                .containsEntry("plannedUnits",6L).containsEntry("committedUnits",2L).containsEntry("alreadyCompleteUnits",1L)
+                .containsEntry("pendingUnits",2L).containsEntry("committedClinicalOccurrences",1L).containsEntry("alreadyCompleteClinicalOccurrences",1L);
+        var categories=(List<?>)summary.get("categories");assertThat(categories).hasSize(1);
+        var category=(java.util.Map<?,?>)categories.getFirst();
+        assertThat(category.get("expected")).isEqualTo(4L);assertThat(category.get("pending")).isEqualTo(2L);
+        assertThat(category.get("expectedHelperUnits")).isEqualTo(2L);assertThat(category.get("pendingHelperUnits")).isEqualTo(1L);
+    }
+    @Test void sealedDeclaredInventoryStaysDistinctFromEmptyObservedGroups() {
+        run.setExecutionDigest("a".repeat(64));run.setExpectedPatients(17);run.setExpectedUnits(99);
+        assertThat(ledger.summary("run")).containsEntry("inventoryState","SEALED").containsEntry("expectedPatients",17L)
+                .containsEntry("expectedUnits",99L).containsEntry("plannedUnits",0L).containsEntry("identifiedPatients",0L)
+                .containsEntry("committedUnits",0L).containsEntry("alreadyCompleteUnits",0L).containsEntry("pendingUnits",0L)
+                .containsEntry("outcomes",java.util.Map.of()).containsEntry("categories",List.of());
+    }
+    @ParameterizedTest
+    @ValueSource(ints={17,129})
+    void aggregateCardinalityStillFailsClosed(int count) {
+        if(count==17) when(patients.outcomes("run",17)).thenReturn(java.util.stream.IntStream.range(0,17)
+                .mapToObj(i->new Object[]{"OUTCOME"+i,1L}).toList());
+        else when(unitRows.summaryCategories("run",129)).thenReturn(java.util.stream.IntStream.range(0,129)
+                .mapToObj(i->new Object[]{"CATEGORY"+i,1L,0L,0L,1L}).toList());
+        assertThatThrownBy(()->ledger.summary("run")).hasMessage(count==17?"UNEXPECTED_OUTCOME_CARDINALITY":"UNEXPECTED_CATEGORY_CARDINALITY");
+    }
+    @Test void observationProjectionRequiresAnActualReadOnlyBoundary() {
+        assertThatThrownBy(()->ledger.summaryInReadTransaction("run")).hasMessage("CDS_OBSERVATION_READ_TRANSACTION_REQUIRED");
+        assertThatThrownBy(()->ledger.jobBindingInReadTransaction("run")).hasMessage("CDS_OBSERVATION_READ_TRANSACTION_REQUIRED");
+        try {
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            TransactionSynchronizationManager.setCurrentTransactionReadOnly(false);
+            assertThatThrownBy(()->ledger.summaryInReadTransaction("run")).hasMessage("CDS_OBSERVATION_READ_TRANSACTION_REQUIRED");
+            assertThatThrownBy(()->ledger.jobBindingInReadTransaction("run")).hasMessage("CDS_OBSERVATION_READ_TRANSACTION_REQUIRED");
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);TransactionSynchronizationManager.setCurrentTransactionReadOnly(false);
+        }
+        verifyNoInteractions(runs,patients,unitRows,manager);
+    }
+    @Test void observationProjectionUsesTheExistingReadBoundaryAndPrivateBinding() {
+        run.setSnapshotLocation("/opaque/private-job-document");
+        try {
+            TransactionSynchronizationManager.setActualTransactionActive(true);TransactionSynchronizationManager.setCurrentTransactionReadOnly(true);
+            var binding=ledger.jobBindingInReadTransaction("run");
+            assertThat(binding.job().id()).isEqualTo("run");assertThat(binding.documentLocation()).isEqualTo("/opaque/private-job-document");
+            assertThat(binding.toString()).doesNotContain("private-job-document");
+            assertThat(ledger.summaryInReadTransaction("run")).containsEntry("runId","run");
+            assertThatThrownBy(()->ledger.summary("run")).hasMessage("AMBIENT_TRANSACTION_REFUSED");
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);TransactionSynchronizationManager.setCurrentTransactionReadOnly(false);
+        }
+        verifyNoInteractions(manager);
     }
     private static CdsImportRun row(String id,String state) {
         var row=new CdsImportRun();row.setId(id);row.setState(state);row.setOperator("fixture");row.setProviderNo("999998");row.setUpdatedAt(Instant.EPOCH);row.setCreatedAt(Instant.EPOCH);row.setReportState("DELIVERED");row.setCleanupState("COMPLETE");return row;

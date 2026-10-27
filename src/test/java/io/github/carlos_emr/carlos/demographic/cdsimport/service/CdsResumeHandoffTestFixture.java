@@ -109,7 +109,8 @@ final class CdsResumeHandoffTestFixture {
         var reports = mock(CdsImportResultService.class);
         var snapshot = new CdsSnapshotDto(Path.of("/opaque/snapshot"), Path.of("/opaque/snapshot/files.jsonl"), A, 1, 1, 1);
         var document = new CdsImportJobDocumentDto(command, actor, snapshot, null, Path.of("/opaque"), rules);
-        when(jobs.load(id)).thenReturn(document); when(jobs.snapshot(eq(id), anyLong(), eq(document), any(CdsImportExecutionControl.class))).thenReturn(snapshot);
+        var readContext=mock(CdsImportJobService.ReadContext.class);when(readContext.document()).thenReturn(document);
+        when(jobs.loadContext(id)).thenReturn(readContext); when(jobs.snapshot(eq(id), anyLong(), eq(document), any(CdsImportExecutionControl.class))).thenReturn(snapshot);
         var interruptedLedger = spy(ledger);
         AssertionError processLoss = new AssertionError("Synthetic process loss after committed PLANNING");
         doAnswer(call -> {

@@ -181,6 +181,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    assertPartialReplayRequiresOriginal(pending);
    verifyOwnerRowLock();
    verifyPlanFencing();
+   verifySummaryAggregateAccounting();
    verifyDryRun();
    verifyReviewedResetAndReplan(jdbc);
    verifyAuthorizationStopAndResume();
@@ -240,10 +241,12 @@ class CdsImportLedgerMariaDbIntegrationTest {
   var planner=org.mockito.Mockito.mock(CdsImportPlanningService.class);var access=org.mockito.Mockito.mock(CdsImportAccessService.class);
   var reports=org.mockito.Mockito.mock(CdsImportResultService.class);var snapshot=org.mockito.Mockito.mock(CdsSnapshotDto.class);
   var document=new CdsImportJobDocumentDto(command,actor,snapshot,null,Path.of("/opaque"),rules);
-  org.mockito.Mockito.when(jobs.load(id)).thenReturn(document);
+  var readContext=org.mockito.Mockito.mock(CdsImportJobService.ReadContext.class);
+  org.mockito.Mockito.when(readContext.document()).thenReturn(document);
+  org.mockito.Mockito.when(jobs.loadContext(id)).thenReturn(readContext);
   var record=new CdsRecordDto("ClinicalNotes",1,"/OmdCds[1]/PatientRecord[1]/ClinicalNotes[1]",Path.of("/opaque/fields"),0,0,Path.of("/opaque/values"),B,0);
   var work=new CdsImportWorkDto(record,snapshot,"recovery.xml",A,Path.of("/opaque/parse"),actor,command);
-  org.mockito.Mockito.when(planner.work(org.mockito.ArgumentMatchers.eq(id),org.mockito.ArgumentMatchers.any())).thenReturn(work);
+  org.mockito.Mockito.when(planner.work(org.mockito.ArgumentMatchers.eq(id),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.eq(readContext))).thenReturn(work);
   var verifications=new java.util.concurrent.atomic.AtomicInteger();
   org.mockito.Mockito.when(nativeRecords.verify(org.mockito.ArgumentMatchers.any())).thenAnswer(call->{verifications.incrementAndGet();return verify(call.getArgument(0));});
   org.mockito.Mockito.when(nativeRecords.write(org.mockito.ArgumentMatchers.eq(id),org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyString()))
@@ -309,7 +312,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    org.mockito.Mockito.when(cleanup.housekeeping()).thenReturn(Map.of("state","COMPLETE","fullPassComplete",true));
    var freshEngine=new CdsImportExecutionService(ledger,units,jobs,planner,nativeRecords,access,config,maintenance,reports,coordinators,
     org.mockito.Mockito.mock(CdsImportFileVerificationService.class),safety,org.mockito.Mockito.mock(CdsImportFailureEvidenceService.class),new CdsFieldParser());
-   var facade=new CdsImportService(dispatchLedger,jobs,freshEngine,reports,access,config,cleanup,reviews,org.mockito.Mockito.mock(CdsImportFailureEvidenceService.class));
+   var facade=new CdsImportService(dispatchLedger,jobs,freshEngine,reports,access,config,cleanup,reviews,org.mockito.Mockito.mock(CdsImportFailureEvidenceService.class),org.mockito.Mockito.mock(CdsImportObservationService.class));
    try(AutoCloseable dispatcher=facade::close) {
     facade.start();check(completed.await(30,java.util.concurrent.TimeUnit.SECONDS),"fresh default dispatcher resumes the committed RUNNING phase without a new Resume or in-memory queue");
    }
@@ -350,6 +353,47 @@ class CdsImportLedgerMariaDbIntegrationTest {
   expect("MANIFEST_ALREADY_SEALED",()->ledger.planUnit(id,second,"patient",CdsImportKeys.hash(id,"extra"),"ClinicalNotes",2,A,"/opaque/extra"));
   ledger.release(id,second);
  }
+ static void verifySummaryAggregateAccounting() {
+  String source="summary-"+UUID.randomUUID();
+  String id=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(),"fixture","999998","fixture","omd-5.2",A,B,C,"/opaque/summary")).id();
+  var empty=ledger.summary(id);
+  check(summaryCount(empty,"identifiedPatients")==0 && summaryCount(empty,"sourcePatientsIdentified")==0
+    && summaryCount(empty,"plannedUnits")==0 && summaryCount(empty,"pendingUnits")==0,"empty grouped scans retain zero totals");
+  check(empty.get("expectedPatients")==null && empty.get("expectedUnits")==null && empty.get("sourcePatients")==null
+    && empty.get("sourceBytes")==null,"unsealed or undiscovered inventory remains unknown rather than fabricated zero");
+  long epoch=ledger.claimPlanning(id);
+  ledger.planPatient(id,epoch,"primary",source,"primary",A);ledger.planPatient(id,epoch,"copy",source,"copy",A);
+  List<String> states=List.of("COMMITTED","ALREADY_COMPLETE","EXPECTED","UNCLASSIFIED","COMMITTED","EXPECTED");
+  for(int i=0;i<states.size();i++) {
+   String key=CdsImportKeys.hash(id,"summary-unit",Integer.toString(i));
+   ledger.planUnit(id,epoch,i<4?"primary":"copy",key,i<4?"ClinicalNotes":"ClinicalNotes_FIELDS",i,A,"/opaque/summary-"+i);
+   sql.update("update cds_import_unit set state=? where run_id=? and unit_key=?",states.get(i),id,key);
+  }
+  var mixed=ledger.summary(id);
+  check(summaryCount(mixed,"sourcePatientsIdentified")==1 && summaryCount(mixed,"targetCopiesPlanned")==2
+    && summaryCount(mixed,"identifiedPatients")==2,"grouped patient outcomes count distinct source identity separately from target copies");
+  check(summaryCount(mixed,"plannedUnits")==6 && summaryCount(mixed,"committedUnits")==2
+    && summaryCount(mixed,"alreadyCompleteUnits")==1 && summaryCount(mixed,"pendingUnits")==2,"global pending counts only EXPECTED while unknown unit states remain in total inventory");
+  var category=(Map<?,?>)((List<?>)mixed.get("categories")).getFirst();
+  check("ClinicalNotes".equals(category.get("category")) && summaryCount(category,"expected")==4
+    && summaryCount(category,"committed")==1 && summaryCount(category,"alreadyComplete")==1
+    && summaryCount(category,"pending")==2,"clinical occurrence counters retain the existing residual pending definition");
+  check(summaryCount(category,"expectedHelperUnits")==2 && summaryCount(category,"committedHelperUnits")==1
+    && summaryCount(category,"alreadyCompleteHelperUnits")==0 && summaryCount(category,"pendingHelperUnits")==1
+    && summaryCount(mixed,"committedClinicalOccurrences")==1 && summaryCount(mixed,"alreadyCompleteClinicalOccurrences")==1,"helper unit progress never inflates clinical occurrence completion");
+  sql.update("update cds_import_unit set state='EXPECTED' where run_id=?",id);
+  ledger.discovery(id,epoch,2,1,123);
+  ledger.seal(id,epoch,C,2,6);
+  var sealed=ledger.summary(id);
+  check("SEALED".equals(sealed.get("inventoryState")) && summaryCount(sealed,"expectedPatients")==2
+    && summaryCount(sealed,"expectedUnits")==6 && summaryCount(sealed,"pendingUnits")==6,"sealing publishes exact expected inventory without changing grouped pending totals");
+  check(summaryCount(sealed,"sourcePatients")==1 && summaryCount(sealed,"sourceBytes")==123
+    && summaryCount(sealed,"targetCopiesPlanned")==2,"known source inventory preserves distinct patients and target copies");
+  check(summaryCount(sealed,"committedUnits")==0 && summaryCount(sealed,"alreadyCompleteUnits")==0
+    && sql.queryForObject("select count(*) from cds_import_checkpoint c join cds_import_unit u on u.unit_key=c.id where u.run_id=?",Long.class,id)==0,"summary fixture never claims a clinical checkpoint");
+  ledger.release(id,epoch);
+ }
+ static long summaryCount(Map<?,?> summary,String field) {return ((Number)summary.get(field)).longValue();}
  static void verifyDryRun() {
   String source="preview-"+UUID.randomUUID();
   String id=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(),"fixture","999998","fixture","omd-5.2",A,B,C,"/opaque/preview",true)).id();
@@ -450,7 +494,9 @@ class CdsImportLedgerMariaDbIntegrationTest {
    var document=org.mockito.Mockito.mock(CdsImportJobDocumentDto.class);
    var command=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand.class);
    var actor=new CdsImportActorDto("fixture", "999998", "999998", null, null, null);
-   org.mockito.Mockito.when(jobs.load(run)).thenReturn(document);
+   var readContext=org.mockito.Mockito.mock(CdsImportJobService.ReadContext.class);
+   org.mockito.Mockito.when(readContext.document()).thenReturn(document);
+   org.mockito.Mockito.when(jobs.loadContext(run)).thenReturn(readContext);
    org.mockito.Mockito.when(document.command()).thenReturn(command);
    org.mockito.Mockito.when(document.actor()).thenReturn(actor);
    var coordinator=org.mockito.Mockito.mock(CdsImportCoordinatorService.class);

@@ -59,7 +59,7 @@ class CdsImportSupervisionServiceUnitTest {
         when(reviews.summary("run")).thenReturn(Map.of());
         service=new CdsImportService(ledger, mock(CdsImportJobService.class), execution,
                 mock(CdsImportResultService.class), mock(CdsImportAccessService.class), configuration, cleanup,
-                reviews, mock(CdsImportFailureEvidenceService.class));
+                reviews, mock(CdsImportFailureEvidenceService.class), mock(CdsImportObservationService.class));
         var field=CdsImportService.class.getDeclaredField("worker");field.setAccessible(true);
         worker=(ThreadPoolExecutor)field.get(service);
     }
@@ -92,7 +92,7 @@ class CdsImportSupervisionServiceUnitTest {
         call("scheduleReview", new Class<?>[]{String.class}, "failed");barrier();
         call("dispatch", new Class<?>[]{});call("dispatch", new Class<?>[]{});
         verify(reviews, times(1)).superviseFatal("failed");
-        var summary=(Map<?, ?>)call("operatorSummary", new Class<?>[]{String.class}, "run");
+        var summary=(Map<?, ?>)operatorSummary();
         assertThat(summary.get("workerAlert")).isEqualTo("IMPORT_SUPERVISOR_FATAL");
     }
     @ParameterizedTest
@@ -137,7 +137,7 @@ class CdsImportSupervisionServiceUnitTest {
         // The actual bounded facade worker delivers the report before any review is scheduled.
         call("schedule", new Class<?>[]{String.class, boolean.class}, "run", false); barrier();
         assertThat(ledger.summary("run").get("operationTerminal")).isEqualTo(true);
-        var summary=(Map<?, ?>)call("operatorSummary", new Class<?>[]{String.class}, "run");
+        var summary=(Map<?, ?>)operatorSummary();
         assertThat(summary.get("reportsDelivered")).isEqualTo(true);
         assertThat(summary.get("pendingReviewCount")).isEqualTo(1);
         assertThat(summary.get("reviewState")).isEqualTo(state);
@@ -152,7 +152,7 @@ class CdsImportSupervisionServiceUnitTest {
         when(ledger.summary("run")).thenReturn(Map.of("operationTerminal", true, "cleanComplete", true));
         when(reviews.summary("run")).thenReturn(Map.of(
                 "pendingReviewCount", 1, "reviewState", "REVISION_PUBLISHED", "reviewErrorCode", "REVIEW_WORKER_FATAL"));
-        var summary=(Map<?, ?>)call("operatorSummary", new Class<?>[]{String.class}, "run");
+        var summary=(Map<?, ?>)operatorSummary();
         assertThat(summary.get("operationTerminal")).isEqualTo(true);
         assertThat(summary.get("cleanComplete")).isEqualTo(false);
         assertThat(summary.get("reviewErrorCode")).isEqualTo("REVIEW_WORKER_FATAL");
@@ -161,16 +161,22 @@ class CdsImportSupervisionServiceUnitTest {
     @Test void pendingReviewCountRemainsTypedAndZeroDoesNotRewriteTheLedgerOutcome() throws Exception {
         when(ledger.summary("run")).thenReturn(Map.of("operationTerminal", true, "cleanComplete", true));
         when(reviews.summary("run")).thenReturn(Map.of("pendingReviewCount", 0));
-        var zero=(Map<?, ?>)call("operatorSummary", new Class<?>[]{String.class}, "run");
+        var zero=(Map<?, ?>)operatorSummary();
         assertThat(zero.get("operationTerminal")).isEqualTo(true);
         assertThat(zero.get("cleanComplete")).isEqualTo(true);
         when(reviews.summary("run")).thenReturn(Map.of("pendingReviewCount", 2L));
-        var positive=(Map<?, ?>)call("operatorSummary", new Class<?>[]{String.class}, "run");
+        var positive=(Map<?, ?>)operatorSummary();
         assertThat(positive.get("operationTerminal")).isEqualTo(false);
         assertThat(positive.get("cleanComplete")).isEqualTo(false);
         assertThat(positive.get("pendingReviewCount")).isEqualTo(2L);
     }
     private void barrier() throws Exception {worker.submit(()->{}).get(5, TimeUnit.SECONDS);}
+    private Object operatorSummary() throws Exception {
+        Map<String, Object> combined=new java.util.LinkedHashMap<>(ledger.summary("run"));
+        combined.putAll(reviews.summary("run"));
+        return call("operatorSummary", new Class<?>[]{String.class, Map.class}, "run", combined);
+    }
+
     private Object call(String name, Class<?>[] parameterTypes, Object... arguments) throws Exception {
         Method method=CdsImportService.class.getDeclaredMethod(name, parameterTypes);method.setAccessible(true);
         return method.invoke(service, arguments);

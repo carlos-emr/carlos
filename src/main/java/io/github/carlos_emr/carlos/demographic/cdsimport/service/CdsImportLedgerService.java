@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportJobCom
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportEventDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
@@ -113,6 +114,17 @@ public class CdsImportLedgerService {
     private <T> T write(Supplier<T> action) {
         requireNoTransaction();
         return transaction.execute(status -> action.get());
+    }
+
+    PlatformTransactionManager observationTransactionManager() {
+        return Objects.requireNonNull(transaction.getTransactionManager());
+    }
+
+    static void requireObservationTransaction() {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+            throw new IllegalStateException("CDS_OBSERVATION_READ_TRANSACTION_REQUIRED");
+        }
     }
 
     public CdsImportJobDto accept(CdsImportJobCommand command) {
@@ -729,77 +741,108 @@ public class CdsImportLedgerService {
     /** Protected internal source location; the application facade must authorize before calling. */
     public String snapshotLocation(String runId) { return write(() -> requiredRun(runId, false).getSnapshotLocation()); }
 
+    /** Protected internal request binding; the application facade authorizes before private-path access. */
+    public CdsImportJobBindingDto jobBinding(String runId) {
+        return write(() -> jobBindingProjection(runId));
+    }
+
+    CdsImportJobBindingDto jobBindingInReadTransaction(String runId) {
+        requireObservationTransaction();
+        return jobBindingProjection(runId);
+    }
+
+    private CdsImportJobBindingDto jobBindingProjection(String runId) {
+        CdsImportRun run=requiredRun(runId, false);
+        return new CdsImportJobBindingDto(dto(run), run.getSnapshotLocation());
+    }
+
     /** Aggregates only bounded groups; no source filenames, identifiers, paths or clinical values. */
     public Map<String, Object> summary(String runId) {
-        return write(() -> {
-            CdsImportRun run=requiredRun(runId, false);
-            Map<String, Object> value=new LinkedHashMap<>();
-            value.put("runId", runId); value.put("state", run.getState()); value.put("dryRun", run.isDryRun());
-            value.put("resumeRequested", run.isResumeRequested());
-            value.put("clinicalComplete", !run.isDryRun() && "COMPLETE".equals(run.getState()));
-            boolean sealed=run.getExecutionDigest()!=null;
-            value.put("discoveryComplete", run.isDiscoveryComplete());
-            boolean fileInventory=run.getDiscoveredFiles()>=0 && run.getPatientXmlFiles()>=0 && run.getSourceBytes()>=0;
-            value.put("sourceFileInventoryKnown", fileInventory);
-            value.put("discoveredFiles", fileInventory?run.getDiscoveredFiles():null);
-            value.put("patientXmlFiles", fileInventory?run.getPatientXmlFiles():null);
-            value.put("sourceBytes", fileInventory?run.getSourceBytes():null);
-            long sourceCount=patients.sourcePatients(runId), copyCount=patients.count(runId);
-            value.put("sourcePatientsIdentified", sourceCount);
-            value.put("sourcePatients", run.isDiscoveryComplete()?sourceCount:null);
-            value.put("targetCopiesPlanned", copyCount); value.put("inventoryState", sealed?"SEALED":"UNSEALED");
-            value.put("identifiedPatients", copyCount);
-            value.put("expectedPatients", sealed?run.getExpectedPatients():null);
-            value.put("plannedUnits", units.count(runId, null));
-            value.put("expectedUnits", sealed?run.getExpectedUnits():null);
-            long committed=units.countState(runId, null, "COMMITTED");
-            long reused=units.countState(runId, null, "ALREADY_COMPLETE");
-            value.put("committedUnits", committed); value.put("alreadyCompleteUnits", reused);
-            value.put("pendingUnits", units.countState(runId, null, "EXPECTED"));
-            Map<String, Long> outcomes=new LinkedHashMap<>();
-            List<Object[]> outcomeRows=patients.outcomes(runId, 17);
-            if (outcomeRows.size()>16) throw new CdsImportException("UNEXPECTED_OUTCOME_CARDINALITY");
-            for (Object[] row:outcomeRows) outcomes.put((String) row[0], ((Number) row[1]).longValue());
-            value.put("outcomes", Map.copyOf(outcomes));
-            Map<String, long[]> grouped=new LinkedHashMap<>();
-            List<Object[]> categoryRows=units.categories(runId, 129);
-            if (categoryRows.size()>128) throw new CdsImportException("UNEXPECTED_CATEGORY_CARDINALITY");
-            long committedOccurrences=0, priorOccurrences=0;
-            for (Object[] row:categoryRows) {
-                String raw=(String) row[0]; String category=clinicalCategory(raw);
-                long[] counts=grouped.computeIfAbsent(category, ignored -> new long[6]);
-                int offset=isHelperCategory(raw)?3:0;
-                counts[offset]+=((Number) row[1]).longValue();
-                counts[offset+1]+=((Number) row[2]).longValue(); counts[offset+2]+=((Number) row[3]).longValue();
-                if (offset==0) { committedOccurrences+=((Number) row[2]).longValue(); priorOccurrences+=((Number) row[3]).longValue(); }
-            }
-            List<Map<String, Object>> categories=new ArrayList<>();
-            for (Map.Entry<String, long[]> entry:grouped.entrySet()) {
-                long[] c=entry.getValue(); Map<String, Object> row=new LinkedHashMap<>();
-                row.put("category", entry.getKey()); row.put("expected", c[0]); row.put("committed", c[1]); row.put("alreadyComplete", c[2]); row.put("pending", c[0]-c[1]-c[2]);
-                row.put("expectedHelperUnits", c[3]); row.put("committedHelperUnits", c[4]); row.put("alreadyCompleteHelperUnits", c[5]); row.put("pendingHelperUnits", c[3]-c[4]-c[5]);
-                categories.add(Map.copyOf(row));
-            }
-            value.put("categories", List.copyOf(categories)); value.put("committedClinicalOccurrences", committedOccurrences); value.put("alreadyCompleteClinicalOccurrences", priorOccurrences);
-            value.put("unresolvedReviewItems", diagnostics.unresolved(runId, null));
-            value.put("cancelRequested", run.isCancelRequested()); value.put("lastCheckpoint", run.getUpdatedAt().toString());
-            boolean delivered="DELIVERED".equals(run.getReportState());
-            boolean releasePending=maintenanceReleasePending(run);
-            boolean cleanupComplete="COMPLETE".equals(run.getCleanupState()) && !releasePending;
-            boolean clinicalComplete=!run.isDryRun() && "COMPLETE".equals(run.getState());
-            boolean validDryRun=run.isDryRun() && "DRY_RUN_COMPLETE".equals(run.getState());
-            boolean finalAttempt=Set.of("COMPLETE", "DRY_RUN_COMPLETE", "DRY_RUN_INCOMPLETE", "INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "REVIEW_REQUIRED").contains(run.getState());
-            value.put("maintenanceReleasePending", releasePending);
-            value.put("maintenanceReleaseState", maintenanceReleaseState(run));
-            value.put("reportState", run.getReportState()); value.put("cleanupState", releasePending?(maintenanceReleaseFailed(run)?"FAILED":"PENDING"):run.getCleanupState());
-            value.put("reportsDelivered", delivered); value.put("cleanupComplete", cleanupComplete);
-            value.put("reportDeliveryFailed", "FAILED".equals(run.getReportState()));
-            value.put("clinicalComplete", clinicalComplete); value.put("cleanComplete", !run.isResumeRequested() && (clinicalComplete || validDryRun) && delivered && cleanupComplete);
-            value.put("operationTerminal", !run.isResumeRequested() && finalAttempt && (delivered || "FAILED".equals(run.getReportState())) && (cleanupComplete || releasePending || "FAILED".equals(run.getCleanupState())));
-            value.put("reviewVersion", run.getReviewVersion()); value.put("safeErrorCode", run.getSafeErrorCode());
-            value.put("reportAvailable", delivered && run.getReportGeneration()>0 && run.getReportDigest()!=null);
-            return java.util.Collections.unmodifiableMap(value);
-        });
+        return write(() -> summaryProjection(runId));
+    }
+
+    Map<String, Object> summaryInReadTransaction(String runId) {
+        requireObservationTransaction();
+        return summaryProjection(runId);
+    }
+
+    private Map<String, Object> summaryProjection(String runId) {
+        CdsImportRun run=requiredRun(runId, false);
+        Map<String, Long> outcomes=new LinkedHashMap<>();
+        List<Object[]> outcomeRows=patients.outcomes(runId, 17);
+        if (outcomeRows.size()>16) throw new CdsImportException("UNEXPECTED_OUTCOME_CARDINALITY");
+        long copyCount=0;
+        for (Object[] row:outcomeRows) {
+            long count=((Number) row[1]).longValue();
+            outcomes.put((String) row[0], count); copyCount=Math.addExact(copyCount, count);
+        }
+        List<Object[]> categoryRows=units.summaryCategories(runId, 129);
+        if (categoryRows.size()>128) throw new CdsImportException("UNEXPECTED_CATEGORY_CARDINALITY");
+        long planned=0, committed=0, reused=0, pending=0;
+        for (Object[] row:categoryRows) {
+            planned=Math.addExact(planned, ((Number) row[1]).longValue());
+            committed=Math.addExact(committed, ((Number) row[2]).longValue());
+            reused=Math.addExact(reused, ((Number) row[3]).longValue());
+            pending=Math.addExact(pending, ((Number) row[4]).longValue());
+        }
+        Map<String, Object> value=new LinkedHashMap<>();
+        value.put("runId", runId); value.put("state", run.getState()); value.put("dryRun", run.isDryRun());
+        value.put("resumeRequested", run.isResumeRequested());
+        value.put("clinicalComplete", !run.isDryRun() && "COMPLETE".equals(run.getState()));
+        boolean sealed=run.getExecutionDigest()!=null;
+        value.put("discoveryComplete", run.isDiscoveryComplete());
+        boolean fileInventory=run.getDiscoveredFiles()>=0 && run.getPatientXmlFiles()>=0 && run.getSourceBytes()>=0;
+        value.put("sourceFileInventoryKnown", fileInventory);
+        value.put("discoveredFiles", fileInventory?run.getDiscoveredFiles():null);
+        value.put("patientXmlFiles", fileInventory?run.getPatientXmlFiles():null);
+        value.put("sourceBytes", fileInventory?run.getSourceBytes():null);
+        long sourceCount=patients.sourcePatients(runId);
+        value.put("sourcePatientsIdentified", sourceCount);
+        value.put("sourcePatients", run.isDiscoveryComplete()?sourceCount:null);
+        value.put("targetCopiesPlanned", copyCount); value.put("inventoryState", sealed?"SEALED":"UNSEALED");
+        value.put("identifiedPatients", copyCount);
+        value.put("expectedPatients", sealed?run.getExpectedPatients():null);
+        value.put("plannedUnits", planned);
+        value.put("expectedUnits", sealed?run.getExpectedUnits():null);
+        value.put("committedUnits", committed); value.put("alreadyCompleteUnits", reused);
+        value.put("pendingUnits", pending);
+        value.put("outcomes", Map.copyOf(outcomes));
+        Map<String, long[]> grouped=new LinkedHashMap<>();
+        long committedOccurrences=0, priorOccurrences=0;
+        for (Object[] row:categoryRows) {
+            String raw=(String) row[0]; String category=clinicalCategory(raw);
+            long[] counts=grouped.computeIfAbsent(category, ignored -> new long[6]);
+            int offset=isHelperCategory(raw)?3:0;
+            counts[offset]+=((Number) row[1]).longValue();
+            counts[offset+1]+=((Number) row[2]).longValue(); counts[offset+2]+=((Number) row[3]).longValue();
+            if (offset==0) { committedOccurrences+=((Number) row[2]).longValue(); priorOccurrences+=((Number) row[3]).longValue(); }
+        }
+        List<Map<String, Object>> categories=new ArrayList<>();
+        for (Map.Entry<String, long[]> entry:grouped.entrySet()) {
+            long[] c=entry.getValue(); Map<String, Object> row=new LinkedHashMap<>();
+            row.put("category", entry.getKey()); row.put("expected", c[0]); row.put("committed", c[1]); row.put("alreadyComplete", c[2]); row.put("pending", c[0]-c[1]-c[2]);
+            row.put("expectedHelperUnits", c[3]); row.put("committedHelperUnits", c[4]); row.put("alreadyCompleteHelperUnits", c[5]); row.put("pendingHelperUnits", c[3]-c[4]-c[5]);
+            categories.add(Map.copyOf(row));
+        }
+        value.put("categories", List.copyOf(categories)); value.put("committedClinicalOccurrences", committedOccurrences); value.put("alreadyCompleteClinicalOccurrences", priorOccurrences);
+        value.put("unresolvedReviewItems", diagnostics.unresolved(runId, null));
+        value.put("cancelRequested", run.isCancelRequested()); value.put("lastCheckpoint", run.getUpdatedAt().toString());
+        boolean delivered="DELIVERED".equals(run.getReportState());
+        boolean releasePending=maintenanceReleasePending(run);
+        boolean cleanupComplete="COMPLETE".equals(run.getCleanupState()) && !releasePending;
+        boolean clinicalComplete=!run.isDryRun() && "COMPLETE".equals(run.getState());
+        boolean validDryRun=run.isDryRun() && "DRY_RUN_COMPLETE".equals(run.getState());
+        boolean finalAttempt=Set.of("COMPLETE", "DRY_RUN_COMPLETE", "DRY_RUN_INCOMPLETE", "INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "REVIEW_REQUIRED").contains(run.getState());
+        value.put("maintenanceReleasePending", releasePending);
+        value.put("maintenanceReleaseState", maintenanceReleaseState(run));
+        value.put("reportState", run.getReportState()); value.put("cleanupState", releasePending?(maintenanceReleaseFailed(run)?"FAILED":"PENDING"):run.getCleanupState());
+        value.put("reportsDelivered", delivered); value.put("cleanupComplete", cleanupComplete);
+        value.put("reportDeliveryFailed", "FAILED".equals(run.getReportState()));
+        value.put("clinicalComplete", clinicalComplete); value.put("cleanComplete", !run.isResumeRequested() && (clinicalComplete || validDryRun) && delivered && cleanupComplete);
+        value.put("operationTerminal", !run.isResumeRequested() && finalAttempt && (delivered || "FAILED".equals(run.getReportState())) && (cleanupComplete || releasePending || "FAILED".equals(run.getCleanupState())));
+        value.put("reviewVersion", run.getReviewVersion()); value.put("safeErrorCode", run.getSafeErrorCode());
+        value.put("reportAvailable", delivered && run.getReportGeneration()>0 && run.getReportDigest()!=null);
+        return java.util.Collections.unmodifiableMap(value);
     }
 
     public void stage(String runId, String stage) {

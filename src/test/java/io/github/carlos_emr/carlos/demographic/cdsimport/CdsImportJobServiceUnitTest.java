@@ -80,6 +80,7 @@ class CdsImportJobServiceUnitTest {
         });
         when(ledger.status("run")).thenAnswer(call->job.get());
         when(ledger.snapshotLocation("run")).thenAnswer(call->accepted.get().snapshotLocation());
+        when(ledger.jobBinding("run")).thenAnswer(call->new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto(job.get(),ledger.snapshotLocation("run")));
         uploads=mock(CdsUploadService.class);
         service=new CdsImportJobService(ledger,configuration,new CdsSnapshotService(),uploads);
     }

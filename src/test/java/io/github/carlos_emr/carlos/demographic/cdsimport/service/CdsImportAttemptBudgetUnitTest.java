@@ -51,7 +51,7 @@ class CdsImportAttemptBudgetUnitTest {
             f.engine.execute("run",true);
             assertEquals(3,f.committed());assertEquals("COMPLETE",f.state.get());
             for(int index=0;index<f.units.size();index++)verify(f.records,times(index==2?2:1)).write(eq("run"),anyLong(),eq(f.units.get(index)),any(),any(),any(),any(),any());
-            verify(f.window,times(1)).allowReopen();verify(f.jobs,times(2)).load("run");
+            verify(f.window,times(1)).allowReopen();verify(f.jobs,times(2)).loadContext("run");
         }
     }
 
@@ -217,7 +217,8 @@ class CdsImportAttemptBudgetUnitTest {
             when(configuration.limits()).thenReturn(limits);when(limits.maxDurationMillis()).thenReturn(100L);
             var job=mock(CdsImportJobDto.class);when(ledger.status("run")).thenReturn(job);
             when(job.state()).thenAnswer(call->state.get());when(job.ownerEpoch()).thenReturn(1L);when(job.rulesetDigest()).thenReturn("rules");when(job.optionsDigest()).thenReturn("options");
-            when(jobs.load("run")).thenReturn(document);when(ledger.isSealed("run")).thenReturn(true);when(ledger.ownsAdmission("run",1L)).thenReturn(true);
+            var readContext=mock(CdsImportJobService.ReadContext.class);when(readContext.document()).thenReturn(document);
+            when(jobs.loadContext("run")).thenReturn(readContext);when(ledger.isSealed("run")).thenReturn(true);when(ledger.ownsAdmission("run",1L)).thenReturn(true);
             var coordinatorOwner=mock(CdsImportCoordinatorService.Owner.class);
             when(coordinatorOwner.control("run")).thenReturn(new CdsImportControlDto(true,true,1L,false,true));
             when(coordinator.acquire()).thenReturn(coordinatorOwner);
@@ -233,6 +234,7 @@ class CdsImportAttemptBudgetUnitTest {
                 var unit=mock(CdsImportUnitDto.class);var unitState=new AtomicReference<>("EXPECTED");
                 when(unit.unitKey()).thenReturn("unit"+i);when(unit.patientKey()).thenReturn("patient");when(unit.state()).thenAnswer(call->unitState.get());units.add(unit);unitStates.add(unitState);
                 var work=mock(CdsImportWorkDto.class);var record=mock(CdsRecordDto.class);when(record.sourceXPath()).thenReturn("/record");when(work.record()).thenReturn(record);when(work.command()).thenReturn(command);
+                when(planning.work(eq("run"),eq(unit),eq(readContext))).thenReturn(work);
                 when(planning.work("run",unit)).thenReturn(work);when(ledger.unitStatus("run",unit.unitKey())).thenReturn(unit);
             }
             when(ledger.units(eq("run"),eq("patient"),anyString(),eq(100))).thenAnswer(call->call.<String>getArgument(2).isEmpty()?units:List.of());
