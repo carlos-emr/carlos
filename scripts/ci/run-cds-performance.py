@@ -54,7 +54,8 @@ def supervise(receipt: Path, command: list[str]) -> int:
         for number, handler in previous.items():
             signal.signal(number,handler)
     # Linux reports the largest process RSS, not a sum of simultaneous processes.
-    # It is a conservative upper bound for the actual service JVM verified by the caller.
+    # Keep this independent from /proc VmHWM: the two kernel interfaces can differ
+    # slightly in resident-page accounting. Each must satisfy the same fixed budget.
     value = {"pid": child, "exitCode": os.waitstatus_to_exitcode(status),
              "largestProcessPeakRssBytes": usage.ru_maxrss*1024,
              "userCpuSeconds": usage.ru_utime, "systemCpuSeconds": usage.ru_stime,
@@ -97,6 +98,14 @@ def gc_evidence(path: Path) -> dict:
         raise RuntimeError("insufficient actual service GC time samples")
     return {"columns": columns,"samples":count,"first":first,"last":last,
             "delta": {key:last[key]-first[key] for key in sorted(required)}}
+
+
+def enforce_rss_budget(process_peak: int, kernel: dict, budget: int) -> int:
+    waited_peak=kernel.get('largestProcessPeakRssBytes')
+    if kernel.get('exitCode')!=0 or not isinstance(waited_peak,int) or waited_peak<1 \
+            or not isinstance(process_peak,int) or process_peak<1 or max(process_peak,waited_peak)>budget:
+        raise RuntimeError('kernel/process peak RSS or process-exit proof failed')
+    return max(process_peak,waited_peak)
 
 
 def is_import_command(command: list[bytes], source: str, provider: str) -> bool:
@@ -761,9 +770,7 @@ def main() -> None:
             case['gc']=gc_metrics
             case['kernelResources']=kernel
             private_json(proof,result)
-            if kernel.get("exitCode") != 0 or not isinstance(kernel.get("largestProcessPeakRssBytes"),int) \
-                    or not peak <= kernel["largestProcessPeakRssBytes"] <= args.max_rss_mib*MIB:
-                raise RuntimeError("kernel invocation peak RSS or process-exit proof failed")
+            case['enforcedPeakRssBytes']=enforce_rss_budget(peak,kernel,args.max_rss_mib*MIB)
             after = counters()
             stage('NATIVE_AND_REQUIRED_REPORT_VERIFICATION')
             completed = complete_result(rows(log))

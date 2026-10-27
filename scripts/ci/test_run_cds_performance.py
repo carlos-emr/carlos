@@ -60,6 +60,16 @@ class PerformanceEvidenceTest(unittest.TestCase):
         runuser=[b'/usr/sbin/runuser',b'-u',b'carlos',b'--',*actual]
         self.assertFalse(GATE.is_import_command(runuser,'/owned/source','999998'))
 
+    def test_distinct_kernel_resident_peak_interfaces_enforce_same_budget_without_false_ordering(self):
+        budget=1024*GATE.MIB
+        actual={'exitCode':0,'largestProcessPeakRssBytes':502616064}
+        self.assertEqual(GATE.enforce_rss_budget(502784000,actual,budget),502784000)
+        for observed,kernel in ((budget+1,actual),(502784000,{'exitCode':0,'largestProcessPeakRssBytes':budget+1}),
+                                (502784000,{'exitCode':4,'largestProcessPeakRssBytes':502616064}),
+                                (502784000,{'exitCode':0}), (0,actual)):
+            with self.subTest(observed=observed,kernel=kernel):
+                with self.assertRaises(RuntimeError):GATE.enforce_rss_budget(observed,kernel,budget)
+
     def test_normal_process_disappearance_is_distinct_from_an_unreadable_live_process(self):
         with patch.object(Path,'read_text',side_effect=FileNotFoundError):
             self.assertIsNone(GATE.service_sample(123456))
