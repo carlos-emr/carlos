@@ -34,13 +34,17 @@ def main() -> None:
     parser.add_argument("--cli", default="/usr/sbin/carlos-ctl")
     parser.add_argument("--disposable", action="store_true")
     parser.add_argument("--prepared-fixture", action="store_true", help="continue verified preparation only when no run has been accepted")
+    parser.add_argument("--recorded-attempt", type=Path, help="continue completed exact recorded import handles without resubmitting them")
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args()
     if os.geteuid() != 0 or not args.disposable or not Path("/.dockerenv").is_file():
         parser.error("requires root in an explicitly disposable Docker container")
     if args.timeout < 30 or args.timeout > 3600 or not args.fixture_root.is_absolute():
         parser.error("timeout must be 30..3600 seconds and fixture root must be absolute")
-    if args.fixture_root.is_symlink() or (args.fixture_root.exists() and not args.prepared_fixture):
+    if args.prepared_fixture and args.recorded_attempt:
+        parser.error("choose exactly one continuation mode")
+    continuing = args.prepared_fixture or args.recorded_attempt is not None
+    if args.fixture_root.is_symlink() or (args.fixture_root.exists() and not continuing):
         parser.error("fixture root must be absent unless explicitly verifying an unaccepted preparation")
     if not args.jdbc_properties.is_file() or args.jdbc_properties.is_symlink():
         parser.error("protected JDBC properties must be a regular file")
@@ -50,7 +54,7 @@ def main() -> None:
         parser.error("actual installed CLI and Java runtime are required")
     # Only the helper may create the fixed production properties, and it refuses
     # an existing configuration and non-test database before any mutation.
-    if Path("/etc/carlos-emr/carlos.properties").exists() and not args.prepared_fixture:
+    if Path("/etc/carlos-emr/carlos.properties").exists() and not continuing:
         parser.error("refusing to replace existing production configuration")
     environment = {key: value for key, value in os.environ.items()
                    if key not in {"JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "CLASSPATH"}}
@@ -70,9 +74,19 @@ def main() -> None:
             raise RuntimeError("synthetic fixture metadata was not an object")
         return document
 
-    metadata = fixture("verify-prepared" if args.prepared_fixture else "prepare", str(args.fixture_root))
+    operation = "verify-fixture" if args.recorded_attempt else ("verify-prepared" if args.prepared_fixture else "prepare")
+    metadata = fixture(operation, str(args.fixture_root))
     root = args.fixture_root.resolve(strict=True)
-    logs = root / ("operator-evidence-continuation-" + uuid.uuid4().hex if args.prepared_fixture else "operator-evidence")
+    recorded = args.recorded_attempt
+    if recorded is not None:
+        if not recorded.is_absolute() or recorded.parent != root or recorded.is_symlink() \
+                or not re.fullmatch(r"operator-evidence(?:-continuation-[a-f0-9]{32}|-recorded-[a-f0-9]{32})?", recorded.name) \
+                or not recorded.is_dir() or recorded.stat().st_uid != 0 or recorded.stat().st_mode & 0o077:
+            raise RuntimeError("recorded attempt must be the protected original fixture evidence directory")
+        if (recorded / "interrupted.log").exists():
+            raise RuntimeError("interrupted or partial runs require their explicit recorded recovery path")
+    logs = root / ("operator-evidence-recorded-" + uuid.uuid4().hex if recorded else
+                   "operator-evidence-continuation-" + uuid.uuid4().hex if args.prepared_fixture else "operator-evidence")
     logs.mkdir(mode=0o700)
     common = ["--provider", str(metadata["provider"])]
     contract = ["--source-namespace", metadata["namespace"], "--source-profile", metadata["profile"], "--no-match-providers"]
@@ -164,7 +178,50 @@ def main() -> None:
     def submit(label: str, source: str, *extra: str, clean: bool = True, selected_provider: str | None = None) -> dict:
         source_path = path_from(source)
         provider = ["--provider", selected_provider or str(metadata["provider"])]
-        values = invoke(label, ["--input", str(source_path), *provider, *contract, *extra], {0} if clean else {4})
+        request = ["--input", str(source_path), *provider, *contract, *extra]
+        prior = recorded / (label + ".log") if recorded else None
+        if prior is not None and prior.exists():
+            if prior.is_symlink() or not prior.is_file() or prior.stat().st_uid != 0 or prior.stat().st_mode & 0o077:
+                raise RuntimeError("recorded command evidence is not protected")
+            values = rows(prior)
+            handles = [row for row in values if row.get("event") == "ACCEPTED"]
+            keys = [row for row in values if row.get("event") == "SUBMISSION"]
+            if not clean or len(handles) != 1 or len(keys) != 1 or result(values).get("cleanComplete") is not True:
+                raise RuntimeError("unknown or incomplete accepted work requires explicit recorded-run reconciliation")
+            run = handles[0]["runId"]
+            bound = fixture("verify-run", str(root), run, "--operation", "import", *request)
+            if bound.get("runId") != run or bound.get("verified") is not True or bound.get("submissionKey") != keys[0].get("submissionKey"):
+                raise RuntimeError("recorded command binding did not match the immutable accepted job")
+            current = result(invoke(label + "-recorded-status", ["--status", run, *provider], {0}))
+            if current.get("runId") != run or current.get("cleanComplete") is not True:
+                raise RuntimeError("recorded accepted run no longer has a complete clean outcome")
+            # Preserve the original acceptance evidence in every continuation.
+            # A later continuation must reuse this exact handle rather than see
+            # an absent log and create another submission.
+            destination = logs / (label + ".log")
+            source_hash = hashlib.sha256()
+            descriptor = os.open(destination, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with prior.open("rb") as source, os.fdopen(descriptor, "wb") as target:
+                total = 0
+                for block in iter(lambda: source.read(65536), b""):
+                    total += len(block)
+                    if total > 4096 * 65538:
+                        raise RuntimeError("recorded command evidence exceeded its bounded limit")
+                    source_hash.update(block)
+                    target.write(block)
+                target.flush()
+                os.fsync(target.fileno())
+            proof = {"originalEvidence": str(prior), "sha256": source_hash.hexdigest(), "runId": run,
+                     "submissionKey": keys[0]["submissionKey"], "verifiedImmutableCommand": True}
+            descriptor = os.open(logs / (label + "-recorded-binding.json"), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(descriptor, "w", encoding="utf-8") as target:
+                json.dump(proof, target, separators=(",", ":"))
+                target.flush()
+                os.fsync(target.fileno())
+            runs[label] = run
+            submissions[label] = keys[0]["submissionKey"]
+            return current
+        values = invoke(label, request, {0} if clean else {4})
         accepted = [row for row in values if row.get("event") == "ACCEPTED"]
         if len(accepted) != 1:
             raise RuntimeError("submission did not preserve its durable accepted handle")
@@ -244,7 +301,8 @@ def main() -> None:
     native = fixture("inspect", runs["all-categories"])
     for key, expected in {"nativeProfessionalContacts": 2, "nativeDemographicContacts": 3,
                           "nativeUnknownContactConsents": 3, "nativePreferredPharmacies": 1,
-                          "nativeLaboratoryResults": 1, "nativeLaboratoryProjection": 1,
+                          "nativeLaboratoryResults": 1,
+                          "nativeLaboratoryProjection": 1,
                           "nativeLaboratoryPrivateNoteIsolated": 1, "nativeDrugs": 1,
                           "nativeAllergies": 1, "nativePreventions": 1, "nativeYearPreventions": 1,
                           "nativeAppointments": 1, "nativeMeasurements": 2, "nativeDocuments": 2,

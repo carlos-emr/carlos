@@ -84,3 +84,12 @@ and zero rows in all sixteen native verification counts, and creates a new
 private continuation log directory. Existing logs and source/configuration
 remain unchanged. Once any run is accepted, use its recorded recovery path;
 this preparation-only continuation refuses further use.
+
+For a retained interrupted verification session whose accepted imports already
+finished cleanly, `--recorded-attempt /absolute/protected/evidence-directory`
+reuses its exact recorded import handles. The helper rechecks immutable accepted
+commands, source/options, operator/provider, metadata/configuration binding and
+current completion before any later phase. Each new attempt preserves the
+original acceptance log bytes and a SHA-256/binding record. It refuses partial,
+uncertain, held or interrupted runs; those require explicit recovery of the
+original handle. It never falls back to preparation-only checks after acceptance.

@@ -72,10 +72,23 @@ public final class CdsCliEngineFixture {
                     if (!result.next()) throw new IllegalStateException("Database unavailable"); actual = result.getString(1);
                 }
                 if (!List.of("carlos_cds_test", "cds_full_test", "cds_cli_test").contains(actual)) throw new IllegalStateException("Non-test database");
+                if (args[0].startsWith("verify-")) {
+                    Properties installed = CdsCliConfiguration.load(Map.of("CARLOS_CDS_PROPERTIES", CONFIG.toString())).properties();
+                    if (!url.equals(installed.getProperty("db_uri", "") + installed.getProperty("db_name", ""))
+                            || !java.util.Objects.equals(jdbc.getProperty("jdbcUser"), installed.getProperty("db_username"))
+                            || !java.util.Objects.equals(jdbc.getProperty("jdbcPassword"), installed.getProperty("db_password"))) {
+                        throw new IllegalStateException("Installed runtime and verification database differ");
+                    }
+                }
                 Object result = switch (args[0]) {
                     case "prepare" -> prepare(connection, jdbc, url, Path.of(args[2]));
                     case "inspect" -> inspect(connection, args[2]);
-                    case "verify-prepared" -> verifyPrepared(connection, Path.of(args[2]));
+                    case "verify-prepared" -> verifyPrepared(connection, Path.of(args[2]), true);
+                    case "verify-fixture" -> verifyPrepared(connection, Path.of(args[2]), false);
+                    case "verify-run" -> {
+                        if (args.length < 6) throw new IllegalArgumentException("Recorded command required");
+                        yield verifyRecorded(connection, Path.of(args[2]), args[3], java.util.Arrays.copyOfRange(args, 4, args.length));
+                    }
                     case "control" -> {
                         if (args.length != 4) throw new IllegalArgumentException("Control required");
                         yield control(connection, Path.of(args[2]), args[3]);
@@ -236,7 +249,7 @@ public final class CdsCliEngineFixture {
         result.put("nativeAppointments", count(connection, "SELECT COUNT(*) FROM appointment a WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=a.demographic_no)", run));
         result.put("nativeMeasurements", count(connection, "SELECT COUNT(*) FROM measurements m WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=m.demographicNo)", run));
         result.put("nativeDocuments", count(connection, "SELECT COUNT(DISTINCT d.document_no) FROM document d JOIN ctl_document c ON c.document_no=d.document_no AND c.module='demographic' AND c.status='A' WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=c.module_id)", run));
-        result.put("nativeUnclockedReports", count(connection, "SELECT COUNT(DISTINCT d.document_no) FROM document d JOIN ctl_document c ON c.document_no=d.document_no AND c.module='demographic' AND c.status='A' WHERE d.cds_content_precision IN ('MONTH','UNKNOWN') AND d.contentdatetime IS NULL AND d.observationdate IS NULL AND d.reviewdatetime IS NULL AND COALESCE(d.reviewer,'')='' AND d.numberofpages=0 AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=c.module_id)", run));
+        result.put("nativeUnclockedReports", count(connection, "SELECT COUNT(DISTINCT d.document_no) FROM document d JOIN ctl_document c ON c.document_no=d.document_no AND c.module='demographic' AND c.status='A' WHERE d.cds_content_precision IN ('MONTH','UNKNOWN') AND d.contentdatetime IS NULL AND d.observationdate IS NULL AND d.reviewdatetime IS NULL AND COALESCE(d.reviewer,'')='' AND d.number_of_pages=0 AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=c.module_id)", run));
         result.put("nativeMonthReports", count(connection, "SELECT COUNT(DISTINCT d.document_no) FROM document d JOIN ctl_document c ON c.document_no=d.document_no AND c.module='demographic' AND c.status='A' WHERE d.cds_content_precision='MONTH' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=c.module_id)", run));
         result.put("nativeUnknownReports", count(connection, "SELECT COUNT(DISTINCT d.document_no) FROM document d JOIN ctl_document c ON c.document_no=d.document_no AND c.module='demographic' AND c.status='A' WHERE d.cds_content_precision='UNKNOWN' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=c.module_id)", run));
         result.put("nativeProfessionalContacts", count(connection, "SELECT COUNT(DISTINCT c.id) FROM Contact c JOIN DemographicContact d ON d.contactId=CAST(c.id AS CHAR) AND d.type=2 WHERE c.type='ProfessionalContact' AND d.category='professional' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=d.demographicNo)", run));
@@ -297,7 +310,7 @@ public final class CdsCliEngineFixture {
     }
 
     /** Continues only an intact preparation that has never accepted an import. */
-    private static Object verifyPrepared(Connection connection, Path root) throws Exception {
+    private static Object verifyPrepared(Connection connection, Path root, boolean unaccepted) throws Exception {
         if (!root.isAbsolute() || !root.equals(root.normalize())) throw new IllegalArgumentException("Exact fixture root required");
         Path metadataFile = root.resolve("fixture.json");
         protectedPreparedPath(root, true); protectedPreparedPath(metadataFile, false);
@@ -322,10 +335,17 @@ public final class CdsCliEngineFixture {
                 || !"pcon-2024-02".equals(config.getProperty("cds.import.source." + namespace + ".profiles"))) {
             throw new IllegalStateException("Prepared source registration mismatch");
         }
-        if (scalar(connection, "SELECT COUNT(*) FROM cds_import_run") != 0) throw new IllegalStateException("Accepted runs require durable recovery");
-        Map<?, ?> counts = (Map<?, ?>) inspect(connection, "fixture");
-        for (Object value : counts.values()) if (!(value instanceof Number number) || number.longValue() != 0) {
-            throw new IllegalStateException("Native data already exists");
+        if (unaccepted) {
+            if (scalar(connection, "SELECT COUNT(*) FROM cds_import_run") != 0) throw new IllegalStateException("Accepted runs require durable recovery");
+            Map<?, ?> counts = (Map<?, ?>) inspect(connection, "fixture");
+            for (Object value : counts.values()) if (!(value instanceof Number number) || number.longValue() != 0) {
+                throw new IllegalStateException("Native data already exists");
+            }
+        }
+        if (!unaccepted && (scalar(connection, "SELECT COUNT(*) FROM cds_import_patient WHERE held=TRUE") != 0
+                || scalar(connection, "SELECT COUNT(*) FROM cds_import_run WHERE state NOT IN ('COMPLETE','DRY_RUN_COMPLETE') OR cancel_requested=TRUE") != 0
+                || count(connection, "SELECT COUNT(*) FROM cds_import_run WHERE operator<>'root' OR source_namespace<>?", namespace) != 0)) {
+            throw new IllegalStateException("Incomplete or unrelated accepted work requires explicit recovery");
         }
         String token = namespace.substring(8);
         String baseline = resource("/demographic/cds-import-summary.xml");
@@ -362,6 +382,50 @@ public final class CdsCliEngineFixture {
             }
         }
         return JSON.convertValue(metadata, Map.class);
+    }
+
+    /** Binds a completed recorded CLI command without submitting or altering its accepted run. */
+    private static Object verifyRecorded(Connection connection, Path root, String run, String[] argv) throws Exception {
+        UUID.fromString(run);
+        JsonNode metadata = JSON.valueToTree(verifyPrepared(connection, root, false));
+        Properties config = CdsCliConfiguration.load(Map.of("CARLOS_CDS_PROPERTIES", CONFIG.toString())).properties();
+        try (var statement = connection.prepareStatement("SELECT operator,submission_key,provider_no,source_namespace,profile,source_digest,options_digest,ruleset_digest,snapshot_location,dry_run,state,cancel_requested,report_state,cleanup_state FROM cds_import_run WHERE id=?")) {
+            statement.setString(1, run);
+            try (var row = statement.executeQuery()) {
+                if (!row.next()) throw new IllegalStateException("Recorded run unavailable");
+                var expected = CdsCliArguments.parse(argv).command(row.getString("submission_key"));
+                Path source = expected.input().toAbsolutePath().normalize();
+                if (!source.startsWith(root.resolve("source")) || !"root".equals(row.getString("operator"))
+                        || !expected.providerNo().equals(row.getString("provider_no"))
+                        || !metadata.path("namespace").asText().equals(expected.sourceNamespace())
+                        || !expected.sourceNamespace().equals(row.getString("source_namespace"))
+                        || !expected.sourceProfile().equals(row.getString("profile"))
+                        || expected.dryRun() != row.getBoolean("dry_run")
+                        || !io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportJobService.optionsDigest(expected).equals(row.getString("options_digest"))
+                        || !(expected.dryRun() ? "DRY_RUN_COMPLETE" : "COMPLETE").equals(row.getString("state"))
+                        || row.getBoolean("cancel_requested") || !"DELIVERED".equals(row.getString("report_state"))
+                        || !"COMPLETE".equals(row.getString("cleanup_state"))) {
+                    throw new IllegalStateException("Recorded run is not a complete exact command");
+                }
+                Path document = io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths.within(
+                        Path.of(row.getString("snapshot_location")), Path.of(config.getProperty("cds.import.stagingRoot")));
+                if (Files.size(document) > 65536 || (((int) Files.getAttribute(document, "unix:mode")) & 0077) != 0) {
+                    throw new IllegalStateException("Recorded job document not protected");
+                }
+                byte[] bytes = Files.readAllBytes(document);
+                String digest = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+                if (!document.getFileName().toString().equals("job-" + digest + ".json")) throw new IllegalStateException("Recorded document hash mismatch");
+                var accepted = JSON.readValue(bytes, io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDocumentDto.class);
+                if (!expected.equals(accepted.command()) || !"root".equals(accepted.actor().operator())
+                        || accepted.actor().securityNo() != null || !expected.providerNo().equals(accepted.actor().providerNo())
+                        || accepted.snapshot() == null || !row.getString("source_digest").equals(accepted.snapshot().sha256())
+                        || !row.getString("ruleset_digest").equals(accepted.acceptedRulesetDigest())
+                        || count(connection, "SELECT COUNT(*) FROM cds_import_patient WHERE run_id=? AND held=TRUE", run) != 0) {
+                    throw new IllegalStateException("Recorded actor/source/options binding mismatch");
+                }
+                return Map.of("runId", run, "verified", true, "dryRun", expected.dryRun(), "submissionKey", expected.submissionKey());
+            }
+        }
     }
 
     private static void verifyPreparedXml(Path path, String recorded, String expected) throws Exception {
