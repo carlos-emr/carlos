@@ -35,23 +35,23 @@ import org.springframework.stereotype.Component;
 @Component("cdsSourceFieldContent2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsSourceFieldContent2Action extends ActionSupport {
     private final transient CdsClinicalSourceService source;
-    private int demographicNo;private String category,fieldId;
-    public CdsSourceFieldContent2Action(CdsClinicalSourceService source){this.source=source;}
+    private int demographicNo; private String category, fieldId;
+    public CdsSourceFieldContent2Action(CdsClinicalSourceService source){this.source=source; }
     @Override public String execute() throws Exception {
-        var request=ServletActionContext.getRequest();var response=ServletActionContext.getResponse();
-        if(!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))){response.setHeader("Allow","GET, HEAD");response.sendError(405);return NONE;}
+        var request=ServletActionContext.getRequest(); var response=ServletActionContext.getResponse();
+        if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))){response.setHeader("Allow", "GET, HEAD"); response.sendError(405); return NONE; }
         try {
-            var actor=CdsWeb.authenticated(request);CdsWeb.parameters(request,Set.of("demographicNo","category","fieldId"));
-            var field=source.original(actor,demographicNo,category,fieldId);
-            response.setHeader("Cache-Control","no-store");response.setHeader("X-Content-Type-Options","nosniff");
-            response.setHeader("Content-Security-Policy","sandbox");response.setContentType("application/octet-stream");
-            response.setHeader("Content-Disposition","attachment; filename=\"cds-source-field-"+field.id()+".bin\"");
+            var actor=CdsWeb.authenticated(request); CdsWeb.parameters(request, Set.of("demographicNo", "category", "fieldId"));
+            var field=source.original(actor, demographicNo, category, fieldId);
+            response.setHeader("Cache-Control", "no-store"); response.setHeader("X-Content-Type-Options", "nosniff");
+            response.setHeader("Content-Security-Policy", "sandbox"); response.setContentType("application/octet-stream");
+            response.setHeader("Content-Disposition", "attachment; filename=\"cds-source-field-"+field.id()+".bin\"");
             response.setContentLengthLong(source.contentLength(field));
-            if(!"HEAD".equals(request.getMethod()))source.writeOriginal(field,response.getOutputStream());
-        }catch(Exception failure){CdsWeb.failure(response,failure);}
+            if (!"HEAD".equals(request.getMethod()))source.writeOriginal(field, response.getOutputStream());
+        }catch (Exception failure){CdsWeb.failure(response, failure); }
         return NONE;
     }
-    @StrutsParameter public void setDemographicNo(int value){demographicNo=value;}
-    @StrutsParameter public void setCategory(String value){category=value;}
-    @StrutsParameter public void setFieldId(String value){fieldId=value;}
+    @StrutsParameter public void setDemographicNo(int value){demographicNo=value; }
+    @StrutsParameter public void setCategory(String value){category=value; }
+    @StrutsParameter public void setFieldId(String value){fieldId=value; }
 }

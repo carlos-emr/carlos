@@ -58,7 +58,7 @@ public class MeasurementWs extends AbstractWs {
 
     public MeasurementTransfer getMeasurement(Integer measurementId) {
         Measurement measurement = measurementManager.getMeasurement(getLoggedInInfo(), measurementId);
-        if (measurement!=null) projections.requireSoapSupported(measurement.getDemographicId(),java.util.Set.of("CareElements"));
+        if (measurement!=null) projections.requireSoapSupported(measurement.getDemographicId(), java.util.Set.of("CareElements"));
         return (MeasurementTransfer.toTransfer(measurement));
     }
 
@@ -86,13 +86,13 @@ public class MeasurementWs extends AbstractWs {
     public MeasurementTransfer[] getMeasurementsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
         List<Measurement> measurements = measurementManager.getMeasurementsByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
         if (demographicId==null) projections.requireSoapFeedSupported(java.util.Set.of("CareElements"));
-        else projections.requireSoapSupported(demographicId,java.util.Set.of("CareElements"));
+        else projections.requireSoapSupported(demographicId, java.util.Set.of("CareElements"));
         return (MeasurementTransfer.toTransfers(measurements));
     }
 
     public MeasurementTransfer[] getMeasurementsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
         List<Measurement> measurements = measurementManager.getMeasurementByDemographicIdAfter(getLoggedInInfo(), demographicId, lastUpdate.getTime());
-        projections.requireSoapSupported(demographicId,java.util.Set.of("CareElements"));
+        projections.requireSoapSupported(demographicId, java.util.Set.of("CareElements"));
         return (MeasurementTransfer.toTransfers(measurements));
     }
 

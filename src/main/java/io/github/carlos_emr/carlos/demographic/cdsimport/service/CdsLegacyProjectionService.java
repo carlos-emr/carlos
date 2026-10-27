@@ -41,13 +41,13 @@ public class CdsLegacyProjectionService {
     public CdsLegacyProjectionService(CdsLegacyProjectionDao records) { this.records=records; }
 
     @Transactional(readOnly=true)
-    public void requireWholeChartSupported(int demographicNo) { requireSupported(demographicNo,Set.of()); }
+    public void requireWholeChartSupported(int demographicNo) { requireSupported(demographicNo, Set.of()); }
 
     /** An empty category set denotes a complete-chart projection. */
     @Transactional(readOnly=true)
     public void requireSupported(int demographicNo, Set<String> categories) {
         if (demographicNo<1 || categories==null) throw new IllegalArgumentException("Invalid projection context");
-        if (records.hasSourceFields(demographicNo,categories)
+        if (records.hasSourceFields(demographicNo, categories)
                 || (categories.isEmpty() || categories.contains("LaboratoryResults"))
                     && records.hasTypedLaboratoryResults(demographicNo)) {
             throw new CdsLegacyProjectionException();
@@ -56,7 +56,7 @@ public class CdsLegacyProjectionService {
 
     @Transactional(readOnly=true)
     public void requireSoapSupported(int demographicNo, Set<String> categories) {
-        try { requireSupported(demographicNo,categories); }
+        try { requireSupported(demographicNo, categories); }
         catch (CdsLegacyProjectionException unsupported) { throw soapFault(unsupported); }
     }
 
@@ -74,11 +74,11 @@ public class CdsLegacyProjectionService {
     /** Existing REST resources use a fixed plain-text 409 rather than serializing a native subset. */
     @Transactional(readOnly=true)
     public void requireRestSupported(int demographicNo, Set<String> categories) {
-        try { requireSupported(demographicNo,categories); }
+        try { requireSupported(demographicNo, categories); }
         catch (CdsLegacyProjectionException unsupported) {
             throw new WebApplicationException(Response.status(Response.Status.CONFLICT)
                     .type(MediaType.TEXT_PLAIN_TYPE).entity(unsupported.getMessage())
-                    .header("Cache-Control","no-store").build());
+                    .header("Cache-Control", "no-store").build());
         }
     }
 }

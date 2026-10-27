@@ -70,7 +70,7 @@ public class PreventionWs extends AbstractWs {
         Prevention prevention = preventionManager.getPrevention(loggedInInfo, preventionId);
 
         if (prevention != null) {
-            projections.requireSoapSupported(prevention.getDemographicId(),java.util.Set.of("Immunizations"));
+            projections.requireSoapSupported(prevention.getDemographicId(), java.util.Set.of("Immunizations"));
             List<PreventionExt> preventionExts = preventionManager.getPreventionExtByPrevention(loggedInInfo, prevention.getId());
             return (PreventionTransfer.toTransfer(prevention, preventionExts, dateService.getDate(prevention)));
         }
@@ -89,14 +89,14 @@ public class PreventionWs extends AbstractWs {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prevention> preventions = preventionManager.getPreventionsByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
         if (demographicId==null) projections.requireSoapFeedSupported(java.util.Set.of("Immunizations"));
-        else projections.requireSoapSupported(demographicId,java.util.Set.of("Immunizations"));
+        else projections.requireSoapSupported(demographicId, java.util.Set.of("Immunizations"));
         return (PreventionTransfer.getTransfers(loggedInInfo, preventions, preventionManager, dateService));
     }
 
     public PreventionTransfer[] getPreventionsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prevention> preventions = preventionManager.getByDemographicIdUpdatedAfterDate(loggedInInfo, demographicId, lastUpdate.getTime());
-        projections.requireSoapSupported(demographicId,java.util.Set.of("Immunizations"));
+        projections.requireSoapSupported(demographicId, java.util.Set.of("Immunizations"));
         return (PreventionTransfer.getTransfers(loggedInInfo, preventions, preventionManager, dateService));
     }
 

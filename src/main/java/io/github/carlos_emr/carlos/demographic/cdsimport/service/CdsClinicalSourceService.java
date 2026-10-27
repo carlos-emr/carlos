@@ -73,19 +73,19 @@ public class CdsClinicalSourceService {
         transaction.setTimeout(15); transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
     }
 
-    public List<CdsImportFieldDto> page(LoggedInInfo actor,int patient,String category,String after,int limit) {
-        if (limit<1 || limit>50 || (after!=null && !after.isEmpty() && !after.matches("[0-9a-f]{64}"))) throw problem("SOURCE_FIELD_PAGE_INVALID",400);
-        return read(actor,patient,category,()->fields.fields(patient,category,after,limit));
+    public List<CdsImportFieldDto> page(LoggedInInfo actor, int patient, String category, String after, int limit) {
+        if (limit<1 || limit>50 || (after!=null && !after.isEmpty() && !after.matches("[0-9a-f]{64}"))) throw problem("SOURCE_FIELD_PAGE_INVALID", 400);
+        return read(actor, patient, category, ()-> fields.fields(patient, category, after, limit));
     }
 
-    public List<CdsImportReviewProvenanceDto> provenance(LoggedInInfo actor,int patient,String category,String after,int limit) {
-        if(limit<1 || limit>50 || after!=null && !after.isEmpty() && !after.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) throw problem("SOURCE_FIELD_REVIEW_PAGE_INVALID",400);
-        return read(actor,patient,category,()->corrections.pageByDemographic(patient,category,after,limit));
+    public List<CdsImportReviewProvenanceDto> provenance(LoggedInInfo actor, int patient, String category, String after, int limit) {
+        if (limit<1 || limit>50 || after!=null && !after.isEmpty() && !after.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) throw problem("SOURCE_FIELD_REVIEW_PAGE_INVALID", 400);
+        return read(actor, patient, category, ()-> corrections.pageByDemographic(patient, category, after, limit));
     }
 
-    public CdsImportFieldDto original(LoggedInInfo actor,int patient,String category,String fieldId) throws IOException {
-        if (fieldId==null || !fieldId.matches("[0-9a-f]{64}")) throw problem("SOURCE_FIELD_ID_INVALID",400);
-        CdsImportFieldDto field=read(actor,patient,category,()->fields.field(patient,category,fieldId));
+    public CdsImportFieldDto original(LoggedInInfo actor, int patient, String category, String fieldId) throws IOException {
+        if (fieldId==null || !fieldId.matches("[0-9a-f]{64}")) throw problem("SOURCE_FIELD_ID_INVALID", 400);
+        CdsImportFieldDto field=read(actor, patient, category, ()-> fields.field(patient, category, fieldId));
         // Immutable payload I/O occurs after the short patient/admission authorization transaction ends.
         if (field.payloadLocation()!=null) verify(field);
         return field;
@@ -95,45 +95,45 @@ public class CdsClinicalSourceService {
         return field.payloadLocation()==null ? field.originalValue().getBytes(StandardCharsets.UTF_8).length : field.payloadLength();
     }
 
-    public void writeOriginal(CdsImportFieldDto field,OutputStream output) throws IOException {
+    public void writeOriginal(CdsImportFieldDto field, OutputStream output) throws IOException {
         if (field.payloadLocation()==null) { output.write(field.originalValue().getBytes(StandardCharsets.UTF_8)); return; }
-        stream(field,output,null);
+        stream(field, output, null);
     }
 
-    private <T> T read(LoggedInInfo actor,int patient,String category,Supplier<T> operation) {
-        if (patient<1 || !CATEGORIES.contains(category)) throw problem("SOURCE_FIELD_CATEGORY_INVALID",400);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw problem("SOURCE_FIELD_AMBIENT_TRANSACTION_REFUSED",409);
-        return transaction.execute(status->{
+    private <T> T read(LoggedInInfo actor, int patient, String category, Supplier<T> operation) {
+        if (patient<1 || !CATEGORIES.contains(category)) throw problem("SOURCE_FIELD_CATEGORY_INVALID", 400);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw problem("SOURCE_FIELD_AMBIENT_TRANSACTION_REFUSED", 409);
+        return transaction.execute(status-> {
             // Field tables are an administrative JDBC exception, so explicitly share the physical admission barrier.
             var barrier=admission.readLock(CdsJdbcAdmissionState.ROW);
             if (barrier==null || barrier.isMaintenanceActive() || maintenance.isClinicalAccessBlocked() || patients.held(patient)) {
-                throw problem("SOURCE_FIELD_IMPORT_HOLD",409);
+                throw problem("SOURCE_FIELD_IMPORT_HOLD", 409);
             }
-            access.requireClinicalRead(actor,patient,category);
-            if (category.equals("LaboratoryResults")) laboratory.requireSourceFieldsReadable(actor,patient);
+            access.requireClinicalRead(actor, patient, category);
+            if (category.equals("LaboratoryResults")) laboratory.requireSourceFieldsReadable(actor, patient);
             return operation.get();
         });
     }
 
     private void verify(CdsImportFieldDto field) throws IOException {
-        if (field.payloadDigest()==null || !field.payloadDigest().matches("[0-9a-f]{64}")) throw problem("SOURCE_FIELD_PAYLOAD_INVALID",503);
-        MessageDigest digest=CdsPaths.sha256(); stream(field,null,digest);
-        if (!MessageDigest.isEqual(digest.digest(),HexFormat.of().parseHex(field.payloadDigest()))) throw problem("SOURCE_FIELD_PAYLOAD_CHANGED",503);
+        if (field.payloadDigest()==null || !field.payloadDigest().matches("[0-9a-f]{64}")) throw problem("SOURCE_FIELD_PAYLOAD_INVALID", 503);
+        MessageDigest digest=CdsPaths.sha256(); stream(field, null, digest);
+        if (!MessageDigest.isEqual(digest.digest(), HexFormat.of().parseHex(field.payloadDigest()))) throw problem("SOURCE_FIELD_PAYLOAD_CHANGED", 503);
     }
 
-    private void stream(CdsImportFieldDto field,OutputStream output,MessageDigest digest) throws IOException {
-        Path path=CdsPaths.within(Path.of(field.payloadLocation()),configuration.stagingRoot());
-        if (field.payloadOffset()<0 || field.payloadLength()<0 || field.payloadLength()>Long.MAX_VALUE-field.payloadOffset()) throw problem("SOURCE_FIELD_PAYLOAD_INVALID",503);
-        try (FileChannel channel=FileChannel.open(path,StandardOpenOption.READ,LinkOption.NOFOLLOW_LINKS)) {
-            if (channel.size()<field.payloadOffset()+field.payloadLength()) throw problem("SOURCE_FIELD_PAYLOAD_INCOMPLETE",503);
+    private void stream(CdsImportFieldDto field, OutputStream output, MessageDigest digest) throws IOException {
+        Path path=CdsPaths.within(Path.of(field.payloadLocation()), configuration.stagingRoot());
+        if (field.payloadOffset()<0 || field.payloadLength()<0 || field.payloadLength()>Long.MAX_VALUE-field.payloadOffset()) throw problem("SOURCE_FIELD_PAYLOAD_INVALID", 503);
+        try (FileChannel channel=FileChannel.open(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            if (channel.size()<field.payloadOffset()+field.payloadLength()) throw problem("SOURCE_FIELD_PAYLOAD_INCOMPLETE", 503);
             channel.position(field.payloadOffset()); ByteBuffer buffer=ByteBuffer.allocate(65536); long left=field.payloadLength();
             while (left>0) {
-                if (Thread.currentThread().isInterrupted()) throw problem("SOURCE_FIELD_READ_INTERRUPTED",503);
-                buffer.clear(); buffer.limit((int)Math.min(buffer.capacity(),left)); int count=channel.read(buffer);
-                if (count<1) throw problem("SOURCE_FIELD_PAYLOAD_INCOMPLETE",503);
-                if (digest!=null) digest.update(buffer.array(),0,count); if (output!=null) output.write(buffer.array(),0,count); left-=count;
+                if (Thread.currentThread().isInterrupted()) throw problem("SOURCE_FIELD_READ_INTERRUPTED", 503);
+                buffer.clear(); buffer.limit((int) Math.min(buffer.capacity(), left)); int count=channel.read(buffer);
+                if (count<1) throw problem("SOURCE_FIELD_PAYLOAD_INCOMPLETE", 503);
+                if (digest!=null) digest.update(buffer.array(), 0, count); if (output!=null) output.write(buffer.array(), 0, count); left-=count;
             }
         }
     }
-    private static CdsUploadException problem(String code,int status) { return new CdsUploadException(code,status); }
+    private static CdsUploadException problem(String code, int status) { return new CdsUploadException(code, status); }
 }

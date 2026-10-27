@@ -30,30 +30,30 @@ import org.springframework.stereotype.Repository;
 public class CdsLegacyProjectionDao extends AbstractDaoImpl<CdsImportField> {
     public CdsLegacyProjectionDao() { super(CdsImportField.class); }
     public boolean hasSourceFields(int patient, Set<String> categories) {
-        if (!representationTableAvailable("cds_import_field","1.0.60")) return false;
+        if (!representationTableAvailable("cds_import_field", "1.0.60")) return false;
         String filter=categories.isEmpty() ? "" : " and f.category in :categories";
-        var query=entityManager.createQuery("select f.id from CdsImportField f where f.demographicNo=:patient"+filter,String.class)
-                .setParameter("patient",patient).setMaxResults(1);
-        if (!categories.isEmpty()) query.setParameter("categories",categories);
+        var query=entityManager.createQuery("select f.id from CdsImportField f where f.demographicNo=:patient"+filter, String.class)
+                .setParameter("patient", patient).setMaxResults(1);
+        if (!categories.isEmpty()) query.setParameter("categories", categories);
         return !query.getResultList().isEmpty();
     }
     public boolean hasTypedLaboratoryResults(int patient) {
-        if (!representationTableAvailable("cds_laboratory_result","1.0.62")) return false;
-        return !entityManager.createQuery("select l.id from CdsLaboratoryResult l where l.demographicNo=:patient",String.class)
-                .setParameter("patient",patient).setMaxResults(1).getResultList().isEmpty();
+        if (!representationTableAvailable("cds_laboratory_result", "1.0.62")) return false;
+        return !entityManager.createQuery("select l.id from CdsLaboratoryResult l where l.demographicNo=:patient", String.class)
+                .setParameter("patient", patient).setMaxResults(1).getResultList().isEmpty();
     }
     public boolean hasAnySourceFields(Set<String> categories) {
-        if (!representationTableAvailable("cds_import_field","1.0.60")) return false;
-        return !entityManager.createQuery("select f.id from CdsImportField f where f.category in :categories",String.class)
-                .setParameter("categories",categories).setMaxResults(1).getResultList().isEmpty();
+        if (!representationTableAvailable("cds_import_field", "1.0.60")) return false;
+        return !entityManager.createQuery("select f.id from CdsImportField f where f.category in :categories", String.class)
+                .setParameter("categories", categories).setMaxResults(1).getResultList().isEmpty();
     }
-    private boolean representationTableAvailable(String table,String migration) {
+    private boolean representationTableAvailable(String table, String migration) {
         if (tableExists(table)) return true;
         // A new WAR with this optional feature unactivated can still serve a pre-CDS schema.
         // Missing a table after its migration was recorded is corruption, never an empty chart.
         if (tableExists("flyway_schema_history") && !entityManager.createNativeQuery(
                 "SELECT installed_rank FROM flyway_schema_history WHERE version=:version AND success=TRUE")
-                .setParameter("version",migration).setMaxResults(1).getResultList().isEmpty()) {
+                .setParameter("version", migration).setMaxResults(1).getResultList().isEmpty()) {
             throw new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException();
         }
         return false;
@@ -61,6 +61,6 @@ public class CdsLegacyProjectionDao extends AbstractDaoImpl<CdsImportField> {
     private boolean tableExists(String table) {
         return !entityManager.createNativeQuery("SELECT TABLE_NAME FROM information_schema.TABLES "
                 + "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=:table")
-                .setParameter("table",table).setMaxResults(1).getResultList().isEmpty();
+                .setParameter("table", table).setMaxResults(1).getResultList().isEmpty();
     }
 }

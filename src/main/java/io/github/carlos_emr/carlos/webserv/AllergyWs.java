@@ -56,7 +56,7 @@ public class AllergyWs extends AbstractWs {
 
     public AllergyTransfer getAllergy(Integer allergyId) {
         Allergy allergy = allergyManager.getAllergy(getLoggedInInfo(), allergyId);
-        if (allergy!=null) projections.requireSoapSupported(allergy.getDemographicNo(),java.util.Set.of("AllergiesAndAdverseReactions"));
+        if (allergy!=null) projections.requireSoapSupported(allergy.getDemographicNo(), java.util.Set.of("AllergiesAndAdverseReactions"));
         return (AllergyTransfer.toTransfer(allergy));
     }
 
@@ -69,13 +69,13 @@ public class AllergyWs extends AbstractWs {
     public AllergyTransfer[] getAllergiesByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateInclusive, int itemsToReturn) {
         List<Allergy> allergies = allergyManager.getAllergiesByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateInclusive, itemsToReturn);
         if (demographicId==null) projections.requireSoapFeedSupported(java.util.Set.of("AllergiesAndAdverseReactions"));
-        else projections.requireSoapSupported(demographicId,java.util.Set.of("AllergiesAndAdverseReactions"));
+        else projections.requireSoapSupported(demographicId, java.util.Set.of("AllergiesAndAdverseReactions"));
         return (AllergyTransfer.toTransfers(allergies));
     }
 
     public AllergyTransfer[] getAllergiesByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
         List<Allergy> allergies = allergyManager.getByDemographicIdUpdatedAfterDate(getLoggedInInfo(), demographicId, lastUpdate.getTime());
-        projections.requireSoapSupported(demographicId,java.util.Set.of("AllergiesAndAdverseReactions"));
+        projections.requireSoapSupported(demographicId, java.util.Set.of("AllergiesAndAdverseReactions"));
         return (AllergyTransfer.toTransfers(allergies));
     }
 }

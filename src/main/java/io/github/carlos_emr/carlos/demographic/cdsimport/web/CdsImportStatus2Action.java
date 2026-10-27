@@ -60,7 +60,7 @@ public class CdsImportStatus2Action extends ActionSupport {
             var actor = CdsWeb.authorize(request, access);
             CdsWeb.parameters(request, Set.of("section", "runId", "uploadId", "afterKey", "afterId", "limit"));
             if (limit < 1 || limit > 100 || afterId < 0) throw new CdsUploadException("IMPORT_PAGE_INVALID", 400);
-            Map<String,Object> result = new LinkedHashMap<>(); result.put("ok", true);
+            Map<String, Object> result = new LinkedHashMap<>(); result.put("ok", true);
             switch (section) {
                 case "job" -> { result.put("job", CdsWeb.job(imports.status(actor, runId))); result.put("summary", CdsWeb.summary(imports.summary(actor, runId))); }
                 case "patients" -> {

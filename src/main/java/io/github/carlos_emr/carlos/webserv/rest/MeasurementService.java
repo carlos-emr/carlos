@@ -149,7 +149,7 @@ public class MeasurementService extends AbstractServiceImpl {
                 || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demoId)) {
             throw new ForbiddenException("Access Denied: measurement or patient-record access is restricted");
         }
-        projections.requireRestSupported(demoId,java.util.Set.of("CareElements"));
+        projections.requireRestSupported(demoId, java.util.Set.of("CareElements"));
         MeasurementResponse response = new MeasurementResponse();
         ArrayNode jsonArray = (ArrayNode) json.get("types");
         List<String> typesList = new ArrayList<>();

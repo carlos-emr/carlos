@@ -29,24 +29,24 @@ import org.springframework.stereotype.Service;
 /** Read-only category view assembly with explicit previews and immutable original-value links. */
 @Service
 public class CdsSourceFieldsViewModelAssembler {
-    private static final int PAGE=50,PREVIEW=2000;
+    private static final int PAGE=50, PREVIEW=2000;
     private final CdsClinicalSourceService source;
-    public CdsSourceFieldsViewModelAssembler(CdsClinicalSourceService source){this.source=source;}
-    public CdsSourceFieldsViewModel assemble(LoggedInInfo actor,int demographicNo,String category,String after,String reviewAfter){
-        var page=source.page(actor,demographicNo,category,after,PAGE);
-        var rows=page.stream().map(field->new CdsSourceFieldsViewModel.Field(field.id(),field.sourcePath(),field.occurrence(),
-                field.sourceNamespace(),field.valueType(),field.precision(),preview(field.originalValue()),preview(field.normalizedValue()),field.normalizedValue()!=null,
-                length(field.originalValue())>PREVIEW || length(field.normalizedValue())>PREVIEW,field.payloadLocation()!=null,field.payloadLength())).toList();
-        var reviews=source.provenance(actor,demographicNo,category,reviewAfter,PAGE);
-        var provenance=reviews.stream().map(review->new CdsSourceFieldsViewModel.Review(review.reviewId(),review.operator(),
-                review.actedAt()==null?"":review.actedAt().toString(),review.kind(),review.state(),review.reason(),review.acceptedVersion(),review.sourceXPath())).toList();
-        return new CdsSourceFieldsViewModel(demographicNo,category,rows,page.size()==PAGE?page.get(page.size()-1).id():null,
-                provenance,reviews.size()==PAGE?reviews.get(reviews.size()-1).reviewId():null,after,reviewAfter);
+    public CdsSourceFieldsViewModelAssembler(CdsClinicalSourceService source){this.source=source; }
+    public CdsSourceFieldsViewModel assemble(LoggedInInfo actor, int demographicNo, String category, String after, String reviewAfter){
+        var page=source.page(actor, demographicNo, category, after, PAGE);
+        var rows=page.stream().map(field-> new CdsSourceFieldsViewModel.Field(field.id(), field.sourcePath(), field.occurrence(),
+                field.sourceNamespace(), field.valueType(), field.precision(), preview(field.originalValue()), preview(field.normalizedValue()), field.normalizedValue()!=null,
+                length(field.originalValue())>PREVIEW || length(field.normalizedValue())>PREVIEW, field.payloadLocation()!=null, field.payloadLength())).toList();
+        var reviews=source.provenance(actor, demographicNo, category, reviewAfter, PAGE);
+        var provenance=reviews.stream().map(review-> new CdsSourceFieldsViewModel.Review(review.reviewId(), review.operator(),
+                review.actedAt()==null?"":review.actedAt().toString(), review.kind(), review.state(), review.reason(), review.acceptedVersion(), review.sourceXPath())).toList();
+        return new CdsSourceFieldsViewModel(demographicNo, category, rows, page.size()==PAGE?page.get(page.size()-1).id():null,
+                provenance, reviews.size()==PAGE?reviews.get(reviews.size()-1).reviewId():null, after, reviewAfter);
     }
-    private static int length(String value){return value==null?0:value.length();}
+    private static int length(String value){return value==null?0:value.length(); }
     private static String preview(String value){
-        if(value==null)return ""; int end=Math.min(PREVIEW,value.length());
-        if(end<value.length() && end>0 && Character.isHighSurrogate(value.charAt(end-1)))end--;
-        return value.substring(0,end);
+        if (value==null)return ""; int end=Math.min(PREVIEW, value.length());
+        if (end<value.length() && end>0 && Character.isHighSurrogate(value.charAt(end-1)))end--;
+        return value.substring(0, end);
     }
 }

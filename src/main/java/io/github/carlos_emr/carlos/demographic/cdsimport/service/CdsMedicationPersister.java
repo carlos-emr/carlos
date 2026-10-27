@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsMedicationDto.Cu
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProviderMatchDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalTransactions;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationDose;
 import java.io.IOException;

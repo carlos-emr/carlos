@@ -76,7 +76,7 @@ public class OscarFhirResourceManager {
         List<Immunization<Prevention>> immunizations = null;
         List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(configurationManager.getLoggedInInfo(), demographicNo);
 
-        requireStructuredProjectionSupported(demographicNo,"Immunizations");
+        requireStructuredProjectionSupported(demographicNo, "Immunizations");
         if (preventions != null) {
             for (Prevention prevention : preventions) {
                 requireExactImmunizationDate(prevention);
@@ -112,7 +112,7 @@ public class OscarFhirResourceManager {
         Immunization<Prevention> immunization = null;
 
         if (prevention != null) {
-            requireStructuredProjectionSupported(prevention.getDemographicId(),"Immunizations");
+            requireStructuredProjectionSupported(prevention.getDemographicId(), "Immunizations");
             requireExactImmunizationDate(prevention);
             LogAction.addLogSynchronous(configurationManager.getLoggedInInfo(), "OscarFhirResourceManager.getImmunizationsByDemographicNo", "Retrieved Immunization list for FHIR transport ");
             immunization = new Immunization<Prevention>(prevention, configurationManager);
@@ -121,7 +121,7 @@ public class OscarFhirResourceManager {
         return immunization;
     }
 
-    private static void requireStructuredProjectionSupported(int demographicNo,String category) {
+    private static void requireStructuredProjectionSupported(int demographicNo, String category) {
         try {
             SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class)
                     .requireSupported(demographicNo, java.util.Set.of(category));
@@ -152,7 +152,7 @@ public class OscarFhirResourceManager {
         Patient patient = null;
 
         if (demographic != null) {
-            requireStructuredProjectionSupported(demographic_no,"Demographics");
+            requireStructuredProjectionSupported(demographic_no, "Demographics");
             patient = new Patient(demographic, configurationManager);
             LogAction.addLogSynchronous(configurationManager.getLoggedInInfo(), "OscarFhirResourceManager.getPatientByDemographicNumber", "Retrieved demographic " + demographic_no + " " + patient.toString());
         }
@@ -176,7 +176,7 @@ public class OscarFhirResourceManager {
 
         if (demographicList != null) {
             for (Demographic demographic : demographicList) {
-                requireStructuredProjectionSupported(demographic.getDemographicNo(),"Demographics");
+                requireStructuredProjectionSupported(demographic.getDemographicNo(), "Demographics");
             }
             LogAction.addLogSynchronous(configurationManager.getLoggedInInfo(), "OscarFhirResourceManager.getPatientsByPHN", "Retrieved demographic hcn " + hcn + " " + demographicList.toString());
 
