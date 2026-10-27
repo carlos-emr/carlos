@@ -21,6 +21,9 @@ const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { signIn } = require('./lib/authz-read-probe');
 const { createHash, randomUUID } = require('node:crypto');
+const {installCdsMetadataTransportObserver} = require('./lib/cds-metadata-transport');
+const {createCdsMetadataProver} = require('./lib/cds-metadata-domain-proof');
+const {API_VERSION,API_VERSION_HEADER} = require('../src/main/webapp/js/demographic/cds-import.js');
 
 const xmlText = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
@@ -162,10 +165,32 @@ function remainingChildren(sql, id) {
     + (SELECT COUNT(*) FROM demographicPharmacy WHERE demographic_no=${id})`);
 }
 
+const metadataObservers = new WeakMap();
+async function qualifyCdsMetadata(s) {
+  for (const record of metadataObservers.get(s) || []) {
+    if (record.page.isClosed()) continue;
+    await record.page.waitForLoadState('networkidle', {timeout:10000});
+    const audits = await record.transport.qualifyPending(record.prover);
+    for (const audit of audits) console.log('CDS_METADATA_EOF_EVIDENCE', JSON.stringify({rawError:'net::ERR_ABORTED', ...audit}));
+  }
+}
+async function observeCdsMetadata(s, page) {
+  let records = metadataObservers.get(s);
+  if (!records) {
+    records = []; metadataObservers.set(s, records);
+    const step = s.step.bind(s);
+    s.step = (label, body) => step(label, async () => { await body(); await qualifyCdsMetadata(s); });
+  }
+  const record = {page, transport:await installCdsMetadataTransportObserver(page,s.recorder,{baseUrl:s.config.baseUrl})};
+  records.push(record);
+  return record;
+}
+
 /** Open the actual existing administration menu route, including its Struts/JSP binding. */
 async function openImportFrame(s, label = 'cds-import-admin') {
   const {page: admin} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     {context: s.context, recorder: s.recorder, label, timeout: 20000});
+  const observed = await observeCdsMetadata(s,admin);
   const link = admin.locator('#adminNav a.xlink[rel$="/form/importUpload"]');
   await revealAuditLink(admin, link, 20000);
   const initialStatus = admin.waitForResponse(response => new URL(response.url()).pathname.endsWith('/form/cdsImportStatus')
@@ -175,6 +200,7 @@ async function openImportFrame(s, label = 'cds-import-admin') {
   const iframe = admin.locator('#dynamic-content iframe#myFrame'); await iframe.waitFor();
   const frame = await (await iframe.elementHandle()).contentFrame();
   h.assert(frame, 'Demographic Import frame did not load');
+  observed.prover = createCdsMetadataProver({frame,config:s.config,sql:s.sql,readApi:importApi});
   await frame.locator('#cdsImportForm #importFile').waitFor();
   h.assert(!await frame.locator('#cdsOptions').isDisabled(), 'Required import feature/source registration is unavailable');
   await frame.waitForFunction(() => Boolean(document.querySelector('input[name="CSRF-TOKEN"]')?.value));
@@ -185,13 +211,18 @@ async function openImportFrame(s, label = 'cds-import-admin') {
   h.assert(source, 'Required approved import source/profile is missing');
   await frame.locator('#cdsSource').selectOption(source);
   h.assert(!await frame.locator('#mergeExisting').isChecked(), 'Existing-patient merge must default off');
-  const ready = await initialStatus; h.assert(ready.status() === 200 && !await ready.finished(),
-    'Initial owner-scoped upload status did not finish successfully');
+  const ready = await initialStatus; h.assert(ready.status() === 200, 'Initial owner-scoped upload status was refused');
+  await admin.waitForLoadState('networkidle', {timeout:10000});
+  const finished = await observed.transport.qualifyResponse(ready, observed.prover);
+  if (finished.qualified) console.log('CDS_METADATA_EOF_EVIDENCE', JSON.stringify({rawError:'net::ERR_ABORTED',...finished.evidence}));
+  await qualifyCdsMetadata(s);
   return {admin, frame};
 }
 
 /** Browser-authenticated API probes use the same CSRF guard and bounded DTO routes as the UI. */
 async function importApi(frame, route, params = {}, method = 'GET') {
+  const liveMetadata = route !== 'cdsImportReport';
+  if (liveMetadata) params = {...params,apiVersion:API_VERSION};
   const binding = await frame.evaluate(({route}) => {
     const root = document.getElementById('cdsImport');
     const token = document.querySelector('input[name="CSRF-TOKEN"]')?.value;
@@ -207,12 +238,19 @@ async function importApi(frame, route, params = {}, method = 'GET') {
     headers: {'CSRF-TOKEN': binding.token, 'X-Requested-With': 'XMLHttpRequest'}};
   if (method === 'GET') for (const [key, value] of Object.entries(params)) url.searchParams.set(key, String(value));
   else options.form = Object.fromEntries(Object.entries(params).map(([key, value]) => [key, String(value)]));
-  const response = await frame.page().context().request.fetch(url.href, options);
-  const text = await response.text();
-  h.assert(Buffer.byteLength(text, 'utf8') <= 2 * 1024 * 1024, 'Protocol metadata exceeded its bounded receipt budget');
-  let body; try { body = JSON.parse(text); } catch (_) { body = null; }
-  return {status: response.status(), body, type: response.headers()['content-type'],
-    redirected: response.status() >= 300 && response.status() < 400};
+  const page = typeof frame.page === 'function' ? frame.page() : frame;
+  const response = await page.context().request.fetch(url.href, options);
+  try {
+    const text = await response.text();
+    h.assert(Buffer.byteLength(text, 'utf8') <= 2 * 1024 * 1024, 'Protocol metadata exceeded its bounded receipt budget');
+    let body; try { body = JSON.parse(text); } catch (_) { body = null; }
+    const version = response.headers()[API_VERSION_HEADER.toLowerCase()];
+    if (liveMetadata && response.status() < 400 && body?.ok === true) {
+      h.assert(version === String(API_VERSION) && body.apiVersion === API_VERSION, 'Live metadata protocol requires a client refresh');
+    }
+    return {status: response.status(), body, apiVersion:version, type: response.headers()['content-type'],
+      redirected: response.status() >= 300 && response.status() < 400};
+  } finally { await response.dispose(); }
 }
 
 async function awaitRunReceipt(frame, id, timeout = 180000) {
@@ -368,7 +406,7 @@ async function workflow(s) {
       const count = s.sql.value('SELECT COUNT(*) FROM cds_import_upload');
       const token = await doctor.page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
       const headers = {'CSRF-TOKEN':token,'X-Requested-With':'XMLHttpRequest'};
-      for (const route of ['/form/importUpload', `/form/cdsImportStatus?runId=${actual.job.id}`]) {
+      for (const route of ['/form/importUpload', `/form/cdsImportStatus?runId=${actual.job.id}&apiVersion=${API_VERSION}`]) {
         const denied = await doctor.context.request.get(h.appUrl(s.config.baseUrl,route), {maxRedirects:0,headers});
         const json = (denied.headers()['content-type'] || '').includes('application/json');
         h.assert(denied.status() === 403 && denied.headers()['x-permitted-cross-domain-policies'] !== undefined
@@ -377,7 +415,7 @@ async function workflow(s) {
       }
       const denied = await doctor.context.request.post(h.appUrl(s.config.baseUrl,'/form/cdsUpload'),
         {maxRedirects:0,headers,
-          form:{operation:'begin',fileName:'denied.xml',expectedBytes:'1'}});
+          form:{operation:'begin',fileName:'denied.xml',expectedBytes:'1',apiVersion:API_VERSION}});
       h.assert(denied.status() === 403 && (await denied.json()).code === 'IMPORT_ACCESS_DENIED',
         'An ordinary doctor reserved upload bytes');
       h.assert(s.sql.value('SELECT COUNT(*) FROM cds_import_upload') === count, 'Denied import administration changed durable uploads');
@@ -437,7 +475,7 @@ async function workflow(s) {
     const token = await frame.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     const post = async bytes => {
       const url = new URL(h.appUrl(s.config.baseUrl, '/form/cdsUpload'));
-      for (const [key,value] of Object.entries({operation:'chunk',uploadId:probeId,offset:0,bytes:bytes.length,
+      for (const [key,value] of Object.entries({apiVersion:API_VERSION,operation:'chunk',uploadId:probeId,offset:0,bytes:bytes.length,
         sha256:createHash('sha256').update(bytes).digest('hex')})) url.searchParams.set(key,String(value));
       const response = await s.context.request.post(url.href, {data:bytes, headers:{'CSRF-TOKEN':token,
         'X-Requested-With':'XMLHttpRequest','Content-Type':'application/octet-stream'}});
@@ -602,4 +640,4 @@ async function nativeViewsWorkflow(s) {
 if (require.main === module) runWorkflow(process.env.CDS_BROWSER_CORPUS === 'true' ? 'demographic-cds-native-views' : 'demographic-cds-import',
   process.env.CDS_BROWSER_CORPUS === 'true' ? nativeViewsWorkflow : workflow, {openPatient:false});
 module.exports = {workflow,nativeViewsWorkflow,buildCdsXml,fixtureValues,parseImportLogCounts,assertSchemaValid,
-  openImportFrame,importApi,awaitRunReceipt,uploadAndAwaitRun,registerImportCleanup};
+  openImportFrame,importApi,awaitRunReceipt,uploadAndAwaitRun,registerImportCleanup,qualifyCdsMetadata};

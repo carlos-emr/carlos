@@ -1481,3 +1481,10 @@ test('shouldLogEachSessionOut_whenTwoOpenContextsHoldDifferentSessions', async (
   await browser.close();
   assert.deepEqual(browser.events, ['logout context1', 'logout context2', 'close browser']);
 });
+
+test('a CDS route or public qualification property cannot excuse an unproven network failure', () => {
+  const recorder=createRecorder();
+  recorder.requestFailures.push({label:'cds',url:'https://host/carlos/form/cdsImportStatus',resourceType:'fetch',
+    errorText:'net::ERR_ABORTED',cdsMetadataEofEvidence:{classification:'CDS_METADATA_EOF_CONFIRMED'}});
+  assert.throws(() => assertStrictPage(recorder), /fetch request failed/);
+});

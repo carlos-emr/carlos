@@ -34,6 +34,7 @@
  */
 
 const fs = require('node:fs');
+const {isQualifiedCdsMetadataFailure,cdsMetadataQualification} = require('./cds-metadata-transport');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
@@ -708,6 +709,7 @@ function wireStrictPage(page, label, recorder, options = {}) {
     const entry = {
       label: wiring.label, url, resourceType: request.resourceType(), errorText: failure ? failure.errorText : 'unknown',
     };
+    Object.defineProperty(entry, 'requestRef', {enumerable:false, value:new WeakRef(request)});
     const origin = issuedFrom.get(request);
     // Non-enumerable: the entry's data shape (compared and serialised elsewhere) is unchanged. False when the
     // issuing document is unknown, so only a proven abandonment can be treated as one.
@@ -772,6 +774,7 @@ function assertStrictPage(recorder, labels = null) {
     problems.push(`[${entry.label}] console ${entry.type}: ${entry.text.split('\n')[0]}`);
   }
   for (const entry of scoped(recorder.requestFailures)) {
+    if (isQualifiedCdsMetadataFailure(entry)) continue;
     problems.push(`[${entry.label}] ${entry.resourceType} request failed (${entry.errorText})`);
   }
   for (const entry of scoped(recorder.badResponses)) {
@@ -908,7 +911,10 @@ function buildFailureDetails(recorder) {
     badResponses: clean(recorder.badResponses),
     consoleIssues: clean(recorder.consoleIssues),
     pageErrors: clean(recorder.pageErrors),
-    requestFailures: clean(recorder.requestFailures),
+    requestFailures: clean(recorder.requestFailures.map(entry => {
+      const evidence = cdsMetadataQualification(entry);
+      return evidence ? {...entry, cdsMetadataEofEvidence:evidence} : entry;
+    })),
     dialogs: clean(recorder.dialogs),
   };
 }

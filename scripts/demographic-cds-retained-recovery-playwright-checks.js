@@ -5,6 +5,8 @@ const fs = require('node:fs');
 const {createHash} = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const {importApi, awaitRunReceipt, uploadAndAwaitRun} = require('./demographic-cds-import-playwright-checks');
+const {installCdsMetadataTransportObserver} = require('./lib/cds-metadata-transport');
+const {createCdsMetadataProver} = require('./lib/cds-metadata-domain-proof');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function assertRetainedLogin(recorder, baseUrl, maintenanceExpected = true) {
@@ -59,6 +61,14 @@ async function run(env = process.env) {
     const loginRecorder = h.createRecorder(); const schedule = await h.login(context, config, loginRecorder);
     assertRetainedLogin(loginRecorder, config.baseUrl, retained);
     const page = await context.newPage(); h.wireStrictPage(page, 'retained-recovery', recorder);
+    const transport = await installCdsMetadataTransportObserver(page,recorder,{baseUrl:config.baseUrl});
+    const prover = createCdsMetadataProver({frame:page,config,sql,readApi:importApi});
+    async function qualify() {
+      await page.waitForLoadState('networkidle', {timeout:10000});
+      for (const audit of await transport.qualifyPending(prover)) {
+        console.log('CDS_METADATA_EOF_EVIDENCE',JSON.stringify({rawError:'net::ERR_ABORTED',...audit}));
+      }
+    }
     const response = await page.goto(h.appUrl(config.baseUrl, '/form/importUpload?runId=' + oldId));
     h.assert(response.status() === 200, 'The authenticated recovery form is unavailable under retained maintenance');
     await page.locator('#cdsImport').waitFor();
@@ -68,7 +78,7 @@ async function run(env = process.env) {
     let prior = JSON.parse(await page.locator('#runSummary').innerText());
     h.assert(prior.job.id === oldId && typeof prior.summary.resumeRequested === 'boolean',
       'The visible durable run contract is incomplete');
-    h.assertStrictPage(recorder);
+    await qualify(); h.assertStrictPage(recorder);
     console.log('PASS retained maintenance: native authentication, recovery form and owner status render');
     if (env.CDS_RECOVERY_EXECUTE !== 'true') {
       h.assert(zeroProof() === '0', 'The read-only restart gate changed prior native-write proof');
@@ -94,7 +104,7 @@ async function run(env = process.env) {
     }
     h.assert(zeroProof() === '0', 'Cancellation changed the prior zero-write proof');
     h.assert(prior.summary.clinicalComplete === false, 'Cancellation was misreported as clinical completion');
-    h.assertStrictPage(recorder);
+    await qualify(); h.assertStrictPage(recorder);
     console.log('PASS prior cancellation retained its source/history; cancellation does not prove maintenance release');
     let id = env.CDS_RECOVERY_RUN_ID;
     if (id) {
@@ -144,7 +154,7 @@ async function run(env = process.env) {
     h.assert(report.status === 200 && report.body?.manifestDigest === current.job.manifestDigest
       && report.body.cleanComplete === true, 'Protected completion receipt differs from visible durable status');
     h.assert(zeroProof() === '0', 'Replacement rewrote the prior run instead of retaining its zero-write archive');
-    h.assertStrictPage(recorder);
+    await qualify(); h.assertStrictPage(recorder);
     // An externally released barrier may leave this web node's initializer pending.
     // Use authenticated HTTP reads to start it, without suppressing browser errors.
     const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
