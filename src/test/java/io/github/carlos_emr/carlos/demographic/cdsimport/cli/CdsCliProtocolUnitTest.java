@@ -397,7 +397,8 @@ class CdsCliProtocolUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"IMPORT_BUSY", "IMPORT_ALREADY_RUNNING", "IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE",
-            "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION", "CDS_INPUT_DISK_RESERVE", "CDS_SOURCE_SNAPSHOT_FAILED"})
+            "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION", "CDS_INPUT_DISK_RESERVE", "CDS_SOURCE_SNAPSHOT_FAILED",
+            "PREACCEPT_INDEX_TIMEOUT", "PREACCEPT_INDEX_CANCELLED"})
     void shouldExposeFiniteSafeReason_whenSharedEngineRefusesControl(String reason) {
         int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
                 CdsCliArguments.parse(new String[]{"--operation", "resume", "--provider", "999998", "--run", NONCE}),
@@ -422,9 +423,30 @@ class CdsCliProtocolUnitTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"PREACCEPT_INDEX_TIMEOUT", "PREACCEPT_INDEX_CANCELLED"})
+    void shouldRetainNonceAndInterruptState_whenPreacceptIndexRefuses(String reason) {
+        boolean previousInterrupt = Thread.interrupted();
+        boolean cancelled = reason.equals("PREACCEPT_INDEX_CANCELLED");
+        try {
+            if (cancelled) Thread.currentThread().interrupt();
+            FakeRuntime runtime = new FakeRuntime(); runtime.preacceptFailureCode = reason;
+            assertThat(invoke("import", runtime)).isEqualTo(4);
+            assertThat(Thread.currentThread().isInterrupted()).isEqualTo(cancelled);
+            assertThat(runtime.calls).containsExactly("accept", "close");
+            assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("SUBMISSION", NONCE).doesNotContain("ACCEPTED", "RESULT");
+            assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("safeCode=" + reason, "outcomeUnknown=false")
+                    .doesNotContain("NOT_ACCEPTED", "rolled back");
+        } finally {
+            Thread.interrupted();
+            if (previousInterrupt) Thread.currentThread().interrupt();
+        }
+    }
+
+    @ParameterizedTest
     @NullSource
     @ValueSource(strings = {"private-patient-path", "PATIENT_ALICE_SMITH", "IMPORT_BUSY\nprivate-patient-path",
             "CDS_INPUT_DISK_RESERVE_PRIVATE", "CDS_SOURCE_SNAPSHOT_FAILED\nprivate-patient-path",
+            "PREACCEPT_INDEX_TIMEOUT_PRIVATE", "PREACCEPT_INDEX_CANCELLED\nprivate-patient-path",
             "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"})
     void shouldProtectUnknownAndAdversarialCodes_whenRefusalReasonIsNotPublic(String reason) {
         int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
@@ -433,7 +455,8 @@ class CdsCliProtocolUnitTest {
         assertThat(code).isEqualTo(4);
         assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("safeCode=DETAILS_PROTECTED", "outcomeUnknown=false")
                 .doesNotContain("private-patient-path", "PATIENT_ALICE_SMITH", "safeCode=IMPORT_BUSY",
-                        "safeCode=CDS_INPUT_DISK_RESERVE", "safeCode=CDS_SOURCE_SNAPSHOT_FAILED");
+                        "safeCode=CDS_INPUT_DISK_RESERVE", "safeCode=CDS_SOURCE_SNAPSHOT_FAILED",
+                        "safeCode=PREACCEPT_INDEX_TIMEOUT", "safeCode=PREACCEPT_INDEX_CANCELLED");
     }
 
     @ParameterizedTest
@@ -486,12 +509,13 @@ class CdsCliProtocolUnitTest {
     private final class FakeRuntime implements CdsCliRuntime {
         private final List<String> calls = new ArrayList<>();
         private boolean clean = true, closeFailure, executionFailure, acceptFailure, expectAcceptedHandle = true;
-        private String resolvedRun, inputFailureCode;
+        private String resolvedRun, inputFailureCode, preacceptFailureCode;
         private Object resumeRequested, maintenanceReleasePending, maintenanceReleaseState;
         private Runnable onExecution=() -> { };
         @Override public String resolveRunId(String requested) { return resolvedRun == null ? requested : resolvedRun; }
         @Override public String accept() throws IOException {
             calls.add("accept");
+            if (preacceptFailureCode != null) throw new CdsImportException(preacceptFailureCode);
             if (inputFailureCode != null) throw new CdsInputException(inputFailureCode, "sensitive-path", "patient-value");
             if (acceptFailure) throw new IOException("sensitive-path");
             return NONCE;
