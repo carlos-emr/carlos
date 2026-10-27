@@ -291,7 +291,7 @@ class CdsIdentityMariaDbIntegrationTest {
                     Object actual =
                             session.createNativeQuery(
                                             "select cds_identity_issuer from demographic where"
-                                                + " demographic_no=:id")
+                                                    + " demographic_no=:id")
                                     .setParameter("id", value.getDemographicNo())
                                     .getSingleResult();
                     assertThat(actual)
@@ -315,6 +315,7 @@ class CdsIdentityMariaDbIntegrationTest {
                         Integer.toString(date.getYear()),
                         hin,
                         "");
+        patient.setPrefName("");
         patient.setHcType(issuer);
         patient.setPatientStatus("AC");
         patient.setLastUpdateDate(new Date());
