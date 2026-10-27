@@ -51,10 +51,12 @@ Conditional companion unit skips do not replace the required physical database
 and installed-engine gates. The PR records the separate full application CI
 results, including their conditional skips.
 
-The corrected final candidate requires a fresh build and all 127 explicitly
-selected regression suites, all 12 physical native suites and the seven
+The corrected final candidate requires a fresh build and every explicitly
+selected affected regression suite, all 12 physical native suites and the seven
 permanent browser Node suites. Exact case counts must be reconciled from the
-fresh reports; earlier counts above are historical. The added coverage includes
+fresh reports against the required suite manifest; earlier counts above are
+historical. The manifest also includes the affected demographic REST endpoint
+fixture, alongside its focused authorization tests. The added coverage includes
 coordinator cleanup, reporting after clinical admission is released, optional
 demographic projections, actual CLI pool state/rollback/replacement, and native
 date/time storage. Every installed gate below must bind the final artifact
