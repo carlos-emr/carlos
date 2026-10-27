@@ -2672,7 +2672,10 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
         "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
-        "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java"
+        "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java",
+        "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java",
+        "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayRx2Action.java",
+        "src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FrmSetupForm2Action.java"
       ],
       "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
       "tests": [
@@ -2680,7 +2683,8 @@
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionDataImportedRefillsUnitTest.java"
       ],
       "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
     },
@@ -2783,7 +2787,9 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
         "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
-        "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java"
+        "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java",
+        "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java",
+        "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/summary/RxSummary.java"
       ],
       "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
       "tests": [
@@ -2791,7 +2797,8 @@
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionDataImportedRefillsUnitTest.java"
       ],
       "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
     },
@@ -2817,7 +2824,10 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
         "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
-        "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java"
+        "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java",
+        "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java",
+        "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayRx2Action.java",
+        "src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FrmSetupForm2Action.java"
       ],
       "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
       "tests": [
@@ -2825,7 +2835,8 @@
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionDataImportedRefillsUnitTest.java"
       ],
       "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
     },
@@ -2960,7 +2971,9 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
         "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
-        "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java"
+        "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java",
+        "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java",
+        "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayRx2Action.java"
       ],
       "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
       "tests": [
@@ -2968,7 +2981,8 @@
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionDataImportedRefillsUnitTest.java"
       ],
       "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
     },
@@ -3000,7 +3014,12 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
         "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
-        "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java"
+        "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalReadService.java",
+        "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayRx2Action.java",
+        "src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FrmSetupForm2Action.java",
+        "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/summary/RxSummary.java",
+        "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java"
       ],
       "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
       "tests": [
@@ -3008,7 +3027,11 @@
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionDataImportedRefillsUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/conversion/summary/RxSummaryUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/form/pageUtil/FrmFormPatientIsolationUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayRx2ActionTitleUnitTest.java"
       ],
       "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
     },
@@ -3706,7 +3729,8 @@
   "reviewNotes": [
     "The exact-path review exposed the guide3.1 legal-middle-name native mapping omission. Signed implementation60ef650da1 adds bounded ordered GIV projection, diagnostic/fallback and prepared capacity guard; crosswalk keeps PartQualifier and other name-purpose data source-only.",
     "Independent API2 review of25073dbf66: ViewCdsSourceFields2Action retains authenticated GET/HEAD and the same read-only assembler. Its explicit readOnlyParameters path preserves durable versionless HTML links while rejecting an incorrect supplied version or duplicate/unknown parameters. No destination, normalization, original-retention or clinical transaction mapping changed; refreshed only this reviewed reader hash.",
-    "Independent review of adf26958a9: medication start reads retain DRUGS_STARTDATE precision independently of written date; an imported incomplete flag with exact-only storage refuses instead of exposing its anchor. Form and CPP string views use explicit unknown/year/month labels, and the Date-only medication summary refuses the imported category before filtering. Native exact-date contracts are preserved. Actual form, CPP, summary and Spring wiring are covered by the 82-case focused consumer run. Only this previously tracked reader hash is refreshed; final integrated and installed checks remain required."
+    "Independent review of adf26958a9: medication start reads retain DRUGS_STARTDATE precision independently of written date; an imported incomplete flag with exact-only storage refuses instead of exposing its anchor. Form and CPP string views use explicit unknown/year/month labels, and the Date-only medication summary refuses the imported category before filtering. Native exact-date contracts are preserved. Actual form, CPP, summary and Spring wiring are covered by the 82-case focused consumer run. Only this previously tracked reader hash is refreshed; final integrated and installed checks remain required.",
+    "Independent review of 9726b37d54: additive nullable Drug setters preserve the existing primitive APIs; both prescription loading paths and imported synchronization retain each optional refill independently. Imported outline/CPP/PDF reads preserve known refill and substitution information, label an absent companion Unknown, and avoid native Qty stripping. Imported Save no longer infers treatment discontinuation from dispense duration or refills; untouched native calculation remains covered. Reviewed affected bridge/form/CPP/legacy-summary readers are now explicit references in the relevant timing, supply, instructions, lifecycle and dose groups. The focused followup passed 66 component tests; final integrated and installed checks remain separate."
   ],
   "reviewedImplementationSha256": {
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNote.java": "e4b8bf7231599353d70d6b27cebc8ecc116e4fd22f0a7244e81ca651aa156eaa",
@@ -3714,7 +3738,7 @@
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Contact.java": "d99fcad3390fc32ccc49a5bd6b834ef68ab22ee87c2b2dc665fc340aa18cc1ad",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": "d22ac0d5663ae5cffeaf9f0425125f4505230866806e103a6c78773d71d17950",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Document.java": "9489fc748126cbdb32dd339287ebb5762b8a47f9baa8ba17b152d138ff408a23",
-    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": "fe752d335257a43a0632f6e47ec57e472fa86a8d5849398032ccc6d6ebaec113",
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": "f3b7a11bc622fd2d97e783aca1e19c0668bc1c68507d8e547b171a5c9b719aba",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/PharmacyInfo.java": "de6f091818d30531a93ec6d08e97c84dab5860619c45c10d6986db9440f16bc5",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/ProfessionalContact.java": "f20b8173073ba12f3da1b9dc2bc63708d5a2a9c2d45adf71c04396b85de8c5f1",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsDemographicNativeDto.java": "3f903623636da5d822c5d539167f4efbb10220f0c8ef69727e698460c3e5e911",
@@ -3747,8 +3771,12 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalReadService.java": "d32a289f8aaec07e8d291a437c7aec505ed1b4f84c22984cbad96eca9de5e359",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java": "603cc2535c2c90598930e5581cbcfbb3b7a60dbce254b50bdee6c6413db2667b",
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/MeasurementInfo.java": "d8259a67f5fe21a6fc418e6209d063888b20e23bbaf4db6eca1b9fa8e474d413",
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayRx2Action.java": "4e0fc9b29b6b64c822f6391d586df13c47bce164e0d4d20c20e3c1b79356d7be",
+    "src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FrmSetupForm2Action.java": "280c0b981bebdba9214b5a959aab38d7e7266d14a5a020bb2f9bf6af5059f448",
     "src/main/java/io/github/carlos_emr/carlos/managers/AllergyManagerImpl.java": "6d2103aa328451900b4cbacd04c37e74686e2af6d33e6c78198259afd4102bbf",
+    "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java": "3954af39001d969d267d2832dd5c83319d5dd6ad3eb8ac5348b13803c45fea8c",
     "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionDateService.java": "18b51f8d5979549d64bb99860bb7de63abb38026f94ee0ddd9a753332bbe92c5",
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/summary/RxSummary.java": "98c353b34890342c28f982133c89a6b74fc580c30255074209eec20a9f6b3867",
     "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp": "c2499ea2a26f4ecc8946b2df1d1bcc3a503a85667931bc3ba53f2cb68be0bfce"
   },
   "schemaPins": {
