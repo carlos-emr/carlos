@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -135,6 +136,18 @@ public final class Factory {
         if (hl7Body == null || hl7Body.isBlank()) {
             logger.warn("HL7 message body is missing; cannot create a message handler");
             return null;
+        }
+        // Imported CDS results require the precision-preserving adapter even when an existing
+        // installation overrides LAB_TYPES with a configuration predating this built-in type.
+        if ("CARLOS-CDS".equals(type)) {
+            try {
+                MessageHandler handler = new CdsLaboratoryMessageParser();
+                handler.init(hl7Body);
+                return handler;
+            } catch (ca.uhn.hl7v2.HL7Exception invalid) {
+                logger.error("Could not parse a stored CDS laboratory result");
+                return null;
+            }
         }
         Document doc = null;
         String msgType;
