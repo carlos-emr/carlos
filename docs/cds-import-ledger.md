@@ -271,7 +271,7 @@ runs the existing schema generator, its seed/collation validation, physical `--c
 `--verify-files` for both provinces. The optional `--schema-only` mode requires that flag and
 explicitly reports that native tests were not run; the required CI gate uses the full test mode.
 
-The reviewed fresh reference run passed all 45 native cases across nine required suites with zero
+The reviewed fresh reference run passed all 47 native cases across nine required suites with zero
 failures, errors or skips. Both ON fixtures applied and validated all 66 migrations (450 tables);
 the BC reference applied and validated all 63 migrations (483 tables). Both generated contracts
 passed physical re-export comparison and migration/policy binding checks. The six document ORM
@@ -287,3 +287,9 @@ errors. It drops and checks absence of the scratch table before physical contrac
 
 
 Parser operational controls also run before and after each bounded transport read, sharing the existing 250ms durable-cancellation throttle. A suffix of individually short comments or processing instructions cannot defer cancellation, interruption or the elapsed deadline until EOF; incomplete parsing never publishes `parse.seal`. Processing-instruction target names share the bounded name-length/vocabulary accounting because the pinned Xerces scanner interns them in its document symbol table. PI content is never accumulated. The focused parser/control suite passes 24 tests; the additional fresh64MiB probe refuses a 111,491,543-byte distinct-target source with `CDS_XML_NAME_RESOURCE_LIMIT` and no seal. The prior four fresh64MiB payload/diagnostic/index/markup probes also pass; the integrated candidate must run all five together.
+
+The final native ledger regression rediscovered both stopped report states from actual database
+rows, routed them through default report-only execution and verified no native-unit or maintenance
+work occurred. The receipt suite also checked every allowlisted physical key and actual admission
+row mutation; the Unicode provider lookup executed against a real Latin1 directory with the
+freshly compiled production DAO. These were included in the 47-case, zero-skip result.
