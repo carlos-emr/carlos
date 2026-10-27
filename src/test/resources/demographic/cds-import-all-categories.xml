@@ -31,6 +31,8 @@
       <PhoneNumber phoneNumberType="R">
         <cdsd:phoneNumber>613-555-0142</cdsd:phoneNumber>
       </PhoneNumber>
+      <PreferredOfficialLanguage>FRE</PreferredOfficialLanguage>
+      <PreferredSpokenLanguage>fre</PreferredSpokenLanguage>
       <Contact>
         <ContactPurpose>
           <cdsd:PurposeAsEnum>EC</cdsd:PurposeAsEnum>
@@ -44,6 +46,7 @@
         </PhoneNumber>
         <Note>Source consent is unknown</Note>
       </Contact>
+      <NoteAboutPatient>Complete source patient note including literal &lt;/unotes&gt; and café 😀</NoteAboutPatient>
       <PrimaryPhysician>
         <Name>
           <cdsd:FirstName>Test</cdsd:FirstName>
@@ -53,6 +56,33 @@
       <PersonStatusCode>
         <PersonStatusAsEnum>A</PersonStatusAsEnum>
       </PersonStatusCode>
+      <PersonStatusDate>2025-01-02</PersonStatusDate>
+      <ReferredPhysician>
+        <cdsd:FirstName>Referral</cdsd:FirstName>
+        <cdsd:LastName>Source clinician</cdsd:LastName>
+      </ReferredPhysician>
+      <FamilyPhysician>
+        <cdsd:FirstName>Family</cdsd:FirstName>
+        <cdsd:LastName>Source clinician</cdsd:LastName>
+      </FamilyPhysician>
+      <PreferredPharmacy>
+        <Name>Synthetic source pharmacy</Name>
+        <Address addressType="M">
+          <cdsd:Structured>
+            <cdsd:Line1>1 Source Avenue</cdsd:Line1>
+            <cdsd:City>Ottawa</cdsd:City>
+            <cdsd:CountrySubdivisionCode>CA-ON</cdsd:CountrySubdivisionCode>
+            <cdsd:PostalZipCode>
+              <cdsd:PostalCode>K1A0B1</cdsd:PostalCode>
+            </cdsd:PostalZipCode>
+          </cdsd:Structured>
+        </Address>
+        <PhoneNumber phoneNumberType="W">
+          <cdsd:phoneNumber>6135550144</cdsd:phoneNumber>
+          <cdsd:extension>123</cdsd:extension>
+        </PhoneNumber>
+        <EmailAddress>synthetic-pharmacy@example.invalid</EmailAddress>
+      </PreferredPharmacy>
     </Demographics>
     <PersonalHistory>
       <ResidualInfo>
@@ -131,7 +161,9 @@
       <Date>
         <cdsd:YearOnly>2020</cdsd:YearOnly>
       </Date>
-      <RefusedFlag><cdsd:ynIndicatorsimple>N</cdsd:ynIndicatorsimple></RefusedFlag>
+      <RefusedFlag>
+        <cdsd:ynIndicatorsimple>N</cdsd:ynIndicatorsimple>
+      </RefusedFlag>
       <Notes>Year precision retained</Notes>
     </Immunizations>
     <LaboratoryResults>
