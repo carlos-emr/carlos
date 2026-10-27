@@ -38,3 +38,19 @@ test('an already accepted completed recovery can authenticate without weakening 
   const recorder=empty();recorder.badResponses.push({status:503,resourceType:'document',url:'http://localhost/carlos/provider/providercontrol'});
   assert.throws(() => assertRetainedLogin(recorder,'http://localhost/carlos',false),/unexpected error response/);
 });
+
+
+test('sealed zero-write failure cancellation preserves INCOMPLETE and requires a fresh non-success delivery', () => {
+  const {retainedCancellationComplete}=require('./demographic-cds-retained-recovery-playwright-checks');
+  const id='11111111-1111-4111-8111-111111111111';
+  const value={job:{id,state:'INCOMPLETE',cancelRequested:true,reportGeneration:3},
+    summary:{operationTerminal:true,resumeRequested:false,reportsDelivered:true,clinicalComplete:false,cleanComplete:false}};
+  assert.equal(retainedCancellationComplete(value,id,2),true);
+  assert.equal(retainedCancellationComplete(value,id,3),false,'prior delivery cannot acknowledge a new cancel');
+  assert.equal(retainedCancellationComplete(value,'22222222-2222-4222-8222-222222222222',2),false);
+  for(const change of [{cancelRequested:false},{state:'COMPLETE'},{reportGeneration:0}])
+    assert.equal(retainedCancellationComplete({...value,job:{...value.job,...change}},id,2),false);
+  for(const change of [{operationTerminal:false},{resumeRequested:true},{reportsDelivered:false},
+    {clinicalComplete:true},{clinicalComplete:undefined},{cleanComplete:true}])
+    assert.equal(retainedCancellationComplete({...value,summary:{...value.summary,...change}},id,2),false);
+});

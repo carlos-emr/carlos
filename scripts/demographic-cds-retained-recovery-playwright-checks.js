@@ -25,6 +25,15 @@ function assertRetainedLogin(recorder, baseUrl, maintenanceExpected = true) {
   if (maintenanceExpected) h.assert(recorder.badResponses.some(knownResponse), 'The retained clinical schedule was not closed503');
 }
 
+function retainedCancellationComplete(value, runId, afterGeneration = -1) {
+  return value?.job?.id === runId && value.job.cancelRequested === true
+    && ['CANCELLED_BEFORE_WRITE','CANCELLED','INCOMPLETE'].includes(value.job.state)
+    && Number.isSafeInteger(value.job.reportGeneration) && value.job.reportGeneration > Math.max(0, afterGeneration)
+    && value.summary?.operationTerminal === true && value.summary.resumeRequested === false
+    && value.summary.reportsDelivered === true && value.summary.clinicalComplete === false
+    && value.summary.cleanComplete === false;
+}
+
 function sourceFixture(env) {
   h.assert(env.CDS_RECOVERY_SOURCE_FILE && /^[0-9a-f]{64}$/.test(env.CDS_RECOVERY_SOURCE_SHA256 || ''),
     'Execution requires the original local source file and its independently verified SHA256');
@@ -93,16 +102,20 @@ async function run(env = process.env) {
     }
     h.assert(prior.summary.operationTerminal === true && prior.summary.resumeRequested === false,
       'Prior run must finish its worker, reports and cleanup before zero-write replacement');
-    if (!['CANCELLED_BEFORE_WRITE','CANCELLED'].includes(prior.job.state)) {
+    if (!retainedCancellationComplete(prior, oldId)) {
       h.assert(['REVIEW_REQUIRED','FAILED_BEFORE_WRITE','INCOMPLETE'].includes(prior.job.state),
         'Prior run must be stopped and proven unwritten before this recovery gate cancels it');
+      const generation = prior.job.reportGeneration;
       await page.locator('#cancelRun').click();
-      await page.waitForFunction(id => {
+      await page.waitForFunction(({id,generation}) => {
         try { const row=JSON.parse(document.getElementById('runSummary').textContent);
-          return row.job.id===id && ['CANCELLED_BEFORE_WRITE','CANCELLED'].includes(row.job.state)
-            && row.summary.reportsDelivered===true && row.summary.operationTerminal===true; } catch (_) { return false; }
-      }, oldId, {timeout:180000});
+          return row.job.id===id && row.job.cancelRequested===true && row.job.reportGeneration>generation
+            && row.summary.reportsDelivered===true && row.summary.operationTerminal===true
+            && row.summary.resumeRequested===false; } catch (_) { return false; }
+      }, {id:oldId,generation}, {timeout:180000});
       prior = JSON.parse(await page.locator('#runSummary').innerText());
+      h.assert(retainedCancellationComplete(prior, oldId, generation),
+        'Cancellation must retain the clinical failure and deliver a newer non-success report generation');
     }
     h.assert(zeroProof() === '0', 'Cancellation changed the prior zero-write proof');
     h.assert(prior.summary.clinicalComplete === false, 'Cancellation was misreported as clinical completion');
@@ -192,4 +205,4 @@ async function run(env = process.env) {
   }});
 }
 if (require.main === module) run();
-module.exports = {run, assertRetainedLogin, sourceFixture};
+module.exports = {run, assertRetainedLogin, sourceFixture, retainedCancellationComplete};
