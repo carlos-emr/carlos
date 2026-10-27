@@ -693,6 +693,9 @@ def main() -> None:
                                         raise RuntimeError("invalid durable command handle")
                                     if handle not in case[target]:
                                         case[target].append(handle)
+                                        case.setdefault('observedMilestoneCounters',{})[event]={
+                                            'elapsedSeconds':time.monotonic()-started,'globalCounters':counters(),
+                                            'scope':'exclusive server; sampled when this command message was observed; includes observers'}
                                         changed = True
                                     if len(case[target]) != 1:
                                         private_json(proof,result)
@@ -825,9 +828,12 @@ def main() -> None:
             private_json(proof,result)
             case['enforcedPeakRssBytes']=enforce_rss_budget(peak,kernel,args.max_rss_mib*MIB)
             after = counters()
+            case['afterCounters']=after
             stage('NATIVE_AND_REQUIRED_REPORT_VERIFICATION')
             completed = complete_result(rows(log))
             native = inspect(completed["runId"])
+            case['native']=native
+            private_json(proof,result)
             if native.get("nativeTargets") != patients or native.get("holds") != 0 \
                     or native.get("nativeNotes") != source["notes"] or native.get("nativeLaboratoryResults") != source["labs"] \
                     or native.get("nativeLaboratoryProjection") != source["labs"] \
@@ -861,6 +867,10 @@ def main() -> None:
                 actual_documents[(location.stat().st_size, digest(location))] += 1
             if actual_documents != expected_documents:
                 raise RuntimeError("native document bytes do not reconcile the exact original payload multiset")
+            case['nativeDocumentBytesVerified']=sum(size*count for (size,_),count in actual_documents.items())
+            case['verifiedNativeDocumentHashMultiset']=[{'bytes':size,'sha256':sha256,'occurrences':count}
+                for (size,sha256),count in sorted(actual_documents.items())]
+            private_json(proof,result)
             report_log = evidence / (label + "-reports.log")
             with os.fdopen(os.open(report_log, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), "wb") as output:
                 delivered = subprocess.run([args.cli, "cds-import", "--report", run_id, *common], env=env,
@@ -909,6 +919,10 @@ def main() -> None:
                             if row.get("blocking") is True and row.get("resolved") is False:
                                 raise RuntimeError("clean benchmark receipt has unresolved blocking diagnostics")
             query_delta = after["Questions"] - before["Questions"]
+            case.update(reports=report_proof,globalQueries=query_delta,
+                        queriesPerExpectedUnit=query_delta/max(1,native['expectedUnits']),
+                        globalQueryBudget=args.max_queries_per_unit*max(1,native['expectedUnits']))
+            private_json(proof,result)
             if query_delta < 0 or query_delta > args.max_queries_per_unit * max(1, native["expectedUnits"]):
                 raise RuntimeError("global-query budget was exceeded or server counters reset")
             case.update({"status": "PASSED", "phase":"VERIFIED", "runId": completed["runId"], "importElapsedSeconds": import_elapsed,
