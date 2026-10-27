@@ -8,7 +8,8 @@
         'PARTIAL_COMMITTED', 'RECONCILIATION_REQUIRED', 'CANCELLED', 'FAILED']);
 
     function statusPresentation(job, summary) {
-        if (!job || !UUID.test(job.id || '') || typeof job.state !== 'string') {
+        if (!job || !UUID.test(job.id || '') || typeof job.state !== 'string'
+                || typeof summary?.resumeRequested !== 'boolean') {
             return {state: 'UNAVAILABLE', clean: false, final: false};
         }
         const outcomes = summary?.outcomes;
@@ -20,7 +21,7 @@
         const clean = COMPLETE.has(job.state) && job.state !== 'DRY_RUN_COMPLETE' && summary && summary.cleanComplete === true
             && summary.clinicalComplete === true && summary.discoveryComplete === true && summary.reportsDelivered === true
             && summary.cleanupComplete === true && summary.pendingUnits === 0 && summary.unresolvedReviewItems === 0
-            && summary.inactiveDraftCount === 0
+            && summary.inactiveDraftCount === 0 && summary.resumeRequested === false
             && Number.isSafeInteger(expected) && expected > 0 && accounted === expected && allComplete;
         return {state: job.state, clean: Boolean(clean), final: FINAL.has(job.state)};
     }
@@ -39,7 +40,7 @@
 
     function mayStopPolling(summary) {
         // Clinical finality does not prove reports or cleanup finished; only the durable operation receipt does.
-        return summary?.operationTerminal === true;
+        return summary?.operationTerminal === true && summary.resumeRequested === false;
     }
 
     function recoveryControls(summary = {}) {
@@ -47,7 +48,8 @@
             || summary.workerAlert === 'REVIEW_WORKER_FATAL';
         const pendingReview = Number.isSafeInteger(summary.pendingReviewCount) && summary.pendingReviewCount > 0;
         const inactiveDraft = Number.isSafeInteger(summary.inactiveDraftCount) && summary.inactiveDraftCount > 0;
-        return {fatalReview, resumeDisabled: Boolean(summary.supervisorAlert)
+        const resumePending = summary.resumeRequested === true;
+        return {fatalReview, resumePending, resumeDisabled: resumePending || Boolean(summary.supervisorAlert)
             || (!fatalReview && (pendingReview || inactiveDraft))};
     }
 
@@ -161,6 +163,7 @@
             revisionUnavailable: 'L’approbation de remplacement exige un conflit source identifié et la preuve que les deux tâches n’ont aucune donnée validée, aucun blocage ni aucune incertitude. Réconcilier les tâches précédentes; ne pas changer l’espace de noms pour contourner ce contrôle.',
             inactiveDrafts: 'Corrections provisoires inactives : compléter les corrections de validation XML avant de reprendre. Nombre : ',
             release: 'La libération du mode maintenance reste incomplète. Les validations cliniques restent enregistrées. Réconcilier les blocages, puis utiliser Reprendre pour réessayer la libération et les rapports, sans rejouer les unités cliniques. État : ',
+            resumePending: 'Reprise demandée. La récupération est en attente; le traitement en cours peut encore se terminer.',
             reviewFatal: 'Le traitement de révision s’est arrêté; Reprendre réessaie cette révision avec ses preuves conservées avant toute importation.',
             supervisor: 'Le superviseur d’importation nécessite une réparation et un redémarrage du service par un administrateur. Reprendre ne répare pas le superviseur.',
             page: 'Cette page est limitée; les rapports complets restent disponibles.', current: 'Courant',
@@ -182,6 +185,7 @@
             revisionUnavailable: 'Replacement approval requires an identified source conflict and proof that both attempts have no committed data, holds or uncertainty. Reconcile prior work; do not change namespaces to bypass this check.',
             inactiveDrafts: 'Inactive correction drafts need further XML validation corrections before resume. Count: ',
             release: 'Maintenance release is incomplete. Clinical commits remain recorded. Reconcile held runs, then use Resume to retry release and reports without replaying clinical units. State: ',
+            resumePending: 'Resume requested. Recovery is pending; current work may still be finishing.',
             reviewFatal: 'The review worker stopped; Resume retries that preserved review before any import execution.',
             supervisor: 'The import supervisor needs administrator repair and service restart. Resume cannot repair the supervisor.',
             page: 'This is a bounded page; complete protected reports remain available.', current: 'Current',
@@ -399,12 +403,15 @@
             const operational = [];
             if (latestSummary.maintenanceReleasePending === true) operational.push(text.release
                 + String(latestSummary.maintenanceReleaseState || 'UNKNOWN').slice(0, 96));
-            if (recoveryControls(latestSummary).fatalReview) operational.push(text.reviewFatal);
+            const recovery = recoveryControls(latestSummary);
+            if (recovery.resumePending) operational.push(text.resumePending);
+            if (recovery.fatalReview) operational.push(text.reviewFatal);
             if (latestSummary.supervisorAlert) operational.push(text.supervisor
                 + ' ' + String(latestSummary.supervisorAlert).slice(0, 96));
             byId('cdsOperationalAlert').hidden = operational.length === 0;
             byId('cdsOperationalAlert').textContent = operational.join(' ');
             const presentation = statusPresentation(data.job, latestSummary);
+            if (presentation.state === 'UNAVAILABLE') throw new Error('IMPORT_STATUS_CONTRACT_REFRESH_REQUIRED');
             byId('runState').textContent = text.state + ': ' + presentation.state + ' — ' + id + ' — ' + (data.job.updatedAt || '');
             byId('runState').className = presentation.clean ? 'text-success' : 'text-body';
             byId('cancelRun').disabled = false; byId('resumeRun').disabled = false;

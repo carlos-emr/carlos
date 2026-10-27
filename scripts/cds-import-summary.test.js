@@ -7,7 +7,7 @@ const path = require('node:path');
 const client = require('../src/main/webapp/js/demographic/cds-import.js');
 const id = '11111111-1111-4111-8111-111111111111';
 const clean = {cleanComplete: true, clinicalComplete: true, discoveryComplete: true, reportsDelivered: true,
-  cleanupComplete: true, pendingUnits: 0, unresolvedReviewItems: 0, inactiveDraftCount: 0, expectedPatients: 1, outcomes: {COMPLETE: 1}};
+  cleanupComplete: true, resumeRequested: false, pendingUnits: 0, unresolvedReviewItems: 0, inactiveDraftCount: 0, expectedPatients: 1, outcomes: {COMPLETE: 1}};
 
 test('only reconciled clinical completion with delivered reports is styled as clean', () => {
   assert.equal(client.statusPresentation({id, state: 'COMPLETE'}, clean).clean, true);
@@ -21,7 +21,7 @@ for (const state of ['ACCEPTED', 'RUNNING', 'REFUSED', 'FAILED_BEFORE_WRITE', 'N
 }
 for (const changes of [{reportsDelivered: false}, {cleanupComplete: false}, {discoveryComplete: false},
   {clinicalComplete: false}, {pendingUnits: 1}, {unresolvedReviewItems: 1}, {inactiveDraftCount: 1},
-  {inactiveDraftCount: undefined}, {expectedPatients: 2},
+  {inactiveDraftCount: undefined}, {resumeRequested: true}, {resumeRequested: undefined}, {resumeRequested: 'false'}, {expectedPatients: 2},
   {outcomes: {REFUSED: 1}}, {outcomes: {COMPLETE: 1, PARTIAL_COMMITTED: 1}}, {outcomes: undefined},
   {outcomes: {COMPLETE: '1'}}, {outcomes: {COMPLETE: -1}}]) {
   test(`incomplete, unknown or contradictory accounting ${JSON.stringify(changes)} cannot be clean`, () => {
@@ -33,11 +33,13 @@ test('invalid or unavailable job status cannot be success', () => {
 });
 test('only the durable operation terminal receipt stops polling', () => {
   for (const summary of [undefined, {}, clean, {reportsDelivered: true}, {reportDeliveryFailed: true},
-    {cleanupComplete: true}, {operationTerminal: false}, {operationTerminal: 'true'}]) {
+    {cleanupComplete: true}, {operationTerminal: false}, {operationTerminal: 'true'},
+    {operationTerminal: true}, {operationTerminal: true, resumeRequested: true},
+    {operationTerminal: true, resumeRequested: 'false'}]) {
     assert.equal(client.mayStopPolling(summary), false);
   }
   assert.equal(client.mayStopPolling({...clean, operationTerminal: true}), true);
-  assert.equal(client.mayStopPolling({operationTerminal: true, reportDeliveryFailed: true}), true);
+  assert.equal(client.mayStopPolling({operationTerminal: true, reportDeliveryFailed: true, resumeRequested: false}), true);
 });
 test('review declines require an identifiable patient copy and record paths are not scalar targets', () => {
   for (const patientKey of [null, '', 'not-a-patient', 'a'.repeat(63)]) {
@@ -148,8 +150,26 @@ test('recovery controls retry a fatal review but block normal pending validation
   assert.equal(client.recoveryControls({pendingReviewCount: 1}).resumeDisabled, true);
   assert.equal(client.recoveryControls({inactiveDraftCount: 1}).resumeDisabled, true);
   assert.deepEqual(client.recoveryControls({pendingReviewCount: 1, reviewErrorCode: 'REVIEW_WORKER_FATAL'}),
-    {fatalReview: true, resumeDisabled: false});
+    {fatalReview: true, resumePending: false, resumeDisabled: false});
   assert.equal(client.recoveryControls({workerAlert: 'REVIEW_WORKER_FATAL'}).fatalReview, true);
   assert.equal(client.recoveryControls({reviewErrorCode: 'REVIEW_WORKER_FATAL', supervisorAlert: 'IMPORT_SUPERVISOR_FATAL'}).resumeDisabled, true);
   assert.equal(client.recoveryControls({maintenanceReleasePending: true, maintenanceReleaseState: 'RELEASE_DEFERRED'}).resumeDisabled, false);
+});
+
+test('queued resume is typed pending intent and disables duplicates independently of owner phase', () => {
+  assert.deepEqual(client.recoveryControls({resumeRequested: true}),
+    {fatalReview: false, resumePending: true, resumeDisabled: true});
+  for (const resumeRequested of [false, undefined, 'true']) {
+    assert.equal(client.recoveryControls({resumeRequested}).resumePending, false);
+  }
+  for (const state of ['RUNNING', 'INCOMPLETE', 'REVIEW_REQUIRED']) {
+    assert.equal(client.recoveryControls({state, resumeRequested: true}).resumeDisabled, true);
+  }
+});
+
+test('missing or untyped recovery status requires refreshed server status', () => {
+  for (const resumeRequested of [undefined, 'false', 0]) {
+    assert.deepEqual(client.statusPresentation({id, state: 'COMPLETE'}, {...clean, resumeRequested}),
+      {state: 'UNAVAILABLE', clean: false, final: false});
+  }
 });
