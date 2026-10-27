@@ -391,11 +391,21 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.refillDuration = refillDuration;
     }
 
+    /** Retains an absent imported refill duration independently of refill quantity. */
+    public void setImportedRefillDuration(Integer refillDuration) {
+        this.refillDuration = refillDuration;
+    }
+
     public Integer getRefillQuantity() {
         return refillQuantity;
     }
 
     public void setRefillQuantity(int refillQuantity) {
+        this.refillQuantity = refillQuantity;
+    }
+
+    /** Retains an absent imported refill quantity independently of refill duration. */
+    public void setImportedRefillQuantity(Integer refillQuantity) {
         this.refillQuantity = refillQuantity;
     }
 

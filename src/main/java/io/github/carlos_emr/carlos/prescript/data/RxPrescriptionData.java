@@ -220,8 +220,7 @@ public class RxPrescriptionData {
         prescription.setCdsSubstitutionNotAllowed(drug.getNoSubs());
         prescription.setCdsNonAuthoritative(drug.getNonAuthoritative());
         if (drug.getDispenseInterval() != null) prescription.setDispenseInterval(drug.getDispenseInterval());
-        if (drug.getRefillDuration() != null) prescription.setRefillDuration(drug.getRefillDuration());
-        if (drug.getRefillQuantity() != null) prescription.setRefillQuantity(drug.getRefillQuantity());
+        copyRefills(drug, prescription);
 
         String prescriptionSpecial = prescription.getSpecial();
         if (prescriptionSpecial == null || prescriptionSpecial.length() <= 6) {
@@ -441,14 +440,24 @@ public class RxPrescriptionData {
         p.setCdsSubstitutionNotAllowed(drug.getNoSubs());
         p.setCdsNonAuthoritative(drug.getNonAuthoritative());
         if (drug.getDispenseInterval() != null) p.setDispenseInterval(drug.getDispenseInterval());
-        if (drug.getRefillDuration() != null) p.setRefillDuration(drug.getRefillDuration());
-        if (drug.getRefillQuantity() != null) p.setRefillQuantity(drug.getRefillQuantity());
+        copyRefills(drug, p);
         p.setHideCpp(drug.getHideFromCpp());
         p.setPharmacyId(drug.getPharmacyId());
         if (drug.isNonAuthoritative() != null) p.setNonAuthoritative(drug.isNonAuthoritative());
         p.discontinued = drug.isDiscontinued();
         p.setArchivedDate(drug.getArchivedDate());
         return p;
+    }
+
+    /** Imported optional refill values are independent; native rows retain their legacy zero defaults. */
+    private static void copyRefills(Drug source, Prescription target) {
+        if (source.getCdsCurrentness() != null) {
+            target.refillDuration = source.getRefillDuration();
+            target.refillQuantity = source.getRefillQuantity();
+        } else {
+            if (source.getRefillDuration() != null) target.setRefillDuration(source.getRefillDuration());
+            if (source.getRefillQuantity() != null) target.setRefillQuantity(source.getRefillQuantity());
+        }
     }
 
     public Prescription[] getPrescriptionScriptsByPatientATC(int demographicNo, String atc) {
@@ -1202,6 +1211,8 @@ public class RxPrescriptionData {
         // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
         @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         public void calcEndDate() {
+            // Imported dispense duration/refills do not establish a treatment discontinuation date.
+            if (cdsCurrentness != null) return;
             try {
                 GregorianCalendar cal = new GregorianCalendar(Locale.CANADA);
                 int days = 0;
@@ -1590,7 +1601,12 @@ public class RxPrescriptionData {
                 extra += "SUBSTITUTION NOT ALLOWED";
             }
             if ((getRefillQuantity() != null && getRefillQuantity() > 0) || (getRefillDuration() != null && getRefillDuration() > 0)) {
-                extra = "Refill: Qty:" + (getRefillQuantity() != null ? getRefillQuantity() : "0") + " Duration:" + (getRefillDuration() != null ? getRefillDuration() : "0") + " Days";
+                if (cdsCurrentness != null) {
+                    extra += (extra.isEmpty() ? "" : "\n") + "Refill: Qty:" + (getRefillQuantity() == null ? "Unknown" : getRefillQuantity())
+                            + " Duration:" + (getRefillDuration() == null ? "Unknown" : getRefillDuration() + " Days");
+                } else {
+                    extra = "Refill: Qty:" + (getRefillQuantity() != null ? getRefillQuantity() : "0") + " Duration:" + (getRefillDuration() != null ? getRefillDuration() : "0") + " Days";
+                }
             }
             return (RxPrescriptionData.getFullOutLine(getSpecial() + "\n" + extra));
         }
@@ -1880,8 +1896,13 @@ public class RxPrescriptionData {
             drug.setCdsDoseText(getCdsDoseText());
             drug.setCdsProjectionIncomplete(getCdsProjectionIncomplete());
             drug.setDispenseInterval(getDispenseInterval());
-            drug.setRefillQuantity(getRefillQuantity());
-            drug.setRefillDuration(getRefillDuration());
+            if (cdsCurrentness == null) {
+                drug.setRefillQuantity(getRefillQuantity());
+                drug.setRefillDuration(getRefillDuration());
+            } else {
+                drug.setImportedRefillQuantity(getRefillQuantity());
+                drug.setImportedRefillDuration(getRefillDuration());
+            }
             drug.setHideFromCpp(false);
             drug.setPosition(position);
             if (cdsCurrentness == null) drug.setComment(getComment());

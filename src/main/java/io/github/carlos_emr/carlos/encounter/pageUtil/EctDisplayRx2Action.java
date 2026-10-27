@@ -116,7 +116,7 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                     String tmp = "";
                     if (drug.getFullOutLine() != null)
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
-                    tmp = stripQtyRepeats(tmp);
+                    if (drug.getCdsCurrentness() == null) tmp = stripQtyRepeats(tmp);
 
                     item.setTitle(titleSpan(getClassColour(drug, now, month), descr));
                     item.setLinkTitle(tmp);
@@ -125,7 +125,7 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                     String tmp = "";
                     if (drug.getFullOutLine() != null)
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
-                    tmp = stripQtyRepeats(tmp);
+                    if (drug.getCdsCurrentness() == null) tmp = stripQtyRepeats(tmp);
 
                     String strTitle = StringUtils.maxLenString(tmp, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                     item.setTitle(titleSpan(getClassColour(drug, now, month), strTitle));
