@@ -27,6 +27,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -35,9 +36,12 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
-/** Console-safe one-shot logging; bounded protected bootstrap evidence never contains raw messages or credentials. */
+/** Console-safe one-shot logging; bounded technical evidence excludes messages, source values and credentials. */
 final class CdsCliLogging {
     private CdsCliLogging(){ }
+
+    /** A storage failure retains the identical safe projection for console delivery. */
+    record OperationFailure(String protectedPath, String technicalJson) { }
 
     static void configure() {
         var resource=CdsCliLogging.class.getResource("/log4j2-cds-cli.xml");
@@ -48,9 +52,69 @@ final class CdsCliLogging {
     }
 
     static String bootstrapFailure(Properties properties, Throwable failure) {
+        return writeEvidence(properties, "cli-bootstrap-", projection(failure, true));
+    }
+
+    /** Retains technical evidence without inferring whether acceptance or clinical writes committed. */
+    static OperationFailure operationFailure(Properties properties, Throwable failure) {
+        byte[] bytes = projection(failure, false);
+        String location = writeEvidence(properties, "cli-operation-", bytes);
+        return new OperationFailure(location, location == null ? new String(bytes, StandardCharsets.UTF_8) : null);
+    }
+
+    private static byte[] projection(Throwable failure, boolean bootstrap) {
+        String code = bootstrap ? "CDS_BOOTSTRAP_FAILED" : "CDS_OPERATION_FAILED";
+        String acceptance = bootstrap ? "NOT_STARTED" : "RECONCILE_DURABLE_STATE";
+        try {
+            List<Map<String, Object>> causes = new ArrayList<>();
+            int remainingFrames = 32;
+            for (Throwable cursor = failure; cursor != null && causes.size() < 16; cursor = cursor.getCause()) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                String type = cursor.getClass().getName();
+                item.put("type", typeName(type) ? type : "java.lang.Throwable");
+                if (bootstrap && cursor instanceof org.springframework.beans.factory.BeanCreationException bean) {
+                    String name = bean.getBeanName();
+                    if (name != null && name.length() <= 256 && name.matches("[A-Za-z_$][A-Za-z0-9_.$-]*")) item.put("bean", name);
+                }
+                if (cursor instanceof SQLException sql) {
+                    String state = sql.getSQLState();
+                    if (state != null && state.matches("[A-Z0-9]{5}")) item.put("sqlState", state);
+                    item.put("vendorCode", sql.getErrorCode());
+                }
+                List<String> frames = new ArrayList<>();
+                if (remainingFrames > 0) {
+                    for (StackTraceElement frame : cursor.getStackTrace()) {
+                        if (remainingFrames == 0) break;
+                        remainingFrames--;
+                        String owner = frame.getClassName(), method = frame.getMethodName();
+                        if (!typeName(owner) || method.length() > 128
+                                || !(method.matches("[A-Za-z_$][A-Za-z0-9_$]*") || method.equals("<init>") || method.equals("<clinit>"))) continue;
+                        frames.add(owner + "#" + method + ":" + frame.getLineNumber());
+                    }
+                }
+                item.put("frames", frames);
+                causes.add(item);
+            }
+            byte[] bytes = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(Map.of(
+                    "code", code, "clinicalAcceptance", acceptance, "causes", causes));
+            if (bytes.length <= 65536) return bytes;
+        } catch (Exception unavailable) {
+            // The primary failure must survive even a hostile Throwable or a
+            // failed serializer. No raw fallback text is ever inspected.
+        }
+        return ("{\"code\":\"" + code + "\",\"clinicalAcceptance\":\"" + acceptance + "\",\"causes\":[]}")
+                .getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static boolean typeName(String value) {
+        return value != null && value.length() <= 256
+                && value.matches("[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*");
+    }
+
+    private static String writeEvidence(Properties properties, String prefix, byte[] bytes) {
         try {
             String configured=properties.getProperty("cds.import.stagingRoot");
-            if (configured==null) return null;
+            if (configured==null || configured.length() > 4096 || configured.chars().anyMatch(Character::isISOControl)) return null;
             Path root=Path.of(configured);
             if (!root.isAbsolute()) return null;
             for (Path cursor=root; cursor!=null; cursor=cursor.getParent()) if (Files.isSymbolicLink(cursor)) return null;
@@ -62,26 +126,8 @@ final class CdsCliLogging {
                 catch (java.nio.file.FileAlreadyExistsException concurrent){ /* Validate the shared private directory below. */ }
             }
             requirePrivate(directory);
-            List<Map<String, Object>> causes=new ArrayList<>();
-            for (Throwable cursor=failure; cursor!=null && causes.size()<16; cursor=cursor.getCause()) {
-                Map<String, Object> item=new LinkedHashMap<>(); item.put("type", cursor.getClass().getName());
-                if (cursor instanceof org.springframework.beans.factory.BeanCreationException bean
-                        && bean.getBeanName()!=null && bean.getBeanName().matches("[A-Za-z0-9_.$-]{1,256}")) item.put("bean", bean.getBeanName());
-                if (cursor instanceof SQLException sql) {
-                    if (sql.getSQLState()!=null && sql.getSQLState().matches("[A-Z0-9]{5}")) item.put("sqlState", sql.getSQLState());
-                    item.put("vendorCode", sql.getErrorCode());
-                }
-                List<String> frames=new ArrayList<>();
-                for (StackTraceElement frame:cursor.getStackTrace()) {
-                    if (frames.size()==32) break;
-                    frames.add(frame.getClassName()+"#"+frame.getMethodName()+":"+frame.getLineNumber());
-                }
-                item.put("frames", frames); causes.add(item);
-            }
-            byte[] bytes=new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(Map.of(
-                    "code", "CDS_BOOTSTRAP_FAILED", "clinicalAcceptance", "NOT_STARTED", "causes", causes));
             if (bytes.length>65536) return null;
-            Path file=directory.resolve("cli-bootstrap-"+UUID.randomUUID()+".json");
+            Path file=directory.resolve(prefix+UUID.randomUUID()+".json");
             try (OutputStream output=CdsPaths.newPrivateFile(file, directory)){output.write(bytes); }
             CdsPaths.forceFile(file); CdsPaths.forceDirectory(directory); return file.toString();
         } catch (Exception unavailable){return null; }

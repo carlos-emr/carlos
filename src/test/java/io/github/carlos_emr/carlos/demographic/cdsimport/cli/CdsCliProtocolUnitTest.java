@@ -96,6 +96,99 @@ class CdsCliProtocolUnitTest {
     }
 
     @Test
+    void shouldDeliverPrivateOperationEvidenceWithoutMessages_whenAcceptanceOutcomeNeedsReconciliation() throws Exception {
+        Properties properties = new Properties(); properties.setProperty("cds.import.stagingRoot", directory.toString());
+        String sentinel = "SENSITIVE_SOURCE_PASSWORD_AND_SQL_SENTINEL";
+        var failure = new IOException(sentinel, new java.sql.SQLException(sentinel, "HY000", 28));
+        failure.setStackTrace(new StackTraceElement[]{
+                new StackTraceElement("io.github.carlos_emr.CdsOperation", "accept", sentinel + ".xml", 42),
+                new StackTraceElement("private/source\n" + sentinel, "accept", sentinel, 43)});
+        var evidence = CdsCliLogging.operationFailure(properties, failure);
+        assertThat(evidence.protectedPath()).isNotNull(); assertThat(evidence.technicalJson()).isNull();
+        Path file = Path.of(evidence.protectedPath());
+        assertThat(file.getParent()).isEqualTo(directory.resolve("cli-diagnostics"));
+        assertThat(file.getFileName().toString()).matches("cli-operation-[a-f0-9-]{36}\\.json");
+        String body = Files.readString(file);
+        assertThat(body).contains("CDS_OPERATION_FAILED", "RECONCILE_DURABLE_STATE", "java.io.IOException", "HY000", "28",
+                "io.github.carlos_emr.CdsOperation#accept:42").doesNotContain(sentinel, "private/source", "NOT_STARTED");
+        assertThat(Files.size(file)).isLessThanOrEqualTo(65536);
+        assertThat(Files.getPosixFilePermissions(file)).isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+    }
+
+    @Test
+    void shouldBoundEveryCauseAndTotalFrames_whenTechnicalEvidenceIsLarge() throws Exception {
+        Throwable failure = new IOException("sensitive-path");
+        for (int depth = 0; depth < 24; depth++) {
+            failure = new IOException("sensitive-path", failure);
+            StackTraceElement[] stack = new StackTraceElement[128];
+            java.util.Arrays.fill(stack, new StackTraceElement("io.github.carlos_emr.CdsOperation", "accept", "sensitive-path.xml", 10));
+            failure.setStackTrace(stack);
+        }
+        var evidence = CdsCliLogging.operationFailure(new Properties(), failure);
+        assertThat(evidence.protectedPath()).isNull();
+        var body = new ObjectMapper().readTree(evidence.technicalJson());
+        assertThat(body.path("causes").size()).isEqualTo(16);
+        int frames = 0;
+        for (var cause : body.path("causes")) frames += cause.path("frames").size();
+        assertThat(frames).isEqualTo(32);
+        assertThat(evidence.technicalJson().getBytes(StandardCharsets.UTF_8).length).isLessThanOrEqualTo(65536);
+        assertThat(evidence.technicalJson()).doesNotContain("sensitive-path", "NOT_STARTED");
+    }
+
+    @Test
+    void shouldRetainSafeFallback_whenDiagnosticStorageIsNotWritableOrPrivate() throws Exception {
+        Path file = directory.resolve("existing-file"); Files.writeString(file, "original");
+        Properties properties = new Properties(); properties.setProperty("cds.import.stagingRoot", file.toString());
+        var evidence = CdsCliLogging.operationFailure(properties, new IOException("sensitive-path"));
+        assertThat(evidence.protectedPath()).isNull();
+        assertThat(evidence.technicalJson()).contains("CDS_OPERATION_FAILED", "RECONCILE_DURABLE_STATE", "java.io.IOException")
+                .doesNotContain("sensitive-path", "NOT_STARTED");
+        assertThat(Files.readString(file)).isEqualTo("original");
+    }
+
+    @Test
+    void shouldDeliverOnlyProtectedPathMarker_whenOperationReceiptWasWritten() throws Exception {
+        Properties properties = new Properties(); properties.setProperty("cds.import.stagingRoot", directory.toString());
+        FakeRuntime runtime = new FakeRuntime(); runtime.acceptFailure = true;
+        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), properties, 512),
+                CdsCliArguments.parse(IMPORT), new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                out, err, (config, selected, delegation) -> runtime);
+        assertThat(code).isEqualTo(2);
+        try (var files = Files.list(directory.resolve("cli-diagnostics"))) {
+            var receipts = files.toList(); assertThat(receipts).hasSize(1);
+            assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("CDS_DIAGNOSTIC: protected operation evidence=" + receipts.getFirst())
+                    .doesNotContain("CDS_TECHNICAL:", "sensitive-path", "NOT_STARTED");
+        }
+        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("SUBMISSION", NONCE).doesNotContain("ACCEPTED", "RESULT");
+    }
+
+    @Test
+    void shouldKeepFiniteFallback_whenThrowableProjectionItselfFails() {
+        var failure = new IOException("sensitive-path") {
+            @Override public synchronized Throwable getCause() { throw new IllegalStateException("private-source-value"); }
+        };
+        var evidence = CdsCliLogging.operationFailure(new Properties(), failure);
+        assertThat(evidence.protectedPath()).isNull();
+        assertThat(evidence.technicalJson()).contains("CDS_OPERATION_FAILED", "RECONCILE_DURABLE_STATE", "\"causes\":[]")
+                .doesNotContain("sensitive-path", "private-source-value", "NOT_STARTED");
+    }
+
+    @Test
+    void shouldPreservePrimaryRuntimeExitAndNonce_whenBothOperationAndDiagnosticDeliveryFail() throws Exception {
+        FakeRuntime runtime = new FakeRuntime(); runtime.acceptFailure = true; runtime.closeFailure = true;
+        assertThat(invoke("import", runtime)).isEqualTo(2);
+        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("SUBMISSION", NONCE).doesNotContain("ACCEPTED", "RESULT");
+        String text = stderr.toString(StandardCharsets.UTF_8);
+        assertThat(text).contains("CDS_RUNTIME:", "CDS_DIAGNOSTIC: protected operation evidence could not be delivered", "CDS_CLEANUP:")
+                .doesNotContain("sensitive-path", "NOT_STARTED");
+        var lines = text.lines().filter(line -> line.startsWith("CDS_TECHNICAL: ")).toList();
+        assertThat(lines).hasSize(1);
+        var body = new ObjectMapper().readTree(lines.getFirst().substring("CDS_TECHNICAL: ".length()));
+        assertThat(body.path("code").asText()).isEqualTo("CDS_OPERATION_FAILED");
+        assertThat(body.path("clinicalAcceptance").asText()).isEqualTo("RECONCILE_DURABLE_STATE");
+    }
+
+    @Test
     void shouldValidateArgumentCombinations_whenConstructingSharedCommand() {
         var command = CdsCliArguments.parse(IMPORT).command(NONCE);
         assertThat(command.matchProviderNames()).isTrue(); assertThat(command.mergeExisting()).isFalse();

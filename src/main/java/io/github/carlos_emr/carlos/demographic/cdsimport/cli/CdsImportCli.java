@@ -126,7 +126,13 @@ public final class CdsImportCli {
         } catch (Exception failure) {
             // Never print raw exception messages: source paths, XML values and SQL
             // diagnostics may contain PHI. The protected run/report carries detail.
-            err.println("CDS_RUNTIME: operation failed; inspect durable run state before retrying"); outcome = 2;
+            err.println("CDS_RUNTIME: operation failed; inspect durable run state before retrying");
+            var evidence = CdsCliLogging.operationFailure(config.properties(), failure);
+            err.println(evidence.protectedPath() == null
+                    ? "CDS_DIAGNOSTIC: protected operation evidence could not be delivered"
+                    : "CDS_DIAGNOSTIC: protected operation evidence=" + evidence.protectedPath());
+            if (evidence.technicalJson() != null) err.println("CDS_TECHNICAL: " + evidence.technicalJson());
+            outcome = 2;
         } finally {
             if (runtime != null) {
                 try { runtime.close(); }
