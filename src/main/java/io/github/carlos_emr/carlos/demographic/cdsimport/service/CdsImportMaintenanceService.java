@@ -50,6 +50,37 @@ public class CdsImportMaintenanceService {
         this.configuration = configuration;
     }
 
+    @FunctionalInterface
+    public interface IoRead<T> { T get() throws java.io.IOException; }
+
+    /** Explicit operational retry result; this never changes a completed clinical run. */
+    public enum ReleaseStatus { RELEASED, GLOBAL_HOLDS_REMAIN, OWNER_BUSY, REQUIRES_RECONCILIATION }
+
+    /**
+     * Retries only the operational release boundary. A fresh physical owner and verified target
+     * catalogue are required; another run's held chart retains maintenance without blaming this run.
+     * RELEASED includes a committed row readback before relinquishing the advisory connection.
+     */
+    public ReleaseStatus reconcileCompletedRelease(CdsImportTargetSafetyService safety) {
+        Owner owner = null;
+        try {
+            owner = acquire();
+            safety.verify(owner);
+            owner.allowReopen();
+            owner.close();
+            return owner.releaseVerified ? ReleaseStatus.RELEASED : ReleaseStatus.GLOBAL_HOLDS_REMAIN;
+        } catch (CdsImportException failed) {
+            return "MAINTENANCE_OWNER_BUSY".equals(failed.getCode())
+                    || "LOCAL_MAINTENANCE_OWNER_BUSY".equals(failed.getCode())
+                    ? ReleaseStatus.OWNER_BUSY : ReleaseStatus.REQUIRES_RECONCILIATION;
+        } finally {
+            if (owner != null && !owner.closed) {
+                try { owner.close(); }
+                catch (CdsImportException retained) { /* The durable active flag remains fail closed. */ }
+            }
+        }
+    }
+
     /** Must surround ledger ownership and every clinical unit; never call inside a Spring transaction. */
     public Owner acquire() {
         configuration.requireEnabled();
@@ -146,17 +177,18 @@ public class CdsImportMaintenanceService {
         private final Lease lease;
         private boolean closed;
         private boolean reopenRequested;
+        private boolean releaseVerified;
         private Owner(Connection connection, CdsJdbcAdmissionState state, Lease lease) {
             this.connection = connection; this.state = state; this.lease = lease;
         }
         /** Dedicated metadata pins share this owner's lifetime, without exposing a raw connection. */
         synchronized void verifyTargets(CdsImportTargetSafetyService verifier) {
-            if(closed) throw new CdsImportException("MAINTENANCE_OWNER_CLOSED");
+            if (closed) throw new CdsImportException("MAINTENANCE_OWNER_CLOSED");
             try {
-                if(scalar(connection,"SELECT IS_USED_LOCK(?)",state.lockName())!=lease.connectionId()) {
+                if (scalar(connection, "SELECT IS_USED_LOCK(?)", state.lockName())!=lease.connectionId()) {
                     throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
                 }
-            } catch(SQLException unavailable) { throw new CdsImportException("MAINTENANCE_OWNER_FENCED"); }
+            } catch (SQLException unavailable) { throw new CdsImportException("MAINTENANCE_OWNER_FENCED"); }
             state.clearCatalogueVerification(lease);
             verifier.verifyAndPin(connection);
             state.catalogueVerified(lease);
@@ -165,11 +197,23 @@ public class CdsImportMaintenanceService {
         public long generation() { return lease.generation(); }
         /** Operational connection identifier, also used for controlled lost-owner fault injection. */
         public long connectionId() { return lease.connectionId(); }
+        /** True only after this owner closed and proved committed reopening under its advisory lock. */
+        public synchronized boolean releaseVerified() { return closed && releaseVerified; }
 
         /** Bounded coordinator read capability; SQL writes still require the active clinical-unit marker. */
         public synchronized <T> T read(java.util.function.Supplier<T> work) {
             if (closed) throw new IllegalStateException("Maintenance owner is already closed");
             return state.read(lease, work);
+        }
+
+        /** Checked-I/O coordinator work receives the same read-only capability, with no added DB transaction. */
+        public synchronized <T> T readIo(IoRead<T> work) throws java.io.IOException {
+            try {
+                return read(()->{
+                    try { return work.get(); }
+                    catch(java.io.IOException failed) { throw new java.io.UncheckedIOException(failed); }
+                });
+            } catch(java.io.UncheckedIOException failed) { throw failed.getCause(); }
         }
 
         /** Explicit successful clinical reconciliation/backlog-policy boundary; errors never imply reopening. */
@@ -214,6 +258,25 @@ public class CdsImportMaintenanceService {
                     }
                 }
                 connection.commit();
+                if (reopenRequested && !held) {
+                    // The advisory lock is still ours. A different node cannot acquire a new
+                    // maintenance generation between this commit and its proof readback.
+                    connection.setAutoCommit(true);
+                    try (PreparedStatement proof = connection.prepareStatement("""
+                            SELECT maintenance_active,maintenance_generation,maintenance_owner_token,
+                                maintenance_connection_id,EXISTS(SELECT 1 FROM cds_import_patient WHERE held=TRUE)
+                            FROM cds_import_admission WHERE id=?
+                            """)) {
+                        proof.setQueryTimeout(3); proof.setString(1,CdsJdbcAdmissionState.ROW);
+                        try (ResultSet rows=proof.executeQuery()) {
+                            if (!rows.next() || rows.getBoolean(1) || rows.getLong(2)!=lease.generation()
+                                    || rows.getString(3)!=null || rows.getObject(4)!=null || rows.getBoolean(5)) {
+                                throw new SQLException("Maintenance release readback did not prove reopening", "45000");
+                            }
+                        }
+                    }
+                    releaseVerified=true;
+                }
             } catch (SQLException problem) {
                 failure = problem;
                 try { connection.rollback(); } catch (SQLException cleanup) { failure.addSuppressed(cleanup); }

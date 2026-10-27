@@ -24,7 +24,7 @@ public final class CdsImportMaintenanceFilter implements Filter {
     private static final Set<String> ROUTES = Set.of("/", "/index", "/index.jsp", "/login", "/login.do",
             "/logout", "/logout.do", "/logoutPage", "/loginfailed", "/forcepasswordreset",
             "/forcepasswordresetSubmit", "/location", "/select_facility", "/csrfguard",
-            "/mfa/loginMfa", "/securityRecord/mfa", "/form/importUpload", "/form/cdsUpload", "/form/cdsImportSubmit", "/form/cdsImportStatus",
+            "/mfa/loginMfa", "/securityRecord/mfa", "/form/importUpload", "/form/cdsUpload", "/form/cdsImportSubmit", "/form/cdsImportStatus", "/form/cdsImportDiagnostic",
             "/form/cdsImportControl", "/form/cdsImportReport", "/form/importLogDownload");
     private static final String[] STATIC = {"/css/", "/js/", "/images/", "/fonts/", "/library/", "/loginResource/"};
     private final Supplier<CdsImportMaintenanceService> maintenance;

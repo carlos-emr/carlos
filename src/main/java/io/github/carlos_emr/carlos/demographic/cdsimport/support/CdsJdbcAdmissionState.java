@@ -48,11 +48,11 @@ public final class CdsJdbcAdmissionState {
     public Lease owner() { return owner.get(); }
     public boolean install(Lease lease) { return owner.compareAndSet(null, lease); }
     public void release(Lease lease) {
-        verifiedCatalogue.compareAndSet(lease,null); owner.compareAndSet(lease,null);
+        verifiedCatalogue.compareAndSet(lease, null); owner.compareAndSet(lease, null);
     }
-    public void clearCatalogueVerification(Lease lease) { verifiedCatalogue.compareAndSet(lease,null); }
+    public void clearCatalogueVerification(Lease lease) { verifiedCatalogue.compareAndSet(lease, null); }
     public void catalogueVerified(Lease lease) {
-        if(owner.get()!=lease) throw new IllegalStateException("Maintenance catalogue owner is fenced");
+        if (owner.get()!=lease) throw new IllegalStateException("Maintenance catalogue owner is fenced");
         verifiedCatalogue.set(lease);
     }
     public boolean hasVerifiedCatalogue(Lease lease) { return lease!=null && owner.get()==lease && verifiedCatalogue.get()==lease; }

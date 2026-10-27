@@ -93,7 +93,7 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
 
     /** Only new CDS metadata mutations are scoped when clinical maintenance admission is off. */
     public static Connection wrapMetadataOnly(Connection raw) {
-        return wrap(raw,null,CdsImportUnitService::isActiveForMaintenance);
+        return wrap(raw, null, CdsImportUnitService::isActiveForMaintenance);
     }
 
     /** Explicit capability supplier is used by real-database race tests, never by request binding. */
@@ -107,10 +107,10 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
     @Override public Object invoke(Object target, Method method, Object[] args) throws Throwable {
         String name = method.getName();
         if (name.equals("unwrap")) {
-            Class<?> requested=(Class<?>)args[0];
-            return state==null && !requested.isInstance(proxy) ? raw.unwrap(requested) : safeUnwrap(proxy,requested);
+            Class<?> requested=(Class<?>) args[0];
+            return state==null && !requested.isInstance(proxy) ? raw.unwrap(requested) : safeUnwrap(proxy, requested);
         }
-        if (name.equals("isWrapperFor")) return ((Class<?>) args[0]).isInstance(proxy) || state==null && raw.isWrapperFor((Class<?>)args[0]);
+        if (name.equals("isWrapperFor")) return ((Class<?>) args[0]).isInstance(proxy) || state==null && raw.isWrapperFor((Class<?>) args[0]);
         if (name.equals("getAutoCommit") && implicit) return true;
         if (name.equals("setSavepoint") && implicit) throw refused("Savepoints require an explicit caller transaction");
         if (name.equals("setAutoCommit") && Boolean.FALSE.equals(args[0]) && implicit) {
@@ -150,9 +150,9 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
             try {
                 SqlShape prepared=shape(sql);
                 boolean nativeUnit=importUnit.getAsBoolean();
-                if(nativeUnit || prepared.importMutation()) ensureStrictSession(nativeUnit);
-                return statement((Statement)call(raw,method,args),sql);
-            } catch(Throwable failure) { abortImplicit(failure); throw failure; }
+                if (nativeUnit || prepared.importMutation()) ensureStrictSession(nativeUnit);
+                return statement((Statement) call(raw, method, args), sql);
+            } catch (Throwable failure) { abortImplicit(failure); throw failure; }
         }
         Object result = call(raw, method, args);
         if (result instanceof Statement statement) {
@@ -163,7 +163,7 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
             return Proxy.newProxyInstance(DatabaseMetaData.class.getClassLoader(), new Class<?>[]{DatabaseMetaData.class},
                     (ignored, operation, values) -> operation.getName().equals("getConnection") ? proxy
                             : operation.getName().equals("unwrap") ? guardedUnwrap(ignored, metadata, (Class<?>) values[0])
-                            : operation.getName().equals("isWrapperFor") ? ((Class<?>) values[0]).isInstance(ignored) || state==null && metadata.isWrapperFor((Class<?>)values[0])
+                            : operation.getName().equals("isWrapperFor") ? ((Class<?>) values[0]).isInstance(ignored) || state==null && metadata.isWrapperFor((Class<?>) values[0])
                             : metadataResult(metadata, operation, values));
         }
         return result;
@@ -178,10 +178,10 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
             String name = operation.getName();
             if (name.equals("getConnection")) return proxy;
             if (name.equals("unwrap")) {
-                Class<?> requested=(Class<?>)values[0];
-                return state==null && !requested.isInstance(wrapper[0]) ? rawStatement.unwrap(requested) : safeUnwrap(wrapper[0],requested);
+                Class<?> requested=(Class<?>) values[0];
+                return state==null && !requested.isInstance(wrapper[0]) ? rawStatement.unwrap(requested) : safeUnwrap(wrapper[0], requested);
             }
-            if (name.equals("isWrapperFor")) return ((Class<?>) values[0]).isInstance(wrapper[0]) || state==null && rawStatement.isWrapperFor((Class<?>)values[0]);
+            if (name.equals("isWrapperFor")) return ((Class<?>) values[0]).isInstance(wrapper[0]) || state==null && rawStatement.isWrapperFor((Class<?>) values[0]);
             if (name.equals("addBatch") && preparedSql == null) batch.add((String) values[0]);
             if (name.equals("clearBatch")) batch.clear();
             if (name.startsWith("execute")) {
@@ -237,7 +237,7 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
                     String name = operation.getName();
                     if (name.equals("getStatement")) return statement;
                     if (name.equals("unwrap")) return guardedUnwrap(ignored, rawRows, (Class<?>) values[0]);
-                    if (name.equals("isWrapperFor")) return ((Class<?>) values[0]).isInstance(ignored) || state==null && rawRows.isWrapperFor((Class<?>)values[0]);
+                    if (name.equals("isWrapperFor")) return ((Class<?>) values[0]).isInstance(ignored) || state==null && rawRows.isWrapperFor((Class<?>) values[0]);
                     try {
                         Object result = call(rawRows, operation, values);
                         if (counted && (name.equals("close") || name.equals("next") && Boolean.FALSE.equals(result))) {
@@ -323,7 +323,7 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
                 throw refused("CDS native target catalogue must be verified under the current maintenance owner before unit writes");
             }
             admit(false); // Native scope still requires current physical ownership and admission.
-        } else if(raw.getAutoCommit()) {
+        } else if (raw.getAutoCommit()) {
             raw.setAutoCommit(false); implicit=true; // Metadata-only autocommit mutation owns its statement transaction.
         }
         if (originalSqlMode!=null) return;
@@ -352,7 +352,7 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
             if (originalSqlMode==null) throw refused("CDS import SQL mode is unavailable");
         }
         boolean strict=java.util.Arrays.stream(originalSqlMode.split(","))
-                .anyMatch(mode->mode.trim().equalsIgnoreCase("STRICT_ALL_TABLES"));
+                .anyMatch(mode-> mode.trim().equalsIgnoreCase("STRICT_ALL_TABLES"));
         if (!strict) {
             sqlModeChanged=true; // A lost SET acknowledgement must also restore or discard the connection.
             setSqlMode(originalSqlMode.isBlank() ? "STRICT_ALL_TABLES" : originalSqlMode+",STRICT_ALL_TABLES");
@@ -360,16 +360,16 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
     }
 
     private void abortImplicit(Throwable failure) {
-        if(!implicit) return;
-        try { raw.rollback(); } catch(SQLException cleanup) { failure.addSuppressed(cleanup); }
-        try { restoreImportSession(false); } catch(SQLException cleanup) { failure.addSuppressed(cleanup); }
+        if (!implicit) return;
+        try { raw.rollback(); } catch (SQLException cleanup) { failure.addSuppressed(cleanup); }
+        try { restoreImportSession(false); } catch (SQLException cleanup) { failure.addSuppressed(cleanup); }
         reset();
-        try { raw.setAutoCommit(true); } catch(SQLException cleanup) { failure.addSuppressed(cleanup); }
+        try { raw.setAutoCommit(true); } catch (SQLException cleanup) { failure.addSuppressed(cleanup); }
     }
 
     private void setSqlMode(String value) throws SQLException {
         try (PreparedStatement statement=raw.prepareStatement("SET SESSION sql_mode=?")) {
-            statement.setQueryTimeout(3); statement.setString(1,value); statement.executeUpdate();
+            statement.setQueryTimeout(3); statement.setString(1, value); statement.executeUpdate();
         }
     }
 
@@ -385,7 +385,7 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
             throw new SQLException(commitMayHaveCompleted
                     ? "Import session restoration failed; commit acknowledgement requires reconciliation"
                     : "Import session restoration failed; physical connection discarded",
-                    commitMayHaveCompleted ? "08007" : "08006",failure);
+                    commitMayHaveCompleted ? "08007" : "08006", failure);
         }
     }
 
@@ -413,34 +413,38 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
     private record SqlShape(boolean clinical, boolean readOnly, boolean importMutation) { }
     private SqlShape shape(String sql) throws SQLException {
         // A pre-maintenance metadata guard must not reinterpret or restrict ordinary legacy SQL.
-        if(state==null && !sql.toLowerCase(Locale.ROOT).contains("cds_import_")) return new SqlShape(false,false,false);
+        if (state==null && !sql.toLowerCase(Locale.ROOT).contains("cds_import_")) return new SqlShape(false, false, false);
         return classify(sql);
     }
     private static boolean importTable(net.sf.jsqlparser.schema.Table table) {
-        if(table==null) return false;
+        if (table==null) return false;
         String name=table.getName().replace("`", "").replace("\"", "").toLowerCase(Locale.ROOT);
         return name.startsWith("cds_import_");
     }
     private static SqlShape classify(String sql) throws SQLException {
         String normalized = sql.strip().replaceFirst(";+\\s*$", "");
+        // Hibernate's MariaDB PESSIMISTIC_READ spelling is not supported by JSQLParser.
+        // Normalize only the terminal lock clause for classification; execute the original
+        // SQL unchanged, including its real shared row lock and transaction lifetime.
+        String parserSql=normalized.replaceFirst("(?i)\\s+LOCK\\s+IN\\s+SHARE\\s+MODE\\s*$", " FOR SHARE");
         // parse() accepts a leading statement and can ignore a trailing COMMIT. Count the
         // complete stream before even administrative/metadata exemptions are considered.
         final net.sf.jsqlparser.statement.Statement parsed;
         try {
-            var statements=CCJSqlParserUtil.parseStatements(normalized).getStatements();
+            var statements=CCJSqlParserUtil.parseStatements(parserSql).getStatements();
             if (statements.size()!=1) throw refused("Only one SQL statement may use a CDS admission lease");
             parsed=statements.getFirst();
         } catch (JSQLParserException | RuntimeException unsupported) {
             throw refused("SQL cannot be admitted safely by the CDS maintenance guard");
         }
         String upper = normalized.toUpperCase(Locale.ROOT);
-        if (upper.matches("SELECT\\s+(?:1|VERSION\\(\\)|DATABASE\\(\\)|CURRENT_USER\\(\\)|CONNECTION_ID\\(\\)|@@[A-Z0-9_.,@ ]+)")) return new SqlShape(false, true,false);
-        if (upper.matches("(?:DESCRIBE|DESC)\\s+.*")) return new SqlShape(false, true,false);
+        if (upper.matches("SELECT\\s+(?:1|VERSION\\(\\)|DATABASE\\(\\)|CURRENT_USER\\(\\)|CONNECTION_ID\\(\\)|@@[A-Z0-9_.,@ ]+)")) return new SqlShape(false, true, false);
+        if (upper.matches("(?:DESCRIBE|DESC)\\s+.*")) return new SqlShape(false, true, false);
         if (upper.startsWith("SHOW ")) {
             boolean metadata=upper.matches("SHOW\\s+(?:(?:GLOBAL|SESSION|FULL)\\s+)?(?:TABLES|COLUMNS|FIELDS|INDEX|INDEXES|KEYS|VARIABLES|STATUS|ENGINES|COLLATION|CHARACTER SET|CREATE TABLE)\\b.*");
-            return new SqlShape(!metadata,true,false); // PROCESSLIST/binlog output can contain patient SQL/data.
+            return new SqlShape(!metadata, true, false); // PROCESSLIST/binlog output can contain patient SQL/data.
         }
-        if (upper.matches("SET\\s+(?:SESSION\\s+)?TRANSACTION\\s+ISOLATION\\s+LEVEL\\s+(?:READ COMMITTED|READ UNCOMMITTED|REPEATABLE READ|SERIALIZABLE)")) return new SqlShape(false, false,false);
+        if (upper.matches("SET\\s+(?:SESSION\\s+)?TRANSACTION\\s+ISOLATION\\s+LEVEL\\s+(?:READ COMMITTED|READ UNCOMMITTED|REPEATABLE READ|SERIALIZABLE)")) return new SqlShape(false, false, false);
         try {
             boolean read = parsed instanceof Select;
             if (!read && !(parsed instanceof Insert) && !(parsed instanceof Update) && !(parsed instanceof Delete)) {
@@ -471,7 +475,7 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
             Functions inspector = new Functions();
             Set<String> tables = inspector.getTables(parsed);
             if (inspector.unsupported) throw refused("Stored or unsupported SQL functions require a reviewed maintenance adapter");
-            if (tables.isEmpty()) return new SqlShape(true, read,importMutation);
+            if (tables.isEmpty()) return new SqlShape(true, read, importMutation);
             for (String table : tables) {
                 String full = table.replace("`", "").replace("\"", "").toLowerCase(Locale.ROOT);
                 if (read && full.startsWith("information_schema.")
@@ -480,15 +484,15 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
                 if (LEDGER.contains(name)) continue;
                 if (read && (AUTH_READ.contains(name) || name.equals("flyway_schema_history"))) continue;
                 if (!read && AUTH_WRITE.contains(name)) continue;
-                return new SqlShape(true, read,importMutation);
+                return new SqlShape(true, read, importMutation);
             }
-            return new SqlShape(false, read,importMutation);
+            return new SqlShape(false, read, importMutation);
         } catch (RuntimeException unsupported) {
             throw refused("SQL cannot be admitted safely by the CDS maintenance guard");
         }
     }
-    private Object guardedUnwrap(Object guarded,java.sql.Wrapper delegate,Class<?> type) throws SQLException {
-        return state==null && !type.isInstance(guarded) ? delegate.unwrap(type) : safeUnwrap(guarded,type);
+    private Object guardedUnwrap(Object guarded, java.sql.Wrapper delegate, Class<?> type) throws SQLException {
+        return state==null && !type.isInstance(guarded) ? delegate.unwrap(type) : safeUnwrap(guarded, type);
     }
     private static Object safeUnwrap(Object proxy, Class<?> type) throws SQLException {
         if (type.isInstance(proxy)) return proxy;

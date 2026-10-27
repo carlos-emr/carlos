@@ -48,6 +48,17 @@ class CdsJdbcAdmissionGuardUnitTest {
     }
 
     @Test
+    void shouldClassifyMariaDbSharedLocks_withoutChangingClinicalOrStatementBoundaries() throws Exception {
+        assertThat(CdsJdbcAdmissionGuard.clinical("select c.id from cds_import_admission c where c.id=? lock in share mode")).isFalse();
+        assertThat(CdsJdbcAdmissionGuard.clinical("select d.demographic_no from demographic d where d.demographic_no=? LOCK IN SHARE MODE;")).isTrue();
+        assertThat(CdsJdbcAdmissionGuard.clinical("select r.id from cds_import_run r join demographic d on d.demographic_no=r.expected_patients lock in share mode")).isTrue();
+        assertThatThrownBy(()->CdsJdbcAdmissionGuard.clinical("select 1; select id from cds_import_admission lock in share mode"))
+                .isInstanceOf(SQLException.class);
+        assertThatThrownBy(()->CdsJdbcAdmissionGuard.clinical("select id from cds_import_admission lock in share mode; commit"))
+                .isInstanceOf(SQLException.class);
+    }
+
+    @Test
     void shouldRefuseImplicitCommitAndRoutineEscapes_whenGuardIsInstalled() {
         for (String sql : new String[]{"truncate table demographic", "set autocommit=1", "call rewrite_chart()",
                 "select rewrite_chart() from security", "update demographic set last_name='x'; commit",

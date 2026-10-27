@@ -52,7 +52,7 @@ class CdsImportMaintenanceFilterUnitTest {
     void shouldPreserveLoginStaticAndAuthorizedImporterRoutes_duringMaintenance() throws Exception {
         CdsImportMaintenanceService service = mock(CdsImportMaintenanceService.class);
         when(service.isClinicalAccessBlocked()).thenReturn(true);
-        for (String path : new String[]{"/login", "/css/Roboto.css", "/form/importUpload", "/form/cdsImportStatus",
+        for (String path : new String[]{"/login", "/css/Roboto.css", "/form/importUpload", "/form/cdsImportStatus", "/form/cdsImportDiagnostic",
                 "/WEB-INF/jsp/demographic/demographicImport.jsp"}) {
             var request = new MockHttpServletRequest("GET", path);
             var response = new MockHttpServletResponse();

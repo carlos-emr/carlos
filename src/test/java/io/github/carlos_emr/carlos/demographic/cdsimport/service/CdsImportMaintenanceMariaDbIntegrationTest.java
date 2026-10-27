@@ -47,6 +47,8 @@ import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -64,6 +66,48 @@ import static org.assertj.core.api.Assertions.*;
 @Isolated("Physical database-wide CDS maintenance state")
 @EnabledIfSystemProperty(named = "cds.test.properties", matches = ".+")
 class CdsImportMaintenanceMariaDbIntegrationTest {
+    private record AdmissionSnapshot(boolean active,long generation,String owner,Long connection) { }
+    private static AdmissionSnapshot initialAdmission;
+    private static Properties initialJdbc;
+
+    @BeforeAll
+    static void preserveSyntheticAdmission() throws Exception {
+        initialJdbc=new Properties();
+        try(InputStream input=Files.newInputStream(Path.of(System.getProperty("cds.test.properties")))) {
+            initialJdbc.load(input);
+        }
+        assertThat(initialJdbc.getProperty("jdbcUrl","")).contains("carlos_cds_test");
+        try(var source=dataSource(initialJdbc); Connection raw=source.openUnpooledCdsMaintenanceConnection()) {
+            String lockName=new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState(raw.getCatalog()).lockName();
+            try(var query=raw.prepareStatement("SELECT IS_USED_LOCK(?)")) {
+                query.setString(1,lockName);
+                try(var rows=query.executeQuery()) { rows.next(); assertThat(rows.getObject(1)).isNull(); }
+            }
+            try(var query=raw.createStatement(); var rows=query.executeQuery("""
+                    SELECT maintenance_active,maintenance_generation,maintenance_owner_token,maintenance_connection_id
+                    FROM cds_import_admission WHERE id='clinical-maintenance'
+                    """)) {
+                assertThat(rows.next()).isTrue();
+                initialAdmission=new AdmissionSnapshot(rows.getBoolean(1),rows.getLong(2),rows.getString(3),(Long)rows.getObject(4));
+            }
+        }
+    }
+
+    @AfterAll
+    static void restoreSyntheticAdmission() throws Exception {
+        if(initialAdmission==null) return;
+        // This fixture runs in an exclusive synthetic DB window; retain any stopped CLI's
+        // pre-existing durable maintenance decision instead of silently reopening it.
+        try(var source=dataSource(initialJdbc); Connection raw=source.openUnpooledCdsMaintenanceConnection();
+                var update=raw.prepareStatement("""
+                    UPDATE cds_import_admission SET maintenance_active=?,maintenance_generation=?,
+                        maintenance_owner_token=?,maintenance_connection_id=? WHERE id='clinical-maintenance'
+                    """)) {
+            update.setBoolean(1,initialAdmission.active()); update.setLong(2,initialAdmission.generation());
+            update.setString(3,initialAdmission.owner()); update.setObject(4,initialAdmission.connection());
+            assertThat(update.executeUpdate()).isEqualTo(1);
+        }
+    }
     private Properties jdbcProperties;
     private OscarTrackingBasicDataSource nodeOne;
     private OscarTrackingBasicDataSource nodeTwo;
@@ -221,12 +265,16 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
     @Test
     void shouldRetainDurableMaintenance_whenOwnerClosesWithoutSuccessfulReopening() throws Exception {
         var previous = own(first);
+        var safety = new CdsImportTargetSafetyService(new CdsImportConfigurationService(new Properties()));
+        assertThat(second.reconcileCompletedRelease(safety))
+                .isEqualTo(CdsImportMaintenanceService.ReleaseStatus.OWNER_BUSY);
         previous.close();
         assertThat(first.isClinicalAccessBlocked()).isTrue();
         try (Connection ordinary = nodeTwo.getConnection()) {
             assertThatThrownBy(() -> update(ordinary, "must-remain-held")).isInstanceOf(SQLException.class);
         }
-        try (var recovered = own(second)) { recovered.allowReopen(); }
+        assertThat(second.reconcileCompletedRelease(safety))
+                .isEqualTo(CdsImportMaintenanceService.ReleaseStatus.RELEASED);
         assertThat(second.isClinicalAccessBlocked()).isFalse();
     }
 
@@ -245,6 +293,18 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
                 } catch (SQLException failure) { throw new IllegalStateException(failure); }
                 return null;
             });
+            var checked=new java.io.IOException("synthetic checked I/O failure");
+            assertThatThrownBy(()->owner.readIo(()->{
+                try(Connection connection=nodeOne.getConnection(); Statement query=connection.createStatement();
+                        ResultSet rows=query.executeQuery("SELECT probe_value FROM cds_guard_probe WHERE id=1")) {
+                    assertThat(rows.next()).isTrue();
+                } catch(SQLException unexpected) { throw new IllegalStateException(unexpected); }
+                throw checked;
+            })).isSameAs(checked);
+            try(Connection outside=nodeOne.getConnection(); Statement query=outside.createStatement()) {
+                assertThatThrownBy(()->query.executeQuery("SELECT probe_value FROM cds_guard_probe WHERE id=1"))
+                        .isInstanceOf(SQLException.class);
+            }
             assertThat(value()).isEqualTo("initial");
             owner.allowReopen();
         }
@@ -288,6 +348,9 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
                     """);
         }
         owner.allowReopen(); owner.close();
+        var safety = new CdsImportTargetSafetyService(new CdsImportConfigurationService(new Properties()));
+        assertThat(second.reconcileCompletedRelease(safety))
+                .isEqualTo(CdsImportMaintenanceService.ReleaseStatus.GLOBAL_HOLDS_REMAIN);
         assertThat(first.isClinicalAccessBlocked()).isTrue();
         try (Connection connection=nodeTwo.getConnection()) {
             assertThatThrownBy(()->update(connection,"held-chart-escape")).isInstanceOf(SQLException.class);
@@ -346,7 +409,7 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
 
     @Test
     void shouldRefuseLossyClientEncoding_beforeAnyNativeImportWrite() throws Exception {
-        nodeOne.setConnectionProperties("characterEncoding=ISO-8859-1;sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
+        configureLossyConnection(nodeOne);
         try (var owner=own(first); Connection connection=nodeOne.getConnection()) {
             assertThat(sessionValue(connection,"character_set_client")).isEqualTo("latin1");
             try (var marker=org.mockito.Mockito.mockStatic(CdsImportUnitService.class)) {
@@ -364,7 +427,7 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
 
     @Test
     void shouldRefuseALossyJdbcEncoder_evenWhenServerSessionVariablesClaimUtf8mb4() throws Exception {
-        nodeOne.setConnectionProperties("characterEncoding=ISO-8859-1;sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
+        configureLossyConnection(nodeOne);
         // Connector/J configures its encoder after URL sessionVariables. A pool init SQL runs
         // after that handshake and reproduces the documented SET NAMES/JDBC encoder mismatch.
         nodeOne.setConnectionInitSqls(java.util.List.of("SET NAMES utf8mb4"));
@@ -448,7 +511,7 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
     @Test
     void shouldRefuseLossyMetadataEncoding_beforePreparedValuesCanBeBoundWithoutMaintenance() throws Exception {
         try(var planning=dataSource(jdbcProperties)) {
-            planning.setConnectionProperties("characterEncoding=ISO-8859-1;sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
+            configureLossyConnection(planning);
             new CdsJdbcAdmissionInitializer(planning,false,"off").initialize();
             assertThat(planning.getCdsAdmissionState()).isNull();
             try(Connection connection=planning.getConnection()) {
@@ -518,6 +581,26 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
             statement.setString(1, value); assertThat(statement.executeUpdate()).isEqualTo(1);
         }
     }
+    private static void configureLossyConnection(OscarTrackingBasicDataSource source) throws SQLException {
+        String configured=source.getUrl(); int query=configured.indexOf('?');
+        String base=query<0?configured:configured.substring(0,query);
+        var parameters=new java.util.ArrayList<String>();
+        if(query>=0) for(String parameter:configured.substring(query+1).split("&")) {
+            String key=java.net.URLDecoder.decode(parameter.split("=",2)[0],java.nio.charset.StandardCharsets.UTF_8);
+            if(!java.util.Set.of("characterencoding","connectioncollation","sessionvariables","jdbccomplianttruncation")
+                    .contains(key.toLowerCase(java.util.Locale.ROOT))) parameters.add(parameter);
+        }
+        parameters.add("characterEncoding=ISO-8859-1"); parameters.add("connectionCollation=latin1_swedish_ci");
+        parameters.add("jdbcCompliantTruncation=false");
+        source.setUrl(base+"?"+String.join("&",parameters));
+        source.setConnectionProperties("sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
+        try(Connection raw=source.openUnpooledCdsMaintenanceConnection()) {
+            String encoder=raw.unwrap(com.mysql.cj.jdbc.JdbcConnection.class).getPropertySet()
+                    .getStringProperty(com.mysql.cj.conf.PropertyKey.characterEncoding).getValue();
+            assertThat(java.nio.charset.Charset.forName(encoder)).isEqualTo(java.nio.charset.StandardCharsets.ISO_8859_1);
+        }
+    }
+
     private static OscarTrackingBasicDataSource dataSource(Properties jdbc) {
         var source = new OscarTrackingBasicDataSource();
         source.setDriverClassName("com.mysql.cj.jdbc.Driver");
