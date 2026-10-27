@@ -121,6 +121,7 @@ public class AddPrevention2Action extends ActionSupport {
         String id = request.getParameter("id");
         if ("null".equals(id) || "".equals(id)) id = null;
         String delete = request.getParameter("delete");
+        boolean deleting = delete != null;
 
         String action = request.getParameter("action");
 
@@ -139,7 +140,9 @@ public class AddPrevention2Action extends ActionSupport {
         //generic
         String snomedId = request.getParameter("snomedId");
 
-        if (prevDate == null || prevDate.isBlank()) {
+        // RH's Delete Injection form posts only the record and patient ids. Date/type are
+        // creation and edit fields; deletion still validates the existing record's chart below.
+        if (!deleting && (prevDate == null || prevDate.isBlank())) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
@@ -245,7 +248,7 @@ public class AddPrevention2Action extends ActionSupport {
         }
 
         //let's do some validation
-        List<String> valid = validate(preventionType, demographic_no, id, delete != null);
+        List<String> valid = validate(preventionType, demographic_no, id, deleting);
         if (valid != null && valid.size() > 0) {
             closeClaim(claim);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -265,7 +268,7 @@ public class AddPrevention2Action extends ActionSupport {
                 if (recordId == null) {
                     return PreventionData.insertPreventionData(sessionUser, demographic_no, prevDate,
                             providerNo, providerName, preventionType, refusedFlag, nextDate, neverWarnFlag, extraData, snomedId, null);
-                } else if (delete != null) {
+                } else if (deleting) {
                     PreventionData.deletePreventionData(recordId, demographic_no);
                     return Integer.valueOf(recordId);
                 }
@@ -394,16 +397,14 @@ public class AddPrevention2Action extends ActionSupport {
     private List<String> validate(String preventionType, String demographic_no, String id, boolean deleting) {
         List<String> result = new ArrayList<String>();
 
-        // A delete names the record it removes. Without an id the save below would take the
-        // insert branch and create a prevention instead of deleting one.
-        if (deleting && id == null) {
-            result.add("Missing prevention record");
-        }
-
-        PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
-        HashMap<String, String> prevention = pdc.getPrevention(preventionType);
-        if (prevention == null && !RH_INJECTION_TYPE.equals(preventionType)) {
-            result.add("Invalid Prevention Type");
+        if (deleting) {
+            if (id == null) result.add("Missing prevention record");
+        } else {
+            PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
+            HashMap<String, String> prevention = pdc.getPrevention(preventionType);
+            if (prevention == null && !RH_INJECTION_TYPE.equals(preventionType)) {
+                result.add("Invalid Prevention Type");
+            }
         }
 
         try {

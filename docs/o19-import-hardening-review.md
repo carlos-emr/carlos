@@ -20,6 +20,8 @@ after copying. History checks alone cannot detect an altered index or column.
   Session-setting checks scan complete statements before restore, with bounded
   metadata tokens and explicit rejection of oversized SQL-mode literals that
   could conceal a change to quoting rules.
+  Quoting-mode aliases, numeric bitmasks and dynamic mode expressions are refused;
+  ordinary dump headers and footers use a checked capture of the session mode.
 - Block notes marked locked. An unlocked note with a placeholder password no
   longer blocks; a locked note stays protected even if its password is `NULL`
   or the literal string `NULL`, which can be a real password.
@@ -93,7 +95,7 @@ rehearsal; those local Debian binaries predate the final review changes.
 
 | Check | Result |
 |---|---|
-| CLI suite | 1,705 tests passed with current application contracts and MariaDB 11.8.9, no skips; standalone fixture suite also passed |
+| CLI suite | 1,707 tests passed with current application contracts and MariaDB 11.8.9, no skips; standalone fixture suite also passed |
 | Installed CLI regressions | 42 tests, one optional source-checkout check skipped; restore, ETL, schema and cleanup cases passed |
 | Application manifest/generator suite | 257 tests passed |
 | Real MariaDB collation/index migration cases | 6 passed, including composite-key transitions, collision guards, complete-definition repair and constraint preservation |
