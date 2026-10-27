@@ -147,7 +147,7 @@ function createCdsMetadataProver({frame, config, sql, readApi}) {
             'Completed native units are missing their committed/replayed receipts');
         }
         const report = await readApi(frame, 'cdsImportReport', {runId:job.id,type:'receipt'});
-        h.assert(report.status === 200 && report.body?.cleanComplete === true
+        h.assert(report.status === 200 && report.body?.runId === job.id && report.body.cleanComplete === true
           && report.body.dryRun === summary.dryRun && report.body.clinicalComplete === summary.clinicalComplete
           && report.body.sourceDigest === job.sourceDigest && report.body.optionsDigest === job.optionsDigest
           && report.body.manifestDigest === job.manifestDigest && report.body.rulesetDigest === job.rulesetDigest,

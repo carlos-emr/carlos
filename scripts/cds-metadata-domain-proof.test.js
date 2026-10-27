@@ -19,7 +19,7 @@ function fixture({dry=true,mode=dry?'1':'0',summaryChanges={},checkpoints=0,adva
     throw Error('Unexpected evidence query');
   }};
   const readApi=async(_frame,route)=>route==='cdsImportStatus'?{status:200,body:{ok:true,job,summary}}
-    :{status:200,body:{...summary,sourceDigest:job.sourceDigest,optionsDigest:job.optionsDigest,manifestDigest:job.manifestDigest,rulesetDigest:job.rulesetDigest,...reportChanges}};
+    :{status:200,body:{...summary,runId:job.id,sourceDigest:job.sourceDigest,optionsDigest:job.optionsDigest,manifestDigest:job.manifestDigest,rulesetDigest:job.rulesetDigest,...reportChanges}};
   return{prover:createCdsMetadataProver({frame,sql,config:{testUser:'synthetic'},readApi}),receipt:{owner,runId:id,cleanComplete:true,sourceDigest:job.sourceDigest,optionsDigest:job.optionsDigest,rulesetDigest:job.rulesetDigest}};
 }
 test('clean dry run proves zero native writes and protected reports without claiming clinical completion',async()=>{
@@ -39,6 +39,9 @@ test('execution completion requires independently committed units, native patien
  const{prover,receipt}=fixture({dry:false});const proof=await prover(receipt);assert.equal(proof.nativeVerified,true);assert.equal(proof.reportsVerified,true);
  const bad=fixture({dry:false,reportChanges:{rulesetDigest:'e'.repeat(64)}});await assert.rejects(bad.prover(bad.receipt),/Protected completion receipt differs/);
  const empty=fixture({dry:false,summaryChanges:{expectedPatients:0}});await assert.rejects(empty.prover(empty.receipt),/no proven source patients/);
+ for(const runId of [undefined,'22222222-2222-4222-8222-222222222222']){
+  const wrong=fixture({dry:false,reportChanges:{runId}});await assert.rejects(wrong.prover(wrong.receipt),/Protected completion receipt differs/);
+ }
 });
 
 test('metadata pages bind exact cursor and immutable diagnostic identities while permitting resolution',async()=>{
