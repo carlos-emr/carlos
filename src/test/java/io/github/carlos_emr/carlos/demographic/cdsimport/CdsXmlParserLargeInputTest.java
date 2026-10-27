@@ -59,6 +59,11 @@ class CdsXmlParserLargeInputTest {
         probe("index", "BOUNDED_INDEX_OK");
     }
 
+    @Test
+    void shouldRefuseOversizedLexicalMarkupBoundedly_whenCommentsPiOrAttributesExceedHeap() throws Exception {
+        probe("markup", "BOUNDED_MARKUP_OK");
+    }
+
     private void probe(String mode,String success) throws Exception {
         String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
         String classpath = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
@@ -79,6 +84,7 @@ class CdsXmlParserLargeInputTest {
             String fixture = CdsXmlParserUnitTest.fixture();
             if(args.length>1 && args[1].equals("diagnostics")) { diagnostics(directory,source,fixture);return; }
             if(args.length>1 && args[1].equals("index")) { descriptorIndex(directory,source,fixture);return; }
+            if(args.length>1 && args[1].equals("markup")) { markup(directory,source,fixture);return; }
             String start = fixture.substring(0, fixture.indexOf("</PatientRecord>"));
             long binaryBytes = 96L << 20;
             try (BufferedWriter xml = Files.newBufferedWriter(source, StandardCharsets.UTF_8)) {
@@ -96,6 +102,27 @@ class CdsXmlParserLargeInputTest {
             var parsed = new CdsXmlParser().parse(source, directory.resolve("spool"), CdsInputLimitsDto.defaults(), () -> false, record -> { });
             if (parsed.records() != 6 || parsed.decodedBinaryBytes() != binaryBytes) throw new AssertionError("Incorrect complete output");
             System.out.println("BOUNDED_CDS_OK sourceBytes=" + Files.size(source) + " heap=" + heap + " decoded=" + parsed.decodedBinaryBytes());
+        }
+
+        private static void markup(Path directory, Path source, String fixture) throws Exception {
+            int afterDeclaration=fixture.indexOf("?>")+2;
+            for (String kind:new String[]{"comment","processing-instruction","attribute"}) {
+                try (BufferedWriter xml=Files.newBufferedWriter(source,StandardCharsets.UTF_8)) {
+                    xml.write(fixture.substring(0,afterDeclaration));
+                    xml.write(switch(kind) {case "comment"->"<!--";case "processing-instruction"->"<?operator ";default->"<OmdCds invalid='";});
+                    String block="x".repeat(65536);for(int i=0;i<2048;i++)xml.write(block);
+                    xml.write(switch(kind) {case "comment"->"-->";case "processing-instruction"->"?>";default->"'/>";});
+                    if(!kind.equals("attribute"))xml.write(fixture.substring(afterDeclaration));
+                }
+                Path spool=directory.resolve("spool-"+kind);
+                try {new CdsXmlParser().parse(source,spool,CdsInputLimitsDto.defaults(),()->false,record->{ });
+                    throw new AssertionError("Oversized lexical markup unexpectedly sealed");
+                } catch(CdsInputException invalid) {if(!invalid.code().equals("CDS_XML_MARKUP_LIMIT"))throw invalid;}
+                if(Files.exists(spool.resolve("parse.seal")) || Files.size(source)<=Runtime.getRuntime().maxMemory()) {
+                    throw new AssertionError("Markup resource refusal lost source evidence or did not exceed heap");
+                }
+            }
+            System.out.println("BOUNDED_MARKUP_OK heap="+Runtime.getRuntime().maxMemory());
         }
 
         private static void descriptorIndex(Path directory, Path source, String fixture) throws Exception {

@@ -127,6 +127,52 @@ class CdsSnapshotServiceUnitTest {
         assertThrows(Exception.class,()->service.snapshot(link,source,durable,"link",LIMITS,()->false)); assertTrue(Files.exists(xml));
     }
 
+    @Test void shouldDiscoverCdsMembersWithoutXmlSuffix_whileRetainingNonCdsAndBinaryAncillaryFiles() throws Exception {
+        Path source=Files.createDirectory(temp.resolve("source")), archive=source.resolve("patients.zip");
+        String patient="<OmdCds xmlns='cds'><PatientRecord/></OmdCds>";
+        zip(archive,new String[]{"Patient_First_uid_01011970","another.dat","cda.dat","audit","report.pdf","root-after-budget"},
+                new String[]{patient,patient,"<ClinicalDocument xmlns='urn:hl7-org:v3'/>","<audit/>","%PDF binary"," ".repeat(100_000)+patient});
+        var snapshot=service.snapshot(archive,source,Files.createDirectory(temp.resolve("durable")),"accepted",LIMITS,()->false);
+        assertEquals(6,snapshot.files());assertEquals(3,snapshot.patientXmlFiles());
+        List<CdsSnapshotFileDto> patients=new ArrayList<>();service.forEachXml(snapshot,patients::add);
+        assertTrue(patients.stream().noneMatch(file->List.of("cda.dat","audit","report.pdf").contains(file.relativeName())));
+        assertEquals(snapshot.sha256(),service.load(snapshot.root()).sha256());
+    }
+
+    @Test void shouldAcceptBareCdsInstanceWithoutSuffix_asPermittedByTheOfficialFilenameContract() throws Exception {
+        Path source=Files.createDirectory(temp.resolve("source")), file=source.resolve("Patient_First_uid_04031971");
+        Files.writeString(file,CdsXmlParserUnitTest.fixture());
+        var snapshot=service.snapshot(file,source,Files.createDirectory(temp.resolve("durable")),"accepted",LIMITS,()->false);
+        assertEquals(1,snapshot.files());assertEquals(1,snapshot.patientXmlFiles());assertTrue(Files.exists(file));
+    }
+
+    @Test void shouldKeepXmlLookingUnresolvedMembersVisible_whenRootExceedsTheSniffBudget() throws Exception {
+        Path source=Files.createDirectory(temp.resolve("source")), file=source.resolve("patient-data");
+        Files.writeString(file,"<!--"+"x".repeat(100_000)+"-->"+CdsXmlParserUnitTest.fixture().replaceFirst("<\\?xml[^>]*>",""));
+        var snapshot=service.snapshot(source,source,Files.createDirectory(temp.resolve("durable")),"accepted",LIMITS,()->false);
+        assertEquals(1,snapshot.patientXmlFiles());
+        var candidates=new ArrayList<CdsSnapshotFileDto>();service.forEachXml(snapshot,candidates::add);
+        Path spool=Files.createDirectory(temp.resolve("spools")).resolve("parsed");
+        var invalid=assertThrows(CdsInputException.class,()->new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsXmlParser()
+                .parse(candidates.get(0).path(),spool,LIMITS,()->false,record->{ }));
+        assertEquals("CDS_XML_MARKUP_LIMIT",invalid.code());assertFalse(Files.exists(spool.resolve("parse.seal")));assertTrue(Files.exists(file));
+    }
+
+    @Test void shouldDetectSupportedUnicodeXmlTransportsWithoutFilenameHints() throws Exception {
+        Path source=Files.createDirectory(temp.resolve("source"));
+        String patient="<OmdCds xmlns='cds'><PatientRecord/></OmdCds>";
+        String[] encodings={"UTF-8","UTF-16BE","UTF-16LE","UTF-32BE","UTF-32LE"};
+        byte[][] marks={{(byte)239,(byte)187,(byte)191},{(byte)254,(byte)255},{(byte)255,(byte)254},{0,0,(byte)254,(byte)255},{(byte)255,(byte)254,0,0}};
+        for(int i=0;i<encodings.length;i++) {
+            byte[] body=patient.getBytes(java.nio.charset.Charset.forName(encodings[i]));
+            Files.write(source.resolve(encodings[i]+"-plain"),body);
+            byte[] withMark=new byte[marks[i].length+body.length];System.arraycopy(marks[i],0,withMark,0,marks[i].length);
+            System.arraycopy(body,0,withMark,marks[i].length,body.length);Files.write(source.resolve(encodings[i]+"-marked"),withMark);
+        }
+        var snapshot=service.snapshot(source,source,Files.createDirectory(temp.resolve("durable")),"accepted",LIMITS,()->false);
+        assertEquals(10,snapshot.patientXmlFiles());assertEquals(10,snapshot.files());
+    }
+
     private static void zip(Path path,String[] names,String[] contents) throws Exception {
         try(OutputStream raw=Files.newOutputStream(path);ZipOutputStream zip=new ZipOutputStream(raw,StandardCharsets.UTF_8)) {
             for(int i=0;i<names.length;i++) {zip.putNextEntry(new ZipEntry(names[i]));zip.write(contents[i].getBytes(StandardCharsets.UTF_8));zip.closeEntry();}

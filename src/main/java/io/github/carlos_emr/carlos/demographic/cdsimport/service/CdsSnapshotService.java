@@ -132,13 +132,13 @@ public class CdsSnapshotService {
                     }
                 }
                 CdsZipDirectory.validate(archive, index, pending, limits.maxEntries(), zipEntries);
-            } else if (source.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".xml")) {
-                try (InputStream bytes = openSource(source, allowedSourceRoot)) {
-                    inventory.copy(source.getFileName().toString(), bytes, true);
-                }
-                copyReferencedFiles(source, inventory);
             } else {
-                throw CdsPaths.failure("CDS_SOURCE_SHAPE_UNSUPPORTED");
+                boolean declaredXml=source.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".xml");
+                try (InputStream bytes=openSource(source, allowedSourceRoot)) {
+                    inventory.copy(source.getFileName().toString(), bytes, declaredXml);
+                }
+                if (inventory.xmls==0) throw CdsPaths.failure("CDS_SOURCE_SHAPE_UNSUPPORTED");
+                copyReferencedFiles(source, inventory);
             }
             if (inventory.xmls == 0) throw CdsPaths.failure("CDS_NO_PATIENT_XML");
             inventory.finish();
@@ -355,7 +355,15 @@ public class CdsSnapshotService {
 
     private static boolean patientCandidate(Path source, CdsInputLimitsDto limits) throws IOException {
         boolean[] candidate = {true};
-        try (InputStream input = Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
+        try (InputStream raw=Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
+                InputStream input=new java.io.FilterInputStream(raw) {
+                    long remaining=65536;
+                    @Override public int read() throws IOException {if (remaining==0) return -1; int value=in.read();if (value>=0)remaining--;return value;}
+                    @Override public int read(byte[] bytes,int offset,int length) throws IOException {
+                        if (length==0)return 0;if (remaining==0)return -1;
+                        int n=in.read(bytes,offset,(int)Math.min(length,remaining));if(n>0)remaining-=n;return n;
+                    }
+                };
                 Reader text = CdsXmlText.reader(input, limits.maxBoundedScalarCharacters())) {
             var reader = CdsXmlParser.xmlReader();
             reader.setContentHandler(new DefaultHandler() {
@@ -373,6 +381,8 @@ public class CdsSnapshotService {
             catch (SAXException malformed) { return true; }
         } catch (javax.xml.parsers.ParserConfigurationException | SAXException configuration) {
             throw CdsPaths.failure("CDS_SECURE_XML_PARSER_UNAVAILABLE");
+        } catch (IOException unresolved) {
+            return true;
         }
         return true;
     }
@@ -564,6 +574,7 @@ public class CdsSnapshotService {
             Path destination = members.resolve(member);
             MessageDigest bytesDigest = CdsPaths.sha256();
             CRC32 crc = new CRC32();
+            CdsXmlText.Signature signature=new CdsXmlText.Signature();
             long size = 0;
             try (OutputStream target = new BufferedOutputStream(CdsPaths.newPrivateFile(destination, pending), BUFFER)) {
                 byte[] buffer = new byte[BUFFER];
@@ -578,16 +589,17 @@ public class CdsSnapshotService {
                     if (archiveInput != null && total / (double) Math.max(1, archiveInput.count) > limits.maxCompressionRatio()) {
                         throw CdsPaths.failure("CDS_ZIP_COMPRESSION_RATIO_LIMIT");
                     }
+                    signature.accept(buffer, 0, n);
                     bytesDigest.update(buffer, 0, n); crc.update(buffer, 0, n); target.write(buffer, 0, n);
                 }
             }
             CdsPaths.forceFile(destination);
             boolean xmlName = relative.toLowerCase(Locale.ROOT).endsWith(".xml");
-            boolean xml = sourceRole == 1 || sourceRole == 0 && xmlName && patientCandidate(destination, limits);
+            boolean xml = sourceRole == 1 || sourceRole == 0 && (xmlName || signature.xml()) && patientCandidate(destination, limits);
             ObjectNode node = JSON.createObjectNode().put("relativeName", relative).put("member", member)
                     .put("sha256", CdsPaths.hex(bytesDigest.digest())).put("length", size).put("patientXml", xml);
             node.put("crc32", crc.getValue());
-            node.put("sourceRole", xml ? "patient-xml-candidate" : xmlName ? "ancillary-xml" : "ancillary");
+            node.put("sourceRole", xml ? "patient-xml-candidate" : xmlName || signature.xml() ? "ancillary-xml" : "ancillary");
             reserve(relative, node);
             byte[] row = JSON.writeValueAsBytes(node);
             output.write(row); output.write('\n'); manifestDigest.update(row); manifestDigest.update((byte) '\n');
