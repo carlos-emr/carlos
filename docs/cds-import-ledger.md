@@ -129,7 +129,15 @@ indexed `resume_requested` projection and audited `RESUME_REQUESTED` event. An a
 state such as `RUNNING`, its cancellation and epoch stay unchanged while ownership is busy; the
 request remains durable even if the in-memory queue is full. Neither that state nor a heartbeat
 proves that a worker died. Only a successor holding both physical coordinator and maintenance
-ownership may consume the exact latest request, clear an older cancellation and advance its epoch.
+ownership may clear an older cancellation and advance its preparation epoch. Preparation retains
+the indexed request and its original audited event. `RESUME_INTENT_APPLIED` consumes that request
+atomically with entering `PLANNING`/`SEALING` or `RUNNING` and resetting report/cleanup to `PENDING`.
+Both physical owners and the latest Cancel/review restrictions are rechecked under the run lock.
+
+A process loss after preparation remains discoverable through the queued bit; after phase commit,
+the active phase drives recovery. A configured worker restart requires neither a new Resume nor
+a surviving local queue to rediscover this work. Old delivered report/cleanup acknowledgements
+cannot certify the new attempt.
 
 A later Cancel clears the pending projection and remains authoritative. Definitive authorization
 or fingerprint refusal retires only the observed request through a versioned comparison; newer
