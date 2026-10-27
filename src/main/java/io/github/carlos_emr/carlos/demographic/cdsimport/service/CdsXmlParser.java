@@ -260,7 +260,7 @@ public class CdsXmlParser {
                 }
             });
             validator.setErrorHandler(new DefaultHandler() {
-                @Override public void warning(SAXParseException warning) throws SAXException {schemaDiagnostic(warning,false);}
+                @Override public void warning(SAXParseException warning) throws SAXException {schemaDiagnostic(warning, false); }
                 @Override public void error(SAXParseException failure) throws SAXException { schemaError(failure); }
                 @Override public void fatalError(SAXParseException failure) throws SAXException { schemaError(failure); throw failure; }
             });
@@ -432,16 +432,16 @@ public class CdsXmlParser {
         @Override public void error(SAXParseException failure) throws SAXException { schemaError(failure); }
         @Override public void fatalError(SAXParseException failure) throws SAXException { schemaError(failure); throw failure; }
 
-        private void schemaError(SAXParseException failure) throws SAXException {schemaDiagnostic(failure,true);}
+        private void schemaError(SAXParseException failure) throws SAXException {schemaDiagnostic(failure, true); }
 
-        @Override public void warning(SAXParseException warning) throws SAXException {schemaDiagnostic(warning,false);}
+        @Override public void warning(SAXParseException warning) throws SAXException {schemaDiagnostic(warning, false); }
 
-        private void schemaDiagnostic(SAXParseException failure,boolean error) throws SAXException {
-            if(error)schemaErrors++;else schemaWarnings++;
+        private void schemaDiagnostic(SAXParseException failure, boolean error) throws SAXException {
+            if (error)schemaErrors++; else schemaWarnings++;
             String detail = failure.getMessage();
             if (detail != null && detail.length() > 4096) detail = detail.substring(0, 4096);
             ObjectNode row = JSON.createObjectNode().put("code", error?"CDS_XML_SCHEMA_INVALID":"CDS_XML_SCHEMA_WARNING")
-                    .put("severity",error?"ERROR":"WARNING").put("blocking",error)
+                    .put("severity", error?"ERROR":"WARNING").put("blocking", error)
                     .put("sourceXPath", xpath()).put("line", failure.getLineNumber())
                     .put("column", failure.getColumnNumber()).put("protectedDetailPreview", detail)
                     .put("detailPreviewLimited", failure.getMessage() != null && failure.getMessage().length() > 4096);
@@ -507,7 +507,7 @@ public class CdsXmlParser {
             if (cancelled.getAsBoolean() || Thread.currentThread().isInterrupted()) fail("CDS_INPUT_CANCELLED");
             try (OutputStream seal = CdsPaths.newPrivateFile(spool.resolve("parse.seal"), spool)) {
                 ObjectNode proof=JSON.createObjectNode().put("version", 2).put("sourceSha256", sourceSha256).put("sourceBytes", sourceBytes)
-                        .put("schemaWarnings",schemaWarnings)
+                        .put("schemaWarnings", schemaWarnings)
                         .put("correctionsSha256", corrections==null ? "" : corrections.sha256())
                         .put("records", records).put("fields", fields).put("valuesBytes", valueOutput.count).put("valuesSha256", valuesSha256)
                         .put("fieldsSha256", CdsPaths.hex(fieldOutput.digest.digest()))

@@ -307,17 +307,17 @@ public class CdsImportLedgerService {
     /** Administrative fencing precedes window acquisition; this does not grant a clinical write capability. */
     public long claimPreparation(String runId) {
         return write(() -> { CdsImportAdmission gate=admission.lock("global");
-            if(gate==null) throw new CdsImportException("IMPORT_SCHEMA_NOT_READY");
-            if(gate.getOwnerRunId()!=null && !runId.equals(gate.getOwnerRunId())) throw new CdsImportException("IMPORT_BUSY");
-            CdsImportRun run=requiredRun(runId,true); if(run.getOwnerEpoch()==Long.MAX_VALUE) throw new CdsImportException("OWNER_EPOCH_EXHAUSTED");
-            gate.setOwnerRunId(runId);run.setOwnerEpoch(run.getOwnerEpoch()+1);touch(run);event(run,null,"PREPARATION_OWNER_ACQUIRED");return run.getOwnerEpoch(); });
+            if (gate==null) throw new CdsImportException("IMPORT_SCHEMA_NOT_READY");
+            if (gate.getOwnerRunId()!=null && !runId.equals(gate.getOwnerRunId())) throw new CdsImportException("IMPORT_BUSY");
+            CdsImportRun run=requiredRun(runId, true); if (run.getOwnerEpoch()==Long.MAX_VALUE) throw new CdsImportException("OWNER_EPOCH_EXHAUSTED");
+            gate.setOwnerRunId(runId); run.setOwnerEpoch(run.getOwnerEpoch()+1); touch(run); event(run, null, "PREPARATION_OWNER_ACQUIRED"); return run.getOwnerEpoch(); });
     }
-    public boolean ownsAdmission(String runId,long epoch) {
-        return write(() -> { CdsImportAdmission gate=admission.get("global");CdsImportRun run=requiredRun(runId,false);return gate!=null && runId.equals(gate.getOwnerRunId()) && run.getOwnerEpoch()==epoch; });
+    public boolean ownsAdmission(String runId, long epoch) {
+        return write(() -> { CdsImportAdmission gate=admission.get("global"); CdsImportRun run=requiredRun(runId, false); return gate!=null && runId.equals(gate.getOwnerRunId()) && run.getOwnerEpoch()==epoch; });
     }
-    public void preparationStopped(String runId,long epoch,String code,String evidence) {
-        stoppedOperationally(runId,epoch,code,"PREPARATION","Import preparation stopped; retained work requires authorized recovery");
-        if(evidence!=null) write(() -> { lockOperational(runId,epoch);addDiagnostic(runId,null,null,"INFO","IMPORT_FAILURE_EVIDENCE","OBSERVABILITY",null,"Protected bounded failure evidence is available",evidence,false);return null; });
+    public void preparationStopped(String runId, long epoch, String code, String evidence) {
+        stoppedOperationally(runId, epoch, code, "PREPARATION", "Import preparation stopped; retained work requires authorized recovery");
+        if (evidence!=null) write(() -> { lockOperational(runId, epoch); addDiagnostic(runId, null, null, "INFO", "IMPORT_FAILURE_EVIDENCE", "OBSERVABILITY", null, "Protected bounded failure evidence is available", evidence, false); return null; });
     }
 
     /** Claim preflight without allowing clinical units; all native writes still require the final seal. */
@@ -771,13 +771,13 @@ public class CdsImportLedgerService {
     public List<CdsImportJobDto> pending(String afterId, int limit) {
         CdsImportKeys.pageSize(limit);
         return write(() -> {
-            List<CdsImportJobDto> page=new ArrayList<>(runs.pending(afterId==null?"":afterId,limit).stream().map(CdsImportLedgerService::dto).toList());
-            if(afterId==null || afterId.isEmpty()) {
+            List<CdsImportJobDto> page=new ArrayList<>(runs.pending(afterId==null?"":afterId, limit).stream().map(CdsImportLedgerService::dto).toList());
+            if (afterId==null || afterId.isEmpty()) {
                 CdsImportAdmission gate=admission.get("global");
-                if(gate!=null && gate.getOwnerRunId()!=null && page.stream().noneMatch(job -> gate.getOwnerRunId().equals(job.id()))) {
+                if (gate!=null && gate.getOwnerRunId()!=null && page.stream().noneMatch(job -> gate.getOwnerRunId().equals(job.id()))) {
                     CdsImportRun owner=runs.get(gate.getOwnerRunId());
-                    if(owner!=null && Set.of("ACCEPTED","CLI_ACCEPTED","RESUME_REQUESTED","DISCOVERING","VALIDATING","PREFLIGHT","PREFLIGHTING","PLANNING","SEALING","READY","RUNNING","FINALIZING").contains(owner.getState())) {
-                        if(page.size()==limit) page.remove(page.size()-1);page.add(0,dto(owner));
+                    if (owner!=null && Set.of("ACCEPTED", "CLI_ACCEPTED", "RESUME_REQUESTED", "DISCOVERING", "VALIDATING", "PREFLIGHT", "PREFLIGHTING", "PLANNING", "SEALING", "READY", "RUNNING", "FINALIZING").contains(owner.getState())) {
+                        if (page.size()==limit) page.remove(page.size()-1); page.add(0, dto(owner));
                     }
                 }
             }
@@ -830,10 +830,10 @@ public class CdsImportLedgerService {
         CdsImportKeys.pageSize(limit);
         return write(() -> units.page(runId, patientKey, afterUnitKey==null?"":afterUnitKey, limit).stream().map(CdsImportLedgerService::dto).toList());
     }
-    public CdsImportDiagnosticDto diagnosticStatus(String runId,long id) {
-        if(id<1) throw new IllegalArgumentException("DIAGNOSTIC_ID_INVALID");
-        return write(() -> {CdsImportDiagnostic d=diagnostics.get(id);if(d==null || !runId.equals(d.getRunId())) throw new CdsImportException("DIAGNOSTIC_NOT_FOUND");
-            return new CdsImportDiagnosticDto(d.getId(),d.getPatientKey(),d.getUnitKey(),d.getSeverity(),d.getCode(),d.getStage(),d.getSourcePath(),d.getSafeSummary(),d.getProtectedDetailLocation(),d.isBlocking(),d.isResolved(),d.getCreatedAt());});
+    public CdsImportDiagnosticDto diagnosticStatus(String runId, long id) {
+        if (id<1) throw new IllegalArgumentException("DIAGNOSTIC_ID_INVALID");
+        return write(() -> {CdsImportDiagnostic d=diagnostics.get(id); if (d==null || !runId.equals(d.getRunId())) throw new CdsImportException("DIAGNOSTIC_NOT_FOUND");
+            return new CdsImportDiagnosticDto(d.getId(), d.getPatientKey(), d.getUnitKey(), d.getSeverity(), d.getCode(), d.getStage(), d.getSourcePath(), d.getSafeSummary(), d.getProtectedDetailLocation(), d.isBlocking(), d.isResolved(), d.getCreatedAt()); });
     }
 
     public List<CdsImportDiagnosticDto> diagnostics(String runId, long afterId, int limit) {
@@ -975,15 +975,15 @@ public class CdsImportLedgerService {
         while (true) {
             final String cursor=after;
             List<String> page=write(() -> { CdsImportRun run=lockOperational(runId, epoch); List<CdsImportPatient> values=patients.page(runId, cursor, 200);
-                for (CdsImportPatient p:values) if (!COMPLETE_PATIENT.contains(p.getState()) && !Set.of("REFUSED","RECONCILIATION_REQUIRED").contains(p.getState())) p.setState(p.isHeld()?"PARTIAL_COMMITTED":"NOT_STARTED");
+                for (CdsImportPatient p:values) if (!COMPLETE_PATIENT.contains(p.getState()) && !Set.of("REFUSED", "RECONCILIATION_REQUIRED").contains(p.getState())) p.setState(p.isHeld()?"PARTIAL_COMMITTED":"NOT_STARTED");
                 touch(run); return values.stream().map(CdsImportPatient::getPatientKey).toList(); });
             if (page.isEmpty()) break; after=page.get(page.size()-1);
         }
         write(() -> { CdsImportAdmission gate=admission.lock("global"); CdsImportRun run=lockOperational(runId, epoch);
             boolean held=patients.heldForRun(runId)>0; long committed=units.countState(runId, null, "COMMITTED")+units.countState(runId, null, "ALREADY_COMPLETE");
-            boolean uncertain=patients.outcomes(runId,17).stream().anyMatch(row -> "RECONCILIATION_REQUIRED".equals(row[0]));
+            boolean uncertain=patients.outcomes(runId, 17).stream().anyMatch(row -> "RECONCILIATION_REQUIRED".equals(row[0]));
             run.setState(held || uncertain?"RECONCILIATION_REQUIRED":committed>0?"INCOMPLETE":"FAILED_BEFORE_WRITE"); run.setSafeErrorCode(code); touch(run);
-            addDiagnostic(runId, null, null, "ERROR", code, Set.of("SUPERVISION","PREPARATION").contains(stage) && run.getExecutionDigest()==null?"PREFLIGHT_STOP":stage, null, summary, null, true);
+            addDiagnostic(runId, null, null, "ERROR", code, Set.of("SUPERVISION", "PREPARATION").contains(stage) && run.getExecutionDigest()==null?"PREFLIGHT_STOP":stage, null, summary, null, true);
             event(run, null, code); if (gate!=null && runId.equals(gate.getOwnerRunId())) gate.setOwnerRunId(null); return null; });
     }
 
@@ -1114,10 +1114,10 @@ public class CdsImportLedgerService {
     }
 
     /** Participant guard for rebuilding an identical staging decision, never a clinical checkpoint. */
-    public void requireExpectedCheckpointFree(String runId,long epoch,String unitKey) {
-        if(!TransactionSynchronizationManager.isActualTransactionActive()) throw new CdsImportException("PREPARATION_REPAIR_REQUIRES_TRANSACTION");
-        lockOwned(runId,epoch);CdsImportUnit candidate=unit(runId,unitKey);CdsImportUnit locked=units.lock(candidate.getId());
-        if(!"EXPECTED".equals(locked.getState()) || checkpoints.lock(unitKey)!=null) throw new CdsImportException("COMMITTED_PREPARATION_REPAIR_REFUSED");
+    public void requireExpectedCheckpointFree(String runId, long epoch, String unitKey) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CdsImportException("PREPARATION_REPAIR_REQUIRES_TRANSACTION");
+        lockOwned(runId, epoch); CdsImportUnit candidate=unit(runId, unitKey); CdsImportUnit locked=units.lock(candidate.getId());
+        if (!"EXPECTED".equals(locked.getState()) || checkpoints.lock(unitKey)!=null) throw new CdsImportException("COMMITTED_PREPARATION_REPAIR_REFUSED");
     }
 
     CdsImportRun lockOwned(String runId, long epoch) {

@@ -52,122 +52,122 @@ import org.springframework.transaction.annotation.Transactional;
 /** Prepares fixed source relations outside the unit and writes only new patient-scoped associations. */
 @Service
 public class CdsDemographicRelationsService {
-    private static final Map<String,Integer> SCALARS=Map.ofEntries(
-            Map.entry("FamilyPhysician/FirstName",50),Map.entry("FamilyPhysician/LastName",50),
-            Map.entry("ReferredPhysician/FirstName",50),Map.entry("ReferredPhysician/LastName",50),
-            Map.entry("PreferredPharmacy/Name",255),Map.entry("PreferredPharmacy/Address/Formatted",255),
-            Map.entry("PreferredPharmacy/Address/Structured/Line1",50),Map.entry("PreferredPharmacy/Address/Structured/Line2",50),
-            Map.entry("PreferredPharmacy/Address/Structured/Line3",50),Map.entry("PreferredPharmacy/Address/Structured/City",60),
-            Map.entry("PreferredPharmacy/Address/Structured/CountrySubdivisionCode",255),
-            Map.entry("PreferredPharmacy/Address/Structured/PostalZipCode/PostalCode",20),
-            Map.entry("PreferredPharmacy/Address/Structured/PostalZipCode/ZipCode",20),
-            Map.entry("PreferredPharmacy/PhoneNumber/phoneNumber",25),Map.entry("PreferredPharmacy/PhoneNumber/areaCode",30),
-            Map.entry("PreferredPharmacy/PhoneNumber/exchange",30),Map.entry("PreferredPharmacy/PhoneNumber/number",30),
-            Map.entry("PreferredPharmacy/PhoneNumber/extension",5),
-            Map.entry("PreferredPharmacy/FaxNumber/phoneNumber",25),Map.entry("PreferredPharmacy/FaxNumber/areaCode",30),
-            Map.entry("PreferredPharmacy/FaxNumber/exchange",30),Map.entry("PreferredPharmacy/FaxNumber/number",30),
-            Map.entry("PreferredPharmacy/FaxNumber/extension",5),Map.entry("PreferredPharmacy/EmailAddress",100));
-    private record Projection(Map<String,String> values,Set<String> unavailable) { }
+    private static final Map<String, Integer> SCALARS=Map.ofEntries(
+            Map.entry("FamilyPhysician/FirstName", 50), Map.entry("FamilyPhysician/LastName", 50),
+            Map.entry("ReferredPhysician/FirstName", 50), Map.entry("ReferredPhysician/LastName", 50),
+            Map.entry("PreferredPharmacy/Name", 255), Map.entry("PreferredPharmacy/Address/Formatted", 255),
+            Map.entry("PreferredPharmacy/Address/Structured/Line1", 50), Map.entry("PreferredPharmacy/Address/Structured/Line2", 50),
+            Map.entry("PreferredPharmacy/Address/Structured/Line3", 50), Map.entry("PreferredPharmacy/Address/Structured/City", 60),
+            Map.entry("PreferredPharmacy/Address/Structured/CountrySubdivisionCode", 255),
+            Map.entry("PreferredPharmacy/Address/Structured/PostalZipCode/PostalCode", 20),
+            Map.entry("PreferredPharmacy/Address/Structured/PostalZipCode/ZipCode", 20),
+            Map.entry("PreferredPharmacy/PhoneNumber/phoneNumber", 25), Map.entry("PreferredPharmacy/PhoneNumber/areaCode", 30),
+            Map.entry("PreferredPharmacy/PhoneNumber/exchange", 30), Map.entry("PreferredPharmacy/PhoneNumber/number", 30),
+            Map.entry("PreferredPharmacy/PhoneNumber/extension", 5),
+            Map.entry("PreferredPharmacy/FaxNumber/phoneNumber", 25), Map.entry("PreferredPharmacy/FaxNumber/areaCode", 30),
+            Map.entry("PreferredPharmacy/FaxNumber/exchange", 30), Map.entry("PreferredPharmacy/FaxNumber/number", 30),
+            Map.entry("PreferredPharmacy/FaxNumber/extension", 5), Map.entry("PreferredPharmacy/EmailAddress", 100));
+    private record Projection(Map<String, String> values, Set<String> unavailable) { }
     private final CdsFieldParser fields;
     @PersistenceContext(unitName="entityManagerFactory") private EntityManager entityManager;
     public CdsDemographicRelationsService(CdsFieldParser fields) { this.fields=fields; }
 
-    public CdsDemographicRelationsDto prepare(CdsRecordDto record,CdsImportCommand command) throws IOException {
-        if(!"Demographics".equals(record.section())) throw new IllegalArgumentException("Wrong demographic relation section");
-        Map<String,CdsClinicalDiagnosticDto> notices=new LinkedHashMap<>();
-        Projection projection=project(record,notices);
-        Map<String,String> values=projection.values();
-        Person family=person(values,"FamilyPhysician",notices), referring=person(values,"ReferredPhysician",notices);
+    public CdsDemographicRelationsDto prepare(CdsRecordDto record, CdsImportCommand command) throws IOException {
+        if (!"Demographics".equals(record.section())) throw new IllegalArgumentException("Wrong demographic relation section");
+        Map<String, CdsClinicalDiagnosticDto> notices=new LinkedHashMap<>();
+        Projection projection=project(record, notices);
+        Map<String, String> values=projection.values();
+        Person family=person(values, "FamilyPhysician", notices), referring=person(values, "ReferredPhysician", notices);
         String scope="PreferredPharmacy";
         String name=values.get(scope+"/Name");
         Pharmacy pharmacy=null;
-        if(name!=null && !name.isBlank()) {
+        if (name!=null && !name.isBlank()) {
             String formatted=values.get(scope+"/Address/Formatted");
             List<String> lines=new ArrayList<>();
-            for(String line:List.of("Line1","Line2","Line3")) {
+            for (String line:List.of("Line1", "Line2", "Line3")) {
                 String value=values.get(scope+"/Address/Structured/"+line);
-                if(value!=null) lines.add(value);
+                if (value!=null) lines.add(value);
             }
-            String address=formatted!=null?formatted:lines.isEmpty()?null:String.join("\n",lines);
+            String address=formatted!=null?formatted:lines.isEmpty()?null:String.join("\n", lines);
             String postal=values.get(scope+"/Address/Structured/PostalZipCode/PostalCode");
-            if(postal==null) postal=values.get(scope+"/Address/Structured/PostalZipCode/ZipCode");
+            if (postal==null) postal=values.get(scope+"/Address/Structured/PostalZipCode/ZipCode");
             String provincePath=scope+"/Address/Structured/CountrySubdivisionCode";
             String sourceProvince=values.get(provincePath);
             String province=CdsHealthCardAuthority.normalize(sourceProvince);
-            if(!java.util.Objects.equals(sourceProvince,province)) {
-                notice(notices,"CDS_CANADIAN_PROVINCE_NORMALIZED",provincePath);
-            } else if(province!=null && !CdsHealthCardAuthority.CANADIAN.contains(province)) {
-                notice(notices,"CDS_CONTEXT_PHARMACY_PROVINCE_REQUIRES_REVIEW",provincePath);
+            if (!java.util.Objects.equals(sourceProvince, province)) {
+                notice(notices, "CDS_CANADIAN_PROVINCE_NORMALIZED", provincePath);
+            } else if (province!=null && !CdsHealthCardAuthority.CANADIAN.contains(province)) {
+                notice(notices, "CDS_CONTEXT_PHARMACY_PROVINCE_REQUIRES_REVIEW", provincePath);
             }
-            pharmacy=new Pharmacy(name,address,values.get(scope+"/Address/Structured/City"),
-                    province,postal,
-                    phone(values,projection.unavailable(),scope+"/PhoneNumber",notices),phone(values,projection.unavailable(),scope+"/FaxNumber",notices),
+            pharmacy=new Pharmacy(name, address, values.get(scope+"/Address/Structured/City"),
+                    province, postal,
+                    phone(values, projection.unavailable(), scope+"/PhoneNumber", notices), phone(values, projection.unavailable(), scope+"/FaxNumber", notices),
                     values.get(scope+"/EmailAddress"));
-            notice(notices,"CDS_PHARMACY_CONSENT_NOT_ASSERTED",scope);
-        } else if(name!=null) notice(notices,"CDS_CONTEXT_PHARMACY_SOURCE_ONLY",scope);
-        return new CdsDemographicRelationsDto(family,referring,pharmacy,
-                command.facilityId()==null?0:command.facilityId(),List.copyOf(notices.values()));
+            notice(notices, "CDS_PHARMACY_CONSENT_NOT_ASSERTED", scope);
+        } else if (name!=null) notice(notices, "CDS_CONTEXT_PHARMACY_SOURCE_ONLY", scope);
+        return new CdsDemographicRelationsDto(family, referring, pharmacy,
+                command.facilityId()==null?0:command.facilityId(), List.copyOf(notices.values()));
     }
 
-    private Person person(Map<String,String> values,String path,Map<String,CdsClinicalDiagnosticDto> notices) {
+    private Person person(Map<String, String> values, String path, Map<String, CdsClinicalDiagnosticDto> notices) {
         String first=values.get(path+"/FirstName"), last=values.get(path+"/LastName");
-        if(first==null && last==null) return null;
-        if(first==null || last==null || first.isBlank() && last.isBlank()) {
-            notice(notices,"CDS_CONTEXT_PHYSICIAN_SOURCE_ONLY",path); return null;
+        if (first==null && last==null) return null;
+        if (first==null || last==null || first.isBlank() && last.isBlank()) {
+            notice(notices, "CDS_CONTEXT_PHYSICIAN_SOURCE_ONLY", path); return null;
         }
-        notice(notices,"CDS_CONTEXT_PHYSICIAN_CONSENT_NOT_ASSERTED",path);
-        return new Person(first,last);
+        notice(notices, "CDS_CONTEXT_PHYSICIAN_CONSENT_NOT_ASSERTED", path);
+        return new Person(first, last);
     }
 
-    private String phone(Map<String,String> values,Set<String> unavailable,String path,Map<String,CdsClinicalDiagnosticDto> notices) {
-        if(unavailable.stream().anyMatch(field->field.startsWith(path+"/"))) {
-            notice(notices,"CDS_CONTEXT_PHONE_SOURCE_ONLY",path); return null;
+    private String phone(Map<String, String> values, Set<String> unavailable, String path, Map<String, CdsClinicalDiagnosticDto> notices) {
+        if (unavailable.stream().anyMatch(field-> field.startsWith(path+"/"))) {
+            notice(notices, "CDS_CONTEXT_PHONE_SOURCE_ONLY", path); return null;
         }
         String number=values.get(path+"/phoneNumber");
         String area=values.get(path+"/areaCode"), exchange=values.get(path+"/exchange");
         String local=values.get(path+"/number"), extension=values.get(path+"/extension");
-        if(number==null && (area!=null || exchange!=null || local!=null)) {
-            number=CdsPhoneComponents.combine(area,exchange,local);
-            notice(notices,number==null?"CDS_CONTEXT_PHONE_SOURCE_ONLY":"CDS_PHONE_COMPONENTS_COMBINED",path);
+        if (number==null && (area!=null || exchange!=null || local!=null)) {
+            number=CdsPhoneComponents.combine(area, exchange, local);
+            notice(notices, number==null?"CDS_CONTEXT_PHONE_SOURCE_ONLY":"CDS_PHONE_COMPONENTS_COMBINED", path);
         }
-        if(number==null) return null;
+        if (number==null) return null;
         String combined=number+(extension==null || extension.isEmpty()?"":" ext "+extension);
-        if(combined.codePointCount(0,combined.length())>20) {
-            notice(notices,"CDS_CONTEXT_PHONE_SOURCE_ONLY",path); return null;
+        if (combined.codePointCount(0, combined.length())>20) {
+            notice(notices, "CDS_CONTEXT_PHONE_SOURCE_ONLY", path); return null;
         }
         return combined;
     }
 
     /** One metadata traversal and at most24 bounded values, independent of source child count. */
-    private Projection project(CdsRecordDto record,Map<String,CdsClinicalDiagnosticDto> notices) throws IOException {
-        Map<String,String> values=new LinkedHashMap<>(); Set<String> seen=new HashSet<>(),unavailable=new HashSet<>();
+    private Projection project(CdsRecordDto record, Map<String, CdsClinicalDiagnosticDto> notices) throws IOException {
+        Map<String, String> values=new LinkedHashMap<>(); Set<String> seen=new HashSet<>(), unavailable=new HashSet<>();
         try {
-            fields.forEachField(record,field->{
-                if(field.kind().equals("BINARY") || !(field.namespace().equals("cds") || field.namespace().equals("cds_dt"))) return;
+            fields.forEachField(record, field-> {
+                if (field.kind().equals("BINARY") || !(field.namespace().equals("cds") || field.namespace().equals("cds_dt"))) return;
                 String path=CdsFieldParser.unindexed(field.path()); Integer maximum=SCALARS.get(path);
-                if(maximum==null || !seen.add(path)) return;
-                try { values.put(path,fields.readLogicalText(record,field,maximum)); }
-                catch(CdsInputException over) {
-                    if(!"CDS_TARGET_TEXT_CAPACITY_EXCEEDED".equals(over.code())) throw new UncheckedIOException(over);
-                    unavailable.add(path); notice(notices,"CDS_NATIVE_SCALAR_SOURCE_ONLY",path);
-                } catch(IOException failed) {throw new UncheckedIOException(failed);}
+                if (maximum==null || !seen.add(path)) return;
+                try { values.put(path, fields.readLogicalText(record, field, maximum)); }
+                catch (CdsInputException over) {
+                    if (!"CDS_TARGET_TEXT_CAPACITY_EXCEEDED".equals(over.code())) throw new UncheckedIOException(over);
+                    unavailable.add(path); notice(notices, "CDS_NATIVE_SCALAR_SOURCE_ONLY", path);
+                } catch (IOException failed) {throw new UncheckedIOException(failed); }
             });
-        } catch(UncheckedIOException failed) {throw failed.getCause();}
-        return new Projection(values,unavailable);
+        } catch (UncheckedIOException failed) {throw failed.getCause(); }
+        return new Projection(values, unavailable);
     }
-    private static void notice(Map<String,CdsClinicalDiagnosticDto> notices,String code,String path) {
-        notices.putIfAbsent(code+"/"+path,new CdsClinicalDiagnosticDto(code,path));
+    private static void notice(Map<String, CdsClinicalDiagnosticDto> notices, String code, String path) {
+        notices.putIfAbsent(code+"/"+path, new CdsClinicalDiagnosticDto(code, path));
     }
 
-    @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
-    public Map<String,String> write(int patient,String auditProvider,CdsDemographicRelationsDto value) {
-        if(!CdsImportUnitService.isActiveForMaintenance()) throw new CdsImportException("PARTICIPATING_UNIT_REQUIRED");
-        if(patient<1 || auditProvider==null || !auditProvider.matches("[A-Za-z0-9_-]{1,16}"))
+    @Transactional(propagation=Propagation.MANDATORY, rollbackFor=Exception.class)
+    public Map<String, String> write(int patient, String auditProvider, CdsDemographicRelationsDto value) {
+        if (!CdsImportUnitService.isActiveForMaintenance()) throw new CdsImportException("PARTICIPATING_UNIT_REQUIRED");
+        if (patient<1 || auditProvider==null || !auditProvider.matches("[A-Za-z0-9_-]{1,16}"))
             throw new IllegalArgumentException("DEMOGRAPHIC_RELATIONS_TARGET_INVALID");
-        Map<String,String> references=new LinkedHashMap<>();
-        physician(patient,auditProvider,value.facilityId(),value.familyPhysician(),"Family Doctor","family",references);
-        physician(patient,auditProvider,value.facilityId(),value.referringPhysician(),"Referring Doctor","referring",references);
-        if(value.preferredPharmacy()!=null) {
+        Map<String, String> references=new LinkedHashMap<>();
+        physician(patient, auditProvider, value.facilityId(), value.familyPhysician(), "Family Doctor", "family", references);
+        physician(patient, auditProvider, value.facilityId(), value.referringPhysician(), "Referring Doctor", "referring", references);
+        if (value.preferredPharmacy()!=null) {
             Pharmacy p=value.preferredPharmacy(); PharmacyInfo row=new PharmacyInfo();
             row.setName(p.name()); row.setAddress(p.address()); row.setCity(p.city()); row.setProvince(p.province());
             row.setPostalCode(p.postal()); row.setPhone1(p.phone()); row.setFax(p.fax()); row.setEmail(p.email());
@@ -177,21 +177,21 @@ public class CdsDemographicRelationsService {
             association.setDemographicNo(patient); association.setPreferredOrder(1);
             association.setStatus(DemographicPharmacy.ACTIVE); association.setConsentToContact(null); association.setAddDate(new Date());
             entityManager.persist(association); entityManager.flush();
-            references.put("pharmacyInfo",row.getId().toString());
-            references.put("demographicPharmacy",association.getId().toString());
+            references.put("pharmacyInfo", row.getId().toString());
+            references.put("demographicPharmacy", association.getId().toString());
         }
         return Map.copyOf(references);
     }
-    private void physician(int patient,String provider,int facility,Person person,String role,String key,Map<String,String> references) {
-        if(person==null) return;
+    private void physician(int patient, String provider, int facility, Person person, String role, String key, Map<String, String> references) {
+        if (person==null) return;
         ProfessionalContact contact=new ProfessionalContact(); contact.setFirstName(person.firstName()); contact.setLastName(person.lastName());
         entityManager.persist(contact); entityManager.flush();
         DemographicContact relation=new DemographicContact(); relation.setContactId(contact.getId().toString());
         relation.setDemographicNo(patient); relation.setCategory(DemographicContact.CATEGORY_PROFESSIONAL);
         relation.setType(DemographicContact.TYPE_CONTACT); relation.setRole(role); relation.setCreator(provider);
-        relation.setFacilityId(facility); relation.setConsentToContact((Boolean)null); relation.setCreated(new Date());
+        relation.setFacilityId(facility); relation.setConsentToContact((Boolean) null); relation.setCreated(new Date());
         entityManager.persist(relation); entityManager.flush();
-        references.put("Contact#"+key,contact.getId().toString());
-        references.put("DemographicContact#"+key,relation.getId().toString());
+        references.put("Contact#"+key, contact.getId().toString());
+        references.put("DemographicContact#"+key, relation.getId().toString());
     }
 }

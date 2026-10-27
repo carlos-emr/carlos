@@ -209,11 +209,11 @@ public class CdsImportMaintenanceService {
         /** Checked-I/O coordinator work receives the same read-only capability, with no added DB transaction. */
         public synchronized <T> T readIo(IoRead<T> work) throws java.io.IOException {
             try {
-                return read(()->{
+                return read(()-> {
                     try { return work.get(); }
-                    catch(java.io.IOException failed) { throw new java.io.UncheckedIOException(failed); }
+                    catch (java.io.IOException failed) { throw new java.io.UncheckedIOException(failed); }
                 });
-            } catch(java.io.UncheckedIOException failed) { throw failed.getCause(); }
+            } catch (java.io.UncheckedIOException failed) { throw failed.getCause(); }
         }
 
         /** Explicit successful clinical reconciliation/backlog-policy boundary; errors never imply reopening. */
@@ -267,7 +267,7 @@ public class CdsImportMaintenanceService {
                                 maintenance_connection_id,EXISTS(SELECT 1 FROM cds_import_patient WHERE held=TRUE)
                             FROM cds_import_admission WHERE id=?
                             """)) {
-                        proof.setQueryTimeout(3); proof.setString(1,CdsJdbcAdmissionState.ROW);
+                        proof.setQueryTimeout(3); proof.setString(1, CdsJdbcAdmissionState.ROW);
                         try (ResultSet rows=proof.executeQuery()) {
                             if (!rows.next() || rows.getBoolean(1) || rows.getLong(2)!=lease.generation()
                                     || rows.getString(3)!=null || rows.getObject(4)!=null || rows.getBoolean(5)) {

@@ -144,39 +144,39 @@ public class CdsImportReviewService {
 
     /** Healthy supervisor only: retain every published proof and stop automatic fatal retries. */
     public void superviseFatal(String reviewId) throws IOException {
-        CdsImportLedgerService.requireNoTransaction();Snapshot initial=snapshot(reviewId);long epoch=-1;Throwable primary=null;
-        try (var coordination=coordinator.acquire();FileChannel channel=FileChannel.open(jobs.root(initial.run()).resolve("planning.lock"),
-                Set.of(StandardOpenOption.CREATE,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS),
-                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));FileLock ignored=lock(channel)) {
+        CdsImportLedgerService.requireNoTransaction(); Snapshot initial=snapshot(reviewId); long epoch=-1; Throwable primary=null;
+        try (var coordination=coordinator.acquire(); FileChannel channel=FileChannel.open(jobs.root(initial.run()).resolve("planning.lock"),
+                Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS),
+                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))); FileLock ignored=lock(channel)) {
             if (!PENDING.contains(snapshot(reviewId).state())) return;
-            coordination.check();epoch=ledger.claimReviewPlanning(initial.run());long owner=epoch;
+            coordination.check(); epoch=ledger.claimReviewPlanning(initial.run()); long owner=epoch;
             transaction.executeWithoutResult(status -> {
-                var run=ledger.lockReviewAdministrativeOwned(initial.run(),owner);var row=reviews.lock(reviewId);
+                var run=ledger.lockReviewAdministrativeOwned(initial.run(), owner); var row=reviews.lock(reviewId);
                 if (row==null || row.getReviewVersion()!=initial.version() || run.getReviewVersion()!=initial.version() || !PENDING.contains(row.getState())) return;
-                row.setSafeErrorCode("REVIEW_WORKER_FATAL");run.setReportState("PENDING");
-                if (!Set.of("OVERLAY_PUBLISHED","PATIENT_DECLINED","REVISION_PUBLISHED").contains(row.getState())) run.setState("REVIEW_REQUIRED");
-                ledger.touch(run);ledger.event(run,null,"REVIEW_WORKER_FATAL");
+                row.setSafeErrorCode("REVIEW_WORKER_FATAL"); run.setReportState("PENDING");
+                if (!Set.of("OVERLAY_PUBLISHED", "PATIENT_DECLINED", "REVISION_PUBLISHED").contains(row.getState())) run.setState("REVIEW_REQUIRED");
+                ledger.touch(run); ledger.event(run, null, "REVIEW_WORKER_FATAL");
             });
         } catch (IOException | RuntimeException | Error failure) {
-            primary=failure;throw failure;
+            primary=failure; throw failure;
         } finally {
             if (epoch>=0) {
-                try {ledger.release(initial.run(),epoch);}
-                catch (CdsImportException fenced) {if (!"OWNER_FENCED".equals(fenced.getCode())) {if (primary!=null) primary.addSuppressed(fenced);else throw fenced;}}
+                try {ledger.release(initial.run(), epoch); }
+                catch (CdsImportException fenced) {if (!"OWNER_FENCED".equals(fenced.getCode())) {if (primary!=null) primary.addSuppressed(fenced); else throw fenced; }}
             }
         }
     }
 
     /** Participant: facade has reauthorized the explicit Resume initiator before entering this run-locked transaction. */
-    public String retryFatal(String runId,CdsImportActorDto currentActor) {
+    public String retryFatal(String runId, CdsImportActorDto currentActor) {
         if (!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) throw new CdsImportException("REVIEW_REQUIRES_TRANSACTION");
-        var run=runs.lock(runId);if (run==null) throw new CdsImportException("IMPORT_RUN_NOT_FOUND");
-        var pending=reviews.pendingRun(runId,2);if (pending.size()>1) throw new CdsImportException("REVIEW_MULTIPLE_PENDING");
+        var run=runs.lock(runId); if (run==null) throw new CdsImportException("IMPORT_RUN_NOT_FOUND");
+        var pending=reviews.pendingRun(runId, 2); if (pending.size()>1) throw new CdsImportException("REVIEW_MULTIPLE_PENDING");
         if (pending.isEmpty()) return null;
         var row=reviews.lock(pending.getFirst().getId());
         if (row==null || !PENDING.contains(row.getState()) || !"REVIEW_WORKER_FATAL".equals(row.getSafeErrorCode())) return null;
-        requireCurrent(row,run,run.getReviewVersion());row.setSafeErrorCode(null);run.setCancelRequested(false);run.setReportState("PENDING");
-        ledger.touch(run);ledger.actorEvent(run,currentActor,"REVIEW_FATAL_RETRY_REQUESTED");return row.getId();
+        requireCurrent(row, run, run.getReviewVersion()); row.setSafeErrorCode(null); run.setCancelRequested(false); run.setReportState("PENDING");
+        ledger.touch(run); ledger.actorEvent(run, currentActor, "REVIEW_FATAL_RETRY_REQUESTED"); return row.getId();
     }
     public Map<String, Object> summary(String runId) {
         return transaction.execute(status -> {
@@ -227,7 +227,7 @@ public class CdsImportReviewService {
             check(cancelled);
             var snapshot=jobs.snapshot(current.run(), document);
             if ("APPROVE_UNWRITTEN_REVISION".equals(current.kind())) {
-                return publishRevision(current,request,document,snapshot,owner,cancelled,coordination);
+                return publishRevision(current, request, document, snapshot, owner, cancelled, coordination);
             }
             Target target=target(current, request, snapshot, document.jobRoot());
             Path evidenceRoot=directory(document.jobRoot().resolve("reviews"), document.jobRoot());
@@ -303,38 +303,38 @@ public class CdsImportReviewService {
         }
     }
 
-    private String publishRevision(Snapshot current,Request request,CdsImportJobDocumentDto document,CdsSnapshotDto snapshot,
-            long epoch,Cancellation cancelled,CdsImportCoordinatorService.Owner coordination) throws IOException {
+    private String publishRevision(Snapshot current, Request request, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot,
+            long epoch, Cancellation cancelled, CdsImportCoordinatorService.Owner coordination) throws IOException {
         String location=transaction.execute(status -> {
             var diagnostic=diagnostics.get(current.diagnostic());
             if (diagnostic==null || !current.run().equals(diagnostic.getRunId()) || !diagnostic.isBlocking() || diagnostic.isResolved()
                     || !"PREFLIGHT".equals(diagnostic.getStage()) || !"SOURCE_REVISION_REVIEW_REQUIRED".equals(diagnostic.getCode())
-                    || !java.util.Objects.equals(current.patient(),diagnostic.getPatientKey())) throw new CdsImportException("REVIEW_REVISION_CONTEXT_REQUIRED");
+                    || !java.util.Objects.equals(current.patient(), diagnostic.getPatientKey())) throw new CdsImportException("REVIEW_REVISION_CONTEXT_REQUIRED");
             return diagnostic.getProtectedDetailLocation();
         });
         if (location==null) throw new CdsImportException("REVIEW_REVISION_CONTEXT_REQUIRED");
-        Path evidenceRoot=directory(document.jobRoot().resolve("reviews"),document.jobRoot());
-        Path attempt=CdsPaths.privateDirectory(evidenceRoot.resolve("review-"+current.id()+"-"+UUID.randomUUID()),evidenceRoot);
-        write(attempt.resolve("request.json"),attempt,JSON.writeValueAsBytes(request));
-        var selected=revisions.prepare(current.run(),epoch,current.patient(),location,document,snapshot,attempt,cancelled);
-        Archive archive=archive(current.run(),epoch,current.version(),attempt,cancelled,selected.artifacts());
-        check(cancelled);coordination.check();access.context(request.actor(),document.command(),null);
+        Path evidenceRoot=directory(document.jobRoot().resolve("reviews"), document.jobRoot());
+        Path attempt=CdsPaths.privateDirectory(evidenceRoot.resolve("review-"+current.id()+"-"+UUID.randomUUID()), evidenceRoot);
+        write(attempt.resolve("request.json"), attempt, JSON.writeValueAsBytes(request));
+        var selected=revisions.prepare(current.run(), epoch, current.patient(), location, document, snapshot, attempt, cancelled);
+        Archive archive=archive(current.run(), epoch, current.version(), attempt, cancelled, selected.artifacts());
+        check(cancelled); coordination.check(); access.context(request.actor(), document.command(), null);
         transaction.executeWithoutResult(status -> {
-            var run=ledger.lockPlanningOwned(current.run(),epoch);requireUnwritten(run);
-            var row=reviews.lock(current.id());requireCurrent(row,run,current.version());
+            var run=ledger.lockPlanningOwned(current.run(), epoch); requireUnwritten(run);
+            var row=reviews.lock(current.id()); requireCurrent(row, run, current.version());
             if (run.isCancelRequested() || !"VALIDATING".equals(row.getState())) throw new CdsImportException("REVIEW_CANCELLED");
-            revisions.approve(current.run(),epoch,current.version(),selected);
-            row.setSourceKey(CdsCorrectionLookupService.sourceKey(selected.source().relativeName(),selected.source().sha256()));
-            row.setSourceXmlSha256(selected.source().sha256());row.setSourcePatientId(selected.revision().sourcePatientId());
-            row.setReviewedSourceXPath(selected.recordXPath());row.setCategory(null);
-            row.setPlanLocation(archive.path().toString());row.setPlanSha256(archive.sha256());row.setPlanBytes(archive.bytes());
+            revisions.approve(current.run(), epoch, current.version(), selected);
+            row.setSourceKey(CdsCorrectionLookupService.sourceKey(selected.source().relativeName(), selected.source().sha256()));
+            row.setSourceXmlSha256(selected.source().sha256()); row.setSourcePatientId(selected.revision().sourcePatientId());
+            row.setReviewedSourceXPath(selected.recordXPath()); row.setCategory(null);
+            row.setPlanLocation(archive.path().toString()); row.setPlanSha256(archive.sha256()); row.setPlanBytes(archive.bytes());
             row.setManifestLocation(attempt.resolve("lineage-approval.json").toString());
-            row.setManifestSha256((String)selected.artifacts().get("lineage-approval.json").get("sha256"));
-            row.setState("REVISION_PUBLISHED");row.setAppliedAt(Instant.now());row.setSafeErrorCode(null);
-            ledger.touch(run);ledger.actorEvent(run,request.actor(),"UNWRITTEN_REVISION_REVIEWED");
+            row.setManifestSha256((String) selected.artifacts().get("lineage-approval.json").get("sha256"));
+            row.setState("REVISION_PUBLISHED"); row.setAppliedAt(Instant.now()); row.setSafeErrorCode(null);
+            ledger.touch(run); ledger.actorEvent(run, request.actor(), "UNWRITTEN_REVISION_REVIEWED");
         });
-        ledger.resetUnsealedPlan(current.run(),epoch,current.version());
-        ready(current.id(),current.run(),epoch,current.version());completeCancelledReset(current.run(),epoch);return current.run();
+        ledger.resetUnsealedPlan(current.run(), epoch, current.version());
+        ready(current.id(), current.run(), epoch, current.version()); completeCancelledReset(current.run(), epoch); return current.run();
     }
 
     private void ready(String id, String run, long epoch, long version) {
@@ -502,14 +502,14 @@ public class CdsImportReviewService {
     }
 
     private Archive archive(String run, long epoch, long version, Path directory, BooleanSupplier cancelled) throws IOException {
-        return archive(run,epoch,version,directory,cancelled,Map.of());
+        return archive(run, epoch, version, directory, cancelled, Map.of());
     }
-    private Archive archive(String run,long epoch,long version,Path directory,BooleanSupplier cancelled,
-            Map<String,Map<String,Object>> proofArtifacts) throws IOException {
+    private Archive archive(String run, long epoch, long version, Path directory, BooleanSupplier cancelled,
+            Map<String, Map<String, Object>> proofArtifacts) throws IOException {
         Path file=directory.resolve("prior-plan.jsonl"); long patientCount=0, unitCount=0, dependencyCount=0;
         try (OutputStream output=CdsPaths.newPrivateFile(file, directory)) {
             line(output, Map.of("type", "HEADER", "runId", run, "reviewVersion", version));
-            if (!proofArtifacts.isEmpty()) line(output,Map.of("type","REVIEW_PROOF","artifacts",proofArtifacts));
+            if (!proofArtifacts.isEmpty()) line(output, Map.of("type", "REVIEW_PROOF", "artifacts", proofArtifacts));
             String patientAfter="";
             while (true) {
                 check(cancelled); var patients=ledger.patients(run, patientAfter, 100); if (patients.isEmpty()) break;
@@ -546,8 +546,8 @@ public class CdsImportReviewService {
         if (review.plan()==null || review.plan().isBlank() || review.planHash()==null || !review.planHash().matches("[0-9a-f]{64}")) throw new CdsImportException("REVIEW_PLAN_PROOF_MISSING");
         Path file=CdsPaths.within(Path.of(review.plan()), root.resolve("reviews"));
         if (Files.size(file)!=review.planBytes() || !hash(file).equals(review.planHash())) throw new CdsImportException("REVIEW_PLAN_PROOF_CHANGED");
-        try (var reader=Files.newBufferedReader(file,StandardCharsets.UTF_8)) {
-            boundedLine(reader);String second=boundedLine(reader);
+        try (var reader=Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+            boundedLine(reader); String second=boundedLine(reader);
             if (second==null) throw new CdsImportException("REVIEW_PLAN_PROOF_CHANGED");
             JsonNode row=JSON.readTree(second);
             if ("REVIEW_PROOF".equals(row.path("type").asText())) {
@@ -555,21 +555,21 @@ public class CdsImportReviewService {
                 if (!artifacts.isObject() || artifacts.size()<1 || artifacts.size()>16) throw new CdsImportException("REVIEW_PLAN_PROOF_CHANGED");
                 var names=artifacts.fieldNames();
                 while (names.hasNext()) {
-                    String name=names.next();JsonNode evidence=artifacts.path(name);
+                    String name=names.next(); JsonNode evidence=artifacts.path(name);
                     if (!name.matches("[A-Za-z0-9_-]{1,100}\\.[A-Za-z0-9]{1,12}") || !evidence.path("sha256").asText().matches("[0-9a-f]{64}")
                             || !evidence.path("bytes").isIntegralNumber() || !evidence.path("bytes").canConvertToLong() || evidence.path("bytes").longValue()<0) throw new CdsImportException("REVIEW_PLAN_PROOF_CHANGED");
-                    Path artifact=CdsPaths.within(file.getParent().resolve(name),file.getParent());
-                    if (!Files.isRegularFile(artifact,LinkOption.NOFOLLOW_LINKS) || Files.size(artifact)!=evidence.path("bytes").longValue()
+                    Path artifact=CdsPaths.within(file.getParent().resolve(name), file.getParent());
+                    if (!Files.isRegularFile(artifact, LinkOption.NOFOLLOW_LINKS) || Files.size(artifact)!=evidence.path("bytes").longValue()
                             || !hash(artifact).equals(evidence.path("sha256").asText())) throw new CdsImportException("REVIEW_PLAN_PROOF_CHANGED");
                 }
             }
         }
     }
     private static String boundedLine(java.io.BufferedReader reader) throws IOException {
-        StringBuilder line=new StringBuilder();int value;
+        StringBuilder line=new StringBuilder(); int value;
         while ((value=reader.read())!=-1) {
             if (value=='\n') return line.toString();
-            if (line.length()==65536) throw new CdsImportException("REVIEW_PLAN_PROOF_CHANGED");line.append((char)value);
+            if (line.length()==65536) throw new CdsImportException("REVIEW_PLAN_PROOF_CHANGED"); line.append((char) value);
         }
         return line.isEmpty()?null:line.toString();
     }

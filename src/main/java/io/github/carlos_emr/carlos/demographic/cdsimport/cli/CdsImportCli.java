@@ -83,7 +83,7 @@ public final class CdsImportCli {
         CdsCliRuntime runtime = null;
         int outcome = 2;
         try {
-            line(out,Map.of("event","INITIALIZING","operation",arguments.operation()));
+            line(out, Map.of("event", "INITIALIZING", "operation", arguments.operation()));
             runtime = factory.open(config, arguments, delegation);
             outcome = operate(runtime, arguments, delegation, out, err);
         } catch (CdsCliBootstrapException bootstrap) {

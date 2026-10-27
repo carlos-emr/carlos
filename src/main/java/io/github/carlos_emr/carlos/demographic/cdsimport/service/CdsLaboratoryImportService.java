@@ -141,10 +141,10 @@ public class CdsLaboratoryImportService implements CdsCategoryImportService {
     static String message(CdsLaboratoryResult r, Demographic patient, CdsTemporalDto collection) {
         String test=r.getTestName()!=null?r.getTestName():r.getReportedTestName();
         StringBuilder text=new StringBuilder(4096);
-        String[] msh=new String[18]; java.util.Arrays.fill(msh,"");
+        String[] msh=new String[18]; java.util.Arrays.fill(msh, "");
         msh[0]="MSH"; msh[1]="^~\\&"; msh[2]="CARLOS-CDS"; msh[3]=escape(r.getLaboratoryName());
         msh[8]="ORU^R01"; msh[9]=r.getId(); msh[10]="P"; msh[11]="2.3"; msh[17]="UNICODE UTF-8";
-        text.append(String.join("|",msh)).append('\r');
+        text.append(String.join("|", msh)).append('\r');
         text.append("PID|||"+patient.getDemographicNo()+"||").append(escape(patient.getLastName()))
                 .append('^').append(escape(patient.getFirstName())).append("||||\r");
         String[] obr=new String[26]; java.util.Arrays.fill(obr, "");
@@ -188,7 +188,7 @@ public class CdsLaboratoryImportService implements CdsCategoryImportService {
     }
     private static boolean fits(String value, int capacity) { return value!=null && value.codePointCount(0, value.length())<=capacity; }
     static String wireDate(CdsTemporalDto date) {
-        String zone=calendarZone(date.original()).replace(":","").replace("Z","+0000");
+        String zone=calendarZone(date.original()).replace(":", "").replace("Z", "+0000");
         return switch (date.precision()) {
             case UNKNOWN -> "";
             case YEAR -> date.earliest().format(DateTimeFormatter.ofPattern("uuuu"))+zone;
@@ -202,9 +202,9 @@ public class CdsLaboratoryImportService implements CdsCategoryImportService {
 
     /** Effective typed clinical value; source lexical evidence stays in the prepared DTO and source fields. */
     static String effectiveDate(CdsTemporalDto date) {
-        if(date.precision()==CdsTemporalDto.Precision.UNKNOWN) return null;
-        if(date.appliedShiftDays()==0) return date.original();
-        return switch(date.precision()) {
+        if (date.precision()==CdsTemporalDto.Precision.UNKNOWN) return null;
+        if (date.appliedShiftDays()==0) return date.original();
+        return switch (date.precision()) {
             case FULL_DATE -> date.earliest().format(DateTimeFormatter.ISO_LOCAL_DATE)+calendarZone(date.original());
             case LOCAL_DATE_TIME -> date.localDateTime().format(DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss"))+fraction(date);
             case OFFSET_DATE_TIME -> date.offsetDateTime().format(DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss"))
@@ -214,12 +214,12 @@ public class CdsLaboratoryImportService implements CdsCategoryImportService {
     }
 
     private static String fraction(CdsTemporalDto date) {
-        if(date.original()==null) return "";
+        if (date.original()==null) return "";
         var match=java.util.regex.Pattern.compile("\\.([0-9]+)(?:Z|[+-][0-9]{2}:[0-9]{2})?$").matcher(date.original());
         return match.find()?"."+match.group(1):"";
     }
     private static String calendarZone(String original) {
-        if(original==null) return "";
+        if (original==null) return "";
         var match=java.util.regex.Pattern.compile("(Z|[+-][0-9]{2}:[0-9]{2})$").matcher(original);
         return match.find()?match.group(1):"";
     }

@@ -275,7 +275,7 @@ public class Document extends AbstractModel<Integer> implements Serializable {
             throw new IllegalArgumentException("CDS_CONTENT_PRECISION_INVALID");
         }
         if (cdsContentPrecision != null && !cdsContentPrecision.equals(value)
-                || cdsPrecisionLoaded && !java.util.Objects.equals(loadedCdsContentPrecision,value)) {
+                || cdsPrecisionLoaded && !java.util.Objects.equals(loadedCdsContentPrecision, value)) {
             throw new IllegalArgumentException("CDS_CONTENT_PRECISION_IMMUTABLE");
         }
         cdsContentPrecision=value;

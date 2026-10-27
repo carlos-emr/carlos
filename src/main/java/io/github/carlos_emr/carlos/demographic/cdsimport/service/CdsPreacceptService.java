@@ -76,16 +76,16 @@ public class CdsPreacceptService {
     }
 
     public static final class IoGuard implements AutoCloseable {
-        private final Path path;private boolean closed;
-        private IoGuard(Path path) {this.path=path;}
-        @Override public void close() {synchronized(ACTIVE){if(!closed){ACTIVE.remove(path);closed=true;}}}
+        private final Path path; private boolean closed;
+        private IoGuard(Path path) {this.path=path; }
+        @Override public void close() {synchronized (ACTIVE){if (!closed){ACTIVE.remove(path); closed=true; }}}
     }
     public IoGuard enter(Path root) {
-        IoGuard guard=tryEnter(root);if(guard==null)throw new CdsImportException("PREACCEPT_IO_BUSY");return guard;
+        IoGuard guard=tryEnter(root); if (guard==null)throw new CdsImportException("PREACCEPT_IO_BUSY"); return guard;
     }
     private static IoGuard tryEnter(Path root) {
         Path key=root.toAbsolutePath().normalize();
-        synchronized(ACTIVE) {if(ACTIVE.size()>=64 || !ACTIVE.add(key))return null;return new IoGuard(key);}
+        synchronized (ACTIVE) {if (ACTIVE.size()>=64 || !ACTIVE.add(key))return null; return new IoGuard(key); }
     }
 
     /** Caller holds enter(root) and accept.lock continuously through journal, copy and ledger acceptance. */
@@ -93,7 +93,7 @@ public class CdsPreacceptService {
         CdsImportLedgerService.requireNoTransaction(); requireLock(owner);
         Path staging=configuration.stagingRoot().toRealPath(LinkOption.NOFOLLOW_LINKS);
         Path root=CdsPaths.within(jobRoot, staging);
-        synchronized(ACTIVE){if(!ACTIVE.contains(root.toAbsolutePath().normalize()))throw new CdsImportException("PREACCEPT_IO_GUARD_REQUIRED");}
+        synchronized (ACTIVE){if (!ACTIVE.contains(root.toAbsolutePath().normalize()))throw new CdsImportException("PREACCEPT_IO_GUARD_REQUIRED"); }
         if (!privateDirectory(staging) || !privateDirectory(root)) throw new CdsImportException("PREACCEPT_STORAGE_NOT_PRIVATE");
         String expected="job-"+CdsImportKeys.hash(actor.operator(), command.submissionKey());
         if (!root.equals(staging.resolve(expected)) || command.input().toAbsolutePath().normalize().startsWith(root)) {
@@ -163,8 +163,8 @@ public class CdsPreacceptService {
                     for (Path candidate:candidates) {
                         if (++visited>maxCandidates) {result.put("more", true); return Map.copyOf(result); }
                         if (candidate.getFileName().toString().matches("job-[0-9a-f]{64}|preaccept-retired-[0-9a-f-]{36}")) {
-                            try(IoGuard process=tryEnter(candidate)) {
-                            if(process==null){increment(result,"busy",1);continue;}
+                            try (IoGuard process=tryEnter(candidate)) {
+                            if (process==null){increment(result, "busy", 1); continue; }
                             Path owner=candidate.resolve("accept.lock");
                             if (Files.isRegularFile(owner, LinkOption.NOFOLLOW_LINKS)) {
                                 try (FileChannel channel=FileChannel.open(owner, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS); FileLock held=tryLock(channel)) {
@@ -179,7 +179,7 @@ public class CdsPreacceptService {
                 result.put("state", "COMPLETE"); result.put("fullPassComplete", true); return Map.copyOf(result);
             }
             try (IoGuard process=tryEnter(root.resolve(".preaccept-sweep.lock"))) {
-            if(process==null){result.put("busy",1L);return Map.copyOf(result);}
+            if (process==null){result.put("busy", 1L); return Map.copyOf(result); }
             try (FileChannel gate=channel(root.resolve(".preaccept-sweep.lock")); FileLock lock=tryLock(gate)) {
                 if (lock==null) {result.put("busy", 1L); return Map.copyOf(result); }
                 JsonNode committed=JSON.readTree(read(seal, 65536)); long end=committed.path("bytes").asLong(-1);
@@ -228,8 +228,8 @@ public class CdsPreacceptService {
         if (!privateDirectory(root)) return new Outcome("uncertain", 0, false);
         Path ownerFile=root.resolve("accept.lock");
         if (!Files.isRegularFile(ownerFile, LinkOption.NOFOLLOW_LINKS)) return new Outcome("uncertain", 0, false);
-        try(IoGuard process=tryEnter(root)) {
-        if(process==null)return new Outcome("busy",0,false);
+        try (IoGuard process=tryEnter(root)) {
+        if (process==null)return new Outcome("busy", 0, false);
         try (FileChannel owner=FileChannel.open(ownerFile, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS); FileLock lock=tryLock(owner)) {
             if (lock==null) return new Outcome("busy", 0, false);
             Ownership ownership=ownership(root);
@@ -292,7 +292,7 @@ public class CdsPreacceptService {
                 if (!directory.equals(root)) {
                     if (operations[0]>=budget) {partial[0]=true; return FileVisitResult.TERMINATE; }
                     try {Files.delete(directory); operations[0]++; changed.add(directory.getParent()); }
-                    catch (java.nio.file.DirectoryNotEmptyException retained) {uncertain[0]=true;return FileVisitResult.TERMINATE;}
+                    catch (java.nio.file.DirectoryNotEmptyException retained) {uncertain[0]=true; return FileVisitResult.TERMINATE; }
                 }
                 return FileVisitResult.CONTINUE;
             }
@@ -324,7 +324,7 @@ public class CdsPreacceptService {
         Path root=configuration.stagingRoot(), index=root.resolve(".preaccept-index.jsonl"), seal=root.resolve(".preaccept-index.seal");
         // One entry per generation, even when a large source copy is repeatedly resumed.
         Path marker=owned.root().resolve("indexed.seal"); if (Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) return;
-        synchronized(INDEX_MUTEX) {
+        synchronized (INDEX_MUTEX) {
         try (FileChannel gate=channel(root.resolve(".preaccept-index.lock")); FileLock lock=gate.lock(); FileChannel file=channel(index)) {
             long end=0;
             if (Files.exists(seal, LinkOption.NOFOLLOW_LINKS)) {
@@ -398,7 +398,7 @@ public class CdsPreacceptService {
             return;
         }
         String generation=JSON.readTree(bytes).path("generation").asText();
-        if(!generation.matches("[0-9a-f-]{36}")) throw new CdsImportException("PREACCEPT_MARKER_INVALID");
+        if (!generation.matches("[0-9a-f-]{36}")) throw new CdsImportException("PREACCEPT_MARKER_INVALID");
         Path pending=root.resolve(".preaccept-marker-"+generation+"-"+UUID.randomUUID()+".pending"); writeNew(pending, root, bytes);
         Files.move(pending, file, StandardCopyOption.ATOMIC_MOVE); CdsPaths.forceDirectory(root);
     }

@@ -93,15 +93,15 @@ public class DocumentListItemDTO implements Serializable {
                                String source, char status, String contenttype, Date contentdatetime,
                                Date observationdate, String reviewer, Date reviewdatetime,
                                Integer numberofpages, Integer appointmentNo, boolean abnormal) {
-        this(documentNo,doctype,docClass,docSubClass,docdesc,docfilename,doccreator,responsible,source,status,
-                contenttype,contentdatetime,observationdate,reviewer,reviewdatetime,numberofpages,appointmentNo,abnormal,null);
+        this(documentNo, doctype, docClass, docSubClass, docdesc, docfilename, doccreator, responsible, source, status,
+                contenttype, contentdatetime, observationdate, reviewer, reviewdatetime, numberofpages, appointmentNo, abnormal, null);
     }
 
     public DocumentListItemDTO(Integer documentNo, String doctype, String docClass, String docSubClass,
                                String docdesc, String docfilename, String doccreator, String responsible,
                                String source, char status, String contenttype, Date contentdatetime,
                                Date observationdate, String reviewer, Date reviewdatetime,
-                               Integer numberofpages, Integer appointmentNo, boolean abnormal,String cdsContentPrecision) {
+                               Integer numberofpages, Integer appointmentNo, boolean abnormal, String cdsContentPrecision) {
         this.cdsContentPrecision=cdsContentPrecision;
         this.documentNo = documentNo;
         this.doctype = doctype;
@@ -136,7 +136,7 @@ public class DocumentListItemDTO implements Serializable {
                 d.getDocdesc(), d.getDocfilename(), d.getDoccreator(), d.getResponsible(),
                 d.getSource(), d.getStatus(), d.getContenttype(), d.getContentdatetime(),
                 d.getObservationdate(), d.getReviewer(), d.getReviewdatetime(),
-                d.getNumberofpages(), d.getAppointmentNo(), d.isAbnormal(),d.getCdsContentPrecision()
+                d.getNumberofpages(), d.getAppointmentNo(), d.isAbnormal(), d.getCdsContentPrecision()
         );
     }
 

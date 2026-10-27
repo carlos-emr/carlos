@@ -435,7 +435,7 @@ public final class EDocUtil {
                 doc.setContenttype(newDocument.getContentType());
                 // Content time is read-only in this metadata editor. Preserve the imported
                 // source value even when an EDoc constructor populated an upload-time default.
-                if(doc.getCdsContentPrecision()==null) doc.setContentdatetime(newDocument.getContentDateTime());
+                if (doc.getCdsContentPrecision()==null) doc.setContentdatetime(newDocument.getContentDateTime());
                 // The replacement's page count, as adding a document stores it (0 when it is not a PDF);
                 // the inbox view, the document display and Split read it.
                 doc.setNumberofpages(newDocument.getNumberOfPages());

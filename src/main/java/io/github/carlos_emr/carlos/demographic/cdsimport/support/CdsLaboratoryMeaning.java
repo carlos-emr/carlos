@@ -25,7 +25,7 @@ import java.util.Set;
 
 /** Explicit known laboratory meanings shared by the native inbox and CDS message adapter. */
 public final class CdsLaboratoryMeaning {
-    private static final Set<String> ABNORMAL=Set.of("L","LL","H","HH","A","AA");
+    private static final Set<String> ABNORMAL=Set.of("L", "LL", "H", "HH", "A", "AA");
     private CdsLaboratoryMeaning() { }
     public static boolean isFinal(String status) {
         return "F".equalsIgnoreCase(status) || "Final".equalsIgnoreCase(status);

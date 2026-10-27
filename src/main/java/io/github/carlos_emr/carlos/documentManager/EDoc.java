@@ -307,12 +307,12 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
     }
 
     public String getContentDateTimeDisplay(String pattern) {
-        return contentDateTime==null?sourcePrecisionDisplay():UtilDateUtilities.DateToString(contentDateTime,pattern);
+        return contentDateTime==null?sourcePrecisionDisplay():UtilDateUtilities.DateToString(contentDateTime, pattern);
     }
 
     private String sourcePrecisionDisplay() {
-        if(cdsContentPrecision==null) return "";
-        return switch(cdsContentPrecision) {
+        if (cdsContentPrecision==null) return "";
+        return switch (cdsContentPrecision) {
             case "YEAR" -> "Year only; see imported report details";
             case "MONTH" -> "Month only; see imported report details";
             case "FULL_DATE" -> "Date without a time; see imported report details";

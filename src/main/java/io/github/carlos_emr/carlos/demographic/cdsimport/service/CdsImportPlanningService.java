@@ -180,7 +180,7 @@ public class CdsImportPlanningService {
             return;
         }
         Path parseResult = parsed.recordsManifestFile().getParent().resolve("parse-result.json");
-        emitSchemaWarnings(state,parsed.recordsManifestFile().getParent());
+        emitSchemaWarnings(state, parsed.recordsManifestFile().getParent());
         CdsRecordDto[] demographic = new CdsRecordDto[1];
         MessageDigest patientSource = CdsPaths.sha256(); CdsImportKeys.add(patientSource, xml.sha256());
         if (correction!=null) { CdsImportKeys.add(patientSource, "REVIEWED_CORRECTIONS"); CdsImportKeys.add(patientSource, correction.sha256()); }
@@ -217,7 +217,7 @@ public class CdsImportPlanningService {
             if (failure instanceof UncheckedIOException io) throw io.getCause();
             throw failure;
         }
-        if(Files.exists(typed.path,LinkOption.NOFOLLOW_LINKS))CdsPaths.forceFile(typed.path);
+        if (Files.exists(typed.path, LinkOption.NOFOLLOW_LINKS))CdsPaths.forceFile(typed.path);
         if (demographic[0] == null) { state.blocked = true; diagnostic(state, null, "DEMOGRAPHICS_REQUIRED", "/files[" + state.discoveredXmls + "]", parseResult.toString()); return; }
         String sourceDigest = CdsPaths.hex(patientSource.digest());
         boolean[] boundTyped={false};
@@ -373,12 +373,12 @@ public class CdsImportPlanningService {
     }
 
     private final class TypedSpool implements AutoCloseable {
-        final Path path;OutputStream output; long bytes, nextDisk;
+        final Path path; OutputStream output; long bytes, nextDisk;
         TypedSpool(Path folder) throws IOException {
             path=folder.resolve("typed-errors-"+UUID.randomUUID()+".jsonl");
         }
         void append(String code, String xpath, String detail) throws IOException {
-            if(output==null)output=new BufferedOutputStream(CdsPaths.newPrivateFile(path,path.getParent()),65536);
+            if (output==null)output=new BufferedOutputStream(CdsPaths.newPrivateFile(path, path.getParent()), 65536);
             byte[] row=JSON.writeValueAsBytes(JSON.createObjectNode().put("code", code).put("sourceXPath", xpath).put("detail", detail));
             bytes=Math.addExact(bytes, row.length+1L); var limits=configuration.limits();
             if (bytes>limits.maxExpandedBytes()) throw new CdsImportException("PREFLIGHT_DIAGNOSTIC_BYTE_LIMIT");
@@ -388,20 +388,20 @@ public class CdsImportPlanningService {
             }
             output.write(row); output.write('\n');
         }
-        @Override public void close() throws IOException {if(output!=null)output.close(); }
+        @Override public void close() throws IOException {if (output!=null)output.close(); }
     }
 
-    private void emitSchemaWarnings(State state,Path folder) throws IOException {
-        JsonNode proof=JSON.readTree(CdsImportJobService.boundedFile(folder.resolve("parse.seal"),65536));
-        if(proof.path("schemaWarnings").asLong()==0)return;
+    private void emitSchemaWarnings(State state, Path folder) throws IOException {
+        JsonNode proof=JSON.readTree(CdsImportJobService.boundedFile(folder.resolve("parse.seal"), 65536));
+        if (proof.path("schemaWarnings").asLong()==0)return;
         Path details=folder.resolve("validation-errors.jsonl");
-        try(InputStream input=new BufferedInputStream(Files.newInputStream(details,LinkOption.NOFOLLOW_LINKS),65536)) {
+        try (InputStream input=new BufferedInputStream(Files.newInputStream(details, LinkOption.NOFOLLOW_LINKS), 65536)) {
             byte[] line;
-            while((line=CdsFieldParser.readMetadataLine(input))!=null) {
-                state.cancelled();JsonNode row=JSON.readTree(line);
-                if(row.path("severity").asText().equals("WARNING"))ledger.diagnostic(state.runId,state.epoch,null,null,"WARNING",
-                        row.path("code").asText("CDS_XML_SCHEMA_WARNING"),"SCHEMA_VALIDATION",row.path("sourceXPath").asText(),
-                        "Source XML validation emitted a nonblocking warning",details.toString(),false);
+            while ((line=CdsFieldParser.readMetadataLine(input))!=null) {
+                state.cancelled(); JsonNode row=JSON.readTree(line);
+                if (row.path("severity").asText().equals("WARNING"))ledger.diagnostic(state.runId, state.epoch, null, null, "WARNING",
+                        row.path("code").asText("CDS_XML_SCHEMA_WARNING"), "SCHEMA_VALIDATION", row.path("sourceXPath").asText(),
+                        "Source XML validation emitted a nonblocking warning", details.toString(), false);
             }
         }
     }
@@ -446,7 +446,7 @@ public class CdsImportPlanningService {
         state.currentParseFolder=folder;
         selectAttempt(baseFolder, folder);
         result=folder.resolve("parse-result.json");
-        CdsParseResultDto parsed=parser.parse(xml.path(), folder, configuration.limits(), state::cancellationRequested, record->{ }, correction);
+        CdsParseResultDto parsed=parser.parse(xml.path(), folder, configuration.limits(), state::cancellationRequested, record-> { }, correction);
         if (!parsed.sourceSha256().equals(xml.sha256())) throw new CdsImportException("SNAPSHOT_XML_CHANGED");
         try (OutputStream output=CdsPaths.newPrivateFile(result, folder)) { output.write(JSON.writeValueAsBytes(parsed)); }
         CdsPaths.forceFile(result); CdsPaths.forceDirectory(folder);

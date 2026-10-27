@@ -67,7 +67,7 @@ public class CdsImportService {
     private long nextHousekeepingNanos=System.nanoTime();
 
     public CdsImportService(CdsImportLedgerService ledger, CdsImportJobService jobs, CdsImportExecutionService execution,
-            CdsImportResultService results, CdsImportAccessService access, CdsImportConfigurationService configuration, CdsImportCleanupService cleanup, CdsImportReviewService reviews,CdsImportFailureEvidenceService failureEvidence) {
+            CdsImportResultService results, CdsImportAccessService access, CdsImportConfigurationService configuration, CdsImportCleanupService cleanup, CdsImportReviewService reviews, CdsImportFailureEvidenceService failureEvidence) {
         this.ledger=ledger; this.jobs=jobs; this.execution=execution; this.results=results; this.access=access; this.configuration=configuration; this.cleanup=cleanup; this.reviews=reviews; this.failureEvidence=failureEvidence;
     }
 
@@ -135,10 +135,10 @@ public class CdsImportService {
     }
     public Path report(LoggedInInfo viewer, String run, String type) throws IOException { status(viewer, run); return results.report(run, type); }
     public Path report(CdsImportActorDto actor, String run, String type) throws IOException { requireActor(actor, run); return results.report(run, type); }
-    public Map<String,Object> diagnosticEvidence(LoggedInInfo viewer,String run,long diagnosticId) throws IOException {
-        status(viewer,run);var diagnostic=ledger.diagnosticStatus(run,diagnosticId);
-        if(diagnostic.protectedDetailLocation()==null) throw new CdsImportException("IMPORT_FAILURE_EVIDENCE_UNAVAILABLE");
-        return failureEvidence.read(run,diagnostic.protectedDetailLocation());
+    public Map<String, Object> diagnosticEvidence(LoggedInInfo viewer, String run, long diagnosticId) throws IOException {
+        status(viewer, run); var diagnostic=ledger.diagnosticStatus(run, diagnosticId);
+        if (diagnostic.protectedDetailLocation()==null) throw new CdsImportException("IMPORT_FAILURE_EVIDENCE_UNAVAILABLE");
+        return failureEvidence.read(run, diagnostic.protectedDetailLocation());
     }
 
     public void observe(CdsImportActorDto actor, String run, String operation, long osUid, String verifiedNonce) throws IOException {

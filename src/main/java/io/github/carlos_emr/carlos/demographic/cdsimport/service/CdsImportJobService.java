@@ -89,7 +89,7 @@ public class CdsImportJobService {
             catch (java.nio.file.FileAlreadyExistsException concurrent) { /* The short acceptance lock settles ownership. */ }
         }
         privateRoot(jobRoot);
-        try (var process=preaccept.enter(jobRoot);FileChannel channel = lockChannel(jobRoot.resolve("accept.lock")); FileLock ignored = lock(channel)) {
+        try (var process=preaccept.enter(jobRoot); FileChannel channel = lockChannel(jobRoot.resolve("accept.lock")); FileLock ignored = lock(channel)) {
             existing = ledger.findSubmission(actor.operator(), command.submissionKey());
             if (existing != null) return existing(existing, actor, command);
             String uploadId = uploadId(command.input());
@@ -127,7 +127,7 @@ public class CdsImportJobService {
             if (!Files.exists(location, LinkOption.NOFOLLOW_LINKS)) {
                 Path pending=jobRoot.resolve(".job-document-"+ownership.generation()+"-"+UUID.randomUUID()+".pending");
                 try (OutputStream output = CdsPaths.newPrivateFile(pending, jobRoot)) { output.write(bytes); }
-                CdsPaths.forceFile(pending);Files.move(pending,location,StandardCopyOption.ATOMIC_MOVE);CdsPaths.forceDirectory(jobRoot);
+                CdsPaths.forceFile(pending); Files.move(pending, location, StandardCopyOption.ATOMIC_MOVE); CdsPaths.forceDirectory(jobRoot);
             } else if (!java.util.Arrays.equals(bytes, boundedFile(location, 65536))) {
                 throw new CdsImportException("JOB_DOCUMENT_HASH_CONFLICT");
             }

@@ -98,8 +98,8 @@ public final class CdsXmlText {
     /** Constant-space transport signature detection, fed by the source-copy loop without another file pass. */
     public static final class Signature {
         private final int[] prefix=new int[4];
-        private int prefixSize,unit=1,unitBytes,value;
-        private boolean initialized,little,decided,xml;
+        private int prefixSize, unit=1, unitBytes, value;
+        private boolean initialized, little, decided, xml;
 
         public void accept(byte[] bytes, int offset, int length) {
             if (decided) return;
@@ -116,26 +116,26 @@ public final class CdsXmlText {
 
         private void initialize() {
             initialized=true; int skip=0;
-            if (prefixSize>=4 && prefix[0]==0 && prefix[1]==0 && prefix[2]==254 && prefix[3]==255) {unit=4;skip=4;}
-            else if (prefixSize>=4 && prefix[0]==255 && prefix[1]==254 && prefix[2]==0 && prefix[3]==0) {unit=4;little=true;skip=4;}
+            if (prefixSize>=4 && prefix[0]==0 && prefix[1]==0 && prefix[2]==254 && prefix[3]==255) {unit=4; skip=4; }
+            else if (prefixSize>=4 && prefix[0]==255 && prefix[1]==254 && prefix[2]==0 && prefix[3]==0) {unit=4; little=true; skip=4; }
             else if (prefixSize>=3 && prefix[0]==239 && prefix[1]==187 && prefix[2]==191) skip=3;
-            else if (prefixSize>=2 && prefix[0]==254 && prefix[1]==255) {unit=2;skip=2;}
-            else if (prefixSize>=2 && prefix[0]==255 && prefix[1]==254) {unit=2;little=true;skip=2;}
+            else if (prefixSize>=2 && prefix[0]==254 && prefix[1]==255) {unit=2; skip=2; }
+            else if (prefixSize>=2 && prefix[0]==255 && prefix[1]==254) {unit=2; little=true; skip=2; }
             else if (prefixSize>=4 && prefix[0]==0 && prefix[1]==0 && prefix[2]==0 && asciiStart(prefix[3])) unit=4;
-            else if (prefixSize>=4 && asciiStart(prefix[0]) && prefix[1]==0 && prefix[2]==0 && prefix[3]==0) {unit=4;little=true;}
+            else if (prefixSize>=4 && asciiStart(prefix[0]) && prefix[1]==0 && prefix[2]==0 && prefix[3]==0) {unit=4; little=true; }
             else if (prefixSize>=2 && prefix[0]==0 && asciiStart(prefix[1])) unit=2;
-            else if (prefixSize>=2 && asciiStart(prefix[0]) && prefix[1]==0) {unit=2;little=true;}
-            for (int i=skip;i<prefixSize && !decided;i++) acceptByte(prefix[i]);
+            else if (prefixSize>=2 && asciiStart(prefix[0]) && prefix[1]==0) {unit=2; little=true; }
+            for (int i=skip; i<prefixSize && !decided; i++) acceptByte(prefix[i]);
         }
 
         private void acceptByte(int next) {
             value|=next<<(8*(little?unitBytes:unit-1-unitBytes));
             if (++unitBytes!=unit) return;
-            if (!xmlSpace(value)) {decided=true;xml=value=='<';}
-            value=0;unitBytes=0;
+            if (!xmlSpace(value)) {decided=true; xml=value=='<'; }
+            value=0; unitBytes=0;
         }
-        private static boolean asciiStart(int value) {return value=='<' || xmlSpace(value);}
-        private static boolean xmlSpace(int value) {return value==' ' || value=='\t' || value=='\n' || value=='\r';}
+        private static boolean asciiStart(int value) {return value=='<' || xmlSpace(value); }
+        private static boolean xmlSpace(int value) {return value==' ' || value=='\t' || value=='\n' || value=='\r'; }
     }
 
     private static final class MarkupReader extends FilterReader {

@@ -407,14 +407,14 @@ public class CdsFieldParser {
     public void forEachSubrecord(CdsRecordDto record, String topLevelName, CdsInputLimitsDto limits,
             Consumer<CdsRecordDto> consumer) throws IOException {
         FieldIndex index=firstIndex(record);
-        if(index.complete()) {
+        if (index.complete()) {
             boolean found=false;
-            for(CdsFieldDto field:index.first().values()) {
-                int slash=field.path().indexOf('/');String first=slash<0?field.path():field.path().substring(0,slash);
+            for (CdsFieldDto field:index.first().values()) {
+                int slash=field.path().indexOf('/'); String first=slash<0?field.path():field.path().substring(0, slash);
                 int bracket=first.lastIndexOf('[');
-                if(bracket>0 && (topLevelName==null || topLevelName.equals("*") || first.substring(0,bracket).equals(topLevelName))) {found=true;break;}
+                if (bracket>0 && (topLevelName==null || topLevelName.equals("*") || first.substring(0, bracket).equals(topLevelName))) {found=true; break; }
             }
-            if(!found)return;
+            if (!found)return;
         }
         if (topLevelName != null && !topLevelName.equals("*") && !topLevelName.matches("[A-Za-z][A-Za-z0-9]*")) {
             throw new IllegalArgumentException("Invalid CDS child selection");
