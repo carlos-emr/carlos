@@ -55,6 +55,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.WeakHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -63,7 +64,7 @@ import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.logging.log4j.Logger;
 
 public class OscarTrackingBasicDataSource extends BasicDataSource {
-    private volatile io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState cdsAdmissionState;
+    private final AtomicReference<io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState> cdsAdmissionState=new AtomicReference<>();
     private volatile boolean cdsMetadataGuardReady;
 
     /** New CDS metadata stays lossless before maintenance activation; ordinary SQL is unchanged. */
@@ -74,13 +75,12 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     /** Installed after the schema boot gate and before the EntityManagerFactory starts. */
     public void installCdsAdmissionState(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState state) {
-        if (cdsAdmissionState != null) throw new IllegalStateException("CDS admission is already initialized");
-        cdsAdmissionState = java.util.Objects.requireNonNull(state);
+        if (!cdsAdmissionState.compareAndSet(null, java.util.Objects.requireNonNull(state))) throw new IllegalStateException("CDS admission is already initialized");
         if (getNumActive() != 0) throw new IllegalStateException("CDS admission initialization requires a drained connection pool");
     }
 
     public io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState getCdsAdmissionState() {
-        return cdsAdmissionState;
+        return cdsAdmissionState.get();
     }
 
     /** Uses the configured driver/credentials directly, never an abandoned-reclaimable pool lease. */
@@ -89,7 +89,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
     }
 
     private Connection cdsAdmission(Connection connection) {
-        var state = cdsAdmissionState;
+        var state = cdsAdmissionState.get();
         if (state!=null) return io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.wrap(connection, state);
         return cdsMetadataGuardReady
                 ? io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.wrapMetadataOnly(connection)

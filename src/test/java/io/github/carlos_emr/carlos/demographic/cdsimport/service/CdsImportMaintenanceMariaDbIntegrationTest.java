@@ -177,8 +177,10 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
                 assertThat(value()).isEqualTo("old-transaction");
                 try (Connection ordinary = nodeTwo.getConnection()) {
                     assertThatThrownBy(() -> update(ordinary, "must-not-commit")).isInstanceOf(SQLException.class);
-                    assertThatThrownBy(() -> ordinary.createStatement().executeQuery("SELECT * FROM cds_guard_probe"))
-                            .isInstanceOf(SQLException.class);
+                    try (Statement deniedQuery = ordinary.createStatement()) {
+                        assertThatThrownBy(() -> deniedQuery.executeQuery("SELECT * FROM cds_guard_probe"))
+                                .isInstanceOf(SQLException.class);
+                    }
                 }
                 try (Connection imported = CdsJdbcAdmissionGuard.wrap(nodeOne.openUnpooledCdsMaintenanceConnection(),
                         nodeOne.getCdsAdmissionState(), () -> true)) {
@@ -206,7 +208,8 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
                 verify(owner);
                 Connection metadataConnection = connection.getMetaData().getConnection().unwrap(Connection.class);
                 assertThatThrownBy(() -> update(metadataConnection, "unwrap-escape")).isInstanceOf(SQLException.class);
-                assertThatThrownBy(() -> update(query.getConnection(), "statement-escape")).isInstanceOf(SQLException.class);
+                Connection statementConnection = query.getConnection();
+                assertThatThrownBy(() -> update(statementConnection, "statement-escape")).isInstanceOf(SQLException.class);
                 owner.allowReopen();
             }
         }

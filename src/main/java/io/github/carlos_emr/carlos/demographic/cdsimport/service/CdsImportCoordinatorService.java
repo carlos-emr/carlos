@@ -70,9 +70,10 @@ public class CdsImportCoordinatorService {
         }
         @Override public void close() {
             if (closed) return; closed=true;
-            try { scalar(connection, "SELECT RELEASE_LOCK(?)", name); }
+            try (Connection retiring=connection) {
+                if (scalar(retiring, "SELECT RELEASE_LOCK(?)", name)!=1) throw new CdsImportException("IMPORT_COORDINATOR_RELEASE_FAILED");
+            }
             catch (SQLException failure) { throw new CdsImportException("IMPORT_COORDINATOR_RELEASE_FAILED", false, failure); }
-            finally { try { connection.close(); } catch (SQLException failure) { throw new CdsImportException("IMPORT_COORDINATOR_RELEASE_FAILED", false, failure); } }
         }
     }
 }

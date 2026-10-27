@@ -32,6 +32,10 @@ import java.time.Instant;
 @Table(name = "cds_import_run")
 public class CdsImportRun extends AbstractModel<String> {
     private static final long serialVersionUID = 1L;
+    @Column(name = "resume_requested", nullable = false)
+    private boolean resumeRequested;
+    public boolean isResumeRequested() { return resumeRequested; }
+    public void setResumeRequested(boolean value) { resumeRequested = value; }
     @Id
     @Column(name = "id", length = 36, nullable = false)
     private String id;

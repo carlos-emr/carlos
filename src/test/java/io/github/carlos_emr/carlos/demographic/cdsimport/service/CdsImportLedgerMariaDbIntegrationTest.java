@@ -86,7 +86,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
   ctx.registerBean("entityManagerFactory",LocalContainerEntityManagerFactoryBean.class,()->{
    var emf=new LocalContainerEntityManagerFactoryBean();emf.setPersistenceUnitName("entityManagerFactory");emf.setDataSource(ctx.getBean(DataSource.class));
    emf.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-   String[] names={"Run","Patient","Unit","Dependency","Lineage","Checkpoint","Field","Diagnostic","File","FileReference","Event","Admission","Identity"};
+   String[] names={"Run","Patient","Unit","Dependency","Lineage","Checkpoint","Field","Diagnostic","File","FileReference","Event","Admission","Identity","Review"};
    emf.setManagedTypes(PersistenceManagedTypes.of(Arrays.stream(names).map(n->"io.github.carlos_emr.carlos.commn.model.CdsImport"+n).toArray(String[]::new)));
    emf.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto","none","hibernate.dialect","org.hibernate.dialect.MariaDBDialect","hibernate.show_sql","false","hibernate.jdbc.time_zone","UTC"));return emf;
   });
@@ -132,6 +132,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    check(((Number)ledger.summary(job.id).get("committedUnits")).longValue()==2,"same-run resumed committed occurrences retain import count");
    check(ledger.isHeld(job.target),"partial chart held");
    ledger.finalizePatient(job.id,job.epoch,job.patient,CdsImportLedgerMariaDbIntegrationTest::verify);
+   ledger.finalizePatient(job.id,job.epoch,job.patient,receipt->{throw new AssertionError("published patient finalization replay");});
    check(!ledger.isHeld(job.target),"completion releases reconciled hold");
    check("COMPLETE".equals(ledger.finish(job.id,job.epoch).state()),"run completion derived from patient outcome");
    check("RELEASE_PENDING".equals(ledger.summary(job.id).get("maintenanceReleaseState")),"clinical completion atomically persists release-pending crash protection");
@@ -167,13 +168,84 @@ class CdsImportLedgerMariaDbIntegrationTest {
    verifyOwnerRowLock();
    verifyPlanFencing();
    verifyDryRun();
-   verifyReviewedResetAndReplan();
+   verifyReviewedResetAndReplan(jdbc);
    verifyAuthorizationStopAndResume();
    verifyCurrentInitiatorControlAudit();
    verifyUnwrittenRevisionApproval();
    verifyMaintenanceReleaseOutcome(job);
    verifyStoppedReportsRediscoveredWithoutClinicalResume();
+   verifyDeadOwnerResume(jdbc);
   } finally {ctx.close();}
+ }
+ static void verifyDeadOwnerResume(Properties jdbc) throws Exception {
+  Properties policy=new Properties();policy.setProperty("cds.import.enabled","true");policy.setProperty("cds.import.maintenanceMode","true");
+  var config=new CdsImportConfigurationService(policy);
+  var actor=new CdsImportActorDto("fixture","999998","999998",null,null,null);
+  var command=new io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand(Path.of("/opaque/recovery.xml"),UUID.randomUUID().toString(),"999998",null,null,"fixture","omd-5.2",false,false,true,0,null,false);
+  String source="dead-owner-"+UUID.randomUUID();String options=CdsImportJobService.optionsDigest(command),rules=CdsImportJobService.rulesetDigest(command,config);
+  String id=ledger.accept(new CdsImportJobCommand(command.submissionKey(),"fixture","999998","fixture","omd-5.2",A,options,rules,"/opaque/recovery")).id();
+  ledger.planPatient(id,"patient",source,"primary",A);
+  String first=CdsImportKeys.hash(source,"first"),second=CdsImportKeys.hash(source,"second");
+  ledger.planUnit(id,"patient",first,"Demographics",1,A,"/opaque/first");ledger.planUnit(id,"patient",second,"ClinicalNotes",1,B,"/opaque/second");ledger.addDependency(id,second,first);ledger.seal(id,C,1,2);
+  long originalEpoch=ledger.acquire(id);Job job=new Job(id,originalEpoch,"patient",first,second,++target);
+  var physical=new io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource();
+  physical.setDriverClassName("com.mysql.cj.jdbc.Driver");physical.setUrl(jdbc.getProperty("jdbcUrl").replace("jdbc:mariadb:","jdbc:mysql:"));
+  physical.setUsername(jdbc.getProperty("jdbcUser"));physical.setPassword(jdbc.getProperty("jdbcPassword"));physical.setDefaultAutoCommit(true);
+  new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionInitializer(physical,true,"validate").initialize();
+  var coordinators=new CdsImportCoordinatorService(physical);var maintenance=new CdsImportMaintenanceService(physical,config);var safety=new CdsImportTargetSafetyService(config);
+  var nativeRecords=org.mockito.Mockito.mock(CdsImportNativeService.class);var jobs=org.mockito.Mockito.mock(CdsImportJobService.class);
+  var planner=org.mockito.Mockito.mock(CdsImportPlanningService.class);var access=org.mockito.Mockito.mock(CdsImportAccessService.class);
+  var reports=org.mockito.Mockito.mock(CdsImportResultService.class);var snapshot=org.mockito.Mockito.mock(CdsSnapshotDto.class);
+  var document=new CdsImportJobDocumentDto(command,actor,snapshot,null,Path.of("/opaque"),rules);
+  org.mockito.Mockito.when(jobs.load(id)).thenReturn(document);
+  var record=new CdsRecordDto("ClinicalNotes",1,"/OmdCds[1]/PatientRecord[1]/ClinicalNotes[1]",Path.of("/opaque/fields"),0,0,Path.of("/opaque/values"),B,0);
+  var work=new CdsImportWorkDto(record,snapshot,"recovery.xml",A,Path.of("/opaque/parse"),actor,command);
+  org.mockito.Mockito.when(planner.work(org.mockito.ArgumentMatchers.eq(id),org.mockito.ArgumentMatchers.any())).thenReturn(work);
+  var verifications=new java.util.concurrent.atomic.AtomicInteger();
+  org.mockito.Mockito.when(nativeRecords.verify(org.mockito.ArgumentMatchers.any())).thenAnswer(call->{verifications.incrementAndGet();return verify(call.getArgument(0));});
+  org.mockito.Mockito.when(nativeRecords.write(org.mockito.ArgumentMatchers.eq(id),org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyString()))
+   .thenAnswer(call->{long epoch=call.getArgument(1);return write(new Job(id,epoch,"patient",first,second,job.target),"recovered-second");});
+  org.mockito.Mockito.doAnswer(call->{long epoch=call.getArgument(1);expect("EXECUTION_RECOVERY_INCOMPLETE",()->ledger.resolveRecoveredExecution(id,epoch));ledger.control(id,actor,"RESUME_REQUESTED",()->ledger.requestResumeParticipating(id));return null;})
+   .when(nativeRecords).prepare(org.mockito.ArgumentMatchers.eq(id),org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyString());
+  var engine=new CdsImportExecutionService(ledger,units,jobs,planner,nativeRecords,access,config,maintenance,reports,coordinators,
+   org.mockito.Mockito.mock(CdsImportFileVerificationService.class),safety,org.mockito.Mockito.mock(CdsImportFailureEvidenceService.class),new CdsFieldParser());
+  try (physical;var liveCoordinator=coordinators.acquire();var liveWindow=maintenance.acquire()) {
+   safety.verify(liveWindow);long before=countNative();commitFault.failNextCommitAcknowledgement();
+   expect("UNIT_COMMIT_OUTCOME_UNKNOWN",()->units.execute(id,originalEpoch,first,()->write(job,"unknown-before-process-loss"),CdsImportLedgerMariaDbIntegrationTest::verify));
+   ledger.diagnostic(id,originalEpoch,"patient",first,"ERROR","UNIT_COMMIT_OUTCOME_UNKNOWN","EXECUTION",null,"Synthetic lost acknowledgement requires exact receipt verification",null,true);
+   ledger.cancel(id);ledger.control(id,actor,"RESUME_REQUESTED",()->ledger.requestResumeParticipating(id));
+   check(ledger.status(id).cancelRequested() && ledger.status(id).ownerEpoch()==originalEpoch && "RUNNING".equals(ledger.status(id).state()),"active Resume does not clear cancellation/state/epoch before both physical proofs");
+   check(Boolean.TRUE.equals(ledger.summary(id).get("resumeRequested")) && ledger.pendingResumeEvent(id)>0,"accepted active resume is visible and durable");
+   check(ledger.pending("",200).stream().anyMatch(value->id.equals(value.id())),"new dispatcher rediscovers active resume without the old in-memory queue");
+   engine.execute(id);check(ledger.status(id).ownerEpoch()==originalEpoch,"live coordinator prevents takeover");org.mockito.Mockito.verifyNoInteractions(jobs,nativeRecords);
+   liveCoordinator.close();engine.execute(id);check(ledger.status(id).ownerEpoch()==originalEpoch && ledger.ownsAdmission(id,originalEpoch),"lost coordinator with a live maintenance owner cannot fence/release its unit owner");
+   ledger.cancel(id);check(ledger.pendingResumeEvent(id)==0 && !Boolean.TRUE.equals(ledger.summary(id).get("resumeRequested")),"later Cancel retires the queued Resume");
+   liveWindow.close();engine.execute(id,true);
+   check(ledger.status(id).cancelRequested() && ledger.status(id).ownerEpoch()==originalEpoch && countNative()==before+1 && ledger.isHeld(job.target),"later Cancel wins after actual dead-owner acquisition without replaying unknown commit");
+   org.mockito.Mockito.verify(nativeRecords,org.mockito.Mockito.never()).write(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyString());
+   ledger.control(id,actor,"RESUME_REQUESTED",()->ledger.requestResumeParticipating(id));
+   Properties changed=new Properties();changed.putAll(policy);changed.setProperty("cds.import.native.maxNoteBytes","131072");
+   var incompatible=new CdsImportExecutionService(ledger,units,jobs,planner,nativeRecords,access,new CdsImportConfigurationService(changed),maintenance,reports,coordinators,
+    org.mockito.Mockito.mock(CdsImportFileVerificationService.class),safety,org.mockito.Mockito.mock(CdsImportFailureEvidenceService.class),new CdsFieldParser());
+   incompatible.execute(id);
+   check(ledger.pendingResumeEvent(id)==0 && ledger.status(id).ownerEpoch()==originalEpoch && ledger.isHeld(job.target) && countNative()==before+1,"incompatible policy refuses only the current intent before epoch or clinical changes");
+   long refusals=sql.queryForObject("select count(*) from cds_import_diagnostic where run_id=? and code='RESUME_INTENT_REFUSED'",Long.class,id);
+   incompatible.execute(id);check(sql.queryForObject("select count(*) from cds_import_diagnostic where run_id=? and code='RESUME_INTENT_REFUSED'",Long.class,id)==refusals,"definitive refusal cannot become an automatic execution retry loop");
+   ledger.control(id,actor,"RESUME_REQUESTED",()->ledger.requestResumeParticipating(id));
+   // Old worker may finish/report after the enqueue was lost: the indexed intent remains discoverable.
+   sql.update("update cds_import_run set state='INCOMPLETE',report_state='DELIVERED' where id=?",id);
+   check(ledger.pending("",200).stream().anyMatch(value->id.equals(value.id())),"stopped delivered report cannot hide accepted resume intent");
+   try(var worker=java.util.concurrent.Executors.newSingleThreadExecutor()) {
+    var completed=worker.submit(()->engine.execute(id)).get(30,java.util.concurrent.TimeUnit.SECONDS);
+    check("COMPLETE".equals(completed.state()),"fresh worker resumes the original accepted partial run: "+completed.state()+" / "+ledger.summary(id).get("safeErrorCode")+" / "+ledger.diagnostics(id,0,100).stream().map(CdsImportDiagnosticDto::code).toList());
+   }
+   check(countNative()==before+2 && verifications.get()>=2,"unknown commit is verified by exact target receipt and never inserted twice");
+   check(!ledger.isHeld(job.target) && !ledger.status(id).cancelRequested() && ledger.pendingResumeEvent(id)==0,"complete verified recovery releases only its own hold and consumes intent");
+   check(!Boolean.TRUE.equals(ledger.summary(id).get("resumeRequested")),"operator summary clears consumed resume intent");
+   check(ledger.diagnostics(id,0,100).stream().noneMatch(value->"PREPARATION".equals(value.stage()) && value.blocking() && !value.resolved()),"old incompatible-policy stop retires only after exact accepted policy and all receipts reconcile");
+   check(sql.queryForObject("select count(*) from cds_import_event where run_id=? and event_type='RESUME_INTENT_SATISFIED_BY_COMPLETION'",Long.class,id)==1,"healthy old worker satisfies a new active Resume by exact natural completion without clinical replay");
+   expect("OWNER_FENCED",()->units.execute(id,originalEpoch,second,()->{throw new AssertionError("old process write");},CdsImportLedgerMariaDbIntegrationTest::verify));
+  }
  }
  static void verifyOwnerRowLock() throws Exception {
   Job job=job("lock-"+UUID.randomUUID(),false);
@@ -221,7 +293,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
   String conflict=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(),"fixture","999998","fixture","omd-5.2",A,"e".repeat(64),C,"/opaque/conflicting",false)).id();
   expect("SOURCE_REVISION_REVIEW_REQUIRED",()->ledger.planPatient(conflict,"patient",source,"primary",A));
  }
- static void verifyReviewedResetAndReplan() {
+ static void verifyReviewedResetAndReplan(Properties jdbc) throws Exception {
   String source="review-"+UUID.randomUUID();
   String id=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(),"fixture","999998","fixture","omd-5.2",A,B,C,"/opaque/review")).id();
   long epoch=ledger.claimPlanning(id); ledger.planPatient(id,epoch,"patient",source,"primary",A);
@@ -237,12 +309,24 @@ class CdsImportLedgerMariaDbIntegrationTest {
   check(A.equals(ledger.patientStatus(id,"patient").sourceDigest()),"old source facts retained until explicit revision");
   ledger.cancel(id);check(!ledger.requestResumeAfterReview(id),"finished administrative review cannot revive a later cancellation");
   check(ledger.status(id).cancelRequested(),"review continuation preserves newer cancel flag");ledger.requestResume(id);
-  CdsImportLedgerService.template(commitFault).executeWithoutResult(status -> ledger.reviseUncommittedLineage(id,epoch,"patient",1,B));
+  check(ledger.status(id).cancelRequested(),"live planning Resume remains intent-only until physical recovery proof");
+  long resumedEpoch=fixtureResumeClaim(id,jdbc);
+  CdsImportLedgerService.template(commitFault).executeWithoutResult(status -> ledger.reviseUncommittedLineage(id,resumedEpoch,"patient",1,B));
   check(B.equals(ledger.patientStatus(id,"patient").sourceDigest()),"reviewed source revision becomes exact new patient provenance");
-  ledger.planUnit(id,epoch,"patient",first,"Demographics",1,C,"/opaque/reviewed-first"); ledger.discovery(id,epoch,1,1,1); ledger.seal(id,epoch,C,1,1);
+  ledger.planUnit(id,resumedEpoch,"patient",first,"Demographics",1,C,"/opaque/reviewed-first"); ledger.discovery(id,resumedEpoch,1,1,1); ledger.seal(id,resumedEpoch,C,1,1);
   long execution=ledger.acquire(id); Job job=new Job(id,execution,"patient",first,"unused",++target);
   units.execute(id,execution,first,()->write(job,"reviewed"),CdsImportLedgerMariaDbIntegrationTest::verify);
   ledger.finalizePatient(id,execution,"patient",CdsImportLedgerMariaDbIntegrationTest::verify); ledger.finish(id,execution);
+ }
+ static long fixtureResumeClaim(String id,Properties jdbc) throws Exception {
+  var physical=new io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource();physical.setDriverClassName("com.mysql.cj.jdbc.Driver");
+  physical.setUrl(jdbc.getProperty("jdbcUrl").replace("jdbc:mariadb:","jdbc:mysql:"));physical.setUsername(jdbc.getProperty("jdbcUser"));physical.setPassword(jdbc.getProperty("jdbcPassword"));physical.setDefaultAutoCommit(true);
+  new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionInitializer(physical,true,"validate").initialize();
+  Properties policy=new Properties();policy.setProperty("cds.import.enabled","true");policy.setProperty("cds.import.maintenanceMode","true");var config=new CdsImportConfigurationService(policy);
+  var coordinators=new CdsImportCoordinatorService(physical);var maintenance=new CdsImportMaintenanceService(physical,config);
+  try(physical;var coordinator=coordinators.acquire();var window=maintenance.acquire()) {
+   new CdsImportTargetSafetyService(config).verify(window);return ledger.claimPreparation(id,coordinator,window,true);
+  }
  }
  static void verifyAuthorizationStopAndResume() {
   String id=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(),"fixture","999998","fixture","omd-5.2",A,B,C,"/opaque/auth")).id();

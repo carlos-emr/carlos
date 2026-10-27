@@ -40,6 +40,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.stereotype.Service;
 
 /** Authorized application boundary shared by HTTP adapters and the verified foreground CLI. */
@@ -57,7 +58,7 @@ public class CdsImportService {
             new ArrayBlockingQueue<>(16), r -> { Thread t=new Thread(r, "cds-import-worker"); t.setDaemon(true); t.setUncaughtExceptionHandler((thread, failure) -> LOG.error("CDS worker terminated: WORKER_FATAL")); return t; });
     private ScheduledExecutorService dispatcher;
     private final CdsImportCleanupService cleanup;
-    private volatile Map<String, Object> administrativeCleanup=Map.of();
+    private final AtomicReference<Map<String, Object>> administrativeCleanup=new AtomicReference<>(Map.of());
     private final CdsImportReviewService reviews;
     private final CdsImportFailureEvidenceService failureEvidence;
     private volatile String housekeepingAlert;
@@ -165,7 +166,7 @@ public class CdsImportService {
     private Map<String, Object> operatorSummary(String run) {
         Map<String, Object> value=new java.util.LinkedHashMap<>(ledger.summary(run));
         value.putAll(reviews.summary(run));
-        value.put("administrativeCleanup", administrativeCleanup); value.put("administrativeAlert", housekeepingAlert); value.put("workerAlert", supervisorAlert!=null?supervisorAlert:run.equals(fatalRun.get())?"WORKER_FATAL":fatalReview.get()!=null?"REVIEW_WORKER_FATAL":null);
+        value.put("administrativeCleanup", administrativeCleanup.get()); value.put("administrativeAlert", housekeepingAlert); value.put("workerAlert", supervisorAlert!=null?supervisorAlert:run.equals(fatalRun.get())?"WORKER_FATAL":fatalReview.get()!=null?"REVIEW_WORKER_FATAL":null);
         return java.util.Collections.unmodifiableMap(value);
     }
 
@@ -178,7 +179,10 @@ public class CdsImportService {
                     CdsImportJobDto job=ledger.status(run);
                     boolean stoppedReport=Set.of("REVIEW_REQUIRED", "RECONCILIATION_REQUIRED").contains(job.state())
                             && ledger.hasPendingReport(run);
-                    if (reviews.hasPending(run) && !stoppedReport) return;
+                    if (reviews.hasPending(run)) {
+                        if (stoppedReport) execution.reportOnly(run);
+                        return;
+                    }
                     execution.execute(run, stoppedReport?false:"RESUME_REQUESTED".equals(job.state()));
                 } catch (RuntimeException failure) {
                     LOG.error("CDS worker stopped for run {} with code {}", run,
@@ -218,9 +222,10 @@ public class CdsImportService {
             if (now-nextHousekeepingNanos>=0) {
                 nextHousekeepingNanos=now+TimeUnit.MINUTES.toNanos(1);
                 try {
-                    administrativeCleanup=cleanup.housekeeping();
-                    if (!"COMPLETE".equals(administrativeCleanup.get("state"))) housekeepingAlert="IMPORT_ARTIFACT_CLEANUP_REQUIRES_REVIEW";
-                    else if (Boolean.TRUE.equals(administrativeCleanup.get("fullPassComplete"))) housekeepingAlert=null;
+                    Map<String, Object> snapshot=Map.copyOf(cleanup.housekeeping());
+                    administrativeCleanup.set(snapshot);
+                    if (!"COMPLETE".equals(snapshot.get("state"))) housekeepingAlert="IMPORT_ARTIFACT_CLEANUP_REQUIRES_REVIEW";
+                    else if (Boolean.TRUE.equals(snapshot.get("fullPassComplete"))) housekeepingAlert=null;
                 } catch (RuntimeException cleanupFailure) { housekeepingAlert="IMPORT_ARTIFACT_CLEANUP_FAILED"; LOG.error("CDS housekeeping failed: IMPORT_ARTIFACT_CLEANUP_FAILED"); }
             }
             for (String review:reviews.pending(16)) scheduleReview(review);

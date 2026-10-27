@@ -200,6 +200,28 @@ public class CdsImportMaintenanceService {
         /** True only after this owner closed and proved committed reopening under its advisory lock. */
         public synchronized boolean releaseVerified() { return closed && releaseVerified; }
 
+        /** Short current-read proof for a run-locked recovery claim; the catalogue remains pinned by this owner. */
+        synchronized void requireVerifiedRecoveryOwner() {
+            if (closed || !state.hasVerifiedCatalogue(lease)) throw new CdsImportException("MAINTENANCE_RECOVERY_OWNER_REQUIRED");
+            try {
+                if (scalar(connection, "SELECT IS_USED_LOCK(?)", state.lockName())!=lease.connectionId()) {
+                    throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
+                }
+                try (PreparedStatement query=connection.prepareStatement("""
+                        SELECT maintenance_active,maintenance_generation,maintenance_owner_token,maintenance_connection_id
+                        FROM cds_import_admission WHERE id=? LOCK IN SHARE MODE
+                        """)) {
+                    query.setQueryTimeout(3); query.setString(1, CdsJdbcAdmissionState.ROW);
+                    try (ResultSet rows=query.executeQuery()) {
+                        if (!rows.next() || !rows.getBoolean(1) || rows.getLong(2)!=lease.generation()
+                                || !lease.token().equals(rows.getString(3)) || rows.getLong(4)!=lease.connectionId()) {
+                            throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
+                        }
+                    }
+                }
+            } catch (SQLException unavailable) { throw new CdsImportException("MAINTENANCE_OWNER_FENCED", false, unavailable); }
+        }
+
         /** Bounded coordinator read capability; SQL writes still require the active clinical-unit marker. */
         public synchronized <T> T read(java.util.function.Supplier<T> work) {
             if (closed) throw new IllegalStateException("Maintenance owner is already closed");

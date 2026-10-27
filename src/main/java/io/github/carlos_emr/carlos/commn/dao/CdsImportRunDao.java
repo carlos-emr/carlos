@@ -32,13 +32,26 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun> {
     public CdsImportRunDao() { super(CdsImportRun.class); }
     public CdsImportRun lock(String id) { return entityManager.find(CdsImportRun.class, id, LockModeType.PESSIMISTIC_WRITE); }
     public CdsImportRun get(String id) { return entityManager.find(CdsImportRun.class, id); }
+    /** Rechecked under the run lock before any preparation epoch can replace a stopped review. */
+    public boolean reviewBlocksExecution(String runId) {
+        return !entityManager.createQuery("select r.id from CdsImportRun r where r.id=:run and exists(select q.id from CdsImportReview q where q.runId=r.id and (q.state in ('REQUESTED','VALIDATING','OVERLAY_PUBLISHED','PATIENT_DECLINED','REVISION_PUBLISHED') or (q.state='DRAFT_REQUIRES_CORRECTION' and not exists(select newer.id from CdsImportReview newer where newer.runId=q.runId and newer.sourceKey=q.sourceKey and newer.reviewVersion>q.reviewVersion and newer.state in ('OVERLAY_PUBLISHED','OVERLAY_READY','REVALIDATED')))))", String.class)
+                .setParameter("run", runId).setMaxResults(1).getResultList().isEmpty();
+    }
     public void flushAndClear() { entityManager.flush(); entityManager.clear(); }
     public CdsImportRun findSubmission(String operator, String submissionKey) {
         return entityManager.createQuery("select r from CdsImportRun r where r.operator=:operator and r.submissionKey=:key", CdsImportRun.class)
                 .setParameter("operator", operator).setParameter("key", submissionKey).setMaxResults(1).getResultList().stream().findFirst().orElse(null);
     }
     public List<CdsImportRun> pending(String afterId, int limit) {
-        return entityManager.createQuery("select r from CdsImportRun r where r.id>:after and (r.state in ('RESUME_REQUESTED','ACCEPTED','DISCOVERING','VALIDATING','PREFLIGHT','PREFLIGHTING','PLANNING','SEALING','READY','RUNNING','FINALIZING','REPORTING') or (r.state in ('COMPLETE','DRY_RUN_COMPLETE','DRY_RUN_INCOMPLETE','INCOMPLETE','RECONCILIATION_REQUIRED','REVIEW_REQUIRED','FAILED_BEFORE_WRITE','CANCELLED_BEFORE_WRITE') and r.reportState='PENDING')) order by r.id", CdsImportRun.class).setParameter("after", afterId).setMaxResults(limit).getResultList();
+        var active=entityManager.createQuery("select r from CdsImportRun r where r.id>:after and r.state in ('RESUME_REQUESTED','ACCEPTED','DISCOVERING','VALIDATING','PREFLIGHT','PREFLIGHTING','PLANNING','SEALING','READY','RUNNING','FINALIZING','REPORTING') order by r.id", CdsImportRun.class)
+                .setParameter("after", afterId).setMaxResults(limit).getResultList();
+        var reports=entityManager.createQuery("select r from CdsImportRun r where r.id>:after and r.reportState='PENDING' and r.state in ('COMPLETE','DRY_RUN_COMPLETE','DRY_RUN_INCOMPLETE','INCOMPLETE','RECONCILIATION_REQUIRED','REVIEW_REQUIRED','FAILED_BEFORE_WRITE','CANCELLED_BEFORE_WRITE') order by r.id", CdsImportRun.class)
+                .setParameter("after", afterId).setMaxResults(limit).getResultList();
+        var resumed=entityManager.createQuery("select r from CdsImportRun r where r.id>:after and r.resumeRequested=true order by r.id", CdsImportRun.class)
+                .setParameter("after", afterId).setMaxResults(limit).getResultList();
+        return java.util.stream.Stream.of(active, reports, resumed).flatMap(List::stream)
+                .collect(java.util.stream.Collectors.toMap(CdsImportRun::getId, java.util.function.Function.identity(), (first, second) -> first, java.util.TreeMap::new))
+                .values().stream().limit(limit).toList();
     }
     public List<CdsImportRun> page(String operator, String afterId, int limit) {
         return entityManager.createQuery("select r from CdsImportRun r where r.operator=:operator and r.id>:after order by r.id", CdsImportRun.class)

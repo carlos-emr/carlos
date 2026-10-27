@@ -101,7 +101,8 @@ class CdsImportSupervisionServiceUnitTest {
         when(job.state()).thenReturn(state); when(ledger.hasPendingReport("run")).thenReturn(true);
         when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
         call("schedule", new Class<?>[]{String.class, boolean.class}, "run", true); barrier();
-        verify(execution).execute("run", false);
+        verify(execution).reportOnly("run");
+        verify(execution, never()).execute("run", false);
         verify(execution, never()).execute("run", true);
     }
     @Test void pendingReviewContinuesBlockingClinicalResume() throws Exception {

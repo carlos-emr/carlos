@@ -47,6 +47,7 @@ public class CdsImportExecutionService {
     private final CdsImportTargetSafetyService safety;
     private final CdsImportFailureEvidenceService failureEvidence;
     private final CdsFieldParser fields;
+    private final java.util.concurrent.atomic.AtomicReference<ResumeAttempt> fatalResume=new java.util.concurrent.atomic.AtomicReference<>();
 
     public CdsImportExecutionService(CdsImportLedgerService ledger, CdsImportUnitService units, CdsImportJobService jobs,
             CdsImportPlanningService planning, CdsImportNativeService nativeRecords, CdsImportAccessService access,
@@ -60,7 +61,12 @@ public class CdsImportExecutionService {
 
     /** Explicit resume never reapplies a published patient; it reconciles its own known atomic ledger. */
     public CdsImportJobDto execute(String runId, boolean resume) {
-        try (var coordinator=coordinators.acquire()) { return executeOwned(runId, resume, coordinator); }
+        return execute(runId, resume, false);
+    }
+    /** A pending review may deliver stopped reports without consuming any clinical recovery intent. */
+    public CdsImportJobDto reportOnly(String runId) { return execute(runId, false, true); }
+    private CdsImportJobDto execute(String runId, boolean resume, boolean reportOnly) {
+        try (var coordinator=coordinators.acquire()) { return executeOwned(runId, resume, reportOnly, coordinator); }
         catch (CdsImportException busy) {
             if (Set.of("IMPORT_COORDINATOR_BUSY", "IMPORT_BUSY", "MAINTENANCE_OWNER_BUSY").contains(busy.getCode())) return ledger.status(runId);
             throw busy;
@@ -70,12 +76,17 @@ public class CdsImportExecutionService {
     /** Runs on a healthy supervisor thread after the failed worker has unwound its transaction/window. */
     public void superviseFatal(String runId) {
         try (var coordinator=coordinators.acquire()) {
+            ResumeAttempt attempted=fatalResume.get();
+            if (attempted!=null && runId.equals(attempted.run())) ledger.refuseResumeIntent(runId, attempted.event(), "WORKER_FATAL");
             long epoch=ledger.status(runId).ownerEpoch(); ledger.workerStopped(runId, epoch); deliver(runId, epoch);
+            if (attempted!=null && runId.equals(attempted.run())) fatalResume.compareAndSet(attempted, null);
         }
     }
 
-    private CdsImportJobDto executeOwned(String runId, boolean resume, CdsImportCoordinatorService.Owner coordinator) {
+    private CdsImportJobDto executeOwned(String runId, boolean resume, boolean reportOnly, CdsImportCoordinatorService.Owner coordinator) {
         CdsImportJobDto job=ledger.status(runId);
+        long resumeEvent=reportOnly?0:ledger.pendingResumeEvent(runId);
+        ResumeAttempt attempt=new ResumeAttempt(runId, resumeEvent);
         long epoch=job.ownerEpoch();
         String currentPatient=null;
         String currentUnit=null;
@@ -83,8 +94,11 @@ public class CdsImportExecutionService {
         try {
             var document=jobs.load(runId);
             access.context(document.actor(), document.command(), null);
+            if (reportOnly && !Set.of("COMPLETE", "DRY_RUN_COMPLETE", "INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "DRY_RUN_INCOMPLETE", "REVIEW_REQUIRED").contains(job.state())) return ledger.status(runId);
+            // The durable current control is authoritative; a stale queue boolean is never new consent.
+            resume=!reportOnly && resumeEvent>0;
             if (Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(job.state())
-                    || !resume && Set.of("INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "DRY_RUN_INCOMPLETE", "REVIEW_REQUIRED").contains(job.state())) {
+                    || reportOnly || !resume && Set.of("INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "DRY_RUN_INCOMPLETE", "REVIEW_REQUIRED").contains(job.state())) {
                 boolean releasePending=ledger.maintenanceReleasePending(runId);
                 boolean retryRelease=releasePending && (resume || ledger.maintenanceReleaseRetryRequested(runId));
                 if (retryRelease) {
@@ -98,11 +112,12 @@ public class CdsImportExecutionService {
                 if (retryRelease || !Boolean.TRUE.equals(ledger.summary(runId).get("reportsDelivered")) || !Boolean.TRUE.equals(ledger.summary(runId).get("cleanupComplete"))) { epoch=ledger.claimReporting(runId); deliver(runId, epoch); }
                 return ledger.status(runId);
             }
-            coordinator.check(); epoch=ledger.claimPreparation(runId); configuration.requireEnabled();
+            coordinator.check(); configuration.requireEnabled();
             if (!job.rulesetDigest().equals(CdsImportJobService.rulesetDigest(document.command(), configuration))
                     || !job.optionsDigest().equals(CdsImportJobService.optionsDigest(document.command()))) throw new CdsImportException("IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE");
             try (var owner=maintenance.acquire()) {
                 safety.verify(owner);
+                epoch=ledger.claimPreparation(runId, coordinator, owner, resume);
             if (!ledger.isSealed(runId)) {
                 epoch=ledger.claimPlanning(runId, resume);
                 ledger.resolveReauthorizedAccess(runId, epoch);
@@ -188,12 +203,15 @@ public class CdsImportExecutionService {
             }
             if (completedOwner!=null) settleRelease(runId, epoch, completedOwner);
         } catch (Exception failure) {
-            if (failure instanceof SecurityException) { ledger.authorizationStopped(runId, epoch); deliver(runId, epoch); return ledger.status(runId); }
-            if (failure instanceof CdsImportException fenced && Set.of("OWNER_FENCED", "IMPORT_COORDINATOR_LOST", "MAINTENANCE_OWNER_BUSY", "IMPORT_BUSY", "IMPORT_COORDINATOR_BUSY", "REVIEW_RESET_IN_PROGRESS").contains(fenced.getCode())) {
-                if ("MAINTENANCE_OWNER_BUSY".equals(fenced.getCode()) && ledger.ownsAdmission(runId, epoch)) ledger.release(runId, epoch);
+            if (failure instanceof CdsImportException fenced && Set.of("OWNER_FENCED", "IMPORT_COORDINATOR_LOST", "MAINTENANCE_OWNER_BUSY", "IMPORT_BUSY", "IMPORT_COORDINATOR_BUSY", "IMPORT_REVIEW_PENDING", "REVIEW_RESET_IN_PROGRESS").contains(fenced.getCode())) {
                 return ledger.status(runId);
             }
+            ledger.refuseResumeIntent(runId, resumeEvent, failure instanceof CdsImportException known?known.getCode():failure instanceof SecurityException?"ACCESS_REVOKED":"IMPORT_EXECUTION_FAILED");
+            if (failure instanceof SecurityException) { ledger.authorizationStopped(runId, epoch); deliver(runId, epoch); return ledger.status(runId); }
             recordFailure(runId, epoch, currentPatient, currentUnit, failure);
+        } catch (Error fatal) {
+            // Allocate no failure graph or durable writes on a resource-exhausted worker.
+            fatalResume.set(attempt); throw fatal;
         }
         // A fatal Error is deliberately not caught; the supervisor later reconciles durable state.
         deliver(runId, epoch);
@@ -276,5 +294,6 @@ public class CdsImportExecutionService {
                 throw new CdsImportException(timeoutCode);
         });
     }
+    private record ResumeAttempt(String run, long event) { }
 
 }
