@@ -93,7 +93,7 @@ class CdsXmlParserLargeInputTest {
                     .replace("<Severity>MO</Severity>","<Severity>INVALID</Severity>");
             try(BufferedWriter xml=Files.newBufferedWriter(source,StandardCharsets.UTF_8)) {
                 xml.write(fixture.substring(0,fixture.indexOf("</PatientRecord>")));
-                for(int i=0;i<100_000;i++) xml.write(allergy);
+                for(int i=0;i<120_000;i++) xml.write(allergy);
                 xml.write("</PatientRecord></OmdCds>");
             }
             try {
