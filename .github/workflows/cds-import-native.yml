@@ -43,6 +43,11 @@ jobs:
           maven-cache: restore
       - name: Compile actual application and tests
         run: docker exec carlos-tomcat-dev mvn -B -DskipTests test-compile
+      - name: Verify bounded XML imports in fresh 64 MiB JVMs
+        run: >-
+          docker exec carlos-tomcat-dev mvn -B
+          -Dtest=CdsXmlParserLargeInputTest -Dgroups=performance
+          -Dtest.forkCount=1 test
       - name: Prepare harness workspace ownership
         run: sudo chown -R "$(id -u):$(id -g)" target
       - name: Install hash-pinned native harness dependencies
