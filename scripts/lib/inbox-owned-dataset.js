@@ -120,15 +120,17 @@ async function prepareInboxDataset(s, mode, dependencies = {}) {
   if (mode === 'filters') {
     const prepareProgram = dependencies.prepareProgram || require('./incoming-filing-program-fixture').prepareIncomingFilingProgram;
     const createDocument = dependencies.createDocument || require('./stored-document-mutation-fixture').createStoredDocumentFixture;
-    let document, documentCleanupComplete = false;
+    let document, documentCleanupRegistered = false, documentCleanupComplete = false;
     const {program} = prepareProgram({...s, cleanup(callback) {
       s.cleanup(() => {
-        h.assert(documentCleanupComplete, 'Retain Inbox admission while owned document cleanup is incomplete');
+        h.assert(!documentCleanupRegistered || documentCleanupComplete,
+          'Retain Inbox admission while owned document cleanup is incomplete');
         return callback();
       });
     }});
     document = createDocument({...s, cleanup(callback) {
       s.cleanup(async () => { await callback(); documentCleanupComplete = true; });
+      documentCleanupRegistered = true;
     }}, program);
     // workflow-session closes the browser before unwinding callbacks in reverse order.
     s.cleanup(() => document.closeAfterDrain());
