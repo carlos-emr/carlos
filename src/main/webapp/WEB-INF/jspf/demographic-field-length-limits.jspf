@@ -32,6 +32,8 @@
 
     @since 2026-04-21
 --%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message key="admin.securityupdate.msgMaximumCharacters" var="demographicCodePointLimitMessage"/>
 <script type="text/javascript">
     function applyDemographicFieldLengthLimits() {
