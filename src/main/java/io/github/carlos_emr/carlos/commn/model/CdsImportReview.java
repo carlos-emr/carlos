@@ -34,7 +34,7 @@ public class CdsImportReview extends AbstractModel<String> {
     @Id @Column(length=36) private String id;
     @Column(name="run_id", length=36, nullable=false) private String runId;
     @Column(name="review_version", nullable=false) private long reviewVersion;
-    @Column(length=24, nullable=false) private String kind;
+    @Column(length=32, nullable=false) private String kind;
     @Column(name="diagnostic_id", nullable=false) private long diagnosticId;
     @Column(name="patient_key", length=64) private String patientKey;
     @Column(name="source_key", length=64) private String sourceKey;
