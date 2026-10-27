@@ -130,6 +130,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    ledger.finalizePatient(job.id,job.epoch,job.patient,CdsImportLedgerMariaDbIntegrationTest::verify);
    check(!ledger.isHeld(job.target),"completion releases reconciled hold");
    check("COMPLETE".equals(ledger.finish(job.id,job.epoch).state()),"run completion derived from patient outcome");
+   check("RELEASE_PENDING".equals(ledger.summary(job.id).get("maintenanceReleaseState")),"clinical completion atomically persists release-pending crash protection");
    reports.select(job.id,job.epoch,0,C,"/opaque/report-v1",A);
    expect("REPORT_GENERATION_CONFLICT",()->reports.select(job.id,job.epoch,0,C,"/opaque/stale-report",B));
    Job repeat=repeat(job);
@@ -165,6 +166,8 @@ class CdsImportLedgerMariaDbIntegrationTest {
    verifyReviewedResetAndReplan();
    verifyAuthorizationStopAndResume();
    verifyCurrentInitiatorControlAudit();
+   verifyUnwrittenRevisionApproval();
+   verifyMaintenanceReleaseOutcome(job);
   } finally {ctx.close();}
  }
  static void verifyOwnerRowLock() throws Exception {
@@ -203,6 +206,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
   long epoch=ledger.acquire(id);
   expect("DRY_RUN_CLINICAL_WRITE_REFUSED",()->units.execute(id,epoch,unit,()->{throw new AssertionError("dry-run write");},CdsImportLedgerMariaDbIntegrationTest::verify));
   check("DRY_RUN_COMPLETE".equals(ledger.completeDryRun(id,epoch).state()),"dry-run separate terminal state");
+  check(ledger.maintenanceReleasePending(id),"successful preview must verify maintenance release before clean completion");
   check(!Boolean.TRUE.equals(ledger.summary(id).get("clinicalComplete")),"dry-run not imported");
   String actual=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(),"fixture","999998","fixture","omd-5.2",A,"d".repeat(64),C,"/opaque/actual",false)).id();
   ledger.planPatient(actual,"patient",source,"primary",A); ledger.planUnit(actual,"patient",unit,"Demographics",1,A,"/opaque/actual-unit"); ledger.seal(actual,C,1,1);
@@ -264,6 +268,46 @@ class CdsImportLedgerMariaDbIntegrationTest {
   check(sql.queryForObject("select count(*) from cds_import_event where run_id=? and event_type='CANCEL_REQUESTED'",Long.class,id)==0,"no applied control audit after failed atomic transition");
   ledger.control(id,current,"CANCEL_REQUESTED",()->ledger.cancelParticipating(id));
   check(ledger.status(id).cancelRequested(),"successful current-initiator cancellation commits");
+ }
+ static void verifyMaintenanceReleaseOutcome(Job complete) {
+  ledger.maintenanceReleaseDeferred(complete.id,complete.epoch,"GLOBAL_HOLDS_REMAIN");
+  check("RELEASE_DEFERRED".equals(ledger.summary(complete.id).get("maintenanceReleaseState")),"another run held chart is visible release deferral, not a clinical failure");
+  check("COMPLETE".equals(ledger.status(complete.id).state()),"other global holds never reclassify this completed clinical run");
+  ledger.maintenanceReleaseFailed(complete.id,complete.epoch,null);
+  check("COMPLETE".equals(ledger.status(complete.id).state()),"release failure preserves already published clinical outcome");
+  check(Boolean.TRUE.equals(ledger.summary(complete.id).get("maintenanceReleasePending")),"own failed maintenance close remains durable and unresolved");
+  ledger.operational(complete.id,complete.epoch,null,"COMPLETE",null);
+  check(!Boolean.TRUE.equals(ledger.summary(complete.id).get("cleanComplete")),"successful filesystem cleanup cannot hide a failed maintenance release");
+  check("FAILED".equals(ledger.summary(complete.id).get("cleanupState")),"operator sees composite operational failure after retained maintenance");
+  var diagnostic=ledger.diagnostics(complete.id,0,200).stream().filter(d->CdsImportLedgerService.MAINTENANCE_RELEASE_CODE.equals(d.code())).findFirst().orElseThrow();
+  expect("MAINTENANCE_RELEASE_PROOF_REQUIRED",()->ledger.resolveDiagnostic(complete.id,complete.epoch,diagnostic.id()));
+  // The separate maintenance real-DB suite proves actual owner-specific release/readback; this verifies only its ledger participant.
+  ledger.maintenanceReleaseReconciled(complete.id,complete.epoch);
+  check(!ledger.maintenanceReleasePending(complete.id),"verified release retires only the operational latch");
+  check("COMPLETE".equals(ledger.status(complete.id).state()),"verified operational recovery never changes clinical completion");
+ }
+ static void verifyUnwrittenRevisionApproval() {
+  String source="revision-"+UUID.randomUUID(),copy="primary",patient=CdsImportKeys.hash("fixture",source,copy);
+  String old=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(),"fixture","999998","fixture","omd-5.2",A,B,C,"/opaque/revision-old")).id();
+  long oldEpoch=ledger.claimPlanning(old);ledger.planPatient(old,oldEpoch,patient,source,copy,A);ledger.release(old,oldEpoch);
+  String next=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(),"fixture","999998","fixture","omd-5.2",B,C,A,"/opaque/revision-new")).id();
+  long epoch=ledger.claimPlanning(next);
+  expect("SOURCE_REVISION_REVIEW_REQUIRED",()->ledger.planPatient(next,epoch,patient,source,copy,B));
+  var projection=ledger.unwrittenRevision(next,epoch,source,copy,B);
+  check(projection.eligible() && projection.priorRunIds().equals(List.of(old)) && projection.priorRunCount()==1,"new accepted source exposes exact bounded zero-write prior provenance");
+  check(ledger.unwrittenRevisionPriorRuns(next,epoch,source,copy,"",1).equals(List.of(old)),"revision provenance is pageable without retaining patient graphs");
+  expect("REVIEW_REQUIRES_TRANSACTION",()->ledger.approveUnwrittenRevision(next,epoch,1,source,copy,A,B,C,B));
+  sql.update("update cds_import_run set review_version=1 where id=?",next);
+  expect("CANONICAL_REVISION_CONFLICT",()->CdsImportLedgerService.template(commitFault).executeWithoutResult(status->ledger.approveUnwrittenRevision(next,epoch,1,source,copy,C,B,C,B)));
+  audit.failNext();
+  try { CdsImportLedgerService.template(commitFault).executeWithoutResult(status->ledger.approveUnwrittenRevision(next,epoch,1,source,copy,A,B,C,B));throw new AssertionError("Missing strict revision audit failure"); }
+  catch(IllegalStateException expected) { check(A.equals(ledger.unwrittenRevision(next,epoch,source,copy,B).oldSourceDigest()),"strict audit failure rolls back canonical revision"); }
+  CdsImportLedgerService.template(commitFault).executeWithoutResult(status->ledger.approveUnwrittenRevision(next,epoch,1,source,copy,A,B,C,B));
+  ledger.planPatient(next,epoch,patient,source,copy,B);ledger.release(next,epoch);
+  String unit=CdsImportKeys.hash(source,"old-unit");long obsolete=ledger.claimPlanning(old,true);ledger.planUnit(old,obsolete,patient,unit,"Demographics",1,A,"/opaque/old-unit");ledger.seal(old,obsolete,C,1,1);
+  long execution=ledger.acquire(old);
+  expect("SOURCE_REVISION_REVIEW_REQUIRED",()->units.execute(old,execution,unit,()->{throw new AssertionError("Superseded source clinical write");},CdsImportLedgerMariaDbIntegrationTest::verify));
+  check(sql.queryForObject("select count(*) from cds_import_checkpoint where lineage_key=?",Long.class,patient)==0,"superseded zero-write plan cannot create clinical checkpoint");ledger.release(old,execution);
  }
  static Job job(String source,boolean unused) {
   String id=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(),"fixture","999998","fixture","omd-5.2",A,B,C,"/opaque/snapshot")).id();

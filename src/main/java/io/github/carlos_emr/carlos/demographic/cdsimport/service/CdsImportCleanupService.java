@@ -201,7 +201,7 @@ public class CdsImportCleanupService {
                 || owner.variant()==null || !owner.variant().matches("[a-z]{1,16}") || owner.extension()==null || !owner.extension().matches("[a-z0-9]{1,8}")
                 || owner.digest()==null || !owner.digest().matches("[a-f0-9]{64}") || owner.byteLength()<0 || owner.byteLength()>configuration.limits().maxExpandedBytes()) throw new CdsImportException("CLEANUP_OWNER_PROOF_INVALID");
         ledger.unitStatus(run, owner.unitKey());
-        String expected="cds-"+owner.unitKey()+"-"+owner.variant()+"-"+owner.digest()+"."+owner.extension();
+        String expected=CdsDocumentPublicationService.filename(owner.unitKey(), owner.variant(), owner.extension(), owner.digest());
         if (!expected.equals(owner.finalFilename())) throw new CdsImportException("CLEANUP_DESTINATION_PROOF_INVALID");
         int entries=0;
         try (DirectoryStream<Path> content=Files.newDirectoryStream(operation)) {

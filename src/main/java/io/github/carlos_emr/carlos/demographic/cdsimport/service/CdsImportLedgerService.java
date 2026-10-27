@@ -69,6 +69,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class CdsImportLedgerService {
+    static final String MAINTENANCE_PENDING_CODE="MAINTENANCE_RELEASE_PENDING";
+    static final String MAINTENANCE_DEFERRED_CODE="MAINTENANCE_RELEASE_DEFERRED";
+    static final String MAINTENANCE_RELEASE_CODE="MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION";
     static final Set<String> COMPLETE_PATIENT = Set.of("COMPLETE", "COMPLETE_WITH_NONLOSSY_WARNINGS", "ALREADY_COMPLETE");
     static final Set<String> FINAL_PATIENT = Set.of("COMPLETE", "COMPLETE_WITH_NONLOSSY_WARNINGS", "ALREADY_COMPLETE", "REFUSED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "NOT_STARTED", "PARTIAL_COMMITTED", "RECONCILIATION_REQUIRED");
     private final CdsImportRunDao runs;
@@ -300,6 +303,22 @@ public class CdsImportLedgerService {
         });
     }
 
+    /** Administrative fencing precedes window acquisition; this does not grant a clinical write capability. */
+    public long claimPreparation(String runId) {
+        return write(() -> { CdsImportAdmission gate=admission.lock("global");
+            if(gate==null) throw new CdsImportException("IMPORT_SCHEMA_NOT_READY");
+            if(gate.getOwnerRunId()!=null && !runId.equals(gate.getOwnerRunId())) throw new CdsImportException("IMPORT_BUSY");
+            CdsImportRun run=requiredRun(runId,true); if(run.getOwnerEpoch()==Long.MAX_VALUE) throw new CdsImportException("OWNER_EPOCH_EXHAUSTED");
+            gate.setOwnerRunId(runId);run.setOwnerEpoch(run.getOwnerEpoch()+1);touch(run);event(run,null,"PREPARATION_OWNER_ACQUIRED");return run.getOwnerEpoch(); });
+    }
+    public boolean ownsAdmission(String runId,long epoch) {
+        return write(() -> { CdsImportAdmission gate=admission.get("global");CdsImportRun run=requiredRun(runId,false);return gate!=null && runId.equals(gate.getOwnerRunId()) && run.getOwnerEpoch()==epoch; });
+    }
+    public void preparationStopped(String runId,long epoch,String code,String evidence) {
+        stoppedOperationally(runId,epoch,code,"PREPARATION","Import preparation stopped; retained work requires authorized recovery");
+        if(evidence!=null) write(() -> { lockOperational(runId,epoch);addDiagnostic(runId,null,null,"INFO","IMPORT_FAILURE_EVIDENCE","OBSERVABILITY",null,"Protected bounded failure evidence is available",evidence,false);return null; });
+    }
+
     /** Claim preflight without allowing clinical units; all native writes still require the final seal. */
     public long claimPlanning(String runId) { return claimPlanning(runId, false); }
 
@@ -418,6 +437,60 @@ public class CdsImportLedgerService {
         if (count==0) throw new CdsImportException("PRIOR_IMPORT_MUST_RESUME");
     }
 
+    /** Exact canonical conflict projection under the same administrative and lineage locks used by approval. */
+    public io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportRevisionDto unwrittenRevision(
+            String runId, long epoch, String sourcePatientId, String copyKey, String newPatientSourceDigest) {
+        CdsImportKeys.required(sourcePatientId, "source patient identifier", 128); CdsImportKeys.token(copyKey, "copy key", 64);
+        CdsImportKeys.digestValue(newPatientSourceDigest, "patient source digest");
+        return write(() -> revision(lockPlanningOwned(runId, epoch), sourcePatientId, copyKey, newPatientSourceDigest));
+    }
+
+    /** Stable bounded provenance pages; callers archive every page before publishing approval. */
+    public List<String> unwrittenRevisionPriorRuns(String runId, long epoch, String sourcePatientId, String copyKey,
+            String afterRunId, int limit) {
+        CdsImportKeys.required(sourcePatientId, "source patient identifier", 128); CdsImportKeys.token(copyKey, "copy key", 64); CdsImportKeys.pageSize(limit);
+        return write(() -> { CdsImportRun run=lockPlanningOwned(runId, epoch);
+            String lineageKey=CdsImportKeys.hash(run.getSourceNamespace(), sourcePatientId, copyKey); if (lineages.lock(lineageKey)==null) throw new CdsImportException("CANONICAL_LINEAGE_NOT_FOUND");
+            return List.copyOf(patients.lineageRuns(lineageKey, runId, afterRunId==null?"":afterRunId, limit)); });
+    }
+
+    private io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportRevisionDto revision(
+            CdsImportRun run, String sourcePatientId, String copyKey, String newSourceDigest) {
+        String key=CdsImportKeys.hash(run.getSourceNamespace(), sourcePatientId, copyKey);
+        CdsImportLineage canonical=lineages.lock(key);
+        if (canonical==null) throw new CdsImportException("CANONICAL_LINEAGE_NOT_FOUND");
+        long checkpointCount=checkpoints.countLineage(key);
+        boolean differs=!canonical.getSourceDigest().equals(newSourceDigest) || !canonical.getOptionsDigest().equals(run.getOptionsDigest()) || !canonical.getRulesetDigest().equals(run.getRulesetDigest());
+        boolean eligible=differs && canonical.getTargetDemographicNo()==null && checkpointCount==0
+                && !patients.lineageHasWrittenOrUncertainAttempt(key) && !patients.runHasWrittenOrUncertainAttempt(run.getId());
+        List<String> prior=patients.lineageRuns(key, run.getId(), "", 100); long total=patients.lineageRunCount(key, run.getId());
+        return new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportRevisionDto(run.getId(), key, key,
+                run.getSourceNamespace(), sourcePatientId, copyKey, canonical.getSourceDigest(), canonical.getOptionsDigest(), canonical.getRulesetDigest(),
+                newSourceDigest, run.getOptionsDigest(), run.getRulesetDigest(), canonical.getTargetDemographicNo(), checkpointCount,
+                eligible, prior, total, total>prior.size());
+    }
+
+    /** Publication participant for explicitly reviewed raw-source/policy changes, with no prior clinical effects. */
+    public void approveUnwrittenRevision(String runId, long epoch, long expectedReviewVersion,
+            String sourcePatientId, String copyKey, String expectedOldSourceDigest, String expectedOldOptionsDigest,
+            String expectedOldRulesetDigest, String newPatientSourceDigest) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CdsImportException("REVIEW_REQUIRES_TRANSACTION");
+        CdsImportKeys.required(sourcePatientId, "source patient identifier", 128); CdsImportKeys.token(copyKey, "copy key", 64);
+        CdsImportKeys.digestValue(expectedOldSourceDigest, "expected old source digest"); CdsImportKeys.digestValue(expectedOldOptionsDigest, "expected old options digest");
+        CdsImportKeys.digestValue(expectedOldRulesetDigest, "expected old ruleset digest"); CdsImportKeys.digestValue(newPatientSourceDigest, "reviewed source digest");
+        CdsImportRun run=lockPlanningOwned(runId, epoch);
+        if (run.getReviewVersion()!=expectedReviewVersion) throw new CdsImportException("REVIEW_VERSION_CONFLICT");
+        var proof=revision(run, sourcePatientId, copyKey, newPatientSourceDigest);
+        if (!proof.eligible()) throw new CdsImportException("UNWRITTEN_REVISION_AFTER_WRITE_OR_UNCERTAINTY_REFUSED");
+        if (!proof.oldSourceDigest().equals(expectedOldSourceDigest) || !proof.oldOptionsDigest().equals(expectedOldOptionsDigest)
+                || !proof.oldRulesetDigest().equals(expectedOldRulesetDigest)) throw new CdsImportException("CANONICAL_REVISION_CONFLICT");
+        CdsImportLineage canonical=lineages.lock(proof.lineageKey()); canonical.setSourceDigest(newPatientSourceDigest);
+        canonical.setOptionsDigest(run.getOptionsDigest()); canonical.setRulesetDigest(run.getRulesetDigest());
+        CdsImportPatient existing=patients.findKey(runId, proof.patientKey());
+        if (existing!=null) { existing.setSourceDigest(newPatientSourceDigest); existing.setState("PLANNED"); }
+        touch(run); event(run, null, "UNWRITTEN_CANONICAL_REVISION_APPROVED");
+    }
+
     /** Participant API for an independently validated, versioned preflight correction; no committed lineage may change. */
     public void reviseUncommittedLineage(String runId, long epoch, String patientKey, long expectedReviewVersion, String newPatientSourceDigest) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CdsImportException("REVIEW_REQUIRES_TRANSACTION");
@@ -534,7 +607,7 @@ public class CdsImportLedgerService {
             if (!run.isDryRun() || run.getExecutionDigest()==null || units.countState(runId, null, "COMMITTED")!=0
                     || units.countState(runId, null, "ALREADY_COMPLETE")!=0 || diagnostics.unresolved(runId, null)!=0) throw new CdsImportException("DRY_RUN_INCOMPLETE");
             boolean valid=patients.outcomes(runId, 17).stream().allMatch(row -> "PLANNED".equals(row[0]));
-            run.setState(valid?"DRY_RUN_COMPLETE":"DRY_RUN_INCOMPLETE"); if (valid) run.setSafeErrorCode(null); touch(run); event(run, null, run.getState());
+            run.setState(valid?"DRY_RUN_COMPLETE":"DRY_RUN_INCOMPLETE"); if (valid) { run.setSafeErrorCode(null); awaitMaintenanceRelease(run); } touch(run); event(run, null, run.getState());
             if (runId.equals(gate.getOwnerRunId())) gate.setOwnerRunId(null);
             return dto(run);
         });
@@ -613,15 +686,18 @@ public class CdsImportLedgerService {
             value.put("unresolvedReviewItems", diagnostics.unresolved(runId, null));
             value.put("cancelRequested", run.isCancelRequested()); value.put("lastCheckpoint", run.getUpdatedAt().toString());
             boolean delivered="DELIVERED".equals(run.getReportState());
-            boolean cleanupComplete="COMPLETE".equals(run.getCleanupState());
+            boolean releasePending=maintenanceReleasePending(run);
+            boolean cleanupComplete="COMPLETE".equals(run.getCleanupState()) && !releasePending;
             boolean clinicalComplete=!run.isDryRun() && "COMPLETE".equals(run.getState());
             boolean validDryRun=run.isDryRun() && "DRY_RUN_COMPLETE".equals(run.getState());
             boolean finalAttempt=Set.of("COMPLETE", "DRY_RUN_COMPLETE", "DRY_RUN_INCOMPLETE", "INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "REVIEW_REQUIRED").contains(run.getState());
-            value.put("reportState", run.getReportState()); value.put("cleanupState", run.getCleanupState());
+            value.put("maintenanceReleasePending", releasePending);
+            value.put("maintenanceReleaseState", maintenanceReleaseState(run));
+            value.put("reportState", run.getReportState()); value.put("cleanupState", releasePending?(maintenanceReleaseFailed(run)?"FAILED":"PENDING"):run.getCleanupState());
             value.put("reportsDelivered", delivered); value.put("cleanupComplete", cleanupComplete);
             value.put("reportDeliveryFailed", "FAILED".equals(run.getReportState()));
             value.put("clinicalComplete", clinicalComplete); value.put("cleanComplete", (clinicalComplete || validDryRun) && delivered && cleanupComplete);
-            value.put("operationTerminal", finalAttempt && (delivered || "FAILED".equals(run.getReportState())) && (cleanupComplete || "FAILED".equals(run.getCleanupState())));
+            value.put("operationTerminal", finalAttempt && (delivered || "FAILED".equals(run.getReportState())) && (cleanupComplete || releasePending || "FAILED".equals(run.getCleanupState())));
             value.put("reviewVersion", run.getReviewVersion()); value.put("safeErrorCode", run.getSafeErrorCode());
             value.put("reportAvailable", delivered && run.getReportGeneration()>0 && run.getReportDigest()!=null);
             return java.util.Collections.unmodifiableMap(value);
@@ -665,7 +741,19 @@ public class CdsImportLedgerService {
     public CdsImportPatientDto patientStatus(String runId, String patientKey) { return write(() -> dto(patient(runId, patientKey))); }
     public List<CdsImportJobDto> pending(String afterId, int limit) {
         CdsImportKeys.pageSize(limit);
-        return write(() -> runs.pending(afterId==null?"":afterId, limit).stream().map(CdsImportLedgerService::dto).toList());
+        return write(() -> {
+            List<CdsImportJobDto> page=new ArrayList<>(runs.pending(afterId==null?"":afterId,limit).stream().map(CdsImportLedgerService::dto).toList());
+            if(afterId==null || afterId.isEmpty()) {
+                CdsImportAdmission gate=admission.get("global");
+                if(gate!=null && gate.getOwnerRunId()!=null && page.stream().noneMatch(job -> gate.getOwnerRunId().equals(job.id()))) {
+                    CdsImportRun owner=runs.get(gate.getOwnerRunId());
+                    if(owner!=null && Set.of("ACCEPTED","CLI_ACCEPTED","RESUME_REQUESTED","DISCOVERING","VALIDATING","PREFLIGHT","PREFLIGHTING","PLANNING","SEALING","READY","RUNNING","FINALIZING").contains(owner.getState())) {
+                        if(page.size()==limit) page.remove(page.size()-1);page.add(0,dto(owner));
+                    }
+                }
+            }
+            return List.copyOf(page);
+        });
     }
     public List<CdsImportUnitDto> readyUnits(String runId, int limit) {
         CdsImportKeys.pageSize(limit);
@@ -694,7 +782,7 @@ public class CdsImportLedgerService {
                 if ("DELIVERED".equals(reportState)) throw new CdsImportException("REPORT_SELECTION_REQUIRED");
                 run.setReportState(reportState);
             }
-            if (cleanupState!=null) run.setCleanupState(cleanupState);
+            if (cleanupState!=null) run.setCleanupState("COMPLETE".equals(cleanupState) && maintenanceReleasePending(run)?(maintenanceReleaseFailed(run)?"FAILED":"PENDING"):cleanupState);
             if (safeErrorCode!=null && run.getSafeErrorCode()==null) run.setSafeErrorCode(safeErrorCode);
             if ("COMPLETE".equals(cleanupState) && "DELIVERED".equals(run.getReportState()) && Set.of("IMPORT_REPORT_DELIVERY_FAILED", "IMPORT_CLEANUP_FAILED").contains(run.getSafeErrorCode()==null?"":run.getSafeErrorCode())) run.setSafeErrorCode(null);
             touch(run); event(run, null, "OPERATION_STATUS"); return null;
@@ -713,6 +801,12 @@ public class CdsImportLedgerService {
         CdsImportKeys.pageSize(limit);
         return write(() -> units.page(runId, patientKey, afterUnitKey==null?"":afterUnitKey, limit).stream().map(CdsImportLedgerService::dto).toList());
     }
+    public CdsImportDiagnosticDto diagnosticStatus(String runId,long id) {
+        if(id<1) throw new IllegalArgumentException("DIAGNOSTIC_ID_INVALID");
+        return write(() -> {CdsImportDiagnostic d=diagnostics.get(id);if(d==null || !runId.equals(d.getRunId())) throw new CdsImportException("DIAGNOSTIC_NOT_FOUND");
+            return new CdsImportDiagnosticDto(d.getId(),d.getPatientKey(),d.getUnitKey(),d.getSeverity(),d.getCode(),d.getStage(),d.getSourcePath(),d.getSafeSummary(),d.getProtectedDetailLocation(),d.isBlocking(),d.isResolved(),d.getCreatedAt());});
+    }
+
     public List<CdsImportDiagnosticDto> diagnostics(String runId, long afterId, int limit) {
         CdsImportKeys.pageSize(limit);
         return write(() -> diagnostics.page(runId, afterId, limit).stream().map(d -> new CdsImportDiagnosticDto(d.getId(), d.getPatientKey(), d.getUnitKey(), d.getSeverity(), d.getCode(), d.getStage(), d.getSourcePath(), d.getSafeSummary(), d.getProtectedDetailLocation(), d.isBlocking(), d.isResolved(), d.getCreatedAt())).toList());
@@ -765,11 +859,66 @@ public class CdsImportLedgerService {
 
     public void resolveDiagnostic(String runId, long epoch, long diagnosticId) {
         write(() -> {
-            lockOwned(runId, epoch); CdsImportDiagnostic item=diagnostics.lock(diagnosticId);
+            lockOperational(runId, epoch); CdsImportDiagnostic item=diagnostics.lock(diagnosticId);
             if (item==null || !item.getRunId().equals(runId)) throw new CdsImportException("DIAGNOSTIC_NOT_FOUND");
             if (item.isBlocking()) throw new CdsImportException("BLOCKING_DIAGNOSTIC_REQUIRES_VERIFIED_CORRECTION");
+            if (Set.of(MAINTENANCE_RELEASE_CODE, MAINTENANCE_PENDING_CODE, MAINTENANCE_DEFERRED_CODE).contains(item.getCode())) throw new CdsImportException("MAINTENANCE_RELEASE_PROOF_REQUIRED");
             item.setResolved(true); return null;
         });
+    }
+
+    /** A failed close belongs to this owner; other runs' retained holds alone do not create this outcome. */
+    public void maintenanceReleaseFailed(String runId, long epoch, String protectedEvidence) {
+        write(() -> { CdsImportRun run=lockOperational(runId, epoch);
+            if (!Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState())) throw new CdsImportException("CLINICAL_COMPLETION_REQUIRED");
+            if (!maintenanceReleaseFailed(run)) addDiagnostic(runId, null, null, "ERROR", MAINTENANCE_RELEASE_CODE, "MAINTENANCE", null,
+                    "Clinical processing completed, but reopening clinical access requires verified maintenance recovery", protectedEvidence, false);
+            run.setCleanupState("FAILED"); run.setReportState("PENDING");
+            if (run.getSafeErrorCode()==null) run.setSafeErrorCode(MAINTENANCE_RELEASE_CODE);
+            touch(run); event(run, null, MAINTENANCE_RELEASE_CODE); return null; });
+    }
+
+    public boolean maintenanceReleasePending(String runId) { return write(() -> maintenanceReleasePending(requiredRun(runId, false))); }
+    private void awaitMaintenanceRelease(CdsImportRun run) {
+        if (!maintenanceReleasePending(run)) addDiagnostic(run.getId(), null, null, "INFO", MAINTENANCE_PENDING_CODE, "MAINTENANCE", null,
+                "Clinical processing completed; the maintenance owner's durable release still requires verification", null, false);
+        run.setCleanupState("PENDING"); run.setReportState("PENDING"); event(run, null, "MAINTENANCE_RELEASE_PENDING");
+    }
+    private boolean maintenanceReleasePending(CdsImportRun run) {
+        String state=maintenanceReleaseState(run); return !"NOT_APPLICABLE".equals(state) && !"RELEASED".equals(state);
+    }
+    private boolean maintenanceReleaseFailed(CdsImportRun run) {
+        return !diagnostics.unresolvedOperationalCode(run.getId(), MAINTENANCE_RELEASE_CODE, 1).isEmpty();
+    }
+    private String maintenanceReleaseState(CdsImportRun run) {
+        if (!Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState())) return "NOT_APPLICABLE";
+        if (maintenanceReleaseFailed(run)) return "REQUIRES_RECONCILIATION";
+        if (!diagnostics.unresolvedOperationalCode(run.getId(), MAINTENANCE_DEFERRED_CODE, 1).isEmpty()) return "RELEASE_DEFERRED";
+        return diagnostics.unresolvedOperationalCode(run.getId(), MAINTENANCE_PENDING_CODE, 1).isEmpty()?"RELEASED":"RELEASE_PENDING";
+    }
+
+    void maintenanceReleaseDeferred(String runId, long epoch, String reason) {
+        if (!Set.of("GLOBAL_HOLDS_REMAIN", "OWNER_BUSY", "REQUIRES_RECONCILIATION").contains(reason)) throw new IllegalArgumentException("Invalid release outcome");
+        write(() -> { CdsImportRun run=lockOperational(runId, epoch);
+            if (!maintenanceReleasePending(run)) throw new CdsImportException("MAINTENANCE_RELEASE_NOT_PENDING");
+            if (diagnostics.unresolvedOperationalCode(runId, MAINTENANCE_DEFERRED_CODE, 1).isEmpty()) addDiagnostic(runId, null, null, "INFO", MAINTENANCE_DEFERRED_CODE, "MAINTENANCE", null,
+                    "Clinical processing completed; operational release is deferred: "+reason, null, false);
+            run.setCleanupState(maintenanceReleaseFailed(run)?"FAILED":"PENDING"); run.setReportState("PENDING"); touch(run);
+            event(run, null, "MAINTENANCE_RELEASE_"+reason); return null; });
+    }
+
+    /** Called only after the maintenance service has read back this owner's durable inactive release under its advisory lock. */
+    void maintenanceReleaseReconciled(String runId, long epoch) {
+        while (write(() -> { CdsImportRun run=lockOperational(runId, epoch);
+            if (!Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState())) throw new CdsImportException("CLINICAL_COMPLETION_REQUIRED");
+            List<CdsImportDiagnostic> page=new ArrayList<>();
+            for (String code:List.of(MAINTENANCE_RELEASE_CODE, MAINTENANCE_PENDING_CODE, MAINTENANCE_DEFERRED_CODE)) {
+                if (page.size()<200) page.addAll(diagnostics.unresolvedOperationalCode(runId, code, 200-page.size()));
+            }
+            for (CdsImportDiagnostic diagnostic:page) diagnostic.setResolved(true);
+            if (MAINTENANCE_RELEASE_CODE.equals(run.getSafeErrorCode())) run.setSafeErrorCode(null);
+            run.setCleanupState("PENDING"); run.setReportState("PENDING"); touch(run);
+            event(run, null, "MAINTENANCE_RELEASE_VERIFIED"); return !page.isEmpty(); })) { /* Normally one row; retain bounded recovery even after repeated historical owner failures. */ }
     }
 
     /** Authorization loss stops future units, preserves every chart hold and records truthful administrative outcomes. */
@@ -782,14 +931,15 @@ public class CdsImportLedgerService {
         while (true) {
             final String cursor=after;
             List<String> page=write(() -> { CdsImportRun run=lockOperational(runId, epoch); List<CdsImportPatient> values=patients.page(runId, cursor, 200);
-                for (CdsImportPatient p:values) if (!COMPLETE_PATIENT.contains(p.getState()) && !"REFUSED".equals(p.getState())) p.setState(p.isHeld()?"PARTIAL_COMMITTED":"NOT_STARTED");
+                for (CdsImportPatient p:values) if (!COMPLETE_PATIENT.contains(p.getState()) && !Set.of("REFUSED","RECONCILIATION_REQUIRED").contains(p.getState())) p.setState(p.isHeld()?"PARTIAL_COMMITTED":"NOT_STARTED");
                 touch(run); return values.stream().map(CdsImportPatient::getPatientKey).toList(); });
             if (page.isEmpty()) break; after=page.get(page.size()-1);
         }
         write(() -> { CdsImportAdmission gate=admission.lock("global"); CdsImportRun run=lockOperational(runId, epoch);
             boolean held=patients.heldForRun(runId)>0; long committed=units.countState(runId, null, "COMMITTED")+units.countState(runId, null, "ALREADY_COMPLETE");
-            run.setState(held?"RECONCILIATION_REQUIRED":committed>0?"INCOMPLETE":"FAILED_BEFORE_WRITE"); run.setSafeErrorCode(code); touch(run);
-            addDiagnostic(runId, null, null, "ERROR", code, "SUPERVISION".equals(stage) && run.getExecutionDigest()==null?"PREFLIGHT_STOP":stage, null, summary, null, true);
+            boolean uncertain=patients.outcomes(runId,17).stream().anyMatch(row -> "RECONCILIATION_REQUIRED".equals(row[0]));
+            run.setState(held || uncertain?"RECONCILIATION_REQUIRED":committed>0?"INCOMPLETE":"FAILED_BEFORE_WRITE"); run.setSafeErrorCode(code); touch(run);
+            addDiagnostic(runId, null, null, "ERROR", code, Set.of("SUPERVISION","PREPARATION").contains(stage) && run.getExecutionDigest()==null?"PREFLIGHT_STOP":stage, null, summary, null, true);
             event(run, null, code); if (gate!=null && runId.equals(gate.getOwnerRunId())) gate.setOwnerRunId(null); return null; });
     }
 
@@ -909,10 +1059,17 @@ public class CdsImportLedgerService {
                 complete &= COMPLETE_PATIENT.contains(outcome); uncertain |= "RECONCILIATION_REQUIRED".equals(outcome);
             }
             run.setState(complete?"COMPLETE":(uncertain?"RECONCILIATION_REQUIRED":"INCOMPLETE"));
-            if (complete) run.setSafeErrorCode(null);
+            if (complete) { run.setSafeErrorCode(null); awaitMaintenanceRelease(run); }
             touch(run); event(run, null, "RUN_"+run.getState()); CdsImportJobDto result=dto(run);
             admission.lock("global").setOwnerRunId(null); return result;
         });
+    }
+
+    /** Participant guard for rebuilding an identical staging decision, never a clinical checkpoint. */
+    public void requireExpectedCheckpointFree(String runId,long epoch,String unitKey) {
+        if(!TransactionSynchronizationManager.isActualTransactionActive()) throw new CdsImportException("PREPARATION_REPAIR_REQUIRES_TRANSACTION");
+        lockOwned(runId,epoch);CdsImportUnit candidate=unit(runId,unitKey);CdsImportUnit locked=units.lock(candidate.getId());
+        if(!"EXPECTED".equals(locked.getState()) || checkpoints.lock(unitKey)!=null) throw new CdsImportException("COMMITTED_PREPARATION_REPAIR_REFUSED");
     }
 
     CdsImportRun lockOwned(String runId, long epoch) {

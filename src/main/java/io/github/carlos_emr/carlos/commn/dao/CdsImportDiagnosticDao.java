@@ -50,4 +50,8 @@ public class CdsImportDiagnosticDao extends AbstractDaoImpl<CdsImportDiagnostic>
     public List<CdsImportDiagnostic> unresolvedStage(String runId, String stage, int limit) {
         return entityManager.createQuery("select d from CdsImportDiagnostic d where d.runId=:run and d.stage=:stage and d.blocking=true and d.resolved=false order by d.id", CdsImportDiagnostic.class).setParameter("run", runId).setParameter("stage", stage).setMaxResults(limit).getResultList();
     }
+    public List<CdsImportDiagnostic> unresolvedOperationalCode(String runId, String code, int limit) {
+        return entityManager.createQuery("select d from CdsImportDiagnostic d where d.runId=:run and d.patientKey is null and d.blocking=false and d.resolved=false and d.code=:code order by d.id", CdsImportDiagnostic.class)
+                .setParameter("run", runId).setParameter("code", code).setMaxResults(limit).getResultList();
+    }
 }

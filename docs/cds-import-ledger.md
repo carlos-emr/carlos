@@ -56,7 +56,7 @@ only against the same manifest and owner epoch.
 
 Native anchors, source-field pages and bounded contact/care child units are all expected work.
 Dependencies are patient-local, limited to eight per unit and ordered from demographics to native
-anchors to helpers, which prevents cycles. Source-field pages contain at most 128 fields.
+anchors to helpers, which prevents cycles. Source-field pages contain at most 32 fields.
 Helper units count towards operational completeness; they do not inflate imported clinical
 occurrence counts. Equal repeated source occurrences remain separate occurrences.
 
@@ -85,6 +85,16 @@ Dry runs have no native checkpoints, holds or imported counts. Their terminal st
 `DRY_RUN_COMPLETE`, distinct from clinical completeness. Mapping changes following only a preview
 may revise an unbound, checkpoint-free canonical lineage when source/rules are unchanged. A
 committed or bound lineage cannot be silently revised.
+
+For an actual attempt that wrote nothing, changing raw source, mapping policy or rules requires
+an explicit `APPROVE_UNWRITTEN_REVISION` review on a newly accepted replacement submission that
+reports `SOURCE_REVISION_REVIEW_REQUIRED`. The old accepted source and plan remain immutable.
+The review archives the conflicting old/new fingerprints and paged prior-run provenance. Its
+publication transaction locks the canonical lineage, compares the old fingerprints and review
+version, and refuses any canonical target, checkpoint, hold, advanced unit or unresolved commit
+uncertainty. Only that zero-write proof permits rebinding the canonical fingerprints; old plans
+remain fenced from clinical writes. Operators never need to invent a namespace or edit database
+rows to approve a legitimate unwritten replacement.
 
 An explicit review uses a compare-and-set review version. It archives the prior patient/unit/
 dependency plan with counts and a durable digest, validates the effective corrected source against
@@ -124,7 +134,7 @@ A per-owner-epoch physical proof prevents rehashing a whole source values blob f
 page. The proof cache is operational metadata, excluded from the immutable native receipt hash.
 Final reconciliation still verifies referenced bytes outside database transactions.
 
-Pages are bounded at 200 rows; source field pages at 128. Seal calculation batches dependency
+Pages are bounded at 200 rows; source field pages at 32. Seal calculation batches dependency
 metadata for 200 units instead of making an unbounded graph or a query per dependency. Final
 native receipt verification uses one semantic unit per owning transaction. Operator report files
 are streamed row by row, rather than accumulated in memory. These are explicit bounds, not a
@@ -139,6 +149,17 @@ clinical completion (or an explicitly valid dry run), selected durable reports a
 A report-only retry preserves clinical commits and patient publications. Report/cleanup failure
 never overwrites the primary import failure, and a failed delivery terminates polling with an
 explicit failed operational state rather than hanging indefinitely.
+
+Successful clinical completion and successful preview completion atomically persist
+`RELEASE_PENDING` before releasing clinical admission. This preserves the maintenance boundary
+if the process dies between `COMPLETE` and closing its dedicated owner. The engine resolves the
+pending release only after that owner reads back its inactive generation with no global holds
+while it still owns the advisory lock. A retained chart from another run produces
+`RELEASE_DEFERRED`, without reclassifying the completed clinical outcome. A failed owner close
+retains a specific operational reconciliation diagnostic. Neither filesystem cleanup nor report
+delivery can clear these states or make `cleanComplete` true. Explicit resume of a completed run
+reacquires the real maintenance owner, verifies the target catalogue and global hold/drain proof,
+then retries release and regenerates the reports; it does not replay clinical writes.
 
 Cleanup records an actual bounded catalogue of retained/removed artifact counts and logical bytes.
 Accepted snapshots, parsed source, review evidence, durable report sets and resumable native
@@ -176,7 +197,8 @@ disposable `cds_ledger_test` database with the actual complete Flyway schema. It
 rollback, strict-audit rollback, loss of the physical owning commit acknowledgement, fenced replay,
 row-lock lifetime, exact prior-completion proof, source namespace preservation, file retirement,
 report generation CAS, preview/import distinction, reviewed replan, authorization recovery and
-resume/cancel races. The test guards its database name and uses synthetic data. A skipped test is
+resume/cancel races, zero-write revision CAS/audit rollback, stale canonical-plan refusal, and
+atomic maintenance release-pending/deferred outcomes. The test guards its database name and uses synthetic data. A skipped test is
 not a passing recovery tier.
 
 The complementary maintenance integration tier verifies actual guarded datasources, multiple

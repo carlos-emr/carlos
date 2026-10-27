@@ -46,13 +46,14 @@ public class CdsImportExecutionService {
     private final CdsImportFileVerificationService fileVerification;
     private final CdsImportTargetSafetyService safety;
     private final CdsImportFailureEvidenceService failureEvidence;
+    private final CdsFieldParser fields;
 
     public CdsImportExecutionService(CdsImportLedgerService ledger, CdsImportUnitService units, CdsImportJobService jobs,
             CdsImportPlanningService planning, CdsImportNativeService nativeRecords, CdsImportAccessService access,
-            CdsImportConfigurationService configuration, CdsImportMaintenanceService maintenance, CdsImportResultService results, CdsImportCoordinatorService coordinators, CdsImportFileVerificationService fileVerification, CdsImportTargetSafetyService safety, CdsImportFailureEvidenceService failureEvidence) {
+            CdsImportConfigurationService configuration, CdsImportMaintenanceService maintenance, CdsImportResultService results, CdsImportCoordinatorService coordinators, CdsImportFileVerificationService fileVerification, CdsImportTargetSafetyService safety, CdsImportFailureEvidenceService failureEvidence, CdsFieldParser fields) {
         this.ledger=ledger; this.units=units; this.jobs=jobs; this.planning=planning; this.nativeRecords=nativeRecords;
         this.access=access; this.configuration=configuration; this.maintenance=maintenance; this.results=results; this.coordinators=coordinators; this.fileVerification=fileVerification; this.safety=safety;
-        this.failureEvidence=failureEvidence;
+        this.failureEvidence=failureEvidence; this.fields=fields;
     }
 
     public CdsImportJobDto execute(String runId) { return execute(runId, false); }
@@ -78,24 +79,35 @@ public class CdsImportExecutionService {
         long epoch=job.ownerEpoch();
         String currentPatient=null;
         String currentUnit=null;
+        CdsImportMaintenanceService.Owner completedOwner=null;
         try {
             var document=jobs.load(runId);
             access.context(document.actor(), document.command(), null);
             if (Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(job.state())
                     || !resume && Set.of("INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "DRY_RUN_INCOMPLETE", "REVIEW_REQUIRED").contains(job.state())) {
-                if (!Boolean.TRUE.equals(ledger.summary(runId).get("reportsDelivered")) || !Boolean.TRUE.equals(ledger.summary(runId).get("cleanupComplete"))) { epoch=ledger.claimReporting(runId); deliver(runId, epoch); }
+                boolean releasePending=ledger.maintenanceReleasePending(runId);
+                if (releasePending && resume) {
+                    epoch=ledger.claimReporting(runId);
+                    CdsImportMaintenanceService.ReleaseStatus released=maintenance.reconcileCompletedRelease(safety);
+                    if (released==CdsImportMaintenanceService.ReleaseStatus.RELEASED) ledger.maintenanceReleaseReconciled(runId, epoch);
+                    else ledger.maintenanceReleaseDeferred(runId, epoch, released.name());
+                }
+                if (releasePending && resume || !Boolean.TRUE.equals(ledger.summary(runId).get("reportsDelivered")) || !Boolean.TRUE.equals(ledger.summary(runId).get("cleanupComplete"))) { epoch=ledger.claimReporting(runId); deliver(runId, epoch); }
                 return ledger.status(runId);
             }
-            configuration.requireEnabled(); coordinator.check();
+            coordinator.check(); epoch=ledger.claimPreparation(runId); configuration.requireEnabled();
             if (!job.rulesetDigest().equals(CdsImportJobService.rulesetDigest(document.command(), configuration))
                     || !job.optionsDigest().equals(CdsImportJobService.optionsDigest(document.command()))) throw new CdsImportException("IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE");
+            try (var owner=maintenance.acquire()) {
+                safety.verify(owner);
             if (!ledger.isSealed(runId)) {
                 epoch=ledger.claimPlanning(runId, resume);
                 ledger.resolveReauthorizedAccess(runId, epoch);
                 if (resume) ledger.preparePreflightResume(runId, epoch);
                 var snapshot=jobs.snapshot(runId, document);
                 ledger.inventoryDiscovered(runId, epoch, snapshot.files(), snapshot.patientXmlFiles(), snapshot.totalBytes());
-                planning.plan(runId, epoch, document, snapshot);
+                final long planningEpoch=epoch;
+                owner.readIo(() -> {planning.plan(runId,planningEpoch,document,snapshot);return null;});
                 job=ledger.status(runId);
                 if ("REVIEW_REQUIRED".equals(job.state())) {
                     ledger.release(runId, epoch); deliver(runId, epoch); return ledger.status(runId);
@@ -103,11 +115,13 @@ public class CdsImportExecutionService {
             }
             job=ledger.status(runId);
             if (document.command().dryRun()) {
-                ledger.completeDryRun(runId, epoch); deliver(runId, epoch); return ledger.status(runId);
+                ledger.completeDryRun(runId, epoch);
+                if ("DRY_RUN_COMPLETE".equals(ledger.status(runId).state()) && ledger.heldPatients(runId)==0) {
+                    owner.allowReopen(); owner.close(); settleRelease(runId, epoch, owner);
+                }
+                deliver(runId, epoch); return ledger.status(runId);
             }
             boolean recovery=resume || Set.of("RUNNING", "FINALIZING", "RECONCILING").contains(job.state());
-            try (var owner=maintenance.acquire()) {
-                safety.verify(owner);
                 epoch=resume?ledger.resume(runId):ledger.acquire(runId);
                 fileVerification.verify(runId, epoch);
                 // Verify current-run receipts before new writes. Completed patients retain their existing publication.
@@ -142,7 +156,16 @@ public class CdsImportExecutionService {
                         var work=planning.work(runId, unit);
                         owner.read(() -> access.context(work.actor(), work.command(), ledger.patientStatus(runId, unit.patientKey()).targetDemographicNo()));
                         planning.publishValues(runId, epoch, work);
-                        nativeRecords.prepare(runId, epoch, unit, work.record(), work.command(), work.snapshot(), work.xmlRelative());
+                        final long preparationEpoch=epoch;
+                        long started=System.nanoTime(), maximumMillis=configuration.limits().maxDurationMillis();
+                        try (var control=fields.control(() -> {
+                            coordinator.check(); var current=ledger.status(runId);
+                            if (Thread.currentThread().isInterrupted() || current.cancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
+                            if (current.ownerEpoch()!=preparationEpoch || !ledger.ownsAdmission(runId, preparationEpoch)) throw new CdsImportException("OWNER_FENCED");
+                            if (java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-started)>=maximumMillis) throw new CdsImportException("IMPORT_PREPARATION_TIMEOUT");
+                        })) {
+                            owner.readIo(() -> {nativeRecords.prepare(runId,preparationEpoch,unit,work.record(),work.command(),work.snapshot(),work.xmlRelative());return null;});
+                        }
                         final long unitEpoch=epoch;
                         units.execute(runId, epoch, unit.unitKey(), () -> nativeRecords.write(runId, unitEpoch, unit, work.record(), work.command(), work.actor(), work.snapshot(), work.xmlRelative()), nativeRecords::verify);
                     }
@@ -160,16 +183,25 @@ public class CdsImportExecutionService {
                     }
                 }
                 ledger.finish(runId, epoch);
-                if ("COMPLETE".equals(ledger.status(runId).state()) && ledger.heldPatients(runId)==0) owner.allowReopen();
+                if ("COMPLETE".equals(ledger.status(runId).state()) && ledger.heldPatients(runId)==0) { completedOwner=owner; owner.allowReopen(); }
             }
+            if (completedOwner!=null) settleRelease(runId, epoch, completedOwner);
         } catch (Exception failure) {
             if (failure instanceof SecurityException) { ledger.authorizationStopped(runId, epoch); deliver(runId, epoch); return ledger.status(runId); }
-            if (failure instanceof CdsImportException fenced && Set.of("OWNER_FENCED", "IMPORT_COORDINATOR_LOST", "MAINTENANCE_OWNER_BUSY", "IMPORT_BUSY", "IMPORT_COORDINATOR_BUSY", "REVIEW_RESET_IN_PROGRESS").contains(fenced.getCode())) return ledger.status(runId);
+            if (failure instanceof CdsImportException fenced && Set.of("OWNER_FENCED", "IMPORT_COORDINATOR_LOST", "MAINTENANCE_OWNER_BUSY", "IMPORT_BUSY", "IMPORT_COORDINATOR_BUSY", "REVIEW_RESET_IN_PROGRESS").contains(fenced.getCode())) {
+                if("MAINTENANCE_OWNER_BUSY".equals(fenced.getCode()) && ledger.ownsAdmission(runId,epoch)) ledger.release(runId,epoch);
+                return ledger.status(runId);
+            }
             recordFailure(runId, epoch, currentPatient, currentUnit, failure);
         }
         // A fatal Error is deliberately not caught; the supervisor later reconciles durable state.
         deliver(runId, epoch);
         return ledger.status(runId);
+    }
+
+    private void settleRelease(String runId, long epoch, CdsImportMaintenanceService.Owner owner) {
+        if (owner.releaseVerified()) ledger.maintenanceReleaseReconciled(runId, epoch);
+        else ledger.maintenanceReleaseDeferred(runId, epoch, "GLOBAL_HOLDS_REMAIN");
     }
 
     private void deliver(String runId, long epoch) {
@@ -186,13 +218,18 @@ public class CdsImportExecutionService {
         if (affectedUnit==null && failure instanceof CdsImportException known) affectedUnit=known.getUnitKey();
         String sourcePath=failureSourcePath(runId, affectedUnit, failure);
         String evidence=failureEvidence.write(runId,epoch,failure);
+        if (CdsImportLedgerService.MAINTENANCE_RELEASE_CODE.equals(code) && Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(ledger.status(runId).state())) {
+            ledger.maintenanceReleaseFailed(runId, epoch, evidence); return;
+        }
+        if(!ledger.ownsAdmission(runId,epoch)) {ledger.preparationStopped(runId,epoch,code,evidence);return;}
+        ledger.operational(runId,epoch,null,null,code);
         if (evidence==null) ledger.diagnostic(runId,epoch,affectedPatient,affectedUnit,"WARNING","IMPORT_FAILURE_EVIDENCE_UNAVAILABLE","OBSERVABILITY",null,
                 "Bounded operational failure evidence could not be delivered; the original outcome remains authoritative",null,false);
         boolean uncertain=failure instanceof CdsImportException known && known.isOutcomeUnknown()
                 || code.contains("RECONCILIATION") || code.startsWith("TARGET_") || code.startsWith("REFERENCED_FILE_");
-        boolean cancelled="IMPORT_CANCELLED".equals(code) || Thread.currentThread().isInterrupted();
+        boolean cancelled=Set.of("IMPORT_CANCELLED", "CDS_INPUT_CANCELLED", "DOCUMENT_PUBLICATION_CANCELLED").contains(code) || Thread.currentThread().isInterrupted();
         CdsImportJobDto job=ledger.status(runId);
-        if (!ledger.isSealed(runId) || Set.of("RESUME_REQUESTED", "ACCEPTED", "CLI_ACCEPTED", "DISCOVERING", "VALIDATING", "PREFLIGHT", "PREFLIGHTING", "PLANNING", "REVIEW_REQUIRED").contains(job.state())) {
+        if (!ledger.isSealed(runId)) {
             if (evidence!=null) ledger.diagnostic(runId,epoch,affectedPatient,affectedUnit,"INFO","IMPORT_FAILURE_EVIDENCE","OBSERVABILITY",sourcePath,
                     "Protected bounded operational failure evidence is available",evidence,false);
             ledger.endPreflight(runId, epoch, cancelled?"CANCELLED_BEFORE_WRITE":"FAILED_BEFORE_WRITE", code, sourcePath);

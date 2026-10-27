@@ -131,6 +131,12 @@ public class CdsImportFileService {
         return transaction.execute(status -> { CdsImportFile file=files.findLocation(CdsImportKeys.hash(CdsImportKeys.required(location, "file location", 1024))); return file==null?null:dto(file); });
     }
 
+    public CdsImportFileDto findOwnedPublishedLocation(String runId,String location,long maximumBytes) {
+        CdsImportLedgerService.requireNoTransaction();if(maximumBytes<1 || maximumBytes>65536) throw new IllegalArgumentException("EVIDENCE_LIMIT_INVALID");
+        return transaction.execute(status -> { CdsImportFile file=files.findLocation(CdsImportKeys.hash(CdsImportKeys.required(location,"evidence location",1024)));
+            if(file==null || !runId.equals(file.getRunId()) || !"PUBLISHED".equals(file.getState()) || file.getByteLength()<0 || file.getByteLength()>maximumBytes) throw new CdsImportException("IMPORT_FAILURE_EVIDENCE_UNAVAILABLE");return dto(file); });
+    }
+
     public CdsImportFileDto findPublishedLocation(String location) {
         CdsImportLedgerService.requireNoTransaction();
         return transaction.execute(status -> {

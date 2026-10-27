@@ -152,10 +152,11 @@ public class CdsImportResultService {
             completion.put("sourceDisposition", "RETAINED_FOR_RECONCILIATION");
             // This receipt describes the durable projection just generated, not an old pending-report observation.
             completion.put("reportState", "DELIVERED"); completion.put("reportsDelivered", true);
-            completion.put("cleanup", cleanupResult); completion.put("cleanupState", cleanupResult.state()); completion.put("cleanupComplete", "COMPLETE".equals(cleanupResult.state()));
+            boolean releasePending=Boolean.TRUE.equals(completion.get("maintenanceReleasePending"));
+            completion.put("cleanup", cleanupResult); completion.put("cleanupState", releasePending?completion.get("cleanupState"):cleanupResult.state()); completion.put("cleanupComplete", !releasePending && "COMPLETE".equals(cleanupResult.state()));
             boolean clinical=Boolean.TRUE.equals(completion.get("clinicalComplete"));
             boolean dryRun=Boolean.TRUE.equals(completion.get("dryRun")) && "DRY_RUN_COMPLETE".equals(before.state());
-            completion.put("cleanComplete", (clinical || dryRun) && "COMPLETE".equals(cleanupResult.state())); completion.put("operationTerminal", true);
+            completion.put("cleanComplete", (clinical || dryRun) && !releasePending && "COMPLETE".equals(cleanupResult.state())); completion.put("operationTerminal", true);
             Path receipt=directory.resolve("completion.json");
             try (OutputStream output=output(receipt, directory)) { line(output, completion); }
             CdsPaths.forceFile(receipt);

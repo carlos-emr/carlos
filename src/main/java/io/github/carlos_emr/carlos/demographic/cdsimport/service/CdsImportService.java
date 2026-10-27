@@ -59,13 +59,14 @@ public class CdsImportService {
     private final CdsImportCleanupService cleanup;
     private volatile Map<String, Object> administrativeCleanup=Map.of();
     private final CdsImportReviewService reviews;
+    private final CdsImportFailureEvidenceService failureEvidence;
     private volatile String housekeepingAlert;
     private final java.util.concurrent.atomic.AtomicReference<String> fatalRun=new java.util.concurrent.atomic.AtomicReference<>();
     private long nextHousekeepingNanos=System.nanoTime();
 
     public CdsImportService(CdsImportLedgerService ledger, CdsImportJobService jobs, CdsImportExecutionService execution,
-            CdsImportResultService results, CdsImportAccessService access, CdsImportConfigurationService configuration, CdsImportCleanupService cleanup, CdsImportReviewService reviews) {
-        this.ledger=ledger; this.jobs=jobs; this.execution=execution; this.results=results; this.access=access; this.configuration=configuration; this.cleanup=cleanup; this.reviews=reviews;
+            CdsImportResultService results, CdsImportAccessService access, CdsImportConfigurationService configuration, CdsImportCleanupService cleanup, CdsImportReviewService reviews,CdsImportFailureEvidenceService failureEvidence) {
+        this.ledger=ledger; this.jobs=jobs; this.execution=execution; this.results=results; this.access=access; this.configuration=configuration; this.cleanup=cleanup; this.reviews=reviews; this.failureEvidence=failureEvidence;
     }
 
     @PostConstruct public void start() {
@@ -109,6 +110,12 @@ public class CdsImportService {
     public void resume(CdsImportActorDto actor, String run) throws IOException { requireActor(actor, run); configuration.requireEnabled(); requireNoPendingReview(run); ledger.requestResume(run); schedule(run, true); }
     public Path report(LoggedInInfo viewer, String run, String type) throws IOException { status(viewer, run); return results.report(run, type); }
     public Path report(CdsImportActorDto actor, String run, String type) throws IOException { requireActor(actor, run); return results.report(run, type); }
+    public Map<String,Object> diagnosticEvidence(LoggedInInfo viewer,String run,long diagnosticId) throws IOException {
+        status(viewer,run);var diagnostic=ledger.diagnosticStatus(run,diagnosticId);
+        if(diagnostic.protectedDetailLocation()==null) throw new CdsImportException("IMPORT_FAILURE_EVIDENCE_UNAVAILABLE");
+        return failureEvidence.read(run,diagnostic.protectedDetailLocation());
+    }
+
     public void observe(CdsImportActorDto actor, String run, String operation, long osUid, String verifiedNonce) throws IOException {
         requireActor(actor, run); ledger.observe(run, actor.operator(), actor.providerNo(), operation, osUid, verifiedNonce);
     }

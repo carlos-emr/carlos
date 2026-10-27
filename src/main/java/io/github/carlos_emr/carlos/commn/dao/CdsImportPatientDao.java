@@ -66,4 +66,20 @@ public class CdsImportPatientDao extends AbstractDaoImpl<CdsImportPatient> {
     public long actualAttempts(String lineageKey) {
         return entityManager.createQuery("select count(p) from CdsImportPatient p,CdsImportRun r where p.lineageKey=:lineage and p.runId=r.id and r.dryRun=false", Long.class).setParameter("lineage", lineageKey).getSingleResult();
     }
+    public List<String> lineageRuns(String lineageKey, String excludingRun, String afterRun, int limit) {
+        return entityManager.createQuery("select distinct p.runId from CdsImportPatient p where p.lineageKey=:lineage and p.runId<>:run and p.runId>:after order by p.runId", String.class)
+                .setParameter("lineage", lineageKey).setParameter("run", excludingRun).setParameter("after", afterRun).setMaxResults(limit).getResultList();
+    }
+    public long lineageRunCount(String lineageKey, String excludingRun) {
+        return entityManager.createQuery("select count(distinct p.runId) from CdsImportPatient p where p.lineageKey=:lineage and p.runId<>:run", Long.class)
+                .setParameter("lineage", lineageKey).setParameter("run", excludingRun).getSingleResult();
+    }
+    public boolean lineageHasWrittenOrUncertainAttempt(String lineageKey) {
+        return !entityManager.createQuery("select p.id from CdsImportPatient p where p.lineageKey=:lineage and (p.held=true or p.targetDemographicNo is not null or p.state='RECONCILIATION_REQUIRED' or exists(select u.id from CdsImportUnit u where u.runId=p.runId and u.patientKey=p.patientKey and u.state<>'EXPECTED') or exists(select d.id from CdsImportDiagnostic d where d.runId=p.runId and d.resolved=false and d.code in ('UNIT_COMMIT_OUTCOME_UNKNOWN','CONTROL_COMMIT_OUTCOME_UNKNOWN') and (d.patientKey is null or d.patientKey=p.patientKey)))", String.class)
+                .setParameter("lineage", lineageKey).setMaxResults(1).getResultList().isEmpty();
+    }
+    public boolean runHasWrittenOrUncertainAttempt(String runId) {
+        return !entityManager.createQuery("select p.id from CdsImportPatient p where p.runId=:run and (p.held=true or p.targetDemographicNo is not null or p.state='RECONCILIATION_REQUIRED' or exists(select c.id from CdsImportCheckpoint c where c.lineageKey=p.lineageKey) or exists(select u.id from CdsImportUnit u where u.runId=p.runId and u.state<>'EXPECTED'))", String.class)
+                .setParameter("run", runId).setMaxResults(1).getResultList().isEmpty();
+    }
 }
