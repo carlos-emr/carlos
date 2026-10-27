@@ -84,6 +84,7 @@ public class CdsUnwrittenRevisionReviewService {
                 || !status.rulesetDigest().equals(CdsImportJobService.rulesetDigest(document.command(),configuration))) throw failure("REVIEW_RUNTIME_REVISION_CHANGED");
         var fresh=ledger.unwrittenRevision(run,epoch,supplied.sourcePatientId(),supplied.copyKey(),newSource);
         if (!fresh.eligible()) throw failure("UNWRITTEN_REVISION_AFTER_WRITE_OR_UNCERTAINTY_REFUSED");
+        if (fresh.priorRunCount()<1) throw failure("REVISION_PRIOR_SOURCE_PROOF_MISSING");
         if (!fresh.equals(supplied)) throw failure("CANONICAL_REVISION_CONFLICT");
         CdsSnapshotFileDto[] selected={null};
         snapshots.forEachXml(snapshot,xml -> {
@@ -116,7 +117,7 @@ public class CdsUnwrittenRevisionReviewService {
                     Map<String,Object> row=new LinkedHashMap<>();row.put("type","PRIOR_RUN");row.put("runId",previous);
                     row.put("sourceDigest",old.sourceDigest());row.put("optionsDigest",old.optionsDigest());row.put("rulesetDigest",old.rulesetDigest());
                     row.put("state",old.state());row.put("acceptance",accepted);row.put("snapshot",oldSnapshot);
-                    row.put("sourceManifestBytes",Files.size(oldSnapshot.filesManifestFile()));row.put("sourceManifestSha256",hash(oldSnapshot.filesManifestFile()));
+                    row.put("sourceManifestBytes",Files.size(oldSnapshot.filesManifestFile()));row.put("sourceManifestSha256",hash(oldSnapshot.filesManifestFile(),cancelled));
                     line(output,row);count++;cursor=previous;
                 }
             }
@@ -147,7 +148,10 @@ public class CdsUnwrittenRevisionReviewService {
     private static void line(OutputStream output,Object value) throws IOException {output.write(JSON.writeValueAsBytes(value));output.write('\n');}
     private static String hash(byte[] bytes) {return CdsPaths.hex(CdsPaths.sha256().digest(bytes));}
     private static String hash(Path path) throws IOException {
-        var digest=CdsPaths.sha256();try (var input=Files.newInputStream(path,LinkOption.NOFOLLOW_LINKS)) {byte[] buffer=new byte[65536];int count;while ((count=input.read(buffer))!=-1) digest.update(buffer,0,count);}return CdsPaths.hex(digest.digest());
+        return hash(path,() -> false);
+    }
+    private static String hash(Path path,BooleanSupplier cancelled) throws IOException {
+        var digest=CdsPaths.sha256();try (var input=Files.newInputStream(path,LinkOption.NOFOLLOW_LINKS)) {byte[] buffer=new byte[65536];int count;while ((count=input.read(buffer))!=-1) {check(cancelled);digest.update(buffer,0,count);}}return CdsPaths.hex(digest.digest());
     }
     private static CdsImportException failure(String code) {return new CdsImportException(code);}
     public record Prepared(CdsImportRevisionDto revision,CdsSnapshotFileDto source,String recordXPath,Map<String,Map<String,Object>> artifacts) {

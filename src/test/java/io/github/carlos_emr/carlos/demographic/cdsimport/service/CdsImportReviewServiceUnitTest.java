@@ -101,6 +101,7 @@ class CdsImportReviewServiceUnitTest {
         when(jobs.load(RUN)).thenReturn(document);when(jobs.root(RUN)).thenReturn(root);
         when(access.webActor(viewer,command)).thenReturn(actor);
         when(ledger.claimReviewPlanning(RUN)).thenReturn(5L);when(ledger.lockPlanningOwned(RUN,5L)).thenReturn(run);
+        when(ledger.lockReviewAdministrativeOwned(RUN,5L)).thenReturn(run);
         when(coordinator.acquire()).thenReturn(mock(CdsImportCoordinatorService.Owner.class));
         when(reviews.pendingRun(eq(RUN),anyInt())).thenReturn(List.of());
         doAnswer(call -> {stored.set(call.getArgument(0));history.put(stored.get().getId(),stored.get());return null;}).when(reviews).persist(any());
@@ -259,6 +260,28 @@ class CdsImportReviewServiceUnitTest {
         assertThatThrownBy(() -> service.process(id)).hasMessage("REVIEW_PLAN_PROOF_CHANGED");
         assertThat(stored.get().getState()).isEqualTo("REVISION_PUBLISHED");
         verify(ledger,never()).resetUnsealedPlan(anyString(),anyLong(),anyLong());
+    }
+
+    @Test
+    void shouldLatchFatalReviewWithoutDiscardingPublishedProof_whenHealthySupervisorStopsAutomaticRetries() throws Exception {
+        source("F");String id=service.accept(viewer,RUN,command("M"));service.process(id);
+        stored.get().setState("OVERLAY_PUBLISHED");String digest=stored.get().getManifestSha256();
+        service.superviseFatal(id);
+        assertThat(stored.get().getState()).isEqualTo("OVERLAY_PUBLISHED");assertThat(stored.get().getManifestSha256()).isEqualTo(digest);
+        assertThat(stored.get().getSafeErrorCode()).isEqualTo("REVIEW_WORKER_FATAL");
+    }
+
+    @Test
+    void shouldRequireExplicitAuditedTransactionToRetryFatalReview_whenOriginalRequestRemainsImmutable() throws Exception {
+        source("F");String id=service.accept(viewer,RUN,command("M"));String payload=stored.get().getPayload();
+        stored.get().setSafeErrorCode("REVIEW_WORKER_FATAL");run.setCancelRequested(true);
+        when(reviews.pendingRun(RUN,2)).thenReturn(List.of(stored.get()));
+        assertThatThrownBy(() -> service.retryFatal(RUN,actor)).hasMessage("REVIEW_REQUIRES_TRANSACTION");
+        org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {assertThat(service.retryFatal(RUN,actor)).isEqualTo(id);}
+        finally {org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(false);}
+        assertThat(stored.get().getSafeErrorCode()).isNull();assertThat(stored.get().getPayload()).isEqualTo(payload);
+        assertThat(run.isCancelRequested()).isFalse();verify(ledger).actorEvent(run,actor,"REVIEW_FATAL_RETRY_REQUESTED");
     }
 
     private String revision() throws Exception {

@@ -45,7 +45,7 @@ public class CdsImportReviewDao extends AbstractDaoImpl<CdsImportReview> {
     public CdsImportReview get(String id){return entityManager.find(CdsImportReview.class, id); }
     public CdsImportReview lock(String id){var row=entityManager.find(CdsImportReview.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE); if (row!=null) entityManager.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE); return row; }
     public List<CdsImportReview> pending(int limit) {
-        return entityManager.createQuery("select r from CdsImportReview r where r.state in ('REQUESTED','VALIDATING','OVERLAY_PUBLISHED','PATIENT_DECLINED','REVISION_PUBLISHED') order by r.createdAt,r.id", CdsImportReview.class).setMaxResults(limit).getResultList();
+        return entityManager.createQuery("select r from CdsImportReview r where r.state in ('REQUESTED','VALIDATING','OVERLAY_PUBLISHED','PATIENT_DECLINED','REVISION_PUBLISHED') and (r.safeErrorCode is null or r.safeErrorCode<>'REVIEW_WORKER_FATAL') order by r.createdAt,r.id", CdsImportReview.class).setMaxResults(limit).getResultList();
     }
     public List<CdsImportReview> pendingRun(String run, int limit) {
         return entityManager.createQuery("select r from CdsImportReview r where r.runId=:run and r.state in ('REQUESTED','VALIDATING','OVERLAY_PUBLISHED','PATIENT_DECLINED','REVISION_PUBLISHED') order by r.reviewVersion", CdsImportReview.class).setParameter("run", run).setMaxResults(limit).getResultList();

@@ -141,6 +141,43 @@ public class CdsImportReviewService {
         return transaction.execute(status -> reviews.pending(limit).stream().map(CdsImportReview::getId).toList());
     }
     public boolean hasPending(String runId){return transaction.execute(status -> !reviews.pendingRun(runId, 1).isEmpty() || reviews.inactiveDraftCount(runId)>0); }
+
+    /** Healthy supervisor only: retain every published proof and stop automatic fatal retries. */
+    public void superviseFatal(String reviewId) throws IOException {
+        CdsImportLedgerService.requireNoTransaction();Snapshot initial=snapshot(reviewId);long epoch=-1;Throwable primary=null;
+        try (var coordination=coordinator.acquire();FileChannel channel=FileChannel.open(jobs.root(initial.run()).resolve("planning.lock"),
+                Set.of(StandardOpenOption.CREATE,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS),
+                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));FileLock ignored=lock(channel)) {
+            if (!PENDING.contains(snapshot(reviewId).state())) return;
+            coordination.check();epoch=ledger.claimReviewPlanning(initial.run());long owner=epoch;
+            transaction.executeWithoutResult(status -> {
+                var run=ledger.lockReviewAdministrativeOwned(initial.run(),owner);var row=reviews.lock(reviewId);
+                if (row==null || row.getReviewVersion()!=initial.version() || run.getReviewVersion()!=initial.version() || !PENDING.contains(row.getState())) return;
+                row.setSafeErrorCode("REVIEW_WORKER_FATAL");run.setReportState("PENDING");
+                if (!Set.of("OVERLAY_PUBLISHED","PATIENT_DECLINED","REVISION_PUBLISHED").contains(row.getState())) run.setState("REVIEW_REQUIRED");
+                ledger.touch(run);ledger.event(run,null,"REVIEW_WORKER_FATAL");
+            });
+        } catch (IOException | RuntimeException | Error failure) {
+            primary=failure;throw failure;
+        } finally {
+            if (epoch>=0) {
+                try {ledger.release(initial.run(),epoch);}
+                catch (CdsImportException fenced) {if (!"OWNER_FENCED".equals(fenced.getCode())) {if (primary!=null) primary.addSuppressed(fenced);else throw fenced;}}
+            }
+        }
+    }
+
+    /** Participant: facade has reauthorized the explicit Resume initiator before entering this run-locked transaction. */
+    public String retryFatal(String runId,CdsImportActorDto currentActor) {
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) throw new CdsImportException("REVIEW_REQUIRES_TRANSACTION");
+        var run=runs.lock(runId);if (run==null) throw new CdsImportException("IMPORT_RUN_NOT_FOUND");
+        var pending=reviews.pendingRun(runId,2);if (pending.size()>1) throw new CdsImportException("REVIEW_MULTIPLE_PENDING");
+        if (pending.isEmpty()) return null;
+        var row=reviews.lock(pending.getFirst().getId());
+        if (row==null || !PENDING.contains(row.getState()) || !"REVIEW_WORKER_FATAL".equals(row.getSafeErrorCode())) return null;
+        requireCurrent(row,run,run.getReviewVersion());row.setSafeErrorCode(null);run.setCancelRequested(false);run.setReportState("PENDING");
+        ledger.touch(run);ledger.actorEvent(run,currentActor,"REVIEW_FATAL_RETRY_REQUESTED");return row.getId();
+    }
     public Map<String, Object> summary(String runId) {
         return transaction.execute(status -> {
             var rows=reviews.pendingRun(runId, 2); var latest=reviews.latest(runId);
