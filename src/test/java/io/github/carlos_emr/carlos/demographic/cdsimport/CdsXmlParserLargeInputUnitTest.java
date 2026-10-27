@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Separate explicit resource tier: source and decoded values each substantially exceed child heap. */
 @Tag("performance")
-class CdsXmlParserLargeInputTest {
+class CdsXmlParserLargeInputUnitTest {
     @TempDir Path temp;
 
     @Test
