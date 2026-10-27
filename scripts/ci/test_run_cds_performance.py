@@ -2,6 +2,7 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Workload producers and evidence guards must not manufacture large-import success."""
 from collections import Counter
+import copy
 import importlib.util
 import json
 from pathlib import Path
@@ -261,6 +262,37 @@ class PerformanceEvidenceTest(unittest.TestCase):
         changed[f'{0:032x}']['timerPicoseconds']+=1
         self.assertNotEqual(delta['completeDigestSetSha256'],GATE.statement_digest_delta({},changed)['completeDigestSetSha256'])
         self.assertLess(len(json.dumps(delta))*3*9,1<<20)
+
+    def test_all_nine_cases_and_startup_fit_actual_indented_public_proof_for_pass_and_query_failure(self):
+        # Complete field shape from the actual owned 211 scaling artifact, with
+        # run identifiers/hashes anonymized. Keep all native/report/resource
+        # fields, not just the new digest projection, in this capacity check.
+        fixture=Path(__file__).resolve().parents[2]/'src/test/resources/demographic/cds-performance-proof-shape.json'
+        proof=json.loads(fixture.read_text())
+        original=proof['cases'][0]
+        digests=GATE.statement_digest_delta({},GATE.statement_digest_snapshot([
+            [f'{number:064x}','f'*64,'TRANSACTION_CONTROL',str(number+1),'9'*20] for number in range(70)]))
+        proof['cases']=[]
+        for number in range(9):
+            case=copy.deepcopy(original);case['label']='case-'+str(number);case['statementDigests']=digests
+            for phase in ('SUBMISSION','ACCEPTED'):
+                case['observedMilestoneCounters'][phase]['statementDigestsSinceCaseStart']=digests
+            case['sourceValidation']=[dict(sourceSha256='f'*64,sourceBytes=89480052,records=3,fields=17,
+                decodedBinaryBytes=67109326,valuesBytes=67109469,
+                validator='actual CdsXmlParser/pinned schema/default limits; no DB or clinical write',
+                heapMiB=64,elapsedSeconds=4.6)]
+            proof['cases'].append(case)
+        proof['startupControl']={'statementDigests':digests,'beforeCounters':original['beforeCounters'],
+            'afterCounters':original['afterCounters'],'operatorEvidence':original['operatorEvidence']}
+        for state in ('PASSED','FAILED_QUERY_BUDGET'):
+            with self.subTest(state=state):
+                proof['status']='PASSED' if state=='PASSED' else 'FAILED'
+                proof['queryBudgetFailureCases']=[] if state=='PASSED' else [case['label'] for case in proof['cases']]
+                for case in proof['cases']:case['status']=state
+                output=self.root/(state+'.json')
+                GATE.private_json(output,proof,exclusive=True)
+                self.assertEqual(len(json.loads(output.read_text())['cases']),9)
+                self.assertLess(output.stat().st_size,1<<20)
 
     def test_an_oom_or_counter_reset_stops_before_any_query_only_failure_may_continue(self):
         initial={'memory.events':{'oom':'0','oom_kill':'0','oom_group_kill':'0'}}
