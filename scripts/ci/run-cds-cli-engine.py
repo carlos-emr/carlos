@@ -278,8 +278,9 @@ def main() -> None:
     course = submit("course", metadata["sources"]["course"], *course_options)
     assert_complete(course, 2)
     course_counts = fixture("inspect", runs["course"])
-    if course_counts.get("nativeTargets") != 2 or course_counts.get("shiftedBirthDates") != 2:
-        raise RuntimeError("course import did not create exactly two independent synthetic copies")
+    if any(course_counts.get(key) != 2 for key in ("nativeTargets", "shiftedBirthDates",
+                                                  "shiftedMedicationDates", "shiftedAllergyDates", "shiftedNoteDates")):
+        raise RuntimeError("course import did not create exactly two independent copies with consistent clinical date shifts")
     for control in ("missing-personal-program", "inactive-personal-program", "inactive-students", "inactive-course"):
         before = fixture("inspect", "fixture")
         fixture("control", metadata["metadataFile"], "reset")
