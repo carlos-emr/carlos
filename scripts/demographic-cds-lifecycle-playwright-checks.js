@@ -561,7 +561,7 @@ async function run(env = process.env) {
       await current.qualify();
       const csrf = await current.page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
       await current.page.close();
-      const cookies = await context.cookies(config.baseUrl);
+      const cookies = await context.cookies(String(config.baseUrl));
       const sessions = cookies.filter(cookie => cookie.name === 'JSESSIONID');
       h.assert(sessions.length === 1, 'The synthetic browser has no unique selected native session');
       expireSession(expiry,sessions[0].value);
