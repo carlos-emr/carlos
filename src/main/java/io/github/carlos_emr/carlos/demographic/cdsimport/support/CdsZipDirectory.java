@@ -40,8 +40,12 @@ public final class CdsZipDirectory {
     private static final ObjectMapper JSON = new ObjectMapper();
     private CdsZipDirectory() { }
 
+    @FunctionalInterface
+    public interface Check { void run() throws IOException; }
+
     public static void validate(Path archive, Path nameIndex, Path snapshot, long maximumEntries,
-            long expectedEntries) throws IOException {
+            long expectedEntries, Check check) throws IOException {
+        check.run();
         try (RandomAccessFile file = new RandomAccessFile(archive.toFile(), "r")) {
             long size = file.length();
             if (size < 22) throw CdsPaths.failure("CDS_ZIP_DIRECTORY_INVALID");
@@ -49,6 +53,7 @@ public final class CdsZipDirectory {
             byte[] tail = new byte[tailSize]; file.seek(size - tailSize); file.readFully(tail);
             int found = -1;
             for (int i = tail.length - 22; i >= 0; i--) {
+                if ((i & 1023) == 0) check.run();
                 if (little(tail, i, 4) == 0x06054b50L && little(tail, i + 20, 2) == tail.length - i - 22) { found = i; break; }
             }
             if (found < 0) throw CdsPaths.failure("CDS_ZIP_DIRECTORY_INVALID");
@@ -78,6 +83,7 @@ public final class CdsZipDirectory {
             }
             file.seek(offset);
             for (long i = 0; i < count; i++) {
+                check.run();
                 if (u32(file) != 0x02014b50L) throw CdsPaths.failure("CDS_ZIP_DIRECTORY_INVALID");
                 int madeBy = u16(file); u16(file);
                 int flags = u16(file); u16(file); u16(file); u16(file);
@@ -110,12 +116,14 @@ public final class CdsZipDirectory {
                     if (!zip64Found) throw CdsPaths.failure("CDS_ZIP64_DIRECTORY_INVALID");
                 }
                 boolean directory = relative.endsWith("/");
+                if (directory && (expanded != 0 || crc != 0)) throw CdsPaths.failure("CDS_ZIP_DIRECTORY_PAYLOAD");
                 if ((madeBy >>> 8) == 3 && unixType != 0 && (unixType == 0040000) != directory) {
                     throw CdsPaths.failure("CDS_ZIP_DIRECTORY_MEMBER_MISMATCH");
                 }
                 if (directory) relative = relative.substring(0, relative.length() - 1);
                 Path marker = nameIndex.resolve(key(relative));
                 JsonNode foundNode;
+                check.run();
                 try (var bytes = Files.newInputStream(CdsPaths.within(marker, snapshot), LinkOption.NOFOLLOW_LINKS)) {
                     foundNode = JSON.readTree(bytes.readNBytes(65536));
                 } catch (java.nio.file.NoSuchFileException missing) {
@@ -129,11 +137,14 @@ public final class CdsZipDirectory {
                     throw CdsPaths.failure("CDS_ZIP_DIRECTORY_MEMBER_MISMATCH");
                 }
                 ((ObjectNode) foundNode).put("zipDirectorySeen", true);
+                check.run();
                 Files.write(marker, JSON.writeValueAsBytes(foundNode), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
                 CdsPaths.forceFile(marker);
+                check.run();
                 file.seek(file.getFilePointer() + commentLength);
             }
             if (file.getFilePointer() != offset + directorySize) throw CdsPaths.failure("CDS_ZIP_DIRECTORY_INVALID");
+            check.run();
         } catch (java.io.EOFException truncated) {
             throw CdsPaths.failure("CDS_ZIP_DIRECTORY_TRUNCATED");
         }

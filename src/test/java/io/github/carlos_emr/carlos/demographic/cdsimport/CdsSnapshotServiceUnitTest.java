@@ -21,17 +21,29 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsSnapshotService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsZipDirectory;
 import java.io.OutputStream;
+import java.io.InputStream;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -43,6 +55,200 @@ class CdsSnapshotServiceUnitTest {
     @TempDir Path temp;
     private final CdsSnapshotService service=new CdsSnapshotService();
     private static final CdsInputLimitsDto LIMITS=CdsInputLimitsDto.defaults();
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    @Test void shouldRejectDirectoryPayloads_whenSizeIsDeclaredOrComesFromADataDescriptor() throws Exception {
+        byte[] payload = "unaccounted directory body".getBytes(StandardCharsets.UTF_8);
+        for (boolean descriptor : new boolean[] {false, true}) {
+            Path source = Files.createDirectory(temp.resolve("directory-" + descriptor));
+            Path archive = source.resolve("patients.zip");
+            try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive))) {
+                ZipEntry directory = new ZipEntry("hidden/");
+                if (!descriptor) {
+                    CRC32 crc = new CRC32(); crc.update(payload);
+                    directory.setMethod(ZipEntry.STORED); directory.setSize(payload.length);
+                    directory.setCompressedSize(payload.length); directory.setCrc(crc.getValue());
+                }
+                zip.putNextEntry(directory); zip.write(payload); zip.closeEntry();
+                zip.putNextEntry(new ZipEntry("patient.xml"));
+                zip.write("<OmdCds xmlns='cds'><PatientRecord/></OmdCds>".getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+            try (ZipInputStream zip = new ZipInputStream(Files.newInputStream(archive))) {
+                assertEquals(descriptor ? -1 : payload.length, zip.getNextEntry().getSize());
+            }
+            Path durable = Files.createDirectory(temp.resolve("directory-durable-" + descriptor));
+            CdsInputException failed = assertThrows(CdsInputException.class,
+                    () -> service.snapshot(archive, source, durable, "rejected", LIMITS, () -> false));
+            assertEquals("CDS_ZIP_DIRECTORY_PAYLOAD", failed.code());
+            assertFalse(Files.exists(durable.resolve("rejected")));
+            assertFalse(Files.exists(durable.resolve("rejected.pending/snapshot.seal")));
+        }
+    }
+
+    @Test void shouldRetainEmptyDirectorySupport_whenADataDescriptorDeclaresNoPayload() throws Exception {
+        Path source = Files.createDirectory(temp.resolve("empty-directory"));
+        Path archive = source.resolve("patients.zip");
+        zip(archive, new String[] {"patients/", "patients/one.xml"},
+                new String[] {"", "<OmdCds xmlns='cds'><PatientRecord/></OmdCds>"});
+        var snapshot = service.snapshot(archive, source, Files.createDirectory(temp.resolve("empty-durable")),
+                "accepted", LIMITS, () -> false);
+        assertEquals(1, snapshot.files());
+        assertEquals(snapshot.sha256(), service.load(snapshot.root()).sha256());
+    }
+
+    @Test void shouldProbeCompressedReads_whenEmptyDeflateBlocksProduceNoExpandedBytes() throws Exception {
+        // A legal raw DEFLATE stream can consume arbitrarily many empty stored blocks
+        // before emitting a single byte. A decompressed-output-only probe cannot stop it.
+        ByteArrayOutputStream archive = new ByteArrayOutputStream();
+        byte[] name = "empty/".getBytes(StandardCharsets.UTF_8);
+        int blocks = 80000, compressedLength = blocks * 5 + 5;
+        little(archive, 0x04034b50, 4); little(archive, 20, 2); little(archive, 0, 2);
+        little(archive, 8, 2); little(archive, 0, 4); little(archive, 0, 4);
+        little(archive, compressedLength, 4); little(archive, 0, 4);
+        little(archive, name.length, 2); little(archive, 0, 2); archive.write(name);
+        for (int i = 0; i < blocks; i++) archive.write(new byte[] {0, 0, 0, -1, -1});
+        archive.write(new byte[] {1, 0, 0, -1, -1});
+        AtomicInteger consumed = new AtomicInteger(), probes = new AtomicInteger();
+        InputStream bytes = new ByteArrayInputStream(archive.toByteArray()) {
+            @Override public synchronized int read(byte[] target, int offset, int length) {
+                int read = super.read(target, offset, length);
+                if (read > 0) consumed.addAndGet(read);
+                return read;
+            }
+        };
+        var constructor = Class.forName(CdsSnapshotService.class.getName() + "$CountingSource")
+                .getDeclaredConstructor(InputStream.class, long.class, CdsZipDirectory.Check.class);
+        constructor.setAccessible(true);
+        InputStream controlled = (InputStream) constructor.newInstance(bytes, 1L << 20,
+                (CdsZipDirectory.Check) () -> {
+                    if (probes.incrementAndGet() == 3) throw CdsPaths.failure("CDS_INPUT_CANCELLED");
+                });
+        try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(controlled, 65536))) {
+            assertTrue(zip.getNextEntry().isDirectory());
+            CdsInputException failed = assertThrows(CdsInputException.class, zip::read);
+            assertEquals("CDS_INPUT_CANCELLED", failed.code());
+        }
+        assertEquals(3, probes.get());
+        assertTrue(consumed.get() > 0 && consumed.get() <= 2 * 65536);
+        assertTrue(consumed.get() < archive.size());
+    }
+
+    @Test void shouldRejectRedirectedAttachmentIndex_whenManifestAndMembersAreUnchanged() throws Exception {
+        var snapshot = attachmentSnapshot("redirect");
+        ObjectNode redirected = marker(snapshot.root(), "b.pdf");
+        redirected.put("relativeName", "a.pdf");
+        Files.write(index(snapshot.root(), "a.pdf"), JSON.writeValueAsBytes(redirected));
+        CdsInputException direct = assertThrows(CdsInputException.class,
+                () -> service.resolveReference(snapshot, "patient.xml", "a.pdf"));
+        assertEquals("CDS_SNAPSHOT_NAME_INDEX_INVALID", direct.code());
+        CdsInputException reload = assertThrows(CdsInputException.class, () -> service.load(snapshot.root(), true));
+        assertEquals("CDS_SNAPSHOT_NAME_INDEX_INVALID", reload.code());
+    }
+
+    @Test void shouldRejectExtraAttachmentAliases_whenARealMemberHasTheSameDigestAndLength() throws Exception {
+        var snapshot = attachmentSnapshot("alias");
+        ObjectNode alias = marker(snapshot.root(), "b.pdf");
+        alias.put("relativeName", "forged.pdf");
+        Files.write(index(snapshot.root(), "forged.pdf"), JSON.writeValueAsBytes(alias));
+        var loaded = service.load(snapshot.root(), true);
+        assertEquals("second attachment", Files.readString(service.resolveReference(loaded, "patient.xml", "b.pdf").path()));
+        CdsInputException failed = assertThrows(CdsInputException.class,
+                () -> service.resolveReference(loaded, "patient.xml", "forged.pdf"));
+        assertEquals("CDS_SNAPSHOT_NAME_INDEX_INVALID", failed.code());
+    }
+
+    @Test void shouldRejectUnboundedOrNonRowLocators_whenTheDerivedIndexIsChanged() throws Exception {
+        var snapshot = attachmentSnapshot("locator");
+        ObjectNode original = marker(snapshot.root(), "a.pdf");
+        for (ObjectNode invalid : List.of(original.deepCopy().put("manifestOffset", Long.MAX_VALUE),
+                original.deepCopy().put("manifestLength", 65537),
+                original.deepCopy().put("manifestOffset", original.path("manifestOffset").asLong() + 1))) {
+            Files.write(index(snapshot.root(), "a.pdf"), JSON.writeValueAsBytes(invalid));
+            CdsInputException failed = assertThrows(CdsInputException.class,
+                    () -> service.resolveReference(snapshot, "patient.xml", "a.pdf"));
+            assertEquals("CDS_SNAPSHOT_NAME_INDEX_INVALID", failed.code());
+        }
+    }
+
+    @Test void shouldProbeBetweenCentralDirectoryMarkers_whenCancellationArrivesAfterTheFirstMarker() throws Exception {
+        Path snapshot = Files.createDirectory(temp.resolve("central"));
+        Path names = Files.createDirectory(snapshot.resolve("names"));
+        Path archive = snapshot.resolve("source.zip");
+        String[] entries = {"one.xml", "two.txt"}, values = {"first", "second"};
+        zip(archive, entries, values);
+        for (int i = 0; i < entries.length; i++) {
+            CRC32 crc = new CRC32(); crc.update(values[i].getBytes(StandardCharsets.UTF_8));
+            ObjectNode marker = JSON.createObjectNode().put("relativeName", entries[i])
+                    .put("length", values[i].length()).put("crc32", crc.getValue());
+            Files.write(index(snapshot, entries[i]), JSON.writeValueAsBytes(marker));
+        }
+        AtomicInteger probes = new AtomicInteger();
+        CdsInputException failed = assertThrows(CdsInputException.class,
+                () -> CdsZipDirectory.validate(archive, names, snapshot, 10, 2, () -> {
+                    probes.incrementAndGet();
+                    if (marker(snapshot, "one.xml").path("zipDirectorySeen").asBoolean()) {
+                        throw CdsPaths.failure("CDS_INPUT_CANCELLED");
+                    }
+                }));
+        assertEquals("CDS_INPUT_CANCELLED", failed.code());
+        assertTrue(probes.get() >= 4);
+        assertFalse(marker(snapshot, "two.txt").path("zipDirectorySeen").asBoolean());
+        assertFalse(Files.exists(snapshot.resolve("snapshot.seal")));
+    }
+
+    @Test void shouldNotSealOrPublish_whenCancellationAppearsDuringCentralDirectoryValidation() throws Exception {
+        Path source = Files.createDirectory(temp.resolve("central-source"));
+        Path archive = source.resolve("patients.zip");
+        zip(archive, new String[] {"patient.xml"}, new String[] {"<OmdCds xmlns='cds'><PatientRecord/></OmdCds>"});
+        Path durable = Files.createDirectory(temp.resolve("central-durable"));
+        Path pending = durable.resolve("cancelled.pending");
+        CdsInputException failed = assertThrows(CdsInputException.class,
+                () -> service.snapshot(archive, source, durable, "cancelled", LIMITS,
+                        () -> centralSeen(pending, "patient.xml")));
+        assertEquals("CDS_INPUT_CANCELLED", failed.code());
+        assertFalse(Files.exists(durable.resolve("cancelled")));
+        assertFalse(Files.exists(pending.resolve("snapshot.seal")));
+    }
+
+    @Test void shouldProbeAgainBeforePublication_whenCancellationAppearsAfterSealing() throws Exception {
+        Path source = Files.createDirectory(temp.resolve("final-source"));
+        Path xml = source.resolve("patient.xml");
+        Files.writeString(xml, "<OmdCds xmlns='cds'><PatientRecord/></OmdCds>");
+        Path durable = Files.createDirectory(temp.resolve("final-durable"));
+        CdsInputException failed = assertThrows(CdsInputException.class,
+                () -> service.snapshot(xml, source, durable, "cancelled", LIMITS,
+                        () -> Files.exists(durable.resolve("cancelled.pending/snapshot.seal"))));
+        assertEquals("CDS_INPUT_CANCELLED", failed.code());
+        assertFalse(Files.exists(durable.resolve("cancelled")));
+    }
+
+    private io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotDto attachmentSnapshot(String name) throws Exception {
+        Path source = Files.createDirectory(temp.resolve(name + "-source"));
+        Files.writeString(source.resolve("patient.xml"), "<OmdCds xmlns='cds'><PatientRecord/></OmdCds>");
+        Files.writeString(source.resolve("a.pdf"), "first attachment");
+        Files.writeString(source.resolve("b.pdf"), "second attachment");
+        return service.snapshot(source, source, Files.createDirectory(temp.resolve(name + "-durable")),
+                "accepted", LIMITS, () -> false);
+    }
+
+    private static Path index(Path snapshot, String name) {
+        String normalized = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
+        return snapshot.resolve("names").resolve(CdsPaths.hex(CdsPaths.sha256().digest(normalized.getBytes(StandardCharsets.UTF_8))));
+    }
+
+    private static ObjectNode marker(Path snapshot, String name) throws java.io.IOException {
+        return (ObjectNode) JSON.readTree(Files.readAllBytes(index(snapshot, name)));
+    }
+
+    private static boolean centralSeen(Path snapshot, String name) {
+        try { return Files.exists(index(snapshot, name)) && marker(snapshot, name).path("zipDirectorySeen").asBoolean(); }
+        catch (java.io.IOException failed) { throw new java.io.UncheckedIOException(failed); }
+    }
+
+    private static void little(OutputStream bytes, long value, int count) throws java.io.IOException {
+        for (int i = 0; i < count; i++) bytes.write((int) (value >>> (8 * i)) & 255);
+    }
 
     @Test void shouldCaptureOnlyReferencedAttachments_whenInputIsBareXml() throws Exception {
         Path source=Files.createDirectory(temp.resolve("source"));
