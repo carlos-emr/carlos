@@ -73,7 +73,7 @@ jobs:
       CARLOS_CTL_SRC: ${{ github.workspace }}/.carlos-ctl
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Check out the pinned carlos-ctl release
@@ -100,7 +100,7 @@ jobs:
           fi
       # Ubuntu 26.04 ships Python 3.14. The runner's 3.12 CSV reader has
       # a known QUOTE_NOTNULL bug and cannot validate the target semantics.
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
       - name: Install the CLI's runtime dependency

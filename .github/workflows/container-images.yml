@@ -92,12 +92,12 @@ jobs:
       cache_tag: ${{ steps.check.outputs.cache_tag }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Log in to Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -207,12 +207,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
 
       - name: Build tomcat-dev container
         env:
@@ -258,7 +258,7 @@ jobs:
           docker save carlos-tomcat-dev:test -o "$RUNNER_TEMP/container-images/carlos-tomcat-dev.tar"
 
       - name: Upload tested tomcat-dev image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: carlos-tomcat-dev-image
           path: ${{ runner.temp }}/container-images/carlos-tomcat-dev.tar
@@ -274,13 +274,13 @@ jobs:
       packages: write
     steps:
       - name: Download tested tomcat-dev image
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: carlos-tomcat-dev-image
           path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -317,12 +317,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
 
       - name: Build mariadb-dev container
         env:
@@ -410,7 +410,7 @@ jobs:
           docker save carlos-mariadb-dev:test -o "$RUNNER_TEMP/container-images/carlos-mariadb-dev.tar"
 
       - name: Upload tested mariadb-dev image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: carlos-mariadb-dev-image
           path: ${{ runner.temp }}/container-images/carlos-mariadb-dev.tar
@@ -426,13 +426,13 @@ jobs:
       packages: write
     steps:
       - name: Download tested mariadb-dev image
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: carlos-mariadb-dev-image
           path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -469,12 +469,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
 
       - name: Build drugref container
         env:
@@ -537,7 +537,7 @@ jobs:
           docker save carlos-drugref-dev:test -o "$RUNNER_TEMP/container-images/carlos-drugref-dev.tar"
 
       - name: Upload tested drugref image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: carlos-drugref-dev-image
           path: ${{ runner.temp }}/container-images/carlos-drugref-dev.tar
@@ -553,13 +553,13 @@ jobs:
       packages: write
     steps:
       - name: Download tested drugref image
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: carlos-drugref-dev-image
           path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
