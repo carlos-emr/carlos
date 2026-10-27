@@ -43,6 +43,10 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
+import org.hibernate.dialect.H2Dialect;
+import org.hibernate.dialect.MariaDBDialect;
+import org.hibernate.dialect.MySQLDialect;
+import org.hibernate.engine.spi.SessionFactoryImplementor;
 import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -586,17 +590,27 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
     @Override
     @NativeSql({"provider"})
     public List<String> findCdsProviderNosByOhip(String ohipNo) {
-        return entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
-                + "and ohip_no=:value and BINARY(ohip_no) = BINARY(:value) order by provider_no", String.class)
+        var query = cdsUsesMysqlTextSemantics()
+                ? entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                        + "and ohip_no=:value and BINARY(ohip_no) = BINARY(:value) order by provider_no", String.class)
+                : entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                        + "and ohip_no=:value and STRINGTOUTF8(ohip_no)=STRINGTOUTF8(:value) order by provider_no", String.class);
+        return query
                 .setParameter("value", ohipNo).setMaxResults(2).getResultList();
     }
 
     @Override
     @NativeSql({"provider"})
     public List<String> findCdsProviderNosByCpso(String cpsoNo) {
-        return entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
-                + "and practitionerNoType='CPSO' and practitionerNo=:value "
-                + "and BINARY(practitionerNoType) = BINARY('CPSO') and BINARY(practitionerNo) = BINARY(:value) order by provider_no", String.class)
+        var query = cdsUsesMysqlTextSemantics()
+                ? entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                        + "and practitionerNoType='CPSO' and practitionerNo=:value "
+                        + "and BINARY(practitionerNoType) = BINARY('CPSO') and BINARY(practitionerNo) = BINARY(:value) order by provider_no", String.class)
+                : entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                        + "and practitionerNoType='CPSO' and practitionerNo=:value "
+                        + "and STRINGTOUTF8(practitionerNoType)=STRINGTOUTF8('CPSO') "
+                        + "and STRINGTOUTF8(practitionerNo)=STRINGTOUTF8(:value) order by provider_no", String.class);
+        return query
                 .setParameter("value", cpsoNo).setMaxResults(2).getResultList();
     }
 
@@ -604,6 +618,14 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
     @NativeSql({"provider"})
     @SuppressFBWarnings(value = "SQL_INJECTION_JPA", justification = "Only server-owned charset identifiers validated by cdsNameCharsets enter SQL structure; source names remain bound parameters")
     public List<String> findCdsProviderNosByExactName(String firstName, String lastName) {
+        if (!cdsUsesMysqlTextSemantics()) {
+            // H2 stores Unicode strings directly; UTF8 bytes retain case, accents and trailing spaces.
+            return entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                    + "and first_name=:first and last_name=:last "
+                    + "and STRINGTOUTF8(first_name)=STRINGTOUTF8(:first) "
+                    + "and STRINGTOUTF8(last_name)=STRINGTOUTF8(:last) order by provider_no", String.class)
+                    .setParameter("first", firstName).setParameter("last", lastName).setMaxResults(2).getResultList();
+        }
         CdsNameCharsets charsets = cdsNameCharsets();
         return entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
                 + "and first_name=CONVERT(:first USING " + charsets.first() + ") "
@@ -612,6 +634,15 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
                 + "and BINARY(CONVERT(last_name USING utf8mb4)) = BINARY(CONVERT(:last USING utf8mb4)) "
                 + "order by provider_no", String.class)
                 .setParameter("first", firstName).setParameter("last", lastName).setMaxResults(2).getResultList();
+    }
+
+    /** Database semantics come from the real persistence factory, never an import/test option. */
+    private boolean cdsUsesMysqlTextSemantics() {
+        var dialect = entityManager().getEntityManagerFactory().unwrap(SessionFactoryImplementor.class)
+                .getJdbcServices().getDialect();
+        if (dialect instanceof MySQLDialect || dialect instanceof MariaDBDialect) return true;
+        if (dialect instanceof H2Dialect) return false;
+        throw new IllegalStateException("Unsupported database dialect for exact CDS provider matching");
     }
 
     private record CdsNameCharsets(String first, String last) { }
