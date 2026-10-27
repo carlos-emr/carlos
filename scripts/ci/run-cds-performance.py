@@ -406,7 +406,37 @@ def rows(path: Path) -> list[dict]:
     return result
 
 
-def operator_projection(path: Path) -> dict:
+def technical_failure_projection(value: dict) -> dict:
+    if not isinstance(value,dict) or value.get('code')!='CDS_OPERATION_FAILED' \
+            or value.get('clinicalAcceptance')!='RECONCILE_DURABLE_STATE' \
+            or not isinstance(value.get('causes'),list) or not 1<=len(value['causes'])<=16:
+        raise RuntimeError('technical failure receipt has an invalid finite contract')
+    causes=[]
+    frames=0
+    for item in value['causes']:
+        if not isinstance(item,dict) or not re.fullmatch(r'[A-Za-z_$][A-Za-z0-9_.$]{0,511}',str(item.get('type',''))) \
+                or not isinstance(item.get('frames'),list):
+            raise RuntimeError('technical failure type/frames are invalid')
+        selected={'type':item['type'],'frames':[]}
+        for frame in item['frames']:
+            frames+=1
+            if frames>32 or not isinstance(frame,str) or len(frame)>1024 \
+                    or not re.fullmatch(r'[A-Za-z_$][A-Za-z0-9_.$/]*#[A-Za-z0-9_$<>]+:-?[0-9]+',frame):
+                raise RuntimeError('technical failure frame capacity or format is invalid')
+            selected['frames'].append(frame)
+        if 'sqlState' in item:
+            if not isinstance(item['sqlState'],str) or not re.fullmatch(r'[A-Z0-9]{5}',item['sqlState']):
+                raise RuntimeError('technical failure SQL state is invalid')
+            selected['sqlState']=item['sqlState']
+        if 'vendorCode' in item:
+            if type(item['vendorCode']) is not int or not -(1<<31)<=item['vendorCode']<(1<<31):
+                raise RuntimeError('technical failure vendor code is invalid')
+            selected['vendorCode']=item['vendorCode']
+        causes.append(selected)
+    return {'code':'CDS_OPERATION_FAILED','clinicalAcceptance':'RECONCILE_DURABLE_STATE','causes':causes}
+
+
+def operator_projection(path: Path, diagnostics_root: Path | None=None) -> dict:
     """Retain finite process/receipt evidence, never raw startup/SQL/source log lines."""
     allowed={'event','operation','submissionKey','runId','state','dryRun','discoveryComplete','inventoryState',
         'discoveredFiles','patientXmlFiles','sourceBytes','sourcePatientsIdentified','sourcePatients','targetCopiesPlanned',
@@ -418,6 +448,8 @@ def operator_projection(path: Path) -> dict:
             if row.get('event') in {'INITIALIZING','SUBMISSION','ACCEPTED','RESULT'}]
     prefixes=Counter()
     reasons=[]
+    technical=[]
+    technical_errors=[]
     with path.open() as stream:
         for line in stream:
             if len(line)>65536:
@@ -430,7 +462,28 @@ def operator_projection(path: Path) -> dict:
                 reasons.append({'code':reason[1],'outcomeUnknown':reason[2]=='true'})
                 if len(reasons)>16:
                     raise RuntimeError('operator reason capacity exceeded')
+            if line.startswith('CDS_TECHNICAL: ') or line.startswith('CDS_DIAGNOSTIC: protected operation evidence='):
+                try:
+                    if line.startswith('CDS_TECHNICAL: '):
+                        selected=technical_failure_projection(json.loads(line.removeprefix('CDS_TECHNICAL: ')))
+                        selected['delivery']='actor-stderr'
+                    else:
+                        file=Path(line.removeprefix('CDS_DIAGNOSTIC: protected operation evidence=').removesuffix('\n'))
+                        if diagnostics_root is None or not file.is_absolute() or file.parent!=diagnostics_root \
+                                or not re.fullmatch(r'cli-operation-[0-9a-f-]{36}\.json',file.name):
+                            raise RuntimeError('protected operation receipt escaped the exact diagnostic root')
+                        protected_file(file,owner=pwd.getpwnam('carlos').pw_uid)
+                        selected=technical_failure_projection(json.loads(file.read_text()))
+                        selected.update(delivery='protected-file',bytes=file.stat().st_size,sha256=digest(file))
+                    if len(technical)>=4:
+                        raise RuntimeError('technical failure receipt count exceeded')
+                    technical.append(selected)
+                except Exception as failure:
+                    technical_errors.append(safe_failure(failure))
+                    if len(technical_errors)>4:
+                        raise RuntimeError('technical failure receipt error capacity exceeded')
     return {'events':events,'reasonCodes':reasons,'diagnosticPrefixes':dict(prefixes),
+            'technicalFailureEvidence':technical,'technicalEvidenceErrors':technical_errors,
             'privateLogBytes':path.stat().st_size,'privateLogSha256':digest(path)}
 
 
@@ -744,7 +797,7 @@ def main() -> None:
                 if gc_error_file is not None:
                     gc_error_file.close()
                 case['operatorExitCode']=process.returncode if process is not None else None
-                capture_evidence(case,'operatorEvidence',lambda:operator_projection(log))
+                capture_evidence(case,'operatorEvidence',lambda:operator_projection(log,args.fixture_metadata.parent/'state/runs/cli-diagnostics'))
                 if resource_receipt.exists():
                     capture_evidence(case,'kernelResources',lambda:json.loads(protected_file(resource_receipt).read_text()))
                 if (evidence/(label+'-gc.log')).exists():

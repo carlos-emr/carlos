@@ -200,6 +200,23 @@ class PerformanceEvidenceTest(unittest.TestCase):
         self.assertEqual(evidence['failureEvidenceErrors']['gc']['exceptionClass'],'RuntimeError')
         self.assertNotIn('private GC failure message',json.dumps(evidence))
 
+    def test_technical_operation_failure_keeps_reconciliation_state_and_code_locations_without_messages(self):
+        hidden='private-source-SQL-and-password'
+        value={'code':'CDS_OPERATION_FAILED','clinicalAcceptance':'RECONCILE_DURABLE_STATE',
+            'causes':[{'type':'java.nio.file.FileSystemException','frames':['package.Service#accept:42'],
+                       'message':hidden,'sqlState':'HY000','vendorCode':28}],'privateDetail':hidden}
+        projected=GATE.technical_failure_projection(value)
+        self.assertEqual(projected['clinicalAcceptance'],'RECONCILE_DURABLE_STATE')
+        self.assertNotIn(hidden,json.dumps(projected))
+        log=self.root/'stderr.log';log.write_text('CDS_TECHNICAL: '+json.dumps(value)+'\n')
+        actual=GATE.operator_projection(log)
+        self.assertEqual(actual['technicalFailureEvidence'][0]['causes'][0]['type'],'java.nio.file.FileSystemException')
+        self.assertNotIn(hidden,json.dumps(actual))
+        for changed in ({**value,'clinicalAcceptance':'NOT_STARTED'},
+                        {**value,'causes':[{'type':'java.io.IOException','frames':['message '+hidden]}]},
+                        {**value,'causes':[{'type':'java.io.IOException','frames':['a.B#method:1']*33}]}):
+            with self.assertRaises(RuntimeError):GATE.technical_failure_projection(changed)
+
     def test_resource_samples_preserve_unknown_inventory_and_observed_peaks_after_completion(self):
         run='12345678-1234-1234-1234-123456789abc'
         calls=[]

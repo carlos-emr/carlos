@@ -238,7 +238,7 @@ def main() -> None:
                 time.sleep(0.1)
         result['importElapsedSeconds']=time.monotonic()-started
         result['operatorExitCode']=process.returncode
-        result['operatorEvidence']=RESOURCE.operator_projection(log)
+        RESOURCE.capture_evidence(result,'operatorEvidence',lambda:RESOURCE.operator_projection(log,root/'state/runs/cli-diagnostics'))
         save()
         require(process.returncode==4 and worker is not None,'DISK_FAULT_EXPECTED_OPERATOR_REFUSAL')
         operator=refusal(log)
