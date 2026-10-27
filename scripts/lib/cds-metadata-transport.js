@@ -60,6 +60,9 @@ function browserObserver(config, validateObject) {
   let currentWrite = null, candidate = null, counter = 0, retainedUnits = 0;
   function release(trace) { if (trace?.segments) { retainedUnits -= trace.units || 0; trace.segments = []; trace.units = 0; } }
   const frame = Array.from(crypto.getRandomValues(new Uint32Array(2)), n => n.toString(16)).join('-');
+  let documentRetired = false;
+  // A restored BFCache document must not revive evidence observed before leaving it.
+  globalThis.addEventListener('pagehide', () => { documentRetired = true; }, {once: true});
   function invalidate(trace, code) { if (trace && !trace.invalid) trace.invalid = code; release(trace); }
   function token(value) { if (value == null) return null; if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(value)) throw Error('METADATA_ID_INVALID'); return value; }
   function digest(value) { if (value == null) return null; if (typeof value !== 'string' || !/^[a-f0-9]{64}$/.test(value)) throw Error('METADATA_DIGEST_INVALID'); return value; }
@@ -183,13 +186,15 @@ function browserObserver(config, validateObject) {
     if (response.body) bodies.set(response.body, trace);
     return response;
   };
-  Object.defineProperty(globalThis, config.key, {value: {snapshot(tag) { const t=traces.get(tag); if(!t)return null; const {segments,units,...metadata}=t;return metadata; }, peek(tag) { const t=traces.get(tag); return t ? {ready: t.valid || !!t.invalid, invalid: t.invalid || null} : null; }, take(tag) {
+  Object.defineProperty(globalThis, config.key, {value: Object.freeze({
+    documentIdentity() { return documentRetired ? null : frame; },
+    snapshot(tag) { const t=traces.get(tag); if(!t)return null; const {segments,units,...metadata}=t;return metadata; }, peek(tag) { const t=traces.get(tag); return t ? {ready: t.valid || !!t.invalid, invalid: t.invalid || null} : null; }, take(tag) {
     const trace = traces.get(tag); traces.delete(tag);
     if (!trace) return null;
     release(trace);
     const {receipt, segments, units, ...metadata} = trace;
     return {...metadata, receipt: receipt || null};
-  }}});
+  }})});
 }
 
 function validateEnvelope(trace) {
@@ -224,21 +229,22 @@ async function installObserver(page, recorder, options = {}) {
     maxBytes: options.maxBytes || MAX_BYTES, maxTraces: options.maxTraces || 128};
   if (!Number.isSafeInteger(config.maxBytes) || config.maxBytes < 1 || config.maxBytes > MAX_BYTES
       || !Number.isSafeInteger(config.maxTraces) || config.maxTraces < 1 || config.maxTraces > 256) throw Error('CDS_TRANSPORT_LIMIT_INVALID');
-  const records = new Map(), epochs = new WeakMap();
-  page.on('framenavigated', frame => epochs.set(frame, (epochs.get(frame) || 0) + 1));
+  const records = new Map();
   page.on('request', request => {
     const tag = request.headers()[HEADER];
     if (!tag || !tag.startsWith(config.prefix + '-')) return;
     const frame = request.frame();
+    const identity = /^([a-f0-9]{1,8}-[a-f0-9]{1,8})-([1-9][0-9]{0,15})$/.exec(tag.slice(config.prefix.length + 1));
+    const documentIdentity = identity && Number.isSafeInteger(Number(identity[2])) ? identity[1] : null;
     if (records.has(tag)) { records.get(tag).ambiguous = true; return; }
     while (records.size >= config.maxTraces) records.delete(records.keys().next().value);
-    records.set(tag, {tag, frame, epoch: epochs.get(frame) || 0, route: new URL(request.url()).pathname, method: request.method(), resourceType: request.resourceType(), requestRef: new WeakRef(request), entries: []});
+    records.set(tag, {tag, frame, documentIdentity, route: new URL(request.url()).pathname, method: request.method(), resourceType: request.resourceType(), requestRef: new WeakRef(request), entries: []});
   });
   page.on('response', response => { const record=records.get(response.request().headers()[HEADER]); if(record) { record.status=response.status(); record.json=/^application\/json(?:\s*;|\s*$)/i.test(response.headers()['content-type'] || ''); record.redirected=!!response.request().redirectedFrom(); } });
   page.on('requestfailed', request => {
     const tag = request.headers()[HEADER], record = records.get(tag);
     if (!record || record.requestRef.deref() !== request) return;
-    record.error = request.failure()?.errorText; record.navigated = page.isClosed() || record.frame.isDetached() || (epochs.get(record.frame) || 0) !== record.epoch;
+    record.error = request.failure()?.errorText; record.navigated = page.isClosed() || record.frame.isDetached();
     const from=Math.max(0,recorder.requestFailures.length-1);
     queueMicrotask(() => {
       for (const entry of recorder.requestFailures.slice(from)) if (entry.requestRef?.deref() === request) { boundFailures.set(entry, record); record.entries.push(new WeakRef(entry)); }
@@ -249,9 +255,18 @@ async function installObserver(page, recorder, options = {}) {
   for (const frame of page.frames()) await frame.evaluate(content);
   async function qualifyRecord(record, prover) {
     if (record.audit) return record.audit;
-    if (record.error !== 'net::ERR_ABORTED' || record.resourceType !== 'fetch' || record.navigated || record.ambiguous || page.isClosed() || record.frame.isDetached() || (epochs.get(record.frame) || 0) !== record.epoch || record.redirected || !record.json || ![200,202].includes(record.status)) throw Error('CDS_TRANSPORT_FAILURE_NOT_QUALIFIABLE');
-    await record.frame.waitForFunction(({key, tag}) => { const t=globalThis[key]?.peek(tag); return !t || t.ready; }, {key,tag:record.tag}, {timeout:5000});
-    const trace = await record.frame.evaluate(({key, tag}) => globalThis[key]?.snapshot(tag), {key, tag: record.tag});
+    if (record.error !== 'net::ERR_ABORTED' || record.resourceType !== 'fetch' || record.navigated || record.ambiguous || !record.documentIdentity || page.isClosed() || record.frame.isDetached() || record.redirected || !record.json || ![200,202].includes(record.status)) throw Error('CDS_TRANSPORT_FAILURE_NOT_QUALIFIABLE');
+    await record.frame.waitForFunction(({key, tag, documentIdentity}) => {
+      const observer=globalThis[key];
+      if (observer?.documentIdentity() !== documentIdentity) return true;
+      const trace=observer.peek(tag); return !trace || trace.ready;
+    }, {key,tag:record.tag,documentIdentity:record.documentIdentity}, {timeout:5000});
+    const observed = await record.frame.evaluate(({key, tag}) => {
+      const observer=globalThis[key];
+      return {documentIdentity:observer?.documentIdentity(), trace:observer?.snapshot(tag)};
+    }, {key, tag: record.tag});
+    if (observed.documentIdentity !== record.documentIdentity) throw Error('CDS_TRANSPORT_NAVIGATION_CHANGED');
+    const trace = observed.trace;
     if (!trace || trace.method !== record.method || trace.route !== record.route || trace.status !== record.status || trace.bytes > config.maxBytes) throw Error('CDS_TRANSPORT_TRACE_MISMATCH');
     validateEnvelope(trace);
     if (trace.receipt?.uploadIds) Object.freeze(trace.receipt.uploadIds);
@@ -259,8 +274,16 @@ async function installObserver(page, recorder, options = {}) {
     if (trace.receipt) Object.freeze(trace.receipt);
     const proof = await prover(Object.freeze({...trace.receipt, owner: trace.owner, method: trace.method, route: trace.route,
       section: trace.section, status: trace.status, bytes: trace.bytes, tag: trace.tag}));
-    if(page.isClosed() || record.frame.isDetached() || (epochs.get(record.frame)||0)!==record.epoch)throw Error('CDS_TRANSPORT_NAVIGATION_CHANGED');
-    const finalTrace=await record.frame.evaluate(({key,tag})=>globalThis[key]?.take(tag),{key,tag:record.tag});
+    if(page.isClosed() || record.frame.isDetached())throw Error('CDS_TRANSPORT_NAVIGATION_CHANGED');
+    // Identity and consuming the exact trace share one browser turn. History-only
+    // replaceState keeps this document; reload/replacement/pagehide cannot qualify.
+    const finalObserved=await record.frame.evaluate(({key,tag,documentIdentity})=>{
+      const observer=globalThis[key];
+      if(observer?.documentIdentity()!==documentIdentity)return {documentMatches:false};
+      return {documentMatches:true,trace:observer.take(tag)};
+    },{key,tag:record.tag,documentIdentity:record.documentIdentity});
+    if(!finalObserved.documentMatches)throw Error('CDS_TRANSPORT_NAVIGATION_CHANGED');
+    const finalTrace=finalObserved.trace;
     if(!finalTrace || finalTrace.tag!==trace.tag || finalTrace.method!==trace.method || finalTrace.route!==trace.route || finalTrace.status!==trace.status || finalTrace.bytes!==trace.bytes)throw Error('CDS_TRANSPORT_TRACE_CHANGED');
     const audit = validateProof(finalTrace, proof);
     record.audit = Object.freeze(audit);

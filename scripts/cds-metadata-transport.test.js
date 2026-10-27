@@ -15,9 +15,10 @@ async function observed(body, options = {}) {
   class LocalWritable extends WritableStream {}
   class LocalDecoder extends TextDecoder {}
   const config = {key:'__trace',prefix:'probe',origin:'http://localhost',form:'/carlos/form',header:'x-cds-metadata-trace',maxBytes:options.maxBytes || 2048,maxTraces:4};
-  let tag;const tags=[];
+  let tag;const tags=[],listeners=new Map();
   const bytes = typeof body === 'string' ? new TextEncoder().encode(body) : body;
   const sandbox = vm.createContext({URL,URLSearchParams,Headers,crypto:webcrypto,queueMicrotask,
+    addEventListener:(name,listener)=>{if(!listeners.has(name))listeners.set(name,[]);listeners.get(name).push(listener);},
     ReadableStream:LocalReadable,WritableStream:LocalWritable,TextDecoder:LocalDecoder,
     Request,AbortController,
     location:{href:'http://localhost/carlos/form/importUpload'},document:{getElementById:()=>({dataset:{owner:'web-1'}})},
@@ -47,7 +48,7 @@ async function observed(body, options = {}) {
   if(options.abortAfterEof)controller.abort();
   sandbox.fixtureTag=tag;
   const trace=vm.runInContext('globalThis.__trace.take(fixtureTag)',sandbox);
-  return {trace,failure,sandbox,config,tags};
+  return {trace,failure,sandbox,config,tags,dispatch:name=>{for(const listener of listeners.get(name)||[])listener();}};
 }
 function proof(trace, overrides={}) {return {kind:'read-only',owner:'web-1',uiVerified:true,independentVerified:true,runId:'run-1',...overrides};}
 
@@ -95,6 +96,16 @@ test('does not grant a qualification from a caller-provided field or URL',()=>{
   assert.equal(isQualifiedCdsMetadataFailure({errorText:'net::ERR_ABORTED',resourceType:'fetch',url:'http://localhost/carlos/form/cdsImportStatus',qualified:true}),false);
 });
 
+test('freezes document identity and permanently retires it when a cached document is left',async()=>{
+  const f=await observed('{"ok":true,"job":{"id":"run-1"}}');
+  const identity=vm.runInContext('__trace.documentIdentity()',f.sandbox);
+  assert.match(identity,/^[a-f0-9]{1,8}-[a-f0-9]{1,8}$/);
+  assert.equal(vm.runInContext('Object.isFrozen(__trace)',f.sandbox),true);
+  assert.throws(()=>vm.runInContext('"use strict";__trace.documentIdentity=()=>"forged"',f.sandbox));
+  f.dispatch('pagehide');f.dispatch('pageshow');
+  assert.equal(vm.runInContext('__trace.documentIdentity()',f.sandbox),null);
+});
+
 test('observes existing Request signals after EOF and preserves explicit null override',async()=>{
   const body='{"ok":true,"job":{"id":"run-1"}}';
   const aborted=await observed(body,{request:true,abortAfterEof:true});
@@ -112,17 +123,27 @@ const {installCdsMetadataTransportObserver} = require('./lib/cds-metadata-transp
 async function networkFixture(options={}) {
   const initial=await observed('{"ok":true,"job":{"id":"run-1","state":"INCOMPLETE"}}');
   const traces=new Map(),recorder={requestFailures:[]};
-  const frame={isDetached:()=>false,evaluate:async(fn,arg)=>{
+  let documentIdentity='a-b',documentRetired=false,detached=false;
+  const realm=vm.createContext({});
+  const frame={isDetached:()=>detached,evaluate:async(fn,arg)=>{
     if(typeof fn==='string')return;
-    const t=traces.get(arg.tag);
-    if(String(fn).includes('take('))traces.delete(arg.tag);
-    return t?structuredClone(t):null;
+    realm.argument=arg;
+    return structuredClone(vm.runInContext('('+fn.toString()+')(argument)',realm));
   },waitForFunction:async()=>{}};
   const page=new EventEmitter();page.isClosed=()=>false;page.frames=()=>[frame];
-  page.addInitScript=async({content})=>{const start=content.lastIndexOf(')({"key":')+2;const end=content.indexOf('},function strictObject',start)+1;page.config=JSON.parse(content.slice(start,end));};
+  page.addInitScript=async({content})=>{
+    const start=content.lastIndexOf(')({"key":')+2;const end=content.indexOf('},function strictObject',start)+1;
+    page.config=JSON.parse(content.slice(start,end));
+    Object.defineProperty(realm,page.config.key,{value:Object.freeze({
+      documentIdentity:()=>documentRetired?null:documentIdentity,
+      peek:tag=>{const trace=traces.get(tag);return trace?{ready:trace.valid||!!trace.invalid}:null;},
+      snapshot:tag=>{const trace=traces.get(tag);return trace?structuredClone(trace):null;},
+      take:tag=>{const trace=traces.get(tag);traces.delete(tag);return trace?structuredClone(trace):null;}
+    })});
+  };
   const observer=await installCdsMetadataTransportObserver(page,recorder,{baseUrl:'http://localhost/carlos',maxTraces:options.maxTraces||4});
   function emit(number,changes={}) {
-    const tag=page.config.prefix+'-frame-'+number;
+    const tag=page.config.prefix+'-'+(changes.documentIdentity||documentIdentity)+'-'+number;
     traces.set(tag,{...structuredClone(initial.trace),tag,...changes.trace});
     const request={headers:()=>({'x-cds-metadata-trace':tag}),frame:()=>frame,url:()=> 'http://localhost/carlos/form/cdsImportStatus?runId=run-1',method:()=> 'GET',resourceType:()=> 'fetch',failure:()=>({errorText:changes.error||'net::ERR_ABORTED'}),redirectedFrom:()=>changes.redirected?{}:null};
     const response={request:()=>request,status:()=>200,headers:()=>({'content-type':'application/json'}),finished:async()=>Error('net::ERR_ABORTED')};
@@ -132,7 +153,10 @@ async function networkFixture(options={}) {
     page.emit('requestfailed',request);recorder.requestFailures.push(entry);
     return {tag,request,response,entry};
   }
-  return {page,frame,recorder,observer,traces,emit};
+  return {page,frame,recorder,observer,traces,emit,
+    replaceDocument:()=>{documentIdentity='c-d';page.emit('framenavigated',frame);},
+    retireDocument:()=>{documentRetired=true;page.emit('framenavigated',frame);},
+    detach:()=>{detached=true;page.emit('framedetached',frame);}};
 }
 
 test('qualifies only the exact correlated raw request and preserves its original observation',async()=>{
@@ -146,8 +170,35 @@ test('qualifies only the exact correlated raw request and preserves its original
 
 test('rejects navigation during proof, including a reload of the same address',async()=>{
   const f=await networkFixture(),a=f.emit(1);await Promise.resolve();
-  await assert.rejects(f.observer.qualifyResponse(a.response,()=>{f.page.emit('framenavigated',f.frame);return proof(null);}),/NAVIGATION/);
+  await assert.rejects(f.observer.qualifyResponse(a.response,()=>{f.replaceDocument();return proof(null);}),/NAVIGATION/);
   assert.equal(isQualifiedCdsMetadataFailure(a.entry),false);
+});
+
+test('allows same-document history events before and during independently verified proof',async()=>{
+  const f=await networkFixture(),a=f.emit(1);await Promise.resolve();
+  f.page.emit('framenavigated',f.frame);
+  const result=await f.observer.qualifyResponse(a.response,()=>{f.page.emit('framenavigated',f.frame);return proof(null);});
+  assert.equal(result.qualified,true);assert.equal(isQualifiedCdsMetadataFailure(a.entry),true);
+  assert.equal(a.entry.errorText,'net::ERR_ABORTED');
+});
+
+for(const [name,change] of [
+  ['same-address document replacement',f=>f.replaceDocument()],
+  ['restored retired document',f=>f.retireDocument()],
+  ['detached frame',f=>f.detach()]
+]) test('does not qualify '+name+' before or during independent proof',async()=>{
+  for(const duringProof of [false,true]) {
+    const f=await networkFixture(),a=f.emit(1);await Promise.resolve();let proved=0;
+    if(!duringProof)change(f);
+    await assert.rejects(f.observer.qualifyResponse(a.response,()=>{proved++;if(duringProof)change(f);return proof(null);}));
+    assert.equal(proved,duringProof?1:0);assert.equal(isQualifiedCdsMetadataFailure(a.entry),false);
+  }
+});
+
+test('cannot substitute a different private document nonce in the request tag',async()=>{
+  const f=await networkFixture(),a=f.emit(1,{documentIdentity:'c-d'});await Promise.resolve();let proved=0;
+  await assert.rejects(f.observer.qualifyResponse(a.response,()=>{proved++;return proof(null);}),/NAVIGATION/);
+  assert.equal(proved,0);assert.equal(isQualifiedCdsMetadataFailure(a.entry),false);
 });
 
 test('rechecks a Request abort after EOF while independent proof is running',async()=>{
