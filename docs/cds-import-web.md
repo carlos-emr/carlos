@@ -4,7 +4,7 @@ Target branch: `release/2026.08`. The existing **Administration → Data Managem
 
 Follow the [maintenance admission procedure](cds-maintenance-admission.md), [clinical import contract](cds-clinical-import-contract.md), and [implementation plan](cds-import-implementation-plan.md). The web and foreground command adapters share the application service, source parser, ledger and clinical writers.
 
-Import administration requires a current active account/provider with live `_admin w` or `_cds_import w`, in addition to the applicable demographic, merge, provider and facility/program permissions. Migration 73 registers `_cds_import` without granting it to existing roles. An ordinary authenticated doctor cannot acquire import administration through the bookmarked route or JSON endpoints. Clinical source-field readers use their own patient/category read permissions and do not need import administration.
+Import administration requires a current active account/provider with live `_admin w` or `_cds_import w`, in addition to the applicable demographic, merge, provider and facility/program permissions. Migration `1.0.59.21` registers `_cds_import` without granting it to existing roles. An ordinary authenticated doctor cannot acquire import administration through the bookmarked route or JSON endpoints. Clinical source-field readers use their own patient/category read permissions and do not need import administration.
 
 ## Operator workflow
 
@@ -78,6 +78,8 @@ Date-only, partial and missing source note timestamps remain unknown in native e
 | `cds.import.clinicalZone` | Explicit clinic/source time zone; no guessed local-time resolution |
 | `cds.import.native.maxNoteBytes` | 256 KiB bounded native narrative projection; maximum 384 KiB |
 
+Live JSON requests use the explicit browser contract `apiVersion=2`; successful JSON responses include numeric `apiVersion: 2` and `X-CARLOS-CDS-API-Version: 2`. A missing, duplicated or unsupported mutator version requires a refresh before reading a raw chunk or reserving upload quota. Durable report and original-field downloads remain separately authorized, versionless immutable files, including JSON completion receipts. The foreground CLI protocol is independent.
+
 All mutators require authenticated CSRF-protected POST. GET/HEAD on upload, submit or control returns 405 before mutation dependencies. A stale synchronous POST to `/form/importUpload` returns 409 and requires a refresh. Old temporary-basename log URLs return an explicit expired-link response.
 
 Read routes return bounded authorized status/patient/diagnostic/upload/chunk pages, or stream a selected durable report by run ID. Clinical source routes accept an exact patient/category and opaque field ID. They accept no caller-controlled storage path.
@@ -97,6 +99,10 @@ node scripts/demographic-cds-import-playwright-checks.js
 CDS_BROWSER_CORPUS=true node scripts/demographic-cds-import-playwright-checks.js
 node scripts/audit-log-demographic-import-playwright-checks.js
 ```
+
+The shared browser gate retains strict console, HTTP, navigation and network checks. A passive metadata observer can classify only an exact tagged JSON request whose production bounded consumer completed fatal UTF-8 decoding, JSON parsing and stream EOF with HTTP 200/202, no redirect, abort or navigation, and independent owner/run/upload, bounded page/cursor and visible UI evidence. Clinical completion also requires native checkpoint/patient and protected report proof; a clean dry run separately proves zero native writes. Raw Chromium `net::ERR_ABORTED` events and their bounded qualification evidence remain in the audit. Unmatched, early, truncated, malformed, unsuccessful and binary-download failures remain fatal. This handles a reproduced Chromium streaming-completion bookkeeping case without changing production transport or adding URL-wide exceptions.
+
+The manual large-ingress gate is `scripts/demographic-cds-large-ingress-playwright-checks.js`. It requires an isolated disposable database and an actual Nginx/ModSecurity proxy selected by `CDS_LARGE_INGRESS_BASE_URL` plus its private `CDS_LARGE_INGRESS_PROXY_TOKEN`. It checks 64 MiB XML through declared and unknown-length bounded chunks, the physical owned payload SHA256, journal hashes, oversized-request refusal and measured server memory without accepting a clinical job. Its manifest lists the private evidence, candidate hash and server selectors. The separate [lifecycle gate](cds-import-lifecycle-verification.md) verifies an already accepted nonzero-progress import across tab closure, native session expiry and lost acknowledgement, plus explicitly approved synthetic-course command parity. These database-wide manual gates require exclusive execution; a unit-test pass does not establish their deployed results.
 
 The versioned browser assertions enter through the existing Administration menu and require a real durable receipt, source/category occurrence reconciliation and protected report round trips. The scripts retain incomplete held fixtures for recovery and remove only verified owned completed clinical rows. Complete import ledgers and audit evidence remain available for investigation.
 

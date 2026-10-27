@@ -5547,6 +5547,92 @@
       "fixtures": "Synthetic marker patients and completed owned clinical child rows are cleaned by demographic_no only after import holds clear. Immutable import and audit evidence remain; held/incomplete patients are retained with a visible failure. Required xmllint validates fixtures against the pinned OntarioMD schema. Explicit medication status is supplied; no source signature or prescriber is invented."
     },
     {
+      "name": "demographic-cds-compatibility",
+      "script": "scripts/demographic-cds-compatibility-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1800,
+      "manual": true,
+      "env": [
+        "CDS_COMPATIBILITY_DISPOSABLE",
+        "CDS_COMPATIBILITY_EXCLUSIVE",
+        "CDS_COMPATIBILITY_SELECTORS",
+        "CDS_COMPATIBILITY_REPORT_RUN",
+        "CDS_COMPATIBILITY_EVIDENCE",
+        "DOCUMENT_DIR"
+      ],
+      "notes": "Explicit installed compatibility gate using a frozen current deployment and a genuine isolated archived old backend. Verifies unrelated multipart upload, anonymous/nonowner/expired protected report refusals, cached old-page/new-server and new-page/old-server contract rejection before mutation. Immutable WAR-derived bundles and independent database/physical state evidence are retained.",
+      "fixtures": "It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Requires a disposable migrated database, completed owned report fixture, private bounded selectors and separate unchanged old context. Preserves accepted source/history and report evidence; only the ordinary upload fixture follows its existing verified cleanup contract."
+    },
+    {
+      "name": "demographic-cds-large-ingress",
+      "script": "scripts/demographic-cds-large-ingress-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1800,
+      "manual": true,
+      "env": [
+        "CDS_LARGE_INGRESS_DISPOSABLE",
+        "CDS_LARGE_INGRESS_EVIDENCE",
+        "CDS_CANDIDATE_SHA256",
+        "CDS_LARGE_INGRESS_SERVER_PID",
+        "CDS_LARGE_INGRESS_TOMCAT_BASE",
+        "CDS_LARGE_INGRESS_BASE_URL",
+        "CDS_LARGE_INGRESS_PROXY_TOKEN",
+        "CDS_LARGE_INGRESS_CTL_LIBRARY",
+        "CDS_LARGE_INGRESS_MAX_RSS_MIB",
+        "CDS_LARGE_INGRESS_MAX_RSS_GROWTH_MIB"
+      ],
+      "notes": "Explicit disposable-reference-database gate for actual 64 MiB XML ingress through the real blocking Nginx/ModSecurity proxy using both declared and unknown-length bounded raw chunks. Checks the proxy nonce, independent 52-byte chunk-journal hashes and physical owned payload SHA256, oversized individual request refusals, unchanged native/job/checkpoint counts, bounded server memory and candidate-bound evidence. It never accepts a clinical import job.",
+      "fixtures": "It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Requires a prepared isolated server and private new evidence destination. Own unaccepted transfers are abandoned through the supported operator route; no accepted job, source history or native row is deleted or rewritten."
+    },
+    {
+      "name": "demographic-cds-lifecycle",
+      "script": "scripts/demographic-cds-lifecycle-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 3600,
+      "manual": true,
+      "env": [
+        "CDS_LIFECYCLE_EXECUTE",
+        "CDS_LIFECYCLE_MODE",
+        "CDS_LIFECYCLE_STATE_FILE",
+        "CDS_LIFECYCLE_ARTIFACT_FILE",
+        "CDS_LIFECYCLE_ARTIFACT_SHA256",
+        "CDS_LIFECYCLE_PROVIDER_NO",
+        "CDS_LIFECYCLE_PROGRAM_ID",
+        "CDS_LIFECYCLE_FACILITY_ID",
+        "CDS_LIFECYCLE_SOURCE_NAMESPACE",
+        "CDS_LIFECYCLE_SOURCE_PROFILE",
+        "CDS_LIFECYCLE_SERVER_ROOT",
+        "CDS_LIFECYCLE_LOCAL_ROOT",
+        "CDS_LIFECYCLE_SESSION_EXPIRE_ARGV",
+        "CDS_LIFECYCLE_SESSION_PREFLIGHT_ARGV",
+        "CDS_LIFECYCLE_PROXY_CONTRACT_FILE",
+        "CDS_LIFECYCLE_PROXY_RELAY_ARGV",
+        "CDS_LIFECYCLE_COURSE_ID",
+        "CDS_LIFECYCLE_SHIFT_DAYS",
+        "CDS_LIFECYCLE_EXPECTED_COPIES"
+      ],
+      "notes": "Explicit frozen-artifact disposable-database gate. Ordinary mode proves an actual nonzero-progress 514-unit accepted import survives a lost acknowledgement, tab closure, native Tomcat session expiry and reauthentication on the same durable handle. Separate synthetic mode verifies approved course fanout, nondefault provider/program/facility and nonzero date-shift command parity. Requires complete native, physical source/report, cleanup and maintenance-release evidence; default is NOT_EXECUTED.",
+      "fixtures": "It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Retains accepted jobs, synthetic charts, immutable source, reports and the private state file on success and failure. Never reaccepts an uncertain submission, changes namespace to bypass lineage, edits accepted proof, or deletes an incomplete chart."
+    },
+    {
       "name": "demographic-cds-retained-recovery",
       "script": "scripts/demographic-cds-retained-recovery-playwright-checks.js",
       "tiers": [
