@@ -27,6 +27,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 import sys
 from types import SimpleNamespace
@@ -77,9 +78,17 @@ def container():
 
 class RecoveryProtocolTests(unittest.TestCase):
     def test_dependency_file_links_bind_actual_bytes_and_reject_directory_links(self):
-        namespace = {}
-        with mock.patch.object(sys, "argv", ["probe", "{}"]):
-            exec(DRIVER.PROBE.split('for path in request["immutable"]:')[0], namespace)
+        # Run the repository-owned standalone helper as a child, just as Docker
+        # does. Fixture paths remain argv data; no input supplies Python source.
+        source = DRIVER.PROBE.split('for path in request["immutable"]:')[0]
+        source += '\nprint(json.dumps(digest(sys.argv[2])))\n'
+
+        def measured(path):
+            result = subprocess.run([sys.executable, "-c", source, "{}", str(path)],
+                                    capture_output=True, text=True, timeout=5)
+            self.assertLessEqual(len(result.stdout), 4096)
+            return result
+
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             libraries = base / "libs"
@@ -87,13 +96,16 @@ class RecoveryProtocolTests(unittest.TestCase):
             target = base / "dependency.jar"
             target.write_bytes(b"first dependency bytes")
             (libraries / "dependency.jar").symlink_to(target)
-            first = namespace["digest"](libraries)
+            first_result = measured(libraries)
+            self.assertEqual(first_result.returncode, 0)
+            first = json.loads(first_result.stdout)
             self.assertEqual(first["files"], 1)
             target.write_bytes(b"changed dependency bytes")
-            self.assertNotEqual(namespace["digest"](libraries)["sha256"], first["sha256"])
+            changed = measured(libraries)
+            self.assertEqual(changed.returncode, 0)
+            self.assertNotEqual(json.loads(changed.stdout)["sha256"], first["sha256"])
             (libraries / "directory").symlink_to(base, target_is_directory=True)
-            with self.assertRaises(ValueError):
-                namespace["digest"](libraries)
+            self.assertNotEqual(measured(libraries).returncode, 0)
 
     def test_unrelated_read_only_workspace_is_bound_without_scanning_it(self):
         info = container()
