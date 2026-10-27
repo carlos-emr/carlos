@@ -93,12 +93,7 @@ public final class CdsCliEngineFixture {
         if (!root.isAbsolute() || Files.exists(root, LinkOption.NOFOLLOW_LINKS) || Files.exists(CONFIG, LinkOption.NOFOLLOW_LINKS)) {
             throw new IllegalStateException("Existing fixture or production configuration is never replaced");
         }
-        if (count(connection, "SELECT COUNT(*) FROM provider WHERE provider_no=? AND status='1'", PROVIDER) != 1
-                || count(connection, "SELECT COUNT(*) FROM secUserRole WHERE provider_no=? AND role_name='doctor' AND activeyn=1", PROVIDER) < 1) {
-            throw new IllegalStateException("Actual active baseline doctor required");
-        }
-        int facility = Math.toIntExact(scalar(connection, "SELECT MIN(id) FROM Facility WHERE disabled=0"));
-        if (facility < 1) throw new IllegalStateException("Active synthetic facility required");
+        int facility = baseline(connection);
         String token = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         String namespace = "cli-e2e-" + token, alpha = "A" + token.substring(0, 5);
         List<String> students = List.of("S" + token.substring(0, 4) + "1", "S" + token.substring(0, 4) + "2", "S" + token.substring(0, 4) + "3");
@@ -185,9 +180,28 @@ public final class CdsCliEngineFixture {
     }
 
     private static Object inspect(Connection connection, String run) throws Exception {
-        if (run.equals("fixture")) return Map.of("totalNativePatients", scalar(connection, "SELECT COUNT(*) FROM demographic"));
+        if (run.equals("fixture")) {
+            Map<String, Object> totals = new LinkedHashMap<>();
+            totals.put("totalNativePatients", scalar(connection, "SELECT COUNT(*) FROM demographic"));
+            totals.put("totalNativeDrugs", scalar(connection, "SELECT COUNT(*) FROM drugs"));
+            totals.put("totalNativeAllergies", scalar(connection, "SELECT COUNT(*) FROM allergies"));
+            totals.put("totalNativePreventions", scalar(connection, "SELECT COUNT(*) FROM preventions"));
+            totals.put("totalNativeAppointments", scalar(connection, "SELECT COUNT(*) FROM appointment"));
+            totals.put("totalNativeMeasurements", scalar(connection, "SELECT COUNT(*) FROM measurements"));
+            totals.put("totalNativeDocuments", scalar(connection, "SELECT COUNT(*) FROM document"));
+            totals.put("totalNativeNotes", scalar(connection, "SELECT COUNT(*) FROM casemgmt_note"));
+            totals.put("totalNativeContacts", scalar(connection, "SELECT COUNT(*) FROM Contact"));
+            totals.put("totalNativeContactLinks", scalar(connection, "SELECT COUNT(*) FROM DemographicContact"));
+            totals.put("totalNativePharmacyLinks", scalar(connection, "SELECT COUNT(*) FROM demographicPharmacy"));
+            totals.put("totalNativeLaboratoryResults", scalar(connection, "SELECT COUNT(*) FROM cds_laboratory_result"));
+            totals.put("totalNativeHL7Messages", scalar(connection, "SELECT COUNT(*) FROM hl7TextMessage"));
+            totals.put("totalNativeHL7Info", scalar(connection, "SELECT COUNT(*) FROM hl7TextInfo"));
+            totals.put("totalNativeLabRouting", scalar(connection, "SELECT COUNT(*) FROM patientLabRouting"));
+            totals.put("totalNativeAdmissions", scalar(connection, "SELECT COUNT(*) FROM admission"));
+            return totals;
+        }
         UUID.fromString(run);
-        long targets = count(connection, "SELECT COUNT(DISTINCT target_demographic_no) FROM cds_import_patient WHERE run_id=?", run);
+        long targets = count(connection, "SELECT COUNT(DISTINCT d.demographic_no) FROM cds_import_patient p JOIN demographic d ON d.demographic_no=p.target_demographic_no WHERE p.run_id=?", run);
         long holds = count(connection, "SELECT COUNT(*) FROM cds_import_patient WHERE run_id=? AND held=TRUE", run);
         long checkpoints = count(connection, "SELECT COUNT(*) FROM cds_import_unit u JOIN cds_import_checkpoint c ON c.id=u.unit_key WHERE u.run_id=?", run);
         long preventionCount = count(connection, "SELECT COUNT(*) FROM preventions p WHERE EXISTS(SELECT 1 FROM cds_import_patient i WHERE i.run_id=? AND i.target_demographic_no=p.demographic_no)", run);
@@ -195,16 +209,35 @@ public final class CdsCliEngineFixture {
         long shifted = count(connection, "SELECT COUNT(*) FROM cds_import_patient p JOIN demographic d ON d.demographic_no=p.target_demographic_no WHERE p.run_id=? AND d.year_of_birth='1971' AND CAST(d.month_of_birth AS UNSIGNED)=3 AND CAST(d.date_of_birth AS UNSIGNED)=11", run);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("nativeTargets", targets); result.put("holds", holds); result.put("checkpoints", checkpoints);
+        result.put("expectedUnits", count(connection, "SELECT expected_units FROM cds_import_run WHERE id=?", run));
+        result.put("cancelRequested", count(connection, "SELECT cancel_requested FROM cds_import_run WHERE id=?", run) == 1);
         result.put("sourcefields", count(connection, "SELECT COUNT(*) FROM cds_import_field WHERE run_id=?", run));
         result.put("admissions", count(connection, "SELECT COUNT(*) FROM admission a WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=a.client_id)", run));
         result.put("preventionCreatorMatchesProvider", preventionCount > 0 && creatorMismatch == 0);
         result.put("shiftedBirthDates", shifted);
-        result.put("nativeProfessionalContacts", count(connection, "SELECT COUNT(DISTINCT c.id) FROM Contact c JOIN DemographicContact d ON d.contactId=CAST(c.id AS CHAR) AND d.type=2 WHERE c.type='ProfessionalContact' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=d.demographicNo)", run));
+        result.put("nativeDrugs", count(connection, "SELECT COUNT(*) FROM drugs d WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=d.demographic_no)", run));
+        result.put("nativeAllergies", count(connection, "SELECT COUNT(*) FROM allergies a WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=a.demographic_no)", run));
+        result.put("nativePreventions", preventionCount);
+        result.put("nativeYearPreventions", count(connection, "SELECT COUNT(*) FROM preventions p WHERE p.prevention_date IS NOT NULL AND p.refused='0' AND p.never='0' AND p.deleted='0' AND p.provider_no='' AND EXISTS(SELECT 1 FROM cds_import_patient i WHERE i.run_id=? AND i.target_demographic_no=p.demographic_no) AND (SELECT COUNT(*) FROM partial_date t WHERE t.table_name=4 AND t.table_id=p.id AND t.field_name=7)=1 AND EXISTS(SELECT 1 FROM partial_date t WHERE t.table_name=4 AND t.table_id=p.id AND t.field_name=7 AND t.format='YYYY') AND EXISTS(SELECT 1 FROM preventionsExt e WHERE e.prevention_id=p.id AND e.keyval='cdsDatePrecision' AND e.val='YEAR') AND EXISTS(SELECT 1 FROM preventionsExt e WHERE e.prevention_id=p.id AND e.keyval='cdsDateOriginal' AND e.val='2020')", run));
+        result.put("nativeAppointments", count(connection, "SELECT COUNT(*) FROM appointment a WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=a.demographic_no)", run));
+        result.put("nativeMeasurements", count(connection, "SELECT COUNT(*) FROM measurements m WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=m.demographicNo)", run));
+        result.put("nativeDocuments", count(connection, "SELECT COUNT(DISTINCT d.document_no) FROM document d JOIN ctl_document c ON c.document_no=d.document_no AND c.module='demographic' AND c.status='A' WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=c.module_id)", run));
+        result.put("nativeUnclockedReports", count(connection, "SELECT COUNT(DISTINCT d.document_no) FROM document d JOIN ctl_document c ON c.document_no=d.document_no AND c.module='demographic' AND c.status='A' WHERE d.cds_content_precision IN ('MONTH','UNKNOWN') AND d.contentdatetime IS NULL AND d.observationdate IS NULL AND d.reviewdatetime IS NULL AND COALESCE(d.reviewer,'')='' AND d.numberofpages=0 AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=c.module_id)", run));
+        result.put("nativeMonthReports", count(connection, "SELECT COUNT(DISTINCT d.document_no) FROM document d JOIN ctl_document c ON c.document_no=d.document_no AND c.module='demographic' AND c.status='A' WHERE d.cds_content_precision='MONTH' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=c.module_id)", run));
+        result.put("nativeUnknownReports", count(connection, "SELECT COUNT(DISTINCT d.document_no) FROM document d JOIN ctl_document c ON c.document_no=d.document_no AND c.module='demographic' AND c.status='A' WHERE d.cds_content_precision='UNKNOWN' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=c.module_id)", run));
+        result.put("nativeProfessionalContacts", count(connection, "SELECT COUNT(DISTINCT c.id) FROM Contact c JOIN DemographicContact d ON d.contactId=CAST(c.id AS CHAR) AND d.type=2 WHERE c.type='ProfessionalContact' AND d.category='professional' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=d.demographicNo)", run));
+        result.put("nativeFamilyPhysicians", count(connection, "SELECT COUNT(*) FROM Contact c JOIN DemographicContact d ON d.contactId=CAST(c.id AS CHAR) AND d.type=2 WHERE c.type='ProfessionalContact' AND d.category='professional' AND d.role='Family Doctor' AND c.firstName='Family' AND c.lastName='Source clinician' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=d.demographicNo)", run));
+        result.put("nativeReferringPhysicians", count(connection, "SELECT COUNT(*) FROM Contact c JOIN DemographicContact d ON d.contactId=CAST(c.id AS CHAR) AND d.type=2 WHERE c.type='ProfessionalContact' AND d.category='professional' AND d.role='Referring Doctor' AND c.firstName='Referral' AND c.lastName='Source clinician' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=d.demographicNo)", run));
         result.put("nativeDemographicContacts", count(connection, "SELECT COUNT(*) FROM DemographicContact d WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=d.demographicNo)", run));
         result.put("nativeUnknownContactConsents", count(connection, "SELECT COUNT(*) FROM DemographicContact d WHERE d.consentToContact IS NULL AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=d.demographicNo)", run));
         result.put("nativePreferredPharmacies", count(connection, "SELECT COUNT(*) FROM pharmacyInfo f JOIN demographicPharmacy d ON d.pharmacyID=f.recordID WHERE d.preferredOrder=1 AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=d.demographic_no)", run));
-        result.put("nativeNotes", count(connection, "SELECT COUNT(*) FROM casemgmt_note n WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND CAST(p.target_demographic_no AS CHAR)=n.demographic_no)", run));
+        result.put("nativeUnknownActivePharmacyConsents", count(connection, "SELECT COUNT(*) FROM pharmacyInfo f JOIN demographicPharmacy d ON d.pharmacyID=f.recordID WHERE d.preferredOrder=1 AND d.status='1' AND f.status='1' AND d.consentToContact IS NULL AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=d.demographic_no)", run));
+        result.put("nativeNotes", count(connection, "SELECT COUNT(*) FROM casemgmt_note n WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=n.demographic_no)", run));
+        result.put("nativeNotesWithoutObservationClock", count(connection, "SELECT COUNT(*) FROM casemgmt_note n WHERE n.observation_date IS NULL AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=n.demographic_no)", run));
+        result.put("nativeUnsignedAuthorFreeNotes", count(connection, "SELECT COUNT(*) FROM casemgmt_note n WHERE n.signed=0 AND COALESCE(n.provider_no,'')='' AND COALESCE(n.signing_provider_no,'')='' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=n.demographic_no)", run));
         result.put("nativeLaboratoryResults", count(connection, "SELECT COUNT(*) FROM cds_laboratory_result WHERE runId=?", run));
+        result.put("nativeLaboratoryProjection", count(connection, "SELECT COUNT(*) FROM cds_laboratory_result l JOIN hl7TextMessage m ON m.lab_id=l.nativeLabNo AND m.type='CARLOS-CDS' JOIN hl7TextInfo i ON i.lab_no=m.lab_id AND i.result_status='A' AND i.final_result_count=1 JOIN patientLabRouting p ON p.lab_no=m.lab_id AND p.lab_type='HL7' AND p.demographic_no=l.demographicNo WHERE l.runId=? AND l.abnormalFlag='H' AND l.resultStatus='Final' AND l.collectionPrecision='OFFSET_DATE_TIME' AND l.collectionDate='2025-03-04T10:20:30.125-05:00' AND LOCATE('|H|',FROM_BASE64(m.message))>0 AND LOCATE('|Final|',FROM_BASE64(m.message))>0 AND LOCATE('20250304102030.125-0500',FROM_BASE64(m.message))>0 AND LOCATE('Lab comment ',FROM_BASE64(m.message))>0", run));
+        result.put("nativeLaboratoryPrivateNoteIsolated", count(connection, "SELECT COUNT(*) FROM cds_laboratory_result l JOIN hl7TextMessage m ON m.lab_id=l.nativeLabNo WHERE l.runId=? AND l.physiciansNotes='PRIVATE SYNTHETIC PHYSICIAN NOTE' AND LOCATE('PRIVATE SYNTHETIC PHYSICIAN NOTE',FROM_BASE64(m.message))=0", run));
         return result;
     }
 
@@ -245,6 +278,32 @@ public final class CdsCliEngineFixture {
                 default -> throw new IllegalArgumentException("Unknown fixture control");
             }
             connection.commit(); return Map.of("control", operation, "totalNativePatients", scalar(connection, "SELECT COUNT(*) FROM demographic"));
+        } catch (Exception failure) { connection.rollback(); throw failure; }
+        finally { connection.setAutoCommit(true); }
+    }
+
+    private static int baseline(Connection connection) throws Exception {
+        connection.setAutoCommit(false);
+        try {
+            if (count(connection, "SELECT COUNT(*) FROM secRole WHERE role_name='doctor'") != 1) {
+                throw new IllegalStateException("Actual migrated doctor role required");
+            }
+            if (count(connection, "SELECT COUNT(*) FROM provider WHERE provider_no=?", PROVIDER) == 0) {
+                seedProvider(connection, PROVIDER, "1");
+                update(connection, "INSERT INTO secUserRole(provider_no,role_name,activeyn,lastUpdateDate) VALUES (?,'doctor',1,NOW())", PROVIDER);
+            }
+            if (count(connection, "SELECT COUNT(*) FROM provider WHERE provider_no=? AND last_name='CDS SYNTHETIC FIXTURE' AND first_name='Synthetic' AND provider_type='doctor' AND status='1'", PROVIDER) != 1
+                    || count(connection, "SELECT COUNT(*) FROM secUserRole WHERE provider_no=? AND role_name='doctor' AND activeyn=1", PROVIDER) != 1) {
+                throw new IllegalStateException("Existing non-fixture provider is never replaced");
+            }
+            int facility = Math.toIntExact(scalar(connection, "SELECT COALESCE(MIN(id),0) FROM Facility WHERE disabled=0"));
+            if (facility == 0) {
+                update(connection, "INSERT INTO Facility(name,hic,disabled,orgId,sectorId,enableHealthNumberRegistry,enableDigitalSignatures,enableOcanForms,enableCbiForm,enableAnonymous,enablePhoneEncounter,lastUpdated,enableEncounterTime,enableEncounterTransportationTime,rxInteractionWarningLevel,displayAllVacancies) VALUES('CDS synthetic CLI facility',0,0,0,0,1,0,0,0,0,0,NOW(),0,0,0,0)");
+                facility = Math.toIntExact(scalar(connection, "SELECT LAST_INSERT_ID()"));
+            }
+            if (facility < 1) throw new IllegalStateException("Active synthetic facility required");
+            connection.commit();
+            return facility;
         } catch (Exception failure) { connection.rollback(); throw failure; }
         finally { connection.setAutoCommit(true); }
     }
