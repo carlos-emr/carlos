@@ -65,6 +65,7 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        getMockRequest().setMethod("POST");
 
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(MessengerDemographicManager.class, mockDemoManager);
@@ -78,6 +79,22 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
 
         injectField("securityInfoManager", mockSecurityInfoManager);
         injectField("messengerDemographicManager", mockDemoManager);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS"})
+    void shouldRejectUnsupportedMethods_beforeAuthenticationAndAttachmentState(String method) throws Exception {
+        getMockRequest().setMethod(method);
+        try (MockedStatic<LoggedInInfo> logins = mockStatic(LoggedInInfo.class);
+             MockedStatic<MsgAttachmentStaging> staging = mockStatic(MsgAttachmentStaging.class)) {
+            assertThat(executeAction(action)).isEqualTo("none");
+
+            assertThat(getMockResponse().getStatus()).isEqualTo(405);
+            assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
+            logins.verifyNoInteractions();
+            staging.verifyNoInteractions();
+            verifyNoInteractions(mockSecurityInfoManager, mockDemoManager);
+        }
     }
 
     private void injectField(String fieldName, Object value) {
@@ -210,6 +227,7 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         private String sentMessageId = "77";
         private RuntimeException sendFailure;
         private boolean noRecipients;
+        private int messageDataConstructions;
         private String thisWindow;
         private String otherWindow;
 
@@ -232,6 +250,7 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
 
         private String send() throws Exception {
             try (MockedConstruction<MsgMessageData> ignored = mockConstruction(MsgMessageData.class, (data, context) -> {
+                messageDataConstructions++;
                 when(data.getDups4(any())).thenAnswer(invocation -> invocation.getArgument(0));
                 when(data.getProviderStructure(any(), any())).thenReturn(
                         noRecipients ? new ArrayList<>() : new ArrayList<>(List.of(new MsgProviderData())));
@@ -250,6 +269,26 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             })) {
                 return executeAction(action);
             }
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD"})
+        void shouldRefuseAuthenticatedReadRequests_withoutSendingOrConsumingAttachments(String method) throws Exception {
+            getMockRequest().setMethod(method);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            MsgAttachmentStaging.Staged original = MsgAttachmentStaging.peek(getMockSession(), thisWindow);
+            MsgAttachmentStaging.Staged other = MsgAttachmentStaging.peek(getMockSession(), otherWindow);
+
+            assertThat(send()).isEqualTo("none");
+
+            assertThat(getMockResponse().getStatus()).isEqualTo(405);
+            assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
+            assertThat(messageDataConstructions).isZero();
+            assertThat(sends.get()).isZero();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isEqualTo(original);
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow)).isEqualTo(other);
+            verifyNoInteractions(mockSecurityInfoManager, mockDemoManager);
         }
 
         @org.junit.jupiter.params.ParameterizedTest

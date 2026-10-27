@@ -333,6 +333,8 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.email.action.EmailSend2Action",
                     "_email", "w"),
             // --- messenger ---
+            Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2Action",
+                    "_msg", "w"),
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgTransferPostItems2Action",
                     "_msg", "w"),
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2Action",

@@ -107,13 +107,19 @@ public class MsgCreateMessage2Action extends ActionSupport {
      * </ol>
      * </p>
      *
-     * @return String {@code SUCCESS} if message was sent, or {@code ERROR} if no valid recipients or message creation failed
+     * @return {@code NONE} for non-POST requests, {@code SUCCESS} if sent, or {@code ERROR} if creation failed
      * @throws IOException if there's an I/O error during processing
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks message write permissions
      */
     public String execute()
             throws IOException, ServletException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
             throw new SecurityException("No valid session found");
