@@ -37,6 +37,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -56,12 +58,57 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
 
     @Mock
     private PreventionManager mockPreventionManager;
+    @Mock
+    private PartialDateDao partialDateDao;
 
     @Override
     protected Object getServiceBean() {
-        PreventionService service = new PreventionService();
-        injectDependency(service, "preventionManager", mockPreventionManager);
-        return service;
+        return new PreventionService(mockPreventionManager, new PreventionDateService(partialDateDao));
+    }
+
+    @Test
+    void shouldRefuseLegacyDateOnlyResponse_forExistingPartialHistory() {
+        Prevention record = partialRecord();
+        when(mockPreventionManager.getPreventionsByDemographicNo(any(LoggedInInfo.class), eq(123)))
+                .thenReturn(List.of(record));
+        Response response = request().path("/preventions/active").query("demographicNo", 123).get();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.readEntity(String.class)).contains("precision-aware", "/precision");
+    }
+
+    @Test
+    void shouldRetainPartialAndUnknownRecords_inPrecisionResponse() {
+        Prevention partial = partialRecord();
+        Prevention undated = new Prevention();
+        undated.setPreventionType("Td");
+        when(mockPreventionManager.getPreventionsByDemographicNo(any(LoggedInInfo.class), eq(123)))
+                .thenReturn(List.of(partial, undated));
+        Response response = request().path("/preventions/active/precision").query("demographicNo", 123).get();
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json = responseJson(response);
+        assertThat(json.at("/preventions")).hasSize(2);
+        assertThat(json.at("/preventions/0/preventionDate").isNull()).isTrue();
+        assertThat(json.at("/preventions/0/preventionDateInfo/precision").asText()).isEqualTo("YEAR");
+        assertThat(json.at("/preventions/0/preventionDateInfo/originalValue").asText()).isEqualTo("2019");
+        assertThat(json.at("/preventions/0/preventionDateInfo/intervalEnd").asText()).isEqualTo("2019-12-31");
+        assertThat(json.at("/preventions/1/preventionDateInfo/precision").asText()).isEqualTo("UNKNOWN");
+    }
+
+    @Test
+    void shouldRefuseLegacyResponse_forUndatedHistory() {
+        when(mockPreventionManager.getImmunizationsByDemographic(any(LoggedInInfo.class), eq(123)))
+                .thenReturn(List.of(new Prevention()));
+        Response response = request().path("/preventions/immunizations/123").get();
+        assertThat(response.getStatus()).isEqualTo(409);
+    }
+
+    private Prevention partialRecord() {
+        Prevention record = new Prevention();
+        org.springframework.test.util.ReflectionTestUtils.setField(record, "id", 41);
+        record.setPreventionType("Td");
+        record.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
+        when(partialDateDao.getFormat(4, 41, 7)).thenReturn("YYYY");
+        return record;
     }
 
     @Nested
@@ -73,6 +120,7 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
         void shouldReturn200_whenPreventionsExist() {
             Prevention prevention = new Prevention();
             prevention.setPreventionType("Flu");
+            prevention.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
             when(mockPreventionManager.getPreventionsByDemographicNo(any(LoggedInInfo.class), eq(123)))
                 .thenReturn(List.of(prevention));
 
@@ -112,6 +160,7 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
         void shouldReturn200_whenImmunizationsExist() {
             Prevention immunization = new Prevention();
             immunization.setPreventionType("Flu");
+            immunization.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
             when(mockPreventionManager.getImmunizationsByDemographic(any(LoggedInInfo.class), eq(789)))
                 .thenReturn(List.of(immunization));
 

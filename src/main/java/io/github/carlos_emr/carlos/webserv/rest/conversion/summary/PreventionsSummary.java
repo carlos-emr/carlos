@@ -40,19 +40,28 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.SummaryItemTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.SummaryTo1;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import io.github.carlos_emr.carlos.prevention.PreventionDS;
 import io.github.carlos_emr.carlos.prevention.PreventionData;
 import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.MediaType;
 
 
 @Component
 public class PreventionsSummary implements Summary {
 
-    @Autowired
-    private PreventionManager preventionManager;
+    private final PreventionManager preventionManager;
+    private final PreventionDateService dateService;
+
+    public PreventionsSummary(PreventionManager preventionManager, PreventionDateService dateService) {
+        this.preventionManager = preventionManager;
+        this.dateService = dateService;
+    }
 
     public SummaryTo1 getSummary(LoggedInInfo loggedInInfo, Integer demographicNo, String summaryCode) {
 
@@ -73,6 +82,15 @@ public class PreventionsSummary implements Summary {
 
         //saved preventions for demographicNo
         List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(loggedInInfo, demographicNo);
+        // This summary's public Date field has no precision protocol. Refuse the operation
+        // with an upgrade path; returning only exact rows would silently omit clinical history.
+        try {
+            for (Prevention prevention : preventions) dateService.getDate(prevention).requireExact();
+        } catch (PreventionDatePrecisionException unsafe) {
+            throw new WebApplicationException(Response.status(Response.Status.CONFLICT)
+                    .type(MediaType.TEXT_PLAIN_TYPE)
+                    .entity(unsafe.getMessage() + "; use /preventions/active/precision").build());
+        }
 
         SummaryItemTo1 summaryItem;
 

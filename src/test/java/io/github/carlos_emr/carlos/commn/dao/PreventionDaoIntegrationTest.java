@@ -23,6 +23,9 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.commn.model.PartialDate;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -60,6 +63,8 @@ public class PreventionDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private PreventionDao preventionDao;
+    @Autowired
+    private PartialDateDao partialDateDao;
 
     private static final int DEMO_1 = 20001;
     private static final int DEMO_2 = 20002;
@@ -81,6 +86,44 @@ public class PreventionDaoIntegrationTest extends CarlosTestBase {
 
     private Prevention createSimplePrevention(int demographicId, boolean deleted) {
         return createPrevention(demographicId, "Flu", new Date(), deleted, false);
+    }
+
+    @Test
+    void shouldPreservePartialAndUnknownDates_inLightweightProjection() {
+        Prevention exact = createPrevention(DEMO_1, "Td", java.sql.Date.valueOf("2019-01-01"), false, false);
+        Prevention partial = createPrevention(DEMO_1, "Td", java.sql.Date.valueOf("2019-01-01"), false, false);
+        Prevention unknown = createPrevention(DEMO_1, "Td", null, false, false);
+        partialDateDao.persist(new PartialDate(4, partial.getId(), 7, "YYYY"));
+
+        var rows = preventionDao.findPreventionDTOsByDemographicId(DEMO_1);
+        assertThat(rows).hasSize(3);
+        var exactRow = rows.stream().filter(p -> p.getId().equals(exact.getId())).findFirst().orElseThrow();
+        assertThat(exactRow.getPreventionDate()).isEqualTo(exact.getPreventionDate());
+        var partialRow = rows.stream().filter(p -> p.getId().equals(partial.getId())).findFirst().orElseThrow();
+        assertThat(partialRow.getPreventionDateInfo().getPrecision()).isEqualTo(PreventionDateDTO.Precision.YEAR);
+        assertThat(partialRow.getPreventionDateInfo().getOriginalValue()).isEqualTo("2019");
+        assertThatThrownBy(partialRow::getPreventionDate).isInstanceOf(PreventionDatePrecisionException.class);
+        var unknownRow = rows.stream().filter(p -> p.getId().equals(unknown.getId())).findFirst().orElseThrow();
+        assertThat(unknownRow.getPreventionDateInfo().getPrecision()).isEqualTo(PreventionDateDTO.Precision.UNKNOWN);
+    }
+
+    @Test
+    void shouldUseLatestNativeFormat_whenPrecisionMetadataIsCleared() {
+        Prevention partial = createPrevention(DEMO_1, "Td", java.sql.Date.valueOf("2019-01-01"), false, false);
+        partialDateDao.persist(new PartialDate(4, partial.getId(), 7, "YYYY"));
+        partialDateDao.persist(new PartialDate(4, partial.getId(), 7, null));
+        assertThat(preventionDao.findPreventionDTOsByDemographicId(DEMO_1)).singleElement()
+                .satisfies(row -> assertThat(row.getPreventionDateInfo().isExact()).isTrue());
+    }
+
+    @Test
+    void shouldRefuseDateOnlyQueries_whenTimingIsUncertain() {
+        Prevention partial = createPrevention(DEMO_1, "Td", java.sql.Date.valueOf("2019-01-01"), false, false);
+        partialDateDao.persist(new PartialDate(4, partial.getId(), 7, "YYYY"));
+        assertThatThrownBy(() -> preventionDao.findUniqueByDemographicId(DEMO_1))
+                .isInstanceOf(PreventionDatePrecisionException.class);
+        assertThatThrownBy(() -> preventionDao.findByTypeAndDate("Td", java.sql.Date.valueOf("2019-05-01"),
+                java.sql.Date.valueOf("2019-06-01"))).isInstanceOf(PreventionDatePrecisionException.class);
     }
 
     @Nested

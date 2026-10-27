@@ -42,19 +42,31 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.PreventionConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.PreventionResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PreventionTo1;
-import org.springframework.beans.factory.annotation.Autowired;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 import org.springframework.stereotype.Component;
 
 import jakarta.ws.rs.core.MediaType;
 
 
+/**
+ * Prevention reads with an additive precision protocol. Legacy Date-only operations return
+ * HTTP 409 for affected history; /precision operations retain each record with native date info.
+ */
 @Path("/preventions/")
 @Component("preventionService")
 @Consumes(MediaType.APPLICATION_JSON)
 public class PreventionService extends AbstractServiceImpl {
 
-    @Autowired
-    private PreventionManager preventionManager;
+    private final PreventionManager preventionManager;
+    private final PreventionDateService dateService;
+
+    public PreventionService(PreventionManager preventionManager, PreventionDateService dateService) {
+        this.preventionManager = preventionManager;
+        this.dateService = dateService;
+    }
 
     @GET
     @Path("/active")
@@ -62,12 +74,7 @@ public class PreventionService extends AbstractServiceImpl {
     public PreventionResponse getCurrentPreventions(@QueryParam("demographicNo") Integer demographicNo) {
         List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(getLoggedInInfo(), demographicNo);
 
-        List<PreventionTo1> preventionsT = new PreventionConverter().getAllAsTransferObjects(getLoggedInInfo(), preventions);
-
-        PreventionResponse response = new PreventionResponse();
-        response.setPreventions(preventionsT);
-
-        return response;
+        return response(preventions, false);
     }
 
     @GET
@@ -75,7 +82,33 @@ public class PreventionService extends AbstractServiceImpl {
     @Produces({MediaType.APPLICATION_JSON})
     public PreventionResponse getImmunizations(@PathParam("demographicNo") Integer demographicNo) {
         List<Prevention> immunizations = preventionManager.getImmunizationsByDemographic(getLoggedInInfo(), demographicNo);
-        List<PreventionTo1> preventionsT = new PreventionConverter().getAllAsTransferObjects(getLoggedInInfo(), immunizations);
+        return response(immunizations, false);
+    }
+
+    @GET
+    @Path("/active/precision")
+    @Produces(MediaType.APPLICATION_JSON)
+    public PreventionResponse getCurrentPreventionsWithPrecision(@QueryParam("demographicNo") Integer demographicNo) {
+        return response(preventionManager.getPreventionsByDemographicNo(getLoggedInInfo(), demographicNo), true);
+    }
+
+    @GET
+    @Path("/immunizations/{demographicNo}/precision")
+    @Produces(MediaType.APPLICATION_JSON)
+    public PreventionResponse getImmunizationsWithPrecision(@PathParam("demographicNo") Integer demographicNo) {
+        return response(preventionManager.getImmunizationsByDemographic(getLoggedInInfo(), demographicNo), true);
+    }
+
+    private PreventionResponse response(List<Prevention> preventions, boolean precisionAware) {
+        List<PreventionTo1> preventionsT;
+        try {
+            preventionsT = new PreventionConverter(dateService, precisionAware)
+                    .getAllAsTransferObjects(getLoggedInInfo(), preventions);
+        } catch (PreventionDatePrecisionException unsafe) {
+            throw new WebApplicationException(Response.status(Response.Status.CONFLICT)
+                    .type(MediaType.TEXT_PLAIN_TYPE)
+                    .entity(unsafe.getMessage() + "; append /precision to this operation").build());
+        }
         PreventionResponse response = new PreventionResponse();
         response.setPreventions(preventionsT);
         return response;

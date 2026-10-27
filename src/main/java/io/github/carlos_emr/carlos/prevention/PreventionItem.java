@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.prevention;
 import java.util.Date;
 
 import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -44,6 +45,7 @@ public class PreventionItem {
     String id = null;
     String name = null;
     Date datePreformed = null;
+    private PreventionDateDTO performedDate;
     Date nextDate = null;
     String never = null;
     boolean refused;
@@ -80,9 +82,11 @@ public class PreventionItem {
         this.inelligible = result.equalsIgnoreCase("2");
     }
 
-    public PreventionItem(Prevention pp) {
+    /** Native records require their external partial_date metadata at this boundary. */
+    public PreventionItem(Prevention pp, PreventionDateDTO performedDate) {
         this.name = pp.getPreventionType();
-        this.datePreformed = pp.getPreventionDate();
+        this.performedDate = java.util.Objects.requireNonNull(performedDate);
+        this.datePreformed = performedDate.isExact() ? pp.getPreventionDate() : null;
         this.never = ConversionUtils.toBoolString(pp.isNever());
         this.nextDate = pp.getNextDate();
         this.refused = pp.isRefused();
@@ -124,6 +128,10 @@ public class PreventionItem {
         return datePreformed;
     }
 
+    public PreventionDateDTO getPerformedDate() {
+        return performedDate == null ? PreventionDateDTO.from(datePreformed, null) : performedDate;
+    }
+
     /**
      * Setter for property datePreformed.
      *
@@ -131,6 +139,7 @@ public class PreventionItem {
      */
     public void setDatePreformed(java.util.Date datePreformed) {
         this.datePreformed = datePreformed;
+        this.performedDate = null;
     }
 
     /**

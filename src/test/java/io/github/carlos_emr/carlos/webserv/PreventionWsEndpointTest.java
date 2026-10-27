@@ -21,6 +21,7 @@
 package io.github.carlos_emr.carlos.webserv;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -40,6 +41,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.test.base.CarlosSoapTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -63,12 +66,14 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
 
     @Mock
     private PreventionManager preventionManager;
+    @Mock
+    private PartialDateDao partialDateDao;
 
     private PreventionWs ws;
 
     @Override
     protected Object getServiceBean() {
-        ws = new PreventionWs();
+        ws = new PreventionWs(preventionManager, new PreventionDateService(partialDateDao));
         return ws;
     }
 
@@ -80,7 +85,25 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
     @BeforeEach
     void setUpMocks() {
         registerMock(PreventionManager.class, preventionManager);
-        injectDependency(ws, "preventionManager", preventionManager);
+    }
+
+    @Test
+    void shouldRefuseDateOnlyResponse_whenHistoryHasPartialTiming() {
+        Prevention record = new Prevention();
+        org.springframework.test.util.ReflectionTestUtils.setField(record, "id", 41);
+        record.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
+        when(partialDateDao.getFormat(4, 41, 7)).thenReturn("YYYY");
+        when(preventionManager.getPrevention(any(LoggedInInfo.class), eq(41))).thenReturn(record);
+        assertThatThrownBy(() -> createClient(PreventionWs.class).getPrevention(41))
+                .hasMessageContaining("precision-aware");
+    }
+
+    @Test
+    void shouldRefuseListOperation_whenHistoryContainsUndatedRecords() {
+        when(preventionManager.getUpdatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
+                .thenReturn(List.of(new Prevention()));
+        assertThatThrownBy(() -> createClient(PreventionWs.class).getPreventionsUpdatedAfterDate(new Date(), 10))
+                .hasMessageContaining("precision-aware");
     }
 
     /** Tests for the getPrevention SOAP operation. */
@@ -93,6 +116,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
         void shouldReturnPreventionTransfer_whenFound() {
             Prevention prevention = new Prevention();
             prevention.setPreventionType("Flu");
+            prevention.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
             when(preventionManager.getPrevention(any(LoggedInInfo.class), eq(7))).thenReturn(prevention);
             when(preventionManager.getPreventionExtByPrevention(any(LoggedInInfo.class), eq(7)))
                 .thenReturn(Collections.emptyList());
@@ -128,6 +152,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
             List<Prevention> preventions = new ArrayList<>();
             Prevention p = new Prevention();
             p.setPreventionType("Flu");
+            p.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
             preventions.add(p);
             when(preventionManager.getUpdatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
                 .thenReturn(preventions);
@@ -166,6 +191,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
             List<Prevention> preventions = new ArrayList<>();
             Prevention p = new Prevention();
             p.setPreventionType("Flu");
+            p.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
             preventions.add(p);
             when(preventionManager.getByDemographicIdUpdatedAfterDate(any(LoggedInInfo.class), eq(200), any(Date.class)))
                 .thenReturn(preventions);

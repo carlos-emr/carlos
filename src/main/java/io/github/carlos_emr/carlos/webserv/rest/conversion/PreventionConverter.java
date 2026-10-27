@@ -29,10 +29,20 @@
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
 import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PreventionTo1;
 
+/** Converts native dates only after resolving external precision; legacy mode refuses uncertainty. */
 public class PreventionConverter extends AbstractConverter<Prevention, PreventionTo1> {
+    private final PreventionDateService dateService;
+    private final boolean precisionAware;
+
+    public PreventionConverter(PreventionDateService dateService, boolean precisionAware) {
+        this.dateService = java.util.Objects.requireNonNull(dateService);
+        this.precisionAware = precisionAware;
+    }
 
     @Override
     public Prevention getAsDomainObject(LoggedInInfo loggedInInfo, PreventionTo1 t) throws ConversionException {
@@ -42,10 +52,13 @@ public class PreventionConverter extends AbstractConverter<Prevention, Preventio
     @Override
     public PreventionTo1 getAsTransferObject(LoggedInInfo loggedInInfo, Prevention d) throws ConversionException {
         PreventionTo1 t = new PreventionTo1();
+        PreventionDateDTO date = dateService.getDate(d);
+        if (!precisionAware) date.requireExact();
 
         t.setId(d.getId());
         t.setDemographicId(d.getDemographicId());
-        t.setPreventionDate(d.getPreventionDate());
+        t.setPreventionDate(date.isExact() ? d.getPreventionDate() : null);
+        if (precisionAware) t.setPreventionDateInfo(date);
         t.setProviderNo(d.getProviderNo());
         t.setPreventionType(d.getPreventionType());
         t.setNextDate(d.getNextDate());

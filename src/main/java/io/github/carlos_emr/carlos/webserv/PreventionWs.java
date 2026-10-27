@@ -42,15 +42,24 @@ import io.github.carlos_emr.carlos.commn.model.PreventionExt;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.PreventionTransfer;
-import org.springframework.beans.factory.annotation.Autowired;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
 import org.springframework.stereotype.Component;
 
+/**
+ * Legacy Date-only SOAP reads. Partial or unknown native dates explicitly fault the operation;
+ * clients must upgrade to a precision-aware representation rather than receive storage anchors.
+ */
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class PreventionWs extends AbstractWs {
-    @Autowired
-    private PreventionManager preventionManager;
+    private final PreventionManager preventionManager;
+    private final PreventionDateService dateService;
+
+    public PreventionWs(PreventionManager preventionManager, PreventionDateService dateService) {
+        this.preventionManager = preventionManager;
+        this.dateService = dateService;
+    }
 
     public PreventionTransfer getPrevention(Integer preventionId) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
@@ -59,7 +68,7 @@ public class PreventionWs extends AbstractWs {
 
         if (prevention != null) {
             List<PreventionExt> preventionExts = preventionManager.getPreventionExtByPrevention(loggedInInfo, prevention.getId());
-            return (PreventionTransfer.toTransfer(prevention, preventionExts));
+            return (PreventionTransfer.toTransfer(prevention, preventionExts, dateService.getDate(prevention)));
         }
 
         return (null);
@@ -68,19 +77,19 @@ public class PreventionWs extends AbstractWs {
     public PreventionTransfer[] getPreventionsUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prevention> preventions = preventionManager.getUpdatedAfterDate(loggedInInfo, updatedAfterThisDateExclusive, itemsToReturn);
-        return (PreventionTransfer.getTransfers(loggedInInfo, preventions));
+        return (PreventionTransfer.getTransfers(loggedInInfo, preventions, preventionManager, dateService));
     }
 
     public PreventionTransfer[] getPreventionsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prevention> preventions = preventionManager.getPreventionsByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
-        return (PreventionTransfer.getTransfers(loggedInInfo, preventions));
+        return (PreventionTransfer.getTransfers(loggedInInfo, preventions, preventionManager, dateService));
     }
 
     public PreventionTransfer[] getPreventionsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prevention> preventions = preventionManager.getByDemographicIdUpdatedAfterDate(loggedInInfo, demographicId, lastUpdate.getTime());
-        return (PreventionTransfer.getTransfers(loggedInInfo, preventions));
+        return (PreventionTransfer.getTransfers(loggedInInfo, preventions, preventionManager, dateService));
     }
 
 }
