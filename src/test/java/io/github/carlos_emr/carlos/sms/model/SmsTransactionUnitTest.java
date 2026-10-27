@@ -14,6 +14,8 @@ import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.time.Instant;
 import java.util.Date;
@@ -349,6 +351,98 @@ class SmsTransactionUnitTest {
         assertThat(transaction.getMessageBodySha256()).hasSize(64);
         assertThat(transaction.getProviderMetadata())
                 .isEqualTo("{\"messageType\":\"sms\",\"providerStatus\":\"received\"}");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = SmsStatus.class, names = {"SENT", "DELIVERED"})
+    @DisplayName("a delivery callback cannot change a message still waiting for its first attempt")
+    void shouldPreserveQueuedMessage_whenDeliveryCallbackPrecedesFirstAttempt(SmsStatus callbackStatus) {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        transaction.recordConsentDecision(SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z")));
+        transaction.assignClientReferenceId("sms-transaction-42");
+        Date dueAt = transaction.getNextAttemptAt();
+        Date updatedAt = transaction.getUpdatedAt();
+        String bodyDigest = transaction.getMessageBodySha256();
+
+        transaction.markDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "premature-provider-id", callbackStatus,
+                Instant.parse("2026-09-22T10:00:00Z"), "UNEXPECTED", "Unexpected callback",
+                "different-reference", Map.of("providerStatus", callbackStatus.name())));
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                        SmsTransaction::getProviderMessageId, SmsTransaction::getClientReferenceId,
+                        SmsTransaction::getNextAttemptAt, SmsTransaction::getLastAttemptAt,
+                        SmsTransaction::getDeliveredAt, SmsTransaction::getProviderEventAt,
+                        SmsTransaction::getProviderMetadata, SmsTransaction::getErrorCode,
+                        SmsTransaction::getErrorMessage, SmsTransaction::getUpdatedAt,
+                        SmsTransaction::getMessageBodySha256, SmsTransaction::getConsentId)
+                .containsExactly(SmsStatus.QUEUED, 0, null, "sms-transaction-42", dueAt, null,
+                        null, null, null, null, null, updatedAt, bodyDigest, 4321);
+        assertThat(transaction.toSendCommand().body()).isEqualTo("Appointment reminder");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = SmsStatus.class, names = {"SENT", "DELIVERED"})
+    @DisplayName("an attempted message accepts an early callback before its provider result is saved")
+    void shouldApplyEarlyCallback_whenFirstAttemptHasStarted(SmsStatus callbackStatus) {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        transaction.markSending(Date.from(Instant.parse("2026-09-22T09:59:00Z")));
+
+        transaction.markDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-early", callbackStatus,
+                Instant.parse("2026-09-22T10:00:00Z"), null, null, null));
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                        SmsTransaction::getProviderMessageId)
+                .containsExactly(callbackStatus, 1, "provider-early");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = SmsStatus.class, names = {"SENT", "DELIVERED"})
+    @DisplayName("a late delivery callback stops a retry of a message that was already attempted")
+    void shouldApplyCallback_whenAttemptedMessageIsQueuedForRetry(SmsStatus callbackStatus) {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        transaction.markSending(Date.from(Instant.parse("2026-09-22T09:59:00Z")));
+        transaction.markRetryScheduled(SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Retryable failure"),
+                Date.from(Instant.parse("2026-09-22T10:05:00Z")));
+
+        transaction.markDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-retry", callbackStatus,
+                Instant.parse("2026-09-22T10:00:00Z"), null, null, null));
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(callbackStatus, 1);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = SmsStatus.class, names = {"SENT", "DELIVERED"})
+    @DisplayName("an unmatched callback placeholder can progress without a local send attempt")
+    void shouldUpdatePlaceholder_whenDeliveryCallbackHasNoQueuedRecipient(SmsStatus callbackStatus) {
+        SmsTransaction placeholder = SmsTransaction.deliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-unmatched", SmsStatus.QUEUED,
+                Instant.parse("2026-09-22T09:59:00Z"), null, null, null));
+
+        placeholder.markDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-unmatched", callbackStatus,
+                Instant.parse("2026-09-22T10:00:00Z"), null, null, null));
+
+        assertThat(placeholder)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                        SmsTransaction::getToPhoneNumber)
+                .containsExactly(callbackStatus, 0, null);
     }
 
     @Test

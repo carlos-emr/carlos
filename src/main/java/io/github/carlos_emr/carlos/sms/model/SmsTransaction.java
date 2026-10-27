@@ -556,6 +556,12 @@ public class SmsTransaction extends AbstractModel<Long> {
             // block must stay as it is.
             return true;
         }
+        if (isWaitingInQueue() && attemptCount == 0
+                && (webhookStatus == SmsStatus.SENT || webhookStatus == SmsStatus.DELIVERED)) {
+            // Preserve the first queued send without adopting a callback's provider state.
+            // Real early callbacks follow markSending; attempted retries can still accept delivery.
+            return true;
+        }
         if (isWaitingInQueue() && webhookStatus == SmsStatus.FAILED) {
             // Either the message has not gone out yet, or this is a late failure report for an earlier
             // attempt and a retry is already scheduled. Failing it here would cancel a send that is still
