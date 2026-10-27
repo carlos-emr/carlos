@@ -83,18 +83,19 @@ jobs:
           persist-credentials: false
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
 
-      - name: Test reliability diagnostics
+      - name: Test security and reliability diagnostics
         run: python3 -m unittest discover -s scripts -p test_sonar_reliability_report.py
 
-      # The Sonar GitHub check can expose only a subset of findings on large PRs. Report all reliability
+      # The Sonar GitHub check can expose only a subset of findings on large PRs. Report security/reliability
       # findings from the latest available analysis before starting the expensive build.
       # This is diagnostic only; the separate Sonar quality gate remains authoritative.
-      - name: Report latest PR reliability findings
+      - name: Report latest PR security and reliability findings
         if: github.event_name == 'pull_request'
-        continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPORT_COMMIT: ${{ github.event.pull_request.head.sha }}
+          SONAR_REPORT_PATH: ${{ runner.temp }}/sonar-quality-latest.json
         run: python3 scripts/sonar_reliability_report.py
 
       - name: Cache SonarCloud packages
@@ -175,15 +176,25 @@ jobs:
                 \"-Dsonar.pullrequest.base=\$PR_BASE\" \
                             "
 
-      - name: Report PR reliability after server processing
+      - name: Report PR security and reliability after server processing
         if: always() && github.event_name == 'pull_request'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          if ! python3 scripts/sonar_reliability_report.py; then
-            echo "::warning::Post-analysis reliability diagnostics failed; the analysis and server quality-gate result remain authoritative."
-          fi
+          REPORT_COMMIT: ${{ github.event.pull_request.head.sha }}
+          SONAR_REPORT_PATH: ${{ runner.temp }}/sonar-quality-after-analysis.json
+        run: python3 scripts/sonar_reliability_report.py
+
+      - name: Preserve complete Sonar PR diagnostics
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sonar-pr-quality-findings
+          path: |
+            ${{ runner.temp }}/sonar-quality-latest.json
+            ${{ runner.temp }}/sonar-quality-after-analysis.json
+          if-no-files-found: error
+          retention-days: 7
 
       # The dev container runs as root and leaves root-owned files in the
       # mounted workspace (.m2-cache, .sonar-cache, target/**). The post-job
