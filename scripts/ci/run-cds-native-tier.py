@@ -26,9 +26,11 @@ The supplied build container must already contain compiled application/test clas
 Java 25, Maven and this checkout. No existing database is contacted or reused.
 """
 import argparse
+import json
 import os
 from pathlib import Path
 import secrets
+import re
 import stat
 import subprocess
 import sys
@@ -91,6 +93,56 @@ def collect_reports(required, source, destination):
                     parent.remove(child)
         ElementTree(suite).write(destination / files[0].name, encoding='utf-8', xml_declaration=True)
     return total, incomplete
+
+
+
+def verify_admission_seeds(repository, client, run, log):
+    """Replay exact guards on an owned scratch clone, then remove it before contract export."""
+    statements = []
+    pattern = re.compile(r"^[ \t]*INSERT\s+INTO\s+cds_import_admission\b[^;]*;", re.IGNORECASE | re.MULTILINE)
+    for suffix in ('8__cds_import_ledger', '9__cds_upload_sessions'):
+        text = (repository / 'database/mysql/migration/common' / ('V1.0.59.' + suffix + '.sql')).read_text()
+        statements.extend(pattern.findall(text))
+    if len(statements) != 3 or any('WHERE NOT EXISTS' not in sql.upper() for sql in statements):
+        raise RuntimeError('Required admission seeds are not explicit existence-guarded statements')
+    fixture = 'cds_seed_admission_fixture_' + uuid.uuid4().hex[:16]
+    seeds = re.sub(r'\bcds_import_admission\b', fixture, '\n'.join(statements), flags=re.IGNORECASE)
+    setup = 'CREATE TABLE ' + fixture + ' LIKE carlos_cds_test.cds_import_admission;\n'
+    owner = '11111111-1111-4111-8111-111111111111'
+    token = '22222222-2222-4222-8222-222222222222'
+    sql = setup + seeds + '\nSELECT COUNT(*),SUM(owner_run_id IS NULL AND reserved_bytes=0) FROM ' + fixture + ';\n'
+    sql += ("UPDATE " + fixture + " SET owner_run_id='" + owner + "',reserved_bytes=1234567,"
+            "maintenance_active=1,maintenance_generation=7,maintenance_owner_token='" + token
+            + "',maintenance_connection_id=99;\n")
+    sql += seeds + '\n' + seeds
+    sql += '\nSELECT JSON_ARRAY(id,owner_run_id,reserved_bytes,maintenance_active,maintenance_generation,maintenance_owner_token,maintenance_connection_id) FROM ' + fixture + ' ORDER BY id;'
+    primary = None
+    try:
+        tested = run(client + ['--database=carlos_cds_test', '--batch', '--raw', '--skip-column-names', '-e', sql], log, capture=True)
+        rows = tested.stdout.splitlines()
+        if not rows or rows[0] != '3\t3' or len(rows) != 4:
+            raise RuntimeError('Fresh admission seed defaults differ')
+        actual = {entry[0]: entry[1:] for entry in (json.loads(row) for row in rows[1:])}
+        expected = {key: [owner, 1234567, 1, 7, token, 99] for key in ('global', 'clinical-maintenance', 'UPLOAD_BUDGET')}
+        if actual != expected:
+            raise RuntimeError('Admission seed replay changed an existing owner or reservation')
+        run(client + ['--database=carlos_cds_test', '-e', 'DROP TABLE ' + fixture], log)
+        rejected = setup + 'ALTER TABLE ' + fixture + ' ADD CONSTRAINT fixture_positive_reservation CHECK(reserved_bytes>0);\n' + seeds
+        if run(client + ['--database=carlos_cds_test', '-e', rejected], log, check=False, capture=True).returncode == 0:
+            raise RuntimeError('Admission seed unexpectedly masked an unrelated storage constraint error')
+    except BaseException as failure:
+        primary = failure
+        raise
+    finally:
+        cleanup = run(client + ['--database=carlos_cds_test', '--batch', '--raw', '--skip-column-names', '-e',
+                                'DROP TABLE IF EXISTS ' + fixture + "; SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='carlos_cds_test' AND TABLE_NAME='" + fixture + "'"],
+                      log, check=False, capture=True)
+        if cleanup.returncode or cleanup.stdout.strip() != '0':
+            if primary is not None:
+                primary.add_note('Owned admission seed fixture cleanup also requires reconciliation')
+            else:
+                raise RuntimeError('Owned admission seed fixture cleanup requires reconciliation')
+    print('Admission seed replay preserved all existing state and surfaced unrelated constraint failure.', flush=True)
 
 
 def main():
@@ -195,6 +247,7 @@ def main():
                 build(['java', '-cp', container_output + '/classes' + os.pathsep + classpath,
                        'CdsImportMariaDbBootstrap', container_private + '/' + filename,
                        'database/mysql/migration', province], log)
+            verify_admission_seeds(repository, client, run, log)
             if args.refresh_schema_contracts:
                 for database, province in [('carlos_cds_test', 'on'), ('cds_full_test', 'bc')]:
                     command = ['python3', 'scripts/schema-contract.py', '--database', database, '--province', province,

@@ -162,6 +162,13 @@ A report-only retry preserves clinical commits and patient publications. Report/
 never overwrites the primary import failure, and a failed delivery terminates polling with an
 explicit failed operational state rather than hanging indefinitely.
 
+Restart discovery includes `REVIEW_REQUIRED` and `RECONCILIATION_REQUIRED` when their report is
+still `PENDING`. A pending review permits report delivery only for those stopped states; the
+worker forces the report-only entry and leaves clinical state, seals and native units untouched.
+An explicit clinical resume remains blocked while review is pending, including
+`RESUME_REQUESTED`. A bounded run-row lookup inspects report state without aggregating a large
+import during dispatch.
+
 Successful clinical completion and successful preview completion atomically persist
 `RELEASE_PENDING` before releasing clinical admission. This preserves the maintenance boundary
 if the process dies between `COMPLETE` and closing its dedicated owner. The engine resolves the
@@ -271,3 +278,9 @@ passed physical re-export comparison and migration/policy binding checks. The si
 cases compare exact timestamp milliseconds, so JDBC's `Timestamp` subclass does not make equal
 stored clocks fail a Java object-type equality check. These results cover the tested compiled
 candidate; whole-build, browser and installed CLI verification remain separate gates.
+
+Admission seeds for `global`, `clinical-maintenance` and `UPLOAD_BUDGET` use explicit
+`INSERT ... SELECT ... WHERE NOT EXISTS` guards. The fresh native harness replays the exact
+statements against a uniquely named scratch clone, verifies existing owner/reservation and
+maintenance-generation values remain unchanged, and verifies unrelated storage errors remain
+errors. It drops and checks absence of the scratch table before physical contract export.

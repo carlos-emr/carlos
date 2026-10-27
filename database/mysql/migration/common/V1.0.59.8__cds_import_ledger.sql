@@ -216,7 +216,14 @@ CREATE TABLE cds_import_admission (
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
-INSERT INTO cds_import_admission(id, owner_run_id, reserved_bytes) VALUES ('global', NULL, 0), ('clinical-maintenance',NULL,0);
+-- Preserve an existing owner and reservation during adopted-schema initialization.
+INSERT INTO cds_import_admission (id, owner_run_id, reserved_bytes)
+SELECT 'global', NULL, 0
+WHERE NOT EXISTS (SELECT 1 FROM cds_import_admission WHERE id='global');
+
+INSERT INTO cds_import_admission (id, owner_run_id, reserved_bytes)
+SELECT 'clinical-maintenance', NULL, 0
+WHERE NOT EXISTS (SELECT 1 FROM cds_import_admission WHERE id='clinical-maintenance');
 
 
 -- Preserve supported clinical values without changing existing defaults or collation.

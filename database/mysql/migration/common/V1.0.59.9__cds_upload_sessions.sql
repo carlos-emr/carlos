@@ -25,4 +25,5 @@ CREATE TABLE cds_import_upload (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO cds_import_admission (id, owner_run_id, reserved_bytes)
-VALUES ('UPLOAD_BUDGET', NULL, 0);
+SELECT 'UPLOAD_BUDGET', NULL, 0
+WHERE NOT EXISTS (SELECT 1 FROM cds_import_admission WHERE id='UPLOAD_BUDGET');
