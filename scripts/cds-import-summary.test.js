@@ -283,3 +283,32 @@ test('an ambiguous POST failure or unconfirmed receipt cannot manufacture accept
     await assert.rejects(client.monitorAcceptedRun(receipt,async()=>{monitored++;}),/IMPORT_ACCEPTANCE_UNAVAILABLE/);
   assert.equal(monitored,0);assert.equal(acceptedCount,0);
 });
+
+
+test('opening a job reveals status once while later status reads retain the operator position', async () => {
+  const calls=[];let active=id;
+  const read=async handle=>{calls.push(['GET',handle]);return{job:{id:handle}};};
+  const target={scrollIntoView:options=>calls.push(['scroll',options])};
+  const value=await client.readOpenedJobStatus(id,read,()=>active,()=>target);
+  assert.equal(value.job.id,id);
+  await read(id);await read(id);
+  assert.deepEqual(calls,[['GET',id],['scroll',{behavior:'auto',block:'start',inline:'nearest'}],['GET',id],['GET',id]]);
+});
+test('an unknown first status read still reveals its job and preserves the original failure', async () => {
+  const error=Error('HTTP503');let scrolled=0;let reads=0;
+  await assert.rejects(client.readOpenedJobStatus(id,async handle=>{reads++;assert.equal(handle,id);throw error;},
+    ()=>id,()=>({scrollIntoView:()=>scrolled++})),failure=>failure===error);
+  assert.equal(reads,1);assert.equal(scrolled,1);
+});
+test('a superseded initial status read cannot scroll away from the newer selected job', async () => {
+  const other='22222222-2222-4222-8222-222222222222';let active=id;let settle;let scrolled=0;
+  const pending=client.readOpenedJobStatus(id,()=>new Promise(resolve=>{settle=resolve;}),()=>active,
+    ()=>({scrollIntoView:()=>scrolled++}));
+  active=other;settle({job:{id}});await pending;assert.equal(scrolled,0);
+});
+test('older job markup or a browser without the scrolling method still preserves status', async () => {
+  for(const heading of [null,undefined,{}, {scrollIntoView:undefined}]){
+    const result=await client.readOpenedJobStatus(id,async()=>({job:{id}}),()=>id,()=>heading);
+    assert.equal(result.job.id,id);
+  }
+});

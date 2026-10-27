@@ -265,6 +265,9 @@ async function awaitRunReceipt(frame, id, timeout = 180000) {
 
 async function assertPrimaryJobStatus(frame, id, {preview = false} = {}) {
   const overview=frame.locator('#jobOverview'); await overview.waitFor({state:'visible'});
+  h.assert(await frame.locator('#jobStage').evaluate(node=>{const rect=node.getBoundingClientRect();
+    return rect.top>=0 && rect.bottom<=node.ownerDocument.defaultView.innerHeight;}),
+  'Opening a job did not bring its primary status into the viewport');
   h.assert(await overview.getAttribute('data-fresh') === 'true','The primary job status is not freshly confirmed');
   h.assert(await frame.locator('#jobAdvanced').evaluate(node=>node.open === false),
     'Raw diagnostic JSON must be closed by default');

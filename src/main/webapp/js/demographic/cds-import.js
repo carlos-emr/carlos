@@ -136,6 +136,19 @@
             cleanup: cleanupFailed ? (french ? 'Échec — intervention requise' : 'Failed — attention needed') : summary.cleanupComplete === true ? (french ? 'Terminée' : 'Complete') : (french ? 'Pas encore confirmée' : 'Not yet confirmed')};
     }
 
+    async function readOpenedJobStatus(id, readStatus, currentRun, heading) {
+        try { return await readStatus(id); }
+        finally {
+            // Reveal an explicitly opened job once. Periodic status reads keep the operator's position.
+            if (currentRun() === id) {
+                const target = heading();
+                if (typeof target?.scrollIntoView === 'function') {
+                    target.scrollIntoView({behavior: 'auto', block: 'start', inline: 'nearest'});
+                }
+            }
+        }
+    }
+
     async function monitorAcceptedRun(receipt, monitor) {
         if (receipt?.accepted !== true || !UUID.test(receipt.job?.id || ''))
             throw new Error('IMPORT_ACCEPTANCE_UNAVAILABLE');
@@ -268,7 +281,7 @@
         return offset;
     }
 
-    const api = {API_VERSION, API_VERSION_HEADER, jobStatusUrl, friendlyState, uploadPresentation, jobPresentation, monitorAcceptedRun, statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
+    const api = {API_VERSION, API_VERSION_HEADER, jobStatusUrl, friendlyState, uploadPresentation, jobPresentation, monitorAcceptedRun, readOpenedJobStatus, statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
         effectiveOptions, sha256, boundedJson, apiResponse, verifyPrefix};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CarlosCdsImport = api;
@@ -629,7 +642,7 @@
             }
             patientCursor = ''; diagnosticCursor = 0;
             patientPageStart = ''; diagnosticPageStart = 0; lastRunUpdated = '';
-            await updateStatus(id);
+            await readOpenedJobStatus(id, updateStatus, () => activeRun, () => byId('runHeading'));
         }
         async function loadPatients(next = false) {
             const run = activeRun;
