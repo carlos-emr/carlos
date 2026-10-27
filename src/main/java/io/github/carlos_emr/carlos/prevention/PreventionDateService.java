@@ -30,4 +30,11 @@ public class PreventionDateService {
                 PartialDate.PREVENTION, prevention.getId(), PartialDate.PREVENTION_PREVENTIONDATE);
         return PreventionDateDTO.from(prevention.getPreventionDate(), format);
     }
+
+    /** Preserves the established exact-date print format and shows native partial/unknown timing. */
+    public String displayDate(Prevention prevention, java.text.DateFormat exactFormatter) {
+        PreventionDateDTO date = getDate(prevention);
+        return date.isExact() ? exactFormatter.format(prevention.getPreventionDate())
+                : date.getOriginalValue() == null ? "Unknown" : date.getOriginalValue();
+    }
 }

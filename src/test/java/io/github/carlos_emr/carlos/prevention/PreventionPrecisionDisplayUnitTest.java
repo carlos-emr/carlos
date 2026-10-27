@@ -60,6 +60,28 @@ class PreventionPrecisionDisplayUnitTest extends CarlosUnitTestBase {
         assertThat(rows.get(2).get("age")).isNotEqualTo("Unknown");
     }
 
+    @Test
+    void shouldRefuseAutofillBeforeExecutingSql_whenPatientTimingIsUncertain() {
+        when(preventions.hasUncertainPreventionDates(7)).thenReturn(true);
+        var query = new io.github.carlos_emr.carlos.report.data.ParameterizedSql(
+                "select max(prevention_date) as last_date from preventions where demographic_no=?", List.of(7));
+        try (var jdbc = mockStatic(io.github.carlos_emr.carlos.db.LegacyJdbcQuery.class)) {
+            assertThatThrownBy(() -> io.github.carlos_emr.carlos.eform.EFormUtil
+                    .getValuesOrNull(List.of("last_date"), query, 7))
+                    .isInstanceOf(io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException.class);
+            jdbc.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void shouldRefuseClinicalNumerator_whenUncertainHistoryWouldOtherwiseEvaluateFalse() {
+        when(preventions.hasUncertainPreventionDates(7)).thenReturn(true);
+        var numerator = new io.github.carlos_emr.carlos.report.ClinicalReports.SQLNumerator();
+        numerator.setSQL("select * from preventions where demographic_no='${demographic_no}' and prevention_date > '2020-01-01'");
+        assertThatThrownBy(() -> numerator.evaluate(null, "7"))
+                .isInstanceOf(io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException.class);
+    }
+
     private static io.github.carlos_emr.carlos.commn.model.Prevention record(int id, String date) {
         var record = new io.github.carlos_emr.carlos.commn.model.Prevention();
         ReflectionTestUtils.setField(record, "id", id);

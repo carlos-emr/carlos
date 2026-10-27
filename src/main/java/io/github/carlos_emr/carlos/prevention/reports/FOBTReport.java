@@ -78,10 +78,10 @@ public class FOBTReport implements PreventionReport {
             Integer demo = Integer.valueOf(fieldList.get(0));
 
             //search   prevention_date prevention_type  deleted   refused
-            ArrayList<Map<String, Object>> prevs = PreventionData.getPreventionData(loggedInInfo, "FOBT", demo);
+            ArrayList<Map<String, Object>> prevs = PreventionData.getExactPreventionData(loggedInInfo, "FOBT", demo);
 
             ArrayList<Map<String, Object>> noFutureItems = removeFutureItems(prevs, asofDate);
-            ArrayList<Map<String, Object>> colonoscopys = PreventionData.getPreventionData(loggedInInfo, "COLONOSCOPY", demo);
+            ArrayList<Map<String, Object>> colonoscopys = PreventionData.getExactPreventionData(loggedInInfo, "COLONOSCOPY", demo);
 
             PreventionReportDisplay prd = new PreventionReportDisplay();
             prd.demographicNo = demo;

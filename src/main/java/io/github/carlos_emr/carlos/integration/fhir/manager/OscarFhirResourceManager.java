@@ -76,6 +76,9 @@ public class OscarFhirResourceManager {
         List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(configurationManager.getLoggedInInfo(), demographicNo);
 
         if (preventions != null) {
+            for (Prevention prevention : preventions) {
+                requireExactImmunizationDate(prevention);
+            }
             LogAction.addLogSynchronous(configurationManager.getLoggedInInfo(), "OscarFhirResourceManager.getImmunizationsByDemographicNo", "Retrieved Immunization list for FHIR transport ");
 
             for (Prevention prevention : preventions) {
@@ -107,11 +110,22 @@ public class OscarFhirResourceManager {
         Immunization<Prevention> immunization = null;
 
         if (prevention != null) {
+            requireExactImmunizationDate(prevention);
             LogAction.addLogSynchronous(configurationManager.getLoggedInInfo(), "OscarFhirResourceManager.getImmunizationsByDemographicNo", "Retrieved Immunization list for FHIR transport ");
             immunization = new Immunization<Prevention>(prevention, configurationManager);
         }
 
         return immunization;
+    }
+
+    private static void requireExactImmunizationDate(Prevention prevention) {
+        try {
+            SpringUtils.getBean(io.github.carlos_emr.carlos.prevention.PreventionDateService.class)
+                    .getDate(prevention).requireExact();
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {
+            throw new ca.uhn.fhir.rest.server.exceptions.UnprocessableEntityException(
+                    "Prevention timing requires a precision-aware representation before FHIR transport");
+        }
     }
 
     /**

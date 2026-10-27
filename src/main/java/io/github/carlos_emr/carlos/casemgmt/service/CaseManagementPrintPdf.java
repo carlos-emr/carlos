@@ -85,6 +85,7 @@ import java.util.ResourceBundle;
  * @since 2008-01-22
  */
 public class CaseManagementPrintPdf {
+    private final java.util.function.Supplier<io.github.carlos_emr.carlos.prevention.PreventionDateService> preventionDates;
 
     private HttpServletRequest request;
     private OutputStream os;
@@ -111,8 +112,15 @@ public class CaseManagementPrintPdf {
      * @param os      OutputStream the stream to write the generated PDF to
      */
     public CaseManagementPrintPdf(HttpServletRequest request, OutputStream os) {
+        this(request, os, () -> SpringUtils.getBean(io.github.carlos_emr.carlos.prevention.PreventionDateService.class));
+    }
+
+    /** Legacy constructor resolves the reader only when this optional print section is requested. */
+    public CaseManagementPrintPdf(HttpServletRequest request, OutputStream os,
+            java.util.function.Supplier<io.github.carlos_emr.carlos.prevention.PreventionDateService> preventionDates) {
         this.request = request;
         this.os = os;
+        this.preventionDates = preventionDates;
         formatter = new SimpleDateFormat("dd-MMM-yyyy");
     }
 
@@ -304,7 +312,7 @@ public class CaseManagementPrintPdf {
                 curFont = normal;
                 phrase = PdfFonts.phrase(LEADING, "", curFont);
                 String refused = prevention.isRefused() ? " (Refused)" : "";
-                 String preventionDate = prevention.getPreventionDate() == null ? "Unknown" : formatter.format(prevention.getPreventionDate());
+                String preventionDate = preventionDates.get().displayDate(prevention, formatter);
                  PdfFonts.addText(phrase, preventionDate + " - ", phrase.getFont());
                 PdfFonts.addText(phrase, prevention.getPreventionType() + refused, phrase.getFont());
                 p.add(phrase);

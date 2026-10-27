@@ -26,6 +26,8 @@ import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -73,6 +75,7 @@ class RtlPreventions2ActionTest extends CarlosUnitTestBase {
     private MockHttpServletResponse mockResponse;
 
     private RtlPreventions2Action action;
+    private PartialDateDao partialDates;
 
     @BeforeEach
     void setUp() {
@@ -94,6 +97,8 @@ class RtlPreventions2ActionTest extends CarlosUnitTestBase {
         // Register mocks in SpringUtils registry (CarlosUnitTestBase handles SpringUtils mocking)
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(PreventionManager.class, mockPreventionManager);
+        partialDates = mock(PartialDateDao.class);
+        registerMock(PreventionDateService.class, new PreventionDateService(partialDates));
 
         // Default: allow eform read privilege
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq("r"), isNull()))
@@ -111,6 +116,17 @@ class RtlPreventions2ActionTest extends CarlosUnitTestBase {
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @Test
+    void shouldRetainPartialTiming_whenNativeMetadataPredatesImport() throws Exception {
+        mockRequest.setParameter("demographic_no", "123");
+        Prevention p = createPrevention("Td", java.sql.Date.valueOf("2019-01-01"), false);
+        when(p.getId()).thenReturn(41);
+        when(partialDates.getFormat(4, 41, 7)).thenReturn("YYYY");
+        when(mockPreventionManager.getPreventionsByDemographicNo(any(), eq(123))).thenReturn(List.of(p));
+        action.execute();
+        assertThat(mockResponse.getContentAsString()).contains("<td>2019</td>").doesNotContain("2019-01-01");
     }
 
     @Nested
@@ -358,8 +374,7 @@ class RtlPreventions2ActionTest extends CarlosUnitTestBase {
 
             String content = mockResponse.getContentAsString();
             assertThat(content).contains("Flu Shot");
-            // Date cell should be empty
-            assertThat(content).contains("<td></td>");
+            assertThat(content).contains("<td>Unknown</td>");
         }
     }
 

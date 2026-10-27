@@ -24,8 +24,6 @@ package io.github.carlos_emr.carlos.eform.actions;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +40,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
 
 /**
  * Struts2 action that returns OWASP-encoded HTML-formatted prevention/immunization
@@ -80,13 +79,27 @@ public class RtlPreventions2Action extends ActionSupport {
 
     private static final Logger logger = LogManager.getLogger(RtlPreventions2Action.class);
 
-    private final HttpServletRequest request = ServletActionContext.getRequest();
-    private final HttpServletResponse response = ServletActionContext.getResponse();
-    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
+    private final HttpServletRequest request;
+    private final HttpServletResponse response;
+    private final SecurityInfoManager securityInfoManager;
+    private final PreventionManager preventionManager;
+    private final PreventionDateService preventionDates;
 
-    /** Thread-safe date formatter for prevention dates (java.time, not SimpleDateFormat). */
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    public RtlPreventions2Action() {
+        this(ServletActionContext.getRequest(), ServletActionContext.getResponse(),
+                SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(PreventionManager.class),
+                SpringUtils.getBean(PreventionDateService.class));
+    }
+
+    RtlPreventions2Action(HttpServletRequest request, HttpServletResponse response,
+            SecurityInfoManager securityInfoManager, PreventionManager preventionManager,
+            PreventionDateService preventionDates) {
+        this.request = request;
+        this.response = response;
+        this.securityInfoManager = securityInfoManager;
+        this.preventionManager = preventionManager;
+        this.preventionDates = preventionDates;
+    }
 
     /**
      * Handles the AJAX request from the RTL eForm's Preventions button.
@@ -137,9 +150,7 @@ public class RtlPreventions2Action extends ActionSupport {
                     }
                     String type = p.getPreventionType() != null ? p.getPreventionType() : "";
                     // Convert java.util.Date to LocalDate for formatting
-                    String date = p.getPreventionDate() != null
-                        ? DATE_FORMAT.format(p.getPreventionDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate())
-                        : "";
+                    String date = preventionDates.displayDate(p, new java.text.SimpleDateFormat("yyyy-MM-dd"));
                     // OWASP-encode both values before inserting into HTML
                     html.append("<tr><td>").append(SafeEncode.forHtml(type))
                         .append("</td><td>").append(SafeEncode.forHtml(date))

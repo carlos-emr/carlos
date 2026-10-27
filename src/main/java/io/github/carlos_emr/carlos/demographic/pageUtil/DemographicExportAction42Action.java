@@ -433,6 +433,19 @@ public class DemographicExportAction42Action extends ActionSupport {
             list.add(demographicNo);
         }
 
+        // This legacy export performs Date-only native prevention calculations. Refuse before
+        // creating an archive rather than inventing a day or publishing a partial package.
+        if (exImmunizations || exPastHealth) {
+            try {
+                for (String patient : list) PreventionData.requireExactDates(Integer.valueOf(patient));
+            } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {
+                writeExportAuditLog(loggedInInfo, list.size(), "precision_review_required", "<unavailable>", null);
+                response.sendError(HttpServletResponse.SC_CONFLICT,
+                        "Prevention timing requires review before this legacy export can run.");
+                return NONE;
+            }
+        }
+
         String ffwd = "fail";
         boolean fileStreamed = false;
         String tmpDir = oscarProperties.getProperty("TMP_DIR") + File.separator + RandomStringUtils.random(8, true, false);

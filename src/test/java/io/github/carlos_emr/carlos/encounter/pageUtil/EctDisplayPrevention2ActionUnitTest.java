@@ -110,6 +110,16 @@ class EctDisplayPrevention2ActionUnitTest {
         return record;
     }
 
+    @Test
+    void shouldRequireReview_whenLatestOrderingIncludesAPartialInterval() {
+        Map<String, Object> partial = history("41", null);
+        partial.put("prevention_date_info", io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                .from(java.sql.Date.valueOf("2019-01-01"), "YYYY"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> EctDisplayPrevention2Action.newestPrevention(
+                List.of(partial, history("42", java.sql.Date.valueOf("2019-05-01")))))
+                .isInstanceOf(io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException.class);
+    }
+
     @Nested
     @DisplayName("form URL")
     class FormUrl {

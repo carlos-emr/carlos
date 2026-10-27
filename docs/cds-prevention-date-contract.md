@@ -55,37 +55,44 @@ format refuses representation and requires review rather than reverting to a ful
   its active type scope: an unresolved date can affect membership in the requested range.
   It requires review rather than quietly losing undated records in the SQL filter.
 
-## Remaining reader inventory and activation blockers
+## Extended legacy reader coverage
 
-This is a finite source inventory, not proof that every deployment-specific integration
-client has been found. These readers need their own precision-safe adaptation or a tested
-explicit refusal before new import mutation admission can be enabled. A feature flag
-alone does not protect existing partial records.
+The followthrough adapts both chart PDF printers and the RTL eForm to print the original
+native precision, including explicit unknown timing. Encounter prevention summaries show
+review state without choosing a synthetic latest event. Flowsheet screen/print ranges and
+latest-only limits retain uncertain records for review. BC forms preserve the partial label;
+Rh injection gestational age stays explicitly unknown when timing is not known.
 
-| Reader | Remaining issue |
-| --- | --- |
-| `commn.model.Prevention.getPreventionDate/getImmunizationDate/isHistorical` | Public entity Date methods have no external metadata; direct callers can still consume anchors. The persistence Date is retained for compatibility, not certified for clinical timing. |
-| `integration/fhir/model/Immunization.setAdministrationDate` | Serializes the Date-only immunization interface and computes historical/estimated state; needs precision-aware FHIR mapping or refusal. |
-| `prev/reports/ReportBuilder` | Direct Date filtering, latest-event selection and cutoff calculations remain unsafe. |
-| `prevention/reports/ChildImmunizationReport`, `PapReport`, `MammogramReport`, `FluReport`, `FOBTReport` | Parse/compare native display strings as exact dates for reporting. A partial label must not be parsed leniently or counted as a proven dose/date. |
-| `casemgmt/service/CaseManagementPrintPdf`, `casemgmt/print/OscarChartPrinter` | Direct entity Date formatting can print storage anchors. |
-| `eform/actions/RtlPreventions2Action` | Direct entity Date formatting can expose storage anchors in eForm values. |
-| `encounter/pageUtil/EctDisplayPrevention2Action` | Reads map Date for filtering/latest selection; uncertain records now have no Date and require an explicit displayed review state, not exclusion. |
-| `TemplateFlowSheetPrint.jsp`, `TemplateFlowSheetPage.jspf` | Date parsing / Date-only filtering of prevention maps needs review; `Unknown` or partial text must not disappear or acquire precision. |
-| `formbchppg1.jsp`, `formbchppg2.jsp`, `RhInjectionDisplay.jsp` | Date parsing / Date-only selection from maps needs explicit uncertain-state handling. |
-| `demographic/pageUtil/DemographicExportAction42Action` | Existing export parses prevention strings; no export feature work is claimed, but safe egress or explicit refusal is required before activation. |
-| `dao/ProviderDao` intake prevention query | Raw table projection exposes anchors without the partial-date metadata. |
-| `resources/indicatorXMLTemplates/` prevention indicators | `smoking.xml`, `pneumococcal_immunization.xml`, `flu_immuzation.xml`, `flu_immunization_bonus.xml`, `colorectal_cancer.xml`, `colorectal_cancer_bonus.xml`, `childhood_immunization_bonus.xml`, `cervical_cancer.xml`, `cervical_cancer_bonus.xml`, `breast cancer.xml` and `breast_cancer_bonus.xml` use date cutoffs, age calculations, latest-date aggregates or direct date formatting without precision. |
-| `resources/oscar/oscarReport/ClinicalReports/ClinicalReports.xml` | Embedded prevention cutoff SQL bypasses the guarded native DAO operations. |
-| `resources/oscar/eform/apconfig.xml` | Embedded `DATE_FORMAT(prevention_date)` and latest-row eForm autofill SQL bypasses precision readers. |
-| Installed report templates, eForms and query definitions in the database | Database-supplied SQL/templates are another reader surface; bundled source inventory cannot prove every installed definition safe. |
-| External REST/SOAP/integrator/portal/cache/index clients | Actual installed client inventory and protocol/rollout proof remain required. Source searches cannot establish that inventory. |
+`PreventionReadSafetyService` and the legacy `PreventionData` boundary refuse Date-only
+SQL decisions before a filter or aggregate can lose uncertain records. The scalar query
+checks null dates and the latest partial metadata, including merged charts. Structural SQL
+table inspection handles quoted/qualified references and nested queries. A supported
+population query is refused when any active prevention timing is uncertain; known patient
+AP lookups use patient scope. A legacy dialect that might read prevention history but cannot
+be structurally interpreted requires review instead of running unguarded.
 
-The edit/save web flow must recognize the added map metadata and use a blank editable
+Guarded readers include the native prevention report families; the newer report builder;
+ClinicalReports SQL numerator and denominator; dashboard indicator/drilldown/export SQL;
+SQL report templates; Query by Example; eForm AP rendering, interactive lookups and generated
+PDF lookups; FHIR immunization API assembly; the intake prevention projection; and legacy
+CDS export when prevention categories are selected. Report/HTTP paths expose review state or
+an explicit refusal, and do not publish fabricated counts, omitted history or a partial
+export package. Existing native full-date formatting and Date API shapes remain in place.
+
+The SQL-engine guards cover the bundled prevention indicators, ClinicalReports.xml and
+apconfig.xml without editing their clinical thresholds. They also guard installed SQL that
+names the native prevention table. Full installed runtime inventory remains an activation
+gate: views, stored functions, custom plugins, direct database access and arbitrary new
+readers can hide dependencies from SQL table inspection. They require a verified supported
+consumer catalogue and deployment barrier before new import admission is enabled; this
+source change does not certify arbitrary database definitions. Raw entity Date getters
+remain persistence interfaces and require a precision reader at any new clinical boundary.
+
+The edit/save web flow must recognize `prevention_date_info` and use a blank editable
 value for `UNKNOWN`, preserving the unknown date on save. It must not submit literal
 `Unknown` as a date. Existing partial lexemes remain `YYYY` / `YYYY-MM`. Complete browser,
-print, form and integration evidence, native projection queries on ON/BC, and the
-coordinated deployment barrier remain release gates.
+print, form and integration execution evidence, native projection queries on ON/BC, and
+the coordinated deployment barrier remain release gates.
 
 ## Verification scope
 

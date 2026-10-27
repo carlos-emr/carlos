@@ -95,6 +95,10 @@ public class PreventionDaoIntegrationTest extends CarlosTestBase {
         Prevention unknown = createPrevention(DEMO_1, "Td", null, false, false);
         partialDateDao.persist(new PartialDate(4, partial.getId(), 7, "YYYY"));
 
+        assertThat(preventionDao.hasUncertainPreventionDates(DEMO_1)).isTrue();
+        assertThat(preventionDao.hasUncertainPreventionDates(DEMO_2)).isFalse();
+        assertThat(preventionDao.hasUncertainPreventionDates(null)).isTrue();
+
         var rows = preventionDao.findPreventionDTOsByDemographicId(DEMO_1);
         assertThat(rows).hasSize(3);
         var exactRow = rows.stream().filter(p -> p.getId().equals(exact.getId())).findFirst().orElseThrow();

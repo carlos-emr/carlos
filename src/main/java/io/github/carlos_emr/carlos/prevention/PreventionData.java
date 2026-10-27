@@ -70,6 +70,18 @@ public class PreventionData {
                 : partialDateDao.getFormat(PartialDate.PREVENTION, prevention.getId(), PartialDate.PREVENTION_PREVENTIONDATE));
     }
 
+    /** Legacy authorized report/eForm boundary; null patient scopes a population report. */
+    public static void requireExactDates(Integer demographicNo) {
+        if (preventionDao.hasUncertainPreventionDates(demographicNo)) throw new PreventionDatePrecisionException();
+    }
+
+    /** Date-only callers must opt into refusal before parsing the list's display text. */
+    public static void requireExactDateMaps(List<Map<String, Object>> rows) {
+        for (Map<String, Object> row : rows) {
+            if (row.get("prevention_date_info") instanceof PreventionDateDTO date) date.requireExact();
+        }
+    }
+
     private static Date stringToDate(String date) {
         if (date == null || date.isBlank()) return null;
         try {
@@ -340,6 +352,20 @@ public class PreventionData {
 
     public static List<Prevention> getPrevention(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
         return preventionDao.findByTypeAndDemoNo(preventionType, demographicId);
+    }
+
+    /** Legacy clinical calculations require proven exact timing before any sorting/filtering. */
+    public static List<Prevention> getExactPrevention(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
+        List<Prevention> records = getPrevention(loggedInInfo, preventionType, demographicId);
+        for (Prevention record : records) dateOf(record).requireExact();
+        return records;
+    }
+
+    public static ArrayList<Map<String, Object>> getExactPreventionData(LoggedInInfo loggedInInfo,
+            String preventionType, Integer demographicId) {
+        ArrayList<Map<String, Object>> rows = getPreventionData(loggedInInfo, preventionType, demographicId);
+        requireExactDateMaps(rows);
+        return rows;
     }
 
 	@Nonnull

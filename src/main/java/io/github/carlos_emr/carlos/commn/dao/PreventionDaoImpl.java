@@ -228,6 +228,16 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
     }
 
     private void requireExactDates(String scope, Object value) {
+        if (hasUncertainDates(scope, value)) throw new PreventionDatePrecisionException();
+    }
+
+    @Override
+    public boolean hasUncertainPreventionDates(Integer demographicId) {
+        return hasUncertainDates(demographicId == null ? "p.deleted = '0'"
+                : "p.demographicId = ?1 AND p.deleted = '0'", demographicId);
+    }
+
+    private boolean hasUncertainDates(String scope, Object value) {
         Query uncertain = entityManager.createQuery("""
                 SELECT p.id FROM Prevention p WHERE
                 """ + scope + " " + """
@@ -238,9 +248,9 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
                                  WHERE latest.tableName = 4 AND latest.fieldName = 7 AND latest.tableId = p.id)
                     AND pd.format IS NOT NULL AND TRIM(pd.format) <> ''))
                 """);
-        uncertain.setParameter(1, value);
+        if (scope.contains("?1")) uncertain.setParameter(1, value);
         uncertain.setMaxResults(1);
-        if (!uncertain.getResultList().isEmpty()) throw new PreventionDatePrecisionException();
+        return !uncertain.getResultList().isEmpty();
     }
 
     @NativeSql("preventions")

@@ -108,6 +108,7 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
  * @since 2011-08-16
  */
 public class OscarChartPrinter implements java.io.Closeable {
+    private final java.util.function.Supplier<io.github.carlos_emr.carlos.prevention.PreventionDateService> preventionDates;
 
     /** Line spacing multiplier for paragraph leading calculations. */
     public final int LINESPACING = 1;
@@ -151,8 +152,16 @@ public class OscarChartPrinter implements java.io.Closeable {
      * @throws IOException       if the base font cannot be loaded
      */
     public OscarChartPrinter(HttpServletRequest request, OutputStream os) throws DocumentException, IOException {
+        this(request, os, () -> SpringUtils.getBean(io.github.carlos_emr.carlos.prevention.PreventionDateService.class));
+    }
+
+    /** Optional prevention rendering resolves the precision reader through this legacy boundary. */
+    public OscarChartPrinter(HttpServletRequest request, OutputStream os,
+            java.util.function.Supplier<io.github.carlos_emr.carlos.prevention.PreventionDateService> preventionDates)
+            throws DocumentException, IOException {
         this.request = request;
         this.os = os;
+        this.preventionDates = preventionDates;
 
         document = new Document();
         document.setPageSize(PageSize.LETTER);
@@ -760,11 +769,11 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         for (Prevention prevention : preventions) {
             String type = prevention.getPreventionType();
-            Date date = prevention.getPreventionDate();
+            String date = preventionDates.get().displayDate(prevention, formatter);
 
             p = new Paragraph();
             phrase = PdfFonts.phrase(LEADING, "", getFont());
-            PdfFonts.addText(phrase, type + " " + formatter.format(date) + "\n", phrase.getFont());
+            PdfFonts.addText(phrase, type + " " + date + "\n", phrase.getFont());
             p.add(phrase);
             getDocument().add(p);
         }

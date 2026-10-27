@@ -130,7 +130,14 @@ public class PreventionReport2Action extends ActionSupport {
             request.setAttribute("ReportType", prevention);
         }
 
-        Hashtable h = report.runReport(loggedInInfo, list, asDate);
+        Hashtable h;
+        try {
+            h = report.runReport(loggedInInfo, list, asDate);
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            request.setAttribute("preventionDateReview", true);
+            return SUCCESS;
+        }
         request.setAttribute("up2date", h.get("up2date"));
         request.setAttribute("percent", h.get("percent"));
         request.setAttribute("percentWithGrace", h.get("percentWithGrace"));
