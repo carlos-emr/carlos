@@ -574,9 +574,9 @@ class TestPreflightDriftLock(unittest.TestCase):
                             directory, "same-fixture-dump", current), progress)
 
 
-    class TestPropsManifest(unittest.TestCase):
+class TestPropsManifest(unittest.TestCase):
 
-        """The shipped properties manifest, checked as data."""
+    """The shipped properties manifest, checked as data."""
     def test_key_dispositions_are_valid(self):
         for key, spec in o19map_props.KEYS.items():
             self.assertIn(spec["d"], VALID_DISPOSITIONS, key)
