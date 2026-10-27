@@ -52,6 +52,7 @@ public final class CdsImportMaintenanceFilter implements Filter {
     // resources remain subject to maintenance admission.
     private static final Set<String> LOGIN_ASSETS = Set.of("/share/css/global.css", "/share/css/searchBox.css",
             "/share/css/transitions.css", "/share/javascript/Oscar.js", "/share/javascript/carlos-ajax.js");
+    private enum UnavailableReason { STARTUP_PENDING, IMPORT_MAINTENANCE }
     private final Supplier<CdsImportMaintenanceService> maintenance;
 
     /** Servlet-container compatibility boundary; dependency resolution is deferred until context startup completes. */
@@ -75,21 +76,28 @@ public final class CdsImportMaintenanceFilter implements Filter {
             if (!(startup instanceof ClinicalStartupCoordinator coordinator) || coordinator.isReady()) {
                 chain.doFilter(request, response); return;
             }
-            unavailable(reply, "Clinical startup initialization is pending. ");
+            unavailable(reply, UnavailableReason.STARTUP_PENDING);
             return;
         }
-        unavailable(reply, "Clinical access is unavailable during CDS import maintenance or chart reconciliation. ");
+        unavailable(reply, UnavailableReason.IMPORT_MAINTENANCE);
     }
 
-    private static void unavailable(HttpServletResponse reply, String message) throws IOException {
+    private static void unavailable(HttpServletResponse reply, UnavailableReason reason) throws IOException {
         reply.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
         reply.setHeader("Cache-Control", "no-store");
         reply.setHeader("Retry-After", "60");
         reply.setContentType("text/plain;charset=UTF-8");
         // Administration pages are also closed during maintenance. Give a direct
         // recovery route without reflecting request data or assuming a root deployment.
-        reply.getWriter().write(message + "Authorized operators can open the CDS import page by adding "
-                + "/form/importUpload to the application base address.");
+        switch (reason) {
+            case STARTUP_PENDING -> reply.getWriter().write("Clinical startup initialization is pending. "
+                    + "Authorized operators can open the CDS import page by adding "
+                    + "/form/importUpload to the application base address.");
+            case IMPORT_MAINTENANCE -> reply.getWriter().write(
+                    "Clinical access is unavailable during CDS import maintenance or chart reconciliation. "
+                    + "Authorized operators can open the CDS import page by adding "
+                    + "/form/importUpload to the application base address.");
+        }
     }
 
     static boolean allowed(String path) {
