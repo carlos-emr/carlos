@@ -45,7 +45,7 @@ async function run(env = process.env) {
     h.assert(UUID.test(oldId || ''), 'CDS_RETAINED_RUN_ID must identify the retained reference-database run');
     const config = h.readConfig(); sql = h.createSqlRunner(config.mysql);
     const zeroProof = () => sql.value(`SELECT
-      (SELECT COUNT(*) FROM cds_import_checkpoint WHERE run_id=${h.sqlString(oldId)}) +
+      (SELECT COUNT(*) FROM cds_import_checkpoint WHERE first_run_id=${h.sqlString(oldId)}) +
       (SELECT COUNT(*) FROM cds_import_patient WHERE run_id=${h.sqlString(oldId)}
         AND (held=1 OR target_demographic_no IS NOT NULL OR state='RECONCILIATION_REQUIRED')) +
       (SELECT COUNT(*) FROM cds_import_unit WHERE run_id=${h.sqlString(oldId)} AND state<>'EXPECTED') +
