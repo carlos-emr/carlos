@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {createHash} = require('node:crypto');
-const {journalRow,rawPost,interruptPost,verifyUploadedBody} = require('./demographic-cds-large-ingress-playwright-checks');
+const {journalRow,rawPost,interruptPost,assertMetadataVersion,verifyUploadedBody} = require('./demographic-cds-large-ingress-playwright-checks');
 
 test('independent upload journal includes exact big-endian index, offset, byte count and full hash', () => {
   const hash = createHash('sha256').update('synthetic').digest('hex');
@@ -16,6 +16,14 @@ test('independent upload journal includes exact big-endian index, offset, byte c
   assert.equal(row.subarray(20).toString('hex'),hash);
   assert.throws(() => journalRow(-1,0,4096,hash));
   assert.throws(() => journalRow(0,0,4096,'not-a-digest'));
+});
+
+test('typed raw metadata requires independent header and numeric body contract version',()=>{
+  const good={apiVersionHeader:'2',contentType:'application/json;charset=UTF-8',json:{apiVersion:2,ok:true}};
+  assert.doesNotThrow(()=>assertMetadataVersion(good));
+  for(const response of [{...good,apiVersionHeader:undefined},{...good,apiVersionHeader:'1'},
+    {...good,json:{apiVersion:'2',ok:true}},{...good,json:{ok:true}},
+    {...good,contentType:'text/html'}])assert.throws(()=>assertMetadataVersion(response));
 });
 
 test('actual HTTP content-length and chunked modes preserve the whole bounded request', async t => {

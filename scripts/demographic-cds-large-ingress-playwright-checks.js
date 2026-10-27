@@ -70,7 +70,7 @@ async function rawPost(url, headers, body, {chunked = false, length = body.lengt
         let json; try { json = JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks))); }
         catch (_) { failure('Ingress returned invalid metadata JSON'); return; }
         resolved = true; clearTimeout(absoluteTimer);resolve({status:response.statusCode, json, sentBytes:sent,
-          contentType:response.headers['content-type'], chunked});
+          contentType:response.headers['content-type'],apiVersionHeader:response.headers['x-carlos-cds-api-version'],chunked});
       });
     });
     let sent = 0;
@@ -85,6 +85,12 @@ async function rawPost(url, headers, body, {chunked = false, length = body.lengt
       request.end();
     })().catch(() => failure('Ingress body transmission failed'));
   });
+}
+
+function assertMetadataVersion(response) {
+  h.assert(response.apiVersionHeader==='2' && response.json?.apiVersion===2
+    && /^application\/json(?:\s*;|$)/i.test(response.contentType || ''),
+  'Raw metadata response does not prove the supported CDS API contract');
 }
 
 async function interruptPost(url,headers,prefix,declaredBytes) {
@@ -227,7 +233,7 @@ async function run(env = process.env) {
     for(const kind of ['missing','invalid']) {
       const csrfHeaders={'X-Requested-With':'XMLHttpRequest'};
       if(kind==='invalid')csrfHeaders['CSRF-TOKEN']='synthetic-invalid-csrf-token';
-      const denied=await context.request.post(url.href,{form:{operation:'begin',fileName:'synthetic-csrf.xml',expectedBytes:'1'},
+      const denied=await context.request.post(url.href,{form:{apiVersion:'2',operation:'begin',fileName:'synthetic-csrf.xml',expectedBytes:'1'},
         headers:csrfHeaders,maxRedirects:0,timeout:30000});
       const status=denied.status();await denied.dispose();
       h.assert(status===403 && reservationCounts()===beforeCsrf,'Invalid CSRF was not refused before durable upload reservation');
@@ -256,7 +262,7 @@ async function run(env = process.env) {
           const expected = Math.min(buffer.length, report.source.bytes-offset);
           const count = fs.readSync(fd,buffer,0,expected,offset); h.assert(count === expected,'Synthetic source shortened');
           const body = buffer.subarray(0,count); const sha256 = createHash('sha256').update(body).digest('hex');
-          const endpoint = new URL(url); for (const [key,value] of Object.entries({operation:'chunk',uploadId:upload.id,offset,bytes:count,sha256})) endpoint.searchParams.set(key,String(value));
+          const endpoint = new URL(url); for (const [key,value] of Object.entries({apiVersion:2,operation:'chunk',uploadId:upload.id,offset,bytes:count,sha256})) endpoint.searchParams.set(key,String(value));
           if(!chunked && index===0) {
             ownership.phase='INTERRUPTION_STARTED';save();
             report.interruption={uploadId:upload.id,...await interruptPost(endpoint,headers,body.subarray(0,65536),count)};save();
@@ -268,6 +274,7 @@ async function run(env = process.env) {
           let response;
           for(let attempt=0;attempt<10;attempt++) {
             response=await rawPost(endpoint,headers,body,{chunked});
+            assertMetadataVersion(response);
             if(response.status!==409 || response.json?.code!=='UPLOAD_BUSY')break;
             await new Promise(resolve=>setTimeout(resolve,100));
           }
@@ -299,9 +306,10 @@ async function run(env = process.env) {
       'Oversize probe has an unsafe advertised chunk bound');
     for (const chunked of [false,true]) {
       const body = Buffer.alloc(probe.chunkBytes+1,65); const endpoint = new URL(url);
-      for (const [key,value] of Object.entries({operation:'chunk',uploadId:probe.id,offset:0,bytes:probe.chunkBytes,
+      for (const [key,value] of Object.entries({apiVersion:2,operation:'chunk',uploadId:probe.id,offset:0,bytes:probe.chunkBytes,
         sha256:createHash('sha256').update(body.subarray(0,probe.chunkBytes)).digest('hex')})) endpoint.searchParams.set(key,String(value));
       const response = await rawPost(endpoint,headers,body,{chunked});
+      assertMetadataVersion(response);
       h.assert([400,413].includes(response.status) && response.json?.ok === false,'Oversized actual request was not refused');
       const current = await importApi(page,'cdsImportStatus',{section:'upload',uploadId:probe.id});
       h.assert(current.body?.upload?.receivedBytes === 0 && current.body?.upload?.committedChunks === 0
@@ -318,4 +326,4 @@ async function run(env = process.env) {
   finally { clearInterval(metricTimer); if (browser) await browser.close(); if (sql) sql.dispose(); }
 }
 if (require.main === module) run().catch(error => { console.error(error.message); process.exitCode=1; });
-module.exports = {writeFixture,journalRow,rawPost,interruptPost,serverSample,verifyUploadedBody,run};
+module.exports = {writeFixture,journalRow,rawPost,interruptPost,assertMetadataVersion,serverSample,verifyUploadedBody,run};
