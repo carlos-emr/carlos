@@ -98,6 +98,18 @@ test('completion rejects accepted-only, pending cleanup/reports, resumed work an
   assert.throws(() => gate.assertCompletion({...value,job:{...value.job,optionsDigest:'changed'}},expected),/provenance/);
 });
 
+test('sanitized web job ownership comes from its real owner route and an independent durable scalar', () => {
+  const options=gate.optionsFrom(ordinary()),runId=randomUUID(),fingerprint=gate.optionsDigest(options);
+  const response={status:200,body:{apiVersion:2,job:{id:runId,sourceNamespace:options.sourceNamespace,
+    profile:options.sourceProfile,optionsDigest:fingerprint}}};
+  const expected={runId,options,optionsDigest:fingerprint,owner:'web-130'};
+  gate.assertAcceptance(response,expected,'web-130');
+  assert.equal(response.body.job.operator,undefined);
+  assert.throws(() => gate.assertAcceptance(response,expected,'web-131'),/operator/);
+  for(const patch of [{sourceNamespace:'another'},{profile:'another'},{optionsDigest:'changed'},{id:randomUUID()}])
+    assert.throws(() => gate.assertAcceptance({...response,body:{...response.body,job:{...response.body.job,...patch}}},expected,'web-130'),/acceptance/);
+});
+
 test('a browser-simulated timeout is never counted as the genuine proxy fault', () => {
   const recorder = h.createRecorder(), request = {url:() => 'http://localhost/carlos/form/cdsImportSubmit'};
   const raw = {errorText:'net::ERR_TIMED_OUT',requestRef:new WeakRef(request)};

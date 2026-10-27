@@ -277,6 +277,16 @@ function assertCompletion(value, expected) {
     'Completion still has pending work, a hold, or unreleased maintenance');
 }
 
+function assertAcceptance(response,expected,durableOwner) {
+  // CdsWeb.job deliberately omits operator/provider fields. Ownership is proven by
+  // the actual owner-only endpoint plus an independent exact durable scalar query.
+  h.assert(response.status===200 && response.body?.apiVersion===2 && response.body.job?.id===expected.runId
+    && response.body.job.sourceNamespace===expected.options.sourceNamespace
+    && response.body.job.profile===expected.options.sourceProfile
+    && response.body.job.optionsDigest===expected.optionsDigest && durableOwner===expected.owner,
+    'Durable acceptance does not match the actual nondefault UI command/operator/source');
+}
+
 function assertScopedFault(recorder, fault) {
   if (!fault) {h.assertStrictPage(recorder);return;}
   h.assert(fault.kind==='nginx','Only the genuine Nginx fault has a scoped expectation');
@@ -454,9 +464,8 @@ async function run(env = process.env) {
     const bindAccepted = async id => {
       h.assert(UUID.test(id), 'The upstream acceptance has no durable run handle');
       const response = await importApi(current.page,'cdsImportStatus',{runId:id});
-      h.assert(response.status === 200 && response.body?.apiVersion === 2 && response.body.job?.id === id
-        && response.body.job.operator === owner && response.body.job.optionsDigest === state.optionsDigest,
-        'Durable acceptance does not match the actual nondefault UI command/operator');
+      assertAcceptance(response,{runId:id,options,optionsDigest:state.optionsDigest,owner},
+        sql.value('SELECT operator FROM cds_import_run WHERE id=' + q(id)));
       const job = response.body.job;
       if (state.runId) h.assert(state.runId === id && state.sourceDigest === job.sourceDigest
         && state.rulesetDigest === job.rulesetDigest, 'Reconnect changed the accepted run/source/rules');
@@ -643,4 +652,4 @@ async function run(env = process.env) {
 
 if (require.main === module) run().then(result => { if (result?.outcome === 'NOT_EXECUTED') process.exitCode = 2; })
   .catch(() => { console.error('FAIL lifecycle gate: accepted state retained; inspect protected artifacts'); process.exitCode = 1; });
-module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertScopedFault,expireSession,preflightSession,hashFile,evidencePath,protectedEvidence,contractApi};
+module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertAcceptance,assertScopedFault,expireSession,preflightSession,hashFile,evidencePath,protectedEvidence,contractApi};
