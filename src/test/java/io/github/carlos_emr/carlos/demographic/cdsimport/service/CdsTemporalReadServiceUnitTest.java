@@ -46,6 +46,22 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsTemporalReadServiceUnitTest {
+    @Test void prescriptionStartReadsStartMetadata_notTheIndependentWrittenDate() {
+        var dao=mock(PartialDateDao.class);
+        when(dao.getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_STARTDATE)).thenReturn(PartialDate.YEARONLY);
+        when(dao.getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_WRITTENDATE)).thenReturn(PartialDate.YEARMONTH);
+        var service=new CdsTemporalReadService(dao);
+        assertEquals("2024",service.medicationStart(7,Date.valueOf("2024-01-01"),true).display());
+        verify(dao).getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_STARTDATE);
+        verify(dao,never()).getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_WRITTENDATE);
+    }
+    @Test void prescriptionUnknownAndActualJanuaryFirstRemainDifferent_withoutGuessing() {
+        var service=new CdsTemporalReadService(mock(PartialDateDao.class));
+        assertEquals("Unknown",service.medicationStart(7,null,true).display());
+        assertEquals("2024-01-01",service.medicationStart(8,Date.valueOf("2024-01-01"),false).display());
+        assertThrows(CdsTemporalPrecisionException.class,
+                () -> service.medicationStart(9,Date.valueOf("2024-01-01"),true));
+    }
     @Test void exactJanuaryFirstIsNotGuessedPartial() {
         var value = CdsTemporalNativeDateDto.from(Date.valueOf("2020-01-01"), null);
         assertEquals("FULL_DATE", value.getPrecision());

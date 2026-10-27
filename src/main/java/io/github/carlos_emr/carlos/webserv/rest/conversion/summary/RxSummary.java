@@ -39,13 +39,26 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCompatibilityException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import java.util.Set;
 
 
 @Component
 public class RxSummary implements Summary {
 
+    private final PrescriptionManager rxManager;
+    private final CdsLegacyProjectionService projection;
+
     @Autowired
-    PrescriptionManager rxManager;
+    public RxSummary(PrescriptionManager rxManager, CdsLegacyProjectionService projection) {
+        this.rxManager = java.util.Objects.requireNonNull(rxManager);
+        this.projection = java.util.Objects.requireNonNull(projection);
+    }
 
     protected static final String ELLIPSES = "...";
     protected static final int MAX_LEN_TITLE = 48;
@@ -54,6 +67,8 @@ public class RxSummary implements Summary {
     protected static final int CROP_LEN_KEY = 9;
 
     public SummaryTo1 getSummary(LoggedInInfo loggedInInfo, Integer demographicNo, String summaryCode) {
+        try { projection.requireSupported(demographicNo, Set.of("MedicationsAndTreatments")); }
+        catch (CdsLegacyProjectionException unsupported) { throw importedMedicationUnsupported(demographicNo); }
 
         SummaryTo1 summary = new SummaryTo1("Meds", 0, SummaryTo1.MEDICATIONS_CODE);
 
@@ -72,6 +87,11 @@ public class RxSummary implements Summary {
         long now = System.currentTimeMillis();
         long month = 1000L * 60L * 60L * 24L * 30L;
         for (Drug drug : drugList) {
+            // Defend the legacy Date-only shape even if a damaged chart has lost source metadata.
+            try { CdsMedicationCompatibilityException.requireLegacyCompatible(drug); }
+            catch (CdsMedicationCompatibilityException unsupported) {
+                throw importedMedicationUnsupported(demographicNo);
+            }
             if (drug.isArchived())
                 continue;
             if (drug.isHideFromDrugProfile()) {
@@ -79,7 +99,7 @@ public class RxSummary implements Summary {
             }
 
             String styleColor = "";
-            if (drug.isCurrent() && (drug.getEndDate().getTime() - now <= month)) {
+            if (drug.isCurrent() && drug.getEndDate() != null && (drug.getEndDate().getTime() - now <= month)) {
                 styleColor = "style=\"color:orange;font-weight:bold;\"";
             } else if (drug.isCurrent()) {
                 styleColor = "style=\"color:blue;\"";
@@ -99,5 +119,13 @@ public class RxSummary implements Summary {
             list.add(summaryItem);
             count++;
         }
+    }
+
+    private static WebApplicationException importedMedicationUnsupported(Integer demographicNo) {
+        return new WebApplicationException(Response.status(Response.Status.CONFLICT)
+                .type(MediaType.TEXT_PLAIN_TYPE).entity(new CdsMedicationCompatibilityException().getMessage()
+                        + " (/form/cdsSourceFields?demographicNo=" + demographicNo
+                        + "&category=MedicationsAndTreatments)")
+                .header("Cache-Control", "no-store").build());
     }
 }

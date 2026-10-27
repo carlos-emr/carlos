@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
@@ -107,6 +108,7 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(DemographicCustDao.class);
         createAndRegisterMock(BillingDao.class);
         createAndRegisterMock(AllergyDao.class);
+        createAndRegisterMock(CdsTemporalReadService.class);
         charts = createAndRegisterMock(EChartDao.class);
         demographics = createAndRegisterMock(DemographicManager.class);
         for (String id : List.of("101", "202")) {
@@ -142,6 +144,38 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
         return servlet;
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"year", "month", "unknown", "exact"})
+    void shouldRenderImportedMedicationDatePrecision_andSourceDose_whenPreparingTheActualForm(String precision) throws Exception {
+        request.setMethod("GET"); request.setParameter("demographic_no", "101");
+        var types = EctFindMeasurementTypeUtil.loadMeasurementTypes(definition());
+        var dates = createAndRegisterMock(PartialDateDao.class);
+        registerMock(CdsTemporalReadService.class, new CdsTemporalReadService(dates));
+        String tag = "year".equals(precision) ? PartialDate.YEARONLY
+                : "month".equals(precision) ? PartialDate.YEARMONTH : null;
+        when(dates.getFormat(PartialDate.DRUGS, 7, PartialDate.DRUGS_STARTDATE)).thenReturn(tag);
+        var medication = mock(RxPrescriptionData.Prescription.class);
+        when(medication.getDrugId()).thenReturn(7); when(medication.getCdsCurrentness()).thenReturn("CURRENT");
+        when(medication.getStartDateUnknown()).thenReturn(!"exact".equals(precision));
+        when(medication.getRxDate()).thenReturn("unknown".equals(precision) ? null
+                : java.sql.Date.valueOf("month".equals(precision) ? "2024-03-01" : "2024-01-01"));
+        when(medication.getSpecial()).thenReturn("Source medication half a tablet nightly");
+        when(medication.getRxDisplay()).thenThrow(new AssertionError("Numeric legacy dose must not replace source text"));
+        var rxPatient = mock(RxPatientData.Patient.class);
+        when(rxPatient.getPrescribedDrugsUnique()).thenReturn(new RxPrescriptionData.Prescription[]{medication});
+        when(rxPatient.getActiveAllergies()).thenReturn(new Allergy[0]);
+        try (var servlet = servlet(); var rx = mockStatic(RxPatientData.class);
+                var definitions = mockStatic(EctFindMeasurementTypeUtil.class)) {
+            rx.when(() -> RxPatientData.getPatient(user, 101)).thenReturn(rxPatient);
+            definitions.when(() -> EctFindMeasurementTypeUtil.checkMeasurmentTypes(any(), eq("VTForm"))).thenReturn(types);
+            assertThat(new FrmSetupForm2Action().execute()).isEqualTo(ActionSupport.NONE);
+            String expected = switch (precision) {case "year" -> "2024";case "month" -> "2024-03";case "unknown" -> "Unknown";default -> "2024-01-01";};
+            assertThat((List<?>) request.getAttribute("drugs")).singleElement()
+                    .asString().startsWith(expected + "    ").contains("half a tablet nightly");
+            assertThat(response.getForwardedUrl()).isEqualTo("/WEB-INF/jsp/form/formVTForm.jsp");
+        }
     }
 
     @ParameterizedTest

@@ -44,7 +44,15 @@ public class CdsTemporalReadService {
         return CdsTemporalNativeDateDto.from(stored, id == null ? null : dates.getFormat(table, id, field));
     }
     public CdsTemporalNativeDateDto medicationStart(Drug drug) {
-        return date(drug.getRxDate(), PartialDate.DRUGS, drug.getId(), PartialDate.DRUGS_STARTDATE);
+        return medicationStart(drug.getId(), drug.getRxDate(),
+                drug.getCdsCurrentness() != null && drug.getStartDateUnknown());
+    }
+    /** The legacy prescription DTO stores its start date in rxDate, never the written-date column. */
+    public CdsTemporalNativeDateDto medicationStart(Integer drugId, Date stored, boolean incomplete) {
+        CdsTemporalNativeDateDto value = date(stored, PartialDate.DRUGS, drugId, PartialDate.DRUGS_STARTDATE);
+        if (incomplete && value.isExact())
+            throw new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporalPrecisionException();
+        return value;
     }
     public CdsTemporalNativeDateDto allergyStart(Allergy allergy) {
         return date(allergy.getStartDate(), PartialDate.ALLERGIES, allergy.getId(), PartialDate.ALLERGIES_STARTDATE);
