@@ -27,6 +27,14 @@
 -->
 <struts>
     <package name="eform" namespace="/" extends="carlos-default" strict-method-invocation="true">
+        <!-- A refused request (SecurityException) renders the shared refusal page with HTTP 403 and an incident id, as in
+             the other modules; without this mapping it fell through to the container's error page as HTTP 500. -->
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+        </global-results>
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
 
         <action name="eform/attachDoc" class="io.github.carlos_emr.carlos.eform.EFormAttachDocs2Action">
         </action>
@@ -52,7 +60,7 @@
         <action name="eform/eformGenerator" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/Eform_dbtags" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/eformFloatingToolbar/eform_floating_toolbar" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
-        <action name="eform/visualEformEditor" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/visualEformEditor" class="io.github.carlos_emr.carlos.eform.gate.ViewVisualEFormEditor2Action"/>
         <action name="eform/partials/upload" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/partials/import" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/partials/upload_image" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>

@@ -138,7 +138,9 @@ class MeasurementGroupMethodUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPreserveGetNavigation_withoutPersistingChanges() throws Exception {
         request.setMethod("GET");
-        assertThat(edit(null).execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(edit(null).execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        response = new MockHttpServletResponse();
         assertThat(select("type").execute()).isEqualTo("type");
         assertThat(request.getSession().getAttribute("groupName")).isEqualTo("owned");
         verifyNoInteractions(groups, styles, manager);

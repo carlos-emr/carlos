@@ -28,6 +28,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 
@@ -204,6 +206,38 @@ class FlowSheetCustom2ActionIntegrationTest extends CarlosWebTestBase {
                 .hasMessageContaining("(_demographic)");
         verify(mockFlowSheetCustomizationService, never()).validateScopePermission(any(LoggedInInfo.class), anyString());
         verify(mockFlowSheetUserCreatedDao, never()).persist(any(FlowSheetUserCreated.class));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"restore,''", "restore,'   '", "revertUpdate,''", "revertUpdate,'   '"})
+    void shouldModifyOnlyLoggedInProviderScope_whenPatientParameterIsBlank(String method, String demographic) throws Exception {
+        allowPrivilege("_flowsheet", "w");
+        allowPrivilege("_demographic", "w");
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        addRequestParameter("method", method);
+        addRequestParameter("flowsheet", "tracker");
+        addRequestParameter("measurement", "WT");
+        addRequestParameter("demographic", demographic);
+        FlowSheetCustomization own = new FlowSheetCustomization();
+        own.setId(7);
+        own.setProviderNo("999998");
+        own.setMeasurement("WT");
+        own.setAction("restore".equals(method) ? FlowSheetCustomization.DELETE : FlowSheetCustomization.UPDATE);
+        when(mockFlowSheetCustomizationDao.getProviderLevelCustomizations("tracker", "999998"))
+                .thenReturn(java.util.List.of(own));
+
+        assertThat(executeAction(new FlowSheetCustom2Action())).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(mockFlowSheetCustomizationDao).getProviderLevelCustomizations("tracker", "999998");
+        verify(mockFlowSheetCustomizationDao, never()).getPatientLevelCustomizations(anyString(), anyString());
+        verify(mockFlowSheetCustomizationDao, never()).getClinicLevelCustomizations(anyString());
+        assertThat(mockRequest.getAttribute("demographic")).isNull();
+        if ("restore".equals(method)) {
+            verify(mockFlowSheetCustomizationDao).remove(7);
+        } else {
+            verify(mockFlowSheetCustomizationDao).merge(own);
+            assertThat(own.isArchived()).isTrue();
+        }
     }
 
     @Test

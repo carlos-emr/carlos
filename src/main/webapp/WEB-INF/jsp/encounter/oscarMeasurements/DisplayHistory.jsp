@@ -95,6 +95,7 @@
     </div>
 <% } %>
     <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DeleteData2" method="post">
+        <input type="hidden" name="demographicNo" value="<%=demo%>">
 
         <table style="border-width: 2px; width: 100%; border-spacing: 0px; ">
             <c:if test="${not empty messages}">
@@ -247,7 +248,7 @@
                             <td>
                                 <input type="button" name="Button" class="btn DoNotPrint"
                                     value="<fmt:message key="encounter.oscarMeasurements.oldmesurementindex"/>"
-                                    onclick="javascript: popupPage(300,800,'encounter/oscarMeasurements/SetupHistoryIndex')">
+                                    onclick="javascript: popupPage(300,800,'<%=request.getContextPath()%>/encounter/oscarMeasurements/SetupHistoryIndex?demographicNo=<%=demo%>')">
                             </td>
 
                             <!-- Print button -->

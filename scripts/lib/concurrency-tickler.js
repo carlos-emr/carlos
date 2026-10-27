@@ -3,6 +3,7 @@
 /* Tickler fixture and navigation shared by the concurrency-tickler-* checks. */
 const h = require('./playwright-harness');
 const ui = require('./playwright-ui');
+const { masterRecordLink } = require('./master-record-link');
 
 /**
  * Seed one active tickler for the owned patient and register its cleanup (tickler, comments and
@@ -24,7 +25,7 @@ function seedTickler(s, tag) {
 
 /** Master Record > Tickler: the patient's tickler list, as a popup. */
 async function openPatientTicklerList(context, master, recorder, label) {
-  const page = await ui.clickOpensPopup(master, master.locator('.patient-nav a[href*="/tickler/ViewTicklerMain"], a[onclick*="/tickler/ViewTicklerMain"]').first(),
+  const page = await ui.clickOpensPopup(master, masterRecordLink(master, '/tickler/ViewTicklerMain').first(),
     { context, recorder, label, timeout: 20000 });
   await page.waitForLoadState('domcontentloaded', { timeout: 20000 });
   await h.assertNotErrorPage(page, 'the patient tickler list');

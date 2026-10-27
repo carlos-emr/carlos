@@ -15,6 +15,7 @@ function literalRows(sql, table, headerCount, columnCount, key, positionalColumn
     demographic: /^INSERT(?: IGNORE)? INTO `demographic` \(([^)]+)\) VALUES\s*/gm,
     emailLog: /^INSERT(?: IGNORE)? INTO `emailLog` \(([^)]+)\) VALUES\s*/gm,
     pharmacyInfo: /^INSERT(?: IGNORE)? INTO `pharmacyInfo` \(([^)]+)\) VALUES\s*/gm,
+    formRourke2020: /^INSERT(?: IGNORE)? INTO `formRourke2020` \(([^)]+)\) VALUES\s*/gm,
     prescription: /^INSERT(?: IGNORE)? INTO `prescription` VALUES\s*/gm,
     drugs: /^INSERT(?: IGNORE)? INTO `drugs` VALUES\s*/gm,
   };
@@ -130,6 +131,17 @@ test('demo email-log attribution is not confused with additional parameters', ()
   for (const row of rows.values()) assert.match(row.providerNo, /^(?:NULL|-?\d+|'-?\d+')$/);
   assert.ok([...rows.values()].some(row => row.providerNo === '999998'));
   assert.ok([...rows.values()].some(row => row.additionalParams.length > 8));
+});
+
+test('demo Rourke records name their legacy columns so new nullable notes do not break initialization', () => {
+  const schema = fs.readFileSync(path.join(root, 'database/mysql/migration/common/V1__baseline_schema.sql'), 'utf8');
+  const start = schema.indexOf('CREATE TABLE `formRourke2020` (');
+  const end = schema.indexOf('\n) ENGINE=', start);
+  assert.ok(start >= 0 && end > start);
+  const columns = [...schema.slice(start, end).matchAll(/^  `([^`]+)`/gm)].map(match => match[1]);
+  const rows = literalRows(fs.readFileSync(input, 'utf8'), 'formRourke2020', 1, columns.length, 'ID');
+  assert.ok(rows.size > 0);
+  for (const row of rows.values()) assert.deepEqual(Object.keys(row), columns);
 });
 
 test('demo pharmacies keep names, fax numbers, dates and stable UIDs in their own columns', () => {

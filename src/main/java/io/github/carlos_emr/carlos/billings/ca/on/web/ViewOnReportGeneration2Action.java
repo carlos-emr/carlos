@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreationSer
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -85,6 +86,10 @@ public class ViewOnReportGeneration2Action extends ActionSupport {
             onBillingDiskService.generateNewDisk(request);
         } catch (InvalidBillingGroupException invalidGroup) {
             request.setAttribute("ohipInvalidGroupProviders", invalidGroup.getProviderNumbers());
+            return INPUT;
+        } catch (InvalidOhipProviderFieldsException invalidFields) {
+            // Refused before any disk was allocated, like an invalid group number.
+            request.setAttribute("ohipInvalidProviderFields", invalidFields.getProblems());
             return INPUT;
         } catch (BillingValidationException rejected) {
             // Other validation (a selected provider that is not billable, a bad date

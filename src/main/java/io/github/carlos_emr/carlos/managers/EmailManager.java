@@ -57,6 +57,9 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
+import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
+import io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
@@ -336,6 +339,8 @@ public class EmailManager {
                 emailData.setPassword("");
                 emailData.setPasswordClue("");
             }
+            List<EmailFieldLengthValidator.Violation> violations = EmailFieldLengthValidator.validate(emailData);
+            if (!violations.isEmpty()) throw new EmailFieldLengthException(violations);
             EmailConfig emailConfig = findActiveSenderEmailConfig(emailData);
             if (emailConfig == null) {
                 logger.warn("Email send failed before transport: sender configuration is missing or inactive; senderConfigId={}",
@@ -1581,14 +1586,34 @@ public class EmailManager {
      * Sanitization rules:
      * - If no encrypted message and no attachments: disable encryption entirely
      * - If no encrypted message and unencrypted attachments: disable encryption
+     * - If encryption disabled: clear all encryption-related fields (checked first)
      * - If no attachments: disable attachment encryption
-     * - If encryption disabled: clear all encryption-related fields
      * - If no chart note: clear internal comment
      *
      * @param emailData EmailData the email data to sanitize
      */
     private void sanitizeEmailFields(EmailData emailData) {
-        if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage()) && emailData.getAttachments().isEmpty()) {
+        // Every send path, not only the eForm setup, must strip line breaks from the subject: the
+        // direct compose POST reaches here with the raw request value, and CR/LF in a subject is
+        // an SMTP header injection. Done before validation so the stored and sent subjects match.
+        emailData.setSubject(EmailAttachmentSettings.sanitizeSubject(emailData.getSubject()));
+        // The eForm setup strips control characters from the password and clue, but the direct
+        // compose and resend POSTs reach here with the raw values. Apply the same rule to every
+        // path, before validation, so the length check, the stored value and the PDF password
+        // all see one value (the compose page counts these fields the same way).
+        emailData.setPassword(EmailAttachmentSettings.sanitizePassword(emailData.getPassword()));
+        emailData.setPasswordClue(EmailAttachmentSettings.sanitizePassword(emailData.getPasswordClue()));
+        if (!emailData.getIsEncrypted()) {
+            // Encryption is off, so nothing below will use these fields: the encrypted message is
+            // only ever sent as the password-protected PDF. Clear them first. Previously an
+            // encrypted message typed before switching encryption off (and with no attachments)
+            // was kept and stored although never sent, and the length check could then reject a
+            // field the compose page hides and does not check, e.g. on an eForm auto-send.
+            emailData.setEncryptedMessage("");
+            emailData.setIsAttachmentEncrypted(false);
+            emailData.setPassword("");
+            emailData.setPasswordClue("");
+        } else if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage()) && emailData.getAttachments().isEmpty()) {
             emailData.setIsEncrypted(false);
             emailData.setIsAttachmentEncrypted(false);
             emailData.setPassword("");
@@ -1600,11 +1625,6 @@ public class EmailManager {
             emailData.setPasswordClue("");
         } else if (emailData.getAttachments().isEmpty()) {
             emailData.setIsAttachmentEncrypted(false);
-        } else if (!emailData.getIsEncrypted()) {
-            emailData.setEncryptedMessage("");
-            emailData.setIsAttachmentEncrypted(false);
-            emailData.setPassword("");
-            emailData.setPasswordClue("");
         }
 
         if (emailData.getChartDisplayOption().equals(ChartDisplayOption.WITHOUT_NOTE)) {

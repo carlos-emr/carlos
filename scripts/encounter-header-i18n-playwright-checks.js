@@ -102,6 +102,18 @@ const FRENCH_LABELS = Object.freeze({
 
 const LANGUAGES = [
   {
+    // The first chart in a genuinely fresh French browser session, with no route
+    // rewriting Accept-Language. Keep this first so the check does not warm the
+    // server with an English chart before investigating the initial-open report.
+    tag: 'fr-CA',
+    nativeLanguage: true,
+    expectedLanguage: 'fr',
+    javaLabels: FRENCH_LABELS,
+    calculators: 'calculatrices',
+    templateLegend: 'Template Search',
+    templatePlaceholder: 'template name',
+  },
+  {
     tag: 'en-CA',
     acceptLanguage: 'en-CA,en;q=0.9',
     // language subtag the server must state it negotiated (html lang / #header-top-row lang)
@@ -150,16 +162,66 @@ const CALCULATOR_LINKS = '#header a[onclick*="ViewCalculators"], #header a[href*
 /** The note-template search box, rendered into the chart by ChartNotes.jsp. */
 const TEMPLATE_INPUT = '#enTemplate';
 
+/** Parse the actual navigation response without executing any of its scripts. */
+function parseInitialHeader(html) {
+  const document = new DOMParser().parseFromString(html, 'text/html');
+  const header = document.getElementById('header-top-row');
+  const calculators = document.querySelectorAll('#header a[onclick*="ViewCalculators"], #header a[href*="ViewCalculators"]');
+  const labels = [...document.querySelectorAll('#header #patient-label .label')];
+  if (!header || !labels.length || !calculators.length || !calculators[0].textContent.trim()) return null;
+  return {
+    identityLabelsById: Object.fromEntries(labels.map(label => [label.parentElement.id, label.textContent.trim()])),
+    calculatorCount: calculators.length,
+    calculatorText: calculators[0].textContent.trim(),
+    lang: { page: document.documentElement.getAttribute('lang') || '', header: header.getAttribute('lang') || '' },
+  };
+}
+
+function isChartNavigation(request) {
+  // An initial popup navigation may exist before Playwright can associate its frame.
+  return request.isNavigationRequest() && new URL(request.url()).pathname.endsWith('/CaseManagementEntry');
+}
+
+async function readInitialChartHeader(requests, chartPage) {
+  const matching = requests.filter(isChartNavigation);
+  assert(matching.length === 1, 'Expected exactly one chart document response');
+  const response = await matching[0].response();
+  assert(response && response.status() === 200 && /text\/html/i.test(response.headers()['content-type'] || ''),
+    'The initial chart document was not a successful HTML response');
+  // Use the original response, not a second GET that could already have initialized
+  // locale/session state. Popup initial-document replacement can disconnect an init-script
+  // MutationObserver before parsing; the response retains the exact server-rendered labels.
+  return chartPage.evaluate(parseInitialHeader, await response.text());
+}
+
+function assertInitialHeader(language, initial, settled) {
+  assert(initial, 'The initial server-rendered chart header is missing');
+  assert(JSON.stringify(initial.identityLabelsById) === JSON.stringify(settled.identityLabelsById)
+    && initial.calculatorCount === settled.calculatorCount && initial.calculatorText === settled.calculatorText,
+  `The ${language.tag} header changed after its initial render (before reload)`);
+  assert(initial.lang.page === initial.lang.header
+    && initial.lang.page.split('-')[0].toLowerCase() === language.expectedLanguage,
+  `The ${language.tag} initial render negotiated ${JSON.stringify(initial.lang)}`);
+}
+
+/** Request object stays local; diagnostics retain only language, never URL/query/cookies. */
+async function readChartRequestLanguage(requests) {
+  const matching = requests.filter(isChartNavigation);
+  assert(matching.length === 1, 'Expected exactly one initial chart document request in this fresh session');
+  return (await matching[0].allHeaders())['accept-language'] || '';
+}
+
 /**
  * Open the chart from the Master Record.
  *
- * By the onclick, NOT by the link's text: the E-Chart link is itself translated
- * (demographic.demographiceditdemographic.btnEChart is "Dossier electronique" in
- * French), so a text matcher would find nothing in the very language this check
- * exists to exercise.
+ * By the onclick or the navigation's popup marker, NOT by the link's text: the
+ * E-Chart link is itself translated (demographic.demographiceditdemographic.btnEChart
+ * is "Dossier electronique" in French), so a text matcher would find nothing in the
+ * very language this check exists to exercise.
  */
 async function openChart(context, masterPage, recorder, timeout) {
-  const chartLink = masterPage.locator('a[onclick*="popupEChart"]').first();
+  // The record's navigation (#4468) marks its E-Chart link data-nav-popup="echart"; older pages call popupEChart().
+  const chartLink = masterPage.locator('.patient-nav a[data-nav-popup="echart"], a[onclick*="popupEChart"]').first();
   assert(await chartLink.count() > 0,
     'The Master Record offers no E-Chart control, so a clinician cannot open the chart from the patient record');
   const { page } = await clickOpensPopupOrNavigates(masterPage, chartLink, {
@@ -274,18 +336,36 @@ async function walkInLanguage(browser, config, language, options) {
     locale: language.tag,
   });
   try {
+    assert((await context.cookies()).length === 0, 'Locale checks must begin without session cookies');
+    const chartRequests = [];
+    context.on('request', request => {
+      if (isChartNavigation(request)) {
+        chartRequests.push(request);
+      }
+    });
     // Chromium's locale emulation overrides extraHTTPHeaders for Accept-Language,
     // reducing a weighted preference list to the single emulated locale. Apply
     // the intended browser preferences at request dispatch so fallback is tested.
-    await context.route('**/*', (route) => route.continue({
-      headers: { ...route.request().headers(), 'accept-language': language.acceptLanguage },
-    }));
+    if (!language.nativeLanguage) {
+      await context.route('**/*', (route) => route.continue({
+        headers: { ...route.request().headers(), 'accept-language': language.acceptLanguage },
+      }));
+    }
     const schedulePage = await login(context, config, recorder);
     const { masterPage } = await openMasterRecord(context, schedulePage, recorder, {
       searchTerm, preferredDemographicNo, timeout,
     });
     const chartPage = await openChart(context, masterPage, recorder, timeout);
+    const firstRequestLanguage = await readChartRequestLanguage(chartRequests);
     const header = await readHeader(chartPage, timeout);
+    const initial = await readInitialChartHeader(chartRequests, chartPage);
+    assertInitialHeader(language, initial, header);
+    assertLanguage(language, header);
+    assert(firstRequestLanguage, 'The initial chart request sent no Accept-Language');
+    if (language.nativeLanguage) {
+      assert(firstRequestLanguage.toLowerCase().startsWith('fr'),
+        'The native French session did not send French as its first language');
+    }
 
     // FIRST OPEN MUST EQUAL RELOAD. An alpha15 field report said the chart's
     // FIRST open rendered the header in English and only an F5 produced the
@@ -302,11 +382,19 @@ async function walkInLanguage(browser, config, language, options) {
     // to nothing else.
     await releaseChartLocks(context, config.baseUrl, [chartPage]);
     const failuresBeforeReload = recorder.requestFailures.length;
+    chartRequests.length = 0;
     await chartPage.reload({ waitUntil: 'load', timeout });
     const addedByReload = recorder.requestFailures.splice(failuresBeforeReload);
     recorder.requestFailures.push(...addedByReload.filter((entry) => !(entry.resourceType === 'ping'
       && entry.errorText === 'net::ERR_ABORTED')));
     const reloaded = await readHeader(chartPage, timeout);
+    const reloadInitial = await readInitialChartHeader(chartRequests, chartPage);
+    assertInitialHeader(language, reloadInitial, reloaded);
+    assertLanguage(language, reloaded);
+    const reloadRequestLanguage = await readChartRequestLanguage(chartRequests);
+    assert(firstRequestLanguage === reloadRequestLanguage,
+      `The chart request language changed from ${JSON.stringify(firstRequestLanguage)} on first open `
+      + `to ${JSON.stringify(reloadRequestLanguage)} on reload`);
     const reloadLang = await readLangAttributes(chartPage);
     assert(JSON.stringify(reloaded.identityLabelsById) === JSON.stringify(header.identityLabelsById)
       && reloaded.calculatorText === header.calculatorText
@@ -365,7 +453,7 @@ async function main() {
     for (const language of LANGUAGES) {
       const header = await walkInLanguage(browser, config, language, options);
       assertLanguage(language, header);
-      headers[language.tag] = header;
+      headers[language.nativeLanguage ? `${language.tag}-native` : language.tag] = header;
     }
   } finally {
     await browser.close().catch(() => {});
@@ -383,12 +471,14 @@ async function main() {
   assert(english.calculatorText !== french.calculatorText,
     'The calculators control reads the same in both languages, so the header labels are not being translated');
 
-  return `header locale negotiation verified for ${LANGUAGES.map((language) => language.tag).join(', ')}; `
-    + 'one calculators control in each; template search legend and placeholder match configured bundle values';
+  return `header locale negotiation verified for ${LANGUAGES.map((language) => language.tag + (language.nativeLanguage ? ' (native)' : '')).join(', ')}; `
+    + 'first fresh session render, settled header and reload agree; one calculators control in each; '
+    + 'template search legend and placeholder match configured bundle values';
 }
 
 if (require.main === module) {
   runCheck({ name: 'encounter-header-i18n', run: main });
 }
 
-module.exports = { CALCULATOR_LINKS, IDENTITY_LABELS, LANGUAGES, TEMPLATE_INPUT, assertLanguage, main };
+module.exports = { CALCULATOR_LINKS, IDENTITY_LABELS, LANGUAGES, TEMPLATE_INPUT, assertLanguage,
+  parseInitialHeader, readInitialChartHeader, assertInitialHeader, readChartRequestLanguage, main };

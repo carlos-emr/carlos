@@ -459,6 +459,37 @@ test('shouldTakeTheBaselineBeforeTheFirstCheck_andAuditAfterTheLast', () => {
   assert.deepEqual(events.map((event) => event.split(' ')[0]), ['begin', 'check', 'check', 'finish', 'dispose']);
 });
 
+test('shouldRestoreNavigationPreferencesBeforeAuditing_evenWhenTheBrowserCheckFails', () => {
+  const {events, code} = runnerWith([check('schedule-links')], {
+    statuses: {'schedule-links': 1},
+    residueAudit: events => ({begin() {
+      events.push('begin');
+      return {
+        preserveNavigation(check) {
+          events.push(`snapshot ${check.name}`);
+          return {cleanup() { events.push('restore'); }};
+        },
+        finish() { events.push('audit'); return {residue: [], absent: [], notDiffed: []}; },
+        dispose() { events.push('dispose'); },
+      };
+    }}),
+  });
+  assert.equal(code, EXIT_FAIL);
+  assert.deepEqual(events, ['begin', 'snapshot schedule-links', 'check schedule-links', 'restore', 'audit', 'dispose']);
+});
+
+test('shouldFailTheSuite_whenNavigationOwnershipCannotBeRestored', () => {
+  const {code, text} = runnerWith([check('schedule-links')], {
+    residueAudit: () => ({begin: () => ({
+      preserveNavigation: () => ({cleanup() { throw new Error('ownership changed'); }}),
+      finish: () => ({residue: [], absent: [], notDiffed: []}), dispose() {},
+    })}),
+  });
+  assert.equal(code, EXIT_FAIL);
+  assert.match(text, /schedule-links-navigation-cleanup/);
+  assert.match(text, /ownership changed/);
+});
+
 test('shouldPassTheSelectedChecksMutates_toTheBaseline', () => {
   const { events } = runnerWith([
     check('a', { mutates: ['fax_config'] }), check('b', { mutates: ['property:x', 'fax_config'] }), check('c'),

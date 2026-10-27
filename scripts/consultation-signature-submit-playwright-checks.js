@@ -64,7 +64,7 @@
  */
 
 const { chromium } = require('playwright');
-const {createSqlRunner, readConfig, sqlString} = require('./lib/playwright-harness');
+const {createSqlRunner, readConfig, sqlString, shouldIgnoreHttpsErrors} = require('./lib/playwright-harness');
 const {createConsultationSubmitFixture} = require('./lib/consultation-submit-fixture');
 const {CONSULTATION_ROWS, createOwnedPatient, newOwnedMarker, removeOwnedPatient} = require('./lib/owned-patient');
 const {createGracefulSignalCancellation} = require('./graceful-signal-cancellation');
@@ -349,13 +349,15 @@ async function requestPrintPreviewWithStamp(page) {
   };
 }
 
+let consultSpecialistId;
+
 async function runStampCreateHappy(context, csrfToken) {
   const label = 'stamp-create-happy';
   const response = await postConsultation(context, {
     submission: 'Submit Consultation Request',
     demographicNo: consultDemoNo,
     service: consultServiceId,
-    specialist: '0',
+    specialist: consultSpecialistId,
     sendTo: '',
     newSignature: 'false',
     signatureImg: '',
@@ -386,7 +388,7 @@ async function runStampCreateWarning(context, csrfToken) {
     submission: 'Submit Consultation Request',
     demographicNo: consultDemoNo,
     service: consultServiceId,
-    specialist: '0',
+    specialist: consultSpecialistId,
     sendTo: '',
     newSignature: 'false',
     signatureImg: '',
@@ -421,7 +423,7 @@ async function runStampUpdate(context, csrfToken) {
     requestId: unsignedRequestId,
     demographicNo: consultDemoNo,
     service: consultServiceId,
-    specialist: '0',
+    specialist: consultSpecialistId,
     sendTo: '',
     newSignature: 'false',
     signatureImg: '',
@@ -494,10 +496,12 @@ async function runStampPrintPreview(context) {
     sql = createSqlRunner(readConfig().mysql);
     const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(testUser)}`);
     if (!provider) throw new Error('The configured test login has no provider');
+    consultSpecialistId = sql.value('SELECT MIN(specId) FROM professionalSpecialists WHERE deleted=0');
+    if (!/^[1-9]\d*$/.test(consultSpecialistId)) throw new Error('An active consultant is required for signature save scenarios');
     consultDemoNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
     fixture = createConsultationSubmitFixture(sql, consultDemoNo, process.env.CONSULT_APPLICATION_TEMP_DIR);
     browser = await chromium.launch(launchOptions);
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
     const loginPage = await login(context);
     await loginPage.close();
 

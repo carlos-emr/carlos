@@ -196,7 +196,7 @@ class FormsServiceUnitTest extends CarlosUnitTestBase {
     void shouldDenyCompletedEncounterForms_whenCallerLacksFormsReadPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
-        assertThatThrownBy(() -> service.getCompletedFormNames("1"))
+        assertThatThrownBy(() -> service.getCompletedFormNames(1))
             .isInstanceOf(SecurityException.class)
             .hasMessage("missing required sec object (_newCasemgmt.forms)");
 
@@ -248,7 +248,7 @@ class FormsServiceUnitTest extends CarlosUnitTestBase {
     void shouldScopePrivilegeToPatient_whenReadingCompletedEncounterForms() {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
-        assertThatThrownBy(() -> service.getCompletedFormNames("42"))
+        assertThatThrownBy(() -> service.getCompletedFormNames(42))
             .isInstanceOf(SecurityException.class);
 
         verify(mockSecurityInfoManager).hasPrivilege(any(), eq("_newCasemgmt.forms"), eq("r"), eq("42"));

@@ -18,6 +18,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { documentChain, pickInPopup, lostOpenerMessage } = require('./lib/popup-opener-helpers');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const DRUG_TERM = process.env.RX_EDIT_DRUG_TERM || 'LIPITOR 20';
 const DRUG_NAME = process.env.RX_EDIT_DRUG_NAME || 'LIPITOR 20MG';
@@ -29,7 +30,7 @@ async function workflow(s) {
   let chooser;
 
   await s.step('the Rx Search button opens the drug chooser listing the typed product', async () => {
-    rx = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+    rx = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
     h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
     await rx.locator('#searchString').waitFor({ state: 'visible' });
     await rx.waitForLoadState('networkidle');

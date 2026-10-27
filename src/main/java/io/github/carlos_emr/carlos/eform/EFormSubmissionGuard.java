@@ -130,6 +130,15 @@ public final class EFormSubmissionGuard {
             return completion == -1 || completion == TransactionSynchronization.STATUS_ROLLED_BACK;
         }
 
+        /**
+         * Whether the storage transaction is confirmed committed, so the eForm is saved. False before
+         * storage finishes and when its outcome is unknown (a lost commit acknowledgement): neither
+         * {@code canRetry()} nor this then holds, and the attempt may or may not have saved the form.
+         */
+        public boolean storageCommitted() {
+            return completion == TransactionSynchronization.STATUS_COMMITTED;
+        }
+
         @Override
         public synchronized void close() {
             // A repeated close must not release a later retry's reservation.

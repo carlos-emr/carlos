@@ -23,11 +23,16 @@ async function run() {
   const browser = await launchBrowser({chromePath:process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '',headless:true});
   try {
     const page = await browser.newPage({timezoneId:'America/Vancouver'}); const errors=[]; const pending=[]; const templateRequests=[]; const catalogRequests=[];
+    const measurementRouteWaiters=new Set();
     page.on('pageerror',error=>errors.push(error.message));
     page.on('dialog',dialog=>dialog.accept());
     await page.route('**/*',async route=>{
       const url = new URL(route.request().url());
-      if (url.pathname==='/carlos/ws/rs/measurements/17') {pending.push(route); return;}
+      if (url.pathname==='/carlos/ws/rs/measurements/17') {
+        pending.push(route);
+        for (const ready of measurementRouteWaiters) ready();
+        return;
+      }
       const name=url.pathname.split('/').pop();
       if (name==='efmformrtl_templates') {catalogRequests.push(route);return;}
       if (name==='efmformapconfig_lookup') {templateRequests.push(route);return;}
@@ -69,6 +74,17 @@ async function run() {
     // while its actual action functions can be exercised with this isolated editor.
     await page.addScriptTag({path:web+'/eform/eformFloatingToolbar/eform_floating_toolbar.js'});
     await page.addScriptTag({path:web+'/library/eforms/printControl.js'});
+    function waitForMeasurementRequest() {
+      if (pending.length) return Promise.resolve();
+      return new Promise((resolve,reject)=>{
+        function ready() {clearTimeout(timer);measurementRouteWaiters.delete(ready);resolve();}
+        const timer=setTimeout(()=>{
+          measurementRouteWaiters.delete(ready);
+          reject(new Error('Timed out waiting for the measurement request route'));
+        },10000);
+        measurementRouteWaiters.add(ready);
+      });
+    }
     async function begin(types) {
       await page.evaluate(types=>{ // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- types are fixed BP/WT arrays below, structured-cloned into a literal function; every network request is fulfilled locally or aborted by the fixture route.
         const doc=document.getElementById('edit').contentDocument;
@@ -77,11 +93,13 @@ async function run() {
         const selection=doc.getSelection();selection.removeAllRanges();selection.addRange(range);
         window.loaded=Promise.all(types.map(type=>getMeasures(type,1)));
       },types);
-      await page.waitForTimeout(10);
+      // In-flight scenarios start only after the actual route is held; a timer
+      // delay cannot prove that the queued browser batch has issued its request.
+      await waitForMeasurementRequest();
     }
     async function respond(measurements) {
       // Waiting on a route allows the real XHR event handlers to drive the queue.
-      for (let n=0;n<100&&!pending.length;n++) await page.waitForTimeout(10);
+      await waitForMeasurementRequest();
       assert(pending.length,'measurement request was issued');
       const route=pending.shift();assert.equal(route.request().method(),'POST');
       await route.fulfill({contentType:'application/json',body:JSON.stringify({measurements})});
@@ -164,6 +182,34 @@ async function run() {
     assert.equal(await page.locator('#faxEForm').inputValue(),'false');
     await page.locator('[name=PrintSaveButton]').click();assert.equal(await page.evaluate(()=>window.prints),1);
     await body.pressSequentially(' MORE');assert.match(await body.textContent(),/TYPED MORE$/);
+
+    // Replacing the letter in the same task cancels a still-queued batch.
+    // No request should be issued, unlike the following in-flight response case.
+    const queuedRequests=[];
+    const observeQueuedRequest=request=>{
+      if (new URL(request.url()).pathname==='/carlos/ws/rs/measurements/17') queuedRequests.push(request);
+    };
+    page.on('request',observeQueuedRequest);
+    try {
+      const queued=await page.evaluate(()=>{
+        const doc=document.getElementById('edit').contentDocument;
+        doc.body.textContent='QUEUED ORIGINAL';doc.getSelection().removeAllRanges();
+        window.loaded=Promise.all([getMeasures('BP',1)]);
+        const wasQueued=!!pendingMeasureBatch && !activeMeasureBatch && measureBatchesPending===1;
+        cache.put('fixtureQueuedReplacement','Queued replacement template');
+        seteditControlContents('edit','<p>##fixtureQueuedReplacement##</p>');
+        parseTemplate();
+        return wasQueued;
+      });
+      assert.equal(queued,true);
+      await page.waitForFunction(()=>!measurementHistoryStillLoading());
+      assert.equal((await page.evaluate(()=>window.loaded))[0].failed,true);
+      assert.equal(queuedRequests.length,0);
+      assert.equal(pending.length,0);
+      assert.equal(await body.textContent(),'Queued replacement template');
+      await page.locator('#rtl-measurement-status').waitFor({state:'visible'});
+      assert.match(await page.locator('#rtl-measurement-status').textContent(),/retry.*BP/);
+    } finally {page.off('request',observeQueuedRequest);}
 
     await begin(['BP']);
     await page.evaluate(()=>{

@@ -46,6 +46,8 @@ class EctMeasurements2ActionTest extends CarlosWebTestBase {
     void setUpAction() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any()))
                 .thenReturn(false);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), any(Integer.class)))
+                .thenReturn(true);
         mockRequest.setMethod("POST");
         mockSession.setAttribute("user", "999998");
     }

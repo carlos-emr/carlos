@@ -55,6 +55,7 @@
 
 const net = require('node:net');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const EXACT_LOCAL_HOSTS = new Set([
   'localhost',
@@ -350,7 +351,7 @@ async function expectValidationWithoutNavigation(page, submitSelector, label) {
   const browser = await chromium.launch(launchOptions);
   try {
     const context = await browser.newContext({
-      ignoreHTTPSErrors: isExactLocalHost(normalizedHostname(baseUrl)),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1024, height: 700 },
       locale: testLocale,
     });

@@ -39,11 +39,14 @@
 
     Loaded via setupDxResearch from the patient encounter or demographic view.
 
-    Request Attributes:
+    Request Attributes (this request's own patient; set by setupDxResearch and by dxResearch's
+    validation-failure re-render, never read from the session, issue #4673):
     - demographicNo: Patient ID
     - providerNo: Current provider
-    - codingSystem: Available coding systems
     - allDiagnostics: Patient's current diagnoses
+
+    Session Attributes (the provider's configuration, no patient data):
+    - codingSystem: Available coding systems
     - allQuickLists / allQuickListItems: Quick list data (via dxQuickList.jsp include)
 
     Security:

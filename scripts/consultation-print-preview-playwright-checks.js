@@ -242,6 +242,21 @@ async function main() {
       console.log('  no service picker on this deployment (health care team mode); '
         + 'the referral is created without one');
     }
+    // A saved consultation requires an active directory destination (#3336).
+    const consultantInput = newPage.locator('#specialistInput');
+    if (await consultantInput.count()) {
+      await consultantInput.click({ timeout });
+      const consultant = newPage.locator('ul.ui-autocomplete:visible li.ui-menu-item').first();
+      await consultant.waitFor({ state: 'visible', timeout });
+      await consultant.click();
+    } else {
+      const value = await newPage.locator('#specialist option').evaluateAll(options =>
+        (options.find(option => /^[1-9]\d*$/.test(option.value)) || {}).value || '');
+      assert(value && /^[1-9]\d*$/.test(value), 'The owned patient needs an active Health Care Team consultant');
+      await newPage.locator('#specialist').selectOption(value);
+    }
+    assert(/^[1-9]\d*$/.test(await newPage.locator('#specialist').inputValue()),
+      'No active consultant could be selected for the print-preview fixture');
     // Wait for the save POST itself, not a guessed interval: on a slow CI host a fixed wait can
     // expire before the row exists, and the SQL lookup below then fails for a reason that has
     // nothing to do with what this check is testing.

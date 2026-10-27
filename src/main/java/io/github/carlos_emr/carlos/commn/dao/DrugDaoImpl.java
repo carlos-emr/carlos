@@ -66,6 +66,16 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @Override
+    public int archiveIfActive(int drugId, int demographicNo, String reason, Date archivedDate) {
+        // A bulk update bypasses @PreUpdate, so preserve the sync timestamp explicitly.
+        return entityManager.createQuery("update Drug d set d.archived = true, d.archivedReason = :reason,"
+                + " d.archivedDate = :date, d.lastUpdateDate = :date"
+                + " where d.id = :id and d.demographicId = :patient and d.archived = false")
+                .setParameter("reason", reason).setParameter("date", archivedDate)
+                .setParameter("id", drugId).setParameter("patient", demographicNo).executeUpdate();
+    }
+
+    @Override
     public boolean addNewDrug(Drug d) {
         try {
             entityManager.persist(d);

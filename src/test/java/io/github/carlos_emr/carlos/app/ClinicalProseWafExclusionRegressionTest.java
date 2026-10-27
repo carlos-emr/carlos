@@ -78,6 +78,11 @@ class ClinicalProseWafExclusionRegressionTest {
             "^test_[0-9]+[.]labnotes$",
             "^contact_[0-9]+[.]note$",
             "^waitingListBean[[][0-9]+[]][.]note$");
+    /** Rx Save Only: exempt exactly the four observed families; retain SQLi, protocol and XSS. */
+    private static final List<String> RX_CARD_PROSE_PATTERNS = List.of(
+            "^(?-i:drugName_[0-9]+)\\z", "^(?-i:instructions_[0-9]+)\\z", "^(?-i:rxComment_[0-9]+)\\z");
+    private static final String[] RX_CARD_ATTACK_TAGS = {
+            "attack-lfi", "attack-rfi", "attack-rce", "attack-injection-php"};
     /** The only non-prose exclusions the AFTER-CRS file may carry (CSRF token, session cookie). */
     private static final List<String> AFTER_CRS_INFRASTRUCTURE_TARGETS = List.of(
             "!ARGS:CSRF-TOKEN", "!REQUEST_COOKIES:/^JSESSIONID$/");
@@ -110,7 +115,7 @@ class ClinicalProseWafExclusionRegressionTest {
                 Arguments.of("1106", "/carlos/web/dashboard/display/AssignTickler", "POST",
                         List.of("messageAppend", "comments")),
                 Arguments.of("1107", "/carlos/rx/writeScript", "POST", List.of("special", "customName")),
-                Arguments.of("1108", "/carlos/rx/WriteScript", "POST", List.of("specialInstruction", "customDrugName", "name")),
+                Arguments.of("1108", "/carlos/rx/WriteScript", "POST", List.of("specialInstruction", "customDrugName", "name", "customName")),
                 Arguments.of("1109", "/carlos/rx/UpdateScript", "POST", List.of("instruction")),
                 Arguments.of("1110", "/carlos/rx/deleteRx", "POST", List.of("comment", "reason", "drugSpecial")),
                 Arguments.of("1111", "/carlos/rx/ViewAddRxComment", "POST", List.of("comment")),
@@ -120,10 +125,11 @@ class ClinicalProseWafExclusionRegressionTest {
                 Arguments.of("1115", "/carlos/rx/managePharmacy", "POST", List.of("pharmacyNotes")),
                 Arguments.of("1116", "/carlos/encounter/MeasurementData", "POST", List.of("instruction")),
                 Arguments.of("1117", "/carlos/prevention/AddPrevention", "POST",
-                        List.of("comments", "reason", "reasonOtherText")),
+                        List.of("comments", "reason", "reasonOtherText", "neverReason", "location2", "providerName")),
                 Arguments.of("1118", "/carlos/documentManager/ManageDocument", "POST", List.of("documentDescription")),
                 Arguments.of("1119", "/carlos/documentManager/ViewIncomingDocs", "POST", List.of("documentDescription")),
                 Arguments.of("1120", "/carlos/oscarMDS/UpdateStatus", "POST", List.of("comment")),
+                Arguments.of("1145", "/carlos/oscarMDS/FileLabsOnBehalf", "POST", List.of("comment")),
                 Arguments.of("1121", "/carlos/lab/CA/ALL/UnlinkDemographic", "POST", List.of("reason")),
                 Arguments.of("1122", "/carlos/hospitalReportManager/Modify", "POST", List.of("comment", "description")),
                 Arguments.of("1123", "/carlos/messenger/CreateMessage", "POST", List.of("message", "subject")),
@@ -157,14 +163,17 @@ class ClinicalProseWafExclusionRegressionTest {
                 // Back to POST: the provider encounter-note template body, note prose by construction.
                 Arguments.of("1142", "/carlos/admin/ProviderTemplate", "POST", List.of("value")),
                 // Mandatory clinic footer prose is configured only through this admin POST.
-                Arguments.of("1144", "/carlos/admin/saveClinicEmailFooter", "POST", List.of("clinicFooter")),
-                Arguments.of("1145", "/carlos/admin/saveClinicEmailLogo", "POST", List.of("clinicFooterDraft")),
-                Arguments.of("1143", "/carlos/email/saveMyEmailFooter", "POST", List.of("myFooter")));
+                Arguments.of("1150", "/carlos/admin/saveClinicEmailFooter", "POST", List.of("clinicFooter")),
+                Arguments.of("1151", "/carlos/admin/saveClinicEmailLogo", "POST", List.of("clinicFooterDraft")),
+                Arguments.of("1152", "/carlos/email/saveMyEmailFooter", "POST", List.of("myFooter")),
+                Arguments.of("1143", "/carlos/casemgmt/ViewForward", "GET", List.of("reason")),
+                Arguments.of("1144", "/carlos/CaseManagementEntry", "GET", List.of("reason")));
     }
 
     /** Routes whose prose rides a GET query string; everything else must chain to POST. */
     private static final List<String> GET_ROUTES = List.of(
-            "/carlos/encounter/IncomingEncounter", "/carlos/tickler/ListTicklers");
+            "/carlos/encounter/IncomingEncounter", "/carlos/tickler/ListTicklers",
+            "/carlos/casemgmt/ViewForward", "/carlos/CaseManagementEntry");
 
     @ParameterizedTest(name = "rule {0}: {2} {1}")
     @MethodSource("exemptedProseRoutes")
@@ -263,7 +272,7 @@ class ClinicalProseWafExclusionRegressionTest {
     }
 
     @Test
-    @DisplayName("only the two query-string routes should be exempted on GET")
+    @DisplayName("only the query-string routes and encounter redirect hops should be exempted on GET")
     void shouldChainToPost_forEveryRouteButTheQueryStringOnes() throws IOException {
         String exclusions = read();
         int getRules = 0;
@@ -275,7 +284,53 @@ class ClinicalProseWafExclusionRegressionTest {
                         .anySatisfy(route -> assertThat(block).contains(route));
             }
         }
-        assertThat(getRules).as("exactly two survey rules are chained to GET").isEqualTo(GET_ROUTES.size());
+        assertThat(getRules).as("exactly the query-string survey rules are chained to GET").isEqualTo(GET_ROUTES.size());
+    }
+
+    @Test
+    @DisplayName("encounter reason should only be exempted on the unique setup operation")
+    void shouldLimitEncounterReason_toUniqueSetupOperation() throws IOException {
+        String rule = readExclusionRule("1144");
+        assertThat(rule)
+                .contains("SecRule &ARGS:method \"@eq 1\" \"t:none,chain\"")
+                .contains("SecRule ARGS:method \"@streq setUpMainEncounter\"");
+        assertThat(rule.indexOf("SecRule ARGS:method"))
+                .isLessThan(rule.indexOf("ctl:ruleRemoveTargetByTag"));
+    }
+
+    @Test
+    @DisplayName("clinical GET traversal targets should preserve raw and once-decoded path inspection")
+    void shouldPreserveInitialUriDecode_forClinicalGetTraversalInspection() throws IOException {
+        // Source contract only. Nested path encodings and encoded '?' are also
+        // sent through real nginx/libmodsecurity/CRS by check-clinical-policy.py.
+        String rawRule = readExclusionRule("1071");
+        assertThat(rawRule)
+                .contains("SecRule REQUEST_METHOD \"@streq GET\"")
+                .contains("SecRule REQUEST_URI_RAW \"@rx ^([^?]+)\"")
+                .contains("setvar:'tx.carlos_clinical_raw_path=%{TX.1}'")
+                .contains("ctl:ruleRemoveTargetById=930100;REQUEST_URI_RAW")
+                .doesNotContain("ctl:ruleRemoveTargetById=930110", "t:urlDecode");
+
+        String source = read();
+        String decodedRule = Stream.of(source.split("\n\n"))
+                .filter(block -> block.contains("id:1074,"))
+                .findFirst().orElseThrow();
+        assertThat(source.indexOf("id:1074,")).isGreaterThan(source.indexOf("id:1071,"));
+        assertThat(decodedRule)
+                .contains("SecRule &TX:carlos_clinical_raw_path \"@eq 1\"")
+                .contains("id:1074,phase:1,pass,nolog,t:none,chain")
+                .contains("SecRule TX:carlos_clinical_raw_path \"@rx (?s)^(.+)\\z\"")
+                .contains("t:none,t:urlDecode,capture,")
+                .contains("setvar:'tx.carlos_clinical_decoded_path=%{TX.1}'")
+                .contains("ctl:ruleRemoveTargetById=930110;REQUEST_URI");
+        assertThat(decodedRule.indexOf("setvar:'tx.carlos_clinical_decoded_path"))
+                .isLessThan(decodedRule.indexOf("ctl:ruleRemoveTargetById=930110"));
+
+        List<String> targetUpdates = Files.readAllLines(AFTER_CRS_EXCLUSIONS, StandardCharsets.UTF_8).stream()
+                .filter(line -> line.startsWith("SecRuleUpdateTargetById ")).toList();
+        assertThat(targetUpdates).containsExactly(
+                "SecRuleUpdateTargetById 930100 \"TX:carlos_clinical_raw_path\"",
+                "SecRuleUpdateTargetById 930110 \"TX:carlos_clinical_decoded_path\"");
     }
 
     /**
@@ -354,9 +409,9 @@ class ClinicalProseWafExclusionRegressionTest {
     void shouldExemptPerRowFields_byAnchoredPatternOnly() throws IOException {
         // A regex target is rejected inside a ctl action but accepted by a config-time
         // SecRuleUpdateTargetByTag, which applies to an argument of that name on ANY route.
-        // That is the accepted trade-off for these four fields, so what this pins is that
+        // That is the accepted trade-off for these fields, so what this pins is that
         // the patterns match exactly the page-generated shape (anchored, digits only) and
-        // that the file never grows a bare ARGS, an unanchored pattern, or a fifth field
+        // that the file never grows a bare ARGS, an unanchored pattern, or another field
         // without this table changing with it.
         String after = Files.readString(AFTER_CRS_EXCLUSIONS, StandardCharsets.UTF_8).replace("\r\n", "\n");
         Pattern directive = Pattern.compile(
@@ -372,19 +427,76 @@ class ClinicalProseWafExclusionRegressionTest {
             assertThat(pattern).as("pattern %s is anchored at both ends", pattern)
                     .startsWith("^").endsWith("$");
             assertThat(tagsByTarget.get(target))
-                    .as("per-row field %s is exempted from exactly the seven content-attack tags", pattern)
+                    .as("per-row field %s is exempted from exactly the six content-attack tags", pattern)
                     .containsExactlyInAnyOrder(CONTENT_ATTACK_TAGS);
+        }
+        for (String pattern : RX_CARD_PROSE_PATTERNS) {
+            assertThat(tagsByTarget.get("!ARGS:/" + pattern + "/"))
+                    .as("Rx card field %s exempts only its four observed families", pattern)
+                    .containsExactlyInAnyOrder(RX_CARD_ATTACK_TAGS);
         }
         Set<String> allowedTargets = new HashSet<>(AFTER_CRS_INFRASTRUCTURE_TARGETS);
         PER_ROW_PROSE_PATTERNS.forEach(pattern -> allowedTargets.add("!ARGS:/" + pattern + "/"));
+        RX_CARD_PROSE_PATTERNS.forEach(pattern -> allowedTargets.add("!ARGS:/" + pattern + "/"));
         assertThat(tagsByTarget.keySet())
-                .as("no exclusion target in the AFTER-CRS file beyond the infrastructure pair and the four per-row fields")
-                .isSubsetOf(allowedTargets);
+                .as("exactly the infrastructure pair, four per-row fields and three Rx card fields")
+                .isEqualTo(allowedTargets);
         assertThat(after)
                 .doesNotContain("\"!ARGS\"")
                 .doesNotContain("!ARGS:/^[^/]*[^$]/\"")
                 .doesNotContain("SecRuleRemoveByTag")
                 .doesNotContain("SecRuleRemoveById");
+    }
+
+    @Test
+    @DisplayName("Rx numeric patterns should reject case variants and trailing newlines even with caseless selectors")
+    void shouldLimitRxPatterns_toExactNumericCardNames() {
+        List<String> fields = List.of("drugName", "instructions", "rxComment");
+        for (int i = 0; i < fields.size(); i++) {
+            String field = fields.get(i);
+            // libmodsecurity collection selectors default to caseless. Java's
+            // inline flag scope and absolute-end anchor let this source contract
+            // catch either guard being dropped; live PCRE checks are separate.
+            Pattern pattern = Pattern.compile(RX_CARD_PROSE_PATTERNS.get(i), Pattern.CASE_INSENSITIVE);
+            for (String name : List.of(field + "_0", field + "_288452")) {
+                assertThat(pattern.matcher(name).find()).as("numeric card field %s", name).isTrue();
+            }
+            for (String name : List.of("comment_1", "comment_288452",
+                    field.toUpperCase(java.util.Locale.ROOT) + "_1", field + "_1\n",
+                    field + "_1extra", "x" + field + "_1", field + "_", field + "_-1", field + "_１")) {
+                assertThat(pattern.matcher(name).find()).as("lookalike field %s stays inspected", name).isFalse();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("growth-form and legacy Rx comment names should not inherit global exclusions")
+    void shouldKeepGrowthFormCommentNamesOutsideGlobalExclusions() throws IOException {
+        for (String form : List.of("formGrowth0_36.jsp", "formGrowthChart.jsp")) {
+            String source = Files.readString(resolveProjectPath(
+                    Path.of("src", "main", "webapp", "WEB-INF", "jsp", "form", form)), StandardCharsets.UTF_8);
+            assertThat(source).as("actual shared numeric argument on %s", form)
+                    .contains("name=\"comment_<%=i%>\"")
+                    .contains("/form/formname\" method=\"post\"");
+        }
+        // Read actual config-time targets rather than only the expected Rx table.
+        // Runtime CRS behavior is independently checked by the engine harness.
+        Matcher targets = Pattern.compile(
+                "^SecRuleUpdateTargetByTag\\s+\"[^\"]+\"\\s+\"!ARGS:([^\"]+)\"", Pattern.MULTILINE)
+                .matcher(Files.readString(AFTER_CRS_EXCLUSIONS, StandardCharsets.UTF_8));
+        while (targets.find()) {
+            String target = targets.group(1);
+            // PCRE accepts [[] and []] as literal bracket classes; Java needs
+            // escaped brackets. Translate those two existing policy constructs.
+            Pattern pattern = target.startsWith("/") && target.endsWith("/")
+                    ? Pattern.compile(target.substring(1, target.length() - 1)
+                            .replace("[[]", "\\[").replace("[]]", "\\]"), Pattern.CASE_INSENSITIVE)
+                    : Pattern.compile("^" + Pattern.quote(target) + "\\z");
+            for (String name : List.of("comment_0", "comment_1", "comment_9", "comment_16", "comment_288452")) {
+                assertThat(pattern.matcher(name).find())
+                        .as("global target %s must not exempt shared/legacy %s", target, name).isFalse();
+            }
+        }
     }
 
     private static String read() throws IOException {

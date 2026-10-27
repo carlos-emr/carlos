@@ -61,6 +61,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.kie.api.KieBase;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
@@ -398,19 +399,36 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("issue4433-absent.drl");
     }
 
-    @Test
-    @DisplayName("should say that a flowsheet declares no rules when it has none")
-    void shouldSayNoRulesDeclared_whenFlowsheetHasNone() {
-        MeasurementFlowSheet flowsheet = parse("<flowsheet name='issue4433'>"
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ds_rules=''", " ds_rules='   '"})
+    @DisplayName("should leave patient messages unchanged when a flowsheet declares no rules")
+    void shouldLeaveMessagesUnchanged_whenFlowsheetDeclaresNoRules(String rulesAttribute) throws Exception {
+        MeasurementFlowSheet flowsheet = parse("<flowsheet name='issue5187'" + rulesAttribute + ">"
                 + "<item measurement_type='WT' display_name='Weight'/></flowsheet>");
+        MeasurementInfo messages = new MeasurementInfo("1");
+        messages.getWarnings().add("Existing warning");
+        messages.getRecommendations().add("Existing recommendation");
 
-        MeasurementInfo noReadings = new MeasurementInfo("1");
+        assertThat(flowsheet.getMessages(messages)).isSameAs(messages);
+        assertThat(configuration.makeNewFlowsheet(flowsheet).getMessages(messages)).isSameAs(messages);
+        assertThat(messages.getWarnings()).containsExactly("Existing warning");
+        assertThat(messages.getRecommendations()).containsExactly("Existing recommendation");
+    }
 
-        assertThatThrownBy(() -> flowsheet.getMessages(noReadings))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("issue4433")
-                .hasMessageContaining("declares no decision support rules")
-                .hasMessageNotContaining("compilation");
+    @Test
+    @DisplayName("should return no clinical messages for a scoped customization without rules")
+    void shouldReturnNoMessages_whenCustomizedFlowsheetDeclaresNoRules() throws Exception {
+        MeasurementFlowSheet base = parse("<flowsheet name='issue5187'>"
+                + "<item measurement_type='WT' display_name='Weight'/></flowsheet>");
+        MeasurementTemplateFlowSheetConfig spied = spy(configuration);
+        doReturn(base).when(spied).getFlowSheet("issue5187");
+        MeasurementFlowSheet customized = spied.getFlowSheet("issue5187",
+                List.of(change(FlowSheetCustomization.DELETE, "WT")));
+        MeasurementInfo messages = new MeasurementInfo("1");
+
+        assertThat(customized.getMessages(messages)).isSameAs(messages);
+        assertThat(messages.getWarnings()).isEmpty();
+        assertThat(messages.getRecommendations()).isEmpty();
     }
 
     @Test

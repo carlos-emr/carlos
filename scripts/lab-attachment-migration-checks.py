@@ -100,11 +100,19 @@ INSERT INTO HRMDocumentToDemographic (demographicNo,hrmDocumentId) VALUES ('42',
         # Execute the shipped statements against that schema, without printing demo rows.
         demo = (ROOT / '.devcontainer/db/scripts/development.sql').read_text()
         for table in ('consultdocs', 'EFormDocs'):
-            statement = next(line for line in demo.splitlines() if line.startswith(f'INSERT INTO `{table}` '))
-            assert statement.startswith(f'INSERT INTO `{table}` (`'), 'Demo insert must name its pre-migration columns'
-            query(f'TRUNCATE TABLE `{table}`', DATABASE)
-            query(statement, DATABASE)
-            assert int(query(f'SELECT COUNT(*) FROM `{table}`', DATABASE)) > 0
+            # The snapshot deliberately empties EFormDocs without reinserting rows.
+            # Execute its actual reset and any actual inserts, rather than assuming
+            # that every attachment table has demo records.
+            truncates = [line for line in demo.splitlines() if line == f'TRUNCATE TABLE `{table}`;']
+            assert len(truncates) == 1, f'Demo must explicitly reset {table} exactly once'
+            statements = [line for line in demo.splitlines() if line.startswith(f'INSERT INTO `{table}` ')]
+            assert table != 'consultdocs' or statements, 'Consultation attachment demo inserts are required'
+            query(truncates[0], DATABASE)
+            for statement in statements:
+                assert statement.startswith(f'INSERT INTO `{table}` (`'), 'Demo insert must name its pre-migration columns'
+                query(statement, DATABASE)
+            count = int(query(f'SELECT COUNT(*) FROM `{table}`', DATABASE))
+            assert count > 0 if statements else count == 0, f'Incorrect shipped demo row state for {table}'
             expect(f'SELECT COUNT(*) FROM `{table}` WHERE lab_type IS NOT NULL', '0')
         print('PASS: shipped consultation/eForm demo inserts load after schema widening without positional-column errors')
     finally:

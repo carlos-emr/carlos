@@ -117,7 +117,8 @@ public final class DbTicklerMain2Action extends ActionSupport {
             return NONE;
         }
 
-        // Determine the requested status from the first character of submit_form
+        // Deletion retains the clinical record with status D. Legacy "Erase Completely"
+        // submissions must also only mark Deleted, never remove the task or related records.
         String submitForm = request.getParameter("submit_form");
         Tickler.STATUS status = Tickler.STATUS.A;
         if (submitForm != null && !submitForm.isEmpty()) {

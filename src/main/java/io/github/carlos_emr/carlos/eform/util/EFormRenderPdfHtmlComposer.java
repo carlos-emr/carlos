@@ -661,7 +661,10 @@ public final class EFormRenderPdfHtmlComposer {
         Element head = document.head();
         ArrayList<Element> dependencies = new ArrayList<>();
         if (isSavedViewProfileEnabled()) {
-            dependencies.add(stylesheet(contextPath + "/library/bootstrap/5.3.8/css/bootstrap.min.css"));
+            // No Bootstrap stylesheet: its reboot restyles legacy eForm content (body margin and
+            // font, box-sizing, table and heading margins), and the interactive viewer no longer
+            // applies it to the form either, only to its own chrome, which this surface removes.
+            // The PDF must match the screen (#3944). The script bundle stays for form code.
             dependencies.add(stylesheet(contextPath + "/library/jquery/jquery-ui-1.14.2.min.css"));
             dependencies.add(script(contextPath + "/library/jquery/jquery-3.7.1.min.js"));
             dependencies.add(script(contextPath + "/library/jquery/jquery-ui-1.14.2.min.js"));

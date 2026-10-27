@@ -16,13 +16,15 @@
  * status control lands on billing_on_cheader1 with a header audit snapshot;
  * the bill-status report lists the owned bill with its new status; GET against
  * the two mutators answers 405 with Allow: POST and writes nothing; Billing
- * History offers no Unbill for an owned bill in status B and the server refuses
+ * History offers no Unbill for an owned bill in status B or S and the server refuses
  * the unbill post its opener would send for it (billCode B) without changing it;
- * Unbill flips header and items to status D and writes the two billing_on_proc
- * audit rows.
+ * issue #4538: the server decides from the STORED status, so a hand-built post for a
+ * billed or settled bill is refused whatever billCode it carries (O, W, D, empty or
+ * none) and the real Unbill click posts no status at all; Unbill flips header and
+ * items to status D and writes the two billing_on_proc audit rows.
  *
- * Fixtures: two owned bills (header + one item each, comment1 = the run marker,
- * one open and one already billed, status B)
+ * Fixtures: three owned bills (header + one item each, comment1 = the run marker,
+ * one open, one already billed, status B, and one settled, status S)
  * seeded for the owned FAKE- patient under an active provider that carries an
  * OHIP number (the correction page only offers such providers), seeded by the
  * shared seedOwnedBill helper (billing-on-invoice-third-party). Its cleanup
@@ -42,6 +44,9 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { selectBillingSiteAndProvider, validateBillingContext } = require('./lib/billing-site-context');
+const { selectBillingReportContext } = require('./lib/billing-report-context');
+const { createOwnedBillingPhysician } = require('./lib/owned-billing-physician');
 // Shared Ontario bill fixture and page helpers: one seeding shape and one complete
 // cleanup (repo/proc/eareport/transaction/item_payment/payment/ext/item/header).
 const {
@@ -88,6 +93,8 @@ async function saveCorrection(s, popup) {
 
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
+  const physician = createOwnedBillingPhysician(s);
+  const billSession = physician.dependentSession;
   const code = serviceCode();
   const date = billDate();
   const fee = sql.value(`SELECT value FROM billingservice WHERE service_code=${h.sqlString(code)}
@@ -98,16 +105,42 @@ async function workflow(s) {
   const unitFee = money(fee);
   const feeTimesTwo = money(Number(fee) * 2);
 
+  let billingContext;
+  await s.step('the native invoice form supplies an allowed clinic and physician without saving a bill', async () => {
+    const before = sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`);
+    const invoice = s.master.getByRole('link', { name: 'Create Invoice', exact: true }).first();
+    const form = await s.popup(s.master, invoice, 'billing-correction-fixture-context');
+    try {
+      await physician.selectClinic(form);
+      billingContext = await selectBillingSiteAndProvider(form, physician.providerNo);
+      physician.assertContext(billingContext);
+      validateBillingContext(sql, provider, billingContext);
+    } finally { if (!form.isClosed()) await form.close(); }
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`) === before,
+      'Choosing the owned billing fixture context saved a bill');
+  });
+
   // One open OHIP (HCP) bill, dx 250, comment1 = marker. seedOwnedBill registers
   // the complete cleanup before its first insert, bills under an active provider
-  // with an OHIP number (the correction page lists only those) and adds that
-  // provider to the operator's sites it is missing from (_site_access_privacy).
-  const bill = seedOwnedBill(s, { payProgram: 'HCP', status: 'O', code, fee, date });
+  // with the native eligible provider and exact offered clinic. Existing site
+  // operator memberships remain unchanged; only the owned physician membership
+  // is removed after every owned claim cleanup succeeds.
+  const bill = seedOwnedBill(billSession, { payProgram: 'HCP', status: 'O', code, fee, date, billingContext });
   const { headerId, itemId, provider: billingProvider } = bill;
   // A second owned bill already submitted to OHIP (status B): the one Unbill must refuse.
-  const billedBill = seedOwnedBill(s, { payProgram: 'HCP', status: 'B', code, fee, date });
-  const billedSnapshot = () => sql.value(`SELECT CONCAT_WS('|', h.status, h.total, GROUP_CONCAT(i.status))
-    FROM billing_on_cheader1 h JOIN billing_on_item i ON i.ch1_id=h.id WHERE h.id=${billedBill.headerId} GROUP BY h.id`);
+  const billedBill = seedOwnedBill(billSession, { payProgram: 'HCP', status: 'B', code, fee, date, billingContext });
+  // A third owned bill already settled (status S): history offers no Unbill for it either.
+  const settledBill = seedOwnedBill(billSession, { payProgram: 'HCP', status: 'S', code, fee, date, billingContext });
+  for (const ownedBill of [bill, billedBill, settledBill]) {
+    const clinicPredicate = billingContext.multisites ? `clinic=${h.sqlString(billingContext.clinic)}` : 'clinic IS NULL';
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE id=${ownedBill.headerId}
+      AND demographic_no=${patient} AND provider_no=${h.sqlString(billingContext.providerNo)} AND ${clinicPredicate}`) === '1',
+    'An owned correction header does not retain its offered clinic/provider binding');
+  }
+  const claimSnapshot = bill => sql.value(`SELECT CONCAT_WS('|', h.status, h.total, GROUP_CONCAT(i.status))
+    FROM billing_on_cheader1 h JOIN billing_on_item i ON i.ch1_id=h.id WHERE h.id=${bill.headerId} GROUP BY h.id`);
+  const billedSnapshot = () => claimSnapshot(billedBill);
+  const settledSnapshot = () => claimSnapshot(settledBill);
   const headerSnapshot = () => sql.value(`SELECT CONCAT_WS('|', status, pay_program, total, demographic_no, provider_no,
     billing_date, hin) FROM billing_on_cheader1 WHERE id=${headerId}`);
   const itemSnapshot = () => sql.value(`SELECT CONCAT_WS('|', ser_num, fee, dx, status, service_code)
@@ -185,15 +218,12 @@ async function workflow(s) {
     const status = await (await iframe.elementHandle()).contentFrame();
     h.assert(status, 'The bill status page did not load in the administration frame');
     await status.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
+    await selectBillingReportContext(status, billingContext);
     await fillDate(status, '#xml_vdate', date);
     await fillDate(status, '#xml_appointment_date', date);
     await status.locator('input[name="demographicNo"]').fill(patient);
     // The report defaults to "O | Invoiced"; the bill now carries status W.
     await status.locator('#statusTypeAll').check();
-    const providers = status.locator('select[name="providerview"]').last();
-    const offered = await providers.locator('option').evaluateAll(options => options.map(option => option.value));
-    if (offered.includes(billingProvider)) await providers.selectOption(billingProvider);
-    else if (offered.includes('all')) await providers.selectOption('all');
     const navigated = admin.waitForEvent('framenavigated', { predicate: frame => frame === status, timeout: 30000 });
     navigated.catch(() => {});
     await status.locator('input[type="submit"][value="Create Report"]').click();
@@ -248,6 +278,70 @@ async function workflow(s) {
       WHERE object=${h.sqlString(billedBill.headerId)}`) === '0', 'The refused unbill changed the billed bill');
   });
 
+  await s.step('a forged billCode cannot unbill a billed or settled bill: the stored status decides (#4538)', async () => {
+    const settledRow = history.locator('#billingHistoryTable tbody tr').filter({
+      has: history.locator(`a[onclick*="ViewBillingONDisplay?billing_no=${settledBill.headerId}'"]`),
+    });
+    await settledRow.waitFor({ state: 'visible', timeout: 20000 });
+    h.assert(await settledRow.locator('a', { hasText: 'Unbill' }).count() === 0,
+      'Billing History offers Unbill for a bill already in status S');
+    const token = await ui.csrfTokenPresent(s.master);
+    const procRows = bill => sql.value(`SELECT COUNT(*) FROM billing_on_proc WHERE object=${h.sqlString(bill.headerId)}`);
+    for (const [label, bill, stored, snapshot] of [
+      ['billed', billedBill, 'B', billedSnapshot], ['settled', settledBill, 'S', settledSnapshot],
+    ]) {
+      const before = snapshot();
+      h.assert(before === `${stored}|${money(fee)}|${stored}`, `The ${label} bill fixture is not in status ${stored}`);
+      // The history page posts the bill's status as billCode; a hand-built post can carry any
+      // value, so try every one that could let it through: not billed, unrelated, deleted,
+      // empty and absent.
+      for (const forged of ['O', 'W', 'D', '', undefined]) {
+        const posted = forged === undefined ? 'no billCode' : `billCode=${forged || '(empty)'}`;
+        const form = { 'CSRF-TOKEN': token, billing_no: bill.headerId, dboperation: 'delete_bill', hotclick: '0' };
+        if (forged !== undefined) form.billCode = forged;
+        const refused = await s.context.request.post(h.appUrl(s.config.baseUrl, '/billing/CA/ON/BillingDeleteNoAppt'), {
+          form, headers: { 'CSRF-TOKEN': token }, maxRedirects: 0,
+        });
+        h.assert(refused.status() === 200 && /cannot delete billed items/i.test(await refused.text()),
+          `Unbilling the ${label} bill with ${posted} was not refused with the cannot-delete page`);
+        h.assert(snapshot() === before, `Unbilling the ${label} bill with ${posted} changed it`);
+        h.assert(procRows(bill) === '0', `Unbilling the ${label} bill with ${posted} wrote billing audit rows`);
+      }
+    }
+  });
+
+  await s.step('Unbill dismissed at its confirmation sends nothing and leaves the bill as it was', async () => {
+    if (!history.isClosed()) await history.close();
+    history = await openHistory(s);
+    const row = historyRow(history, headerId);
+    await row.waitFor({ state: 'visible', timeout: 20000 });
+    const state = () => sql.value(`SELECT CONCAT_WS('|',
+      (SELECT CONCAT_WS(',', status, total) FROM billing_on_cheader1 WHERE id=${headerId}),
+      (SELECT GROUP_CONCAT(status) FROM billing_on_item WHERE ch1_id=${headerId}),
+      (SELECT COUNT(*) FROM billing_on_proc WHERE object=${h.sqlString(headerId)}))`);
+    const before = state();
+    const pagesBefore = s.context.pages().length;
+    let posts = 0;
+    const count = request => { if (new URL(request.url()).pathname.endsWith('/billing/CA/ON/BillingDeleteNoAppt')) posts++; };
+    s.context.on('request', count);
+    try {
+      const dialogs = await h.withExpectedDialogs(history, async () => {
+        await row.locator('a', { hasText: 'Unbill' }).first().click();
+        // Long enough for the unbill popup and its post to start, had the page sent them.
+        await history.waitForTimeout(1500);
+      }, { accept: false });
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && dialogs[0].text === UNBILL_CONFIRM,
+        'Unbill must ask the bundle\'s confirmation question exactly once');
+    } finally {
+      s.context.off('request', count);
+    }
+    h.assert(posts === 0, `A dismissed Unbill still sent ${posts} request(s) to BillingDeleteNoAppt`);
+    h.assert(s.context.pages().length === pagesBefore, 'A dismissed Unbill opened the unbill popup');
+    h.assert(state() === before, 'A dismissed Unbill changed the bill, its items or its audit rows');
+    h.assert(await historyRow(history, headerId).locator('a', { hasText: 'Unbill' }).count() === 1,
+      'Billing History no longer offers Unbill for the bill after a dismissed Unbill');
+  });
+
   await s.step('Unbill asks for confirmation, marks header and items deleted and writes the audit rows', async () => {
     if (!history.isClosed()) await history.close();
     history = await openHistory(s);
@@ -264,6 +358,10 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && dialogs[0].text === UNBILL_CONFIRM,
       'Unbill must ask the bundle\'s confirmation question exactly once');
     h.assert(response.status() === 200, `Unbill answered HTTP ${response.status()}`);
+    // The server decides from the stored status (#4538), so the page posts the bill id only.
+    const unbillBody = response.request().postData() || '';
+    h.assert(new URLSearchParams(unbillBody).get('billing_no') === headerId && !unbillBody.includes('billCode'),
+      'The Unbill click must post the bill id and no status');
     await expectValue(sql, `SELECT CONCAT_WS('|', status, pay_program, total) FROM billing_on_cheader1 WHERE id=${headerId}`,
       `D|HCP|${feeTimesTwo}`, 'Unbill did not mark the header deleted');
     h.assert(sql.value(`SELECT GROUP_CONCAT(status) FROM billing_on_item WHERE ch1_id=${headerId}`) === 'D',

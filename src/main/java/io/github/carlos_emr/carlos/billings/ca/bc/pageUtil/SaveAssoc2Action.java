@@ -35,11 +35,14 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.billings.ca.on.web.BillingRequestGuards;
 
 public class SaveAssoc2Action
         extends ActionSupport {
@@ -53,27 +56,44 @@ public class SaveAssoc2Action
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+        // The association editor posts; a GET or HEAD is refused before anything is checked or saved.
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
+        }
 
         ServiceCodeAssociation assoc = this.getSvcAssoc();
+        String serviceCode = assoc.getServiceCode() == null ? "" : assoc.getServiceCode().trim();
+        assoc.setServiceCode(serviceCode);
+        boolean editing = "edit".equals(this.getMode());
         BillingAssociationPersistence per = new BillingAssociationPersistence();
-        if (!this.getMode().equals("edit")) {
-            if (per.assocExists(assoc.getServiceCode())) {
-                addActionError(getText("oscar.billing.CA.BC.billingBC.error.assocexists", new String[]{assoc.getServiceCode()}));
-            }
+        if (!editing && !serviceCode.isEmpty() && per.assocExists(serviceCode)) {
+            addActionError(message("oscar.billing.CA.BC.billingBC.error.assocexists", serviceCode));
         }
-        if (!per.serviceCodeExists(assoc.getServiceCode())) {
-            addActionError(getText("oscar.billing.CA.BC.billingBC.error.invalidsvccode", new String[]{assoc.getServiceCode()}));
+        if (serviceCode.isEmpty() || !per.serviceCodeExists(serviceCode)) {
+            addActionError(message("oscar.billing.CA.BC.billingBC.error.invalidsvccode", serviceCode));
         }
         List dxcodes = assoc.getDxCodes();
         for (Iterator iter = dxcodes.iterator(); iter.hasNext(); ) {
             String code = (String) iter.next();
             if (!per.dxcodeExists(code)) {
-                addActionError(getText("oscar.billing.CA.BC.billingBC.error.invaliddxcode", new String[]{code}));
-
+                addActionError(message("oscar.billing.CA.BC.billingBC.error.invaliddxcode", code));
             }
         }
-        per.saveServiceCodeAssociation(assoc, this.getMode());
+        // Saving in spite of these errors stored a diagnosis with no service code, a second association for a code
+        // already associated, or codes that do not exist (issue #4941; #4439 D13). Show the editor again instead.
+        if (hasActionErrors()) {
+            request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+            request.setAttribute("mode", editing ? "edit" : "");
+            request.setAttribute("serviceCodeAssociation", assoc);
+            return INPUT;
+        }
+        per.saveServiceCodeAssociation(assoc, editing ? "edit" : "");
         return SUCCESS;
+    }
+
+    /** A bundle message naming a code. The messages are HTML (each ends in a line break), and the editor shows them so. */
+    private String message(String key, String code) {
+        return getText(key, new String[]{SafeEncode.forHtmlContent(code)});
     }
 
     private String[] service;

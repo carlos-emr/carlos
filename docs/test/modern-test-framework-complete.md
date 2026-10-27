@@ -30,7 +30,7 @@ non-obvious pitfalls of the dual persistence context. For the short version, see
 - **Assertions**: AssertJ 3.27.7 for fluent assertions
 - **Mocking**: Mockito 5.23.0 (Java 25 compatible)
 - **Database**: H2 in-memory database (MySQL mode)
-- **Spring**: Spring Test with Spring 7.0.8
+- **Spring**: Spring Test with Spring 7.0.9
 - **Transactions**: Full transaction support with rollback
 
 ### Design Principles

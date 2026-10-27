@@ -99,6 +99,7 @@ class PatientNavSharingRegressionTest {
         // Ontario's billing form needs read; BC's (the second link) also needs write.
         assertThat(guardsOf(nav, "nav.createInvoiceUrl", 1)).containsExactly("_billing r");
         assertThat(guardsOf(nav, "nav.createInvoiceUrl", 2)).containsExactly("_billing r", "_billing w");
+        assertThat(guardsOf(nav, "nav.hospitalBillingUrl")).containsExactly("_billing r");
         assertThat(guardsOf(nav, "nav.consultationsUrl")).containsExactly("_eChart r", "_con r");
         assertThat(guardsOf(nav, "nav.prescriptionsUrl")).containsExactly("_rx r");
         assertThat(guardsOf(nav, "nav.echartUrl")).containsExactly("_eChart r");
@@ -131,9 +132,9 @@ class PatientNavSharingRegressionTest {
         String nav = read("patient-nav.jsp");
         assertThat(nav).contains("data-nav-eligibility=\"${carlos:forHtmlAttribute(nav.eligibilityUrl)}\"",
                 "data-demographic-no=\"${carlos:forHtmlAttribute(nav.demographicNo)}\"");
-        // Bill patient on both Create invoice links, and E-Chart.
-        assertThat(nav.split("title=\"").length - 1).isEqualTo(3);
-        assertThat(nav.split("title=\"\\$\\{carlos:forHtmlAttribute\\(").length - 1).isEqualTo(3);
+        // Bill patient on both Create invoice links and Hospital Billing, and E-Chart.
+        assertThat(nav.split("title=\"").length - 1).isEqualTo(4);
+        assertThat(nav.split("title=\"\\$\\{carlos:forHtmlAttribute\\(").length - 1).isEqualTo(4);
     }
 
     @Test
