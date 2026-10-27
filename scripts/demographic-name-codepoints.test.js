@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const fragment = fs.readFileSync(path.join(__dirname,'../src/main/webapp/WEB-INF/jspf/demographic-field-length-limits.jspf'),'utf8');
-const script = fragment.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1]
+const script = fragment.match(/<script[^>]*>([\s\S]*?)<\/script>/i)[1]
   .replace(/<%= Demographic\.[A-Z_]+ %>/g,'50')
   .replace('${carlos:forJavaScript(demographicCodePointLimitMessage)}','Maximum {0} characters.');
 for (const fieldName of ['first_name','last_name']) {
