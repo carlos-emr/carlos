@@ -127,7 +127,8 @@ def main() -> int:
                 "-e", "MARIADB_ROOT_PASSWORD_FILE=/run/cds-test/password", "-e", "MARIADB_ROOT_HOST=%", DATABASE_IMAGE,
                 "--innodb-page-size=32768", "--innodb-snapshot-isolation=ON", "--character-set-server=utf8mb4",
                 "--collation-server=utf8mb4_general_ci", "--innodb-strict-mode=OFF", "--innodb-default-row-format=dynamic",
-                "--max-allowed-packet=64M", "--innodb-buffer-pool-size=128M"]); created_database = True
+                "--max-allowed-packet=64M", "--innodb-buffer-pool-size=128M", "--performance-schema=ON",
+                "--performance-schema-digests-size=10000"]); created_database = True
             mysql = docker + ["exec", database, "mariadb", "--defaults-extra-file=/run/cds-test/client.cnf"]
             deadline = time.monotonic()+90
             while execute(mysql+["-e", "SELECT 1"], check=False).returncode:
@@ -140,7 +141,7 @@ def main() -> int:
             cp = "/workspace/target/classes:"+(repository/"target/cds-performance-dependencies.txt").read_text().strip()
             helper = "/workspace/target/"+base.name+"/bootstrap"
             build(["mkdir", "-p", helper])
-            build(["javac", "-cp", cp, "-d", helper, "scripts/ci/CdsImportMariaDbBootstrap.java"])
+            build(["javac", "-cp", cp, "-d", helper, "scripts/ci/CdsImportMariaDbBootstrap.java", "scripts/ci/CdsWorkloadValidator.java"])
             credentials = "/workspace/target/"+base.name+"/private/jdbc.properties"
             build(["java", "-cp", helper+":"+cp, "CdsImportMariaDbBootstrap", credentials, "database/mysql/migration", "on"])
             # Publicly traversable fixture mount ancestors; private credentials remain0700/0600.
@@ -157,7 +158,7 @@ def main() -> int:
             runtime_exec = docker+["exec", "--user", "0", "--workdir", "/workspace", runtime]
             execute(runtime_exec+["install", "-d", "-m", "0700", "/run/cds-test"])
             execute(runtime_exec+["install", "-m", "0600", "/run/source-jdbc.properties", "/run/cds-test/jdbc.properties"])
-            runtime_cp = "/workspace/target/test-classes:/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes:/usr/share/carlos-emr/webapp/carlos/WEB-INF/lib/*:/usr/share/tomcat11/lib/*"
+            runtime_cp = helper+":/workspace/target/test-classes:/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes:/usr/share/carlos-emr/webapp/carlos/WEB-INF/lib/*:/usr/share/tomcat11/lib/*"
             root = "/var/lib/carlos-emr/cds-cli-engine-check"
             execute(runtime_exec+["java", "-Xmx128m", "-cp", runtime_cp,
                 "io.github.carlos_emr.carlos.demographic.cdsimport.cli.CdsCliEngineFixture", "prepare", "/run/cds-test/jdbc.properties", root])

@@ -8,6 +8,7 @@ from pathlib import Path
 import struct
 import tempfile
 import sys
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import zipfile
@@ -189,6 +190,72 @@ class PerformanceEvidenceTest(unittest.TestCase):
         self.assertEqual(proof['reasonCodes'],[{'code':'CDS_INPUT_DISK_RESERVE','outcomeUnknown':False}])
         self.assertEqual(proof['events'][0]['state'],'REVIEW_REQUIRED')
         self.assertNotIn(hidden,json.dumps(proof))
+
+    def test_progress_is_counted_without_retaining_source_or_unknown_progress_fields(self):
+        log=self.root/'progress.log'
+        log.write_text(''.join(json.dumps({'event':'PROGRESS','private':'do-not-publish'})+'\n' for _ in range(3)))
+        proof=GATE.operator_projection(log)
+        self.assertEqual(proof['progressEvents'],3)
+        self.assertEqual(proof['events'],[])
+        self.assertNotIn('do-not-publish',json.dumps(proof))
+
+    def test_whole_source_validation_refuses_a_different_source_or_incomplete_process(self):
+        source=self.root/'original.xml';source.write_bytes(b'original bytes')
+        valid={'sourceSha256':GATE.digest(source),'sourceBytes':source.stat().st_size,
+               'records':1,'fields':2,'decodedBinaryBytes':3,'valuesBytes':4}
+        def response(value,code=0):
+            return SimpleNamespace(returncode=code,stdout='CDS_WORKLOAD_VALIDATED:'+json.dumps(value)+'\n',stderr='')
+        with patch.object(GATE.subprocess,'run',return_value=response(valid)) as run:
+            proof=GATE.production_workload_validation(source,self.root/'spool','java','private-classpath')
+            self.assertEqual(proof['sourceSha256'],valid['sourceSha256'])
+            self.assertEqual(run.call_args.args[0][1],'-Xmx64m')
+        for changed in ({**valid,'sourceSha256':'0'*64},{**valid,'sourceBytes':1},
+                        {**valid,'records':0},{**valid,'decodedBinaryBytes':5},
+                        {**valid,'fields':True},{**valid,'unexpected':'source-content'}):
+            with self.subTest(changed=changed):
+                with patch.object(GATE.subprocess,'run',return_value=response(changed)):
+                    with self.assertRaises(RuntimeError):
+                        GATE.production_workload_validation(source,self.root/'spool','java','private-classpath')
+        with patch.object(GATE.subprocess,'run',return_value=response(valid,2)):
+            with self.assertRaises(RuntimeError):
+                GATE.production_workload_validation(source,self.root/'spool','java','private-classpath')
+
+    def test_statement_digest_evidence_is_bounded_hashed_and_counts_actual_deltas(self):
+        key='a'*32;shape='b'*64;other='c'*32
+        before=GATE.statement_digest_snapshot([[key,shape,'LEDGER_READ','4','100']])
+        after=GATE.statement_digest_snapshot([[key,shape,'LEDGER_READ','9','180'],
+            [other,'d'*64,'TRANSACTION_CONTROL','3','20']])
+        delta=GATE.statement_digest_delta(before,after)
+        self.assertEqual(delta['statementCount'],8)
+        self.assertEqual(delta['countsByClass'],{'LEDGER_READ':5,'TRANSACTION_CONTROL':3})
+        self.assertEqual(delta['digests'][0]['timerPicoseconds'],80)
+        for bad in ([],[['OVERFLOW',shape,'OTHER','1','0']],[[key,shape,'SELECT private','1','0']],
+                    [[key,shape,'OTHER','-1','0']],[[key,shape,'OTHER','1','0']]*4097,
+                    [[key,shape,'OTHER','1','0']]*2):
+            with self.subTest(bad=str(bad)[:100]):
+                with self.assertRaises(RuntimeError):GATE.statement_digest_snapshot(bad)
+        for changed in ({}, {key:{**after[key],'count':3}}, {key:{**after[key],'shapeSha256':'f'*64}}):
+            with self.assertRaises(RuntimeError):GATE.statement_digest_delta(before,changed)
+
+    def test_only_finite_nonnegative_query_budget_comparison_may_defer_to_later_verified_cases(self):
+        self.assertEqual(GATE.verified_query_budget_status(3000,3000),'PASSED')
+        self.assertEqual(GATE.verified_query_budget_status(3054,3000),'FAILED_QUERY_BUDGET')
+        for actual,budget in ((-1,3000),(3,0),(None,3000),(True,3000),(3,'3000')):
+            with self.subTest(actual=actual,budget=budget):
+                with self.assertRaises(RuntimeError):GATE.verified_query_budget_status(actual,budget)
+
+    def test_an_oom_or_counter_reset_stops_before_any_query_only_failure_may_continue(self):
+        initial={'memory.events':{'oom':'0','oom_kill':'0','oom_group_kill':'0'}}
+        GATE.require_no_cgroup_oom(initial,initial)
+        for key in initial['memory.events']:
+            with self.subTest(key=key):
+                with self.assertRaises(RuntimeError):
+                    GATE.require_no_cgroup_oom(initial,{'memory.events':{**initial['memory.events'],key:'1'}})
+        with self.assertRaises(RuntimeError):
+            GATE.require_no_cgroup_oom({'memory.events':{'oom':'1'}},initial)
+        for key in initial['memory.events']:
+            missing={'memory.events':{name:value for name,value in initial['memory.events'].items() if name!=key}}
+            with self.assertRaises(RuntimeError):GATE.require_no_cgroup_oom(missing,missing)
 
     def test_unavailable_auxiliary_measurement_does_not_hide_actual_terminal_failure_codes(self):
         evidence={}

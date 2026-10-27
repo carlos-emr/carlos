@@ -65,14 +65,39 @@ Before the measured imports, the same installed runtime/configuration executes
 a separate read-only lookup of a fresh unknown submission. Its exact finite
 refusal, unchanged native/registry state, configuration hash and exclusive
 per-command SQL counter window record the framework startup cost. This control
-does not resolve a patient/source profile or change the500-queries-per-unit
+does not resolve a patient/source profile or change the 500-queries-per-unit
 regression budget. Per-import counters sampled when SUBMISSION and ACCEPTED
 messages are observed help separate bootstrap, source-copy and clinical work;
 those samples are explicitly not atomic phase boundaries.
+New owned CI servers enable bounded statement-digest instrumentation before any
+submission. The proof records actual per-invocation and observed-milestone
+digest count/time deltas, with a finite statement class and an in-server hash of
+each normalized shape. SQL text, bound values and transaction SQL are never
+selected into the proof. Missing instrumentation, digest overflow/eviction or
+counter reset fails the gate. These counts include the observers and are kept
+alongside their explicit invocation count; no automatic subtraction or increase
+of the 500-per-unit query budget occurs. Actual CLI progress-event counts make
+time-based operator reporting overhead visible.
+Only a query-budget comparison may be deferred to later independent workloads,
+and only after that case's engine, native rows/files/hashes, all reports, zero
+holds, cleanup and release have passed every check. Its exact failed budget and
+`FAILED_QUERY_BUDGET` status remain in the proof and the profile exits nonzero
+after collecting the remaining cases. Any missing/unknown/unsealed outcome or
+other failed check immediately stops the profile. No failed source is retried.
 The required event file reconciles source patients and category occurrences;
 clean completion also requires report delivery, cleanup and verified maintenance
 release. Operator output remains in protected files. Failures retain the exact
 accepted handle for investigation; the runner never automatically resubmits.
+
+Large inline binary workload XML is validated in full through the shipped
+`CdsXmlParser`, pinned schema and default input limits, in a separate JVM with
+a 64MiB heap and a private disk spool. This test-only validator performs no
+database or clinical writes and is excluded from the WAR. Its source hash,
+complete byte count and decoded binary count bind the result to the original
+wire input. Tiny XML and external-reference workload XML additionally use the
+independent pinned-XSD `xmllint --stream` check. The 64MiB browser transport
+fixture contains 64 bounded text report values so the independent validator
+does not need one aggregate-sized text value.
 
 The separate `scripts/demographic-cds-large-ingress-playwright-checks.js` gate
 authenticates through normal browser login and CSRF, then transfers a valid XML

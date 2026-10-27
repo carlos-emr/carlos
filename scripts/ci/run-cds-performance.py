@@ -314,10 +314,11 @@ def report(reference: str) -> bytes:
 
 
 def generate_case(root: Path, label: str, token: str, patients: int = 1,
-                  records: int = 0, payload: int = 0, *, archive: bool = False) -> dict:
+                  records: int = 0, payload: int = 0, *, archive: bool = False, validate_xml=None) -> dict:
     folder = root / label
     folder.mkdir(mode=0o755)
     manifests = []
+    validations=[]
     # Extract real wire occurrences instead of inventing a second schema fixture.
     from xml.etree import ElementTree as ET
     from defusedxml.ElementTree import parse
@@ -366,13 +367,16 @@ def generate_case(root: Path, label: str, token: str, patients: int = 1,
                         document_bytes += length
                 output.write(b"</PatientRecord></OmdCds>")
             member.chmod(0o644)
-            # Validate the original large XML with the real pinned local XSD, without whole-document buffering.
-            with member.open("rb") as original_xml:
-                validated = subprocess.run(["xmllint", "--nonet", "--stream", "--noout", "--schema",
-                    str(Path(__file__).resolve().parents[2] / "src/main/resources/cds-import/schema/EMR_Data_Migration_Schema.xsd"), "-"],
-                    stdin=original_xml, capture_output=True, timeout=300)
-            if validated.returncode:
-                raise RuntimeError("generated workload failed the actual pinned schema")
+            if validate_xml is not None:
+                validations.append(validate_xml(member))
+            else:
+                # Tiny unit/external-reference XML uses an independent actual pinned-XSD validator.
+                with member.open("rb") as original_xml:
+                    validated = subprocess.run(["xmllint", "--nonet", "--stream", "--noout", "--schema",
+                        str(Path(__file__).resolve().parents[2] / "src/main/resources/cds-import/schema/EMR_Data_Migration_Schema.xsd"), "-"],
+                        stdin=original_xml, capture_output=True, timeout=300)
+                if validated.returncode:
+                    raise RuntimeError("generated workload failed the actual pinned schema")
             seal_member(member, False)
             if attachment is not None:
                 seal_member(attachment, True)
@@ -382,7 +386,25 @@ def generate_case(root: Path, label: str, token: str, patients: int = 1,
     return {"label": label, "source": str(source), "patients": patients, "notes": patients * records,
             "labs": patients * records, "documents": patients * (1 if archive else 2) if payload else 0,
             "documentBytes": document_bytes, "sourceBytes": sum(row["bytes"] for row in manifests),
-            "archiveBytes": source.stat().st_size if archive else 0, "members": manifests}
+            "archiveBytes": source.stat().st_size if archive else 0, "members": manifests,"sourceValidation":validations}
+
+
+def production_workload_validation(source: Path, spool: Path, java: str, classpath: str) -> dict:
+    started=time.monotonic()
+    completed=subprocess.run([java,'-Xmx64m','-cp',classpath,'CdsWorkloadValidator',str(source),str(spool)],
+                             capture_output=True,text=True,timeout=300)
+    rows=[line.removeprefix('CDS_WORKLOAD_VALIDATED:') for line in completed.stdout.splitlines()
+          if line.startswith('CDS_WORKLOAD_VALIDATED:')]
+    if completed.returncode or len(completed.stdout)>65536 or len(completed.stderr)>65536 or len(rows)!=1:
+        raise RuntimeError('whole-original-source production-parser validation did not complete')
+    value=json.loads(rows[0])
+    required={'sourceSha256','sourceBytes','records','fields','decodedBinaryBytes','valuesBytes'}
+    if not isinstance(value,dict) or set(value)!=required or value['sourceSha256']!=digest(source) \
+            or value['sourceBytes']!=source.stat().st_size or any(type(value[key]) is not int or value[key]<0 for key in required-{'sourceSha256'}) \
+            or value['records']<1 or value['decodedBinaryBytes']>value['valuesBytes']:
+        raise RuntimeError('production-parser validation did not bind the complete original source')
+    return {**value,'validator':'actual CdsXmlParser/pinned schema/default limits; no DB or clinical write',
+            'heapMiB':64,'elapsedSeconds':time.monotonic()-started}
 
 
 def rows(path: Path) -> list[dict]:
@@ -448,6 +470,7 @@ def operator_projection(path: Path, diagnostics_root: Path | None=None) -> dict:
     events=[{key:value for key,value in row.items() if key in allowed} for row in rows(path)
             if row.get('event') in {'INITIALIZING','SUBMISSION','ACCEPTED','RESULT'}]
     prefixes=Counter()
+    progress_events=0
     reasons=[]
     technical=[]
     technical_errors=[]
@@ -455,6 +478,9 @@ def operator_projection(path: Path, diagnostics_root: Path | None=None) -> dict:
         for line in stream:
             if len(line)>65536:
                 raise RuntimeError('operator projection row capacity exceeded')
+            if line.startswith('{'):
+                if json.loads(line).get('event')=='PROGRESS':
+                    progress_events+=1
             prefix=re.match(r'^(?:carlos-ctl: )?(CDS_[A-Z_]{1,64}):',line)
             if prefix:
                 prefixes[prefix[1]]+=1
@@ -484,8 +510,82 @@ def operator_projection(path: Path, diagnostics_root: Path | None=None) -> dict:
                     if len(technical_errors)>4:
                         raise RuntimeError('technical failure receipt error capacity exceeded')
     return {'events':events,'reasonCodes':reasons,'diagnosticPrefixes':dict(prefixes),
+            'progressEvents':progress_events,
             'technicalFailureEvidence':technical,'technicalEvidenceErrors':technical_errors,
             'privateLogBytes':path.stat().st_size,'privateLogSha256':digest(path)}
+
+
+STATEMENT_CLASSES=frozenset({'OBSERVATION','SCHEMA_CATALOGUE','COORDINATOR_LOCK','LEDGER_READ',
+    'LEDGER_WRITE','SESSION_CONTROL','TRANSACTION_CONTROL','NATIVE_READ','NATIVE_WRITE','OTHER'})
+STATEMENT_DIGEST_SQL="""SELECT COALESCE(DIGEST,'OVERFLOW'),LOWER(SHA2(DIGEST_TEXT,256)),
+ CASE
+ WHEN DIGEST_TEXT LIKE '%performance_schema%' OR DIGEST_TEXT LIKE 'SHOW GLOBAL STATUS%' THEN 'OBSERVATION'
+ WHEN DIGEST_TEXT LIKE '%information_schema%' OR DIGEST_TEXT LIKE 'SHOW %' THEN 'SCHEMA_CATALOGUE'
+ WHEN DIGEST_TEXT LIKE '%IS_USED_LOCK%' OR DIGEST_TEXT LIKE '%GET_LOCK%' OR DIGEST_TEXT LIKE '%RELEASE_LOCK%' THEN 'COORDINATOR_LOCK'
+ WHEN DIGEST_TEXT REGEXP '^(START TRANSACTION|BEGIN|COMMIT|ROLLBACK)' THEN 'TRANSACTION_CONTROL'
+ WHEN DIGEST_TEXT REGEXP '^(SET|DO|USE) ' THEN 'SESSION_CONTROL'
+ WHEN DIGEST_TEXT LIKE '%cds_import_%' AND DIGEST_TEXT REGEXP '^(SELECT|WITH) ' THEN 'LEDGER_READ'
+ WHEN DIGEST_TEXT LIKE '%cds_import_%' AND DIGEST_TEXT REGEXP '^(INSERT|UPDATE|DELETE|REPLACE) ' THEN 'LEDGER_WRITE'
+ WHEN DIGEST_TEXT REGEXP '^(SELECT|WITH) ' THEN 'NATIVE_READ'
+ WHEN DIGEST_TEXT REGEXP '^(INSERT|UPDATE|DELETE|REPLACE) ' THEN 'NATIVE_WRITE'
+ ELSE 'OTHER' END,SUM(COUNT_STAR),SUM(SUM_TIMER_WAIT)
+ FROM performance_schema.events_statements_summary_by_digest WHERE COUNT_STAR>0
+ GROUP BY DIGEST,DIGEST_TEXT ORDER BY DIGEST LIMIT 4097"""
+
+
+def statement_digest_snapshot(rows: list[list[str]]) -> dict:
+    """Accept bounded hashes/classes/counters only; SQL text and bound values never leave the server."""
+    if len(rows)>4096:
+        raise RuntimeError('statement digest inventory capacity exceeded')
+    result={}
+    for row in rows:
+        if len(row)!=5 or not re.fullmatch(r'[0-9a-fA-F]{32}|[0-9a-fA-F]{64}',row[0]) \
+                or not re.fullmatch(r'[0-9a-f]{64}',row[1]) or row[2] not in STATEMENT_CLASSES \
+                or not row[3].isdecimal() or not row[4].isdecimal() or row[0] in result:
+            raise RuntimeError('statement digest overflow, duplicate or unsafe counter projection')
+        result[row[0]]={'shapeSha256':row[1],'statementClass':row[2],
+                        'count':int(row[3]),'timerPicoseconds':int(row[4])}
+    if not result:
+        raise RuntimeError('actual statement digest instrumentation is unavailable')
+    return result
+
+
+def statement_digest_delta(before: dict, after: dict) -> dict:
+    if any(key not in after for key in before):
+        raise RuntimeError('statement digest inventory reset or was evicted')
+    entries=[]
+    classes=Counter()
+    for key,current in after.items():
+        previous=before.get(key,dict(current,count=0,timerPicoseconds=0))
+        if any(current[field]!=previous[field] for field in ('shapeSha256','statementClass')):
+            raise RuntimeError('statement digest identity changed')
+        count=current['count']-previous['count']
+        timer=current['timerPicoseconds']-previous['timerPicoseconds']
+        if min(count,timer)<0:
+            raise RuntimeError('statement digest counter reset')
+        if count:
+            entries.append({'digest':key,**current,'count':count,'timerPicoseconds':timer})
+            classes[current['statementClass']]+=count
+    return {'scope':'exclusive server; normalized SQL is classified and hashed in-server; counts include observers',
+            'statementCount':sum(classes.values()),'countsByClass':dict(classes),
+            'digests':sorted(entries,key=lambda row:(-row['count'],row['digest']))}
+
+
+def verified_query_budget_status(actual: int, budget: int) -> str:
+    """Called only after all engine/native/hash/report/release checks succeeded; no exception is caught to continue."""
+    if type(actual) is not int or type(budget) is not int or actual<0 or budget<1:
+        raise RuntimeError('query counters reset or the budget is invalid')
+    return 'PASSED' if actual<=budget else 'FAILED_QUERY_BUDGET'
+
+
+def require_no_cgroup_oom(initial: dict, current: dict) -> None:
+    for key in ('oom','oom_kill','oom_group_kill'):
+        values=[snapshot.get('memory.events',{}).get(key) for snapshot in (initial,current)]
+        if any(not isinstance(value,str) or not value.isdecimal() for value in values):
+            raise RuntimeError('required actual cgroup OOM counters are unavailable')
+        first,last=map(int,values)
+        if first<0 or last!=first:
+            raise RuntimeError('a measured profile caused a cgroup OOM event or counters reset')
 
 
 def capture_evidence(case: dict, key: str, read) -> None:
@@ -589,7 +689,15 @@ def main() -> None:
             return [row.split("\t") for row in completed.stdout.splitlines()]
         def counters() -> dict:
             return {key: int(value) for key, value in query("SHOW GLOBAL STATUS WHERE Variable_name IN "
-                "('Questions','Com_select','Com_insert','Com_update','Com_delete','Threads_connected','Threads_running','Innodb_row_lock_time')")}
+                "('Questions','Com_select','Com_insert','Com_update','Com_delete','Threads_connected','Threads_running','Innodb_row_lock_time','Performance_schema_digest_lost')")}
+        def statement_digests() -> dict:
+            return statement_digest_snapshot(query(STATEMENT_DIGEST_SQL))
+        stage('STATEMENT_DIGEST_INSTRUMENTATION')
+        if query("SELECT @@performance_schema")[0]!=['1']:
+            raise RuntimeError('the owned server must enable actual statement digest instrumentation before startup')
+        if query("SELECT ENABLED FROM performance_schema.setup_consumers WHERE NAME='statements_digest'")!=[['YES']]:
+            raise RuntimeError('actual statement digest consumer is unavailable')
+        statement_digests()
         stage('DATABASE_BINDING_AND_ZERO_HOLD')
         if query("SELECT DATABASE()")[0] != [database] or query("SELECT COUNT(*) FROM cds_import_patient WHERE held=1")[0] != ["0"]:
             raise RuntimeError("benchmark database binding or zero-hold prerequisite failed")
@@ -630,6 +738,7 @@ def main() -> None:
         ledger_statement="SELECT (SELECT COUNT(*) FROM cds_import_run),(SELECT COUNT(*) FROM cds_import_unit)," \
             "(SELECT COUNT(*) FROM cds_import_checkpoint),(SELECT COUNT(*) FROM cds_import_patient WHERE held=1)"
         baseline_ledger=query(ledger_statement)
+        control_digests_before=statement_digests()
         control['beforeCounters']=counters()
         observer_before=result['observerQueriesExecuted']
         control_log=evidence/'startup-control.log'
@@ -641,6 +750,7 @@ def main() -> None:
         control['afterCounters']=counters()
         control['observerSqlInvocationsDuringWindow']=result['observerQueriesExecuted']-observer_before
         control['globalQueries']=control['afterCounters']['Questions']-control['beforeCounters']['Questions']
+        control['statementDigests']=statement_digest_delta(control_digests_before,statement_digests())
         control['operatorEvidence']=operator_projection(control_log,args.fixture_metadata.parent/'state/runs/cli-diagnostics')
         private_json(proof,result)
         require_startup_control(controlled.returncode,control['operatorEvidence'])
@@ -667,13 +777,17 @@ def main() -> None:
         for index, (label, patients, records, payload, archive) in enumerate(definitions):
             result['currentCase']=label
             stage('SOURCE_GENERATION')
-            source = generate_case(args.root, label, token[:6] + f"{index:04X}", patients, records, payload, archive=archive)
+            validator=(lambda source:production_workload_validation(source,evidence/(label+'-validation'),args.java,args.classpath)) \
+                if payload and not archive else None
+            source = generate_case(args.root, label, token[:6] + f"{index:04X}", patients, records, payload, archive=archive,validate_xml=validator)
             private_json(evidence / (label + "-source.json"), source, exclusive=True)
+            case_digests_before=statement_digests()
             before = counters()
             case = {"label": label, "sourceBytes": source["sourceBytes"], "documentBytes": source["documentBytes"],
                     "expectedPatients": patients, "expectedNotes": source["notes"], "expectedLabs": source["labs"],
                     "expectedDocuments": source["documents"], "beforeCounters": before, "status": "RUNNING",
                     "acceptedRunIds":[],"submissionKeys":[],"phase":"PREPARED"}
+            case['sourceValidation']=source['sourceValidation']
             case['resourceObservations']={'intervalSeconds':1,'maxObservedPendingUnits':None,
                 'sampledPeaksAreLowerBounds':True,'sampledMinimaAreUpperBounds':True,
                 'databaseScope':'exclusive server-global; includes observer connections/queries',
@@ -732,6 +846,8 @@ def main() -> None:
                                         case.setdefault('observedMilestoneCounters',{})[event]={
                                             'elapsedSeconds':time.monotonic()-started,'globalCounters':counters(),
                                             'scope':'exclusive server; sampled when this command message was observed; includes observers'}
+                                        case['observedMilestoneCounters'][event]['statementDigestsSinceCaseStart']= \
+                                            statement_digest_delta(case_digests_before,statement_digests())
                                         changed = True
                                     if len(case[target]) != 1:
                                         private_json(proof,result)
@@ -855,6 +971,8 @@ def main() -> None:
                     if process.returncode!=0:
                         capture_evidence(case,'failedNative',lambda:inspect(accepted))
                 private_json(proof,result)
+                capture_evidence(case,'statementDigests',lambda:statement_digest_delta(case_digests_before,statement_digests()))
+                private_json(proof,result)
             if not samples or worker is None:
                 raise RuntimeError("actual installed JVM resident-memory evidence is missing")
             gc_metrics = gc_evidence(evidence / (label+"-gc.log"))
@@ -865,6 +983,8 @@ def main() -> None:
             case['enforcedPeakRssBytes']=enforce_rss_budget(peak,kernel,args.max_rss_mib*MIB)
             after = counters()
             case['afterCounters']=after
+            if 'statementDigests' not in case or after.get('Performance_schema_digest_lost')!=0:
+                raise RuntimeError('statement digest evidence is missing or actual server digest inventory overflowed')
             stage('NATIVE_AND_REQUIRED_REPORT_VERIFICATION')
             completed = complete_result(rows(log))
             native = inspect(completed["runId"])
@@ -959,9 +1079,11 @@ def main() -> None:
                         queriesPerExpectedUnit=query_delta/max(1,native['expectedUnits']),
                         globalQueryBudget=args.max_queries_per_unit*max(1,native['expectedUnits']))
             private_json(proof,result)
-            if query_delta < 0 or query_delta > args.max_queries_per_unit * max(1, native["expectedUnits"]):
-                raise RuntimeError("global-query budget was exceeded or server counters reset")
-            case.update({"status": "PASSED", "phase":"VERIFIED", "runId": completed["runId"], "importElapsedSeconds": import_elapsed,
+            case['completedCgroupCounters']=cgroup_counters()
+            private_json(proof,result)
+            require_no_cgroup_oom(result['initialCgroupCounters'],case['completedCgroupCounters'])
+            budget_status=verified_query_budget_status(query_delta,case['globalQueryBudget'])
+            case.update({"status": budget_status, "phase":"VERIFIED", "runId": completed["runId"], "importElapsedSeconds": import_elapsed,
                          "verificationElapsedSeconds":time.monotonic()-started-import_elapsed,
                          "sourceBytesPerImportSecond":source["sourceBytes"]/import_elapsed,
                          "peakRssBytes": peak, "rssSamples": samples, "rssBudgetBytes": args.max_rss_mib*MIB,
@@ -972,14 +1094,15 @@ def main() -> None:
                          "queriesPerExpectedUnit": query_delta/max(1, native["expectedUnits"]),
                          "gc":gc_metrics,"kernelResources":kernel,"remainingDiskBytes": shutil.disk_usage(args.root).free})
             private_json(proof, result)
-            print("PASS", label, "run=" + completed["runId"], "sourceBytes=" + str(source["sourceBytes"]),
+            print('PASS' if budget_status=='PASSED' else 'FAIL_QUERY_BUDGET', label, "run=" + completed["runId"], "sourceBytes=" + str(source["sourceBytes"]),
                   "peakRssBytes=" + str(peak), flush=True)
         result["status"] = "PASSED"
         result['finalCgroupCounters']=cgroup_counters()
         result['cgroupMemoryPeakIncludingFileCache']=Path('/sys/fs/cgroup/memory.peak').read_text().strip()
-        for key in ('oom','oom_kill','oom_group_kill'):
-            if int(result['finalCgroupCounters']['memory.events'].get(key,0))>int(result['initialCgroupCounters']['memory.events'].get(key,0)):
-                raise RuntimeError("a measured profile caused a real cgroup OOM event")
+        require_no_cgroup_oom(result['initialCgroupCounters'],result['finalCgroupCounters'])
+        result['queryBudgetFailureCases']=[case['label'] for case in result['cases'] if case['status']=='FAILED_QUERY_BUDGET']
+        if result['queryBudgetFailureCases']:
+            raise RuntimeError('one or more fully verified independent imports exceeded the unchanged query budget')
         private_json(proof, result)
     except Exception as failure:
         result["status"] = "FAILED"

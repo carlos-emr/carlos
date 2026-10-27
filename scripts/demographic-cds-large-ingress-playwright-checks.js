@@ -27,13 +27,20 @@ function writeFixture(file, payloadBytes) {
       + '<cdsd:PartType>GIV</cdsd:PartType></cdsd:FirstName><cdsd:LastName><cdsd:Part>LargeIngress</cdsd:Part>'
       + '<cdsd:PartType>FAMC</cdsd:PartType></cdsd:LastName></cdsd:LegalName></Names>'
       + '<DateOfBirth>1971-03-04</DateOfBirth><Gender>F</Gender><UniqueVendorIdSequence>LARGE-INGRESS-ONLY</UniqueVendorIdSequence>'
-      + '<PersonStatusCode><PersonStatusAsEnum>A</PersonStatusAsEnum></PersonStatusCode></Demographics>'
-      + '<Reports><Format>Text</Format><Content><cdsd:TextContent>');
+      + '<PersonStatusCode><PersonStatusAsEnum>A</PersonStatusAsEnum></PersonStatusCode></Demographics>');
     for (let remaining = payloadBytes; remaining > 0;) {
-      const chunk = Buffer.from(randomBytes(48 * 1024).toString('base64'));
-      const size = Math.min(chunk.length, remaining); write(chunk.subarray(0, size)); remaining -= size;
+      // A bounded text value keeps the independent streaming XSD validator's
+      // own memory/time independent of the aggregate transport size.
+      write('<Reports><Format>Text</Format><Content><cdsd:TextContent>');
+      let fieldRemaining=Math.min(MiB,remaining);
+      while(fieldRemaining>0){
+        const chunk = Buffer.from(randomBytes(48 * 1024).toString('base64'));
+        const size = Math.min(chunk.length, fieldRemaining);write(chunk.subarray(0,size));
+        fieldRemaining-=size;remaining-=size;
+      }
+      write('</cdsd:TextContent></Content><Class>Medical Records Report</Class></Reports>');
     }
-    write('</cdsd:TextContent></Content><Class>Medical Records Report</Class></Reports></PatientRecord></OmdCds>');
+    write('</PatientRecord></OmdCds>');
     fs.fsyncSync(fd);
   } finally { fs.closeSync(fd); }
   return {bytes, sha256:hash.digest('hex')};
