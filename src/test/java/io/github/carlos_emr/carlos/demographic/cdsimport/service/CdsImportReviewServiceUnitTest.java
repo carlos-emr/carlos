@@ -417,6 +417,57 @@ class CdsImportReviewServiceUnitTest {
         assertThat(run.isCancelRequested()).isFalse();verify(ledger).actorEvent(run,actor,"REVIEW_FATAL_RETRY_REQUESTED");
     }
 
+    @Test
+    void shouldReportFailedNormalRetirement_whenReviewPublicationAlreadySucceeded() throws Exception {
+        source("F");String id=service.accept(viewer,RUN,command("M"));
+        var retirement=new CdsImportException("SYNTHETIC_RETIREMENT_FAILED");doThrow(retirement).when(ledger).release(RUN,5L);
+        assertThatThrownBy(() -> service.process(id)).isSameAs(retirement);
+        assertThat(stored.get().getState()).isEqualTo("OVERLAY_READY");verify(ledger).resetUnsealedPlan(RUN,5L,1L);
+    }
+
+    @Test
+    void shouldPreservePrimarySourceFailureAndRecordRetirementAsSuppressed_whenMetadataCleanupAlsoFails() throws Exception {
+        source("F");String id=service.accept(viewer,RUN,command("M"));
+        var primary=new java.io.IOException("synthetic source failure");var retirement=new IllegalStateException("synthetic metadata retirement failure");
+        when(jobs.snapshot(RUN,document)).thenThrow(primary);doThrow(retirement).when(ledger).release(RUN,5L);
+        assertThatThrownBy(() -> service.process(id)).isSameAs(primary).satisfies(failure -> assertThat(failure.getSuppressed()).containsExactly(retirement));
+        assertThat(stored.get().getState()).isEqualTo("REJECTED");
+        var order=inOrder(ledger);order.verify(ledger).lockPlanningOwned(RUN,5L);order.verify(ledger).release(RUN,5L);
+    }
+
+    @Test
+    void shouldPreserveFatalWorkerFailure_whenOwnerRetirementAlsoFails() throws Exception {
+        source("F");String id=service.accept(viewer,RUN,command("M"));
+        var fatal=new AssertionError("synthetic fatal worker");var retirement=new CdsImportException("SYNTHETIC_RETIREMENT_FAILED");
+        when(jobs.snapshot(RUN,document)).thenThrow(fatal);doThrow(retirement).when(ledger).release(RUN,5L);
+        assertThatThrownBy(() -> service.process(id)).isSameAs(fatal).satisfies(failure -> assertThat(failure.getSuppressed()).containsExactly(retirement));
+        assertThat(stored.get().getState()).isEqualTo("VALIDATING");
+    }
+
+    @Test
+    void shouldIgnoreOnlyAnActualFencedRetirement_whenASuccessorOwnsRecovery() throws Exception {
+        source("F");String id=service.accept(viewer,RUN,command("M"));
+        doThrow(new CdsImportException("OWNER_FENCED")).when(ledger).release(RUN,5L);
+        assertThat(service.process(id)).isEqualTo(RUN);assertThat(stored.get().getState()).isEqualTo("OVERLAY_READY");
+    }
+
+    @Test
+    void shouldPreserveFatalSupervisorFailure_whenOwnerRetirementAlsoFails() throws Exception {
+        source("F");String id=service.accept(viewer,RUN,command("M"));
+        var fatal=new AssertionError("synthetic fatal supervisor");var retirement=new CdsImportException("SYNTHETIC_RETIREMENT_FAILED");
+        doThrow(fatal).when(ledger).event(run,null,"REVIEW_WORKER_FATAL");doThrow(retirement).when(ledger).release(RUN,5L);
+        assertThatThrownBy(() -> service.superviseFatal(id)).isSameAs(fatal).satisfies(failure -> assertThat(failure.getSuppressed()).containsExactly(retirement));
+    }
+
+    @Test
+    void shouldRefuseMissingOrBlankRevisionEvidence_whenNoFilesystemProofCanBeSelected() throws Exception {
+        source("F");String id=revision();diagnostic.setProtectedDetailLocation(null);
+        assertThatThrownBy(() -> service.process(id)).hasMessage("REVIEW_REVISION_CONTEXT_REQUIRED");
+        verifyNoInteractions(revisions);verify(ledger,never()).resetUnsealedPlan(anyString(),anyLong(),anyLong());
+        stored.get().setState("REQUESTED");diagnostic.setProtectedDetailLocation(" ");
+        assertThatThrownBy(() -> service.process(id)).hasMessage("REVIEW_REVISION_CONTEXT_REQUIRED");
+    }
+
     private String revision() throws Exception {
         String patient="a".repeat(64);diagnostic.setPatientKey(patient);diagnostic.setCode("SOURCE_REVISION_REVIEW_REQUIRED");
         when(revisions.prepare(eq(RUN),eq(5L),eq(patient),anyString(),eq(document),any(),any(),any())).thenAnswer(call -> {

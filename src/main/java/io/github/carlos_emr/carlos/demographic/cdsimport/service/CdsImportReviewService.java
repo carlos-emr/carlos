@@ -144,12 +144,12 @@ public class CdsImportReviewService {
 
     /** Healthy supervisor only: retain every published proof and stop automatic fatal retries. */
     public void superviseFatal(String reviewId) throws IOException {
-        CdsImportLedgerService.requireNoTransaction(); Snapshot initial=snapshot(reviewId); long epoch=-1; Throwable primary=null;
-        try (var coordination=coordinator.acquire(); FileChannel channel=FileChannel.open(jobs.root(initial.run()).resolve("planning.lock"),
+        CdsImportLedgerService.requireNoTransaction(); Snapshot initial=snapshot(reviewId);
+        try (var ownership=new ReviewOwnership(initial.run()); var coordination=coordinator.acquire(); FileChannel channel=FileChannel.open(jobs.root(initial.run()).resolve("planning.lock"),
                 Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS),
                 PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))); FileLock ignored=lock(channel)) {
             if (!PENDING.contains(snapshot(reviewId).state())) return;
-            coordination.check(); epoch=ledger.claimReviewPlanning(initial.run()); long owner=epoch;
+            coordination.check(); long owner=ownership.acquired(ledger.claimReviewPlanning(initial.run()));
             transaction.executeWithoutResult(status -> {
                 var run=ledger.lockReviewAdministrativeOwned(initial.run(), owner); var row=reviews.lock(reviewId);
                 if (row==null || row.getReviewVersion()!=initial.version() || run.getReviewVersion()!=initial.version() || !PENDING.contains(row.getState())) return;
@@ -157,13 +157,6 @@ public class CdsImportReviewService {
                 if (!Set.of("OVERLAY_PUBLISHED", "PATIENT_DECLINED", "REVISION_PUBLISHED").contains(row.getState())) run.setState("REVIEW_REQUIRED");
                 ledger.touch(run); ledger.event(run, null, "REVIEW_WORKER_FATAL");
             });
-        } catch (IOException | RuntimeException | Error failure) {
-            primary=failure; throw failure;
-        } finally {
-            if (epoch>=0) {
-                try {ledger.release(initial.run(), epoch); }
-                catch (CdsImportException fenced) {if (!"OWNER_FENCED".equals(fenced.getCode())) {if (primary!=null) primary.addSuppressed(fenced); else throw fenced; }}
-            }
         }
     }
 
@@ -210,8 +203,14 @@ public class CdsImportReviewService {
     public String process(String reviewId) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
         Snapshot initial=snapshot(reviewId);
+        // Ownership encloses failure recording: retain the fence until the stopped outcome is durable.
+        try (var ownership=new ReviewOwnership(initial.run())) {
+            return processOwned(reviewId, initial, ownership);
+        }
+    }
+
+    private String processOwned(String reviewId, Snapshot initial, ReviewOwnership ownership) throws IOException {
         long epoch=-1;
-        Throwable primary=null;
         try (var coordination=coordinator.acquire(); FileChannel channel=FileChannel.open(jobs.root(initial.run()).resolve("planning.lock"), Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS),
                 PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))); FileLock ignored=lock(channel)) {
             var document=jobs.load(initial.run());
@@ -220,7 +219,7 @@ public class CdsImportReviewService {
             Request request=request(current);
             boolean published=Set.of("OVERLAY_PUBLISHED", "PATIENT_DECLINED", "REVISION_PUBLISHED").contains(current.state());
             if (!published) access.context(request.actor(), document.command(), null);
-            coordination.check(); epoch=ledger.claimReviewPlanning(current.run());
+            coordination.check(); epoch=ownership.acquired(ledger.claimReviewPlanning(current.run()));
             long owner=epoch;
             if (published) {
                 verifyArchive(current, document.jobRoot());
@@ -288,7 +287,6 @@ public class CdsImportReviewService {
             ledger.resetUnsealedPlan(current.run(), epoch, current.version());
             ready(reviewId, current.run(), epoch, current.version()); completeCancelledReset(current.run(), epoch); return current.run();
         } catch (Exception failure) {
-            primary=failure;
             String code=failure instanceof CdsImportException known?known.getCode():failure instanceof io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException input?input.code():failure instanceof SecurityException?"REVIEW_AUTHORIZATION_CHANGED":"REVIEW_VALIDATION_FAILED";
             boolean busy=Set.of("IMPORT_BUSY", "IMPORT_COORDINATOR_BUSY", "IMPORT_COORDINATOR_UNAVAILABLE", "IMPORT_COORDINATOR_LOST", "REVIEW_PLANNING_BUSY", "OWNER_FENCED").contains(code);
             if (!busy) reject(initial, epoch, code);
@@ -298,31 +296,21 @@ public class CdsImportReviewService {
             }
             if (failure instanceof IOException io) throw io;
             if (failure instanceof RuntimeException runtime) throw runtime;
-            throw new CdsImportException("REVIEW_VALIDATION_FAILED");
-        } catch (Error fatal) {
-            primary=fatal; throw fatal;
-        } finally {
-            if (epoch>=0) {
-                try {ledger.release(initial.run(), epoch); }
-                catch (CdsImportException failure){
-                    if (!"OWNER_FENCED".equals(failure.getCode())) {
-                        if (primary!=null) primary.addSuppressed(failure); else throw failure;
-                    }
-                }
-            }
+            throw new CdsImportException("REVIEW_VALIDATION_FAILED", false, failure);
         }
     }
 
     private String publishRevision(Snapshot current, Request request, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot,
             long epoch, Cancellation cancelled, CdsImportCoordinatorService.Owner coordination) throws IOException {
-        String location=transaction.execute(status -> {
+        DiagnosticContext context=transaction.execute(status -> {
             var diagnostic=diagnostics.get(current.diagnostic());
             if (diagnostic==null || !current.run().equals(diagnostic.getRunId()) || !diagnostic.isBlocking() || diagnostic.isResolved()
                     || !"PREFLIGHT".equals(diagnostic.getStage()) || !"SOURCE_REVISION_REVIEW_REQUIRED".equals(diagnostic.getCode())
                     || !java.util.Objects.equals(current.patient(), diagnostic.getPatientKey())) throw new CdsImportException("REVIEW_REVISION_CONTEXT_REQUIRED");
-            return diagnostic.getProtectedDetailLocation();
+            return new DiagnosticContext(diagnostic.getProtectedDetailLocation(), diagnostic.getSourcePath());
         });
-        if (location==null) throw new CdsImportException("REVIEW_REVISION_CONTEXT_REQUIRED");
+        String location=context.location();
+        if (location==null || location.isBlank()) throw new CdsImportException("REVIEW_REVISION_CONTEXT_REQUIRED");
         Path evidenceRoot=directory(document.jobRoot().resolve("reviews"), document.jobRoot());
         Path attempt=CdsPaths.privateDirectory(evidenceRoot.resolve("review-"+current.id()+"-"+UUID.randomUUID()), evidenceRoot);
         write(attempt.resolve("request.json"), attempt, JSON.writeValueAsBytes(request));
@@ -627,6 +615,18 @@ public class CdsImportReviewService {
     }
     private static String blank(String value){return value==null || value.isBlank()?null:value; }
     private static void check(BooleanSupplier cancelled){if (cancelled.getAsBoolean()) throw new CdsImportException("REVIEW_CANCELLED"); }
+    /** Try-with-resources preserves every primary failure and reports a failed normal retirement. */
+    private final class ReviewOwnership implements AutoCloseable {
+        private final String run;
+        private long epoch=-1;
+        ReviewOwnership(String run){this.run=run; }
+        long acquired(long value){epoch=value; return value; }
+        @Override public void close() {
+            if (epoch<0) return;
+            try {ledger.release(run, epoch); }
+            catch (CdsImportException failure){if (!"OWNER_FENCED".equals(failure.getCode())) throw failure; }
+        }
+    }
     private final class Cancellation implements BooleanSupplier {
         private final String run; private final CdsImportCoordinatorService.Owner owner; private long checked; private boolean cancelled;
         Cancellation(String run, CdsImportCoordinatorService.Owner owner){this.run=run; this.owner=owner; }
@@ -636,5 +636,5 @@ public class CdsImportReviewService {
     private record Snapshot(String id, String run, long version, long ownerEpoch, String kind, String state, long diagnostic, String patient, String payload, String payloadHash, String plan, String planHash, long planBytes){@Override public String toString(){return "ReviewSnapshot[protected]"; }}
     private record Target(CdsSnapshotFileDto xml, Path folder, CdsRecordDto record, CdsFieldDto field, String sourcePatientId){@Override public String toString(){return "ReviewTarget[protected]"; }}
     private record Archive(Path path, String sha256, long bytes){@Override public String toString(){return "ReviewArchive[protected]"; }}
-    private record DiagnosticContext(String location, String xpath){@Override public String toString(){return "ReviewDiagnosticContext[protected]"; }}
+    private record DiagnosticContext(@org.jspecify.annotations.Nullable String location, @org.jspecify.annotations.Nullable String xpath){@Override public String toString(){return "ReviewDiagnosticContext[protected]"; }}
 }
