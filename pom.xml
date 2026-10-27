@@ -613,6 +613,12 @@
         </dependency>
 
         <!-- ==================== Spring Framework ==================== -->
+        <!-- CDS streaming validation inspects pinned field types/facets to keep
+             unbounded XML values off heap; do not rely on an incidental transitive API. -->
+        <dependency>
+            <groupId>xerces</groupId>
+            <artifactId>xercesImpl</artifactId>
+        </dependency>
         <!-- Jakarta EE 11 — versions managed by spring-framework-bom via ${spring.version} -->
         <dependency>
             <groupId>org.springframework</groupId>
