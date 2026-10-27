@@ -49,6 +49,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -61,14 +63,20 @@ public class CdsPreacceptService {
     private final CdsImportConfigurationService configuration;
     private final CdsImportLedgerService ledger;
     private final Clock clock;
+    private final long indexLockWaitNanos;
     private static final Set<Path> ACTIVE=new java.util.HashSet<>();
-    private static final Object INDEX_MUTEX=new Object();
+    private static final ReentrantLock INDEX_MUTEX=new ReentrantLock();
     @Autowired
     public CdsPreacceptService(CdsImportConfigurationService configuration, CdsImportLedgerService ledger) {
         this(configuration, ledger, Clock.systemUTC());
     }
     CdsPreacceptService(CdsImportConfigurationService configuration, CdsImportLedgerService ledger, Clock clock) {
+        this(configuration, ledger, clock, 5000);
+    }
+    CdsPreacceptService(CdsImportConfigurationService configuration, CdsImportLedgerService ledger, Clock clock, long indexLockWaitMillis) {
+        if (indexLockWaitMillis<1 || indexLockWaitMillis>30000) throw new IllegalArgumentException("Invalid preaccept index lock wait");
         this.configuration=configuration; this.ledger=ledger; this.clock=clock;
+        this.indexLockWaitNanos=TimeUnit.MILLISECONDS.toNanos(indexLockWaitMillis);
     }
 
     public record Ownership(Path root, String generation, String intentDigest, String operator, String submissionKey, long createdAt) {
@@ -321,11 +329,14 @@ public class CdsPreacceptService {
     }
 
     private void appendIndex(Ownership owned) throws IOException {
+        long started=System.nanoTime();
         Path root=configuration.stagingRoot(), index=root.resolve(".preaccept-index.jsonl"), seal=root.resolve(".preaccept-index.seal");
         // One entry per generation, even when a large source copy is repeatedly resumed.
         Path marker=owned.root().resolve("indexed.seal"); if (Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) return;
-        synchronized (INDEX_MUTEX) {
-        try (FileChannel gate=channel(root.resolve(".preaccept-index.lock")); FileLock lock=gate.lock(); FileChannel file=channel(index)) {
+        acquireIndexMutex(started);
+        try {
+        try (FileChannel gate=channel(root.resolve(".preaccept-index.lock")); FileLock lock=acquireIndexFileLock(gate, started); FileChannel file=channel(index)) {
+            remainingIndexWait(started);
             long end=0;
             if (Files.exists(seal, LinkOption.NOFOLLOW_LINKS)) {
                 JsonNode prior=JSON.readTree(read(seal, 65536)); end=prior.path("bytes").asLong(-1);
@@ -343,8 +354,33 @@ public class CdsPreacceptService {
             replace(seal, root, JSON.writeValueAsBytes(JSON.createObjectNode().put("version", 1).put("bytes", file.position())
                     .put("lastOffset", end).put("lastLength", committed.length).put("lastSha256", hash(committed))));
         }
-        }
+        } finally {INDEX_MUTEX.unlock(); }
         publishSame(marker, owned.root(), JSON.writeValueAsBytes(JSON.createObjectNode().put("generation", owned.generation()).put("intentSha256", owned.intentDigest())));
+    }
+
+    /** One admission deadline covers both JVM and cross-process lock contention. */
+    private void acquireIndexMutex(long started) {
+        try {
+            if (!INDEX_MUTEX.tryLock(remainingIndexWait(started), TimeUnit.NANOSECONDS)) throw new CdsImportException("PREACCEPT_INDEX_TIMEOUT");
+        } catch (InterruptedException cancelled) {throw indexCancelled(); }
+    }
+    private FileLock acquireIndexFileLock(FileChannel channel, long started) throws IOException {
+        while (true) {
+            remainingIndexWait(started);
+            FileLock acquired=tryLock(channel);
+            if (acquired!=null) return acquired;
+            try {TimeUnit.NANOSECONDS.sleep(Math.min(remainingIndexWait(started), TimeUnit.MILLISECONDS.toNanos(25))); }
+            catch (InterruptedException cancelled) {throw indexCancelled(); }
+        }
+    }
+    private long remainingIndexWait(long started) {
+        if (Thread.currentThread().isInterrupted()) throw indexCancelled();
+        long remaining=indexLockWaitNanos-(System.nanoTime()-started);
+        if (remaining<=0) throw new CdsImportException("PREACCEPT_INDEX_TIMEOUT");
+        return remaining;
+    }
+    private static CdsImportException indexCancelled() {
+        Thread.currentThread().interrupt(); return new CdsImportException("PREACCEPT_INDEX_CANCELLED");
     }
 
     private Ownership ownership(Path root) throws IOException {

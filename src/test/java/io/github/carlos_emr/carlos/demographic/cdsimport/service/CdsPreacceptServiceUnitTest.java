@@ -34,8 +34,12 @@ import java.nio.file.StandardOpenOption;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -129,6 +133,111 @@ class CdsPreacceptServiceUnitTest {
         assertEquals("user original",Files.readString(first.original));
     }
 
+    @Test @Timeout(value=10,threadMode=Timeout.ThreadMode.SEPARATE_THREAD)
+    void shouldTimeOutOnCrossProcessIndexLock_withoutChangingCommittedIndex_andRetrySameJournal() throws Exception {
+        Fixture first=fixture("prior",200);create(first,1);Fixture next=sibling(first,"contended");
+        Path index=first.staging.resolve(".preaccept-index.jsonl"),seal=first.staging.resolve(".preaccept-index.seal");
+        byte[] indexBefore=Files.readAllBytes(index),sealBefore=Files.readAllBytes(seal);
+        byte[] journal;
+        try(IndexHolder holder=holdIndex(first.staging)) {
+            long started=System.nanoTime();
+            try(var process=next.capture.enter(next.root);FileChannel channel=FileChannel.open(next.root.resolve("accept.lock"),StandardOpenOption.WRITE);FileLock owner=channel.lock()) {
+                CdsImportException failure=assertThrows(CdsImportException.class,()->next.capture.begin(actor,next.command,next.root,owner));
+                assertEquals("PREACCEPT_INDEX_TIMEOUT",failure.getCode());assertTrue(owner.isValid());
+            }
+            assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-started)<2000,"Contended admission must return within its finite wait");
+            journal=Files.readAllBytes(next.root.resolve("acceptance.seal"));
+            assertFalse(Files.exists(next.root.resolve("indexed.seal")));
+            assertFalse(Files.exists(next.root.resolve("accepting.seal")));
+            assertArrayEquals(indexBefore,Files.readAllBytes(index));assertArrayEquals(sealBefore,Files.readAllBytes(seal));
+            assertEquals("user original",Files.readString(first.original));assertTrue(holder.process.isAlive());
+        }
+        begin(next);begin(next);
+        assertArrayEquals(journal,Files.readAllBytes(next.root.resolve("acceptance.seal")));
+        try(var lines=Files.lines(index)){assertEquals(2,lines.count(),"Retry must append exactly once for the retained generation");}
+        verifyNoInteractions(first.ledger);
+    }
+
+    @Test void shouldInterruptSameJvmQueuedAdmission_andReleaseOnlyItsOwnCoordination() throws Exception {
+        Fixture first=fixture("waiting-file",5000),second=sibling(first,"waiting-jvm");
+        AtomicReference<Throwable> firstFailure=new AtomicReference<>(),secondFailure=new AtomicReference<>();
+        AtomicBoolean firstInterrupted=new AtomicBoolean(),secondInterrupted=new AtomicBoolean();
+        Thread fileWaiter=admission(first,firstFailure,firstInterrupted),jvmWaiter=admission(second,secondFailure,secondInterrupted);
+        try(IndexHolder holder=holdIndex(first.staging)) {
+            try {
+                fileWaiter.start();awaitFrame(fileWaiter,"acquireIndexFileLock");
+                jvmWaiter.start();awaitFrame(jvmWaiter,"acquireIndexMutex");
+                jvmWaiter.interrupt();jvmWaiter.join(2000);
+                assertFalse(jvmWaiter.isAlive());assertCancelled(secondFailure.get());assertTrue(secondInterrupted.get());
+                assertTrue(fileWaiter.isAlive(),"Cancelling the JVM waiter must not release the current process owner");
+                assertTrue(holder.process.isAlive(),"Cancelling admission must not terminate the external lock owner");
+                fileWaiter.interrupt();fileWaiter.join(2000);
+                assertFalse(fileWaiter.isAlive());assertCancelled(firstFailure.get());assertTrue(firstInterrupted.get());
+                assertFalse(Files.exists(first.staging.resolve(".preaccept-index.jsonl")));
+            } finally {
+                fileWaiter.interrupt();jvmWaiter.interrupt();fileWaiter.join(2000);jvmWaiter.join(2000);
+            }
+        }
+        begin(first);begin(second);
+        try(var lines=Files.lines(first.staging.resolve(".preaccept-index.jsonl"))){assertEquals(2,lines.count());}
+    }
+
+    @Test void shouldBoundOverlappingSameJvmFileLock_withoutReleasingTheExistingLock() throws Exception {
+        Fixture fixture=fixture("overlapping",100);
+        try(FileChannel channel=FileChannel.open(fixture.staging.resolve(".preaccept-index.lock"),StandardOpenOption.CREATE,StandardOpenOption.WRITE);FileLock held=channel.lock()) {
+            CdsImportException failure=assertThrows(CdsImportException.class,()->begin(fixture));
+            assertEquals("PREACCEPT_INDEX_TIMEOUT",failure.getCode());assertTrue(held.isValid());
+            assertFalse(Files.exists(fixture.staging.resolve(".preaccept-index.jsonl")));
+        }
+        begin(fixture);assertTrue(Files.exists(fixture.root.resolve("indexed.seal")));
+    }
+
+    private CdsPreacceptService.Ownership begin(Fixture fixture) throws Exception {
+        try(var process=fixture.capture.enter(fixture.root);FileChannel channel=FileChannel.open(fixture.root.resolve("accept.lock"),StandardOpenOption.WRITE);FileLock owner=channel.lock()) {
+            return fixture.capture.begin(actor,fixture.command,fixture.root,owner);
+        }
+    }
+    private Thread admission(Fixture fixture,AtomicReference<Throwable> failure,AtomicBoolean interrupted) {
+        return new Thread(()->{try{begin(fixture);}catch(Throwable stopped){failure.set(stopped);interrupted.set(Thread.currentThread().isInterrupted());}},"preaccept-index-test");
+    }
+    private static void assertCancelled(Throwable failure) {
+        assertInstanceOf(CdsImportException.class,failure);assertEquals("PREACCEPT_INDEX_CANCELLED",((CdsImportException)failure).getCode());
+    }
+    private static void awaitFrame(Thread thread,String method) throws Exception {
+        long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);
+        while(System.nanoTime()<deadline) {
+            for(StackTraceElement frame:thread.getStackTrace())if(frame.getMethodName().equals(method))return;
+            if(!thread.isAlive())fail("Admission exited before entering "+method);
+            Thread.sleep(5);
+        }
+        fail("Admission did not reach "+method);
+    }
+    private IndexHolder holdIndex(Path staging) throws Exception {
+        Path output=temp.resolve("index-holder-"+java.util.UUID.randomUUID()+".log");
+        String javaBinary=Path.of(System.getProperty("java.home"),"bin","java").toString();
+        String cp=System.getProperty("surefire.test.class.path",System.getProperty("java.class.path"));
+        Process process=new ProcessBuilder(javaBinary,"-cp",cp,IndexLockHolder.class.getName(),staging.resolve(".preaccept-index.lock").toString())
+                .redirectErrorStream(true).redirectOutput(output.toFile()).start();
+        IndexHolder holder=new IndexHolder(process);
+        try {
+            long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);
+            while(System.nanoTime()<deadline && process.isAlive()) {
+                if(Files.readString(output).contains("INDEX_LOCK_HELD"))return holder;
+                Thread.sleep(5);
+            }
+            fail("External index owner did not acquire the real file lock: "+Files.readString(output));return holder;
+        } catch(Throwable failure){holder.close();throw failure;}
+    }
+    private static final class IndexHolder implements AutoCloseable {
+        private final Process process;
+        private IndexHolder(Process process){this.process=process;}
+        @Override public void close() throws Exception {
+            process.getOutputStream().close();
+            if(!process.waitFor(5,TimeUnit.SECONDS)){process.destroyForcibly();assertTrue(process.waitFor(5,TimeUnit.SECONDS));}
+            assertEquals(0,process.exitValue());
+        }
+    }
+
     private void create(Fixture fixture,int files) throws Exception {
         try(var process=fixture.capture.enter(fixture.root);FileChannel channel=FileChannel.open(fixture.root.resolve("accept.lock"),StandardOpenOption.WRITE);FileLock owner=channel.lock()) {
             var journal=fixture.capture.begin(actor,fixture.command,fixture.root,owner);fixture.generation[0]=journal.generation();
@@ -138,10 +247,13 @@ class CdsPreacceptServiceUnitTest {
         }
     }
     private Fixture fixture(String key) throws Exception {
+        return fixture(key,5000);
+    }
+    private Fixture fixture(String key,long indexLockWaitMillis) throws Exception {
         Path staging=Files.createDirectory(temp.resolve("staging"),java.nio.file.attribute.PosixFilePermissions.asFileAttribute(java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"))),original=Files.writeString(temp.resolve("original.xml"),"user original");
         var ledger=mock(CdsImportLedgerService.class);var configuration=mock(CdsImportConfigurationService.class);
         when(configuration.stagingRoot()).thenReturn(staging);when(configuration.number(eq("cds.import.preacceptRetentionMillis"),anyLong())).thenReturn(1000L);
-        var capture=new CdsPreacceptService(configuration,ledger,Clock.fixed(Instant.ofEpochMilli(1000),ZoneOffset.UTC));
+        var capture=new CdsPreacceptService(configuration,ledger,Clock.fixed(Instant.ofEpochMilli(1000),ZoneOffset.UTC),indexLockWaitMillis);
         var cleanup=new CdsPreacceptService(configuration,ledger,Clock.fixed(Instant.ofEpochMilli(10000),ZoneOffset.UTC));
         return make(staging,original,key,ledger,capture,cleanup);
     }
@@ -157,6 +269,13 @@ class CdsPreacceptServiceUnitTest {
             try(FileChannel file=FileChannel.open(Path.of(args[0]),StandardOpenOption.WRITE);FileLock lock=file.tryLock()) {
                 if(lock!=null)throw new AssertionError("Janitor probe released another live process lock");
                 System.out.println("LOCK_REMAINS_BUSY");
+            }
+        }
+    }
+    public static final class IndexLockHolder {
+        public static void main(String[] args) throws Exception {
+            try(FileChannel channel=FileChannel.open(Path.of(args[0]),StandardOpenOption.CREATE,StandardOpenOption.WRITE);FileLock ignored=channel.lock()) {
+                System.out.println("INDEX_LOCK_HELD");System.out.flush();System.in.read();
             }
         }
     }
