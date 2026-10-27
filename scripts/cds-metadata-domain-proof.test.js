@@ -5,7 +5,7 @@ const id='12345678-1234-4234-8234-123456789abc',owner='web-77';
 function fixture({dry=true,mode=dry?'1':'0',summaryChanges={},checkpoints=0,advanced=0,reportChanges={},visibleId=id}={}) {
   const job={id,state:dry?'DRY_RUN_COMPLETE':'COMPLETE',sourceDigest:'a'.repeat(64),optionsDigest:'b'.repeat(64),rulesetDigest:'c'.repeat(64),manifestDigest:'d'.repeat(64)};
   const summary={dryRun:dry,cleanComplete:true,clinicalComplete:!dry,reportsDelivered:true,cleanupComplete:true,resumeRequested:false,expectedPatients:1,...summaryChanges};
-  const frame={locator(selector){return{async getAttribute(){assert.equal(selector,'#cdsImport');return owner;},async textContent(){assert.equal(selector,'#runSummary');return JSON.stringify({job,summary});}async inputValue(){assert.equal(selector,'#runId');return visibleId;},async count(){assert.equal(selector,'#jobOverview');return 0;}};}};
+  const frame={locator(selector){return{async getAttribute(){assert.equal(selector,'#cdsImport');return owner;},async textContent(){assert.equal(selector,'#runSummary');return JSON.stringify({job,summary});},async inputValue(){assert.equal(selector,'#runId');return visibleId;},async count(){assert.equal(selector,'#jobOverview');return 0;}};}};
   const sql={value(query){
     if(query.includes('SELECT security_no'))return'77';
     if(query.startsWith('SELECT operator FROM'))return owner;
