@@ -81,3 +81,4 @@ common/V1.0.59.20__cds_identity_authority.sql
 common/V1.0.59.21__cds_note_unknown_observation_and_import_permission.sql
 common/V1.0.59.22__cds_alphanumeric_prevention_creator.sql
 common/V1.0.59.23__cds_report_content_precision.sql
+common/V1.0.59.24__cds_durable_resume_intent.sql

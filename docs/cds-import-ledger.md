@@ -250,7 +250,7 @@ replace schema/parser, browser, installed CLI or application-wide regression che
 ### Physical schema contract review
 
 The fresh ON and BC contracts add the same 17 tables: 16 for import provenance, source fields and
-control, and one for typed laboratory results. Together they add 231 new columns, 128 index-definition rows, 59 key-column rows, 14 foreign-key rows and
+control, and one for typed laboratory results. Together they add 232 new columns, 138 index-definition rows, 59 key-column rows, 14 foreign-key rows and
 one check constraint. No tables, columns, index definitions, keys or foreign keys are removed.
 Database defaults remain unchanged. Both provinces have the following 45 existing-column changes,
 each matched to an explicit `MODIFY COLUMN` in the listed forward migration:
@@ -268,6 +268,13 @@ each matched to an explicit `MODIFY COLUMN` in the listed forward migration:
 | `casemgmt_note` | unknown observation date permits `NULL` and removes its zero-date default (1) | `21` |
 | `preventions` | creator becomes an ASCII provider identifier, preserving alphanumeric attribution (1) | `22` |
 
+Migration `V1.0.59.24` adds the nonclinical `cds_import_run.resume_requested` boolean with a
+non-null false default. Three run indexes cover resume intent, active-state polling and pending
+report polling; `(run_id,event_type,id)` on events covers the latest resume and newer cancel/applied
+checks. Existing indexes and audit rows remain intact. Historical `RESUME_REQUESTED` events are
+not backfilled into clinical authority: older review-only retries used that same generic event.
+Older actual resume requests remain discoverable through their existing state/report projection.
+
 Existing column character sets/collations remain unchanged apart from that explicit numeric-to-ASCII
 creator conversion; no ordinal positions or generated expressions drift. The large default Git
 diff reflects alignment of repeated JSON arrays. `git diff --diff-algorithm=histogram --
@@ -278,13 +285,29 @@ runs the existing schema generator, its seed/collation validation, physical `--c
 `--verify-files` for both provinces. The optional `--schema-only` mode requires that flag and
 explicitly reports that native tests were not run; the required CI gate uses the full test mode.
 
-The reviewed fresh reference run passed all 47 native cases across nine required suites with zero
+Before the durable-resume migration, the reviewed reference run passed all 47 native cases across nine required suites with zero
 failures, errors or skips. Both ON fixtures applied and validated all 66 migrations (450 tables);
 the BC reference applied and validated all 63 migrations (483 tables). Both generated contracts
 passed physical re-export comparison and migration/policy binding checks. The six document ORM
 cases compare exact timestamp milliseconds, so JDBC's `Timestamp` subclass does not make equal
 stored clocks fail a Java object-type equality check. These results cover the tested compiled
 candidate; whole-build, browser and installed CLI verification remain separate gates.
+
+The separate `59.24` schema proof bootstrapped fresh Ontario (450 tables, 67 migrations) and BC
+(483 tables, 64 migrations) references from the complete baseline. A second Flyway migrate/validate
+applied zero migrations in each province. Both actual generated contracts passed physical
+re-export comparison and migration/policy binding; the incremental shape is exactly one column
+and ten index-definition rows per province, with unchanged database defaults. This schema proof
+does not substitute for the combined candidate's required native recovery and installed-runtime gates.
+
+An additional actual MariaDB query-plan probe used 5,006 owned synthetic run rows and 100,001
+events. The three candidate queries visited respectively two, one and one matching index rows,
+without traversing the 5,000 delivered historical runs. Latest-control checks covered no control,
+an old resume followed by 50,000 unit events, a newer cancellation and a newer applied receipt.
+They required two to four key reads and zero sequential event-row reads, using the covering
+control index or the database's optimized MIN/MAX lookup. These are measured fixture results,
+not a universal timing guarantee. All mock rows were removed and both owned reference schemas
+were dropped with absence verified; retained acceptance databases were not modified.
 
 Admission seeds for `global`, `clinical-maintenance` and `UPLOAD_BUDGET` use explicit
 `INSERT ... SELECT ... WHERE NOT EXISTS` guards. The fresh native harness replays the exact

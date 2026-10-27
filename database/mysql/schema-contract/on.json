@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "be81e67e3b977b2e926cec1db13aaf18cacf4ca474910f6e28972a2c31f7f456",
+ "migration_sha256": "105a162abb2b7029758d1018e5ea480d81e6f0597f2c4b2a54d5179dff81cbdb",
  "province": "on",
  "schema": {
   "checks": [
@@ -15795,6 +15795,18 @@
     "utf8mb4_bin",
     null,
     4
+   ],
+   [
+    "cds_import_run",
+    "resume_requested",
+    "tinyint(1)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    32
    ],
    [
     "cds_import_run",
@@ -130683,6 +130695,39 @@
     "NO"
    ],
    [
+    "cds_import_event",
+    "idx_cds_event_run_type_id",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_event",
+    "idx_cds_event_run_type_id",
+    1,
+    2,
+    "event_type",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_event",
+    "idx_cds_event_run_type_id",
+    1,
+    3,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "cds_import_field",
     "PRIMARY",
     0,
@@ -131421,6 +131466,61 @@
    ],
    [
     "cds_import_run",
+    "idx_cds_run_report_state_id",
+    1,
+    1,
+    "report_state",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_report_state_id",
+    1,
+    2,
+    "state",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_report_state_id",
+    1,
+    3,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_resume_requested",
+    1,
+    1,
+    "resume_requested",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_resume_requested",
+    1,
+    2,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
     "idx_cds_run_state",
     1,
     1,
@@ -131436,6 +131536,28 @@
     1,
     2,
     "updated_at",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_state_id",
+    1,
+    1,
+    "state",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_state_id",
+    1,
+    2,
+    "id",
     "A",
     null,
     "BTREE",
