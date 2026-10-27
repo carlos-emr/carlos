@@ -43,7 +43,7 @@ public final class CdsImportCli {
             "IMPORT_SCHEMA_NOT_READY", "IMPORT_CLINICAL_ZONE_INVALID", "IMPORT_RUNTIME_ZONE_MISMATCH",
             "OWNER_FENCED", "REVIEW_RESET_IN_PROGRESS", "REVIEW_REQUIRED", "REVIEW_WORKER_FATAL",
             "SOURCE_REVISION_REVIEW_REQUIRED", "SUBMISSION_OUTCOME_NOT_YET_KNOWN",
-            "CONTROL_COMMIT_OUTCOME_UNKNOWN", "ACCEPTANCE_COMMIT_OUTCOME_UNKNOWN",
+            "CONTROL_COMMIT_OUTCOME_UNKNOWN", "UNIT_COMMIT_OUTCOME_UNKNOWN",
             "MAINTENANCE_OWNER_BUSY", "LOCAL_MAINTENANCE_OWNER_BUSY", "MAINTENANCE_MODE_NOT_ACTIVATED",
             "MAINTENANCE_GUARD_NOT_READY", "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION",
             "GLOBAL_HOLDS_REMAIN", "IMPORT_FILE_VERIFICATION_TIMEOUT", "IMPORT_PREPARATION_TIMEOUT",
@@ -114,7 +114,7 @@ public final class CdsImportCli {
                 code = "DETAILS_PROTECTED";
             }
             err.println("CDS_REASON: safeCode=" + code + " outcomeUnknown=" + uncertain);
-            err.println(arguments.submissionKey() == null
+            err.println(!uncertain && arguments.submissionKey() == null
                     ? "CDS_INCOMPLETE: import was refused, failed or requires reconciliation; inspect the durable run"
                     : "CDS_INCOMPLETE: submission outcome is not yet known; retain original source and submission evidence before retrying"); outcome = 4;
         } catch (InterruptedException interrupted) {

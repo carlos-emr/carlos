@@ -310,7 +310,7 @@ class CdsCliProtocolUnitTest {
                 new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE), out, err,
                 (config, selected, delegation) -> { throw new CdsImportException(reason, true, new IOException("sensitive-path")); });
         assertThat(code).isEqualTo(4);
-        assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("safeCode=" + reason, "outcomeUnknown=true")
+        assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("safeCode=" + reason, "outcomeUnknown=true", "submission outcome is not yet known")
                 .doesNotContain("sensitive-path");
         assertThat(stdout.toString(StandardCharsets.UTF_8)).doesNotContain("ACCEPTED", "RESULT");
     }
