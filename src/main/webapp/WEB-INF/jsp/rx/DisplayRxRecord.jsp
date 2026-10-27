@@ -198,7 +198,9 @@
             <table style="width:100%">
                 <tr>
                     <td class="label">Provider:</td>
-                    <td><%= providerDao.getProviderName(drug.getProviderNo()) %>
+                    <td><%= SafeEncode.forHtmlContent(drug.getCdsCurrentness() == null
+                            ? providerDao.getProviderName(drug.getProviderNo())
+                            : drug.getOutsideProviderName() == null ? "Unknown source prescriber" : drug.getOutsideProviderName()) %>
                     </td>
                 </tr>
                 <tr>
@@ -259,12 +261,12 @@
                 </tr>
                 <tr>
                     <td class="label">ATC:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getAtc())%>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getAtc())) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">DIN:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getRegionalIdentifier())%>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getRegionalIdentifier())) %>
                     </td>
                 </tr>
                 <tr style="height:15px">
@@ -282,27 +284,27 @@
                 </tr>
                 <tr>
                     <td class="label">Dosage:</td>
-                    <td><%= drug.getDosageDisplay() %>
+                    <td><%= SafeEncode.forHtmlContent(drug.getDosageDisplay()) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Frequency:</td>
-                    <td><%= drug.getFreqCode() %>
+                    <td><%= SafeEncode.forHtmlContent(drug.getFreqCode()) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Duration:</td>
-                    <td><%= drug.getDuration() %>
+                    <td><%= SafeEncode.forHtmlContent(drug.getDuration()) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Duration Unit:</td>
-                    <td><%= drug.getDurUnit() %>
+                    <td><%= SafeEncode.forHtmlContent(drug.getDurUnit()) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Quantity:</td>
-                    <td><%= drug.getQuantity() %>
+                    <td><%= SafeEncode.forHtmlContent(drug.getQuantity()) %>
                     </td>
                 </tr>
                 <tr>
@@ -338,34 +340,34 @@
                 </tr>
                 <tr>
                     <td class="label">Unit:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getUnit()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getUnit())) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Method:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getMethod()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getMethod())) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Route:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getRoute()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getRoute())) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Form:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getDrugForm()) %> &nbsp; (<a href="javascript:void()"
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getDrugForm())) %> &nbsp; (<a href="javascript:void()"
                                                                                       onClick="updateForm();return false;">Update</a>)
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Strength:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getDosage()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getDosage())) %>
                     </td>
                 </tr>
                 <% if (drug.getUnitName() != null && !drug.getUnitName().equalsIgnoreCase("null")) { %>
                 <tr>
                     <td class="label">Strength:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getUnitName()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getUnitName())) %>
                     </td>
                 </tr>
                 <%}%>
@@ -421,12 +423,12 @@
                 </tr>
                 <tr>
                     <td class="label">eTreatment:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getETreatmentType()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getETreatmentType())) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Status:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getRxStatus()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getRxStatus())) %>
                     </td>
                 </tr>
                 <%if (drug.getOutsideProviderName() != null || drug.getOutsideProviderOhip() != null) { %>
@@ -435,12 +437,12 @@
                 </tr>
                 <tr>
                     <td class="label">Outside Provider Name:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getOutsideProviderName()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getOutsideProviderName())) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Outside Provider OHIP:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getOutsideProviderOhip()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getOutsideProviderOhip())) %>
                     </td>
                 </tr>
                 <% } %>
@@ -455,34 +457,41 @@
                 </tr>
                 <tr>
                     <td class="label">Archived Reason:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getArchivedReason()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getArchivedReason())) %>
                     </td>
                 </tr>
                 <% } %>
 
                 <tr>
                     <td class="label">Protocol Reference:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getProtocol()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getProtocol())) %>
                     </td>
                 </tr>
 
 
                 <tr>
                     <td class="label" style="vertical-align:top;">Prior Prescription Reference:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getPriorRxProtocol()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getPriorRxProtocol())) %>
                     </td>
                 </tr>
 
 
+                <% if (drug.getCdsCurrentness() != null) { %>
+                <tr>
+                    <td class="label">Imported medication state:</td>
+                    <td><%= SafeEncode.forHtmlContent(drug.getCdsCurrentness()) %></td>
+                </tr>
+                <% } %>
                 <tr>
                     <td class="label">Non Authorative:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.isNonAuthoritative() != null ? drug.isNonAuthoritative().toString() : "") %>
+                    <td><%= SafeEncode.forHtmlContent(drug.getCdsCurrentness() != null && drug.getNonAuthoritative() == null
+                            ? "Unknown" : drug.isNonAuthoritative().toString()) %>
                     </td>
                 </tr>
 
                 <tr>
                     <td class="label">Substitution Not Allowed:</td>
-                    <td><%=drug.isNoSubs() %>
+                    <td><%= drug.getCdsCurrentness() != null && drug.getNoSubs() == null ? "Unknown" : Boolean.toString(drug.isNoSubs()) %>
                     </td>
                 </tr>
 
@@ -496,8 +505,8 @@
 
                 </tr>
                 <tr>
-                    <td class="label">Comment:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getComment()) %>
+                    <td class="label">Provider-only Notes:</td>
+                    <td style="white-space: pre-wrap"><%= SafeEncode.forHtmlContent(drug.getComment()) %>
                     </td>
                 </tr>
             </table>

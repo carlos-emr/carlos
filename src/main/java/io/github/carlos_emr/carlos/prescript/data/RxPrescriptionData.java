@@ -1625,7 +1625,7 @@ public class RxPrescriptionData {
                     || cdsSubstitutionNotAllowed == null || cdsNonAuthoritative == null
                     || Boolean.TRUE.equals(cdsNonAuthoritative)
                     || io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationDose.parse(cdsDoseText).isEmpty())) {
-                throw new IllegalStateException("CDS_MEDICATION_RECONCILIATION_REQUIRED_BEFORE_RENEWAL");
+                throw io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCompatibilityException.renewalRequiresReview();
             }
         }
 

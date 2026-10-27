@@ -200,6 +200,7 @@
 
         <jaxrs:providers>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.CdsMedicationCompatibilityExceptionMapper"/>
             <ref bean="oauthJaxbProvider"/>
             <ref bean="oauthJsonProvider"/>
             <!-- Keep privilege denials mapped on both session and OAuth REST surfaces (#2798). -->

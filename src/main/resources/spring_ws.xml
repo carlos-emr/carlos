@@ -203,6 +203,7 @@
 		
 		<jaxrs:providers>
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.CdsMedicationCompatibilityExceptionMapper"/>
 		    <ref bean="jaxb"/>
 			<ref bean="jsonProvider"/>
 			<bean class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider"/>

@@ -339,7 +339,11 @@
                                         </a>
                                         <%}%>
 
-                                        <% if (drug.nonAuthoritative) { %>
+                                        <% if (drug.cdsCurrentness != null) { %>
+                                        <br/>Imported medication state: <carlos:encode value='<%= drug.cdsCurrentness %>' context="html"/>
+                                        <br/>Source non-authoritative indicator: <carlos:encode value='<%= drug.cdsNonAuthoritative == null ? "Unknown" : drug.cdsNonAuthoritative.toString() %>' context="html"/>
+                                        <br/>Source substitution not allowed: <carlos:encode value='<%= drug.cdsSubstitutionNotAllowed == null ? "Unknown" : drug.cdsSubstitutionNotAllowed.toString() %>' context="html"/>
+                                        <% } else if (drug.nonAuthoritative) { %>
                                         &nbsp;
                                         <fmt:message key="WriteScript.msgNonAuthoritative"/>
                                         <% } %>
