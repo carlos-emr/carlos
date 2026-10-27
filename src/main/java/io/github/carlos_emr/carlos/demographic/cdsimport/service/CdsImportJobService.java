@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsUploadDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
 import java.io.BufferedInputStream;
@@ -192,6 +193,19 @@ public class CdsImportJobService {
      * later review from reading its immutable evidence. This path never claims or acknowledges uploads.
      */
     public CdsSnapshotDto historicalSnapshot(String reviewRunId, long reviewEpoch, String historicalRunId,
+            CdsImportJobDocumentDto document, java.util.function.BooleanSupplier reviewCancelled) throws IOException {
+        try {
+            return verifyHistoricalSnapshot(reviewRunId, reviewEpoch, historicalRunId, document, reviewCancelled);
+        } catch (CdsInputException failure) {
+            if ("CDS_INPUT_CANCELLED".equals(failure.code())) throw new CdsImportException("REVIEW_CANCELLED");
+            throw failure;
+        } catch (CdsImportException failure) {
+            if ("IMPORT_CANCELLED".equals(failure.getCode())) throw new CdsImportException("REVIEW_CANCELLED");
+            throw failure;
+        }
+    }
+
+    private CdsSnapshotDto verifyHistoricalSnapshot(String reviewRunId, long reviewEpoch, String historicalRunId,
             CdsImportJobDocumentDto document, java.util.function.BooleanSupplier reviewCancelled) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
         if (reviewRunId.equals(historicalRunId)) throw new CdsImportException("HISTORICAL_PROVENANCE_RUN_INVALID");

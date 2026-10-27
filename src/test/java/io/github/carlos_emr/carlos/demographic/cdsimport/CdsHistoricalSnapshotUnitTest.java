@@ -161,8 +161,19 @@ class CdsHistoricalSnapshotUnitTest {
         acceptWeb(); cancelPrior(); var before = tree(temporary);
         var error = assertThrows(CdsImportException.class,
                 () -> jobs.historicalSnapshot(REVIEW, EPOCH, PRIOR, document, () -> true));
-        assertEquals("IMPORT_CANCELLED", error.getCode()); assertEquals(before, tree(temporary));
+        assertEquals("REVIEW_CANCELLED", error.getCode()); assertEquals(before, tree(temporary));
         assertTrue(prior.get().cancelRequested());
+    }
+
+    @Test void shouldClassifyAnInterruptedHistoricalRead_asReviewCancellation() throws Exception {
+        acceptWeb(); cancelPrior(); var before = tree(temporary);
+        try {
+            Thread.currentThread().interrupt();
+            var error = assertThrows(CdsImportException.class,
+                    () -> jobs.historicalSnapshot(REVIEW, EPOCH, PRIOR, document, () -> false));
+            assertEquals("REVIEW_CANCELLED", error.getCode());
+        } finally { Thread.interrupted(); }
+        assertEquals(before, tree(temporary)); assertTrue(prior.get().cancelRequested());
     }
 
     @Test void shouldRecheckCurrentReviewEpoch_atTheVerificationBoundary() throws Exception {
