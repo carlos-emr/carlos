@@ -34,6 +34,7 @@ public final class CdsJdbcAdmissionState {
     public record Lease(String token, long generation, long connectionId) { }
     private final String lockName;
     private final AtomicReference<Lease> owner = new AtomicReference<>();
+    private final AtomicReference<Lease> verifiedCatalogue = new AtomicReference<>();
     private final ThreadLocal<Lease> readScope = new ThreadLocal<>();
 
     public CdsJdbcAdmissionState(String databaseName) {
@@ -46,7 +47,15 @@ public final class CdsJdbcAdmissionState {
     public String lockName() { return lockName; }
     public Lease owner() { return owner.get(); }
     public boolean install(Lease lease) { return owner.compareAndSet(null, lease); }
-    public void release(Lease lease) { owner.compareAndSet(lease, null); }
+    public void release(Lease lease) {
+        verifiedCatalogue.compareAndSet(lease,null); owner.compareAndSet(lease,null);
+    }
+    public void clearCatalogueVerification(Lease lease) { verifiedCatalogue.compareAndSet(lease,null); }
+    public void catalogueVerified(Lease lease) {
+        if(owner.get()!=lease) throw new IllegalStateException("Maintenance catalogue owner is fenced");
+        verifiedCatalogue.set(lease);
+    }
+    public boolean hasVerifiedCatalogue(Lease lease) { return lease!=null && owner.get()==lease && verifiedCatalogue.get()==lease; }
     public boolean hasReadScope(Lease lease) { return lease != null && owner.get() == lease && readScope.get() == lease; }
     public <T> T read(Lease lease, Supplier<T> work) {
         if (owner.get() != lease) throw new IllegalStateException("Maintenance read owner is absent or fenced");

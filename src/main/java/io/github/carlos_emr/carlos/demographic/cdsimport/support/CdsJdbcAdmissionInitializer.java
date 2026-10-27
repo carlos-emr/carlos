@@ -68,6 +68,7 @@ public final class CdsJdbcAdmissionInitializer {
                 }
             }
             if (enabled) dataSource.installCdsAdmissionState(new CdsJdbcAdmissionState(connection.getCatalog()));
+            else dataSource.enableCdsMetadataGuard();
         }
     }
 }

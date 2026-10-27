@@ -149,6 +149,19 @@ public class CdsImportMaintenanceService {
         private Owner(Connection connection, CdsJdbcAdmissionState state, Lease lease) {
             this.connection = connection; this.state = state; this.lease = lease;
         }
+        /** Dedicated metadata pins share this owner's lifetime, without exposing a raw connection. */
+        synchronized void verifyTargets(CdsImportTargetSafetyService verifier) {
+            if(closed) throw new CdsImportException("MAINTENANCE_OWNER_CLOSED");
+            try {
+                if(scalar(connection,"SELECT IS_USED_LOCK(?)",state.lockName())!=lease.connectionId()) {
+                    throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
+                }
+            } catch(SQLException unavailable) { throw new CdsImportException("MAINTENANCE_OWNER_FENCED"); }
+            state.clearCatalogueVerification(lease);
+            verifier.verifyAndPin(connection);
+            state.catalogueVerified(lease);
+        }
+
         public long generation() { return lease.generation(); }
         /** Operational connection identifier, also used for controlled lost-owner fault injection. */
         public long connectionId() { return lease.connectionId(); }
@@ -187,8 +200,10 @@ public class CdsImportMaintenanceService {
                 }
                 boolean held;
                 try (PreparedStatement query = connection.prepareStatement(
-                        "SELECT EXISTS (SELECT 1 FROM cds_import_patient WHERE held=TRUE)")) {
-                    try (ResultSet rows = query.executeQuery()) { rows.next(); held = rows.getBoolean(1); }
+                        "SELECT id FROM cds_import_patient WHERE held=TRUE LIMIT 1 LOCK IN SHARE MODE")) {
+                    // Current locking read: the metadata-pin transaction can predate imported holds.
+                    query.setQueryTimeout(30);
+                    try (ResultSet rows = query.executeQuery()) { held = rows.next(); }
                 }
                 if (reopenRequested && !held) {
                     try (PreparedStatement reopen = connection.prepareStatement("""

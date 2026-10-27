@@ -110,6 +110,7 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
         if (nodeOne != null) {
             try (Connection raw = nodeOne.openUnpooledCdsMaintenanceConnection(); Statement sql = raw.createStatement()) {
                 sql.executeUpdate("UPDATE cds_import_admission SET maintenance_active=FALSE, maintenance_owner_token=NULL, maintenance_connection_id=NULL WHERE id='clinical-maintenance'");
+                sql.executeUpdate("DELETE FROM cds_import_preparation WHERE id='cds-maintenance-metadata-test'");
                 sql.executeUpdate("DELETE FROM cds_import_patient WHERE id='cds-maintenance-hold-test'");
                 sql.executeUpdate("DELETE FROM cds_import_run WHERE id='cds-maintenance-hold-test'");
                 sql.execute("DROP TABLE IF EXISTS cds_guard_probe");
@@ -124,10 +125,11 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
         try (Connection old = nodeTwo.getConnection()) {
             old.setAutoCommit(false);
             update(old, "old-transaction");
-            Future<CdsImportMaintenanceService.Owner> entering = worker.submit(() -> own(first));
+            Future<CdsImportMaintenanceService.Owner> entering = worker.submit(() -> acquireOnly(first));
             assertBlocked(entering);
             old.commit();
             try (var owner = entering.get(5, TimeUnit.SECONDS)) {
+                verify(owner);
                 assertThat(value()).isEqualTo("old-transaction");
                 try (Connection ordinary = nodeTwo.getConnection()) {
                     assertThatThrownBy(() -> update(ordinary, "must-not-commit")).isInstanceOf(SQLException.class);
@@ -153,10 +155,11 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
         try (Connection connection = nodeTwo.getConnection(); Statement query = connection.createStatement()) {
             ResultSet rows = query.executeQuery("SELECT * FROM cds_guard_probe");
             assertThat(connection.getAutoCommit()).isTrue();
-            Future<CdsImportMaintenanceService.Owner> entering = worker.submit(() -> own(first));
+            Future<CdsImportMaintenanceService.Owner> entering = worker.submit(() -> acquireOnly(first));
             assertBlocked(entering);
             rows.close();
             try (var owner = entering.get(5, TimeUnit.SECONDS)) {
+                verify(owner);
                 Connection metadataConnection = connection.getMetaData().getConnection().unwrap(Connection.class);
                 assertThatThrownBy(() -> update(metadataConnection, "unwrap-escape")).isInstanceOf(SQLException.class);
                 assertThatThrownBy(() -> update(query.getConnection(), "statement-escape")).isInstanceOf(SQLException.class);
@@ -176,10 +179,11 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
             Probe probe = session.find(Probe.class, 1);
             probe.value = "orm-before-window";
             session.flush();
-            Future<CdsImportMaintenanceService.Owner> entering = worker.submit(() -> own(first));
+            Future<CdsImportMaintenanceService.Owner> entering = worker.submit(() -> acquireOnly(first));
             assertBlocked(entering);
             transaction.commit();
             try (var owner = entering.get(5, TimeUnit.SECONDS)) {
+                verify(owner);
                 assertThat(value()).isEqualTo("orm-before-window");
                 try (Session rejected = factory.openSession()) {
                     var attempt = rejected.beginTransaction();
@@ -201,10 +205,11 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
             try (Connection raw = nodeOne.openUnpooledCdsMaintenanceConnection(); Statement kill = raw.createStatement()) {
                 kill.execute("KILL CONNECTION " + previous.connectionId());
             }
-            Future<CdsImportMaintenanceService.Owner> takeover = worker.submit(() -> own(second));
+            Future<CdsImportMaintenanceService.Owner> takeover = worker.submit(() -> acquireOnly(second));
             assertBlocked(takeover);
             unit.commit();
             try (var successor = takeover.get(5, TimeUnit.SECONDS)) {
+                verify(successor);
                 assertThat(value()).isEqualTo("old-owner-unit");
                 assertThatThrownBy(() -> update(unit, "stale-owner")).isInstanceOf(SQLException.class);
                 assertThatThrownBy(previous::close).isInstanceOf(CdsImportException.class);
@@ -293,8 +298,211 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
         }
     }
 
+    @Test
+    void shouldUseStrictImportModeAndRestoreThePhysicalPoolSession_whenLegacySessionAllowsTruncation() throws Exception {
+        nodeOne.setConnectionProperties("sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
+        nodeOne.setMaxTotal(1); nodeOne.setMaxIdle(1);
+        String unicode="\uD83D\uDE00".repeat(39);
+        try (var owner=own(first)) {
+            assertThat(nodeOne.getNumActive()).isZero(); // Dedicated owner is outside the pool.
+            long physical;
+            try (Connection connection=nodeOne.getConnection()) {
+                assertThat(sessionValue(connection,"sql_mode")).isEmpty();
+                physical=Long.parseLong(sessionValue(connection,"connection_id"));
+                try (var marker=org.mockito.Mockito.mockStatic(CdsImportUnitService.class)) {
+                    marker.when(CdsImportUnitService::isActiveForMaintenance).thenReturn(true);
+                    connection.setAutoCommit(false);
+                    update(connection,unicode);
+                    assertThat(sessionValue(connection,"sql_mode")).contains("STRICT_ALL_TABLES");
+                    connection.commit();
+                }
+                assertThat(sessionValue(connection,"sql_mode")).isEmpty();
+            }
+            try (Connection reused=nodeOne.getConnection()) {
+                assertThat(Long.parseLong(sessionValue(reused,"connection_id"))).isEqualTo(physical);
+                assertThat(sessionValue(reused,"sql_mode")).isEmpty();
+            }
+            assertThat(value()).isEqualTo(unicode);
+            owner.allowReopen();
+        }
+    }
+
+    @Test
+    void shouldRejectNativeTruncationAndRestoreMode_whenImportUnitRollsBack() throws Exception {
+        nodeOne.setConnectionProperties("sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
+        try (var owner=own(first); Connection connection=nodeOne.getConnection()) {
+            assertThat(sessionValue(connection,"sql_mode")).isEmpty();
+            try (var marker=org.mockito.Mockito.mockStatic(CdsImportUnitService.class)) {
+                marker.when(CdsImportUnitService::isActiveForMaintenance).thenReturn(true);
+                connection.setAutoCommit(false);
+                assertThatThrownBy(()->update(connection,"\uD83D\uDE00".repeat(41))).isInstanceOf(SQLException.class);
+                connection.rollback();
+            }
+            assertThat(sessionValue(connection,"sql_mode")).isEmpty();
+            assertThat(value()).isEqualTo("initial");
+            owner.allowReopen();
+        }
+    }
+
+    @Test
+    void shouldRefuseLossyClientEncoding_beforeAnyNativeImportWrite() throws Exception {
+        nodeOne.setConnectionProperties("characterEncoding=ISO-8859-1;sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
+        try (var owner=own(first); Connection connection=nodeOne.getConnection()) {
+            assertThat(sessionValue(connection,"character_set_client")).isEqualTo("latin1");
+            try (var marker=org.mockito.Mockito.mockStatic(CdsImportUnitService.class)) {
+                marker.when(CdsImportUnitService::isActiveForMaintenance).thenReturn(true);
+                connection.setAutoCommit(false);
+                assertThatThrownBy(()->update(connection,"\uD83D\uDE00"))
+                        .isInstanceOf(SQLException.class).hasMessageContaining("utf8mb4");
+                connection.rollback();
+            }
+            assertThat(value()).isEqualTo("initial");
+            assertThat(sessionValue(connection,"sql_mode")).isEmpty();
+            owner.allowReopen();
+        }
+    }
+
+    @Test
+    void shouldRefuseALossyJdbcEncoder_evenWhenServerSessionVariablesClaimUtf8mb4() throws Exception {
+        nodeOne.setConnectionProperties("characterEncoding=ISO-8859-1;sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
+        // Connector/J configures its encoder after URL sessionVariables. A pool init SQL runs
+        // after that handshake and reproduces the documented SET NAMES/JDBC encoder mismatch.
+        nodeOne.setConnectionInitSqls(java.util.List.of("SET NAMES utf8mb4"));
+        try (var owner=own(first); Connection connection=nodeOne.getConnection()) {
+            assertThat(sessionValue(connection,"character_set_client")).isEqualTo("utf8mb4");
+            try (var marker=org.mockito.Mockito.mockStatic(CdsImportUnitService.class)) {
+                marker.when(CdsImportUnitService::isActiveForMaintenance).thenReturn(true);
+                connection.setAutoCommit(false);
+                assertThatThrownBy(()->update(connection,"\uD83D\uDE00"))
+                        .isInstanceOf(SQLException.class).hasMessageContaining("encoder");
+                connection.rollback();
+            }
+            assertThat(value()).isEqualTo("initial");
+            owner.allowReopen();
+        }
+    }
+
+    @Test
+    void shouldVerifyTheCanonicalNativeCatalogue_beforeAnyClinicalUnitRuns() throws Exception {
+        try (var owner=own(first)) {
+            new CdsImportTargetSafetyService(new CdsImportConfigurationService(new Properties())).verify(owner);
+            owner.allowReopen();
+        }
+    }
+
+    @Test
+    void shouldRefuseANontransactionalWriteTarget_beforeNativeMutation() throws Exception {
+        try (Connection raw=nodeOne.openUnpooledCdsMaintenanceConnection(); Statement sql=raw.createStatement()) {
+            sql.execute("ALTER TABLE cds_guard_probe ENGINE=MyISAM");
+        }
+        try (var owner=own(first)) {
+            var safety=new CdsImportTargetSafetyService(new CdsImportConfigurationService(new Properties()),java.util.Set.of("cds_guard_probe"));
+            assertThatThrownBy(()->safety.verify(owner)).isInstanceOf(CdsImportException.class)
+                    .hasMessage("IMPORT_TARGET_ENGINE_UNSUPPORTED");
+            assertThat(value()).isEqualTo("initial");
+        }
+    }
+
+    @Test
+    void shouldRefuseAnUnapprovedTargetTrigger_beforeNativeMutation() throws Exception {
+        try (Connection raw=nodeOne.openUnpooledCdsMaintenanceConnection(); Statement sql=raw.createStatement()) {
+            sql.execute("CREATE TRIGGER cds_guard_probe_trigger BEFORE UPDATE ON cds_guard_probe FOR EACH ROW SET NEW.probe_value=NEW.probe_value");
+        }
+        try (var owner=own(first)) {
+            var safety=new CdsImportTargetSafetyService(new CdsImportConfigurationService(new Properties()),java.util.Set.of("cds_guard_probe"));
+            assertThatThrownBy(()->safety.verify(owner)).isInstanceOf(CdsImportException.class)
+                    .hasMessage("IMPORT_TARGET_TRIGGER_APPROVAL_REQUIRED");
+            assertThat(value()).isEqualTo("initial");
+        }
+    }
+
+    @Test
+    void shouldPinVerifiedMetadata_untilTheMaintenanceOwnerReleasesIt() throws Exception {
+        var owner=own(first);
+        new CdsImportTargetSafetyService(new CdsImportConfigurationService(new Properties()),java.util.Set.of("cds_guard_probe"))
+                .verify(owner);
+        Future<Integer> alteration=worker.submit(()->{
+            try (Connection raw=nodeTwo.openUnpooledCdsMaintenanceConnection(); Statement sql=raw.createStatement()) {
+                sql.setQueryTimeout(10);
+                return sql.executeUpdate("ALTER TABLE cds_guard_probe ADD COLUMN catalogue_pin_probe INT");
+            }
+        });
+        assertBlocked(alteration);
+        owner.allowReopen(); owner.close();
+        assertThat(alteration.get(5,TimeUnit.SECONDS)).isZero();
+    }
+
+    @Test
+    void shouldRefuseUnitWrites_whenTheOwnerSkippedNativeCatalogueVerification() throws Exception {
+        try (var owner=acquireOnly(first);
+                Connection unit=CdsJdbcAdmissionGuard.wrap(nodeOne.openUnpooledCdsMaintenanceConnection(),nodeOne.getCdsAdmissionState(),()->true)) {
+            unit.setAutoCommit(false);
+            assertThatThrownBy(()->update(unit,"unverified-catalogue-write"))
+                    .isInstanceOf(SQLException.class).hasMessageContaining("catalogue");
+            unit.rollback();
+            assertThat(value()).isEqualTo("initial");
+            owner.allowReopen();
+        }
+    }
+
+    @Test
+    void shouldRefuseLossyMetadataEncoding_beforePreparedValuesCanBeBoundWithoutMaintenance() throws Exception {
+        try(var planning=dataSource(jdbcProperties)) {
+            planning.setConnectionProperties("characterEncoding=ISO-8859-1;sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
+            new CdsJdbcAdmissionInitializer(planning,false,"off").initialize();
+            assertThat(planning.getCdsAdmissionState()).isNull();
+            try(Connection connection=planning.getConnection()) {
+                assertThatThrownBy(()->connection.prepareStatement("UPDATE cds_import_run SET operator=? WHERE id=?"))
+                        .isInstanceOf(SQLException.class).hasMessageContaining("encoder");
+            }
+        }
+    }
+
+    @Test
+    void shouldPreservePreparedMetadataUnicode_andRestoreLegacyModeBeforeMaintenanceActivation() throws Exception {
+        String payload="{\"patientId\":\"Caf\u00e9 \uD83D\uDE00\",\"reason\":\"\u6f22\u5b57 \uD83E\uDDEC\"}";
+        try(var planning=dataSource(jdbcProperties)) {
+            planning.setConnectionProperties("sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
+            new CdsJdbcAdmissionInitializer(planning,false,"off").initialize();
+            assertThat(planning.getCdsAdmissionState()).isNull();
+            try(Connection connection=planning.getConnection()) {
+                update(connection,"ordinary-before-metadata");
+                assertThat(sessionValue(connection,"sql_mode")).isEmpty();
+                connection.setAutoCommit(false);
+                try(var prepared=connection.prepareStatement("""
+                        INSERT INTO cds_import_preparation
+                        (id,run_id,unit_key,source_digest,options_digest,ruleset_digest,payload_type,payload,digest)
+                        VALUES ('cds-maintenance-metadata-test','metadata-test','unit','source','options','ruleset',?,?,'digest')
+                        """)) {
+                    assertThat(sessionValue(connection,"sql_mode")).contains("STRICT_ALL_TABLES");
+                    prepared.setString(1,"fixture \uD83E\uDDEC"); prepared.setString(2,payload);
+                    assertThat(prepared.executeUpdate()).isEqualTo(1);
+                    connection.commit();
+                }
+                assertThat(sessionValue(connection,"sql_mode")).isEmpty();
+                try(var query=connection.createStatement(); var rows=query.executeQuery(
+                        "SELECT payload FROM cds_import_preparation WHERE id='cds-maintenance-metadata-test'")) {
+                    assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isEqualTo(payload);
+                }
+            }
+        }
+    }
+
+    private static String sessionValue(Connection connection,String name) throws SQLException {
+        String sql=name.equals("connection_id") ? "SELECT CONNECTION_ID()" : "SELECT @@SESSION."+name;
+        try (Statement query=connection.createStatement(); ResultSet rows=query.executeQuery(sql)) {
+            rows.next(); return rows.getString(1);
+        }
+    }
+
     private CdsImportMaintenanceService.Owner own(CdsImportMaintenanceService service) {
-        var owner = service.acquire(); owners.add(owner); return owner;
+        var owner=acquireOnly(service); verify(owner); return owner;
+    }
+    private CdsImportMaintenanceService.Owner acquireOnly(CdsImportMaintenanceService service) {
+        var owner=service.acquire(); owners.add(owner); return owner;
+    }
+    private void verify(CdsImportMaintenanceService.Owner owner) {
+        new CdsImportTargetSafetyService(new CdsImportConfigurationService(new Properties())).verify(owner);
     }
     private static void assertBlocked(Future<?> future) {
         assertThatThrownBy(() -> future.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);

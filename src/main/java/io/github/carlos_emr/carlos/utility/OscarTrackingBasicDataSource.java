@@ -64,6 +64,13 @@ import org.apache.logging.log4j.Logger;
 
 public class OscarTrackingBasicDataSource extends BasicDataSource {
     private volatile io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState cdsAdmissionState;
+    private volatile boolean cdsMetadataGuardReady;
+
+    /** New CDS metadata stays lossless before maintenance activation; ordinary SQL is unchanged. */
+    public void enableCdsMetadataGuard() {
+        if(getNumActive()!=0) throw new IllegalStateException("CDS metadata guard initialization requires a drained connection pool");
+        cdsMetadataGuardReady=true;
+    }
 
     /** Installed after the schema boot gate and before the EntityManagerFactory starts. */
     public void installCdsAdmissionState(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState state) {
@@ -83,8 +90,10 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     private Connection cdsAdmission(Connection connection) {
         var state = cdsAdmissionState;
-        return state == null ? connection
-                : io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.wrap(connection, state);
+        if(state!=null) return io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.wrap(connection,state);
+        return cdsMetadataGuardReady
+                ? io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.wrapMetadataOnly(connection)
+                : connection;
     }
 
     private String configuredUrl;

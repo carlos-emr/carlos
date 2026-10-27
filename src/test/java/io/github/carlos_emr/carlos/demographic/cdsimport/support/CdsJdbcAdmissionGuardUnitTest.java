@@ -39,6 +39,9 @@ class CdsJdbcAdmissionGuardUnitTest {
     void shouldKeepAdministrativeExemptionsNarrow_whenQueriesJoinClinicalTables() throws Exception {
         assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_import_run where id=?")).isFalse();
         assertThat(CdsJdbcAdmissionGuard.clinical("update cds_import_run set state=? where id=?")).isFalse();
+        for (String table : new String[]{"cds_import_review","cds_import_preparation","cds_import_identity"}) {
+            assertThat(CdsJdbcAdmissionGuard.clinical("select * from "+table+" where id=?")).isFalse();
+        }
         assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_import_run r join demographic d on d.demographic_no=r.expected_patients")).isTrue();
         assertThat(CdsJdbcAdmissionGuard.clinical("update security set password=(select last_name from demographic limit 1)")).isTrue();
         assertThat(CdsJdbcAdmissionGuard.clinical("insert into cds_import_unreviewed_table values (?)")).isTrue();
