@@ -4,6 +4,8 @@ Target branch: `release/2026.08`. The existing **Administration → Data Managem
 
 Follow the [maintenance admission procedure](cds-maintenance-admission.md), [clinical import contract](cds-clinical-import-contract.md), and [implementation plan](cds-import-implementation-plan.md). The web and foreground command adapters share the application service, source parser, ledger and clinical writers.
 
+Import administration requires a current active account/provider with live `_admin w` or `_cds_import w`, in addition to the applicable demographic, merge, provider and facility/program permissions. Migration 73 registers `_cds_import` without granting it to existing roles. An ordinary authenticated doctor cannot acquire import administration through the bookmarked route or JSON endpoints. Clinical source-field readers use their own patient/category read permissions and do not need import administration.
+
 ## Operator workflow
 
 1. Register the actual source namespace and approved specification profile on the server. The page lists only registered namespace/profile pairs. Select the importing provider and authorized facility/program scope. Existing-patient merge starts **off**.
@@ -15,6 +17,10 @@ Follow the [maintenance admission procedure](cds-maintenance-admission.md), [cli
 7. Complete the admission procedure before reopening ordinary chart access. Held or incomplete charts remain unavailable through clinical source-field views as well as the usual modules.
 
 An administrative upload-cleanup failure and a terminated import worker appear as separate visible alerts. Their safe error codes can be provided to an administrator without copying patient values into an ordinary log.
+
+Corrections that fail complete XML validation remain inactive drafts. Their count and diagnostics remain visible; add the remaining required corrections and revalidate before resuming. An inactive or unknown draft count cannot be displayed as clean completion.
+
+For revised raw source, options or rules, submit the corrected file normally with the same registered source identity. Review the **new** accepted run's `SOURCE_REVISION_REVIEW_REQUIRED` finding. `APPROVE_UNWRITTEN_REVISION` is available only when durable eligibility is affirmative; the backend locks and proves that both attempts have no clinical commits, holds or uncertainty before authorizing replacement. The version and reason are audited. It accepts neither an arbitrary server path nor a namespace change as a way around existing clinical data.
 
 ## Transfer and acceptance recovery
 
@@ -40,6 +46,8 @@ Repeated conflicting addresses or telephone values, unrepresentable native scala
 
 Appointment notes retain the complete CDS 32K field in native storage and the editor. The browser retains up to 65,536 UTF-16 units so 32,768 supplementary Unicode codepoints fit; browser and server validators enforce the 32,768-codepoint business limit. Live and archive storage must both support the imported notes and status before deployment.
 
+Date-only, partial and missing source note timestamps remain unknown in native encounter timing; the exact source precision stays in the category view. Default recent and CPP lists include undated latest notes, with stable ordering and unknown dates last for either chronological direction. Editing an existing undated note with a blank date preserves that uncertainty. New ordinary notes keep their existing current-time default. Explicit date-range reports continue to select known encounter dates within the requested range.
+
 ## MVC and memory boundaries
 
 - Prototype actions enforce HTTP methods, reauthorize, bind a bounded command and delegate. No action chooses an arbitrary server input or report path.
@@ -47,7 +55,7 @@ Appointment notes retain the complete CDS 32K field in native storage and the ed
 - `CdsUploadService` owns durable byte checkpoints, quota reservation and payload retirement. Body transfer occurs outside database transactions; short row-locked transactions seal completed chunks.
 - `CdsImportService` owns durable job operations. Focused native demographic/history/appointment writers load bounded hash-bound DTOs prepared outside the clinical transaction. Unbounded source metadata scans do not run under a clinical unit's database locks.
 - Source-field reads take a shared admission lock through authorization and bounded metadata selection. Protected payload I/O occurs after that short transaction ends.
-- The browser keeps only bounded opaque run IDs in local storage, replaces bounded table pages, limits status JSON to 2 MiB and aborts timed-out requests. It clears stale run content when switching runs and requires a fresh receipt before enabling run controls.
+- The browser keeps only bounded opaque run IDs in local storage, replaces bounded table pages, limits decoded status JSON to 2 MiB through a backpressured `pipeTo`/`WritableStream` consumer and aborts timed-out requests. Oversize or malformed UTF-8 cancels the source and fails visibly. It clears stale run content when switching runs and requires a fresh receipt before enabling run controls.
 
 ## Configuration and routes
 
@@ -75,3 +83,14 @@ Read routes return bounded authorized status/patient/diagnostic/upload/chunk pag
 The focused unit suites cover durable chunk retries and orphan tails, changed-prefix refusal, quota/retirement ordering, current patient/category authorization, hold/sensitivity failures, range-only original streaming, stale-client/method refusal, native source projection and the existing appointment editor bounds. Node tests exercise real SHA256, bounded network JSON, exact prefix verification, truthful completion presentation and complete Unicode note limits.
 
 The menu-to-form Playwright workflows exercise real upload/acceptance, dry-run/execute separation, page reload recovery, complete protected reports, repeat acceptance/chunk requests and multi-patient ZIP replay. They require an enabled registered source, migrated disposable database, approved admission state and a working secure browser context. Their execution remains an explicit release gate; unit success does not imply browser deployment success.
+
+Use the repository's normal protected browser credential/environment setup, including `BASE_URL`, `TEST_USER`, `TEST_PASSWORD`, `TEST_PIN` and the isolated `MYSQL_*` selectors. Never place credentials in a URL or replace the real login, MFA/PIN, CSRF or authorization checks. A browser container can share the native Tomcat network namespace so `http://127.0.0.1:8080/carlos` has loopback cryptography without publishing a public port.
+
+```sh
+node scripts/cds-import-summary.test.js
+node scripts/appointment-text-bounds.test.js
+node scripts/demographic-cds-import-playwright-checks.js
+node scripts/audit-log-demographic-import-playwright-checks.js
+```
+
+The versioned browser assertions enter through the existing Administration menu and require a real durable receipt, source/category occurrence reconciliation and protected report round trips. The scripts retain incomplete held fixtures for recovery and remove only verified owned completed clinical rows. Complete import ledgers and audit evidence remain available for investigation.

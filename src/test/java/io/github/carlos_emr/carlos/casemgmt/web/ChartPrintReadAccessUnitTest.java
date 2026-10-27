@@ -303,6 +303,23 @@ class ChartPrintReadAccessUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRenderUnknownDateAndSourceAuthor_forAnAuthorizedLockedImportedNote() throws Exception {
+        useCanonicalAliases();
+        CaseManagementNote imported = note(501L, "101", "Protected locked body");
+        imported.setLocked(true);
+        imported.setObservation_date(null);
+        imported.setProviderNo("");
+        imported.setProvider(null);
+        when(manager.getNote("501")).thenReturn(imported);
+
+        entry.displayNotes();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("Unknown", "UNKNOWN")
+                .doesNotContain("Protected locked body", "null", "DELETED");
+    }
+
+    @Test
     void shouldRenderOnlyEscapedOwnText_whenCanonicalPatientAndNoteAccessAreGranted() throws Exception {
         useCanonicalAliases();
         when(manager.getNote("501")).thenReturn(note(501L, "101", "Own <literal> & note café 中文"));

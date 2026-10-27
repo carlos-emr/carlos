@@ -1364,8 +1364,7 @@ public class CaseManagementView2Action extends ActionSupport {
             Collections.sort(resultsSorted, CaseManagementNote.getRoleComparator());
         }
         if (field.equals("observation_date_asc")) {
-            Collections.sort(resultsSorted, CaseManagementNote.noteObservationDateComparator);
-            Collections.reverse(resultsSorted);
+            Collections.sort(resultsSorted, CaseManagementNote.observationDateComparator(true));
         }
         if (field.equals("observation_date_desc")) {
             Collections.sort(resultsSorted, CaseManagementNote.noteObservationDateComparator);
@@ -1388,8 +1387,7 @@ public class CaseManagementView2Action extends ActionSupport {
             Collections.sort(notes, NoteDisplay.noteRoleComparator);
         }
         if (field.equals("observation_date_asc")) {
-            Collections.sort(notes, NoteDisplay.noteObservationDateComparator);
-            Collections.reverse(notes);
+            Collections.sort(notes, NoteDisplay.observationDateComparator(true));
         }
         if (field.equals("observation_date_desc")) {
             Collections.sort(notes, NoteDisplay.noteObservationDateComparator);

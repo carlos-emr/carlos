@@ -246,7 +246,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
             d = cal.getTime();
         }
 
-        String hql = "select distinct cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = ?1 and cmn.demographic_no = ?2 and cmn.observation_date >= ?3  and cmn.id in (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.demographic_no = ?4 GROUP BY cmn2.uuid) ORDER BY cmn.observation_date asc";
+        String hql = "select distinct cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = ?1 and cmn.demographic_no = ?2 and (cmn.observation_date >= ?3 or cmn.observation_date is null) and cmn.id in (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.demographic_no = ?4 GROUP BY cmn2.uuid) ORDER BY cmn.observation_date asc, cmn.id asc";
 
         @SuppressWarnings("unchecked")
         List<CaseManagementNote> result = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql,
@@ -272,7 +272,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
             MiscUtils.getLogger().error("Error", e);
         }
 
-        String hql = "select distinct cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id in (:issueIds) and cmn.demographic_no = :demoNo and cmn.id in (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.observation_date >= :staleDate GROUP BY cmn2.uuid) ORDER BY cmn.observation_date asc";
+        String hql = "select distinct cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id in (:issueIds) and cmn.demographic_no = :demoNo and (cmn.observation_date >= :staleDate or cmn.observation_date is null) and cmn.id in (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.demographic_no = :demoNo GROUP BY cmn2.uuid) ORDER BY cmn.observation_date asc, cmn.id asc";
         Map<String, Object> params = new HashMap<>();
         params.put("issueIds", issueIdList);
         params.put("demoNo", demographic_no);

@@ -20,6 +20,7 @@
         const clean = COMPLETE.has(job.state) && job.state !== 'DRY_RUN_COMPLETE' && summary && summary.cleanComplete === true
             && summary.clinicalComplete === true && summary.discoveryComplete === true && summary.reportsDelivered === true
             && summary.cleanupComplete === true && summary.pendingUnits === 0 && summary.unresolvedReviewItems === 0
+            && summary.inactiveDraftCount === 0
             && Number.isSafeInteger(expected) && expected > 0 && accounted === expected && allComplete;
         return {state: job.state, clean: Boolean(clean), final: FINAL.has(job.state)};
     }
@@ -39,8 +40,10 @@
         return /^\/OmdCds\[1\]\/PatientRecord\[[1-9][0-9]*\](?:\/[A-Za-z_][A-Za-z0-9_.-]*\[[1-9][0-9]*\]){2,}(?:\/@[A-Za-z_][A-Za-z0-9_.-]*)?$/.test(value);
     }
 
-    function reviewEligibility(diagnostic) {
+    function reviewEligibility(diagnostic, summary = {}) {
         return {canDecline: /^[0-9a-f]{64}$/.test(diagnostic?.patientKey || ''),
+            canApproveRevision: diagnostic?.code === 'SOURCE_REVISION_REVIEW_REQUIRED'
+                && summary.unwrittenRevisionApprovalAllowed === true,
             initialXPath: indexedSourceValuePath(diagnostic?.sourceXPath) ? diagnostic.sourceXPath : ''};
     }
 
@@ -73,23 +76,18 @@
 
     async function boundedJson(response, maximumBytes = 2 * 1024 * 1024) {
         if (!response.body || !Number.isSafeInteger(maximumBytes) || maximumBytes < 1) throw new Error('IMPORT_RESPONSE_UNAVAILABLE');
-        const reader = response.body.getReader();
         const decoder = new global.TextDecoder('utf-8', {fatal: true});
-        let bytes = 0; let text = ''; let ended = false;
-        try {
-            while (true) {
-                const chunk = await reader.read();
-                if (chunk.done) { ended = true; break; }
-                bytes += chunk.value.byteLength;
+        let bytes = 0; let text = '';
+        // pipeTo owns stream completion/backpressure; write failures cancel the network source.
+        await response.body.pipeTo(new global.WritableStream({
+            write(chunk) {
+                bytes += chunk.byteLength;
                 if (bytes > maximumBytes) throw new Error('IMPORT_RESPONSE_CAPACITY_EXCEEDED');
-                text += decoder.decode(chunk.value, {stream: true});
+                text += decoder.decode(chunk, {stream: true});
             }
-            text += decoder.decode();
-            return JSON.parse(text);
-        } finally {
-            if (!ended) await reader.cancel().catch(() => {});
-            reader.releaseLock();
-        }
+        }));
+        text += decoder.decode();
+        return JSON.parse(text);
     }
 
     async function verifyPrefix(file, receipt, readPage, hash = sha256, progress = () => {}) {
@@ -141,6 +139,8 @@
             reviewVersion: 'Aucune version de révision sûre n’est disponible. Recharger l’état ou consulter le rapport.',
             reviewPath: 'Indiquer le XPath indexé exact d’une valeur scalaire, pas un patient ou une section.',
             reviewPatient: 'Le diagnostic ne désigne aucune copie de patient vérifiable. Le refus est indisponible; consulter le rapport protégé ou corriger la source.',
+            revisionUnavailable: 'L’approbation de remplacement exige un conflit source identifié et la preuve que les deux tâches n’ont aucune donnée validée, aucun blocage ni aucune incertitude. Réconcilier les tâches précédentes; ne pas changer l’espace de noms pour contourner ce contrôle.',
+            inactiveDrafts: 'Corrections provisoires inactives : compléter les corrections de validation XML avant de reprendre. Nombre : ',
             page: 'Cette page est limitée; les rapports complets restent disponibles.', current: 'Courant',
             selectOne: 'Resélectionner exactement un fichier pour reprendre un transfert.',
             housekeeping: 'Le nettoyage des transferts nécessite une intervention administrative. Vérifier les transferts en attente et les réservations du disque.',
@@ -156,6 +156,8 @@
             reviewVersion: 'No safe review version is available. Reload status or inspect the protected report.',
             reviewPath: 'Enter the exact indexed XPath of a scalar value, rather than a patient or section.',
             reviewPatient: 'This diagnostic has no verifiable patient copy. Decline is unavailable; inspect the protected report or correct the source.',
+            revisionUnavailable: 'Replacement approval requires an identified source conflict and proof that both attempts have no committed data, holds or uncertainty. Reconcile prior work; do not change namespaces to bypass this check.',
+            inactiveDrafts: 'Inactive correction drafts need further XML validation corrections before resume. Count: ',
             page: 'This is a bounded page; complete protected reports remain available.', current: 'Current',
             selectOne: 'Reselect exactly one file to resume an upload.',
             housekeeping: 'Upload cleanup needs administrator attention. Check pending uploads and disk reservations.',
@@ -364,6 +366,9 @@
             const workerAlert = byId('cdsWorkerAlert'); workerAlert.hidden = !latestSummary.workerAlert;
             workerAlert.textContent = latestSummary.workerAlert
                 ? text.worker + ' ' + String(latestSummary.workerAlert).slice(0, 96) : '';
+            const draftAlert = byId('cdsDraftAlert');
+            draftAlert.hidden = !(Number.isSafeInteger(latestSummary.inactiveDraftCount) && latestSummary.inactiveDraftCount > 0);
+            draftAlert.textContent = draftAlert.hidden ? '' : text.inactiveDrafts + latestSummary.inactiveDraftCount;
             const presentation = statusPresentation(data.job, latestSummary);
             byId('runState').textContent = text.state + ': ' + presentation.state + ' — ' + id + ' — ' + (data.job.updatedAt || '');
             byId('runState').className = presentation.clean ? 'text-success' : 'text-body';
@@ -427,12 +432,15 @@
                 const actions = cell(row, item.resolved ? 'RESOLVED' : item.severity);
                 if (item.blocking && !item.resolved) actions.append(button(text.review, () => {
                     if (!Number.isSafeInteger(latestSummary.reviewVersion) || latestSummary.reviewVersion < 0) throw new Error(text.reviewVersion);
-                    const eligibility = reviewEligibility(item);
+                    const eligibility = reviewEligibility(item, latestSummary);
                     byId('reviewDiagnosticId').value = item.id; byId('reviewPatientKey').value = item.patientKey || '';
+                    byId('reviewDiagnosticCode').value = item.code || '';
                     byId('reviewUnitKey').value = item.unitKey || ''; byId('reviewVersion').value = latestSummary.reviewVersion;
-                    byId('reviewKind').value = 'CORRECT_VALUE';
+                    byId('reviewKind').value = eligibility.canApproveRevision ? 'APPROVE_UNWRITTEN_REVISION' : 'CORRECT_VALUE';
                     byId('reviewDeclineOption').disabled = !eligibility.canDecline;
-                    byId('reviewPatientHelp').textContent = eligibility.canDecline ? '' : text.reviewPatient;
+                    byId('reviewRevisionOption').disabled = !eligibility.canApproveRevision;
+                    byId('reviewPatientHelp').textContent = item.code === 'SOURCE_REVISION_REVIEW_REQUIRED'
+                        && !eligibility.canApproveRevision ? text.revisionUnavailable : eligibility.canDecline ? '' : text.reviewPatient;
                     byId('reviewXPath').value = eligibility.initialXPath; byId('reviewValue').value = ''; byId('reviewReason').value = '';
                     updateReviewKind();
                     byId('cdsReviewForm').hidden = false; byId('reviewReason').focus();
@@ -467,6 +475,10 @@
                         && !reviewEligibility({patientKey: byId('reviewPatientKey').value}).canDecline) throw new Error(text.reviewPatient);
                 if (byId('reviewKind').value === 'CORRECT_VALUE'
                         && !indexedSourceValuePath(byId('reviewXPath').value)) throw new Error(text.reviewPath);
+                if (byId('reviewKind').value === 'APPROVE_UNWRITTEN_REVISION'
+                        && !reviewEligibility({code: byId('reviewDiagnosticCode').value}, latestSummary).canApproveRevision) {
+                    throw new Error(text.revisionUnavailable);
+                }
                 await request('cdsImportControl', {operation: 'review', runId: activeRun, kind: byId('reviewKind').value,
                     diagnosticId: byId('reviewDiagnosticId').value, patientKey: byId('reviewPatientKey').value,
                     unitKey: byId('reviewUnitKey').value, expectedVersion: byId('reviewVersion').value,

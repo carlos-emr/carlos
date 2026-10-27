@@ -62,6 +62,7 @@
     <div id="cdsNotice" class="alert alert-info" role="status" aria-live="polite" hidden></div>
     <div id="cdsAdministrativeAlert" class="alert alert-warning" role="alert" hidden></div>
     <div id="cdsWorkerAlert" class="alert alert-danger" role="alert" hidden></div>
+    <div id="cdsDraftAlert" class="alert alert-warning" role="alert" hidden></div>
     <form id="cdsImportForm" name="ImportDemographicDataForm" method="POST"
           action="${pageContext.request.contextPath}/form/cdsImportSubmit">
         <fieldset id="cdsOptions" <c:if test="${not model.enabled or empty model.sources}">disabled</c:if>>
@@ -84,7 +85,7 @@
             </div>
             <div class="row g-3 mb-3">
                 <div class="col-sm-4"><label for="providerNo" class="form-label"><fmt:message key="provider" bundle="${cds}"/></label>
-                    <input id="providerNo" name="providerNo" class="form-control" value="${carlos:forHtmlAttribute(model.providerNo)}" pattern="[A-Za-z0-9_-]{1,16}" maxlength="16" required></div>
+                    <input id="providerNo" name="providerNo" class="form-control" value="${carlos:forHtmlAttribute(model.providerNo)}" pattern="[A-Za-z0-9_\-]{1,16}" maxlength="16" required></div>
                 <div class="col-sm-4"><label for="programId" class="form-label"><fmt:message key="program" bundle="${cds}"/></label>
                     <input id="programId" name="programId" type="number" min="1" class="form-control" value="${carlos:forHtmlAttribute(model.programId)}"></div>
                 <div class="col-sm-4"><label for="facilityId" class="form-label"><fmt:message key="facility" bundle="${cds}"/></label>
@@ -159,11 +160,14 @@
     <form id="cdsReviewForm" method="POST" action="${pageContext.request.contextPath}/form/cdsImportControl" class="border rounded p-3" hidden>
         <h2 class="h5"><fmt:message key="review" bundle="${cds}"/></h2>
         <p><fmt:message key="reviewHelp" bundle="${cds}"/></p>
+        <p class="form-text"><fmt:message key="revisionHelp" bundle="${cds}"/></p>
         <input id="reviewDiagnosticId" type="hidden"><input id="reviewPatientKey" type="hidden">
+        <input id="reviewDiagnosticCode" type="hidden">
         <input id="reviewUnitKey" type="hidden"><input id="reviewVersion" type="hidden">
         <label for="reviewKind" class="form-label"><fmt:message key="reviewKind" bundle="${cds}"/></label>
         <select id="reviewKind" class="form-select"><option value="CORRECT_VALUE"><fmt:message key="correctValue" bundle="${cds}"/></option>
-            <option id="reviewDeclineOption" value="DECLINE_PATIENT"><fmt:message key="declinePatient" bundle="${cds}"/></option></select>
+            <option id="reviewDeclineOption" value="DECLINE_PATIENT"><fmt:message key="declinePatient" bundle="${cds}"/></option>
+            <option id="reviewRevisionOption" value="APPROVE_UNWRITTEN_REVISION"><fmt:message key="approveUnwrittenRevision" bundle="${cds}"/></option></select>
         <p id="reviewPatientHelp" class="form-text" role="status"></p>
         <label for="reviewXPath" class="form-label">XML XPath</label><input id="reviewXPath" class="form-control" maxlength="2048" aria-describedby="reviewXPathHelp">
         <p id="reviewXPathHelp" class="form-text"><fmt:message key="reviewXPathHelp" bundle="${cds}"/></p>

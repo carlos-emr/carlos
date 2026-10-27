@@ -2,10 +2,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {webcrypto} = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const client = require('../src/main/webapp/js/demographic/cds-import.js');
 const id = '11111111-1111-4111-8111-111111111111';
 const clean = {cleanComplete: true, clinicalComplete: true, discoveryComplete: true, reportsDelivered: true,
-  cleanupComplete: true, pendingUnits: 0, unresolvedReviewItems: 0, expectedPatients: 1, outcomes: {COMPLETE: 1}};
+  cleanupComplete: true, pendingUnits: 0, unresolvedReviewItems: 0, inactiveDraftCount: 0, expectedPatients: 1, outcomes: {COMPLETE: 1}};
 
 test('only reconciled clinical completion with delivered reports is styled as clean', () => {
   assert.equal(client.statusPresentation({id, state: 'COMPLETE'}, clean).clean, true);
@@ -18,7 +20,8 @@ for (const state of ['ACCEPTED', 'RUNNING', 'REFUSED', 'FAILED_BEFORE_WRITE', 'N
   });
 }
 for (const changes of [{reportsDelivered: false}, {cleanupComplete: false}, {discoveryComplete: false},
-  {clinicalComplete: false}, {pendingUnits: 1}, {unresolvedReviewItems: 1}, {expectedPatients: 2},
+  {clinicalComplete: false}, {pendingUnits: 1}, {unresolvedReviewItems: 1}, {inactiveDraftCount: 1},
+  {inactiveDraftCount: undefined}, {expectedPatients: 2},
   {outcomes: {REFUSED: 1}}, {outcomes: {COMPLETE: 1, PARTIAL_COMMITTED: 1}}, {outcomes: undefined},
   {outcomes: {COMPLETE: '1'}}, {outcomes: {COMPLETE: -1}}]) {
   test(`incomplete, unknown or contradictory accounting ${JSON.stringify(changes)} cannot be clean`, () => {
@@ -49,6 +52,14 @@ test('review declines require an identifiable patient copy and record paths are 
   assert.equal(client.reviewEligibility({sourceXPath}).initialXPath, sourceXPath);
   assert.equal(client.indexedSourceValuePath('/OmdCds[1]/PatientRecord[1]/Medications[2]/Dose[1]/@unit'), true);
 });
+test('unwritten revision approval needs the exact source conflict and affirmative durable eligibility', () => {
+  const diagnostic = {code: 'SOURCE_REVISION_REVIEW_REQUIRED'};
+  for (const summary of [{}, {unwrittenRevisionApprovalAllowed: false}, {unwrittenRevisionApprovalAllowed: 'true'}]) {
+    assert.equal(client.reviewEligibility(diagnostic, summary).canApproveRevision, false);
+  }
+  assert.equal(client.reviewEligibility(diagnostic, {unwrittenRevisionApprovalAllowed: true}).canApproveRevision, true);
+  assert.equal(client.reviewEligibility({code: 'NATIVE_WRITE_FAILED'}, {unwrittenRevisionApprovalAllowed: true}).canApproveRevision, false);
+});
 test('history stores bounded opaque IDs, deduplicated, without source filenames', () => {
   const ids = Array.from({length: 25}, (_, n) => `${String(n).padStart(8, '0')}-1111-4111-8111-111111111111`);
   assert.equal(client.boundedIds([...ids, id, id, 'Patient-1971-03-04.xml']).length, 20);
@@ -63,6 +74,13 @@ test('effective options preserve nondefault bindings and reject unsafe synthetic
   assert.equal(client.effectiveOptions({...options, providerNo: 'Dr_77-A'}).providerNo, 'Dr_77-A');
   assert.throws(() => client.effectiveOptions({...options, providerNo: '../77'}), /IMPORT_OPTIONS_INVALID/);
   assert.throws(() => client.effectiveOptions({...options, synthetic: true, courseId: 4}), /IMPORT_OPTIONS_INVALID/);
+});
+test('native provider input uses a valid modern HTML Unicode pattern for supported local IDs', () => {
+  const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/demographic/demographicImport.jsp'), 'utf8');
+  const pattern = jsp.match(/id="providerNo"[^>]*\bpattern="([^"]+)"/)[1];
+  const validation = new RegExp(`^(?:${pattern})$`, 'v');
+  assert.equal(validation.test('Dr_77-A'), true);
+  assert.equal(validation.test('../77'), false);
 });
 test('real SHA-256 uses only the provided bounded blob', async () => {
   assert.equal(await client.sha256(new Blob(['abc']), webcrypto),

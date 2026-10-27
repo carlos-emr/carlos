@@ -1554,7 +1554,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note.setRevision(String.valueOf(revision));
         Date now = new Date();
-        if (note.getObservation_date() == null) {
+        if (newNote && note.getObservation_date() == null) {
             note.setObservation_date(now);
         }
 
@@ -1915,7 +1915,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", request.getLocale());
         if (dateObserve != null) {
             note.setObservation_date(dateObserve);
-        } else if (note.getObservation_date() == null) {
+        } else if ((note.getId() == null || note.getId() <= 0) && note.getObservation_date() == null) {
             note.setObservation_date(now);
         }
 
@@ -2251,7 +2251,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         note.setDemographic_no(demo);
         bindNoteAppointment(note);
         if (dateObserve != null) note.setObservation_date(dateObserve);
-        else if (note.getObservation_date() == null) note.setObservation_date(now);
+        else if (newNote && note.getObservation_date() == null) note.setObservation_date(now);
         String history = newNote ? "" : "---------History Record---------" + StringUtils.defaultString(source.getHistory());
         note.setNote(noteTxt);
         note.setHistory(noteTxt + "[[" + now + "]]" + history);
@@ -3644,7 +3644,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         for (CaseManagementNote note : selectedNotes) {
             if (note.isLocked()) {
-                textStr = note.getObservation_date().toString() + " " + note.getProviderName() + " " + props.getString("encounter.noteBrowser.msgNoteLocked");
+                String observation = NoteObservationDate.format(note.getObservation_date());
+                if (observation.isEmpty()) observation = props.getString("provider.providerencountersingle.unknown");
+                textStr = observation + " " + note.getProviderName() + " " + props.getString("encounter.noteBrowser.msgNoteLocked");
             } else {
                 textStr = note.getNote();
             }
@@ -4135,8 +4137,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             hashMap.put("noteId", note.getId().toString());
             hashMap.put("note", note.getNote());
             hashMap.put("revision", note.getRevision());
-            hashMap.put("obsDate", CachedDateFormats.format(note.getObservation_date(), YYYY_MM_DD_HHMM_PATTERN));
-            hashMap.put("editor", this.providerMgr.getProvider(note.getProviderNo()).getFormattedName());
+            hashMap.put("obsDate", note.getObservation_date() == null ? ""
+                    : CachedDateFormats.format(note.getObservation_date(), YYYY_MM_DD_HHMM_PATTERN));
+            hashMap.put("editor", note.getProviderName());
             json = objectMapper.valueToTree(hashMap);
         }
         response.setContentType("application/json");

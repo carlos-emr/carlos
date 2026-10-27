@@ -62,6 +62,28 @@ import static org.assertj.core.api.Assertions.*;
 public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoBaseIntegrationTest {
 
     @Test
+    void shouldKeepUnknownDatedLatestNotesVisible_inDefaultCppAndIssueLists() {
+        Issue issue = createIssue("CDS_UNDATED", "Synthetic undated source history");
+        CaseManagementIssue patientIssue = createCaseManagementIssue("4512", issue);
+        Date current = Date.from(java.time.Instant.parse("2025-01-02T10:00:00Z"));
+        CaseManagementNote prior = createNoteWithIssue("4512", "Earlier dated revision", current, patientIssue);
+        CaseManagementNote undated = createNoteWithIssue("4512", "Latest source date is unknown", current, patientIssue);
+        undated.setUuid(prior.getUuid());
+        undated.setObservation_date(null);
+        CaseManagementNote shiftedPrior = createNoteWithIssue("4512", "Earlier visible revision", current, patientIssue);
+        CaseManagementNote shiftedLatest = createNoteWithIssue("4512", "Latest corrected date predates filter",
+                Date.from(java.time.Instant.parse("1999-01-01T10:00:00Z")), patientIssue);
+        shiftedLatest.setUuid(shiftedPrior.getUuid());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(caseManagementNoteDAO.getCPPNotes("4512", issue.getId(), "2020-01-01"))
+                .extracting(CaseManagementNote::getId).containsExactly(undated.getId());
+        assertThat(caseManagementNoteDAO.getNotesByDemographic("4512", new String[]{issue.getId().toString()}, "2020-01-01"))
+                .extracting(CaseManagementNote::getId).containsExactly(undated.getId());
+    }
+
+    @Test
     @DisplayName("should load legacy notes with a NULL appointment number and preserve the primitive API")
     void shouldLoadNote_whenAppointmentNumberIsNull() {
         CaseManagementNote note = createNote("3946", "FAKE export note without an appointment");
