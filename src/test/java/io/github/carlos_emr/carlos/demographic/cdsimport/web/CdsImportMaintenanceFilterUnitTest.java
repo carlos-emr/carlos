@@ -119,15 +119,23 @@ class CdsImportMaintenanceFilterUnitTest {
     void shouldDenyClinicalReadsAndDownloads_whenMaintenanceOrHoldsExist() throws Exception {
         CdsImportMaintenanceService service = mock(CdsImportMaintenanceService.class);
         when(service.isClinicalAccessBlocked()).thenReturn(true);
-        for (String path : new String[]{"/demographic/demographiccontrol", "/ws/PreventionService", "/Download",
-                "/eformViewForPdfGenerationServlet", "/provider/providercontrol"}) {
-            var request = new MockHttpServletRequest("GET", path);
-            var response = new MockHttpServletResponse();
-            FilterChain chain = mock(FilterChain.class);
-            new CdsImportMaintenanceFilter(() -> service).doFilter(request, response, chain);
-            assertThat(response.getStatus()).isEqualTo(503);
-            assertThat(response.getContentAsString()).contains("chart reconciliation", "/form/importUpload");
-            verifyNoInteractions(chain);
+        for (String context : new String[] {"", "/carlos", "/<img src=x onerror=alert(1)>"}) {
+            for (String path : new String[]{"/demographic/demographiccontrol", "/ws/PreventionService", "/Download",
+                    "/eformViewForPdfGenerationServlet", "/provider/providercontrol"}) {
+                var request = new MockHttpServletRequest("GET", context + path);
+                request.setContextPath(context);
+                var response = new MockHttpServletResponse();
+                FilterChain chain = mock(FilterChain.class);
+                new CdsImportMaintenanceFilter(() -> service).doFilter(request, response, chain);
+                assertThat(response.getStatus()).isEqualTo(503);
+                assertThat(response.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+                assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+                assertThat(response.getHeader("Retry-After")).isEqualTo("60");
+                assertThat(response.getContentAsString()).contains("chart reconciliation", "/form/importUpload",
+                        "application base address");
+                if (!context.isEmpty()) assertThat(response.getContentAsString()).doesNotContain(context);
+                verifyNoInteractions(chain);
+            }
         }
     }
 

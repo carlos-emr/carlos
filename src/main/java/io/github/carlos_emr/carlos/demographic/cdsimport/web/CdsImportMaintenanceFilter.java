@@ -75,18 +75,21 @@ public final class CdsImportMaintenanceFilter implements Filter {
             if (!(startup instanceof ClinicalStartupCoordinator coordinator) || coordinator.isReady()) {
                 chain.doFilter(request, response); return;
             }
-            unavailable(reply, http, "Clinical startup initialization is pending. ");
+            unavailable(reply, "Clinical startup initialization is pending. ");
             return;
         }
-        unavailable(reply, http, "Clinical access is unavailable during CDS import maintenance or chart reconciliation. ");
+        unavailable(reply, "Clinical access is unavailable during CDS import maintenance or chart reconciliation. ");
     }
 
-    private static void unavailable(HttpServletResponse reply, HttpServletRequest http, String message) throws IOException {
+    private static void unavailable(HttpServletResponse reply, String message) throws IOException {
         reply.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
         reply.setHeader("Cache-Control", "no-store");
         reply.setHeader("Retry-After", "60");
         reply.setContentType("text/plain;charset=UTF-8");
-        reply.getWriter().write(message + "Authorized operators can use " + http.getContextPath() + "/form/importUpload.");
+        // Administration pages are also closed during maintenance. Give a direct
+        // recovery route without reflecting request data or assuming a root deployment.
+        reply.getWriter().write(message + "Authorized operators can open the CDS import page by adding "
+                + "/form/importUpload to the application base address.");
     }
 
     static boolean allowed(String path) {
