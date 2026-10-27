@@ -42,7 +42,7 @@ archive-by-default).
 
 # Nullable Program flags no longer need primitive coercion during import.
 # Refuse resuming a partially applied import under the previous conversion rules.
-SCHEMA_MAP_VERSION = "o19map-4"
+SCHEMA_MAP_VERSION = "o19map-5"
 
 #: Provinces the import verb will actually RUN, as opposed to provinces
 #: the package carries a profile for (generate_manifests.PROVINCES).
