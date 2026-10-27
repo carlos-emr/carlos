@@ -397,6 +397,34 @@ def rows(path: Path) -> list[dict]:
     return result
 
 
+def operator_projection(path: Path) -> dict:
+    """Retain finite process/receipt evidence, never raw startup/SQL/source log lines."""
+    allowed={'event','operation','submissionKey','runId','state','dryRun','discoveryComplete','inventoryState',
+        'discoveredFiles','patientXmlFiles','sourceBytes','sourcePatientsIdentified','sourcePatients','targetCopiesPlanned',
+        'expectedPatients','expectedUnits','plannedUnits','committedUnits','alreadyCompleteUnits','pendingUnits','outcomes',
+        'categories','blockingDiagnostics','clinicalComplete','reportState','reportsDelivered','cleanupState','cleanupComplete',
+        'cleanComplete','operationTerminal','reviewVersion','reviewState','reviewId','pendingReviewCount','inactiveDraftCount',
+        'reviewErrorCode','resumeRequested','maintenanceReleasePending','maintenanceReleaseState'}
+    events=[{key:value for key,value in row.items() if key in allowed} for row in rows(path)
+            if row.get('event') in {'INITIALIZING','SUBMISSION','ACCEPTED','RESULT'}]
+    prefixes=Counter()
+    reasons=[]
+    with path.open() as stream:
+        for line in stream:
+            if len(line)>65536:
+                raise RuntimeError('operator projection row capacity exceeded')
+            prefix=re.match(r'^(?:carlos-ctl: )?(CDS_[A-Z_]{1,64}):',line)
+            if prefix:
+                prefixes[prefix[1]]+=1
+            reason=re.fullmatch(r'CDS_REASON: safeCode=([A-Z][A-Z0-9_]{0,95}) outcomeUnknown=(true|false)\n',line)
+            if reason:
+                reasons.append({'code':reason[1],'outcomeUnknown':reason[2]=='true'})
+                if len(reasons)>16:
+                    raise RuntimeError('operator reason capacity exceeded')
+    return {'events':events,'reasonCodes':reasons,'diagnosticPrefixes':dict(prefixes),
+            'privateLogBytes':path.stat().st_size,'privateLogSha256':digest(path)}
+
+
 def complete_result(values: list[dict]) -> dict:
     accepted = [row for row in values if row.get("event") == "ACCEPTED"]
     results = [row for row in values if row.get("event") == "RESULT"]
@@ -651,6 +679,7 @@ def main() -> None:
                             process_started, rss, high_water = observed['started'], observed['rss'], observed['highWater']
                             peak = max(peak, rss, high_water)
                             samples += 1
+                            case.update(peakRssBytes=peak,rssSamples=samples,rssBudgetBytes=args.max_rss_mib*MIB)
                             if peak > args.max_rss_mib * MIB:
                                 raise RuntimeError("actual installed JVM exceeded its measured RSS budget")
                             if worker is None:
@@ -674,6 +703,7 @@ def main() -> None:
                                 raise RuntimeError("service JVM identity changed during a measured import")
                         time.sleep(0.1)
                     import_elapsed = time.monotonic()-started
+                    case['importElapsedSeconds']=import_elapsed
                     bindings()
                     observe_resources()
                     if process.returncode != 0:
@@ -697,10 +727,34 @@ def main() -> None:
                     gc_file.close()
                 if gc_error_file is not None:
                     gc_error_file.close()
+                case['operatorExitCode']=process.returncode if process is not None else None
+                try:
+                    case['operatorEvidence']=operator_projection(log)
+                    if resource_receipt.exists():
+                        case['kernelResources']=json.loads(protected_file(resource_receipt).read_text())
+                    if (evidence/(label+'-gc.log')).exists():
+                        case['gc']=gc_evidence(evidence/(label+'-gc.log'))
+                    if case['acceptedRunIds']:
+                        accepted=case['acceptedRunIds'][0]
+                        codes=query("SELECT severity,code,stage,blocking,resolved,COUNT(*) FROM cds_import_diagnostic WHERE run_id='"
+                                    +accepted+"' GROUP BY severity,code,stage,blocking,resolved ORDER BY severity,code,stage,blocking,resolved LIMIT 129")
+                        if len(codes)>128 or any(len(row)!=6 or not re.fullmatch(r'[A-Z]{1,16}',row[0])
+                            or not re.fullmatch(r'[A-Z][A-Z0-9_]{0,95}',row[1]) or not re.fullmatch(r'[A-Za-z0-9_.-]{1,64}',row[2])
+                            or row[3] not in ('0','1') or row[4] not in ('0','1') or not row[5].isdecimal() for row in codes):
+                            raise RuntimeError('diagnostic code projection exceeded its finite safe contract')
+                        case['diagnosticCodeCounts']=[dict(zip(('severity','code','stage','blocking','resolved','count'),row)) for row in codes]
+                        if process.returncode!=0:
+                            case['failedNative']=inspect(accepted)
+                except Exception as evidence_failure:
+                    case['failureEvidenceError']=safe_failure(evidence_failure)
+                private_json(proof,result)
             if not samples or worker is None:
                 raise RuntimeError("actual installed JVM resident-memory evidence is missing")
             gc_metrics = gc_evidence(evidence / (label+"-gc.log"))
             kernel = json.loads(protected_file(resource_receipt).read_text())
+            case['gc']=gc_metrics
+            case['kernelResources']=kernel
+            private_json(proof,result)
             if kernel.get("exitCode") != 0 or not isinstance(kernel.get("largestProcessPeakRssBytes"),int) \
                     or not peak <= kernel["largestProcessPeakRssBytes"] <= args.max_rss_mib*MIB:
                 raise RuntimeError("kernel invocation peak RSS or process-exit proof failed")

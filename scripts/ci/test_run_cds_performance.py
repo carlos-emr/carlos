@@ -163,6 +163,18 @@ class PerformanceEvidenceTest(unittest.TestCase):
         self.assertTrue(evidence['codeLocations'])
         self.assertNotIn(sentinel,json.dumps(evidence))
 
+    def test_operator_failure_projection_retains_finite_reason_and_receipt_but_withholds_raw_startup_lines(self):
+        log=self.root/'operator.log'
+        hidden='synthetic-private-password-and-SQL'
+        log.write_text('CDS_BOOTSTRAP: '+hidden+'\n'+hidden+'\n'
+                       +'CDS_REASON: safeCode=CDS_INPUT_DISK_RESERVE outcomeUnknown=false\n'
+                       +json.dumps({'event':'RESULT','cleanComplete':False,'state':'REVIEW_REQUIRED','unexpectedPrivateField':hidden})+'\n')
+        proof=GATE.operator_projection(log)
+        self.assertEqual(proof['diagnosticPrefixes'],{'CDS_BOOTSTRAP':1,'CDS_REASON':1})
+        self.assertEqual(proof['reasonCodes'],[{'code':'CDS_INPUT_DISK_RESERVE','outcomeUnknown':False}])
+        self.assertEqual(proof['events'][0]['state'],'REVIEW_REQUIRED')
+        self.assertNotIn(hidden,json.dumps(proof))
+
     def test_resource_samples_preserve_unknown_inventory_and_observed_peaks_after_completion(self):
         run='12345678-1234-1234-1234-123456789abc'
         calls=[]

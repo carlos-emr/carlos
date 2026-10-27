@@ -237,6 +237,9 @@ def main() -> None:
                         continue
                 time.sleep(0.1)
         result['importElapsedSeconds']=time.monotonic()-started
+        result['operatorExitCode']=process.returncode
+        result['operatorEvidence']=RESOURCE.operator_projection(log)
+        save()
         require(process.returncode==4 and worker is not None,'DISK_FAULT_EXPECTED_OPERATOR_REFUSAL')
         operator=refusal(log)
         require(operator['reason']=={'code':'CDS_SOURCE_SNAPSHOT_FAILED' if args.scenario=='enospc' else 'CDS_INPUT_DISK_RESERVE',
