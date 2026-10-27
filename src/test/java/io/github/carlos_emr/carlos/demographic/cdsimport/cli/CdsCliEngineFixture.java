@@ -84,7 +84,16 @@ public final class CdsCliEngineFixture {
                 System.out.println(JSON.writeValueAsString(result));
             }
         } catch (Exception failure) {
-            System.err.println("CDS_SYNTHETIC_FIXTURE_FAILED:" + failure.getClass().getSimpleName());
+            String location = "unknown";
+            for (StackTraceElement frame : failure.getStackTrace()) {
+                if (frame.getClassName().equals(CdsCliEngineFixture.class.getName())) {
+                    location = frame.getMethodName() + ":" + frame.getLineNumber(); break;
+                }
+            }
+            String sql = failure instanceof java.sql.SQLException database
+                    ? ":sqlState=" + database.getSQLState() + ":vendorCode=" + database.getErrorCode() : "";
+            // Operational fixture evidence only: never print exception messages, SQL or patient/config values.
+            System.err.println("CDS_SYNTHETIC_FIXTURE_FAILED:" + failure.getClass().getSimpleName() + ":" + location + sql);
             System.exit(1);
         }
     }
@@ -296,7 +305,7 @@ public final class CdsCliEngineFixture {
                 seedProvider(connection, PROVIDER, "1");
                 update(connection, "INSERT INTO secUserRole(provider_no,role_name,activeyn,lastUpdateDate) VALUES (?,'doctor',1,NOW())", PROVIDER);
             }
-            if (count(connection, "SELECT COUNT(*) FROM provider WHERE provider_no=? AND last_name='CDS SYNTHETIC FIXTURE' AND first_name='Synthetic' AND provider_type='doctor' AND status='1'", PROVIDER) != 1
+            if (count(connection, "SELECT COUNT(*) FROM provider WHERE provider_no=? AND provider_type='doctor' AND status='1' AND ((BINARY(last_name)=BINARY('CDS SYNTHETIC FIXTURE') AND BINARY(first_name)=BINARY('Synthetic')) OR (BINARY(last_name)=BINARY('carlosdoc') AND BINARY(first_name)=BINARY('doctor')))", PROVIDER) != 1
                     || count(connection, "SELECT COUNT(*) FROM secUserRole WHERE provider_no=? AND role_name='doctor' AND activeyn=1", PROVIDER) != 1) {
                 throw new IllegalStateException("Existing non-fixture provider is never replaced");
             }
