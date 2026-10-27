@@ -147,10 +147,10 @@
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
-        <spring.version>7.0.9</spring.version>
-        <spring-security.version>7.0.5</spring-security.version>
+        <spring.version>7.0.10</spring.version>
+        <spring-security.version>7.1.2</spring-security.version>
         <!-- Struts -->
-        <struts.version>7.1.1</struts.version>
+        <struts.version>7.4.0</struts.version>
         <!-- Jackson -->
         <jackson.version>2.22.3</jackson.version>
         <!-- Apache HttpClient 5 -->
@@ -234,6 +234,13 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Struts 7.4.0 brings OGNL 3.4.12. Keep the supported 3.4 line
+                 on a patched release for CVE-2026-113730. -->
+            <dependency>
+                <groupId>ognl</groupId>
+                <artifactId>ognl</artifactId>
+                <version>3.4.17</version>
+            </dependency>
             <!-- Struts' transitive FreeMarker 2.3.34 permits malformed locales to
                  alter template lookup paths (CVE-2026-84939). Keep localized
                  rendering while using the upstream locale-validation fix. -->
@@ -271,6 +278,15 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!-- Align Spring observation and CXF/Artemis metrics with the
+                 Micrometer baseline used by Spring Security 7.1.2. -->
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-bom</artifactId>
+                <version>1.17.2</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <!-- Force Gson version to prevent any transitive 2.8.0 -->
             <dependency>
                 <groupId>com.google.code.gson</groupId>
@@ -300,18 +316,18 @@
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
-                <version>1.18.7</version>
+                <version>1.18.14</version>
             </dependency>
             <dependency>
                <groupId>net.bytebuddy</groupId>
                <artifactId>byte-buddy-agent</artifactId>
-               <version>1.18.7</version>
+               <version>1.18.14</version>
             </dependency>
             <!-- Hibernate 7 core (Jakarta EE 11 - JPA 3.2, jakarta.persistence namespace) -->
             <dependency>
                 <groupId>org.hibernate.orm</groupId>
                 <artifactId>hibernate-core</artifactId>
-                <version>7.2.7.Final</version>
+                <version>7.4.14.Final</version>
             </dependency>
             <!-- JPA API (jakarta namespace) - provided by Hibernate 7 (JPA 3.2) -->
             <dependency>
