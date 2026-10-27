@@ -219,3 +219,15 @@ nodes, permissive legacy SQL mode, Unicode overflow/rejection, session restorati
 connection loss and target engine/trigger admission. Migration validation must start from the
 actual baseline and include the complete common/province chain; changed unpublished migrations
 require recreating only a disposable database, never repairing checksums.
+
+
+The `CDS import native contracts` workflow compiles the actual application and test classes, then
+runs `scripts/ci/run-cds-native-tier.py`. The harness creates a uniquely owned internal-network
+MariaDB server with checked tmpfs storage and bootstraps two empty schemas through the complete
+common/Ontario Flyway chain. Its nine required suites include demographic and document ORM
+callbacks alongside maintenance, identity, clinical capacity, appointments, history visibility,
+ledger recovery and target receipts. Missing reports, zero tests, skips, inconsistent counters,
+failures, errors and flaky reruns fail the gate. The host parser uses hash-pinned `defusedxml`;
+only reports with captured configuration/output removed become CI artifacts. Cleanup removes
+only the harness's own container, network and generated credentials. This physical gate does not
+replace schema/parser, browser, installed CLI or application-wide regression checks.

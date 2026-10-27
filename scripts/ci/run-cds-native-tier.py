@@ -1,0 +1,217 @@
+#!/usr/bin/env python3
+#
+# Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+#
+# This software is published under the GPL GNU General Public License.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+# CARLOS EMR Project
+# https://github.com/carlos-emr/carlos
+#/
+"""Run required CDS database contracts against a newly owned disposable MariaDB.
+
+The supplied build container must already contain compiled application/test classes,
+Java 25, Maven and this checkout. No existing database is contacted or reused.
+"""
+import argparse
+import os
+from pathlib import Path
+import secrets
+import stat
+import subprocess
+import sys
+import time
+import uuid
+from xml.etree.ElementTree import ElementTree
+try:
+    import defusedxml.ElementTree as ET
+    from defusedxml.common import DefusedXmlException
+except ImportError:
+    sys.exit("Install hash-pinned dependencies from scripts/ci/requirements.txt before running this gate")
+
+IMAGE = 'mariadb:11.8@sha256:f16d7a344413e519dff518f27bdb221388f84b0d274c97c4fb5f2cb0dc1b34fa'
+CLASSES = (
+    'CdsImportMaintenanceMariaDbIntegrationTest', 'CdsIdentityMariaDbIntegrationTest',
+    'CdsClinicalStorageMariaDbIntegrationTest', 'CdsAppointmentStorageMariaDbIntegrationTest',
+    'CdsHistoryVisibilityMariaDbIntegrationTest', 'CdsDemographicStorageMariaDbIntegrationTest',
+    'CdsReportStorageMariaDbIntegrationTest',
+    'CdsImportLedgerMariaDbIntegrationTest', 'CdsTargetReceiptMariaDbIntegrationTest',
+)
+
+
+def collect_reports(required, source, destination):
+    """Reject missing, skipped or inconsistent physical evidence and strip captured configuration."""
+    total, incomplete = 0, []
+    for simple in required:
+        files = list(source.glob('TEST-*.' + simple + '.xml'))
+        if len(files) != 1:
+            incomplete.append(simple + ': required report absent or ambiguous')
+            continue
+        metadata = files[0].lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > (32 << 20):
+            raise RuntimeError('Required report is not a bounded regular file')
+        suite = ET.parse(files[0], forbid_dtd=True).getroot()
+        if suite.tag != 'testsuite' or not suite.get('name', '').endswith('.' + simple):
+            raise RuntimeError('Required report suite binding is invalid')
+        counts = {}
+        for key in ('tests', 'errors', 'failures', 'skipped'):
+            value = suite.get(key)
+            if value is None or not value.isascii() or not value.isdecimal() or len(value) > 9:
+                raise RuntimeError('Required report counters are invalid')
+            counts[key] = int(value)
+        cases = suite.findall('testcase')
+        actual = {'tests': len(cases), 'errors': 0, 'failures': 0, 'skipped': 0}
+        for case in cases:
+            for key, tag in (('errors', 'error'), ('failures', 'failure'), ('skipped', 'skipped')):
+                actual[key] += len(case.findall(tag))
+        if counts != actual:
+            raise RuntimeError('Required report counters do not match individual cases')
+        print(simple + ': ' + ', '.join(f'{key}={value}' for key, value in counts.items()), flush=True)
+        rerun = any(case.find(tag) is not None for case in cases
+                    for tag in ('flakyFailure', 'flakyError', 'rerunFailure', 'rerunError'))
+        if counts['tests'] < 1 or rerun or any(counts[key] for key in ('errors', 'failures', 'skipped')):
+            incomplete.append(simple)
+        total += counts['tests']
+        # Config and captured framework output never enter published reports.
+        for parent in suite.iter():
+            for child in list(parent):
+                if child.tag.rsplit('}', 1)[-1] in {'properties', 'system-out', 'system-err'}:
+                    parent.remove(child)
+        ElementTree(suite).write(destination / files[0].name, encoding='utf-8', xml_declaration=True)
+    return total, incomplete
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--container', default='carlos-tomcat-dev')
+    parser.add_argument('--container-workspace', default='/workspace')
+    parser.add_argument('--maven', default='mvn')
+    parser.add_argument('--maven-repository')
+    args = parser.parse_args()
+    repository = Path(__file__).resolve().parents[2]
+    nonce = uuid.uuid4().hex
+    name = 'cds-native-' + nonce
+    network = name + '-net'
+    output = repository / 'target' / name
+    output.mkdir(mode=0o700, parents=True)
+    private = output / 'private'
+    private.mkdir(mode=0o700)
+    container_output = args.container_workspace.rstrip('/') + '/target/' + name
+    container_private = container_output + '/private'
+    password = secrets.token_hex(32)
+    (private / 'password').write_text(password)
+    (private / 'client.cnf').write_text('[client]\nuser=root\npassword=' + password + '\n')
+    for path in private.iterdir():
+        path.chmod(0o600)
+    created_network = created_database = connected_build = False
+    docker = ['docker', '--host=unix:///var/run/docker.sock']
+    log_path = output / 'native-tier.log'
+
+    def run(command, log, check=True, capture=False):
+        return subprocess.run(command, check=check, text=True,
+                              stdout=subprocess.PIPE if capture else log, stderr=log)
+
+    def build(command, log, check=True):
+        return run(docker + ['exec', '--workdir', args.container_workspace, args.container] + command, log, check=check)
+
+    maven = [args.maven, '-B', '-q']
+    if args.maven_repository:
+        maven.append('-Dmaven.repo.local=' + args.maven_repository)
+    try:
+        with log_path.open('w') as log:
+            run(docker + ['network', 'create', '--internal', network], log)
+            created_network = True
+            run(docker + ['network', 'connect', network, args.container], log)
+            connected_build = True
+            run(docker + ['run', '-d', '--name', name, '--network', network, '--memory', '2g', '--cpus', '2',
+                          '--tmpfs', '/var/lib/mysql:rw,nosuid,noexec,size=1536m',
+                          '--mount', 'type=bind,src=' + str(private) + ',dst=/run/cds-test,readonly',
+                          '-e', 'MARIADB_ROOT_PASSWORD_FILE=/run/cds-test/password', '-e', 'MARIADB_ROOT_HOST=%',
+                          IMAGE, '--innodb-page-size=32768', '--innodb-snapshot-isolation=ON',
+                          '--character-set-server=utf8mb4', '--collation-server=utf8mb4_general_ci',
+                          '--innodb-buffer-pool-size=128M'], log)
+            created_database = True
+            mounts = run(docker + ['exec', name, 'cat', '/proc/mounts'], log, capture=True).stdout
+            if not any(len(parts) > 2 and parts[1] == '/var/lib/mysql' and parts[2] == 'tmpfs'
+                       for parts in (line.split() for line in mounts.splitlines())):
+                raise RuntimeError('Disposable database storage is not the required tmpfs')
+            client = docker + ['exec', name, 'mariadb', '--defaults-extra-file=/run/cds-test/client.cnf']
+            deadline = time.monotonic() + 90
+            while True:
+                if run(client + ['-e', 'SELECT 1'], log, check=False).returncode == 0:
+                    break
+                if time.monotonic() > deadline:
+                    raise RuntimeError('Disposable MariaDB did not become ready')
+                time.sleep(1)
+            run(client + ['-e', 'CREATE DATABASE carlos_cds_test CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; '
+                         'CREATE DATABASE cds_ledger_test CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci'], log)
+            for database, filename in [('carlos_cds_test', 'jdbc.properties'), ('cds_ledger_test', 'ledger.properties')]:
+                properties = private / filename
+                properties.write_text('jdbcUrl=jdbc:mysql://' + name + ':3306/' + database
+                                      + '?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci'
+                                      + '&allowPublicKeyRetrieval=true&useSSL=false\njdbcUser=root\njdbcPassword=' + password + '\n')
+                properties.chmod(0o600)
+            build(maven + ['dependency:build-classpath', '-Dmdep.outputFile=' + container_output + '/classpath'], log)
+            dependencies = (output / 'classpath').read_text().strip()
+            classpath = args.container_workspace + '/target/classes' + os.pathsep + dependencies
+            build(['javac', '-cp', classpath, '-d', container_output + '/classes',
+                   'scripts/ci/CdsImportMariaDbBootstrap.java'], log)
+            for filename in ['jdbc.properties', 'ledger.properties']:
+                build(['java', '-cp', container_output + '/classes' + os.pathsep + classpath,
+                       'CdsImportMariaDbBootstrap', container_private + '/' + filename,
+                       'database/mysql/migration', 'on'], log)
+            # Explicit selectors and post-run XML checks prevent a missing property/tag from
+            # quietly skipping the required physical-database contracts.
+            original_reports = repository / 'target' / 'surefire-reports'
+            reports = output / 'reports'
+            reports.mkdir(mode=0o700)
+            for simple in CLASSES:
+                for previous in original_reports.glob('TEST-*.' + simple + '.xml'):
+                    previous.unlink()
+            tested = build(maven + ['surefire:test', '-Dtest.forkCount=1', '-Dgroups=integration',
+                                    '-Dtest=' + ','.join(CLASSES),
+                                    '-Dcds.test.properties=' + container_private + '/jdbc.properties',
+                                    '-Dcds.ledger.test.properties=' + container_private + '/ledger.properties'], log, check=False)
+            total, incomplete = collect_reports(CLASSES, original_reports, reports)
+            if tested.returncode or incomplete:
+                raise RuntimeError('Required native contracts incomplete: ' + ', '.join(incomplete))
+            print(f'CDS native tier passed: {total} tests across {len(CLASSES)} required suites; zero skips.')
+            print('Sanitized reports: ' + str(output / 'reports'))
+        return 0
+    except (subprocess.CalledProcessError, RuntimeError, OSError, ET.ParseError, DefusedXmlException, ValueError) as failure:
+        # Do not expose command arguments/configuration or captured database/Java output.
+        print('CDS native tier failed (' + type(failure).__name__ + '); inspect protected ' + str(log_path), file=sys.stderr)
+        return 1
+    finally:
+        cleanup_failures = []
+        with (output / 'cleanup.log').open('w') as log:
+            if created_database:
+                if run(docker + ['rm', '--force', '--volumes', name], log, check=False).returncode:
+                    cleanup_failures.append('database')
+            if connected_build:
+                if run(docker + ['network', 'disconnect', network, args.container], log, check=False).returncode:
+                    cleanup_failures.append('build-network')
+            if created_network:
+                if run(docker + ['network', 'rm', network], log, check=False).returncode:
+                    cleanup_failures.append('network')
+        for credential in private.iterdir():
+            credential.unlink()
+        private.rmdir()
+        if cleanup_failures:
+            raise RuntimeError('Owned CDS native-tier cleanup failed: ' + ', '.join(cleanup_failures))
+
+
+if __name__ == '__main__':
+    sys.exit(main())
