@@ -137,6 +137,19 @@ class CdsImportLedgerMariaDbIntegrationTest {
    check(!ledger.isHeld(job.target),"completion releases reconciled hold");
    check("COMPLETE".equals(ledger.finish(job.id,job.epoch).state()),"run completion derived from patient outcome");
    check("RELEASE_PENDING".equals(ledger.summary(job.id).get("maintenanceReleaseState")),"clinical completion atomically persists release-pending crash protection");
+   long reportNative=countNative();
+   long reportCheckpoints=sql.queryForObject("select count(*) from cds_import_checkpoint",Long.class);
+   long reportDiagnostics=sql.queryForObject("select count(*) from cds_import_diagnostic where run_id=?",Long.class,job.id);
+   check(sql.queryForObject("select owner_run_id from cds_import_admission where id='global'",String.class)==null,"completed job released clinical admission before report diagnostics");
+   String reportEvidence="/opaque/protected-report-failure-"+UUID.randomUUID()+".json";
+   ledger.reportingFailureDiagnostic(job.id,job.epoch,"IMPORT_CONTROL_UNAVAILABLE",reportEvidence);
+   check(sql.queryForObject("select count(*) from cds_import_diagnostic where run_id=? and severity='ERROR' and code='IMPORT_CONTROL_UNAVAILABLE' and stage='REPORTING' and blocking=0 and protected_detail_location=?",Long.class,job.id,reportEvidence)==1,"post-admission report cause and protected handle persist under operational epoch ownership");
+   expect("OWNER_FENCED",()->ledger.reportingFailureDiagnostic(job.id,job.epoch+1,"IMPORT_CONTROL_UNAVAILABLE",reportEvidence));
+   check(sql.queryForObject("select count(*) from cds_import_diagnostic where run_id=?",Long.class,job.id)==reportDiagnostics+1,"wrong report epoch cannot insert diagnostics");
+   check("COMPLETE".equals(ledger.status(job.id).state()) && countNative()==reportNative
+     && sql.queryForObject("select count(*) from cds_import_checkpoint",Long.class)==reportCheckpoints
+     && ((Number)ledger.summary(job.id).get("committedUnits")).longValue()==2,"reporting diagnostics never change clinical completion, native rows, checkpoints or occurrence counts");
+
    reports.select(job.id,job.epoch,0,C,"/opaque/report-v1",A);
    expect("REPORT_GENERATION_CONFLICT",()->reports.select(job.id,job.epoch,0,C,"/opaque/stale-report",B));
    Job repeat=repeat(job);

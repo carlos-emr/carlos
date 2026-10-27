@@ -129,7 +129,7 @@ class CdsImportReportBudgetUnitTest {
         assertEquals("IMPORT_REPORT_GENERATION_TIMEOUT",assertThrows(CdsImportException.class,()->f.results.generate(f.run,1)).getCode());
         verify(f.selection,never()).select(anyString(),anyLong(),anyLong(),anyString(),anyString(),anyString());
     }
-    private final class Fixture {
+    final class Fixture {
         final String run=UUID.randomUUID().toString();final AtomicLong clock=new AtomicLong(),rowMillis=new AtomicLong();
         final AtomicReference<String> reportState=new AtomicReference<>("PENDING"),cleanupState=new AtomicReference<>("PENDING");final AtomicReference<Path> selected=new AtomicReference<>();
         final AtomicLong generation=new AtomicLong();

@@ -1040,6 +1040,20 @@ public class CdsImportLedgerService {
             event(run, null, "MAINTENANCE_RELEASE_VERIFIED"); return !page.isEmpty(); })) { /* Normally one row; retain bounded recovery even after repeated historical owner failures. */ }
     }
 
+    /** Reporting diagnostics retain exact epoch fencing after clinical admission has been released. */
+    void reportingFailureDiagnostic(String runId, long epoch, String code, String protectedDetail) {
+        CdsImportKeys.token(code, "report failure code", 96);
+        CdsImportKeys.optional(protectedDetail, "report failure evidence", 1024);
+        write(() -> {
+            lockOperational(runId, epoch);
+            addDiagnostic(runId, null, null, "IMPORT_REPORT_GENERATION_TIMEOUT".equals(code)?"WARNING":"ERROR",
+                    code, "REPORTING", null,
+                    "Required operator reports could not be delivered; clinical receipts and source were retained",
+                    protectedDetail, false);
+            return null;
+        });
+    }
+
     /** Authorization loss stops future units, preserves every chart hold and records truthful administrative outcomes. */
     public void authorizationStopped(String runId, long epoch) { stoppedOperationally(runId, epoch, "ACCESS_REVOKED", "ACCESS", "Import authorization was revoked; retained work requires authorized review"); }
     public void workerStopped(String runId, long epoch) { stoppedOperationally(runId, epoch, "WORKER_FATAL", "SUPERVISION", "Import worker terminated; durable receipts and retained work require reconciliation"); }

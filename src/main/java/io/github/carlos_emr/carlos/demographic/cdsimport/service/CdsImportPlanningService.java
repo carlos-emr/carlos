@@ -526,12 +526,23 @@ public class CdsImportPlanningService {
         forEachValidationDiagnostic(runId, consumer, () -> {});
     }
     public void forEachValidationDiagnostic(String runId, Consumer<Map<String, Object>> consumer, Runnable reportProbe) throws IOException {
+        forEachValidationDiagnostic(runId, consumer, reportProbe, null);
+    }
+    void forEachValidationDiagnostic(String runId, long epoch, Consumer<Map<String, Object>> consumer,
+            CdsImportReportControl shared) throws IOException {
+        java.util.Objects.requireNonNull(shared).requireBinding(runId, epoch);
+        forEachValidationDiagnostic(runId, consumer, () -> shared.check(false), shared);
+    }
+    private void forEachValidationDiagnostic(String runId, Consumer<Map<String, Object>> consumer,
+            Runnable reportProbe, CdsImportReportControl shared) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
         reportProbe.run();
         CdsImportJobDocumentDto document=jobs.load(runId);
         Path published=document.jobRoot().resolve("snapshot");
         if (!Files.isDirectory(published, LinkOption.NOFOLLOW_LINKS)) return;
-        CdsSnapshotDto snapshot=snapshots.load(published, false, () -> {reportProbe.run(); return false; });
+        java.util.function.BooleanSupplier cancelled=() -> {reportProbe.run(); return false;};
+        CdsSnapshotDto snapshot=shared==null ? snapshots.load(published, false, cancelled)
+                : snapshots.load(published, false, cancelled, () -> shared.check(false));
         try {
             snapshots.forEachXml(snapshot, xml -> {
                 reportProbe.run();

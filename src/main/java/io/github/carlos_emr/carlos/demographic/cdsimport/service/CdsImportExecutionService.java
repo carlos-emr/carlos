@@ -35,6 +35,7 @@ import org.springframework.stereotype.Service;
 /** HTTP-independent supervised execution; no transaction spans source work, preparation or reports. */
 @Service
 public class CdsImportExecutionService {
+    private static final org.apache.logging.log4j.Logger LOG=org.apache.logging.log4j.LogManager.getLogger(CdsImportExecutionService.class);
     private static final Set<String> COMPLETE=Set.of("COMPLETE", "COMPLETE_WITH_NONLOSSY_WARNINGS", "ALREADY_COMPLETE");
     private final CdsImportLedgerService ledger;
     private final CdsImportUnitService units;
@@ -120,7 +121,7 @@ public class CdsImportExecutionService {
                     else ledger.maintenanceReleaseDeferred(runId, epoch, released.name());
                     ledger.maintenanceReleaseRetryAttempted(runId, epoch);
                 }
-                if (retryRelease || !Boolean.TRUE.equals(ledger.summary(runId).get("reportsDelivered")) || !Boolean.TRUE.equals(ledger.summary(runId).get("cleanupComplete"))) { epoch=ledger.claimReporting(runId); deliver(runId, epoch); }
+                if (retryRelease || !Boolean.TRUE.equals(ledger.summary(runId).get("reportsDelivered")) || !Boolean.TRUE.equals(ledger.summary(runId).get("cleanupComplete"))) { epoch=ledger.claimReporting(runId); deliver(runId, epoch, coordinator); }
                 return ledger.status(runId);
             }
             Runnable attemptBudget=attemptBudget();
@@ -146,7 +147,7 @@ public class CdsImportExecutionService {
                 attemptBudget.run();
                 job=ledger.status(runId);
                 if ("REVIEW_REQUIRED".equals(job.state())) {
-                    ledger.release(runId, epoch); deliver(runId, epoch); return ledger.status(runId);
+                    ledger.release(runId, epoch); deliver(runId, epoch, coordinator); return ledger.status(runId);
                 }
             }
             job=ledger.status(runId);
@@ -156,7 +157,7 @@ public class CdsImportExecutionService {
                 if ("DRY_RUN_COMPLETE".equals(ledger.status(runId).state()) && ledger.heldPatients(runId)==0) {
                     owner.allowReopen(); owner.close(); settleRelease(runId, epoch, owner);
                 }
-                deliver(runId, epoch); return ledger.status(runId);
+                deliver(runId, epoch, coordinator); return ledger.status(runId);
             }
             boolean recovery=resume || Set.of("RUNNING", "FINALIZING", "RECONCILING").contains(job.state());
                 epoch=ledger.claimExecution(runId, coordinator, owner);
@@ -234,14 +235,14 @@ public class CdsImportExecutionService {
                 return ledger.status(runId);
             }
             ledger.refuseResumeIntent(runId, resumeEvent, failure instanceof CdsImportException known?known.getCode():failure instanceof SecurityException?"ACCESS_REVOKED":"IMPORT_EXECUTION_FAILED");
-            if (failure instanceof SecurityException) { ledger.authorizationStopped(runId, epoch); deliver(runId, epoch); return ledger.status(runId); }
+            if (failure instanceof SecurityException) { ledger.authorizationStopped(runId, epoch); deliver(runId, epoch, coordinator); return ledger.status(runId); }
             recordFailure(runId, epoch, currentPatient, currentUnit, failure);
         } catch (Error fatal) {
             // Allocate no failure graph or durable writes on a resource-exhausted worker.
             fatalResume.set(attempt); throw fatal;
         }
         // A fatal Error is deliberately not caught; the supervisor later reconciles durable state.
-        deliver(runId, epoch);
+        deliver(runId, epoch, coordinator);
         return ledger.status(runId);
     }
 
@@ -253,8 +254,29 @@ public class CdsImportExecutionService {
     private void deliver(String runId, long epoch) {
         try { results.generate(runId, epoch); }
         catch (IOException | RuntimeException deliveryFailure) {
-            // Delivery has its own durable state and never reclassifies a clinical outcome.
+            reportFailure(runId, epoch, deliveryFailure);
         }
+    }
+
+    private void deliver(String runId, long epoch, CdsImportCoordinatorService.Owner coordinator) {
+        try { results.generate(runId, epoch, coordinator); }
+        catch (IOException | RuntimeException deliveryFailure) {
+            reportFailure(runId, epoch, deliveryFailure);
+        }
+    }
+
+    private void reportFailure(String runId, long epoch, Exception failure) {
+        String code=failure instanceof CdsImportException known?known.getCode():"IMPORT_REPORT_DELIVERY_FAILED";
+        String detail=null;
+        try { detail=failureEvidence.write(runId, epoch, failure); }
+        catch (RuntimeException secondary) {if (secondary!=failure) failure.addSuppressed(secondary);}
+        catch (Error fatal) {fatal.addSuppressed(failure);throw fatal;}
+        try { ledger.reportingFailureDiagnostic(runId, epoch, code, detail); }
+        catch (RuntimeException secondary) {
+            if (secondary!=failure) failure.addSuppressed(secondary);
+            if (detail==null) LOG.error("CDS reporting diagnostics unavailable for run {} epoch {}: IMPORT_REPORT_FAILURE_EVIDENCE_UNAVAILABLE",runId,epoch);
+        }
+        catch (Error fatal) {fatal.addSuppressed(failure);throw fatal;}
     }
 
     private void recordFailure(String runId, long epoch, String affectedPatient, String affectedUnit, Exception failure) {

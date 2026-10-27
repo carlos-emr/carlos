@@ -74,6 +74,14 @@ public class CdsImportResultService {
 
     /** No clinical transaction spans report I/O. Only a fully durable immutable set may become authoritative. */
     public void generate(String runId, long epoch) throws IOException {
+        generateOwned(runId, epoch, null);
+    }
+
+    void generate(String runId, long epoch, CdsImportCoordinatorService.Owner coordinator) throws IOException {
+        generateOwned(runId, epoch, java.util.Objects.requireNonNull(coordinator));
+    }
+
+    private void generateOwned(String runId, long epoch, CdsImportCoordinatorService.Owner coordinator) throws IOException {
         boolean reportSelected=false, priorDelivered=false;
         try {
         long started=nanoTime.getAsLong(), maximumMillis=configuration.limits().maxDurationMillis();
@@ -83,9 +91,13 @@ public class CdsImportResultService {
             if (java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(nanoTime.getAsLong()-started)>=maximumMillis)
                 throw new CdsImportException("IMPORT_REPORT_GENERATION_TIMEOUT");
         };
-        Runnable reportProbe=() -> {reportBudget.run(); checkGeneration(runId, epoch); reportBudget.run(); };
+        var shared=reportControl(runId, epoch, coordinator, reportBudget);
+        Runnable reportProbe=() -> {
+            if(shared!=null) shared.check(false);
+            else {reportBudget.run(); checkGeneration(runId, epoch); reportBudget.run();}
+        };
         reportProbe.run();
-        try (var control=fields.control(reportProbe)) {
+        try (shared; var control=shared==null ? fields.control(reportProbe) : fields.controlEveryCheckpoint(reportProbe)) {
         CdsImportJobDto before=ledger.status(runId);
         Path job=jobRoot(runId);
         Path directory=CdsPaths.privateDirectory(job.resolve("reports-"+epoch+"-"+UUID.randomUUID()), job);
@@ -162,14 +174,17 @@ public class CdsImportResultService {
                     }
                 }
                 final long[] validationRows={0};
-                planning.forEachValidationDiagnostic(runId, row -> {
+                java.util.function.Consumer<Map<String, Object>> validationConsumer=row -> {
                     reportBudget.run();
                     if (++validationRows[0]%100==0) reportProbe.run();
                     try { line(errors, row); } catch (IOException failure) { throw new java.io.UncheckedIOException(failure); }
-                }, reportProbe);
+                };
+                if(shared==null) planning.forEachValidationDiagnostic(runId, validationConsumer, reportProbe);
+                else planning.forEachValidationDiagnostic(runId, epoch, validationConsumer, shared);
                 reportProbe.run();
-                cleanupResult=cleanup.reconcile(runId, epoch, directory, reportBudget);
-                reportProbe.run();
+                cleanupResult=shared==null ? cleanup.reconcile(runId, epoch, directory, reportBudget)
+                        : cleanup.reconcile(runId, epoch, directory, reportBudget, shared);
+                reportBoundary(shared, reportProbe);
                 for (String code:cleanupResult.safeCodes()) line(errors, Map.of("severity", "WARNING", "code", code, "stage", "CLEANUP", "summary", "Owned artifacts require reconciliation; uncertain artifacts were retained"));
             }
             // An older delivery acknowledgement cannot certify this still-unselected attempt.
@@ -199,7 +214,7 @@ public class CdsImportResultService {
             try (OutputStream output=output(selected, directory)) { line(output, manifest); }
             CdsPaths.forceFile(selected); CdsPaths.forceDirectory(directory); CdsPaths.forceDirectory(job);
             String digest=hash(selected, reportProbe, reportBudget);
-            reportProbe.run();
+            reportBoundary(shared, reportProbe);
             try {
                 selection.select(runId, epoch, before.reportGeneration(), before.manifestDigest()==null?before.sourceDigest():before.manifestDigest(), selected.toString(), digest);
             } catch (RuntimeException unknownSelection) {
@@ -263,6 +278,20 @@ public class CdsImportResultService {
         byte[] bytes=JSON.writeValueAsBytes(row);
         if (bytes.length>(1<<20)) throw new CdsImportException("REPORT_ROW_CAPACITY_EXCEEDED");
         output.write(bytes); output.write('\n');
+    }
+    private CdsImportReportControl reportControl(String runId, long epoch,
+            CdsImportCoordinatorService.Owner coordinator, Runnable reportBudget) {
+        if(coordinator==null)return null;
+        try {return new CdsImportReportControl(runId,epoch,coordinator,nanoTime,reportBudget);}
+        catch(CdsImportException unavailable) {
+            // Only an initial lost/closed coordinator uses the established fresh epoch-only report path.
+            // No generation has started, no selection is retried, and no new owner is acquired here.
+            if("IMPORT_COORDINATOR_LOST".equals(unavailable.getCode()))return null;
+            throw unavailable;
+        }
+    }
+    private static void reportBoundary(CdsImportReportControl shared,Runnable legacyProbe) {
+        if(shared==null)legacyProbe.run();else shared.check(true);
     }
     private void checkGeneration(String runId, long epoch) {
         if (Thread.currentThread().isInterrupted()) throw new CdsImportException("REPORT_CANCELLED");

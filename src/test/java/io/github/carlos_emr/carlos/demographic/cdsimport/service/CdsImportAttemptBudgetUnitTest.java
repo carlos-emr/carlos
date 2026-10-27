@@ -107,7 +107,7 @@ class CdsImportAttemptBudgetUnitTest {
             assertEquals("INCOMPLETE",f.state.get());assertEquals(0,f.committed());
             assertTrue(f.codes.contains("IMPORT_CONTROL_UNAVAILABLE"));
             verify(f.ledger).operational("run",1L,null,null,"IMPORT_CONTROL_UNAVAILABLE");
-            verify(f.reports).generate("run",1L);verify(f.window,never()).allowReopen();
+            verify(f.reports).generate(eq("run"),eq(1L),any(CdsImportCoordinatorService.Owner.class));verify(f.window,never()).allowReopen();
             verify(f.records,never()).write(anyString(),anyLong(),any(),any(),any(),any(),any(),any());
             List<Path> evidence;
             try(var files=java.nio.file.Files.list(evidenceRoot.resolve("diagnostics"))){evidence=files.toList();}
@@ -119,6 +119,52 @@ class CdsImportAttemptBudgetUnitTest {
             if(ambiguous)assertArrayEquals(new Throwable[]{secondary},sqlFailure.getSuppressed());
             verify(lease,times(1)).control("run");verify(lease,times(2)).physicalOwned();
         }
+    }
+
+    @Test void reportControlFailureRetainsItsProtectedCause_withoutChangingCommittedClinicalResults(
+            @org.junit.jupiter.api.io.TempDir Path root) throws Exception {
+        Fixture f=new Fixture(root);
+        when(f.records.write(anyString(),anyLong(),any(),any(),any(),any(),any(),any()))
+                .thenReturn(new CdsImportReceiptDto("{}","digest"));
+        var sql=new java.sql.SQLException("private-report-control-detail","HY000",71);
+        var failure=new CdsImportException("IMPORT_CONTROL_UNAVAILABLE",false,sql);
+        doThrow(failure).when(f.reports).generate(eq("run"),eq(1L),any(CdsImportCoordinatorService.Owner.class));
+        try(var keys=f.keys()){f.engine.execute("run");}
+        assertEquals(3,f.committed());assertEquals("COMPLETE",f.state.get());
+        var detail=org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(f.ledger).reportingFailureDiagnostic(eq("run"),eq(1L),eq("IMPORT_CONTROL_UNAVAILABLE"),detail.capture());
+        String evidence=java.nio.file.Files.readString(Path.of(detail.getValue()));
+        assertTrue(evidence.contains("java.sql.SQLException") && evidence.contains("HY000"));
+        assertFalse(evidence.contains(sql.getMessage()));
+        assertEquals(0,((int)java.nio.file.Files.getAttribute(Path.of(detail.getValue()),"unix:mode"))&0077);
+        verify(f.ledger,never()).markIncomplete(anyString(),anyLong(),any(),anyBoolean(),anyBoolean(),anyBoolean());
+    }
+
+    @Test void unavailableReportingEvidenceAndDiagnosticsNeverReplaceTheOriginalClinicalOutcome() throws Exception {
+        Fixture f=new Fixture();
+        when(f.records.write(anyString(),anyLong(),any(),any(),any(),any(),any(),any()))
+                .thenReturn(new CdsImportReceiptDto("{}","digest"));
+        var primary=new CdsImportException("IMPORT_CONTROL_UNAVAILABLE");
+        var evidenceFailure=new IllegalStateException("private-evidence-detail");
+        var diagnosticFailure=new IllegalStateException("private-diagnostic-detail");
+        doThrow(primary).when(f.reports).generate(eq("run"),eq(1L),any(CdsImportCoordinatorService.Owner.class));
+        when(f.evidence.write("run",1L,primary)).thenThrow(evidenceFailure);
+        doThrow(diagnosticFailure).when(f.ledger).reportingFailureDiagnostic("run",1L,"IMPORT_CONTROL_UNAVAILABLE",null);
+        try(var keys=f.keys()){f.engine.execute("run");}
+        assertEquals(3,f.committed());assertEquals("COMPLETE",f.state.get());
+        assertArrayEquals(new Throwable[]{evidenceFailure,diagnosticFailure},primary.getSuppressed());
+        verify(f.ledger,never()).markIncomplete(anyString(),anyLong(),any(),anyBoolean(),anyBoolean(),anyBoolean());
+    }
+
+    @Test void fatalSupervisionAlsoRetainsTheSpecificLegacyReportFailure_withoutClinicalReplay() throws Exception {
+        Fixture f=new Fixture();var failure=new CdsImportException("IMPORT_CONTROL_UNAVAILABLE");
+        doThrow(failure).when(f.reports).generate("run",1L);
+        when(f.evidence.write("run",1L,failure)).thenReturn("/opaque/protected-report-failure.json");
+        f.engine.superviseFatal("run");
+        verify(f.ledger).workerStopped("run",1L);
+        verify(f.ledger).reportingFailureDiagnostic("run",1L,"IMPORT_CONTROL_UNAVAILABLE","/opaque/protected-report-failure.json");
+        verify(f.records,never()).write(anyString(),anyLong(),any(),any(),any(),any(),any(),any());
+        verify(f.coordinator,times(1)).acquire();
     }
 
     private static final class Fixture {
@@ -136,6 +182,7 @@ class CdsImportAttemptBudgetUnitTest {
         final CdsFieldParser fields=new CdsFieldParser();
         final CdsImportCoordinatorService coordinator=mock(CdsImportCoordinatorService.class);
         final CdsImportResultService reports=mock(CdsImportResultService.class);
+        final CdsImportFailureEvidenceService evidence;
         final CdsImportCommand command=new CdsImportCommand(Path.of("/opaque/source.xml"),"submission","1",null,null,"source","omd-5.2",false,false,false,0,null,false);
         final CdsImportJobDocumentDto document=new CdsImportJobDocumentDto(command,mock(CdsImportActorDto.class),null,null,Path.of("/opaque"));
         final CdsImportExecutionService engine;
@@ -176,11 +223,12 @@ class CdsImportAttemptBudgetUnitTest {
             doAnswer(call->{patientState.set("COMPLETE");return null;}).when(ledger).finalizePatient(anyString(),anyLong(),anyString(),any());
             when(ledger.finish("run",1L)).thenAnswer(call->{state.set(patientState.get().equals("COMPLETE")?"COMPLETE":"INCOMPLETE");return job;});
             when(ledger.heldPatients("run")).thenAnswer(call->patientState.get().equals("COMPLETE")?0L:1L);
-            CdsImportFailureEvidenceService evidence=mock(CdsImportFailureEvidenceService.class);
+            CdsImportFailureEvidenceService selectedEvidence=mock(CdsImportFailureEvidenceService.class);
             if(evidenceRoot!=null) {
                 when(jobs.root("run")).thenReturn(evidenceRoot);
-                evidence=new CdsImportFailureEvidenceService(jobs,mock(CdsImportFileService.class));
+                selectedEvidence=new CdsImportFailureEvidenceService(jobs,mock(CdsImportFileService.class));
             }
+            evidence=selectedEvidence;
             engine=new CdsImportExecutionService(ledger,unitService,jobs,planning,records,mock(CdsImportAccessService.class),configuration,maintenance,reports,coordinator,verification,mock(CdsImportTargetSafetyService.class),evidence,fields,clock::get);
         }
         int committed(){return (int)unitStates.stream().filter(s->s.get().equals("COMMITTED")).count();}
