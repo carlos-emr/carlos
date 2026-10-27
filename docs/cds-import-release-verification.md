@@ -13,9 +13,9 @@ The delivery covers import work associated with #3973, #3946, #3959, #3968 and
 #3979. Export work is outside this delivery. The design, contract decisions and
 implementation sequence are in the [implementation plan](cds-import-implementation-plan.md).
 
-## Candidate foundation
+## Preserved foundation and final candidate
 
-The candidate WAR SHA256 is `9135fb29e22b43378961651e92ce8b4a2c758c0dc2430e610ee6fbd8878d16f5`, built from production source
+The preserved intermediate WAR SHA256 is `9135fb29e22b43378961651e92ce8b4a2c758c0dc2430e610ee6fbd8878d16f5`, built from production source
 `33e32f870edabd2feb0068458e75641ed4b83915`. It contains 5916 production classes, 433 production
 JARs and 74 migration SQL files. Every packaged class equals the compiler output
 used for the foundation checks. Every packaged migration equals its source;
@@ -23,14 +23,17 @@ every dependency JAR equals the verified runtime classpath. The archive excludes
 H2, JUnit, test bootstrap classes, workload validators and session-expiry agents.
 The packaged API-2 browser script equals its checked source.
 
-The ruleset fingerprint is `32a733b334ec4c8fc2f1e435a123b34b9c946a82984b4e44835abe654e910adb` in the tested compiler output
-and exact WAR. An installed runtime must independently attest the same value,
+That intermediate's ruleset fingerprint is `32a733b334ec4c8fc2f1e435a123b34b9c946a82984b4e44835abe654e910adb` in its tested compiler output
+and exact WAR. These preserved results do not accept its successor. The final
+WAR, source head, fingerprint and executed results are identified in the
+linked PR verification record. Each installed runtime must independently attest
+its selected candidate's fingerprint,
 time zone and locale categories before acceptance. The native test deployment
 uses America/Toronto and en-CA in the default, FORMAT and DISPLAY categories.
 A run's command/configuration ruleset digest is a separate composite value;
 it must not be overwritten to match a raw runtime fingerprint.
 
-| Foundation | Executed evidence |
+| Preserved intermediate foundation | Executed evidence |
 | --- | --- |
 | Affected application regression | 1,461 cases in all 124 required suites; zero failures, errors or skips. Required XML reports reconcile their counters to individual cases. |
 | Browser state contracts | 133 affected Node cases; zero failures or skips. Covers known accepted jobs when status reads fail, truthful job presentation and one-time navigation without polling scrolls. |
@@ -47,6 +50,16 @@ These scopes overlap and must not be added into a purported disjoint test total.
 Conditional companion unit skips do not replace the required physical database
 and installed-engine gates. The PR records the separate full application CI
 results, including their conditional skips.
+
+The corrected final candidate requires a fresh build and all 127 explicitly
+selected regression suites, all 12 physical native suites and the seven
+permanent browser Node suites. Exact case counts must be reconciled from the
+fresh reports; earlier counts above are historical. The added coverage includes
+coordinator cleanup, reporting after clinical admission is released, optional
+demographic projections, actual CLI pool state/rollback/replacement, and native
+date/time storage. Every installed gate below must bind the final artifact
+before acceptance. A preliminary compile or focused test pass does not satisfy
+these final gates.
 
 ## Installed and browser acceptance criteria
 
