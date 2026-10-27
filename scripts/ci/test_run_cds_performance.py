@@ -153,5 +153,15 @@ class PerformanceEvidenceTest(unittest.TestCase):
         link=self.root/'link';link.symlink_to(output)
         with self.assertRaises(RuntimeError):GATE.private_json(link,{})
 
+    def test_failure_evidence_retains_code_locations_without_exception_messages_or_secrets(self):
+        sentinel='synthetic-private-password-and-SQL'
+        try:
+            raise RuntimeError(sentinel)
+        except RuntimeError as failure:
+            evidence=GATE.safe_failure(failure)
+        self.assertEqual(evidence['exceptionClass'],'RuntimeError')
+        self.assertTrue(evidence['codeLocations'])
+        self.assertNotIn(sentinel,json.dumps(evidence))
+
 
 if __name__=='__main__':unittest.main()

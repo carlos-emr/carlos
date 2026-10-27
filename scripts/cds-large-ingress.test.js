@@ -96,7 +96,7 @@ test('physical upload proof refuses same-length corruption and redirected payloa
   const uploads=path.join(temporary,'uploads');fs.mkdirSync(uploads,{mode:0o700});
   const library=path.join(temporary,'library');const module=path.join(library,'carlos_ctl');fs.mkdirSync(module,{recursive:true});
   fs.writeFileSync(path.join(module,'__init__.py'),'');
-  fs.writeFileSync(path.join(module,'o19props.py'),'def parse_properties_text(text):\n return [("cds.import.uploadRoot",'+JSON.stringify(uploads)+')]\n');
+  fs.writeFileSync(path.join(module,'o19_preflight.py'),'def parse_properties_text(text):\n return {"cds.import.uploadRoot":'+JSON.stringify(uploads)+'}\n');
   const properties=path.join(temporary,'carlos.properties');fs.writeFileSync(properties,'synthetic',{mode:0o600});
   const id='12345678-1234-1234-1234-123456789abc';const directory=path.join(uploads,id);fs.mkdirSync(directory,{mode:0o700});
   const file=path.join(directory,'source.xml');const body=Buffer.from('complete synthetic source');fs.writeFileSync(file,body,{mode:0o600});

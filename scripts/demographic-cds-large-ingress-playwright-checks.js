@@ -117,7 +117,7 @@ async function interruptPost(url,headers,prefix,declaredBytes) {
 function verifyUploadedBody(properties, library, id, expected) {
   h.assert(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id),'Invalid owned upload identity');
   const root = execFileSync('python3',['-c',
-    'import pathlib,sys;sys.path.insert(0,sys.argv[2]);from carlos_ctl.o19props import parse_properties_text;'
+    'import pathlib,sys;sys.path.insert(0,sys.argv[2]);from carlos_ctl.o19_preflight import parse_properties_text;'
       + 'p=pathlib.Path(sys.argv[1]);assert p.is_file() and not p.is_symlink() and p.stat().st_size<=65536;'
       + 'print(dict(parse_properties_text(p.read_text(encoding="ISO-8859-1")))["cds.import.uploadRoot"])',
     properties,library],{encoding:'utf8',stdio:['ignore','pipe','pipe'],maxBuffer:16384,timeout:30000}).trim();

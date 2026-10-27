@@ -25,6 +25,7 @@ import signal
 import subprocess
 import sys
 import time
+import traceback
 import uuid
 import zipfile
 from urllib.parse import urlsplit
@@ -151,6 +152,14 @@ def private_json(path: Path, value: dict, *, exclusive: bool = False) -> None:
         os.fsync(directory)
     finally:
         os.close(directory)
+
+
+def safe_failure(failure: Exception) -> dict:
+    # Exception messages, locals and source lines can contain SQL or credentials.
+    frames=traceback.extract_tb(failure.__traceback__)
+    return {'exceptionClass':type(failure).__name__,
+            'codeLocations':[{'file':Path(frame.filename).name,'function':frame.name,'line':frame.lineno}
+                             for frame in frames[-5:]]}
 
 
 def digest(path: Path) -> str:
@@ -389,13 +398,19 @@ def main() -> None:
               "status": "RUNNING", "cases": [], "queryCounterScope": "server-global; exclusive-server attestation required"}
     proof = evidence / "proof.json"
     private_json(proof, result, exclusive=True)
+    def stage(value: str) -> None:
+        result['stage']=value
+        private_json(proof,result)
+        print('CDS_RESOURCE_STAGE',value,flush=True)
     client = evidence / "mysql-client.cnf"
     env = {key: value for key, value in os.environ.items()
            if key not in {"JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "CLASSPATH"}}
     try:
-        # Reuse the installed companion's complete Java-properties parser, including escaped credentials.
+        stage('PROTECTED_PROPERTIES')
+        # This standalone companion parser has complete Java-properties semantics
+        # without importing OSCAR19 migration manifests irrelevant to CDS.
         sys.path.insert(0, "/usr/lib/carlos-ctl")
-        from carlos_ctl.o19props import parse_properties_text
+        from carlos_ctl.o19_preflight import parse_properties_text
         jdbc = dict(parse_properties_text(protected_file(args.jdbc_properties).read_text(encoding="ISO-8859-1")))
         endpoint = urlsplit(jdbc["jdbcUrl"].removeprefix("jdbc:"))
         database = endpoint.path.removeprefix("/")
@@ -405,6 +420,7 @@ def main() -> None:
         escape = lambda value: '"' + str(value).replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r') + '"'
         content = "[client]\n" + "\n".join(key + "=" + escape(value) for key, value in
             {"host": endpoint.hostname, "port": endpoint.port or 3306, "user": jdbc["jdbcUser"], "password": jdbc["jdbcPassword"]}.items()) + "\n"
+        stage('METRIC_CLIENT_CONFIGURATION')
         descriptor = os.open(client, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         with os.fdopen(descriptor, "w") as output:
             output.write(content)
@@ -412,13 +428,18 @@ def main() -> None:
             completed = subprocess.run([args.mysql, "--defaults-file=" + str(client), "--batch", "--raw", "--skip-column-names", database,
                                         "-e", statement], env=env, capture_output=True, text=True, timeout=30, check=False)
             if completed.returncode or len(completed.stdout) > 1048576:
+                matched=re.search(r'ERROR\s+([0-9]+)\s+\(([A-Z0-9]{5})\)',completed.stderr)
+                result['metricQueryFailure']={'exitCode':completed.returncode,
+                    'vendorCode':int(matched[1]) if matched else None,'sqlState':matched[2] if matched else None}
                 raise RuntimeError("protected benchmark metric query failed; raw SQL and diagnostic withheld")
             return [row.split("\t") for row in completed.stdout.splitlines()]
         def counters() -> dict:
             return {key: int(value) for key, value in query("SHOW GLOBAL STATUS WHERE Variable_name IN "
                 "('Questions','Com_select','Com_insert','Com_update','Com_delete','Threads_connected','Threads_running','Innodb_row_lock_time')")}
+        stage('DATABASE_BINDING_AND_ZERO_HOLD')
         if query("SELECT DATABASE()")[0] != [database] or query("SELECT COUNT(*) FROM cds_import_patient WHERE held=1")[0] != ["0"]:
             raise RuntimeError("benchmark database binding or zero-hold prerequisite failed")
+        stage('CGROUP_CONTRACT')
         memory_max = Path('/sys/fs/cgroup/memory.max').read_text().strip()
         cpu_max = Path('/sys/fs/cgroup/cpu.max').read_text().split()
         if args.expected_memory_mib is not None and memory_max != str(args.expected_memory_mib*MIB) \
@@ -433,9 +454,12 @@ def main() -> None:
         result['initialCgroupCounters']=cgroup_counters()
         fixture = [args.java, "-Xmx128m", "-cp", args.classpath,
                    "io.github.carlos_emr.carlos.demographic.cdsimport.cli.CdsCliEngineFixture", "inspect", str(args.jdbc_properties)]
+        stage('IMMUTABLE_FIXTURE_BINDING')
         verified = subprocess.run([*fixture[:-2],"verify-fixture",str(args.jdbc_properties),str(args.fixture_metadata.parent)],
             env=env,capture_output=True,text=True,timeout=60)
         if verified.returncode or len(verified.stdout)>65536 or json.loads(verified.stdout)!=metadata:
+            result['fixtureFailureCodes']=[line for line in verified.stderr.splitlines()
+                if re.fullmatch(r'CDS_SYNTHETIC_FIXTURE_FAILED:[A-Za-z0-9_$]+:[A-Za-z0-9_$]+:[0-9]+(?::sqlState=[A-Z0-9]{5}:vendorCode=-?[0-9]+)?',line)][:5]
             raise RuntimeError("installed configuration, verification database and immutable fixture binding differ")
         def inspect(run: str) -> dict:
             completed = subprocess.run([*fixture, run], env=env, capture_output=True, text=True, timeout=60)
@@ -455,8 +479,11 @@ def main() -> None:
         # Large profiles use compressed producer ZIPs plus physical snapshots and publications.
         # This conservative admission never substitutes logical sizes for real usable storage.
         required = 3 * GIB if args.profile == "scaling" else 48 * GIB if args.profile == "aggregate20" else 18 * GIB
+        stage('STORAGE_ADMISSION')
         result["storageAdmission"] = storage_admission(args.root, required)
         for index, (label, patients, records, payload, archive) in enumerate(definitions):
+            result['currentCase']=label
+            stage('SOURCE_GENERATION')
             source = generate_case(args.root, label, token[:6] + f"{index:04X}", patients, records, payload, archive=archive)
             private_json(evidence / (label + "-source.json"), source, exclusive=True)
             before = counters()
@@ -465,7 +492,7 @@ def main() -> None:
                     "expectedDocuments": source["documents"], "beforeCounters": before, "status": "RUNNING",
                     "acceptedRunIds":[],"submissionKeys":[],"phase":"PREPARED"}
             result["cases"].append(case)
-            private_json(proof, result)
+            stage('INSTALLED_IMPORT')
             log = evidence / (label + ".log")
             fd = os.open(log, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
             common = ["--provider", str(metadata["provider"])]
@@ -607,6 +634,7 @@ def main() -> None:
                     or not peak <= kernel["largestProcessPeakRssBytes"] <= args.max_rss_mib*MIB:
                 raise RuntimeError("kernel invocation peak RSS or process-exit proof failed")
             after = counters()
+            stage('NATIVE_AND_REQUIRED_REPORT_VERIFICATION')
             completed = complete_result(rows(log))
             native = inspect(completed["runId"])
             if native.get("nativeTargets") != patients or native.get("holds") != 0 \
@@ -714,6 +742,7 @@ def main() -> None:
         private_json(proof, result)
     except Exception as failure:
         result["status"] = "FAILED"
+        result['failure']=safe_failure(failure)
         if result["cases"] and result["cases"][-1].get("status") == "RUNNING":
             result["cases"][-1].update(status="FAILED",failureClass=type(failure).__name__,outcomeRequiresReconciliation=True)
         private_json(proof, result)
