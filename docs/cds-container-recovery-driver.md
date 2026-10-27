@@ -71,7 +71,8 @@ binds. The controller never changes their contents or permissions.
 
 The base's execute-only traversal allows the Docker daemon to rebind the same
 private leaves. The production properties file is root:10001 0640. The metric
-container's explicit JDBC file is root:root 0600; it is never copied or printed.
+container's explicit JDBC file is 0600, owned by root:root or the controller's
+actual Unix UID/GID; it is hash-bound and is never copied or printed.
 Tmpfs `/carlos-tmp` is 10001:10001 0700 and `/run/carlos-cds-delegations` is
 root:10001 0750. The launcher, exact JDK25, production classes and dependency
 directories must be read-only binds at their installed paths. The metric helper,

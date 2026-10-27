@@ -264,12 +264,14 @@ def digest(root):
     if len(paths)>250000: raise ValueError()
     for path in paths:
         info=path.lstat(); relative=str(path.relative_to(root))
-        if info.st_mode & 0o022: raise ValueError()
+        if not stat.S_ISLNK(info.st_mode) and info.st_mode & 0o022: raise ValueError()
         record=[relative,stat.S_IFMT(info.st_mode),stat.S_IMODE(info.st_mode),info.st_uid,info.st_gid]
         if path.is_symlink():
             record.append(os.readlink(path))
-            if path.resolve().is_dir(): raise ValueError()
-        elif path.is_file():
+            target=path.resolve(strict=True); target_info=target.stat()
+            if not target.is_file() or target_info.st_mode & 0o022: raise ValueError()
+            record.extend([stat.S_IMODE(target_info.st_mode),target_info.st_uid,target_info.st_gid])
+        if path.is_file():
             leaf=hashlib.sha256()
             with path.open("rb") as stream:
                 while block:=stream.read(65536): leaf.update(block);size+=len(block)
@@ -373,6 +375,10 @@ def contract(info: dict, args: argparse.Namespace) -> tuple[dict, list[str]]:
     required = {CONFIG, SOURCE, args.launcher, "/usr/lib/jvm/java-25-openjdk-amd64",
                 "/usr/local/tomcat/webapps/carlos/WEB-INF/classes", "/usr/local/tomcat/webapps/carlos/WEB-INF/lib", "/usr/local/tomcat/lib"}
     require(required <= set(immutable), "REQUIRED_IMMUTABLE_BIND_MISSING")
+    # Hash installed entrypoints and every dependency byte through their file
+    # links, not unrelated workspace/cache trees. All bind mappings/flags remain
+    # included in the runtime contract below, including the RO cache target.
+    immutable = sorted(required)
     # Preserve all host settings in the digest. Dynamic container IDs and IPs
     # are excluded; Config.Env/labels remain secret in memory and appear as SHA.
     aliases = sorted(alias for alias in networks[args.network].get("Aliases") or []
@@ -434,7 +440,9 @@ def metric_probe(args: argparse.Namespace, info: dict) -> dict:
     request = {"immutable": sorted(selected), "private": [args.jdbc_properties]}
     value = bounded_exec(exec_command(args, info["Id"], ["python3", "-c", PROBE, json.dumps(request)]), args.timeout)
     require(isinstance(value, dict) and set(value.get("mounts", {})) == selected
-            and value.get("private", {}).get(args.jdbc_properties) == {"uid": 0, "gid": 0, "mode": 0o600},
+            and value.get("private", {}).get(args.jdbc_properties) in (
+                {"uid": 0, "gid": 0, "mode": 0o600},
+                {"uid": os.getuid(), "gid": os.getgid(), "mode": 0o600}),
             "METRIC_HELPER_OR_CREDENTIALS_NOT_FROZEN")
     # This independent helper has its own cgroup; its budget is deliberately
     # excluded from the candidate's measured 768MiB container contract.
@@ -442,8 +450,11 @@ def metric_probe(args: argparse.Namespace, info: dict) -> dict:
 
 
 def idle(docker: Docker, container: str) -> None:
-    value = docker.request("GET", "/containers/" + container + "/top?" + urlencode({"ps_args": "-eo args"}))
-    require(isinstance(value, dict) and value.get("Processes") in ([["/bin/sleep infinity"]], [["sleep infinity"]]),
+    value = docker.request("GET", "/containers/" + container + "/top?" + urlencode({"ps_args": "-eo pid,args"}))
+    rows = value.get("Processes", []) if isinstance(value, dict) else []
+    require(isinstance(value, dict) and value.get("Titles") == ["PID", "COMMAND"] and len(rows) == 1
+            and len(rows[0]) == 2 and rows[0][0].isdecimal() and int(rows[0][0]) > 0
+            and rows[0][1] in {"/bin/sleep infinity", "sleep infinity"},
             "TARGET_HAS_NON_IDLE_PROCESSES")
 
 

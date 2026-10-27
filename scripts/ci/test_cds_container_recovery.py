@@ -28,6 +28,7 @@ import io
 import json
 from pathlib import Path
 import tempfile
+import sys
 from types import SimpleNamespace
 import unittest
 from unittest import mock
@@ -75,6 +76,42 @@ def container():
 
 
 class RecoveryProtocolTests(unittest.TestCase):
+    def test_dependency_file_links_bind_actual_bytes_and_reject_directory_links(self):
+        namespace = {}
+        with mock.patch.object(sys, "argv", ["probe", "{}"]):
+            exec(DRIVER.PROBE.split('for path in request["immutable"]:')[0], namespace)
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            libraries = base / "libs"
+            libraries.mkdir()
+            target = base / "dependency.jar"
+            target.write_bytes(b"first dependency bytes")
+            (libraries / "dependency.jar").symlink_to(target)
+            first = namespace["digest"](libraries)
+            self.assertEqual(first["files"], 1)
+            target.write_bytes(b"changed dependency bytes")
+            self.assertNotEqual(namespace["digest"](libraries)["sha256"], first["sha256"])
+            (libraries / "directory").symlink_to(base, target_is_directory=True)
+            with self.assertRaises(ValueError):
+                namespace["digest"](libraries)
+
+    def test_unrelated_read_only_workspace_is_bound_without_scanning_it(self):
+        info = container()
+        info["Mounts"].append({"Type": "bind", "Source": "/workspace", "Destination": "/workspace",
+                               "RW": False, "Propagation": "rprivate"})
+        runtime, selected = DRIVER.contract(info, arguments())
+        self.assertIn("/workspace", runtime["binds"])
+        self.assertNotIn("/workspace", selected)
+
+    def test_actual_docker_top_requires_pid_column_and_no_other_process(self):
+        docker = mock.Mock()
+        docker.request.return_value = {"Titles": ["PID", "COMMAND"], "Processes": [["123", "/bin/sleep infinity"]]}
+        DRIVER.idle(docker, "a" * 64)
+        self.assertIn("pid%2Cargs", docker.request.call_args.args[1])
+        docker.request.return_value["Processes"].append(["124", "java"])
+        with self.assertRaisesRegex(RuntimeError, "NON_IDLE"):
+            DRIVER.idle(docker, "a" * 64)
+
     def test_recreation_preserves_environment_without_printing_it_and_pins_image(self):
         original = container()
         body = DRIVER.recreate_request(original, arguments())
@@ -108,6 +145,28 @@ class RecoveryProtocolTests(unittest.TestCase):
         value["Name"] = "/unrelated-production-service"
         with self.assertRaisesRegex(RuntimeError, "NAME"):
             DRIVER.ownership(value, arguments(), metric=True)
+
+    def test_metric_credentials_are_private_to_root_or_actual_controller(self):
+        args = arguments()
+        args.metric_java = "/usr/lib/jvm/java-25-openjdk-amd64/bin/java"
+        args.metric_classpath = "/frozen/classes:/frozen/lib/*"
+        args.jdbc_properties = "/run/cds-test/jdbc.properties"
+        args.timeout = 60
+        selected = {"/usr/lib/jvm/java-25-openjdk-amd64", "/frozen/classes", "/frozen/lib"}
+        info = {"Id": "c" * 64, "Mounts": [{"Type": "bind", "Destination": path, "RW": False}
+                                           for path in selected]}
+        for uid, gid, mode, allowed in ((0, 0, 0o600, True), (1000, 1000, 0o600, True),
+                                         (2000, 2000, 0o600, False), (1000, 1000, 0o640, False)):
+            value = {"mounts": dict.fromkeys(selected | {args.jdbc_properties}, {}),
+                     "private": {args.jdbc_properties: {"uid": uid, "gid": gid, "mode": mode}}}
+            with self.subTest(uid=uid, mode=mode), mock.patch.object(DRIVER.os, "getuid", return_value=1000), \
+                    mock.patch.object(DRIVER.os, "getgid", return_value=1000), \
+                    mock.patch.object(DRIVER, "bounded_exec", return_value=value):
+                if allowed:
+                    DRIVER.metric_probe(args, info)
+                else:
+                    with self.assertRaisesRegex(RuntimeError, "CREDENTIALS"):
+                        DRIVER.metric_probe(args, info)
 
     def test_rejects_budgets_capabilities_and_process_changes(self):
         changes = [("Memory", 1024 * DRIVER.MIB), ("NanoCpus", 2000000000), ("Privileged", True),
