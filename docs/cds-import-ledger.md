@@ -124,9 +124,18 @@ The fresh plan repeats schema, normalization, batch identity and target eligibil
 retiring the corresponding old blockers. Acknowledgement alone cannot resolve a blocking defect.
 
 Review requests and imports share the same bounded worker. A pending review prevents execution
-of the old plan. Explicit resume intent is durable as `RESUME_REQUESTED`; a full in-memory queue
-does not lose it. A later cancellation remains authoritative at owner acquisition. Automatic
-continuation after a review never clears a newer cancellation.
+of the old plan and has a separate report-only route. An authorized clinical resume records the
+indexed `resume_requested` projection and audited `RESUME_REQUESTED` event. An active recorded
+state such as `RUNNING`, its cancellation and epoch stay unchanged while ownership is busy; the
+request remains durable even if the in-memory queue is full. Neither that state nor a heartbeat
+proves that a worker died. Only a successor holding both physical coordinator and maintenance
+ownership may consume the exact latest request, clear an older cancellation and advance its epoch.
+
+A later Cancel clears the pending projection and remains authoritative. Definitive authorization
+or fingerprint refusal retires only the observed request through a versioned comparison; newer
+controls survive. Automatic continuation after review never clears a newer cancellation. Retrying
+a suspended review does not itself set the clinical resume bit, and execution rechecks pending
+reviews and inactive drafts while holding the run lock.
 
 A fatal review worker is suspended with durable `REVIEW_WORKER_FATAL` evidence. It remains a
 pending review that blocks execution of the old plan, but automatic dispatch excludes it. An
