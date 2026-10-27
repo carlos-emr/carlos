@@ -167,7 +167,11 @@ async function openImportFrame(s, label = 'cds-import-admin') {
   const {page: admin} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     {context: s.context, recorder: s.recorder, label, timeout: 20000});
   const link = admin.locator('#adminNav a.xlink[rel$="/form/importUpload"]');
-  await revealAuditLink(admin, link, 20000); await link.click();
+  await revealAuditLink(admin, link, 20000);
+  const initialStatus = admin.waitForResponse(response => new URL(response.url()).pathname.endsWith('/form/cdsImportStatus')
+    && new URL(response.url()).searchParams.get('section') === 'uploads', {timeout:30000});
+  initialStatus.catch(() => {});
+  await link.click();
   const iframe = admin.locator('#dynamic-content iframe#myFrame'); await iframe.waitFor();
   const frame = await (await iframe.elementHandle()).contentFrame();
   h.assert(frame, 'Demographic Import frame did not load');
@@ -181,6 +185,8 @@ async function openImportFrame(s, label = 'cds-import-admin') {
   h.assert(source, 'Required approved import source/profile is missing');
   await frame.locator('#cdsSource').selectOption(source);
   h.assert(!await frame.locator('#mergeExisting').isChecked(), 'Existing-patient merge must default off');
+  const ready = await initialStatus; h.assert(ready.status() === 200 && !await ready.finished(),
+    'Initial owner-scoped upload status did not finish successfully');
   return {admin, frame};
 }
 
@@ -226,6 +232,7 @@ async function uploadAndAwaitRun(s, admin, frame, file, {dryRun = false} = {}) {
     h.assert(value,'Required registered source disappeared after page reload');
     await frame.locator('#cdsSource').selectOption(value);
   }
+  const previousRunId = await frame.locator('#runId').inputValue();
   await frame.locator('#dryRun').setChecked(dryRun);
   await frame.locator('#uploadResumeId').fill('');
   await frame.locator('#importFile').setInputFiles(file);
@@ -235,17 +242,29 @@ async function uploadAndAwaitRun(s, admin, frame, file, {dryRun = false} = {}) {
     && new URL(request.url()).searchParams.get('operation') === 'chunk', {timeout: 30000});
   const acceptance = admin.waitForResponse(response => new URL(response.url()).pathname.endsWith('/form/cdsImportSubmit')
     && response.request().method() === 'POST', {timeout: 120000});
+  begin.catch(() => {}); chunk.catch(() => {}); acceptance.catch(() => {});
   await frame.locator('#cdsStart').click();
   const begun = await begin; h.assert(begun.status() === 200, 'Upload reservation did not create a durable owner receipt');
-  const {upload} = await begun.json();
-  h.assert((await chunk).headers()['content-type'] === 'application/octet-stream', 'Upload regressed to buffered multipart');
-  const accepted = await acceptance; const result = await accepted.json();
-  h.assert(accepted.status() === 202 && result.accepted === true && result.job?.id,
-    'Submission did not return a distinct durable acceptance receipt');
-  const receipt = await awaitRunReceipt(frame, result.job.id);
+  const chunkRequest = await chunk;
+  h.assert(chunkRequest.headers()['content-type'] === 'application/octet-stream', 'Upload regressed to buffered multipart');
+  const uploadId = new URL(chunkRequest.url()).searchParams.get('uploadId');
+  h.assert(/^[0-9a-f-]{36}$/.test(uploadId || ''), 'The actual raw transfer has no owned upload identity');
+  const accepted = await acceptance;
+  h.assert(accepted.status() === 202, 'Submission did not return durable acceptance');
+  // Chromium can discard streamed response bodies from CDP after the application consumes them.
+  // The actual UI must decode accepted=true and open this run before any durable read can pass.
+  await frame.waitForFunction(previous => { const value=document.getElementById('runId').value;
+    return /^[0-9a-f-]{36}$/.test(value) && value!==previous; }, previousRunId, {timeout:30000});
+  const runId = await frame.locator('#runId').inputValue();
+  const ownership = await importApi(frame,'cdsImportStatus',{section:'upload',uploadId});
+  h.assert(ownership.status === 200 && ownership.body?.upload?.id === uploadId
+    && ownership.body.upload.fileName === file.name && ownership.body.upload.expectedBytes === file.buffer.length
+    && (dryRun ? ownership.body.upload.dryRunId : ownership.body.upload.runId) === runId,
+    'Accepted UI run does not match the durable owner/upload receipt');
+  const receipt = await awaitRunReceipt(frame, runId);
   await frame.locator('#cdsStart').waitFor({state: 'visible'});
   await frame.waitForFunction(() => !document.getElementById('cdsOptions').disabled);
-  return {uploadId: upload.id, id: result.job.id, ...receipt};
+  return {uploadId, id: runId, ...receipt};
 }
 
 function registerImportCleanup(s, owner) {
@@ -303,12 +322,20 @@ async function workflow(s) {
     await frame.locator('#dryRun').uncheck(); await frame.locator('#uploadResumeId').fill(dry.uploadId);
     const acceptance = admin.waitForResponse(response => new URL(response.url()).pathname.endsWith('/form/cdsImportSubmit')
       && response.request().method() === 'POST', {timeout: 120000});
+    acceptance.catch(() => {});
     await frame.locator('#submitCompletedUpload').click();
-    const accepted = await acceptance; const body = await accepted.json();
-    h.assert(accepted.status() === 202 && body.accepted === true && body.job.id !== dry.id, 'Execute did not get its independent durable attempt');
-    const bookmark = new URL(frame.url()); bookmark.searchParams.set('runId', body.job.id);
+    const accepted = await acceptance;
+    h.assert(accepted.status() === 202, 'Execute did not get durable acceptance');
+    await frame.waitForFunction(previous => {
+      const value=document.getElementById('runId').value;
+      return /^[0-9a-f-]{36}$/.test(value) && value!==previous;
+    }, dry.id, {timeout:30000});
+    const acceptedRun = await frame.locator('#runId').inputValue();
+    const owned = await importApi(frame,'cdsImportStatus',{section:'upload',uploadId:dry.uploadId});
+    h.assert(owned.body?.upload?.runId === acceptedRun, 'Execute is not bound to the same durable immutable upload');
+    const bookmark = new URL(frame.url()); bookmark.searchParams.set('runId', acceptedRun);
     await frame.goto(bookmark.href); await frame.locator('#cdsImport').waitFor();
-    actual = await awaitRunReceipt(frame, body.job.id);
+    actual = await awaitRunReceipt(frame, acceptedRun);
     h.assert(actual.summary.cleanComplete === true && actual.summary.clinicalComplete === true
       && actual.summary.reportsDelivered === true && actual.summary.cleanupComplete === true,
     'Completion receipt did not prove clinical writes, report publication and cleanup');

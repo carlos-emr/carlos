@@ -89,22 +89,44 @@ public class CdsImportJobService {
             catch (java.nio.file.FileAlreadyExistsException concurrent) { /* The short acceptance lock settles ownership. */ }
         }
         privateRoot(jobRoot);
-        try (var process=preaccept.enter(jobRoot); FileChannel channel = lockChannel(jobRoot.resolve("accept.lock")); FileLock ignored = lock(channel)) {
+        String uploadId = uploadId(command.input());
+        try (var process=preaccept.enter(jobRoot); FileChannel channel = lockChannel(jobRoot.resolve("accept.lock"));
+                FileLock ignored = lock(channel);
+                var uploadGuard = uploadId == null ? null : uploads.lockAcceptance(actor.operator(), uploadId)) {
             existing = ledger.findSubmission(actor.operator(), command.submissionKey());
             if (existing != null) return existing(existing, actor, command);
-            String uploadId = uploadId(command.input());
             CdsSnapshotDto snapshot = null;
             CdsPreacceptService.Ownership ownership;
             String sourceDigest;
             if (uploadId != null) {
                 CdsUploadDto upload = uploads.status(actor.operator(), uploadId);
-                if (!command.dryRun() && upload.runId() != null) {
-                    CdsImportJobDto prior = ledger.status(upload.runId());
+                requireUploadSubmission(upload, command);
+                CdsImportJobDto actual = uploadAcceptance(upload, actor, command.input(), false);
+                CdsImportJobDto preview = uploadAcceptance(upload, actor, command.input(), true);
+                if (command.dryRun() && actual != null) throw new CdsImportException("UPLOAD_ACTUAL_ALREADY_ACCEPTED");
+                if (!command.dryRun() && actual != null) {
+                    CdsImportJobDto prior = actual;
                     CdsImportJobDocumentDto document = load(prior.id());
                     if (!sameClinicalRequest(document.command(), command) || !document.actor().equals(actor)) {
                         throw new CdsImportException("UPLOAD_ALREADY_SUBMITTED_WITH_DIFFERENT_OPTIONS");
                     }
                     return prior;
+                }
+                if (!command.dryRun() && preview != null) {
+                    var previewDocument = load(preview.id());
+                    if (!previewDocument.actor().equals(actor) || !uploadId.equals(previewDocument.uploadId())
+                            || !previewDocument.command().dryRun() || !Objects.equals(preview.sourceDigest(), upload.manifestSha256())) {
+                        throw new CdsImportException("UPLOAD_PREVIEW_ASSOCIATION_INVALID");
+                    }
+                    Path published = previewDocument.jobRoot().resolve("snapshot");
+                    if (!Files.isDirectory(published, LinkOption.NOFOLLOW_LINKS)) throw new CdsImportException("UPLOAD_PREVIEW_SNAPSHOT_PENDING");
+                    // Only the bounded publication seal is read during admission. The worker verifies all bytes.
+                    var seal = JSON.readTree(boundedFile(CdsPaths.within(published.resolve("snapshot.seal"), published), 65536));
+                    if (seal == null || seal.path("version").asInt() != 2
+                            || !seal.path("manifestSha256").asText().matches("[0-9a-f]{64}")
+                            || seal.path("files").asLong(-1) < 1 || seal.path("patientXmlFiles").asLong(-1) < 1) {
+                        throw new CdsImportException("UPLOAD_PREVIEW_SNAPSHOT_INVALID");
+                    }
                 }
                 Path claimed = uploads.claimForSubmission(actor.operator(), uploadId);
                 if (!claimed.toAbsolutePath().normalize().equals(command.input().toAbsolutePath().normalize())
@@ -187,11 +209,17 @@ public class CdsImportJobService {
             if (document.uploadId() == null) throw new CdsImportException("ACCEPTED_SOURCE_MISSING");
             CdsUploadDto upload = uploads.status(document.actor().operator(), document.uploadId());
             if (!Objects.equals(current.sourceDigest(), upload.manifestSha256())) throw new CdsImportException("UPLOAD_MANIFEST_CHANGED");
+            requireUploadSubmission(upload, document.command());
+            var accepted = ledger.findSubmission(document.actor().operator(), document.command().submissionKey());
+            if (accepted == null || !runId.equals(accepted.id())) throw new CdsImportException("UPLOAD_RUN_ASSOCIATION_INVALID");
+            // Repair only this already-accepted mode/run after a lost acceptance acknowledgement.
+            uploads.submitted(document.actor().operator(), document.uploadId(), runId, document.command().dryRun());
             CdsSnapshotDto copied;
             if (Files.exists(document.jobRoot().resolve("snapshot"), LinkOption.NOFOLLOW_LINKS)) {
                 copied = snapshots.load(document.jobRoot().resolve("snapshot"), true, cancelled);
             } else {
-                Path source = uploads.claimForSubmission(document.actor().operator(), document.uploadId());
+                Path source = uploads.sourceForAcceptedRun(document.actor().operator(), document.uploadId(), runId,
+                        document.command().submissionKey(), document.command().dryRun());
                 copied = sourceSnapshot(source, configuration.uploadRoot(), document.jobRoot(),
                         cancelled);
             }
@@ -280,6 +308,35 @@ public class CdsImportJobService {
                 && previous.mergeExisting() == requested.mergeExisting() && previous.dryRun() == requested.dryRun()
                 && previous.matchProviderNames() == requested.matchProviderNames() && previous.timeshiftDays() == requested.timeshiftDays()
                 && Objects.equals(previous.courseId(), requested.courseId()) && previous.synthetic() == requested.synthetic();
+    }
+
+    private static void requireUploadSubmission(CdsUploadDto upload, CdsImportCommand command) {
+        if (!(upload.submissionKey() + (command.dryRun() ? "-dry-run" : "-import")).equals(command.submissionKey())) {
+            throw new CdsImportException("UPLOAD_SUBMISSION_KEY_INVALID");
+        }
+    }
+
+    /** Resolve both deterministic mode keys, including acceptance committed before its upload ACK. */
+    private CdsImportJobDto uploadAcceptance(CdsUploadDto upload, CdsImportActorDto actor, Path input,
+            boolean dryRun) throws IOException {
+        String key = upload.submissionKey() + (dryRun ? "-dry-run" : "-import");
+        CdsImportJobDto accepted = ledger.findSubmission(actor.operator(), key);
+        String recorded = dryRun ? upload.dryRunId() : upload.runId();
+        if (accepted == null) {
+            if (recorded != null) throw new CdsImportException("UPLOAD_RUN_ASSOCIATION_INVALID");
+            return null;
+        }
+        if (recorded != null && !recorded.equals(accepted.id())) throw new CdsImportException("UPLOAD_RUN_ASSOCIATION_INVALID");
+        CdsImportJobDocumentDto document = load(accepted.id());
+        if (!actor.equals(document.actor()) || !upload.id().equals(document.uploadId())
+                || !input.equals(document.command().input()) || document.command().dryRun() != dryRun
+                || !key.equals(document.command().submissionKey())
+                || !actor.operator().equals(accepted.operator())
+                || !Objects.equals(upload.manifestSha256(), accepted.sourceDigest())) {
+            throw new CdsImportException("UPLOAD_RUN_ASSOCIATION_INVALID");
+        }
+        uploads.submitted(actor.operator(), upload.id(), accepted.id(), dryRun);
+        return accepted;
     }
 
     private CdsImportJobDto existing(CdsImportJobDto prior, CdsImportActorDto actor, CdsImportCommand command) throws IOException {

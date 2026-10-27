@@ -275,6 +275,44 @@ public class CdsUploadService {
         });
     }
 
+    /** Serializes acceptance of different modes/keys for one immutable upload. */
+    public AcceptanceGuard lockAcceptance(String operator, String id) throws IOException {
+        status(operator, id);
+        FileChannel channel = openPrivate(child(directory(id, false), "body.lock"));
+        try {
+            FileLock lock = tryLock(channel);
+            if (lock == null) throw problem("UPLOAD_BUSY", 409);
+            return new AcceptanceGuard(channel, lock);
+        } catch (IOException | RuntimeException failure) {
+            channel.close(); throw failure;
+        }
+    }
+
+    public static final class AcceptanceGuard implements AutoCloseable {
+        private final FileChannel channel;
+        private final FileLock lock;
+        private AcceptanceGuard(FileChannel channel, FileLock lock) { this.channel = channel; this.lock = lock; }
+        @Override public void close() throws IOException {
+            try { lock.close(); } finally { channel.close(); }
+        }
+        @Override public String toString() { return "AcceptanceGuard[protected]"; }
+    }
+
+    /** Read an accepted run's immutable source without changing its acceptance state. */
+    public Path sourceForAcceptedRun(String operator, String id, String runId, String submissionKey, boolean dryRun) {
+        requireId(runId);
+        return write(() -> {
+            CdsUpload row = owned(uploads.lock(requireId(id)), operator);
+            String accepted = dryRun ? row.getDryRunId() : row.getRunId();
+            if (!runId.equals(accepted)
+                    || !(row.getSubmissionKey() + (dryRun ? "-dry-run" : "-import")).equals(submissionKey)
+                    || !Set.of("SUBMITTING", "SUBMITTED_DRY_RUN", "SUBMITTED", "SNAPSHOT_PUBLISHED", "RETIRED").contains(row.getState())) {
+                throw problem("UPLOAD_RUN_ASSOCIATION_INVALID", 409);
+            }
+            return child(directory(id, false), payloadName(row));
+        });
+    }
+
     public void submitted(String operator, String id, String runId, boolean dryRun) {
         write(() -> {
             CdsUpload row = owned(uploads.lock(requireId(id)), operator);
@@ -282,7 +320,10 @@ public class CdsUploadService {
             if (!Set.of("SUBMITTING", "SUBMITTED", "SUBMITTED_DRY_RUN", "SNAPSHOT_PUBLISHED", "RETIRED").contains(row.getState())
                     || (prior != null && !prior.equals(runId))) throw problem("UPLOAD_SUBMISSION_CONFLICT", 409);
             if (dryRun) row.setDryRunId(requireId(runId)); else row.setRunId(requireId(runId));
-            if (row.getSnapshotDigest() == null) row.setState(row.getRunId() != null ? "SUBMITTED" : "SUBMITTED_DRY_RUN");
+            // An idempotent prior-mode acknowledgement cannot declare another uncertain claim stale.
+            if (row.getSnapshotDigest() == null && !("SUBMITTING".equals(row.getState()) && prior != null)) {
+                row.setState(row.getRunId() != null ? "SUBMITTED" : "SUBMITTED_DRY_RUN");
+            }
             row.setUpdatedAt(Instant.now()); uploads.merge(row); uploads.flush(); return null;
         });
     }
@@ -469,7 +510,7 @@ public class CdsUploadService {
     private CdsUploadDto dto(CdsUpload row) {
         return new CdsUploadDto(row.getId(), row.getSourceName(), row.getExpectedBytes(), row.getReceivedBytes(),
                 chunkBytes(), row.getChunkCount(), row.getState(), row.getManifestDigest(), row.getSubmissionKey(),
-                row.getRunId() != null ? row.getRunId() : row.getDryRunId(), row.getDryRunId(), row.getUpdatedAt().toEpochMilli());
+                row.getRunId(), row.getDryRunId(), row.getUpdatedAt().toEpochMilli());
     }
     private static String payloadName(CdsUpload row) { return "ZIP".equals(row.getMediaKind()) ? "source.zip" : "source.xml"; }
     private static String requireId(String id) {

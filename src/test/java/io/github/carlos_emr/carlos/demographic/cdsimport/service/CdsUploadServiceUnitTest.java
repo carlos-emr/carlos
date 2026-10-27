@@ -177,12 +177,39 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
         Path input = service.claimForSubmission(OWNER, upload.id());
         assertThatThrownBy(() -> service.abandon(OWNER, upload.id())).hasMessage("UPLOAD_ACCEPTANCE_RECONCILIATION_REQUIRED");
         assertThat(Files.readString(input)).isEqualTo("content");
-        service.submitted(OWNER, upload.id(), UUID.randomUUID().toString(), true);
+        String preview = UUID.randomUUID().toString(), actual = UUID.randomUUID().toString();
+        String previewKey = upload.submissionKey() + "-dry-run", actualKey = upload.submissionKey() + "-import";
+        service.submitted(OWNER, upload.id(), preview, true);
+        var previewReceipt = service.status(OWNER, upload.id());
+        assertThat(previewReceipt.state()).isEqualTo("SUBMITTED_DRY_RUN");
+        assertThat(previewReceipt.runId()).isNull();
+        assertThat(previewReceipt.dryRunId()).isEqualTo(preview);
+        assertThat(service.sourceForAcceptedRun(OWNER, upload.id(), preview, previewKey, true)).isEqualTo(input);
         assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("SUBMITTED_DRY_RUN");
+        assertThatThrownBy(() -> service.sourceForAcceptedRun(OWNER, upload.id(), preview, actualKey, false))
+                .hasMessage("UPLOAD_RUN_ASSOCIATION_INVALID");
+        assertThatThrownBy(() -> service.sourceForAcceptedRun(OWNER, upload.id(), actual, previewKey, true))
+                .hasMessage("UPLOAD_RUN_ASSOCIATION_INVALID");
+        assertThatThrownBy(() -> service.sourceForAcceptedRun("web-99", upload.id(), preview, previewKey, true))
+                .hasMessage("UPLOAD_NOT_FOUND");
+        // Legacy preview workers left this state after re-claiming already accepted bytes.
         service.claimForSubmission(OWNER, upload.id());
-        service.submitted(OWNER, upload.id(), UUID.randomUUID().toString(), false);
+        assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("SUBMITTING");
+        service.submitted(OWNER, upload.id(), preview, true);
+        assertThat(service.sourceForAcceptedRun(OWNER, upload.id(), preview, previewKey, true)).isEqualTo(input);
+        assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("SUBMITTING");
+        assertThatThrownBy(() -> service.sourceForAcceptedRun(OWNER, upload.id(), preview, actualKey, true))
+                .hasMessage("UPLOAD_RUN_ASSOCIATION_INVALID");
+        assertThatThrownBy(() -> service.abandon(OWNER, upload.id())).hasMessage("UPLOAD_ACCEPTANCE_RECONCILIATION_REQUIRED");
+        service.submitted(OWNER, upload.id(), actual, false);
+        var actualReceipt = service.status(OWNER, upload.id());
+        assertThat(actualReceipt.state()).isEqualTo("SUBMITTED");
+        assertThat(actualReceipt.runId()).isEqualTo(actual);
+        assertThat(actualReceipt.dryRunId()).isEqualTo(preview);
+        assertThat(service.sourceForAcceptedRun(OWNER, upload.id(), actual, actualKey, false)).isEqualTo(input);
         assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("SUBMITTED");
-        assertThat(service.status(OWNER, upload.id()).dryRunId()).isNotNull();
+        assertThatThrownBy(() -> service.sourceForAcceptedRun(OWNER, upload.id(), actual, previewKey, true))
+                .hasMessage("UPLOAD_RUN_ASSOCIATION_INVALID");
         assertThatThrownBy(() -> service.abandon(OWNER, upload.id())).hasMessage("UPLOAD_ACCEPTANCE_RECONCILIATION_REQUIRED");
     }
 
@@ -192,6 +219,18 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
         service.abandon(OWNER, upload.id()); service.abandon(OWNER, upload.id());
         assertThat(budget.getReservedBytes()).isZero();
         assertThat(Files.exists(temporary.resolve("uploads").resolve(upload.id()))).isFalse();
+    }
+
+    @Test void shouldSerializeCrossModeAcceptance_withoutWaitingOrChangingUploadState() throws Exception {
+        var upload = service.begin(OWNER, "source.xml", 1);
+        try (var first = service.lockAcceptance(OWNER, upload.id())) {
+            assertThatThrownBy(() -> service.lockAcceptance(OWNER, upload.id())).hasMessage("UPLOAD_BUSY");
+            assertThatThrownBy(() -> service.lockAcceptance("web-99", upload.id())).hasMessage("UPLOAD_NOT_FOUND");
+            assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("OPEN");
+        }
+        try (var next = service.lockAcceptance(OWNER, upload.id())) {
+            assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("OPEN");
+        }
     }
 
     @Test void shouldRetirePayloadButKeepPrefixProof_whenActualSnapshotIsDurablyPublished() throws Exception {
@@ -205,6 +244,8 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
         service.snapshotPublished(actual, "a".repeat(64)); service.snapshotPublished(actual, "a".repeat(64));
         assertThat(Files.exists(input)).isFalse(); assertThat(budget.getReservedBytes()).isZero();
         assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("RETIRED");
+        assertThat(service.status(OWNER, upload.id()).runId()).isEqualTo(actual);
+        assertThat(service.status(OWNER, upload.id()).dryRunId()).isEqualTo(dryRun);
         assertThat(service.chunks(OWNER, upload.id(), 0, 100).get(0).sha256()).isEqualTo(hash(bytes));
         assertThat(service.claimForSubmission(OWNER, upload.id())).isEqualTo(input);
         service.submitted(OWNER, upload.id(), actual, false);

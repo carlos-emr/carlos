@@ -66,6 +66,14 @@ test('history stores bounded opaque IDs, deduplicated, without source filenames'
   assert.equal(client.boundedIds([...ids, id, id, 'Patient-1971-03-04.xml']).length, 20);
   assert.deepEqual(client.boundedIds([id, id, 'not-a-run']), [id]);
 });
+test('upload navigation explicitly selects separate actual and preview acceptance IDs', () => {
+  const preview = '22222222-2222-4222-8222-222222222222';
+  assert.equal(client.latestUploadAttempt({runId: null, dryRunId: preview}), preview);
+  assert.equal(client.latestUploadAttempt({runId: id, dryRunId: preview}), id);
+  assert.equal(client.latestUploadAttempt({runId: 'invalid', dryRunId: preview}), preview);
+  assert.equal(client.latestUploadAttempt({runId: null, dryRunId: null}), null);
+  assert.equal(client.latestUploadAttempt(null), null);
+});
 test('effective options preserve nondefault bindings and reject unsafe synthetic merge', () => {
   const options = client.effectiveOptions({providerNo: '999998', sourceNamespace: 'clinic', sourceProfile: 'omd-5.2',
     programId: '2', facilityId: '3', dryRun: true, mergeExisting: true, matchProviderNames: false});

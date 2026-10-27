@@ -21,7 +21,10 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 
-/** Protected owner-only upload receipt; contains no server filesystem location. */
+/**
+ * Protected owner-only upload receipt; contains no server filesystem location. runId identifies only
+ * actual execution, and dryRunId identifies only the separate preview acceptance.
+ */
 public record CdsUploadDto(String id, String fileName, long expectedBytes, long receivedBytes,
         long chunkBytes, long committedChunks, String state, String manifestSha256, String submissionKey,
         String runId, String dryRunId, long updatedAt) {

@@ -53,6 +53,7 @@ class CdsImportJobServiceUnitTest {
     private CdsImportConfigurationService configuration;
     private CdsUploadService uploads;
     private Path source;
+    private boolean webUpload;
     private final AtomicReference<CdsImportJobCommand> accepted=new AtomicReference<>();
     private final AtomicReference<CdsImportJobDto> job=new AtomicReference<>();
     private final CdsImportActorDto actor=new CdsImportActorDto("operator","1","1",null,null,null);
@@ -68,7 +69,8 @@ class CdsImportJobServiceUnitTest {
         when(configuration.limits()).thenReturn(CdsInputLimitsDto.defaults());
         var policy=new CdsImportConfigurationService(new java.util.Properties());
         when(configuration.normalizationPolicyDigest(any())).thenAnswer(call->policy.normalizationPolicyDigest(call.getArgument(0)));
-        when(ledger.findSubmission(anyString(),anyString())).thenAnswer(call->job.get());
+        when(ledger.findSubmission(anyString(),anyString())).thenAnswer(call->accepted.get()!=null
+                && accepted.get().submissionKey().equals(call.getArgument(1)) ? job.get() : null);
         when(ledger.accept(any())).thenAnswer(call->{
             CdsImportJobCommand command=call.getArgument(0); accepted.set(command);
             var value=new CdsImportJobDto("run",command.operator(),command.providerNo(),command.sourceNamespace(),command.profile(),
@@ -133,12 +135,72 @@ class CdsImportJobServiceUnitTest {
     }
 
     @Test void shouldKeepUploadForActualAttempt_whenOnlyPreviewSnapshotIsPublished() throws Exception {
-        webSource(false);service.accept(actor,command(true));service.snapshot("run",service.load("run"));
+        String upload=webSource(false);service.accept(actor,command(true));service.snapshot("run",service.load("run"));
         verify(uploads,never()).snapshotPublished(anyString(),anyString(),anyString(),anyString());
+        verify(uploads).sourceForAcceptedRun(actor.operator(),upload,"run",command(true).submissionKey(),true);
+        verify(uploads,times(1)).claimForSubmission(actor.operator(),upload);
+        verify(uploads,times(2)).submitted(actor.operator(),upload,"run",true);
+        assertTrue(Files.exists(source));
+    }
+
+    @Test void shouldWaitForQueuedPreviewSnapshot_beforeAcceptingActualFromLegacyClaim() throws Exception {
+        String upload=webSource(false);
+        service.accept(actor,command(true));
+        var preview=job.get();
+        String previewDocument=accepted.get().snapshotLocation();
+        var original=uploads.status(actor.operator(),upload);
+        when(uploads.status(actor.operator(),upload)).thenReturn(new CdsUploadDto(original.id(),original.fileName(),
+                original.expectedBytes(),original.receivedBytes(),original.chunkBytes(),original.committedChunks(),
+                "SUBMITTING",original.manifestSha256(),original.submissionKey(),null,preview.id(),0));
+        when(ledger.findSubmission(actor.operator(),command(false).submissionKey())).thenReturn(null);
+        var pending=assertThrows(CdsImportException.class,()->service.accept(actor,command(false)));
+        assertEquals("UPLOAD_PREVIEW_SNAPSHOT_PENDING",pending.getCode());
+        verify(ledger,times(1)).accept(any());
+        assertTrue(Files.exists(source));
+        service.snapshot("run",service.load("run"));
+        when(ledger.snapshotLocation("run")).thenReturn(previewDocument);
+        doAnswer(call->{
+            CdsImportJobCommand value=call.getArgument(0);
+            return new CdsImportJobDto("actual",value.operator(),value.providerNo(),value.sourceNamespace(),value.profile(),
+                    "ACCEPTED",value.sourceDigest(),value.optionsDigest(),value.rulesetDigest(),null,0,0,0,false,
+                    Instant.EPOCH,Instant.EPOCH,0,null,null);
+        }).when(ledger).accept(any());
+        var actual=service.accept(actor,command(false));
+        assertEquals("actual",actual.id());
+        verify(uploads).submitted(actor.operator(),upload,actual.id(),false);
+        verify(ledger,times(2)).accept(any());
+    }
+
+    @Test void shouldRefuseNewPreview_whenActualAcceptanceAcknowledgementWasLost() throws Exception {
+        String upload=webSource(false);
+        service.accept(actor,command(false));
+        // Model a crash after durable acceptance but before the upload's actual run ID was stored.
+        var original=uploads.status(actor.operator(),upload);
+        when(uploads.status(actor.operator(),upload)).thenReturn(new CdsUploadDto(original.id(),original.fileName(),
+                original.expectedBytes(),original.receivedBytes(),original.chunkBytes(),original.committedChunks(),
+                "SUBMITTING",original.manifestSha256(),original.submissionKey(),null,null,0));
+        var failure=assertThrows(CdsImportException.class,()->service.accept(actor,command(true)));
+        assertEquals("UPLOAD_ACTUAL_ALREADY_ACCEPTED",failure.getCode());
+        verify(uploads,times(2)).submitted(actor.operator(),upload,"run",false);
+        verify(ledger,times(1)).accept(any());
+    }
+
+    @Test void shouldWaitForOrphanPreviewSnapshot_whenPreviewAcceptanceAcknowledgementWasLost() throws Exception {
+        String upload=webSource(false);
+        service.accept(actor,command(true));
+        var original=uploads.status(actor.operator(),upload);
+        when(uploads.status(actor.operator(),upload)).thenReturn(new CdsUploadDto(original.id(),original.fileName(),
+                original.expectedBytes(),original.receivedBytes(),original.chunkBytes(),original.committedChunks(),
+                "SUBMITTING",original.manifestSha256(),original.submissionKey(),null,null,0));
+        var failure=assertThrows(CdsImportException.class,()->service.accept(actor,command(false)));
+        assertEquals("UPLOAD_PREVIEW_SNAPSHOT_PENDING",failure.getCode());
+        verify(uploads,times(2)).submitted(actor.operator(),upload,"run",true);
+        verify(ledger,times(1)).accept(any());
         assertTrue(Files.exists(source));
     }
 
     private String webSource(boolean corruptProof) throws Exception {
+        webUpload=true;
         Path uploadsRoot=Files.createDirectory(temp.resolve("uploads"));
         String upload="11111111-1111-1111-1111-111111111111";
         Path folder=Files.createDirectory(uploadsRoot.resolve(upload));
@@ -150,13 +212,14 @@ class CdsImportJobServiceUnitTest {
         when(configuration.value("cds.import.uploadRoot","")).thenReturn(uploadsRoot.toString());
         when(configuration.uploadRoot()).thenReturn(uploadsRoot);
         when(uploads.status(actor.operator(),upload)).thenReturn(new CdsUploadDto(upload,"patient.xml",bytes.length,bytes.length,
-                4L<<20,1,"COMPLETE",manifest,"submission",null,null,0));
+                4L<<20,1,"COMPLETE",manifest,"web-upload-fixed",null,null,0));
         when(uploads.claimForSubmission(actor.operator(),upload)).thenReturn(source);
+        when(uploads.sourceForAcceptedRun(eq(actor.operator()),eq(upload),anyString(),anyString(),anyBoolean())).thenReturn(source);
         when(uploads.chunks(actor.operator(),upload,0,100)).thenReturn(List.of(new CdsUploadChunkDto(0,0,bytes.length,hash)));
         return upload;
     }
 
     private CdsImportCommand command(boolean dryRun) {
-        return new CdsImportCommand(source,"submission","1",null,null,"test-source","omd-5.2",false,dryRun,false,0,null,false);
+        return new CdsImportCommand(source,webUpload ? "web-upload-fixed"+(dryRun ? "-dry-run" : "-import") : "submission","1",null,null,"test-source","omd-5.2",false,dryRun,false,0,null,false);
     }
 }

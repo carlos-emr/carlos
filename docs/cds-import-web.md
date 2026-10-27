@@ -32,6 +32,8 @@ If transfer stops before acceptance, reopen the page's owned upload list, select
 
 After acceptance, the background job survives closing the browser. Reopen its run ID/bookmark or use the owned upload history. Lost acceptance acknowledgements are recovered with the same upload ID and immutable options. A different option set cannot silently become the same accepted submission.
 
+The upload receipt keeps `dryRunId` and actual `runId` separate. Cross-mode acceptance uses a nonblocking upload lock and reconciles both deterministic submission keys against their durable jobs, including a lost association acknowledgement. Execution waits for any accepted preview's durable snapshot; `UPLOAD_PREVIEW_SNAPSHOT_PENDING` means reopen or resume that preview before retrying the same upload. A new preview after actual acceptance is refused. Exact existing-attempt replay remains valid, and an uncertain `SUBMITTING` claim stays fenced until its exact job binding is proven.
+
 Unsubmitted abandoned/expired payloads can be removed by bounded housekeeping. Accepted or acceptance-uncertain bytes are retained until the verified snapshot-publication protocol proves a durable replacement. Dry-run bytes remain available for later execute. Actual snapshot publication retires the redundant payload and releases its reservation once; the small chunk receipt journal remains available for retry verification.
 
 ## Clinical category views

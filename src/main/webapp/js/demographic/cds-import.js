@@ -29,6 +29,14 @@
         return [...new Set(values.filter(value => typeof value === 'string' && UUID.test(value)))].slice(-maximum);
     }
 
+    function latestUploadAttempt(upload) {
+        // Execution supersedes its preview in navigation; the API keeps both bindings distinct.
+        for (const id of [upload?.runId, upload?.dryRunId]) {
+            if (typeof id === 'string' && UUID.test(id)) return id;
+        }
+        return null;
+    }
+
     function mayStopPolling(summary) {
         // Clinical finality does not prove reports or cleanup finished; only the durable operation receipt does.
         return summary?.operationTerminal === true;
@@ -128,7 +136,7 @@
         return offset;
     }
 
-    const api = {statusPresentation, boundedIds, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
+    const api = {statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
         effectiveOptions, sha256, boundedJson, verifyPrefix};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CarlosCdsImport = api;
@@ -361,7 +369,8 @@
                 const row = document.createElement('tr'); cell(row, upload.fileName + ' — ' + upload.id); cell(row, upload.state);
                 cell(row, upload.receivedBytes + ' / ' + upload.expectedBytes);
                 const actions = cell(row, '');
-                if (upload.runId) actions.append(button(text.open, () => openRun(upload.runId)));
+                const latestAttempt = latestUploadAttempt(upload);
+                if (latestAttempt) actions.append(button(text.open, () => openRun(latestAttempt)));
                 actions.append(button(text.resume, () => { byId('uploadResumeId').value = upload.id; progress(upload); }));
                 if (['OPEN', 'COMPLETE'].includes(upload.state)) actions.append(button(text.abandon, async () => {
                     await request('cdsUpload', {operation: 'abandon', uploadId: upload.id}, {method: 'POST'}); await loadUploads(true);
