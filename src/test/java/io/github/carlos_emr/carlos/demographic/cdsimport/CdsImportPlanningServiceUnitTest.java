@@ -147,6 +147,49 @@ class CdsImportPlanningServiceUnitTest {
         }
     }
 
+    @Test void shouldRebuildOnlyAnUnsealedInvalidCache_fromTheAcceptedSourceAndRetainItsEvidence() throws Exception {
+        Fixture fixture=fixture(false,false);
+        fixture.planner.plan("run",1,fixture.document,fixture.snapshot);
+        Path originalAttempt;
+        try (var files=Files.walk(fixture.document.jobRoot().resolve("parsed"))) {
+            originalAttempt=files.filter(path->path.getFileName().toString().equals("parse-result.json")).findFirst().orElseThrow().getParent();
+        }
+        Path originalMetadata=originalAttempt.resolve("fields.jsonl");
+        Files.writeString(originalMetadata,"injected cache corruption",java.nio.file.StandardOpenOption.APPEND);
+        fixture.planner.plan("run",1,fixture.document,fixture.snapshot);
+        org.junit.jupiter.api.Assertions.assertTrue(Files.readString(originalMetadata).endsWith("injected cache corruption"));
+        try (var files=Files.walk(fixture.document.jobRoot().resolve("parsed"))) {
+            org.junit.jupiter.api.Assertions.assertEquals(2,files.filter(path->path.getFileName().toString().equals("parse.seal")).count());
+        }
+        verify(fixture.ledger).diagnostic(eq("run"),eq(1L),isNull(),isNull(),eq("WARNING"),eq("CDS_PARSE_CACHE_REBUILT_FROM_ACCEPTED_SOURCE"),
+                eq("PREFLIGHT"),anyString(),anyString(),eq(originalAttempt.toString()),eq(false));
+        fixture.planner.plan("run",1,fixture.document,fixture.snapshot);
+        verify(fixture.ledger,times(3)).seal(eq("run"),eq(1L),anyString(),eq(1L),eq(8L));
+        verify(fixture.ledger,times(1)).diagnostic(anyString(),anyLong(),isNull(),isNull(),eq("WARNING"),eq("CDS_PARSE_CACHE_REBUILT_FROM_ACCEPTED_SOURCE"),
+                anyString(),anyString(),anyString(),anyString(),eq(false));
+    }
+
+    @Test void shouldNeverRebuildASealedCache_orModifyCheckpointReferencedEvidence() throws Exception {
+        Fixture fixture=fixture(false,false);
+        fixture.planner.plan("run",1,fixture.document,fixture.snapshot);
+        CdsImportJobDto prior=fixture.ledger.status("run");
+        when(fixture.ledger.status("run")).thenReturn(new CdsImportJobDto(prior.id(),prior.operator(),prior.providerNo(),prior.sourceNamespace(),
+                prior.profile(),"READY",prior.sourceDigest(),prior.optionsDigest(),prior.rulesetDigest(),"f".repeat(64),1,8,1,false,
+                prior.createdAt(),prior.updatedAt(),0,null,null));
+        Path originalMetadata;
+        try (var files=Files.walk(fixture.document.jobRoot().resolve("parsed"))) {
+            originalMetadata=files.filter(path->path.getFileName().toString().equals("fields.jsonl")).findFirst().orElseThrow();
+        }
+        Files.writeString(originalMetadata,"sealed corruption",java.nio.file.StandardOpenOption.APPEND);
+        fixture.planner.plan("run",1,fixture.document,fixture.snapshot);
+        org.junit.jupiter.api.Assertions.assertTrue(Files.readString(originalMetadata).endsWith("sealed corruption"));
+        try (var files=Files.walk(fixture.document.jobRoot().resolve("parsed"))) {
+            org.junit.jupiter.api.Assertions.assertEquals(1,files.filter(path->path.getFileName().toString().equals("parse.seal")).count());
+        }
+        verify(fixture.ledger,never()).diagnostic(anyString(),anyLong(),isNull(),isNull(),eq("WARNING"),eq("CDS_PARSE_CACHE_REBUILT_FROM_ACCEPTED_SOURCE"),
+                anyString(),anyString(),anyString(),anyString(),anyBoolean());
+    }
+
     private static void canonical(Fixture fixture) {
         when(fixture.ledger.planPatient(anyString(),anyLong(),anyString(),anyString(),anyString(),anyString())).thenAnswer(call->
                 new CdsImportPatientDto(call.getArgument(2),call.getArgument(3),call.getArgument(4),
@@ -188,6 +231,7 @@ class CdsImportPlanningServiceUnitTest {
             return null;
         }).when(nativeRecords).validate(any(),any(),any(),anyString());
         var identityRegistry=mock(CdsPreflightIdentityService.class);java.util.Set<String> seen=new java.util.HashSet<>();
+        doAnswer(call->{seen.clear();return null;}).when(identityRegistry).beginScan(anyString(),anyLong());
         when(identityRegistry.register(anyString(),anyLong(),anyString(),anyString(),any(),anyBoolean())).thenAnswer(call->seen.add(call.getArgument(2)));
         var planner=new CdsImportPlanningService(ledger,configuration,new CdsSnapshotService(),new CdsXmlParser(),new CdsFieldParser(),identity,
                 nativeRecords,mock(CdsCourseService.class),mock(CdsImportFileService.class),mock(CdsImportJobService.class),identityRegistry,reviews);

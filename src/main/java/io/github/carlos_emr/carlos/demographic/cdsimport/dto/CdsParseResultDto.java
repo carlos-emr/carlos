@@ -26,4 +26,13 @@ import java.nio.file.Path;
 /** A successful complete parse; emitted records remain preflight-only until this result exists. */
 public record CdsParseResultDto(String sourceSha256, long sourceBytes, long records, long fields,
         long decodedBinaryBytes, Path recordsManifestFile, Path valuesFile, String valuesSha256,
-        long valuesBytes) { }
+        long valuesBytes) {
+    public CdsParseResultDto {
+        if (sourceSha256==null || !sourceSha256.matches("[0-9a-f]{64}")
+                || valuesSha256==null || !valuesSha256.matches("[0-9a-f]{64}")
+                || sourceBytes<1 || records<1 || fields<0 || decodedBinaryBytes<0 || valuesBytes<0
+                || decodedBinaryBytes>valuesBytes || recordsManifestFile==null || valuesFile==null) {
+            throw new IllegalArgumentException("Invalid CDS parse result descriptor");
+        }
+    }
+}

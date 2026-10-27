@@ -399,29 +399,47 @@ public class CdsImportPlanningService {
 
     private CdsParseResultDto parse(CdsSnapshotFileDto xml, Path baseFolder, State state, CdsCorrectionSetDto correction) throws IOException {
         Path folder=currentAttempt(baseFolder);
-        Path result = folder.resolve("parse-result.json");
+        Path result=folder.resolve("parse-result.json");
+        boolean rebuild=false;
         if (Files.exists(result, LinkOption.NOFOLLOW_LINKS) && Files.exists(folder.resolve("parse.seal"), LinkOption.NOFOLLOW_LINKS)) {
-            JsonNode seal=JSON.readTree(CdsImportJobService.boundedFile(folder.resolve("parse.seal"), 65536));
-            if (seal.path("correctionsSha256").asText().equals(correction==null ? "" : correction.sha256())) {
-            CdsParseResultDto cached = JSON.readValue(CdsImportJobService.boundedFile(result, 65536), CdsParseResultDto.class);
-            if (!cached.sourceSha256().equals(xml.sha256()) || !cached.valuesFile().getParent().equals(folder)
-                    || !cached.recordsManifestFile().equals(folder.resolve("records.jsonl"))
-                    || !cached.valuesFile().equals(folder.resolve("values.bin"))
-                    || cached.sourceBytes()!=xml.length() || Files.size(cached.valuesFile()) != cached.valuesBytes()) throw new CdsImportException("PARSED_SOURCE_CHANGED");
-            verifyParseMetadata(folder, cached, true);
-            return cached;
+            try {
+                JsonNode seal=JSON.readTree(CdsImportJobService.boundedFile(folder.resolve("parse.seal"), 65536));
+                if (seal.path("correctionsSha256").asText().equals(correction==null ? "" : correction.sha256())) {
+                    CdsParseResultDto cached=JSON.readValue(CdsImportJobService.boundedFile(result, 65536), CdsParseResultDto.class);
+                    if (!cached.sourceSha256().equals(xml.sha256()) || !cached.valuesFile().getParent().equals(folder)
+                            || !cached.recordsManifestFile().equals(folder.resolve("records.jsonl"))
+                            || !cached.valuesFile().equals(folder.resolve("values.bin"))
+                            || cached.sourceBytes()!=xml.length() || Files.size(cached.valuesFile())!=cached.valuesBytes()) {
+                        throw new CdsImportException("PARSED_SOURCE_CHANGED");
+                    }
+                    verifyParseMetadata(folder, cached, true);
+                    return cached;
+                }
+            } catch (CdsImportException invalid) {
+                if (!Set.of("PARSED_SOURCE_CHANGED", "PARSED_METADATA_HASH_MISMATCH").contains(invalid.getCode())) throw invalid;
+                rebuild=true;
+            } catch (CdsInputException invalid) {
+                if (operational(invalid.code())) throw invalid;
+                rebuild=true;
+            } catch (IOException | IllegalArgumentException invalid) {
+                rebuild=true;
             }
+        } else if (Files.exists(folder, LinkOption.NOFOLLOW_LINKS)) {
+            rebuild=true;
         }
-        if (Files.exists(folder, LinkOption.NOFOLLOW_LINKS)) {
-            folder=baseFolder.resolveSibling(baseFolder.getFileName()+"-attempt-"+UUID.randomUUID());
+        if (rebuild) {
+            state.cancelled();
+            ledger.diagnostic(state.runId, state.epoch, null, null, "WARNING", "CDS_PARSE_CACHE_REBUILT_FROM_ACCEPTED_SOURCE",
+                    "PREFLIGHT", "/files["+state.discoveredXmls+"]",
+                    "An incomplete or invalid unsealed parse cache was retained; the accepted source is being fully revalidated", folder.toString(), false);
         }
+        if (Files.exists(folder, LinkOption.NOFOLLOW_LINKS)) folder=baseFolder.resolveSibling(baseFolder.getFileName()+"-attempt-"+UUID.randomUUID());
         state.currentParseFolder=folder;
         selectAttempt(baseFolder, folder);
         result=folder.resolve("parse-result.json");
-        CdsParseResultDto parsed = parser.parse(xml.path(), folder, configuration.limits(),
-                state::cancellationRequested, record -> { }, correction);
+        CdsParseResultDto parsed=parser.parse(xml.path(), folder, configuration.limits(), state::cancellationRequested, record->{ }, correction);
         if (!parsed.sourceSha256().equals(xml.sha256())) throw new CdsImportException("SNAPSHOT_XML_CHANGED");
-        try (OutputStream output = CdsPaths.newPrivateFile(result, folder)) { output.write(JSON.writeValueAsBytes(parsed)); }
+        try (OutputStream output=CdsPaths.newPrivateFile(result, folder)) { output.write(JSON.writeValueAsBytes(parsed)); }
         CdsPaths.forceFile(result); CdsPaths.forceDirectory(folder);
         return parsed;
     }
