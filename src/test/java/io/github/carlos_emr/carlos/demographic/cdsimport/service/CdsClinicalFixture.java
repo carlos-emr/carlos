@@ -51,8 +51,11 @@ final class CdsClinicalFixture {
         for (var field : source.entrySet()) {
             byte[] content = field.getValue().getBytes(StandardCharsets.UTF_8);
             String path = java.util.Arrays.stream(field.getKey().split("/"))
-                    .map(part -> part + "[1]").collect(java.util.stream.Collectors.joining("/"));
-            CdsFieldDto descriptor = new CdsFieldDto(path, "cds", "TEXT", blob.size(), content.length, digest(content));
+                    .map(part -> part.startsWith("@") || part.contains("[") ? part : part + "[1]")
+                    .collect(java.util.stream.Collectors.joining("/"));
+            boolean attribute = path.substring(path.lastIndexOf('/') + 1).startsWith("@");
+            CdsFieldDto descriptor = new CdsFieldDto(path, attribute ? "" : "cds",
+                    attribute ? "ATTRIBUTE" : "TEXT", blob.size(), content.length, digest(content));
             metadata.append(json.writeValueAsString(descriptor)).append('\n');
             recordDigest.update(CdsFieldParser.identity(descriptor));
             blob.write(content);
@@ -66,5 +69,27 @@ final class CdsClinicalFixture {
     private static String digest(byte[] content) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)); }
         catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
+    }
+
+    static CdsRecordDto corrected(CdsRecordDto original, String path, String replacement) throws IOException {
+        CdsFieldDto[] found = new CdsFieldDto[1];
+        new CdsFieldParser().forEachField(original, field -> {
+            if (CdsFieldParser.unindexed(field.path()).equals(path)) found[0] = field;
+        });
+        if (found[0] == null) throw new IllegalArgumentException("No correction target");
+        CdsFieldDto field = found[0];
+        Path folder = Files.createTempDirectory(original.fieldsFile().getParent(), "correction-");
+        byte[] value = replacement.getBytes(StandardCharsets.UTF_8);
+        Files.write(folder.resolve("replacement.txt"), value);
+        ObjectMapper json = new ObjectMapper();
+        var document = json.createObjectNode().put("version", 1).put("acceptedXmlSha256", "a".repeat(64));
+        document.putArray("corrections").addObject().put("sourceXPath", original.sourceXPath() + "/" + field.path())
+                .put("namespace", field.namespace()).put("kind", field.kind()).put("schemaType", field.schemaType())
+                .put("whitespace", field.whitespace()).put("originalSha256", field.sha256()).put("originalLength", field.length())
+                .put("replacementFile", "replacement.txt").put("replacementSha256", digest(value)).put("replacementBytes", value.length);
+        byte[] bytes = json.writeValueAsBytes(document);
+        Path manifest = Files.write(folder.resolve("manifest.json"), bytes);
+        return original.withCorrections(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCorrectionSetDto(
+                manifest, digest(bytes), "a".repeat(64)));
     }
 }

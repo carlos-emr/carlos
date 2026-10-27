@@ -43,6 +43,9 @@ public interface MeasurementTypeDao extends AbstractDao<MeasurementType> {
 
     List<MeasurementType> findByType(String type);
 
+    /** Existence-only bounded admission check; never loads an unbounded duplicate type list. */
+    boolean hasCdsImportType(String type, String expectedInstruction);
+
     List<MeasurementType> findByMeasuringInstructionAndTypeDisplayName(String measuringInstruction, String typeDisplayName);
 
     List<MeasurementType> findByTypeDisplayName(String typeDisplayName);

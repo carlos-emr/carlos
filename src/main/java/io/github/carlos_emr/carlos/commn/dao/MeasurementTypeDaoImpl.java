@@ -78,6 +78,20 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
     }
 
     @Override
+    public boolean hasCdsImportType(String type, String expectedInstruction) {
+        String jpql = "select x.id from MeasurementType x where x.type=:type"
+                + (expectedInstruction == null ? "" : " and x.measuringInstruction=:instruction")
+                + (!java.util.Set.of("CDS_GOALS", "CDS_EXAM", "CDS_CARE_VALUE").contains(type) ? ""
+                    : " and exists (select v.id from Validations v where x.validation=cast(v.id as string)"
+                      + " and v.name='CDS source text (no numeric inference)' and v.regularExp is null"
+                      + " and v.minValue is null and v.maxValue is null and v.minLength is null and v.maxLength is null"
+                      + " and v.isNumeric is null and v.isTrue is null and v.isDate is null)");
+        var query = entityManager.createQuery(jpql, Integer.class).setParameter("type", type).setMaxResults(1);
+        if (expectedInstruction != null) query.setParameter("instruction", expectedInstruction);
+        return !query.getResultList().isEmpty();
+    }
+
+    @Override
     public List<MeasurementType> findByType(String type) {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where x.type=?1";
         Query query = entityManager.createQuery(sqlCommand);
