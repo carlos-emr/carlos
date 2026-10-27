@@ -24,7 +24,10 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
+try:
+    import defusedxml.ElementTree as ET
+except ImportError:
+    sys.exit("Install hash-pinned dependencies from scripts/ci/requirements.txt before running this gate")
 
 
 def main():
@@ -75,7 +78,7 @@ def main():
         tested = subprocess.run(command, cwd=repository, stdout=log, stderr=subprocess.STDOUT)
     totals = dict(tests=0, skipped=0, errors=0, failures=0)
     for report in reports.glob('TEST-*.xml'):
-        suite = ET.parse(report).getroot()
+        suite = ET.parse(report, forbid_dtd=True).getroot()
         for name in totals:
             totals[name] += int(suite.attrib.get(name, '0'))
     print('Maintenance MariaDB tier: ' + ', '.join(f'{name}={count}' for name, count in totals.items()))

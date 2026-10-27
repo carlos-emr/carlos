@@ -181,6 +181,8 @@ public class CdsTargetReceiptService {
         try (PreparedStatement statement = connection.prepareStatement(
                 "select id from `" + table + "` where `" + foreignKey + "`=? order by id")) {
             statement.setString(1, id); statement.setMaxRows(65);
+            // SQL identifiers are fixed call-site literals; the source row ID is a bound parameter.
+            // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
             try (ResultSet rows = statement.executeQuery()) {
                 int count = 0;
                 while (rows.next()) {
@@ -253,6 +255,8 @@ public class CdsTargetReceiptService {
                 statement.setString(1, composite ? pair[0] : id);
                 if (composite) statement.setString(2, pair[1]);
                 statement.setMaxRows(2); statement.setQueryTimeout(30);
+                // Table/key names are allowlisted; metadata names escape backticks; row IDs remain bound.
+                // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
                 try (ResultSet row = statement.executeQuery()) {
                     if (!row.next()) return null;
                     MessageDigest hash = CdsImportKeys.digest();

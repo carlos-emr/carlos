@@ -117,7 +117,8 @@ def main() -> None:
         invoke(source_arguments, 4, delegated=True)
         invoke([*source_arguments, "--dry-run"], 3, delegated=True)
         invoke(source_arguments, 3, delegated=True, as_root=True)
-        os.chmod(ticket, 0o660)
+        # Negative fixture: group-writable delegation must be refused; restore the real 0640 policy below.
+        os.chmod(ticket, 0o660)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         invoke(source_arguments, 3, delegated=True)
         os.chmod(ticket, 0o640)
         os.chown(ticket, account.pw_uid, account.pw_gid)
