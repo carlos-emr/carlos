@@ -88,6 +88,28 @@ public final class CdsTemporal {
         }
     }
 
+    /** Synthetic teaching copies shift only dates whose exact calendar day is established. */
+    public static CdsTemporalDto shift(CdsTemporalDto value, int days, String field) {
+        if (days == 0 || value.precision() == Precision.UNKNOWN) return value;
+        if (value.appliedShiftDays() != 0) {
+            throw new CdsClinicalException("CDS_SYNTHETIC_DATE_ALREADY_SHIFTED", field);
+        }
+        if (!value.exactCalendarDate()) {
+            throw new CdsClinicalException("CDS_SYNTHETIC_PARTIAL_DATE_SHIFT_REQUIRES_REVIEW", field);
+        }
+        try {
+            LocalDate earliest = value.earliest().plusDays(days);
+            LocalDate latest = value.latest().plusDays(days);
+            requireClinicalYear(earliest.getYear(), field);
+            requireClinicalYear(latest.getYear(), field);
+            return new CdsTemporalDto(value.precision(), value.original(), earliest, latest,
+                    value.localDateTime() == null ? null : value.localDateTime().plusDays(days),
+                    value.offsetDateTime() == null ? null : value.offsetDateTime().plusDays(days), days);
+        } catch (DateTimeException invalid) {
+            throw new CdsClinicalException("CDS_SYNTHETIC_DATE_OUTSIDE_TARGET_CALENDAR", field);
+        }
+    }
+
     private static void requireClinicalYear(int year, String field) {
         if (year < 1 || year > 9999) {
             throw new CdsClinicalException("CDS_DATE_OUTSIDE_TARGET_CALENDAR", field);

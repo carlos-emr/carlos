@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalExce
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationDose;
 import java.io.IOException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +51,10 @@ public class CdsClinicalNormalizationService {
     public CdsClinicalNormalizationService(CdsFieldParser fields) { this.fields = fields; }
 
     public CdsMedicationDto medication(CdsRecordDto record) throws IOException {
+        return medication(record, null);
+    }
+
+    public CdsMedicationDto medication(CdsRecordDto record, CdsImportCommand command) throws IOException {
         requireSection(record, "MedicationsAndTreatments");
         List<CdsClinicalDiagnosticDto> diagnostics = new ArrayList<>();
         String status = text(record, "PrescriptionStatus", 10);
@@ -99,11 +104,15 @@ public class CdsClinicalNormalizationService {
                 text(record, "PrescriptionInstructions", 32768), text(record, "DispenseInterval", 10),
                 text(record, "ProtocolIdentifier", 20),
                 text(record, "PriorPrescriptionReferenceIdentifier", 20),
-                text(record, "PrescriptionIdentifier", 50), date(record, "PrescriptionWrittenDate"),
-                date(record, "StartDate"), diagnostics);
+                text(record, "PrescriptionIdentifier", 50), date(record, "PrescriptionWrittenDate", command),
+                date(record, "StartDate", command), diagnostics);
     }
 
     public CdsAllergyDto allergy(CdsRecordDto record) throws IOException {
+        return allergy(record, null);
+    }
+
+    public CdsAllergyDto allergy(CdsRecordDto record, CdsImportCommand command) throws IOException {
         requireSection(record, "AllergiesAndAdverseReactions");
         String property = vocabulary(text(record, "PropertyOfOffendingAgent", 2),
                 Set.of("DR", "ND", "UK"), "PropertyOfOffendingAgent");
@@ -116,10 +125,14 @@ public class CdsClinicalNormalizationService {
         }
         return new CdsAllergyDto(description, property, code, text(record, "Code/CodeType", 3),
                 reactionType, text(record, "Reaction", 120), severity, text(record, "LifeStage", 1),
-                text(record, "Notes", 32768), date(record, "StartDate"), date(record, "RecordedDate"));
+                text(record, "Notes", 32768), date(record, "StartDate", command), date(record, "RecordedDate", command));
     }
 
     public CdsImmunizationDto immunization(CdsRecordDto record) throws IOException {
+        return immunization(record, null);
+    }
+
+    public CdsImmunizationDto immunization(CdsRecordDto record, CdsImportCommand command) throws IOException {
         requireSection(record, "Immunizations");
         String name = text(record, "ImmunizationName", 120);
         if (name == null || name.isBlank()) {
@@ -130,13 +143,29 @@ public class CdsClinicalNormalizationService {
                 text(record, "Route", 120), text(record, "Site", 120), text(record, "Dose", 120),
                 text(record, "ImmunizationCode/value", 20), text(record, "ImmunizationCode/CodingSystem", 250),
                 indicator(record, "RefusedFlag", true), text(record, "Instructions", 250),
-                text(record, "Notes", 32768), date(record, "Date"));
+                text(record, "Notes", 32768), date(record, "Date", command));
     }
 
     public CdsTemporalDto date(CdsRecordDto record, String field) throws IOException {
-        return CdsTemporal.parse(fields.firstToken(record, field + "/YearOnly", 64),
-                fields.firstToken(record, field + "/YearMonth", 64), fields.firstToken(record, field + "/FullDate", 64),
-                fields.firstToken(record, field + "/FullDateTime", 128), field);
+        return date(record, field, null);
+    }
+
+    /** Supports both the actual direct date/dateTime leaves and structured date-choice types. */
+    public CdsTemporalDto date(CdsRecordDto record, String field, CdsImportCommand command) throws IOException {
+        String direct = fields.firstToken(record, field, 128);
+        String year = fields.firstToken(record, field + "/YearOnly", 64);
+        String month = fields.firstToken(record, field + "/YearMonth", 64);
+        String day = fields.firstToken(record, field + "/FullDate", 64);
+        String time = fields.firstToken(record, field + "/FullDateTime", 128);
+        if (direct != null) {
+            if (year != null || month != null || day != null || time != null) {
+                throw new CdsClinicalException("CDS_DATE_CHOICE_CONFLICT", field);
+            }
+            if (direct.contains("T")) time = direct;
+            else day = direct;
+        }
+        CdsTemporalDto value = CdsTemporal.parse(year, month, day, time, field);
+        return command == null ? value : CdsTemporal.shift(value, command.timeshiftDays(), field);
     }
 
     /** CT035 and PastMedications are independent; missing dates are deliberately irrelevant. */

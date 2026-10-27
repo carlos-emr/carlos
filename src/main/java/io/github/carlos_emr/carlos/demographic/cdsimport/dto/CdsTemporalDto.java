@@ -29,8 +29,13 @@ import java.util.Date;
 
 /** Source temporal meaning. A partial date is an interval, never an asserted first day. */
 public record CdsTemporalDto(Precision precision, String original, LocalDate earliest,
-        LocalDate latest, LocalDateTime localDateTime, OffsetDateTime offsetDateTime) {
+        LocalDate latest, LocalDateTime localDateTime, OffsetDateTime offsetDateTime, int appliedShiftDays) {
     public enum Precision { UNKNOWN, YEAR, MONTH, FULL_DATE, LOCAL_DATE_TIME, OFFSET_DATE_TIME }
+
+    public CdsTemporalDto(Precision precision, String original, LocalDate earliest,
+            LocalDate latest, LocalDateTime localDateTime, OffsetDateTime offsetDateTime) {
+        this(precision, original, earliest, latest, localDateTime, offsetDateTime, 0);
+    }
 
     public CdsTemporalDto {
         if (precision == null || (precision != Precision.UNKNOWN && (original == null
