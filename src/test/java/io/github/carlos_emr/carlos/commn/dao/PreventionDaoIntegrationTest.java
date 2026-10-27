@@ -102,7 +102,9 @@ public class PreventionDaoIntegrationTest extends CarlosTestBase {
         var rows = preventionDao.findPreventionDTOsByDemographicId(DEMO_1);
         assertThat(rows).hasSize(3);
         var exactRow = rows.stream().filter(p -> p.getId().equals(exact.getId())).findFirst().orElseThrow();
-        assertThat(exactRow.getPreventionDate()).isEqualTo(exact.getPreventionDate());
+        assertThat(exactRow.getPreventionDateInfo().getPrecision()).isEqualTo(PreventionDateDTO.Precision.FULL_DATE);
+        assertThat(exactRow.getPreventionDate()).isNotNull();
+        assertThat(exactRow.getPreventionDate().getTime()).isEqualTo(exact.getPreventionDate().getTime());
         var partialRow = rows.stream().filter(p -> p.getId().equals(partial.getId())).findFirst().orElseThrow();
         assertThat(partialRow.getPreventionDateInfo().getPrecision()).isEqualTo(PreventionDateDTO.Precision.YEAR);
         assertThat(partialRow.getPreventionDateInfo().getOriginalValue()).isEqualTo("2019");
