@@ -492,6 +492,17 @@ class CdsImportReviewServiceUnitTest {
         assertThat(requested.getState()).isEqualTo("CANCELLED");assertThat(published.getState()).isEqualTo("OVERLAY_PUBLISHED");
     }
 
+    @Test
+    void reviewPatientBindingCannotExceedThePersistedKeyCapacity() throws Exception {
+        int capacity=CdsImportReview.class.getDeclaredField("patientKey").getAnnotation(jakarta.persistence.Column.class).length();
+        assertThat(capacity).isEqualTo(64);
+        assertThat(new CdsImportReviewCommand("DECLINE_PATIENT", 1L, "a".repeat(capacity), null, 0, null, null,
+                "Verified patient disposition").patientKey()).hasSize(capacity);
+        String oversized="a".repeat(capacity+1);
+        assertThatThrownBy(() -> new CdsImportReviewCommand("DECLINE_PATIENT", 1L, oversized, null, 0, null, null,
+                "Verified patient disposition")).isInstanceOf(IllegalArgumentException.class);
+    }
+
     private CdsImportReviewCommand command(String replacement) {
         return new CdsImportReviewCommand("CORRECT_VALUE",1L,"",null,0,RECORD+"/Gender[1]",replacement,"Fixture verified clinical source correction");
     }

@@ -29,7 +29,7 @@ public record CdsImportReviewCommand(String kind, Long diagnosticId, String pati
         if (!("CORRECT_VALUE".equals(kind) || "DECLINE_PATIENT".equals(kind) || "APPROVE_UNWRITTEN_REVISION".equals(kind))
                 || diagnosticId == null || diagnosticId < 1 || expectedVersion < 0
                 || reason == null || reason.isBlank() || reason.length() > 4000
-                || patientKey == null || patientKey.length() > 128
+                || patientKey == null || patientKey.length() > 64
                 || (unitKey != null && unitKey.length() > 128)
                 || (sourceXPath != null && sourceXPath.length() > 2048)
                 || (replacementValue != null && replacementValue.length() > 65536)) {
