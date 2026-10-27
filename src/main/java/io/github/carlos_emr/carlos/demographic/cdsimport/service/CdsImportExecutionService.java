@@ -269,14 +269,14 @@ public class CdsImportExecutionService {
         String code=failure instanceof CdsImportException known?known.getCode():"IMPORT_REPORT_DELIVERY_FAILED";
         String detail=null;
         try { detail=failureEvidence.write(runId, epoch, failure); }
-        catch (RuntimeException secondary) {if (secondary!=failure) failure.addSuppressed(secondary);}
-        catch (Error fatal) {fatal.addSuppressed(failure);throw fatal;}
+        catch (RuntimeException secondary) {if (secondary!=failure) failure.addSuppressed(secondary); }
+        catch (Error fatal) {fatal.addSuppressed(failure); throw fatal; }
         try { ledger.reportingFailureDiagnostic(runId, epoch, code, detail); }
         catch (RuntimeException secondary) {
             if (secondary!=failure) failure.addSuppressed(secondary);
-            if (detail==null) LOG.error("CDS reporting diagnostics unavailable for run {} epoch {}: IMPORT_REPORT_FAILURE_EVIDENCE_UNAVAILABLE",runId,epoch);
+            LOG.error("CDS reporting diagnostics unavailable for run {} epoch {}: IMPORT_REPORT_FAILURE_EVIDENCE_UNAVAILABLE", runId, epoch);
         }
-        catch (Error fatal) {fatal.addSuppressed(failure);throw fatal;}
+        catch (Error fatal) {fatal.addSuppressed(failure); throw fatal; }
     }
 
     private void recordFailure(String runId, long epoch, String affectedPatient, String affectedUnit, Exception failure) {

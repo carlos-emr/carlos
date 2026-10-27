@@ -167,6 +167,31 @@ class CdsImportAttemptBudgetUnitTest {
         verify(f.coordinator,times(1)).acquire();
     }
 
+    @Test void aSavedEvidenceFileWithoutADurableDiagnosticStillLogsSafeRunCorrelation() throws Exception {
+        Fixture f=new Fixture();
+        when(f.records.write(anyString(),anyLong(),any(),any(),any(),any(),any(),any()))
+                .thenReturn(new CdsImportReceiptDto("{}","digest"));
+        var primary=new CdsImportException("IMPORT_CONTROL_UNAVAILABLE",false,
+                new java.sql.SQLException("private-sql-message","HY000",71));
+        String detail="/opaque/private-report-detail.json";
+        when(f.evidence.write("run",1L,primary)).thenReturn(detail);
+        doThrow(primary).when(f.reports).generate(eq("run"),eq(1L),any(CdsImportCoordinatorService.Owner.class));
+        var diagnosticFailure=new IllegalStateException("private-diagnostic-message");
+        doThrow(diagnosticFailure).when(f.ledger).reportingFailureDiagnostic("run",1L,"IMPORT_CONTROL_UNAVAILABLE",detail);
+        try(var capture=io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(CdsImportExecutionService.class);
+                var keys=f.keys()) {
+            f.engine.execute("run");
+            assertEquals(1,capture.events().size());
+            var event=capture.events().getFirst();
+            assertNull(event.getThrown());
+            String message=event.getMessage().getFormattedMessage();
+            assertTrue(message.contains("run run epoch 1") && message.contains("IMPORT_REPORT_FAILURE_EVIDENCE_UNAVAILABLE"));
+            assertFalse(message.contains(detail) || message.contains("private-sql-message") || message.contains(diagnosticFailure.getMessage()));
+        }
+        assertEquals(3,f.committed());assertEquals("COMPLETE",f.state.get());
+        assertArrayEquals(new Throwable[]{diagnosticFailure},primary.getSuppressed());
+    }
+
     private static final class Fixture {
         final AtomicLong clock=new AtomicLong();
         final AtomicReference<String> state=new AtomicReference<>("READY"),patientState=new AtomicReference<>("PLANNED");

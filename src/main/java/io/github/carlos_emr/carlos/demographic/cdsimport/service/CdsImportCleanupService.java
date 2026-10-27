@@ -293,14 +293,14 @@ public class CdsImportCleanupService {
     private void check(String run, long epoch, Runnable probe, CdsImportReportControl shared) {
         probe.run();
         if (Thread.currentThread().isInterrupted()) throw new CdsImportException("CLEANUP_INTERRUPTED");
-        if(shared!=null) {shared.requireBinding(run,epoch);shared.check(true);}
+        if (shared!=null) {shared.requireBinding(run, epoch); shared.check(true); }
         else if (ledger.status(run).ownerEpoch()!=epoch) throw new CdsImportException("OWNER_FENCED");
         probe.run();
     }
     private static final class Catalogue {
         private final Runnable probe;
         private final CdsImportReportControl shared;
-        Catalogue(Runnable probe,CdsImportReportControl shared) {this.probe=probe;this.shared=shared; }
+        Catalogue(Runnable probe, CdsImportReportControl shared) {this.probe=probe; this.shared=shared; }
         private final Map<String, CdsImportCleanupDto.Count> retained=new LinkedHashMap<>(), removed=new LinkedHashMap<>();
         private final Set<String> codes=new LinkedHashSet<>();
         private long removedDirectories;

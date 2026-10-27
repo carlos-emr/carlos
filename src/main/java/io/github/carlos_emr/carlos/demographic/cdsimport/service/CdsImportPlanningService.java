@@ -540,7 +540,7 @@ public class CdsImportPlanningService {
         CdsImportJobDocumentDto document=jobs.load(runId);
         Path published=document.jobRoot().resolve("snapshot");
         if (!Files.isDirectory(published, LinkOption.NOFOLLOW_LINKS)) return;
-        java.util.function.BooleanSupplier cancelled=() -> {reportProbe.run(); return false;};
+        java.util.function.BooleanSupplier cancelled=() -> {reportProbe.run(); return false; };
         CdsSnapshotDto snapshot=shared==null ? snapshots.load(published, false, cancelled)
                 : snapshots.load(published, false, cancelled, () -> shared.check(false));
         try {

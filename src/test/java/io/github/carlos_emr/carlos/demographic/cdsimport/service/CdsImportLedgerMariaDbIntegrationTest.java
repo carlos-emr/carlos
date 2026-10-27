@@ -301,7 +301,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    check(countNative()==before+1 && ledger.isHeld(job.target),"process stop after phase commit adds no clinical row and preserves the partial hold");
    var completed=new java.util.concurrent.CountDownLatch(1);
    org.mockito.Mockito.doAnswer(call->{if("COMPLETE".equals(ledger.status(id).state()))completed.countDown();return null;})
-    .when(reports).generate(org.mockito.ArgumentMatchers.eq(id),org.mockito.ArgumentMatchers.anyLong());
+    .when(reports).generate(org.mockito.ArgumentMatchers.eq(id),org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.any(CdsImportCoordinatorService.Owner.class));
    var dispatchLedger=org.mockito.Mockito.spy(ledger);
    org.mockito.Mockito.doAnswer(call->ledger.pending(call.getArgument(0),call.getArgument(1)).stream().filter(value->id.equals(value.id())).toList())
     .when(dispatchLedger).pending(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyInt());
@@ -462,7 +462,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    // Exercise real ledger discovery and default execution routing; every native phase is forbidden.
    var result=engine.execute(run);
    check(stopped.equals(result.state()), "report restart preserves explicit clinical recovery requirement for "+stopped);
-   org.mockito.Mockito.verify(reportWriter).generate(run, result.ownerEpoch());
+   org.mockito.Mockito.verify(reportWriter).generate(org.mockito.ArgumentMatchers.eq(run), org.mockito.ArgumentMatchers.eq(result.ownerEpoch()), org.mockito.ArgumentMatchers.any(CdsImportCoordinatorService.Owner.class));
    org.mockito.Mockito.verifyNoInteractions(clinicalUnits, nativeRecords, maintenance, planner, fileVerifier);
    check(countNative()==nativeBefore, "report restart performs zero clinical writes for "+stopped);
    check(!ledger.isSealed(run), "report restart never fabricates an execution seal for "+stopped);

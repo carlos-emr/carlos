@@ -93,8 +93,8 @@ public class CdsImportResultService {
         };
         var shared=reportControl(runId, epoch, coordinator, reportBudget);
         Runnable reportProbe=() -> {
-            if(shared!=null) shared.check(false);
-            else {reportBudget.run(); checkGeneration(runId, epoch); reportBudget.run();}
+            if (shared!=null) shared.check(false);
+            else {reportBudget.run(); checkGeneration(runId, epoch); reportBudget.run(); }
         };
         reportProbe.run();
         try (shared; var control=shared==null ? fields.control(reportProbe) : fields.controlEveryCheckpoint(reportProbe)) {
@@ -179,7 +179,7 @@ public class CdsImportResultService {
                     if (++validationRows[0]%100==0) reportProbe.run();
                     try { line(errors, row); } catch (IOException failure) { throw new java.io.UncheckedIOException(failure); }
                 };
-                if(shared==null) planning.forEachValidationDiagnostic(runId, validationConsumer, reportProbe);
+                if (shared==null) planning.forEachValidationDiagnostic(runId, validationConsumer, reportProbe);
                 else planning.forEachValidationDiagnostic(runId, epoch, validationConsumer, shared);
                 reportProbe.run();
                 cleanupResult=shared==null ? cleanup.reconcile(runId, epoch, directory, reportBudget)
@@ -281,17 +281,17 @@ public class CdsImportResultService {
     }
     private CdsImportReportControl reportControl(String runId, long epoch,
             CdsImportCoordinatorService.Owner coordinator, Runnable reportBudget) {
-        if(coordinator==null)return null;
-        try {return new CdsImportReportControl(runId,epoch,coordinator,nanoTime,reportBudget);}
-        catch(CdsImportException unavailable) {
+        if (coordinator==null)return null;
+        try {return new CdsImportReportControl(runId, epoch, coordinator, nanoTime, reportBudget); }
+        catch (CdsImportException unavailable) {
             // Only an initial lost/closed coordinator uses the established fresh epoch-only report path.
             // No generation has started, no selection is retried, and no new owner is acquired here.
-            if("IMPORT_COORDINATOR_LOST".equals(unavailable.getCode()))return null;
+            if ("IMPORT_COORDINATOR_LOST".equals(unavailable.getCode()))return null;
             throw unavailable;
         }
     }
-    private static void reportBoundary(CdsImportReportControl shared,Runnable legacyProbe) {
-        if(shared==null)legacyProbe.run();else shared.check(true);
+    private static void reportBoundary(CdsImportReportControl shared, Runnable legacyProbe) {
+        if (shared==null)legacyProbe.run(); else shared.check(true);
     }
     private void checkGeneration(String runId, long epoch) {
         if (Thread.currentThread().isInterrupted()) throw new CdsImportException("REPORT_CANCELLED");
