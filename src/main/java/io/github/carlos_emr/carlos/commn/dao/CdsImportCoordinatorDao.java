@@ -45,8 +45,6 @@ public class CdsImportCoordinatorDao {
     @NativeSql
     public Lease acquire() throws SQLException {
         Connection connection = dataSource.openUnpooledCdsMaintenanceConnection();
-        boolean transferred = false;
-        Throwable primaryFailure = null;
         try {
             // This connection is newly created and has performed no work. Each
             // later control SELECT must observe a fresh autocommit snapshot.
@@ -61,23 +59,19 @@ public class CdsImportCoordinatorDao {
             }
             String name = "cds.coordinator." + CdsImportKeys.hash(database).substring(0, 40);
             long acquired = scalar(connection, "SELECT GET_LOCK(?,0)", name);
-            if (acquired == 0) return null;
-            if (acquired != 1) throw new SQLException("Invalid coordinator acquisition result");
-            Lease result = new Lease(connection, name);
-            transferred = true;
-            return result;
+            if (acquired == 1) return new Lease(connection, name);
+            if (acquired != 0) throw new SQLException("Invalid coordinator acquisition result");
         } catch (SQLException | RuntimeException | Error failure) {
-            primaryFailure = failure;
-            throw failure;
-        } finally {
-            if (!transferred) {
-                try { connection.close(); }
-                catch (SQLException | RuntimeException | Error cleanup) {
-                    if (primaryFailure == null) throw cleanup;
-                    if (cleanup != primaryFailure) primaryFailure.addSuppressed(cleanup);
-                }
+            try { connection.close(); }
+            catch (SQLException | RuntimeException | Error cleanup) {
+                if (cleanup != failure) failure.addSuppressed(cleanup);
             }
+            throw failure;
         }
+        // A busy result still owns this connection. Retire it exactly once;
+        // cleanup failure remains visible rather than becoming a busy success.
+        connection.close();
+        return null;
     }
 
     private static long scalar(Connection connection, String sql, String name) throws SQLException {
