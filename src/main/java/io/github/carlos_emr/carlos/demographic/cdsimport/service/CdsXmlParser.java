@@ -128,7 +128,17 @@ public class CdsXmlParser {
                 DigestInputStream hashed = new DigestInputStream(counted, sourceHash);
                 Reader text = CdsXmlText.reader(hashed, limits.maxBoundedScalarCharacters());
                 Pipeline pipeline = new Pipeline(spool, fields, values, manifest, diagnostics, limits, cancelled, records, staged)) {
-            XMLReader reader = xmlReader();
+            XMLReader reader;
+            try {
+                reader=xmlReader();
+                reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+                reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
+                reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+                reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            }
+            catch (javax.xml.parsers.ParserConfigurationException | SAXException unsupported) {
+                throw CdsPaths.failure("CDS_SECURE_XML_PARSER_UNAVAILABLE");
+            }
             reader.setContentHandler(pipeline);
             reader.setErrorHandler(pipeline);
             reader.parse(new InputSource(text));
@@ -143,20 +153,25 @@ public class CdsXmlParser {
             Throwable nested = failure.getException();
             if (nested instanceof CdsInputException safe) throw safe;
             throw new CdsInputException("CDS_XML_INVALID", "", "See protected validation-errors.jsonl");
-        } catch (javax.xml.parsers.ParserConfigurationException failure) {
-            throw new IllegalStateException("CDS_SECURE_XML_PARSER_UNAVAILABLE");
         }
     }
 
     static XMLReader xmlReader() throws javax.xml.parsers.ParserConfigurationException, SAXException {
+        // Pinned Xerces keeps schema-error pressure bounded. Its JAXP DTD-access property is
+        // unavailable; complete DOCTYPE denial, disabled entities and the deny resolver enforce it.
         SAXParserFactory factory = new SAXParserFactoryImpl();
         factory.setNamespaceAware(true);
+        factory.setXIncludeAware(false);
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
         factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         XMLReader reader = factory.newSAXParser().getXMLReader();
+        reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         reader.setEntityResolver((publicId, systemId) -> { throw new SAXException("CDS_EXTERNAL_ENTITY_BLOCKED"); });
         return reader;
     }

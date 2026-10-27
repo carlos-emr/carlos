@@ -366,6 +366,10 @@ public class CdsSnapshotService {
                 };
                 Reader text = CdsXmlText.reader(input, limits.maxBoundedScalarCharacters())) {
             var reader = CdsXmlParser.xmlReader();
+            reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
             reader.setContentHandler(new DefaultHandler() {
                 @Override public void startElement(String uri, String local, String qualified, Attributes attrs) throws SAXException {
                     candidate[0] = "cds".equals(uri) || Set.of("OmdCds", "PatientRecord", "Demographics", "Reports").contains(local);
@@ -392,6 +396,10 @@ public class CdsSnapshotService {
         try (InputStream input = Files.newInputStream(copied, LinkOption.NOFOLLOW_LINKS);
                 Reader text = CdsXmlText.reader(input, inventory.limits.maxBoundedScalarCharacters())) {
             var reader = CdsXmlParser.xmlReader();
+            reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
             reader.setContentHandler(new DefaultHandler() {
                 private int depth;
                 private int reportDepth;
