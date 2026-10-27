@@ -152,7 +152,9 @@ class CdsReportStorageMariaDbIntegrationTest {
             try {
                 strict(session); Document original=document("YEAR",null); session.persist(original); session.flush(); int id=original.getId(); session.clear();
                 Document detached=document(null,null); detached.setDocumentNo(id); detached.setDocdesc("Detached metadata edit");
-                Document merged=session.merge(detached); session.flush();
+                Document merged=session.merge(detached);
+                assertThat(merged.getCdsContentPrecision()).isEqualTo("YEAR"); // No flush/callback is required.
+                session.flush();
                 assertThat(merged.getCdsContentPrecision()).isEqualTo("YEAR"); assertThat(merged.getContentdatetime()).isNull();
                 session.clear(); Document reloaded=session.find(Document.class,id);
                 assertThat(reloaded.getCdsContentPrecision()).isEqualTo("YEAR"); assertThat(reloaded.getContentdatetime()).isNull();

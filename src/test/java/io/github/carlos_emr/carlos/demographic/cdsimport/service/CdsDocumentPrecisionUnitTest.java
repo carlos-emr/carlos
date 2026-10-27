@@ -46,6 +46,14 @@ class CdsDocumentPrecisionUnitTest {
         document.setCdsContentPrecision("UNKNOWN");
         assertThatThrownBy(()->document.setCdsContentPrecision(null)).hasMessage("CDS_CONTENT_PRECISION_IMMUTABLE");
         assertThatThrownBy(()->document.setCdsContentPrecision("FULL_DATE")).hasMessage("CDS_CONTENT_PRECISION_IMMUTABLE");
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(document,"rememberCdsContentPrecision");
+        // A merge can copy an omitted raw field before any dirty update callback runs.
+        org.springframework.test.util.ReflectionTestUtils.setField(document,"cdsContentPrecision",null);
+        assertThat(document.getCdsContentPrecision()).isEqualTo("UNKNOWN");
+        Document metadata=new Document(); metadata.setContentdatetime(new Date());
+        metadata.preserveImportedContentFrom(document);
+        assertThat(metadata.getCdsContentPrecision()).isEqualTo("UNKNOWN");
+        assertThat(metadata.getContentdatetime()).isNull();
     }
 
     @Test

@@ -267,7 +267,7 @@ public class Document extends AbstractModel<Integer> implements Serializable {
     }
 
     /** Describes the imported source, independently of later explicit native observation-date edits. */
-    public String getCdsContentPrecision() { return cdsContentPrecision; }
+    public String getCdsContentPrecision() { return cdsPrecisionLoaded?loadedCdsContentPrecision:cdsContentPrecision; }
 
     public void setCdsContentPrecision(String value) {
         if (value != null && !java.util.Set.of("UNKNOWN", "YEAR", "MONTH", "FULL_DATE",
@@ -283,8 +283,8 @@ public class Document extends AbstractModel<Integer> implements Serializable {
 
     /** Legacy metadata editors have no source-time reconciliation contract; keep that read-only value. */
     public void preserveImportedContentFrom(Document stored) {
-        if (stored != null && stored.cdsContentPrecision != null) {
-            cdsContentPrecision=stored.cdsContentPrecision;
+        if (stored != null && stored.getCdsContentPrecision() != null) {
+            cdsContentPrecision=stored.getCdsContentPrecision();
             contentdatetime=stored.contentdatetime==null?null:new Date(stored.contentdatetime.getTime());
         }
     }
