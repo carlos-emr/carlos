@@ -22,14 +22,17 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsFieldDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsParseResultDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCorrectionSetDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsXmlText;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsCorrectionFiles;
 import java.io.BufferedOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -64,6 +67,7 @@ import org.w3c.dom.TypeInfo;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.Locator;
+import org.xml.sax.helpers.AttributesImpl;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
@@ -93,7 +97,13 @@ public class CdsXmlParser {
     /** Emitted descriptors are preflight data, never permission for clinical writes before success. */
     public CdsParseResultDto parse(Path sourceXml, Path privateSpoolDirectory, CdsInputLimitsDto limits,
             BooleanSupplier cancelled, Consumer<CdsRecordDto> records) throws IOException {
-        try { return parseInternal(sourceXml, privateSpoolDirectory, limits, cancelled, records); }
+        return parse(sourceXml, privateSpoolDirectory, limits, cancelled, records, null);
+    }
+
+    /** Reviewed scalar changes affect validation only; all captured lexical bytes stay original. */
+    public CdsParseResultDto parse(Path sourceXml, Path privateSpoolDirectory, CdsInputLimitsDto limits,
+            BooleanSupplier cancelled, Consumer<CdsRecordDto> records, CdsCorrectionSetDto corrections) throws IOException {
+        try { return parseInternal(sourceXml, privateSpoolDirectory, limits, cancelled, records, corrections); }
         catch (CdsInputException safe) { throw safe; }
         catch (IOException failed) {
             String protectedDetail = failed.getMessage();
@@ -103,10 +113,11 @@ public class CdsXmlParser {
     }
 
     private CdsParseResultDto parseInternal(Path sourceXml, Path privateSpoolDirectory, CdsInputLimitsDto limits,
-            BooleanSupplier cancelled, Consumer<CdsRecordDto> records) throws IOException {
+            BooleanSupplier cancelled, Consumer<CdsRecordDto> records, CdsCorrectionSetDto corrections) throws IOException {
         if (limits == null || cancelled == null || records == null) throw new IllegalArgumentException("Missing CDS parser context");
         Path parent = privateSpoolDirectory.toAbsolutePath().getParent();
         Path spool = CdsPaths.privateDirectory(privateSpoolDirectory, parent);
+        CdsCorrectionSetDto staged=corrections==null ? null : CdsCorrectionFiles.stage(corrections, spool);
         Path fields = spool.resolve("fields.jsonl");
         Path values = spool.resolve("values.bin");
         Path manifest = spool.resolve("records.jsonl");
@@ -116,13 +127,13 @@ public class CdsXmlParser {
                 CountingInput counted = new CountingInput(raw, limits.maxSourceBytes());
                 DigestInputStream hashed = new DigestInputStream(counted, sourceHash);
                 Reader text = CdsXmlText.reader(hashed, limits.maxBoundedScalarCharacters());
-                Pipeline pipeline = new Pipeline(spool, fields, values, manifest, diagnostics, limits, cancelled, records)) {
+                Pipeline pipeline = new Pipeline(spool, fields, values, manifest, diagnostics, limits, cancelled, records, staged)) {
             XMLReader reader = xmlReader();
             reader.setContentHandler(pipeline);
             reader.setErrorHandler(pipeline);
             reader.parse(new InputSource(text));
             String sourceDigest=CdsPaths.hex(sourceHash.digest());
-            pipeline.finish(sourceDigest,counted.count);
+            pipeline.finish(sourceDigest, counted.count);
             return new CdsParseResultDto(sourceDigest, counted.count,
                     pipeline.records, pipeline.fields, pipeline.binaryBytes, manifest, values,
                     pipeline.valuesSha256, pipeline.valueOutput.count);
@@ -185,16 +196,27 @@ public class CdsXmlParser {
         private long binaryBytes;
         private long patients;
         private long schemaErrors;
+        private long schemaWarnings;
         private boolean rootSeen;
         private long nextDiskCheck;
         private long nextCancellationCheck;
         private String valuesSha256;
+        private final CdsCorrectionSetDto corrections;
+        private final Map<String, JsonNode> reviewed=new HashMap<>();
+        private final Set<String> applied=new HashSet<>();
+        private final CdsFieldParser correctionParser=new CdsFieldParser();
+        private Frame closingScalar;
 
         Pipeline(Path spool, Path fields, Path values, Path manifest, Path diagnostics,
-                CdsInputLimitsDto limits, BooleanSupplier cancelled, Consumer<CdsRecordDto> consumer)
+                CdsInputLimitsDto limits, BooleanSupplier cancelled, Consumer<CdsRecordDto> consumer, CdsCorrectionSetDto corrections)
                 throws IOException {
             this.spool = spool; fieldsPath = fields; valuesPath = values; manifestPath = manifest;
             diagnosticsPath = diagnostics; this.limits = limits; this.cancelled = cancelled; this.consumer = consumer;
+            this.corrections=corrections;
+            if (corrections!=null) for (JsonNode entry:correctionParser.correctionEntries(corrections, corrections.manifestFile())) {
+                String path=entry.path("sourceXPath").asText();
+                if (path.isEmpty() || reviewed.put(path, entry)!=null) throw CdsPaths.failure("CDS_CORRECTION_TARGET_AMBIGUOUS");
+            }
             fieldOutput = new CountedOutput(new BufferedOutputStream(CdsPaths.newPrivateFile(fields, spool), 65536));
             valueOutput = new ValueOutput(new BufferedOutputStream(CdsPaths.newPrivateFile(values, spool), 65536));
             valueWriter = new OutputStreamWriter(valueOutput, StandardCharsets.UTF_8.newEncoder()
@@ -208,12 +230,22 @@ public class CdsXmlParser {
                         throws SAXException {
                     Frame frame = stack.peek();
                     frame.configure(types.getElementTypeInfo());
+                    if (frame.correction!=null && (frame.mode==Mode.BINARY || frame.mode==Mode.COMPLEX)) {
+                        throw new SAXException(CdsPaths.failure("CDS_CORRECTION_TARGET_NOT_SCALAR"));
+                    }
                     for (int i = 0; i < attrs.getLength(); i++) {
                         frame.attributeTypes.put(attrs.getURI(i) + "\u0000" + attrs.getLocalName(i), types.getAttributeTypeInfo(i));
                     }
                 }
+                @Override public void characters(char[] chars, int offset, int length) throws SAXException {
+                    if (closingScalar!=null) {
+                        if (closingScalar.schemaDefault.length()+length>64) throw new SAXException(CdsPaths.failure("CDS_SCHEMA_DEFAULT_RESOURCE_LIMIT"));
+                        closingScalar.schemaDefault.append(chars, offset, length);
+                    }
+                }
             });
             validator.setErrorHandler(new DefaultHandler() {
+                @Override public void warning(SAXParseException warning) throws SAXException {schemaDiagnostic(warning,false);}
                 @Override public void error(SAXParseException failure) throws SAXException { schemaError(failure); }
                 @Override public void fatalError(SAXParseException failure) throws SAXException { schemaError(failure); throw failure; }
             });
@@ -267,8 +299,19 @@ public class CdsXmlParser {
                 }
                 if (relative.length() > limits.maxPathCharacters()) fail("CDS_XML_PATH_LIMIT");
                 Frame frame = new Frame(uri, local, relative);
+                frame.correction=section==null ? null : reviewed.get(sourcePath(relative));
                 stack.push(frame);
-                validator.startElement(uri, local, qualified, attrs);
+                Attributes validatedAttrs=attrs;
+                for (int i=0; i<attrs.getLength() && section!=null; i++) {
+                    String path=relative+(relative.isEmpty() ? "" : "/")+"@"+attrs.getLocalName(i);
+                    JsonNode change=reviewed.get(sourcePath(path));
+                    if (change!=null) {
+                        if (!attrs.getURI(i).isEmpty() || !change.path("kind").asText().equals("ATTRIBUTE")) fail("CDS_CORRECTION_STRUCTURAL_ATTRIBUTE_REFUSED");
+                        if (validatedAttrs==attrs) validatedAttrs=new AttributesImpl(attrs);
+                        ((AttributesImpl) validatedAttrs).setValue(i, CdsFieldParser.replacementLexical(change, corrections));
+                    }
+                }
+                validator.startElement(uri, local, qualified, validatedAttrs);
                 if (section != null) {
                     for (int i = 0; i < attrs.getLength(); i++) {
                         String value = attrs.getValue(i);
@@ -293,7 +336,7 @@ public class CdsXmlParser {
                     frame.base64(chars, offset, length, valueOutput, limits.maxBinaryBytes());
                 } else {
                     if (section != null && !frame.child && frame.mode != Mode.COMPLEX) valueWriter.write(chars, offset, length);
-                    frame.validate(chars, offset, length, validator, limits.maxBoundedScalarCharacters());
+                    if (frame.correction==null) frame.validate(chars, offset, length, validator, limits.maxBoundedScalarCharacters());
                 }
             } catch (IOException failed) { throw protectedFailure(failed); }
         }
@@ -303,25 +346,40 @@ public class CdsXmlParser {
         @Override public void endElement(String uri, String local, String qualified) throws SAXException {
             try {
                 Frame frame = stack.peek();
-                if (section != null && !frame.child) {
+                boolean scalar=section!=null && !frame.child;
+                if (scalar) {
+                    if (frame.correction!=null) {
+                        valueWriter.flush();
+                        frame.completedDigest=CdsPaths.hex(valueOutput.fieldDigest.digest());
+                        CdsFieldDto original=descriptor(frame, frame.relative, frame.namespace, "TEXT", frame.type);
+                        CdsFieldParser.verifyCorrection(frame.correction, original);
+                        String replacement=CdsFieldParser.replacementLexical(frame.correction, corrections);
+                        char[] chars=replacement.toCharArray();
+                        frame.validate(chars, 0, chars.length, validator, limits.maxBoundedScalarCharacters());
+                    }
                     frame.finishScalar(validator);
                     valueWriter.flush();
+                }
+                closingScalar=scalar ? frame : null;
+                try {validator.endElement(uri, local, qualified); } finally {closingScalar=null; }
+                if (scalar) {
                     writeField(frame, frame.relative, frame.namespace,
                             frame.mode == Mode.BINARY ? "BINARY" : "TEXT", frame.type);
                     if (frame.mode == Mode.BINARY) binaryBytes = Math.addExact(binaryBytes, valueOutput.count - frame.valueStart);
                 }
-                validator.endElement(uri, local, qualified);
                 if (stack.size() == 3) {
                     fieldOutput.flush(); valueWriter.flush(); valueOutput.flush();
                     CdsRecordDto record = new CdsRecordDto(section, sectionOrdinal,
                             "/OmdCds[1]/PatientRecord[1]/" + section + "[" + sectionOrdinal + "]",
                             fieldsPath, recordFieldsOffset, fieldOutput.count - recordFieldsOffset,
                             valuesPath, CdsPaths.hex(recordDigest.digest()), fields - recordFieldsBefore);
+                    if (corrections!=null) record=record.withCorrections(corrections);
                     ObjectNode row = JSON.createObjectNode().put("section", record.section()).put("ordinal", record.ordinal())
                             .put("sourceXPath", record.sourceXPath()).put("fieldsFile", fieldsPath.getFileName().toString())
                             .put("fieldsOffset", record.fieldsOffset()).put("fieldsLength", record.fieldsLength())
                             .put("valuesFile", valuesPath.getFileName().toString()).put("sha256", record.sha256())
                             .put("fieldCount", record.fieldCount());
+                    if (corrections!=null) row.set("corrections", JSON.valueToTree(corrections));
                     manifestOutput.write(JSON.writeValueAsBytes(row)); manifestOutput.write('\n'); manifestOutput.flush();
                     records++; consumer.accept(record); section = null; recordDigest = null;
                 }
@@ -331,27 +389,44 @@ public class CdsXmlParser {
 
         private void writeField(Frame frame, String path, String namespace, String kind, TypeInfo type)
                 throws IOException {
-            String schemaType = type == null ? "" : "{" + type.getTypeNamespace() + "}" + type.getTypeName();
-            CdsFieldDto field = new CdsFieldDto(path, namespace, kind, frame.valueStart,
-                    valueOutput.count - frame.valueStart, CdsPaths.hex(valueOutput.fieldDigest.digest()),
-                    schemaType, Frame.whitespace(type));
+            CdsFieldDto field=descriptor(frame, path, namespace, kind, type);
+            JsonNode change=reviewed.get(sourcePath(path));
+            if (change!=null) {
+                CdsFieldParser.verifyCorrection(change, field);
+                if (!applied.add(sourcePath(path))) fail("CDS_CORRECTION_TARGET_AMBIGUOUS");
+            }
+            frame.completedDigest=null;
             byte[] row = JSON.writeValueAsBytes(field);
             fieldOutput.write(row); fieldOutput.write('\n');
-            // Storage offsets are not source identity: the same occurrence may be spooled at
-            // another position during a resumed or differently batched preflight.
             recordDigest.update(CdsFieldParser.identity(field));
             fields++;
             valueOutput.fieldDigest = CdsPaths.sha256();
         }
 
+        private CdsFieldDto descriptor(Frame frame, String path, String namespace, String kind, TypeInfo type) {
+            String schemaType = type == null ? "" : "{" + type.getTypeNamespace() + "}" + type.getTypeName();
+            return new CdsFieldDto(path, namespace, kind, frame.valueStart,
+                    valueOutput.count - frame.valueStart, frame.completedDigest==null ? CdsPaths.hex(valueOutput.fieldDigest.digest()) : frame.completedDigest,
+                    schemaType, Frame.whitespace(type), kind.equals("TEXT") ? frame.schemaDefault.toString() : "");
+        }
+
+        private String sourcePath(String relative) {
+            return "/OmdCds[1]/PatientRecord[1]/"+section+"["+sectionOrdinal+"]"+(relative.isEmpty() ? "" : "/"+relative);
+        }
+
         @Override public void error(SAXParseException failure) throws SAXException { schemaError(failure); }
         @Override public void fatalError(SAXParseException failure) throws SAXException { schemaError(failure); throw failure; }
 
-        private void schemaError(SAXParseException failure) throws SAXException {
-            schemaErrors++;
+        private void schemaError(SAXParseException failure) throws SAXException {schemaDiagnostic(failure,true);}
+
+        @Override public void warning(SAXParseException warning) throws SAXException {schemaDiagnostic(warning,false);}
+
+        private void schemaDiagnostic(SAXParseException failure,boolean error) throws SAXException {
+            if(error)schemaErrors++;else schemaWarnings++;
             String detail = failure.getMessage();
             if (detail != null && detail.length() > 4096) detail = detail.substring(0, 4096);
-            ObjectNode row = JSON.createObjectNode().put("code", "CDS_XML_SCHEMA_INVALID")
+            ObjectNode row = JSON.createObjectNode().put("code", error?"CDS_XML_SCHEMA_INVALID":"CDS_XML_SCHEMA_WARNING")
+                    .put("severity",error?"ERROR":"WARNING").put("blocking",error)
                     .put("sourceXPath", xpath()).put("line", failure.getLineNumber())
                     .put("column", failure.getColumnNumber()).put("protectedDetailPreview", detail)
                     .put("detailPreviewLimited", failure.getMessage() != null && failure.getMessage().length() > 4096);
@@ -396,8 +471,10 @@ public class CdsXmlParser {
             return "/OmdCds[1]/PatientRecord[1]/" + section + "[" + sectionOrdinal + "]" + (relative.isEmpty() ? "" : "/" + relative);
         }
 
-        void finish(String sourceSha256,long sourceBytes) throws IOException {
+        void finish(String sourceSha256, long sourceBytes) throws IOException {
+            check();
             if (!rootSeen || patients != 1 || !stack.isEmpty()) fail("CDS_XML_ENVELOPE_INVALID");
+            if (corrections!=null && (!corrections.acceptedXmlSha256().equals(sourceSha256) || applied.size()!=reviewed.size())) fail("CDS_CORRECTION_SOURCE_XML_OR_TARGET_MISMATCH");
             fieldOutput.flush(); valueWriter.flush(); valueOutput.flush(); manifestOutput.flush(); diagnosticOutput.flush();
             CdsPaths.forceFile(fieldsPath); CdsPaths.forceFile(valuesPath); CdsPaths.forceFile(manifestPath); CdsPaths.forceFile(diagnosticsPath);
             if (schemaErrors != 0) {
@@ -412,11 +489,13 @@ public class CdsXmlParser {
             }
             CdsPaths.forceFile(spool.resolve("values-meta.json"));
             try (OutputStream seal = CdsPaths.newPrivateFile(spool.resolve("parse.seal"), spool)) {
-                ObjectNode proof=JSON.createObjectNode().put("version",2).put("sourceSha256",sourceSha256).put("sourceBytes",sourceBytes)
-                        .put("records",records).put("fields",fields).put("valuesBytes",valueOutput.count).put("valuesSha256",valuesSha256)
-                        .put("fieldsSha256",CdsPaths.hex(fieldOutput.digest.digest()))
-                        .put("recordsSha256",CdsPaths.hex(manifestOutput.digest.digest()))
-                        .put("metadataSha256",CdsPaths.hex(CdsPaths.sha256().digest(metadataBytes)));
+                ObjectNode proof=JSON.createObjectNode().put("version", 2).put("sourceSha256", sourceSha256).put("sourceBytes", sourceBytes)
+                        .put("schemaWarnings",schemaWarnings)
+                        .put("correctionsSha256", corrections==null ? "" : corrections.sha256())
+                        .put("records", records).put("fields", fields).put("valuesBytes", valueOutput.count).put("valuesSha256", valuesSha256)
+                        .put("fieldsSha256", CdsPaths.hex(fieldOutput.digest.digest()))
+                        .put("recordsSha256", CdsPaths.hex(manifestOutput.digest.digest()))
+                        .put("metadataSha256", CdsPaths.hex(CdsPaths.sha256().digest(metadataBytes)));
                 seal.write(JSON.writeValueAsBytes(proof)); seal.write('\n');
             }
             CdsPaths.forceFile(spool.resolve("parse.seal")); CdsPaths.forceDirectory(spool);
@@ -442,6 +521,9 @@ public class CdsXmlParser {
         private final Map<String, TypeInfo> attributeTypes = new HashMap<>();
         private boolean child;
         private TypeInfo type;
+        private JsonNode correction;
+        private String completedDigest;
+        private final StringBuilder schemaDefault=new StringBuilder(4);
         private Mode mode = Mode.COMPLEX;
         private String whitespace = "preserve";
         private long valueStart;
@@ -605,12 +687,12 @@ public class CdsXmlParser {
         private final OutputStream delegate;
         private final MessageDigest digest;
         protected long count;
-        CountedOutput(OutputStream delegate) { this(delegate,true); }
-        CountedOutput(OutputStream delegate,boolean hash) { this.delegate = delegate; digest=hash ? CdsPaths.sha256() : null; }
-        @Override public void write(int value) throws IOException { delegate.write(value); count++; if(digest!=null) digest.update((byte)value); }
+        CountedOutput(OutputStream delegate) { this(delegate, true); }
+        CountedOutput(OutputStream delegate, boolean hash) { this.delegate = delegate; digest=hash ? CdsPaths.sha256() : null; }
+        @Override public void write(int value) throws IOException { delegate.write(value); count++; if (digest!=null) digest.update((byte) value); }
         @Override public void write(byte[] bytes, int offset, int length) throws IOException {
             delegate.write(bytes, offset, length); count = Math.addExact(count, length);
-            if(digest!=null) digest.update(bytes,offset,length);
+            if (digest!=null) digest.update(bytes, offset, length);
         }
         @Override public void flush() throws IOException { delegate.flush(); }
         @Override public void close() throws IOException { delegate.close(); }
@@ -619,7 +701,7 @@ public class CdsXmlParser {
     private static final class ValueOutput extends CountedOutput {
         private MessageDigest fieldDigest = CdsPaths.sha256();
         private final MessageDigest fileDigest = CdsPaths.sha256();
-        ValueOutput(OutputStream output) { super(output,false); }
+        ValueOutput(OutputStream output) { super(output, false); }
         @Override public void write(int value) throws IOException { super.write(value); fieldDigest.update((byte) value); fileDigest.update((byte) value); }
         @Override public void write(byte[] bytes, int offset, int length) throws IOException {
             super.write(bytes, offset, length); fieldDigest.update(bytes, offset, length); fileDigest.update(bytes, offset, length);

@@ -159,6 +159,17 @@ public class CdsSnapshotService {
     public CdsSnapshotDto load(Path published) throws IOException { return load(published, true); }
 
     public CdsSnapshotDto load(Path published, boolean verifyContent) throws IOException {
+        return load(published, verifyContent, ()-> false);
+    }
+
+    public CdsSnapshotDto load(Path published, boolean verifyContent, BooleanSupplier cancelled) throws IOException {
+        long[] next={0};
+        BooleanSupplier checked=()-> {
+            if (Thread.currentThread().isInterrupted()) return true;
+            long now=System.nanoTime();
+            if (now>=next[0]) {next[0]=now+250_000_000L; return cancelled.getAsBoolean(); }
+            return false;
+        };
         if (Files.isSymbolicLink(published) || !Files.isDirectory(published, LinkOption.NOFOLLOW_LINKS)
                 || published.getFileName().toString().endsWith(".pending")) throw CdsPaths.failure("CDS_SNAPSHOT_NOT_PUBLISHED");
         Path root = published.toRealPath(LinkOption.NOFOLLOW_LINKS);
@@ -175,12 +186,13 @@ public class CdsSnapshotService {
         try (InputStream input = new BufferedInputStream(Files.newInputStream(root.resolve("files.jsonl"), LinkOption.NOFOLLOW_LINKS), BUFFER)) {
             byte[] row;
             while ((row = CdsFieldParser.readMetadataLine(input)) != null) {
+                if (checked.getAsBoolean()) throw CdsPaths.failure("CDS_INPUT_CANCELLED");
                 digest.update(row); digest.update((byte) '\n');
                 JsonNode node = JSON.readTree(row);
                 CdsSnapshotFileDto member = file(provisional, node);
                 if (member.length() < 0 || !member.sha256().matches("[0-9a-f]{64}")
                         || Files.size(member.path()) != member.length()) throw CdsPaths.failure("CDS_SNAPSHOT_MEMBER_CHANGED");
-                if (verifyContent && !member.sha256().equals(hashFile(member.path()))) throw CdsPaths.failure("CDS_SNAPSHOT_MEMBER_CHANGED");
+                if (verifyContent && !member.sha256().equals(hashFile(member.path(), checked))) throw CdsPaths.failure("CDS_SNAPSHOT_MEMBER_CHANGED");
                 count++; if (member.patientXml()) xmls++;
                 size = Math.addExact(size, member.length());
             }
@@ -190,7 +202,7 @@ public class CdsSnapshotService {
         if (!archiveHash.isEmpty()) {
             Path archive = root.resolve("source-archive.bin");
             if (!Files.isRegularFile(archive, LinkOption.NOFOLLOW_LINKS)
-                    || verifyContent && !archiveHash.equals(hashFile(archive))) throw CdsPaths.failure("CDS_SNAPSHOT_ARCHIVE_CHANGED");
+                    || verifyContent && !archiveHash.equals(hashFile(archive, checked))) throw CdsPaths.failure("CDS_SNAPSHOT_ARCHIVE_CHANGED");
         }
         if (!manifestHash.equals(expectedManifest) || count != seal.path("files").asLong(-1)
                 || xmls != seal.path("patientXmlFiles").asLong(-1) || size != seal.path("totalBytes").asLong(-1)) {
@@ -321,11 +333,15 @@ public class CdsSnapshotService {
     }
 
     private static String hashFile(Path path) throws IOException {
+        return hashFile(path, ()-> false);
+    }
+
+    private static String hashFile(Path path, BooleanSupplier cancelled) throws IOException {
         MessageDigest digest = CdsPaths.sha256();
         try (InputStream input = new BufferedInputStream(Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS), BUFFER)) {
             byte[] buffer = new byte[BUFFER]; int n;
             while ((n = input.read(buffer)) >= 0) {
-                if (Thread.currentThread().isInterrupted()) throw CdsPaths.failure("CDS_INPUT_CANCELLED");
+                if (Thread.currentThread().isInterrupted() || cancelled.getAsBoolean()) throw CdsPaths.failure("CDS_INPUT_CANCELLED");
                 if (n > 0) digest.update(buffer, 0, n);
             }
         }
@@ -373,7 +389,7 @@ public class CdsSnapshotService {
                 private final Set<String> names = new HashSet<>();
                 private final Set<String> aliases = new HashSet<>();
                 private final Set<String> namespaces = new HashSet<>();
-                @Override public void startPrefixMapping(String prefix,String uri) throws SAXException {
+                @Override public void startPrefixMapping(String prefix, String uri) throws SAXException {
                     if (prefix.length()>inventory.limits.maxXmlNameCharacters() || uri.length()>inventory.limits.maxNamespaceUriCharacters()
                             || aliases.add(prefix) && aliases.size()>inventory.limits.maxNamespaceAliases()
                             || namespaces.add(uri) && namespaces.size()>inventory.limits.maxNamespaceAliases()) {
@@ -388,7 +404,7 @@ public class CdsSnapshotService {
                 @Override public void startElement(String uri, String local, String qualified, Attributes attrs) throws SAXException {
                     name(qualified);
                     if (attrs.getLength()>128) throw new SAXException(CdsPaths.failure("CDS_XML_ATTRIBUTE_RESOURCE_LIMIT"));
-                    for(int i=0;i<attrs.getLength();i++) name(attrs.getQName(i));
+                    for (int i=0; i<attrs.getLength(); i++) name(attrs.getQName(i));
                     depth++;
                     if (depth > inventory.limits.maxXmlDepth()) throw new SAXException(CdsPaths.failure("CDS_XML_DEPTH_LIMIT"));
                     if (depth == 3 && uri.equals("cds") && local.equals("Reports")) reportDepth = depth;
@@ -476,7 +492,7 @@ public class CdsSnapshotService {
                 nextResourceCheck=now+250_000_000L;
             }
             if ((now - started) / 1_000_000 > limits.maxDurationMillis()) throw CdsPaths.failure("CDS_INPUT_DEADLINE");
-            long written=Math.addExact(total,archiveCopied);
+            long written=Math.addExact(total, archiveCopied);
             if (written>=nextDiskCheck) {
                 if (Files.getFileStore(pending).getUsableSpace() < limits.minimumFreeDiskBytes()) throw CdsPaths.failure("CDS_INPUT_DISK_RESERVE");
                 nextDiskCheck=written+(16L<<20);

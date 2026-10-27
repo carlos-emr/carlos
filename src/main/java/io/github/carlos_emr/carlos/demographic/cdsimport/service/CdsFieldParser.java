@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsFieldDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCorrectionSetDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.ByteArrayOutputStream;
@@ -52,6 +53,11 @@ import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
+import java.util.Optional;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Collections;
+import java.util.regex.Pattern;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.io.BufferedOutputStream;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto;
@@ -61,10 +67,15 @@ import org.springframework.stereotype.Service;
 /** Bounded access to persisted source fields; no record-sized collection or XML graph is built. */
 @Service
 public class CdsFieldParser {
-    private record CorrectionCache(Path path,String digest,String xmlDigest,List<JsonNode> entries) { }
+    private static final Pattern ORDINAL=Pattern.compile("\\[[0-9]+\\]");
+    private record FieldIndex(CdsRecordDto record, Map<String, CdsFieldDto> first, boolean complete) { }
+    private volatile FieldIndex firstFields;
+    private record CorrectionCache(Path path, String digest, String xmlDigest, List<JsonNode> entries, boolean physicallyVerified) { }
     /** One bounded immutable manifest, never a cache that grows with patients or imports. */
     private volatile CorrectionCache correctionCache;
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = new ObjectMapper(com.fasterxml.jackson.core.JsonFactory.builder()
+            .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION).build())
+            .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final int MAX_METADATA_LINE = 65536;
 
     public void forEachField(CdsRecordDto record, Consumer<CdsFieldDto> consumer) throws IOException {
@@ -113,21 +124,99 @@ public class CdsFieldParser {
         return readLogicalText(record, field, maxNormalizedCharacters, "collapse");
     }
 
+    /** Returns only an explicit audited override; a large original remains a streamed source reference. */
+    public Optional<String> correctedLogicalText(CdsRecordDto record, CdsFieldDto field, int maxCharacters) throws IOException {
+        if (findCorrection(record, field)==null) return Optional.empty();
+        return Optional.of(readLogicalText(record, field, maxCharacters));
+    }
+
+    @FunctionalInterface public interface CorrectionFileConsumer {
+        void accept(Path path, String sha256, long bytes) throws IOException;
+    }
+
+    /** At most129 immutable files; publication verifies all, while a field page adopts only its used values. */
+    public void forEachCorrectionFile(CdsRecordDto record, boolean matchingFieldsOnly, CorrectionFileConsumer consumer) throws IOException {
+        if (record.corrections()==null) return;
+        var reference=record.corrections(); Path manifest=CdsPaths.within(reference.manifestFile(), record.fieldsFile().getParent());
+        List<JsonNode> entries=correctionEntries(reference, manifest);
+        consumer.accept(manifest, reference.sha256(), Files.size(manifest));
+        Set<String> wanted=new HashSet<>();
+        try { if (matchingFieldsOnly) forEachField(record, field-> {
+            String full=record.sourceXPath()+(field.path().isEmpty() ? "" : "/"+field.path());
+            for (JsonNode entry:entries) if (entry.path("sourceXPath").asText().equals(full)) {
+                try {verifyCorrection(entry, field); } catch (IOException failure) {throw new java.io.UncheckedIOException(failure); }
+                wanted.add(full);
+            }
+        }); } catch (java.io.UncheckedIOException failed) {throw failed.getCause(); }
+        Map<String, String> seen=new HashMap<>();
+        for (JsonNode entry:entries) {
+            if (matchingFieldsOnly && !wanted.contains(entry.path("sourceXPath").asText())) continue;
+            String name=entry.path("replacementFile").asText(), digest=entry.path("replacementSha256").asText();
+            long bytes=entry.path("replacementBytes").asLong(-1);
+            if (!name.matches("[A-Za-z0-9_-]{1,128}\\.[A-Za-z0-9]{1,12}") || !digest.matches("[0-9a-f]{64}") || bytes<0 || bytes>262144) {
+                throw failure("CDS_CORRECTION_REPLACEMENT_INVALID");
+            }
+            String identity=digest+":"+bytes, old=seen.putIfAbsent(name, identity);
+            if (old!=null && !old.equals(identity)) throw failure("CDS_CORRECTION_REPLACEMENT_CONFLICT");
+            if (old==null) consumer.accept(member(manifest.getParent(), name), digest, bytes);
+        }
+    }
+
+    /** Coordinator calls this only after every correction artifact has current-epoch physical SHA proof. */
+    void acceptVerifiedCorrections(CdsRecordDto record) throws IOException {
+        if (record.corrections()==null) return;
+        var reference=record.corrections(); List<JsonNode> entries=correctionEntries(reference, reference.manifestFile());
+        correctionCache=new CorrectionCache(reference.manifestFile(), reference.sha256(), reference.acceptedXmlSha256(), entries, true);
+    }
+
     private String firstValue(CdsRecordDto record, String path, String namespace, int maxCharacters,
             String explicitWhitespace) throws IOException {
         if (path == null || maxCharacters < 0) throw new IllegalArgumentException("Invalid field request");
-        CdsFieldDto[] first = new CdsFieldDto[1];
+        FieldIndex index=firstIndex(record);
+        String normalized=unindexed(path);
+        CdsFieldDto selected=null;
+        if (namespace!=null) selected=index.first().get(namespace+"\u0000"+normalized);
+        else for (CdsFieldDto value:index.first().values()) {
+            if (unindexed(value.path()).equals(normalized) && knownNamespace(value)) {selected=value; break; }
+        }
         boolean indexed = path.indexOf('[') >= 0;
-        forEachField(record, field -> {
-            if (first[0] != null || field.kind().equals("BINARY")) return;
-            boolean knownNamespace = field.namespace().equals("cds") || field.namespace().equals("cds_dt")
-                    || field.kind().equals("ATTRIBUTE") && field.namespace().isEmpty();
-            if (namespace == null ? !knownNamespace : !namespace.equals(field.namespace())) return;
-            String candidate = indexed ? field.path() : unindexed(field.path());
-            if (candidate.equals(path)) first[0] = field;
+        if (selected==null && !index.complete() || selected!=null && indexed && !selected.path().equals(path)) {
+            CdsFieldDto[] first={null};
+            forEachField(record, field-> {
+                if (first[0]!=null || field.kind().equals("BINARY")
+                        || (namespace==null ? !knownNamespace(field) : !namespace.equals(field.namespace()))) return;
+                if ((indexed ? field.path() : unindexed(field.path())).equals(path)) first[0]=field;
+            });
+            selected=first[0];
+        }
+        return selected==null ? null : readLogicalText(record, selected, maxCharacters,
+                explicitWhitespace==null ? selected.whitespace() : explicitWhitespace);
+    }
+
+    private FieldIndex firstIndex(CdsRecordDto record) throws IOException {
+        FieldIndex cached=firstFields;
+        if (cached!=null && sameSlice(cached.record(), record)) return cached;
+        Map<String, CdsFieldDto> first=new LinkedHashMap<>(); boolean[] complete={true};
+        forEachField(record, field-> {
+            if (field.kind().equals("BINARY")) return;
+            String key=field.namespace()+"\u0000"+unindexed(field.path());
+            if (first.containsKey(key)) return;
+            if (first.size()==128) {complete[0]=false; return; }
+            first.put(key, field);
         });
-        return first[0] == null ? null : readLogicalText(record, first[0], maxCharacters,
-                explicitWhitespace == null ? first[0].whitespace() : explicitWhitespace);
+        FieldIndex built=new FieldIndex(record, Collections.unmodifiableMap(first), complete[0]);
+        firstFields=built; return built;
+    }
+
+    private static boolean sameSlice(CdsRecordDto a, CdsRecordDto b) {
+        return a.fieldsFile().equals(b.fieldsFile()) && a.valuesFile().equals(b.valuesFile())
+                && a.fieldsOffset()==b.fieldsOffset() && a.fieldsLength()==b.fieldsLength()
+                && a.fieldCount()==b.fieldCount() && a.sha256().equals(b.sha256());
+    }
+
+    private static boolean knownNamespace(CdsFieldDto field) {
+        return field.namespace().equals("cds") || field.namespace().equals("cds_dt")
+                || field.kind().equals("ATTRIBUTE") && field.namespace().isEmpty();
     }
 
     public String readText(CdsRecordDto record, CdsFieldDto field, int maxCharacters) throws IOException {
@@ -253,7 +342,7 @@ public class CdsFieldParser {
 
     private static CdsRecordDto page(CdsRecordDto source, long offset, long length, String digest, long count) {
         return new CdsRecordDto(source.section(), source.ordinal(), source.sourceXPath(), source.fieldsFile(),
-                offset, length, source.valuesFile(), digest, count,source.corrections());
+                offset, length, source.valuesFile(), digest, count, source.corrections());
     }
 
     public void forEachSubrecord(CdsRecordDto record, String topLevelName, Consumer<CdsRecordDto> consumer)
@@ -268,6 +357,16 @@ public class CdsFieldParser {
      */
     public void forEachSubrecord(CdsRecordDto record, String topLevelName, CdsInputLimitsDto limits,
             Consumer<CdsRecordDto> consumer) throws IOException {
+        FieldIndex index=firstIndex(record);
+        if(index.complete()) {
+            boolean found=false;
+            for(CdsFieldDto field:index.first().values()) {
+                int slash=field.path().indexOf('/');String first=slash<0?field.path():field.path().substring(0,slash);
+                int bracket=first.lastIndexOf('[');
+                if(bracket>0 && (topLevelName==null || topLevelName.equals("*") || first.substring(0,bracket).equals(topLevelName))) {found=true;break;}
+            }
+            if(!found)return;
+        }
         if (topLevelName != null && !topLevelName.equals("*") && !topLevelName.matches("[A-Za-z][A-Za-z0-9]*")) {
             throw new IllegalArgumentException("Invalid CDS child selection");
         }
@@ -297,7 +396,7 @@ public class CdsFieldParser {
                         if (scope == null) return;
                         output.flush(); channel.force(false);
                         consumer.accept(new CdsRecordDto(name, ordinal, record.sourceXPath() + "/" + scope,
-                                metadata, start, position - start, record.valuesFile(), CdsPaths.hex(digest.digest()), count,record.corrections()));
+                                metadata, start, position - start, record.valuesFile(), CdsPaths.hex(digest.digest()), count, record.corrections()));
                         scope = null; count = 0; start = position; digest = CdsPaths.sha256();
                     }
                     void field(CdsFieldDto original) throws IOException {
@@ -316,7 +415,7 @@ public class CdsFieldParser {
                         }
                         CdsFieldDto rebased = new CdsFieldDto(slash < 0 ? "" : original.path().substring(slash + 1),
                                 original.namespace(), original.kind(), original.offset(), original.length(), original.sha256(),
-                                original.schemaType(), original.whitespace());
+                                original.schemaType(), original.whitespace(), original.schemaDefault());
                         byte[] row = JSON.writeValueAsBytes(rebased);
                         output.write(row); output.write('\n'); position = Math.addExact(position, row.length + 1L);
                         digest.update(identity(rebased)); count++;
@@ -338,7 +437,8 @@ public class CdsFieldParser {
     static byte[] identity(CdsFieldDto field) {
         return (field.path() + "\u0000" + field.namespace() + "\u0000" + field.kind() + "\u0000"
                 + field.length() + "\u0000" + field.sha256() + "\u0000" + field.schemaType() + "\u0000"
-                + field.whitespace() + "\n").getBytes(StandardCharsets.UTF_8);
+                + field.whitespace()+"\u0000"+field.schemaDefault()+"\u0000"+CdsSchemaValidator.MAIN_SHA256+"\u0000"
+                + CdsSchemaValidator.DATATYPE_SHA256 + "\n").getBytes(StandardCharsets.UTF_8);
     }
 
     public void forEachRecord(Path manifest, Consumer<CdsRecordDto> consumer) throws IOException {
@@ -353,13 +453,14 @@ public class CdsFieldParser {
                 consumer.accept(new CdsRecordDto(node.path("section").asText(), node.path("ordinal").asLong(),
                         node.path("sourceXPath").asText(), fields, node.path("fieldsOffset").asLong(),
                         node.path("fieldsLength").asLong(), values, node.path("sha256").asText(),
-                        node.path("fieldCount").asLong()));
+                        node.path("fieldCount").asLong(), node.hasNonNull("corrections")
+                                ? JSON.treeToValue(node.path("corrections"), CdsCorrectionSetDto.class) : null));
             }
         }
     }
 
     public static String unindexed(String path) {
-        return path.replaceAll("\\[[0-9]+\\]", "");
+        return ORDINAL.matcher(path).replaceAll("");
     }
 
     private String readLogicalText(CdsRecordDto record, CdsFieldDto field, int maximum, String whitespace)
@@ -367,7 +468,7 @@ public class CdsFieldParser {
         if (maximum < 0 || field.kind().equals("BINARY") || !Set.of("preserve", "replace", "collapse").contains(whitespace)) {
             throw new IllegalArgumentException("Invalid textual CDS field request");
         }
-        InputStream logical=logicalValue(record,field);
+        InputStream logical=logicalValue(record, field);
         try (InputStream input = logical;
                 Reader reader = new InputStreamReader(input, StandardCharsets.UTF_8.newDecoder()
                         .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT))) {
@@ -388,68 +489,99 @@ public class CdsFieldParser {
                     result.append(whitespace.equals("replace") && space ? ' ' : c);
                 }
             }
-            return result.toString();
+            String value=result.toString();
+            if (value.isEmpty() && !field.schemaDefault().isEmpty()) {
+                value=field.schemaDefault();
+                if (value.codePointCount(0, value.length())>maximum) throw failure("CDS_TARGET_TEXT_CAPACITY_EXCEEDED");
+            }
+            return value;
         }
     }
 
-    private InputStream logicalValue(CdsRecordDto record,CdsFieldDto field) throws IOException {
-        if(record.corrections()==null) return openValue(record,field);
-        Path parent=record.fieldsFile().toAbsolutePath().getParent();
-        Path manifest=CdsPaths.within(record.corrections().manifestFile(),parent);
-        List<JsonNode> entries=correctionEntries(record,manifest);
-        String full=record.sourceXPath()+(field.path().isEmpty() ? "" : "/"+field.path());
-        JsonNode match=null;
-        for(JsonNode entry:entries) {
-            if(!entry.path("sourceXPath").asText().equals(full)) continue;
-            if(match!=null) throw failure("CDS_CORRECTION_TARGET_AMBIGUOUS");
-            if(!entry.path("namespace").asText().equals(field.namespace()) || !entry.path("kind").asText().equals(field.kind())
-                    || field.kind().equals("BINARY") || !entry.path("schemaType").asText().equals(field.schemaType())
-                    || !entry.path("whitespace").asText().equals(field.whitespace())
-                    || !entry.path("originalSha256").asText().equals(field.sha256()) || entry.path("originalLength").asLong(-1)!=field.length()) {
-                throw failure("CDS_CORRECTION_SOURCE_IDENTITY_MISMATCH");
-            }
-            match=entry;
-        }
-        if(match==null) return openValue(record,field);
+    private InputStream logicalValue(CdsRecordDto record, CdsFieldDto field) throws IOException {
+        JsonNode match=findCorrection(record, field);
+        if (match==null) return openValue(record, field);
+        Path manifest=record.corrections().manifestFile();
         long length=match.path("replacementBytes").asLong(-1);
         String hash=match.path("replacementSha256").asText();
-        if(length<0 || length>262144 || !hash.matches("[0-9a-f]{64}")) throw failure("CDS_CORRECTION_REPLACEMENT_INVALID");
+        if (length<0 || length>262144 || !hash.matches("[0-9a-f]{64}")) throw failure("CDS_CORRECTION_REPLACEMENT_INVALID");
         String member=match.path("replacementFile").asText();
-        if(!member.matches("[A-Za-z0-9_-]{1,128}\\.[A-Za-z0-9]{1,12}")) throw failure("CDS_CORRECTION_REPLACEMENT_INVALID");
-        Path replacement=member(manifest.getParent(),member);
-        if(Files.size(replacement)!=length) throw failure("CDS_CORRECTION_REPLACEMENT_CHANGED");
-        CdsRecordDto value=new CdsRecordDto(record.section(),record.ordinal(),record.sourceXPath(),record.fieldsFile(),
-                record.fieldsOffset(),record.fieldsLength(),replacement,record.sha256(),record.fieldCount());
-        return openValue(value,new CdsFieldDto(field.path(),field.namespace(),field.kind(),0,length,hash,field.schemaType(),field.whitespace()));
+        if (!member.matches("[A-Za-z0-9_-]{1,128}\\.[A-Za-z0-9]{1,12}")) throw failure("CDS_CORRECTION_REPLACEMENT_INVALID");
+        Path replacement=member(manifest.getParent(), member);
+        if (Files.size(replacement)!=length) throw failure("CDS_CORRECTION_REPLACEMENT_CHANGED");
+        CdsRecordDto value=new CdsRecordDto(record.section(), record.ordinal(), record.sourceXPath(), record.fieldsFile(),
+                record.fieldsOffset(), record.fieldsLength(), replacement, record.sha256(), record.fieldCount());
+        return openValue(value, new CdsFieldDto(field.path(), field.namespace(), field.kind(), 0, length, hash, field.schemaType(), field.whitespace()));
     }
 
-    private List<JsonNode> correctionEntries(CdsRecordDto record,Path manifest) throws IOException {
-        var reference=record.corrections(); CorrectionCache cached=correctionCache;
-        if(cached!=null && cached.path().equals(manifest) && cached.digest().equals(reference.sha256())
+    private JsonNode findCorrection(CdsRecordDto record, CdsFieldDto field) throws IOException {
+        if (record.corrections()==null) return null;
+        Path parent=record.fieldsFile().toAbsolutePath().getParent();
+        Path manifest=CdsPaths.within(record.corrections().manifestFile(), parent);
+        List<JsonNode> entries=correctionEntries(record.corrections(), manifest);
+        String full=record.sourceXPath()+(field.path().isEmpty() ? "" : "/"+field.path());
+        JsonNode match=null;
+        for (JsonNode entry:entries) {
+            if (!entry.path("sourceXPath").asText().equals(full)) continue;
+            if (match!=null) throw failure("CDS_CORRECTION_TARGET_AMBIGUOUS");
+            verifyCorrection(entry, field);
+            match=entry;
+        }
+        return match;
+    }
+
+    List<JsonNode> correctionEntries(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCorrectionSetDto reference, Path manifest) throws IOException {
+        CorrectionCache cached=correctionCache;
+        if (cached!=null && cached.path().equals(manifest) && cached.digest().equals(reference.sha256())
                 && cached.xmlDigest().equals(reference.acceptedXmlSha256())) {
+            if (cached.physicallyVerified()) return cached.entries();
             MessageDigest hash=CdsPaths.sha256(); long count=0;
-            try(InputStream input=Files.newInputStream(manifest,LinkOption.NOFOLLOW_LINKS)) {
+            try (InputStream input=Files.newInputStream(manifest, LinkOption.NOFOLLOW_LINKS)) {
                 byte[] buffer=new byte[8192]; int n;
-                while((n=input.read(buffer))>=0) {
-                    count+=n; if(count>(1<<20)) throw failure("CDS_CORRECTION_MANIFEST_CAPACITY_EXCEEDED"); hash.update(buffer,0,n);
+                while ((n=input.read(buffer))>=0) {
+                    count+=n; if (count>(1<<20)) throw failure("CDS_CORRECTION_MANIFEST_CAPACITY_EXCEEDED"); hash.update(buffer, 0, n);
                 }
             }
-            if(!reference.sha256().equals(CdsPaths.hex(hash.digest()))) throw failure("CDS_CORRECTION_MANIFEST_HASH_MISMATCH");
+            if (!reference.sha256().equals(CdsPaths.hex(hash.digest()))) throw failure("CDS_CORRECTION_MANIFEST_HASH_MISMATCH");
             return cached.entries();
         }
         byte[] bytes;
-        try(InputStream input=Files.newInputStream(manifest,LinkOption.NOFOLLOW_LINKS)) {
+        try (InputStream input=Files.newInputStream(manifest, LinkOption.NOFOLLOW_LINKS)) {
             bytes=input.readNBytes(1<<20);
-            if(input.read()!=-1) throw failure("CDS_CORRECTION_MANIFEST_CAPACITY_EXCEEDED");
+            if (input.read()!=-1) throw failure("CDS_CORRECTION_MANIFEST_CAPACITY_EXCEEDED");
         }
-        if(!reference.sha256().equals(CdsPaths.hex(CdsPaths.sha256().digest(bytes)))) throw failure("CDS_CORRECTION_MANIFEST_HASH_MISMATCH");
-        JsonNode document=JSON.readTree(bytes),entries=document.path("corrections");
-        if(document.path("version").asInt()!=1 || !reference.acceptedXmlSha256().equals(document.path("acceptedXmlSha256").asText())
+        if (!reference.sha256().equals(CdsPaths.hex(CdsPaths.sha256().digest(bytes)))) throw failure("CDS_CORRECTION_MANIFEST_HASH_MISMATCH");
+        JsonNode document=JSON.readTree(bytes), entries=document.path("corrections");
+        if (document.path("version").asInt()!=1 || !reference.acceptedXmlSha256().equals(document.path("acceptedXmlSha256").asText())
                 || !entries.isArray() || entries.size()>128) throw failure("CDS_CORRECTION_MANIFEST_INVALID");
         List<JsonNode> list=new ArrayList<>(entries.size()); entries.forEach(list::add);
         List<JsonNode> immutable=List.copyOf(list);
-        correctionCache=new CorrectionCache(manifest,reference.sha256(),reference.acceptedXmlSha256(),immutable);
+        correctionCache=new CorrectionCache(manifest, reference.sha256(), reference.acceptedXmlSha256(), immutable, false);
         return immutable;
+    }
+
+    static void verifyCorrection(JsonNode entry, CdsFieldDto field) throws IOException {
+        if (!entry.path("namespace").asText().equals(field.namespace()) || !entry.path("kind").asText().equals(field.kind())
+                || field.kind().equals("BINARY") || !entry.path("schemaType").asText().equals(field.schemaType())
+                || !entry.path("whitespace").asText().equals(field.whitespace())
+                || !entry.path("originalSha256").asText().equals(field.sha256()) || entry.path("originalLength").asLong(-1)!=field.length()) {
+            throw failure("CDS_CORRECTION_SOURCE_IDENTITY_MISMATCH");
+        }
+    }
+
+    static String replacementLexical(JsonNode entry, io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCorrectionSetDto reference) throws IOException {
+        String name=entry.path("replacementFile").asText(), hash=entry.path("replacementSha256").asText();
+        long length=entry.path("replacementBytes").asLong(-1);
+        if (!name.matches("[A-Za-z0-9_-]{1,128}\\.[A-Za-z0-9]{1,12}") || length<0 || length>262144 || !hash.matches("[0-9a-f]{64}")) {
+            throw failure("CDS_CORRECTION_REPLACEMENT_INVALID");
+        }
+        byte[] bytes;
+        try (InputStream input=Files.newInputStream(member(reference.manifestFile().getParent(), name), LinkOption.NOFOLLOW_LINKS)) {
+            bytes=input.readNBytes((int) length);
+            if (bytes.length!=length || input.read()!=-1 || !hash.equals(CdsPaths.hex(CdsPaths.sha256().digest(bytes)))) throw failure("CDS_CORRECTION_REPLACEMENT_CHANGED");
+        }
+        return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(bytes)).toString();
     }
 
     private static Path member(Path parent, String name) throws IOException {

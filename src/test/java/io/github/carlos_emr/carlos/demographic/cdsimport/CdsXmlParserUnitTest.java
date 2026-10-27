@@ -135,6 +135,28 @@ class CdsXmlParserUnitTest {
         assertEquals(original, fields.readText(demographic, selected.get(0), original.length()));
     }
 
+    @Test void shouldKeepExplicitFixedValueOriginal_whenItAlreadyMatchesSchema() throws Exception {
+        CdsRecordDto demographic=parse(fixture()).get(0);List<CdsFieldDto> matched=new ArrayList<>();
+        fields.forEachField(demographic,field->{if(field.path().equals("Names[1]/LegalName[1]/FirstName[1]/PartType[1]"))matched.add(field);});
+        assertEquals("",matched.get(0).schemaDefault());assertEquals("GIV",fields.readText(demographic,matched.get(0),3));
+        assertEquals("GIV",fields.firstText(demographic,"Names/LegalName/FirstName/PartType",3));
+    }
+
+    @Test void shouldCaptureOnlyValidatorSuppliedFixedDefault_whileRawEmptyFieldStaysEmpty() throws Exception {
+        CdsRecordDto demographic=parse(fixture().replace("<cdsd:PartType>GIV</cdsd:PartType>","<cdsd:PartType/>")).get(0);
+        List<CdsFieldDto> matched=new ArrayList<>();fields.forEachField(demographic,field->{if(field.path().equals("Names[1]/LegalName[1]/FirstName[1]/PartType[1]"))matched.add(field);});
+        assertEquals("GIV",matched.get(0).schemaDefault());assertEquals(0,matched.get(0).length());
+        assertEquals("",fields.readText(demographic,matched.get(0),0));
+        assertEquals("GIV",fields.firstText(demographic,"Names/LegalName/FirstName/PartType",3));
+        List<CdsRecordDto> children=new ArrayList<>();fields.forEachSubrecord(demographic,"Names",children::add);
+        assertEquals("GIV",fields.firstToken(children.get(0),"LegalName/FirstName/PartType",3));fields.verifyRecord(demographic);
+    }
+
+    @Test void shouldRefuseMissingFixedElementOrWrongExplicitValue_insteadOfInventingAnElement() throws Exception {
+        assertThrows(CdsInputException.class,()->parse(fixture().replace("<cdsd:PartType>GIV</cdsd:PartType>","")));
+        assertThrows(CdsInputException.class,()->parse(fixture().replace("<cdsd:PartType>GIV</cdsd:PartType>","<cdsd:PartType>FAMC</cdsd:PartType>")));
+    }
+
     @Test
     void shouldCountUnicodeCodepoints_whenMaximumLengthTextContainsAstralCharacters() throws Exception {
         String note = "\ud83d\ude00".repeat(32768);
@@ -197,6 +219,10 @@ class CdsXmlParserUnitTest {
         var factory = SAXParserFactory.newInstance(); factory.setNamespaceAware(true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         var reader = factory.newSAXParser().getXMLReader(); reader.setContentHandler(validator);
+        reader.setErrorHandler(new DefaultHandler() {
+            @Override public void error(SAXParseException invalid) throws SAXException { throw invalid; }
+            @Override public void fatalError(SAXParseException invalid) throws SAXException { throw invalid; }
+        });
         try { reader.parse(new InputSource(new StringReader(input))); return true; }
         catch (SAXException invalid) { return false; }
     }

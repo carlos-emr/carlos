@@ -24,9 +24,9 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 import java.nio.file.Path;
 
 /** Immutable, separately reviewed logical corrections; original source bytes remain authoritative evidence. */
-public record CdsCorrectionSetDto(Path manifestFile,String sha256,String acceptedXmlSha256) {
+public record CdsCorrectionSetDto(Path manifestFile, String sha256, String acceptedXmlSha256) {
     public CdsCorrectionSetDto {
-        if(manifestFile==null || sha256==null || !sha256.matches("[0-9a-f]{64}")
+        if (manifestFile==null || sha256==null || !sha256.matches("[0-9a-f]{64}")
                 || acceptedXmlSha256==null || !acceptedXmlSha256.matches("[0-9a-f]{64}")) {
             throw new IllegalArgumentException("Invalid CDS correction reference");
         }

@@ -31,9 +31,9 @@ import java.util.HexFormat;
 public record CdsRecordDto(String section, long ordinal, String sourceXPath, Path fieldsFile,
         long fieldsOffset, long fieldsLength, Path valuesFile, String sha256, long fieldCount,
         CdsCorrectionSetDto corrections) {
-    public CdsRecordDto(String section,long ordinal,String sourceXPath,Path fieldsFile,long fieldsOffset,
-            long fieldsLength,Path valuesFile,String sha256,long fieldCount) {
-        this(section,ordinal,sourceXPath,fieldsFile,fieldsOffset,fieldsLength,valuesFile,sha256,fieldCount,null);
+    public CdsRecordDto(String section, long ordinal, String sourceXPath, Path fieldsFile, long fieldsOffset,
+            long fieldsLength, Path valuesFile, String sha256, long fieldCount) {
+        this(section, ordinal, sourceXPath, fieldsFile, fieldsOffset, fieldsLength, valuesFile, sha256, fieldCount, null);
     }
     public CdsRecordDto {
         if (section == null || sourceXPath == null || fieldsFile == null || valuesFile == null
@@ -44,15 +44,15 @@ public record CdsRecordDto(String section, long ordinal, String sourceXPath, Pat
     }
 
     public CdsRecordDto withCorrections(CdsCorrectionSetDto value) {
-        return new CdsRecordDto(section,ordinal,sourceXPath,fieldsFile,fieldsOffset,fieldsLength,valuesFile,sha256,fieldCount,value);
+        return new CdsRecordDto(section, ordinal, sourceXPath, fieldsFile, fieldsOffset, fieldsLength, valuesFile, sha256, fieldCount, value);
     }
 
     /** Clinical unit identity binds reviewed changes while source metadata verification stays original. */
     public String effectiveSha256() {
-        if(corrections==null) return sha256;
+        if (corrections==null) return sha256;
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(
                     ("cds-logical-record-v1\0"+sha256+"\0"+corrections.sha256()+"\0"+corrections.acceptedXmlSha256()).getBytes(StandardCharsets.US_ASCII)));
-        } catch(NoSuchAlgorithmException unavailable) { throw new IllegalStateException("SHA256 unavailable"); }
+        } catch (NoSuchAlgorithmException unavailable) { throw new IllegalStateException("SHA256 unavailable"); }
     }
 }

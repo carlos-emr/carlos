@@ -56,6 +56,8 @@ public final class CdsSchemaValidator {
     public static ValidatorHandler newValidator() {
         ValidatorHandler handler = Compiled.SCHEMA.newValidatorHandler();
         handler.setResourceResolver(RESOLVER);
+        try {handler.setFeature("http://apache.org/xml/features/validation/schema/element-default", true); }
+        catch (SAXException unavailable) {throw new IllegalStateException("CDS_SCHEMA_DEFAULTS_UNAVAILABLE"); }
         return handler;
     }
 
