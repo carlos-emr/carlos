@@ -554,6 +554,101 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
         }
     }
 
+    @Test
+    void shouldMatchActualProviderDaoThroughMaintenanceGuard_withLatin1AndUtf8Metadata() throws Exception {
+        for (String charset : List.of("latin1", "utf8mb4")) verifyGuardedProviderDirectory(charset);
+    }
+
+    private void verifyGuardedProviderDirectory(String charset) throws Exception {
+        assertThat(charset).isIn("latin1", "utf8mb4");
+        String schema="cds_provider_guard_"+java.util.UUID.randomUUID().toString().replace("-", "");
+        assertThat(schema).matches("cds_provider_guard_[a-f0-9]{32}");
+        boolean created=false;
+        try (Connection control=nodeOne.openUnpooledCdsMaintenanceConnection(); Statement ddl=control.createStatement()) {
+            assertThat(control.getCatalog()).isEqualTo("carlos_cds_test");
+            try {
+                ddl.execute("CREATE DATABASE "+schema+" CHARACTER SET "+charset+" COLLATE "+charset+"_general_ci"); created=true;
+                for (String table : List.of("provider", "demographic", "cds_import_admission", "cds_import_patient"))
+                    ddl.execute("CREATE TABLE "+schema+"."+table+" LIKE carlos_cds_test."+table);
+                ddl.execute("ALTER TABLE "+schema+".provider MODIFY first_name VARCHAR(30) CHARACTER SET "+charset
+                        +" COLLATE "+charset+"_general_ci NOT NULL DEFAULT '', MODIFY last_name VARCHAR(30) CHARACTER SET "+charset
+                        +" COLLATE "+charset+"_general_ci NOT NULL DEFAULT ''");
+                ddl.executeUpdate("INSERT INTO "+schema+".cds_import_admission SELECT * FROM carlos_cds_test.cds_import_admission");
+                ddl.executeUpdate("UPDATE "+schema+".cds_import_admission SET maintenance_active=FALSE,maintenance_owner_token=NULL,maintenance_connection_id=NULL");
+                String[][] rows={
+                    {"G10001","Élodie","Müller","009901","001234","CPSO"},
+                    {"G10002","élodie","Müller","009901 ","001234 ","CPSO"},
+                    {"G10003","Elodie","Muller","009902","001234","cpso"},
+                    {"G10004","Élodie ","Müller","009903","001234","CPSO "},
+                    {"G10005","Élodie","Müller","009901","001234","CPSO"},
+                    {"G10006","Élodie","Müller","009901","001234","CPSO"}};
+                try (var insert=control.prepareStatement("INSERT INTO "+schema+".provider "
+                        +"(provider_no,first_name,last_name,ohip_no,practitionerNo,practitionerNoType,lastUpdateDate) VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)")) {
+                    for (String[] row : rows) {for (int i=0;i<row.length;i++) insert.setString(i+1,row[i]);assertThat(insert.executeUpdate()).isEqualTo(1);}
+                    if (charset.equals("utf8mb4")) for (String[] row : List.of(
+                            new String[]{"G10007","E\u0301lodie","Müller","009907","001237","CPSO"},
+                            new String[]{"G10008","Élodie \uD83D\uDE00","Müller","009908","001238","CPSO"})) {
+                        for (int i=0;i<row.length;i++) insert.setString(i+1,row[i]);assertThat(insert.executeUpdate()).isEqualTo(1);
+                    }
+                }
+                Properties selected=new Properties(); selected.putAll(jdbcProperties);
+                String configured=selected.getProperty("jdbcUrl");
+                String replaced=configured.replaceFirst("/carlos_cds_test(?=\\?|$)", "/"+schema);
+                assertThat(replaced).isNotEqualTo(configured); selected.setProperty("jdbcUrl",replaced);
+                try (var source=dataSource(selected)) {
+                    new CdsJdbcAdmissionInitializer(source,true,"validate").initialize();
+                    Configuration configuration=new Configuration().addAnnotatedClass(Probe.class);
+                    configuration.getProperties().put("hibernate.connection.datasource",source);
+                    configuration.setProperty("hibernate.dialect","org.hibernate.dialect.MariaDBDialect");
+                    configuration.setProperty("hibernate.hbm2ddl.auto","none");
+                    try (SessionFactory factory=configuration.buildSessionFactory(); Session session=factory.openSession()) {
+                        var dao=new io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl() {
+                            @Override protected jakarta.persistence.EntityManager entityManager() {return session;}
+                        };
+                        Properties policy=new Properties(); policy.setProperty("cds.import.enabled","true");
+                        policy.setProperty("cds.import.maintenanceMode","true");
+                        var maintenance=new CdsImportMaintenanceService(source,new CdsImportConfigurationService(policy));
+                        try (var actualOwner=maintenance.acquire()) {
+                            try (var query=control.prepareStatement("SELECT maintenance_active,maintenance_generation,maintenance_owner_token,maintenance_connection_id,IS_USED_LOCK(?) FROM "+schema+".cds_import_admission WHERE id='clinical-maintenance'")) {
+                                query.setString(1,source.getCdsAdmissionState().lockName());
+                                try(var result=query.executeQuery()) {
+                                    assertThat(result.next()).isTrue();assertThat(result.getBoolean(1)).isTrue();
+                                    assertThat(result.getLong(2)).isEqualTo(actualOwner.generation());
+                                    assertThat(result.getString(3)).isEqualTo(source.getCdsAdmissionState().owner().token());
+                                    assertThat(result.getLong(4)).isEqualTo(actualOwner.connectionId());
+                                    assertThat(result.getLong(5)).isEqualTo(actualOwner.connectionId());
+                                }
+                            }
+                        assertThat(dao.findCdsProviderNosByOhip("009901")).containsExactly("G10001","G10005");
+                        assertThat(dao.findCdsProviderNosByOhip("009901 ")).containsExactly("G10002");
+                        assertThat(dao.findCdsProviderNosByCpso("001234")).containsExactly("G10001","G10005");
+                        assertThat(dao.findCdsProviderNosByCpso("001234 ")).containsExactly("G10002");
+                        assertThat(dao.findCdsProviderNosByExactName("Élodie","Müller")).containsExactly("G10001","G10005");
+                        assertThat(dao.findCdsProviderNosByExactName("élodie","Müller")).containsExactly("G10002");
+                        assertThat(dao.findCdsProviderNosByExactName("Élodie ","Müller")).containsExactly("G10004");
+                        assertThat(dao.findCdsProviderNosByExactName("Elodie","Müller")).isEmpty();
+                        assertThat(dao.findCdsProviderNosByExactName("Élo%","Müller")).isEmpty();
+                        if (charset.equals("utf8mb4")) {
+                            assertThat(dao.findCdsProviderNosByExactName("E\u0301lodie","Müller")).containsExactly("G10007");
+                            assertThat(dao.findCdsProviderNosByExactName("Élodie \uD83D\uDE00","Müller")).containsExactly("G10008");
+                        }
+                        assertThatThrownBy(() -> session.createNativeQuery("select demographic_no from demographic",Integer.class).getResultList())
+                                .isInstanceOf(RuntimeException.class).hasStackTraceContaining("clinical access");
+                        try (var query=control.prepareStatement("SELECT CHARACTER_SET_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='provider' AND COLUMN_NAME='first_name'")) {
+                            query.setString(1,schema);try(var result=query.executeQuery()){assertThat(result.next()).isTrue();assertThat(result.getString(1)).isEqualTo(charset);}
+                        }
+                        try (var query=control.createStatement();var result=query.executeQuery("SELECT HEX(first_name),HEX(last_name) FROM "+schema+".provider WHERE provider_no='G10001'")) {
+                            assertThat(result.next()).isTrue();var encoding=java.nio.charset.Charset.forName(charset.equals("latin1")?"ISO-8859-1":"UTF-8");
+                            assertThat(result.getString(1)).isEqualTo(java.util.HexFormat.of().withUpperCase().formatHex("Élodie".getBytes(encoding)));
+                            assertThat(result.getString(2)).isEqualTo(java.util.HexFormat.of().withUpperCase().formatHex("Müller".getBytes(encoding)));
+                        }
+                        } // Closing an unverified fixture owner retains its fail-closed flag until the owned schema is dropped.
+                    }
+                }
+            } finally {if(created)ddl.execute("DROP DATABASE "+schema);}
+        }
+    }
+
     private static String sessionValue(Connection connection,String name) throws SQLException {
         String sql=name.equals("connection_id") ? "SELECT CONNECTION_ID()" : "SELECT @@SESSION."+name;
         try (Statement query=connection.createStatement(); ResultSet rows=query.executeQuery(sql)) {

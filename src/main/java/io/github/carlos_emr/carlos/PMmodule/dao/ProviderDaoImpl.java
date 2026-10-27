@@ -593,7 +593,7 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
     public List<String> findCdsProviderNosByOhip(String ohipNo) {
         var query = cdsUsesMysqlTextSemantics()
                 ? entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
-                        + "and ohip_no=:value and BINARY(ohip_no) = BINARY(:value) order by provider_no", String.class)
+                        + "and ohip_no=:value and CAST(ohip_no AS BINARY) = CAST(:value AS BINARY) order by provider_no", String.class)
                 : entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
                         + "and ohip_no=:value and STRINGTOUTF8(ohip_no)=STRINGTOUTF8(:value) order by provider_no", String.class);
         return query
@@ -606,7 +606,7 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         var query = cdsUsesMysqlTextSemantics()
                 ? entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
                         + "and practitionerNoType='CPSO' and practitionerNo=:value "
-                        + "and BINARY(practitionerNoType) = BINARY('CPSO') and BINARY(practitionerNo) = BINARY(:value) order by provider_no", String.class)
+                        + "and CAST(practitionerNoType AS BINARY) = CAST('CPSO' AS BINARY) and CAST(practitionerNo AS BINARY) = CAST(:value AS BINARY) order by provider_no", String.class)
                 : entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
                         + "and practitionerNoType='CPSO' and practitionerNo=:value "
                         + "and STRINGTOUTF8(practitionerNoType)=STRINGTOUTF8('CPSO') "
@@ -633,8 +633,8 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         return entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
                 + "and first_name=CONVERT(:first USING " + charsets.first() + ") "
                 + "and last_name=CONVERT(:last USING " + charsets.last() + ") "
-                + "and BINARY(CONVERT(first_name USING utf8mb4)) = BINARY(CONVERT(:first USING utf8mb4)) "
-                + "and BINARY(CONVERT(last_name USING utf8mb4)) = BINARY(CONVERT(:last USING utf8mb4)) "
+                + "and CAST(CONVERT(first_name USING utf8mb4) AS BINARY) = CAST(CONVERT(:first USING utf8mb4) AS BINARY) "
+                + "and CAST(CONVERT(last_name USING utf8mb4) AS BINARY) = CAST(CONVERT(:last USING utf8mb4) AS BINARY) "
                 + "order by provider_no", String.class)
                 .setParameter("first", firstName).setParameter("last", lastName).setMaxResults(2).getResultList();
     }

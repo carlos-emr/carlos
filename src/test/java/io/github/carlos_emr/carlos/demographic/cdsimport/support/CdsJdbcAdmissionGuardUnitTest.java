@@ -124,6 +124,23 @@ class CdsJdbcAdmissionGuardUnitTest {
     }
 
     @Test
+    void shouldAdmitExactProviderBinaryCasts_withoutExemptingNestedClinicalOrRoutineSql() throws Exception {
+        for (String sql : new String[] {
+                "select provider_no from provider where ohip_no=? and CAST(ohip_no AS BINARY)=CAST(? AS BINARY) order by provider_no limit ?",
+                "select provider_no from provider where practitionerNoType='CPSO' and practitionerNo=? and CAST(practitionerNoType AS BINARY)=CAST('CPSO' AS BINARY) and CAST(practitionerNo AS BINARY)=CAST(? AS BINARY) order by provider_no limit ?",
+                "select provider_no from provider where first_name=CONVERT(? USING latin1) and last_name=CONVERT(? USING latin1) and CAST(CONVERT(first_name USING utf8mb4) AS BINARY)=CAST(CONVERT(? USING utf8mb4) AS BINARY) and CAST(CONVERT(last_name USING utf8mb4) AS BINARY)=CAST(CONVERT(? USING utf8mb4) AS BINARY) order by provider_no limit ?"}) {
+            assertThat(CdsJdbcAdmissionGuard.clinical(sql)).isFalse();
+        }
+        assertThat(CdsJdbcAdmissionGuard.clinical("select CAST((select last_name from demographic limit 1) AS BINARY) from provider")).isTrue();
+        for (String sql : new String[] {
+                "select CAST(rewrite_chart() AS BINARY) from provider",
+                "select CAST(clinic.rewrite_chart() AS BINARY) from provider",
+                "select provider_no from provider where CAST(first_name AS BINARY)=CAST(? AS BINARY); commit"}) {
+            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql)).isInstanceOf(SQLException.class);
+        }
+    }
+
+    @Test
     void shouldRefuseImplicitCommitAndRoutineEscapes_whenGuardIsInstalled() {
         for (String sql : new String[]{"truncate table demographic", "set autocommit=1", "call rewrite_chart()",
                 "select rewrite_chart() from security", "update demographic set last_name='x'; commit",
