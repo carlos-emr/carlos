@@ -121,6 +121,16 @@ public class CdsHistoryPersister {
                 record,
                 f -> {
                     if (!known(f)) return;
+                    String path = CdsFieldParser.unindexed(f.path());
+                    if (record.section().equals("ClinicalNotes")
+                            && f.kind().equals("TEXT")
+                            && (path.equals("ParticipatingProviders/DateTimeNoteCreated")
+                                    || path.startsWith(
+                                            "ParticipatingProviders/DateTimeNoteCreated/")))
+                        notice.accept(
+                                new CdsClinicalDiagnosticDto(
+                                        "CDS_NOTE_CREATED_TIME_RETAINED_IN_SOURCE",
+                                        "ParticipatingProviders/DateTimeNoteCreated"));
                     if (descriptor[0] == null
                             && contentPath != null
                             && CdsFieldParser.unindexed(f.path()).equals(contentPath))
@@ -174,7 +184,8 @@ public class CdsHistoryPersister {
                     timestamp(
                             normalization.date(record, "EventDateTime", command),
                             "EventDateTime",
-                            notice);
+                            notice,
+                            true);
             if (repeated[0])
                 notice.accept(
                         new CdsClinicalDiagnosticDto(
@@ -204,7 +215,8 @@ public class CdsHistoryPersister {
                                         "ParticipatingProviders/DateTimeNoteCreated",
                                         command),
                                 "ParticipatingProviders/DateTimeNoteCreated",
-                                notice);
+                                notice,
+                                false);
             }
         }
         preparation.store(
@@ -247,8 +259,8 @@ public class CdsHistoryPersister {
         note.setProviderNo(source.providerNo() == null ? "" : source.providerNo());
         note.setSigning_provider_no("");
         note.setSigned(false);
-        note.setCreate_date(
-                source.createdMillis() == null ? null : new Date(source.createdMillis()));
+        // create_date is a native revision Formula, not a source-created storage column.
+        // Exact source creation values/precision remain in the ClinicalNotes source category.
         note.setObservation_date(
                 source.observationMillis() == null ? null : new Date(source.observationMillis()));
         note.setUpdate_date(new Date());
@@ -302,7 +314,10 @@ public class CdsHistoryPersister {
     }
 
     private Long timestamp(
-            CdsTemporalDto value, String path, Consumer<CdsClinicalDiagnosticDto> notice) {
+            CdsTemporalDto value,
+            String path,
+            Consumer<CdsClinicalDiagnosticDto> notice,
+            boolean nativeObservation) {
         if (value.appliedShiftDays() != 0)
             notice.accept(new CdsClinicalDiagnosticDto("CDS_SYNTHETIC_DATE_SHIFT_APPLIED", path));
         if (value.earliest() != null
@@ -324,14 +339,30 @@ public class CdsHistoryPersister {
             return null;
         }
         try {
-            if (value.offsetDateTime() != null)
-                return value.offsetDateTime().toInstant().toEpochMilli();
-            String zone = configuration.value("cds.import.clinicalZone", "");
-            if (zone.isEmpty()) {
-                notice.accept(new CdsClinicalDiagnosticDto("CDS_NOTE_TIME_ZONE_SOURCE_ONLY", path));
-                return null;
+            java.time.Instant instant;
+            if (value.offsetDateTime() != null) instant = value.offsetDateTime().toInstant();
+            else {
+                String zone = configuration.value("cds.import.clinicalZone", "");
+                if (zone.isEmpty()) {
+                    notice.accept(
+                            new CdsClinicalDiagnosticDto("CDS_NOTE_TIME_ZONE_SOURCE_ONLY", path));
+                    return null;
+                }
+                instant = value.timestampStorageAnchor(ZoneId.of(zone)).toInstant();
             }
-            return value.timestampStorageAnchor(ZoneId.of(zone)).getTime();
+            if (nativeObservation) {
+                int nanos =
+                        value.offsetDateTime() != null
+                                ? value.offsetDateTime().getNano()
+                                : value.localDateTime().getNano();
+                if (nanos != 0)
+                    notice.accept(
+                            new CdsClinicalDiagnosticDto(
+                                    "CDS_NOTE_SUBSECOND_PRECISION_RETAINED_IN_SOURCE", path));
+                // Native DATETIME(0) must not let adopted SQL rounding roll the clinical day.
+                instant = instant.truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+            }
+            return instant.toEpochMilli();
         } catch (IllegalArgumentException ambiguous) {
             notice.accept(
                     new CdsClinicalDiagnosticDto("CDS_NOTE_LOCAL_TIMESTAMP_SOURCE_ONLY", path));

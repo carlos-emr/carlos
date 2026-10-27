@@ -626,10 +626,99 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void
+            shouldFloorNativeObservationSecondsAndRetainSourcePrecision_whenFractionCouldRoundAcrossMidnight()
+                    throws Exception {
+        for (String value :
+                new String[] {
+                    "1999-12-31T23:59:59.999999999Z",
+                    "1969-12-31T23:59:59.999999999Z",
+                    "1969-12-31T18:59:59.999999999"
+                }) {
+            clearInvocations(preparation);
+            var record =
+                    section(
+                            "ClinicalNotes",
+                            "<MyClinicalNotesContent>Source note</MyClinicalNotesContent>"
+                                    + "<EventDateTime><cdsd:FullDateTime>"
+                                    + value
+                                    + "</cdsd:FullDateTime></EventDateTime>");
+            histories.prepare("run", 1, "unit", record, command);
+            var dto = captured(CdsHistoryNativeDto.class);
+            long expected =
+                    value.startsWith("1999")
+                            ? java.time.Instant.parse("1999-12-31T23:59:59Z").toEpochMilli()
+                            : -1000L;
+            assertThat(dto.observationMillis()).isEqualTo(expected);
+            assertThat(dto.diagnostics())
+                    .extracting(CdsClinicalDiagnosticDto::code)
+                    .contains("CDS_NOTE_SUBSECOND_PRECISION_RETAINED_IN_SOURCE");
+            assertThat(fields.firstToken(record, "EventDateTime/FullDateTime", 128))
+                    .isEqualTo(value);
+        }
+    }
+
+    @Test
+    void shouldPreserveEverySourceCreationValueAndWarnOnce_whenParticipantsHaveDifferentPrecisions()
+            throws Exception {
+        var record =
+                section(
+                        "ClinicalNotes",
+                        "<MyClinicalNotesContent>Source note</MyClinicalNotesContent>"
+                            + "<ParticipatingProviders><Name><cdsd:FirstName>First</cdsd:FirstName><cdsd:LastName>Source</cdsd:LastName></Name>"
+                            + "<DateTimeNoteCreated><cdsd:FullDateTime>1990-03-04T10:20:30.125-05:00</cdsd:FullDateTime></DateTimeNoteCreated></ParticipatingProviders>"
+                            + "<ParticipatingProviders><Name><cdsd:FirstName>Second</cdsd:FirstName><cdsd:LastName>Source</cdsd:LastName></Name>"
+                            + "<DateTimeNoteCreated><cdsd:YearOnly>1989</cdsd:YearOnly></DateTimeNoteCreated></ParticipatingProviders>");
+        histories.prepare("run", 1, "unit", record, command);
+        var dto = captured(CdsHistoryNativeDto.class);
+        assertThat(dto.createdMillis()).isNull();
+        assertThat(dto.diagnostics())
+                .filteredOn(d -> d.code().equals("CDS_NOTE_CREATED_TIME_RETAINED_IN_SOURCE"))
+                .hasSize(1);
+        assertThat(
+                        fields.firstToken(
+                                record,
+                                "ParticipatingProviders/DateTimeNoteCreated/FullDateTime",
+                                128))
+                .isEqualTo("1990-03-04T10:20:30.125-05:00");
+        assertThat(
+                        fields.firstToken(
+                                record, "ParticipatingProviders/DateTimeNoteCreated/YearOnly", 128))
+                .isEqualTo("1989");
+        assertThat(dto.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains("CDS_MULTIPLE_NOTE_PARTICIPANTS_SOURCE_ONLY");
+    }
+
+    @Test
+    void shouldWarnForExactSourceCreation_whenItsClockCannotBeTheNativeRevisionFormula()
+            throws Exception {
+        var record =
+                section(
+                        "ClinicalNotes",
+                        "<MyClinicalNotesContent>Source note</MyClinicalNotesContent>"
+                            + "<ParticipatingProviders><Name><cdsd:FirstName>First</cdsd:FirstName><cdsd:LastName>Source</cdsd:LastName></Name>"
+                            + "<DateTimeNoteCreated><cdsd:FullDateTime>1990-03-04T10:20:30.125-05:00</cdsd:FullDateTime></DateTimeNoteCreated></ParticipatingProviders>");
+        histories.prepare("run", 1, "unit", record, command);
+        var dto = captured(CdsHistoryNativeDto.class);
+        assertThat(dto.createdMillis()).isNotNull();
+        assertThat(dto.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains("CDS_NOTE_CREATED_TIME_RETAINED_IN_SOURCE");
+        assertThat(
+                        fields.firstToken(
+                                record,
+                                "ParticipatingProviders/DateTimeNoteCreated/FullDateTime",
+                                128))
+                .isEqualTo("1990-03-04T10:20:30.125-05:00");
+    }
+
+    @Test
     void shouldWriteImportedNoteWithoutInventedSignatureOrCreatedTime_fromPreparedProjectionOnly()
             throws Exception {
         var dto =
-                new CdsHistoryNativeDto("Complete source note", null, null, null, "77", List.of());
+                new CdsHistoryNativeDto(
+                        "Complete source note", null, null, 636561630125L, "77", List.of());
         var record =
                 section(
                         "ClinicalNotes",
@@ -656,6 +745,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         assertThat(note.getValue().getSigning_provider_no()).isEmpty();
         assertThat(note.getValue().isSigned()).isFalse();
         assertThat(note.getValue().getCreate_date()).isNull();
+        assertThat(note.getValue().getUpdate_date()).isCloseTo(new java.util.Date(), 5000);
         assertThat(note.getValue().getObservation_date()).isNull();
     }
 

@@ -96,6 +96,16 @@ class CdsHistoryVisibilityMariaDbIntegrationTest {
                                 .query()
                                 .replace(":demographicNo", "?")
                                 .replace(":staleDate", "?");
+                Timestamp firstNativeRevision;
+                try (var query =
+                        connection.prepareStatement(
+                                "SELECT MIN(update_date) FROM casemgmt_note WHERE uuid=?")) {
+                    query.setString(1, changedToUnknown);
+                    try (var rows = query.executeQuery()) {
+                        assertThat(rows.next()).isTrue();
+                        firstNativeRevision = rows.getTimestamp(1);
+                    }
+                }
                 List<Long> ids = new ArrayList<>();
                 try (var query = connection.prepareStatement(actual)) {
                     query.setLong(1, patient);
@@ -103,8 +113,15 @@ class CdsHistoryVisibilityMariaDbIntegrationTest {
                     try (var rows = query.executeQuery()) {
                         while (rows.next()) {
                             ids.add(rows.getLong("id"));
-                            if (rows.getLong("id") == unknownLatest)
+                            if (rows.getLong("id") == unknownLatest) {
                                 assertThat(rows.getTimestamp("observation_date")).isNull();
+                                // This actual native reload uses the revision formula, not the
+                                // original source creation clock tested in
+                                // CdsCoreProjectionUnitTest.
+                                assertThat(rows.getTimestamp("create_date"))
+                                        .isEqualTo(firstNativeRevision)
+                                        .isNotEqualTo(Timestamp.valueOf("1990-03-04 10:20:30"));
+                            }
                         }
                     }
                 }
