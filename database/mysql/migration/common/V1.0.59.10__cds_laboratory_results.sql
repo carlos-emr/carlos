@@ -1,6 +1,6 @@
 -- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
 -- Restricted laboratory results have no unrestricted HL7, measurement, portal or outbound mirror.
-CREATE TABLE cds_laboratory_result (
+CREATE TABLE IF NOT EXISTS cds_laboratory_result (
     id CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
     demographicNo INT NOT NULL,
     runId CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
@@ -104,10 +104,10 @@ DEALLOCATE PREPARE cds_capacity_statement;
 -- Match the documented ASCII-space normalization without repeated full-table REPLACE scans.
 -- Original patient identifiers and non-space punctuation remain untouched.
 -- Overlong adopted identifiers are excluded from this finite source lookup, never truncated.
-ALTER TABLE demographic ADD COLUMN cds_identity_hin VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin
+ALTER TABLE demographic ADD COLUMN IF NOT EXISTS cds_identity_hin VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin
     GENERATED ALWAYS AS (CASE WHEN CHAR_LENGTH(REPLACE(hin, ' ', '')) <= 20
         THEN REPLACE(hin, ' ', '') ELSE NULL END) PERSISTENT,
-    ADD KEY cds_identity_hin_lookup (cds_identity_hin);
+    ADD KEY IF NOT EXISTS cds_identity_hin_lookup (cds_identity_hin);
 
 -- Register the capability without granting it to any existing role or user.
 INSERT INTO secObjectName (objectName, description, orgapplicable)
