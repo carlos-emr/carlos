@@ -175,6 +175,16 @@ class PerformanceEvidenceTest(unittest.TestCase):
         self.assertEqual(proof['events'][0]['state'],'REVIEW_REQUIRED')
         self.assertNotIn(hidden,json.dumps(proof))
 
+    def test_unavailable_auxiliary_measurement_does_not_hide_actual_terminal_failure_codes(self):
+        evidence={}
+        def missing():
+            raise RuntimeError('private GC failure message')
+        GATE.capture_evidence(evidence,'gc',missing)
+        GATE.capture_evidence(evidence,'diagnosticCodes',lambda:['CDS_SOURCE_SNAPSHOT_FAILED'])
+        self.assertEqual(evidence['diagnosticCodes'],['CDS_SOURCE_SNAPSHOT_FAILED'])
+        self.assertEqual(evidence['failureEvidenceErrors']['gc']['exceptionClass'],'RuntimeError')
+        self.assertNotIn('private GC failure message',json.dumps(evidence))
+
     def test_resource_samples_preserve_unknown_inventory_and_observed_peaks_after_completion(self):
         run='12345678-1234-1234-1234-123456789abc'
         calls=[]

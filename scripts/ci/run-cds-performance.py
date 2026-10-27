@@ -425,6 +425,13 @@ def operator_projection(path: Path) -> dict:
             'privateLogBytes':path.stat().st_size,'privateLogSha256':digest(path)}
 
 
+def capture_evidence(case: dict, key: str, read) -> None:
+    try:
+        case[key]=read()
+    except Exception as failure:
+        case.setdefault('failureEvidenceErrors',{})[key]=safe_failure(failure)
+
+
 def complete_result(values: list[dict]) -> dict:
     accepted = [row for row in values if row.get("event") == "ACCEPTED"]
     results = [row for row in values if row.get("event") == "RESULT"]
@@ -728,25 +735,24 @@ def main() -> None:
                 if gc_error_file is not None:
                     gc_error_file.close()
                 case['operatorExitCode']=process.returncode if process is not None else None
-                try:
-                    case['operatorEvidence']=operator_projection(log)
-                    if resource_receipt.exists():
-                        case['kernelResources']=json.loads(protected_file(resource_receipt).read_text())
-                    if (evidence/(label+'-gc.log')).exists():
-                        case['gc']=gc_evidence(evidence/(label+'-gc.log'))
-                    if case['acceptedRunIds']:
-                        accepted=case['acceptedRunIds'][0]
+                capture_evidence(case,'operatorEvidence',lambda:operator_projection(log))
+                if resource_receipt.exists():
+                    capture_evidence(case,'kernelResources',lambda:json.loads(protected_file(resource_receipt).read_text()))
+                if (evidence/(label+'-gc.log')).exists():
+                    capture_evidence(case,'gc',lambda:gc_evidence(evidence/(label+'-gc.log')))
+                if case['acceptedRunIds']:
+                    accepted=case['acceptedRunIds'][0]
+                    def diagnostic_codes():
                         codes=query("SELECT severity,code,stage,blocking,resolved,COUNT(*) FROM cds_import_diagnostic WHERE run_id='"
                                     +accepted+"' GROUP BY severity,code,stage,blocking,resolved ORDER BY severity,code,stage,blocking,resolved LIMIT 129")
                         if len(codes)>128 or any(len(row)!=6 or not re.fullmatch(r'[A-Z]{1,16}',row[0])
                             or not re.fullmatch(r'[A-Z][A-Z0-9_]{0,95}',row[1]) or not re.fullmatch(r'[A-Za-z0-9_.-]{1,64}',row[2])
                             or row[3] not in ('0','1') or row[4] not in ('0','1') or not row[5].isdecimal() for row in codes):
                             raise RuntimeError('diagnostic code projection exceeded its finite safe contract')
-                        case['diagnosticCodeCounts']=[dict(zip(('severity','code','stage','blocking','resolved','count'),row)) for row in codes]
-                        if process.returncode!=0:
-                            case['failedNative']=inspect(accepted)
-                except Exception as evidence_failure:
-                    case['failureEvidenceError']=safe_failure(evidence_failure)
+                        return [dict(zip(('severity','code','stage','blocking','resolved','count'),row)) for row in codes]
+                    capture_evidence(case,'diagnosticCodeCounts',diagnostic_codes)
+                    if process.returncode!=0:
+                        capture_evidence(case,'failedNative',lambda:inspect(accepted))
                 private_json(proof,result)
             if not samples or worker is None:
                 raise RuntimeError("actual installed JVM resident-memory evidence is missing")
