@@ -273,7 +273,7 @@ async function workflow(s) {
     let expired;
     const authorization=[];
     try {
-      for(const type of ['event','error','receipt']) {
+      for(const type of ['event','error','receipt','units']) {
         const url=h.appUrl(s.config.baseUrl,'/form/cdsImportReport')+'?'+new URLSearchParams({runId:run,type});
         const served=await request(s.context,url,{token:ownerToken,maximum:2*1024*1024});
         h.assert(served.status===200&&served.headers.has('content-disposition'),'The owner could not download the real protected report');
