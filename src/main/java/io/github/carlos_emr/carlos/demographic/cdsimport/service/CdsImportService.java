@@ -62,6 +62,8 @@ public class CdsImportService {
     private final CdsImportFailureEvidenceService failureEvidence;
     private volatile String housekeepingAlert;
     private final java.util.concurrent.atomic.AtomicReference<String> fatalRun=new java.util.concurrent.atomic.AtomicReference<>();
+    private final java.util.concurrent.atomic.AtomicReference<String> fatalReview=new java.util.concurrent.atomic.AtomicReference<>();
+    private volatile String supervisorAlert;
     private long nextHousekeepingNanos=System.nanoTime();
 
     public CdsImportService(CdsImportLedgerService ledger, CdsImportJobService jobs, CdsImportExecutionService execution,
@@ -88,7 +90,14 @@ public class CdsImportService {
     }
     public CdsImportJobDto run(CdsImportActorDto actor, CdsImportCommand command) throws IOException { return runAccepted(actor, accept(actor, command).id()); }
     public CdsImportJobDto runAccepted(CdsImportActorDto actor, String run) throws IOException { requireActor(actor, run); requireNoPendingReview(run); return execution.execute(run); }
-    public CdsImportJobDto resumeAndWait(CdsImportActorDto actor, String run) throws IOException { requireActor(actor, run); requireNoPendingReview(run); ledger.requestResume(run); return execution.execute(run, true); }
+    public CdsImportJobDto resumeAndWait(CdsImportActorDto actor, String run) throws IOException {
+        requireActor(actor, run); configuration.requireEnabled(); String review=resumeIntent(actor, run);
+        if (review!=null) {
+            String reviewed=reviews.process(review);
+            if (reviewed==null || reviews.hasPending(run) || !ledger.requestResumeAfterReview(run)) return ledger.status(run);
+        }
+        return execution.execute(run, true);
+    }
 
     public CdsImportJobDto status(LoggedInInfo viewer, String run) { CdsImportJobDto job=ledger.status(run); access.requireView(viewer, job); return job; }
     public CdsImportJobDto status(CdsImportActorDto actor, String run) throws IOException { requireActor(actor, run); return ledger.status(run); }
@@ -105,9 +114,25 @@ public class CdsImportService {
     public void cancel(CdsImportActorDto actor, String run) throws IOException { requireActor(actor, run); reviews.cancel(run); ledger.cancel(run); }
     public void resume(LoggedInInfo viewer, String run) {
         CdsImportJobDto job=status(viewer, run); configuration.requireEnabled(); CdsImportActorDto initiator=controlActor(viewer);
-        ledger.control(run, initiator, "RESUME_REQUESTED", () -> {access.requireView(viewer, job); access.requireOperatorSession(viewer); requireNoPendingReview(run); ledger.requestResumeParticipating(run); }); schedule(run, true);
+        String[] review={null};
+        ledger.control(run, initiator, "RESUME_REQUESTED", () -> {
+            access.requireView(viewer, job); access.requireOperatorSession(viewer); review[0]=reviews.retryFatal(run, initiator);
+            if (review[0]==null) { requireNoPendingReview(run); ledger.requestResumeParticipating(run); }
+        });
+        if (review[0]!=null) scheduleReview(review[0]); else schedule(run, true);
     }
-    public void resume(CdsImportActorDto actor, String run) throws IOException { requireActor(actor, run); configuration.requireEnabled(); requireNoPendingReview(run); ledger.requestResume(run); schedule(run, true); }
+    public void resume(CdsImportActorDto actor, String run) throws IOException {
+        requireActor(actor, run); configuration.requireEnabled(); String review=resumeIntent(actor, run);
+        if (review!=null) scheduleReview(review); else schedule(run, true);
+    }
+    private String resumeIntent(CdsImportActorDto actor, String run) {
+        String[] review={null};
+        ledger.control(run, actor, "RESUME_REQUESTED", () -> {
+            review[0]=reviews.retryFatal(run, actor);
+            if (review[0]==null) { requireNoPendingReview(run); ledger.requestResumeParticipating(run); }
+        });
+        return review[0];
+    }
     public Path report(LoggedInInfo viewer, String run, String type) throws IOException { status(viewer, run); return results.report(run, type); }
     public Path report(CdsImportActorDto actor, String run, String type) throws IOException { requireActor(actor, run); return results.report(run, type); }
     public Map<String,Object> diagnosticEvidence(LoggedInInfo viewer,String run,long diagnosticId) throws IOException {
@@ -140,13 +165,13 @@ public class CdsImportService {
     private Map<String, Object> operatorSummary(String run) {
         Map<String, Object> value=new java.util.LinkedHashMap<>(ledger.summary(run));
         value.putAll(reviews.summary(run));
-        value.put("administrativeCleanup", administrativeCleanup); value.put("administrativeAlert", housekeepingAlert); value.put("workerAlert", run.equals(fatalRun.get())?"WORKER_FATAL":null);
+        value.put("administrativeCleanup", administrativeCleanup); value.put("administrativeAlert", housekeepingAlert); value.put("workerAlert", supervisorAlert!=null?supervisorAlert:run.equals(fatalRun.get())?"WORKER_FATAL":fatalReview.get()!=null?"REVIEW_WORKER_FATAL":null);
         return java.util.Collections.unmodifiableMap(value);
     }
 
     private void schedule(String run, boolean resume) {
         if (!scheduled.add(run)) return;
-        try { worker.execute(() -> { try { if (fatalRun.get()!=null || reviews.hasPending(run)) return; execution.execute(run, "RESUME_REQUESTED".equals(ledger.status(run).state())); } catch (RuntimeException failure) { LOG.error("CDS worker stopped for run {} with code {}", run, failure instanceof CdsImportException known?known.getCode():"IMPORT_SUPERVISION_FAILURE"); } catch (Error fatal) { fatalRun.compareAndSet(null, run); LOG.error("CDS worker terminated for run {}: WORKER_FATAL", run); throw fatal; } finally { scheduled.remove(run); } }); }
+        try { worker.execute(() -> { try { if (fatalRun.get()!=null || fatalReview.get()!=null || supervisorAlert!=null || reviews.hasPending(run)) return; execution.execute(run, "RESUME_REQUESTED".equals(ledger.status(run).state())); } catch (RuntimeException failure) { LOG.error("CDS worker stopped for run {} with code {}", run, failure instanceof CdsImportException known?known.getCode():"IMPORT_SUPERVISION_FAILURE"); } catch (Error fatal) { fatalRun.compareAndSet(null, run); LOG.error("CDS worker terminated for run {}: WORKER_FATAL", run); throw fatal; } finally { scheduled.remove(run); } }); }
         catch (RejectedExecutionException full) { scheduled.remove(run); /* Durable acceptance remains discoverable by the bounded dispatcher. */ }
     }
     private void scheduleReview(String reviewId) {
@@ -154,19 +179,22 @@ public class CdsImportService {
         if (!scheduled.add(key)) return;
         try { worker.execute(() -> {
             try {
-                if (fatalRun.get()!=null) return;
+                if (fatalRun.get()!=null || fatalReview.get()!=null || supervisorAlert!=null) return;
                 String run=reviews.process(reviewId);
                 if (run!=null && !reviews.hasPending(run) && ledger.requestResumeAfterReview(run)) schedule(run, true);
             } catch (Exception failure) { LOG.error("CDS review worker stopped for review {} with code {}", reviewId, failure instanceof CdsImportException known?known.getCode():"IMPORT_REVIEW_FAILED"); }
+            catch (Error fatal) { fatalReview.compareAndSet(null, reviewId); LOG.error("CDS review worker terminated for review {}: REVIEW_WORKER_FATAL", reviewId); throw fatal; }
             finally { scheduled.remove(key); }
         }); } catch (RejectedExecutionException full) { scheduled.remove(key); }
     }
 
     private void dispatch() {
         try {
-            if (!configuration.enabled()) return;
+            if (supervisorAlert!=null || !configuration.enabled()) return;
             String failed=fatalRun.get();
             if (failed!=null) { execution.superviseFatal(failed); fatalRun.compareAndSet(failed, null); }
+            String failedReview=fatalReview.get();
+            if (failedReview!=null) { reviews.superviseFatal(failedReview); fatalReview.compareAndSet(failedReview, null); }
             long now=System.nanoTime();
             if (now-nextHousekeepingNanos>=0) {
                 nextHousekeepingNanos=now+TimeUnit.MINUTES.toNanos(1);
@@ -178,6 +206,7 @@ public class CdsImportService {
             }
             for (String review:reviews.pending(16)) scheduleReview(review);
             for (CdsImportJobDto job:ledger.pending("", 16)) schedule(job.id(), "RESUME_REQUESTED".equals(job.state()));
-        } catch (RuntimeException unavailable) { LOG.error("CDS dispatcher could not query durable pending work: IMPORT_DISPATCH_UNAVAILABLE"); }
+        } catch (IOException | RuntimeException unavailable) { LOG.error("CDS dispatcher could not query durable pending work: IMPORT_DISPATCH_UNAVAILABLE"); }
+        catch (Error fatal) { supervisorAlert="IMPORT_SUPERVISOR_FATAL"; LOG.error("CDS supervisor stopped: IMPORT_SUPERVISOR_FATAL"); }
     }
 }

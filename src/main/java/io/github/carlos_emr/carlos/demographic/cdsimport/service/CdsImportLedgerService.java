@@ -163,7 +163,7 @@ public class CdsImportLedgerService {
             CdsImportPatient old=patients.findKey(runId, patientKey);
             if (old!=null) {
                 if (!old.getLineageKey().equals(lineageKey) || !old.getSourceDigest().equals(sourceDigest)) throw new CdsImportException("PATIENT_PLAN_CONFLICT");
-                return dto(old);
+                verifyCanonical(run, old); return dto(old);
             }
             CdsImportLineage lineage=lineages.lock(lineageKey);
             if (lineage==null) {
@@ -341,6 +341,13 @@ public class CdsImportLedgerService {
     }
 
     CdsImportRun lockPlanningOwned(String runId, long epoch) { return planningOwned(runId, Long.valueOf(epoch)); }
+    /** Supervision may suspend an already published administrative reset without mutating its frozen clinical plan. */
+    CdsImportRun lockReviewAdministrativeOwned(String runId, long epoch) {
+        CdsImportRun run=lockSealingOwner(runId, epoch);
+        if (run.getExecutionDigest()!=null || run.getManifestDigest()!=null) throw new CdsImportException("REVIEW_AFTER_SEAL_REFUSED");
+        return run;
+    }
+
 
     private CdsImportRun planningOwned(String runId, Long epoch) {
         if (epoch==null) { CdsImportAdmission gate=admission.lock("global"); if (gate!=null && gate.getOwnerRunId()!=null) throw new CdsImportException("PLANNING_OWNER_REQUIRED"); CdsImportRun run=planning(runId); if (run.getOwnerEpoch()!=0) throw new CdsImportException("PLANNING_OWNER_REQUIRED"); return run; }
@@ -444,6 +451,27 @@ public class CdsImportLedgerService {
         CdsImportKeys.required(sourcePatientId, "source patient identifier", 128); CdsImportKeys.token(copyKey, "copy key", 64);
         CdsImportKeys.digestValue(newPatientSourceDigest, "patient source digest");
         return write(() -> revision(lockPlanningOwned(runId, epoch), sourcePatientId, copyKey, newPatientSourceDigest));
+    }
+
+    /** Preserve known source/copy inventory even when canonical review prevents planning clinical work. */
+    public CdsImportPatientDto recordRevisionConflictPatient(String runId, long epoch, String sourcePatientId,
+            String copyKey, String newPatientSourceDigest) {
+        CdsImportKeys.required(sourcePatientId, "source patient identifier", 128); CdsImportKeys.token(copyKey, "copy key", 64);
+        CdsImportKeys.digestValue(newPatientSourceDigest, "patient source digest");
+        return write(() -> { CdsImportRun run=lockPlanningOwned(runId, epoch);
+            var conflict=revision(run, sourcePatientId, copyKey, newPatientSourceDigest);
+            if (conflict.oldSourceDigest().equals(conflict.newSourceDigest()) && conflict.oldOptionsDigest().equals(conflict.newOptionsDigest())
+                    && conflict.oldRulesetDigest().equals(conflict.newRulesetDigest())) throw new CdsImportException("CANONICAL_REVISION_CONTEXT_STALE");
+            CdsImportPatient existing=patients.findKey(runId, conflict.patientKey());
+            if (existing!=null) {
+                if (!existing.getLineageKey().equals(conflict.lineageKey()) || !existing.getSourceDigest().equals(newPatientSourceDigest)) throw new CdsImportException("PATIENT_PLAN_CONFLICT");
+                return dto(existing);
+            }
+            CdsImportPatient identified=new CdsImportPatient(); identified.setId(CdsImportKeys.hash(runId, conflict.patientKey()));
+            identified.setRunId(runId); identified.setPatientKey(conflict.patientKey()); identified.setLineageKey(conflict.lineageKey());
+            identified.setSourcePatientId(sourcePatientId); identified.setCopyKey(copyKey); identified.setSourceDigest(newPatientSourceDigest);
+            identified.setState("NOT_STARTED"); patients.persist(identified); touch(run); event(run, null, "REVISION_SOURCE_PATIENT_IDENTIFIED");
+            return dto(identified); });
     }
 
     /** Stable bounded provenance pages; callers archive every page before publishing approval. */

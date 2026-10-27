@@ -81,9 +81,11 @@ public class CdsImportUnitService {
     public CdsImportReceiptDto execute(String runId, long epoch, String unitKey, Work work, Verifier verifier) {
         Objects.requireNonNull(work, "work"); Objects.requireNonNull(verifier, "verifier");
         CdsImportLedgerService.requireNoTransaction();
+        AtomicBoolean transactionEntered=new AtomicBoolean();
         AtomicBoolean callbackFinished=new AtomicBoolean();
         try {
             return transaction.execute(status -> {
+                transactionEntered.set(true);
                 CdsImportRun run=ledger.lockOwned(runId, epoch);
                 if (run.isDryRun()) throw new CdsImportException("DRY_RUN_CLINICAL_WRITE_REFUSED");
                 if (run.isCancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
@@ -130,9 +132,10 @@ public class CdsImportUnitService {
                 finally { TransactionSynchronizationManager.unbindResource(CdsImportUnitService.class); }
             });
         } catch (RuntimeException failure) {
-            if (callbackFinished.get() || failure instanceof TransactionSystemException) {
-                throw new CdsImportException("UNIT_COMMIT_OUTCOME_UNKNOWN", true, failure);
+            if (callbackFinished.get() || transactionEntered.get() && failure instanceof TransactionSystemException) {
+                throw new CdsImportException("UNIT_COMMIT_OUTCOME_UNKNOWN", true, failure, unitKey);
             }
+            if (!transactionEntered.get() && failure instanceof org.springframework.transaction.TransactionException) throw new CdsImportException("UNIT_TRANSACTION_START_FAILED", false, failure, unitKey);
             throw failure;
         }
         // Fatal Error deliberately escapes; supervision reconciles durable state after process failure.

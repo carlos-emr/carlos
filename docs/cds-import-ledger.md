@@ -32,7 +32,9 @@ transaction through the configured JPA transaction manager. It locks admission, 
 the unit and canonical lineage; verifies source/options/rules and dependencies; then executes
 the native callback. Native rows, target binding, the import hold, individually addressed fields,
 file references, exact target receipt, checkpoint and strict import event commit together.
-Checked failures roll back. Required audits are not best-effort writes.
+Checked failures roll back. Required audits are not best-effort writes. Failure to acquire the
+transaction before its callback is `UNIT_TRANSACTION_START_FAILED`, a known no-write outcome; it
+is distinct from an unknown commit acknowledgement.
 
 The active marker remains installed through the explicit native/JPA flush. The physical datasource
 guard requires verified Unicode parameter/session capabilities and `STRICT_ALL_TABLES` for active
@@ -88,7 +90,9 @@ committed or bound lineage cannot be silently revised.
 
 For an actual attempt that wrote nothing, changing raw source, mapping policy or rules requires
 an explicit `APPROVE_UNWRITTEN_REVISION` review on a newly accepted replacement submission that
-reports `SOURCE_REVISION_REVIEW_REQUIRED`. The old accepted source and plan remain immutable.
+reports `SOURCE_REVISION_REVIEW_REQUIRED`. An identified conflict copy remains visible as
+`NOT_STARTED`, with no target binding or clinical eligibility, so known-source counters and error
+receipts do not hide it. The old accepted source and plan remain immutable.
 The review archives the conflicting old/new fingerprints and paged prior-run provenance. Its
 publication transaction locks the canonical lineage, compares the old fingerprints and review
 version, and refuses any canonical target, checkpoint, hold, advanced unit or unresolved commit
@@ -116,6 +120,14 @@ Review requests and imports share the same bounded worker. A pending review prev
 of the old plan. Explicit resume intent is durable as `RESUME_REQUESTED`; a full in-memory queue
 does not lose it. A later cancellation remains authoritative at owner acquisition. Automatic
 continuation after a review never clears a newer cancellation.
+
+A fatal review worker is suspended with durable `REVIEW_WORKER_FATAL` evidence. It remains a
+pending review that blocks execution of the old plan, but automatic dispatch excludes it. An
+explicit, audited Resume retries that review with its immutable request and fresh authorization;
+published approval/reset evidence is preserved. Metadata unavailability keeps the worker suspended
+until the healthy supervisor can record the failure. A fatal supervisor exposes
+`IMPORT_SUPERVISOR_FATAL` and stops automatic work until the operator repairs resources and
+restarts the service. Ordinary logs contain the safe code, without the fatal error's raw message.
 
 ## Files and memory bounds
 

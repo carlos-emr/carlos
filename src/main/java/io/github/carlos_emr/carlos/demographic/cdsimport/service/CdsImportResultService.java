@@ -67,6 +67,7 @@ public class CdsImportResultService {
     public void generate(String runId, long epoch) throws IOException {
         boolean reportSelected=false;
         try {
+        checkGeneration(runId, epoch);
         CdsImportJobDto before=ledger.status(runId);
         Path job=jobRoot(runId);
         Path directory=CdsPaths.privateDirectory(job.resolve("reports-"+epoch+"-"+UUID.randomUUID()), job);
@@ -85,11 +86,13 @@ public class CdsImportResultService {
             try (OutputStream events=output(event, directory); OutputStream errors=output(error, directory); OutputStream unitRows=output(unitsFile, directory)) {
                 String after="";
                 while (true) {
+                    checkGeneration(runId, epoch);
                     List<CdsImportPatientDto> page=ledger.patients(runId, after, 100); if (page.isEmpty()) break;
                     for (CdsImportPatientDto patient:page) {
                         Map<String, Long> imported=emptyCounts(), prior=emptyCounts(), pending=emptyCounts();
                         String unitAfter="";
                         while (true) {
+                            checkGeneration(runId, epoch);
                             List<CdsImportUnitDto> unitPage=ledger.units(runId, patient.patientKey(), unitAfter, 100); if (unitPage.isEmpty()) break;
                             for (CdsImportUnitDto unit:unitPage) {
                                 Map<String, Object> row=new LinkedHashMap<>(); row.put("patientId", patient.sourcePatientId());
@@ -125,6 +128,7 @@ public class CdsImportResultService {
                 }
                 long diagnosticAfter=0;
                 while (true) {
+                    checkGeneration(runId, epoch);
                     List<CdsImportDiagnosticDto> page=ledger.diagnostics(runId, diagnosticAfter, 100); if (page.isEmpty()) break;
                     Set<String> keys=page.stream().map(CdsImportDiagnosticDto::patientKey).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
                     Map<String, String> sourceIds=ledger.sourcePatientIds(runId, keys);
@@ -136,7 +140,9 @@ public class CdsImportResultService {
                         row.put("detailReference", diagnostic.protectedDetailLocation()); line(errors, row); diagnosticAfter=diagnostic.id();
                     }
                 }
+                final long[] validationRows={0};
                 planning.forEachValidationDiagnostic(runId, row -> {
+                    if (++validationRows[0]%100==0) checkGeneration(runId, epoch);
                     try { line(errors, row); } catch (IOException failure) { throw new java.io.UncheckedIOException(failure); }
                 });
                 cleanupResult=cleanup.reconcile(runId, epoch, directory);
@@ -161,13 +167,13 @@ public class CdsImportResultService {
             try (OutputStream output=output(receipt, directory)) { line(output, completion); }
             CdsPaths.forceFile(receipt);
             for (Map.Entry<String, Path> entry:Map.of("event", event, "error", error, "units", unitsFile, "completion", receipt).entrySet()) {
-                files.put(entry.getKey(), Map.of("name", entry.getValue().getFileName().toString(), "sha256", hash(entry.getValue()), "bytes", Files.size(entry.getValue())));
+                files.put(entry.getKey(), Map.of("name", entry.getValue().getFileName().toString(), "sha256", hash(entry.getValue(), () -> checkGeneration(runId, epoch)), "bytes", Files.size(entry.getValue())));
             }
             manifest.put("files", files);
             Path selected=directory.resolve("report-set.json");
             try (OutputStream output=output(selected, directory)) { line(output, manifest); }
             CdsPaths.forceFile(selected); CdsPaths.forceDirectory(directory); CdsPaths.forceDirectory(job);
-            String digest=hash(selected);
+            String digest=hash(selected, () -> checkGeneration(runId, epoch));
             try {
                 selection.select(runId, epoch, before.reportGeneration(), before.manifestDigest()==null?before.sourceDigest():before.manifestDigest(), selected.toString(), digest);
             } catch (RuntimeException unknownSelection) {
@@ -225,15 +231,22 @@ public class CdsImportResultService {
         if (bytes.length>(1<<20)) throw new CdsImportException("REPORT_ROW_CAPACITY_EXCEEDED");
         output.write(bytes); output.write('\n');
     }
-    private static String hash(Path path) throws IOException {
+    private void checkGeneration(String runId, long epoch) {
+        if (Thread.currentThread().isInterrupted()) throw new CdsImportException("REPORT_CANCELLED");
+        if (ledger.status(runId).ownerEpoch()!=epoch) throw new CdsImportException("OWNER_FENCED");
+    }
+    private static String hash(Path path) throws IOException { return hash(path, () -> {}); }
+    private static String hash(Path path, Runnable probe) throws IOException {
+        probe.run(); long bytes=0, nextCheck=16L<<20;
         MessageDigest digest=CdsPaths.sha256();
         try (InputStream input=new BufferedInputStream(Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS), 65536)) {
             byte[] buffer=new byte[65536]; int count;
             while ((count=input.read(buffer))!=-1) {
                 if (Thread.currentThread().isInterrupted()) throw new CdsImportException("REPORT_CANCELLED");
-                digest.update(buffer, 0, count);
+                digest.update(buffer, 0, count); bytes=Math.addExact(bytes, count);
+                if (bytes>=nextCheck) { probe.run(); nextCheck=Math.addExact(bytes, 16L<<20); }
             }
         }
-        return CdsPaths.hex(digest.digest());
+        probe.run(); return CdsPaths.hex(digest.digest());
     }
 }

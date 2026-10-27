@@ -56,10 +56,11 @@ import org.junit.jupiter.api.parallel.Isolated;
 class CdsImportLedgerMariaDbIntegrationTest {
  @Configuration @EnableTransactionManagement(proxyTargetClass=true) static class Config { }
  public static class CommitFaultManager implements PlatformTransactionManager {
-  private final PlatformTransactionManager delegate; private boolean fail;
+  private final PlatformTransactionManager delegate; private boolean fail; private boolean failBegin;
   CommitFaultManager(PlatformTransactionManager delegate) {this.delegate=delegate;}
   void failNextCommitAcknowledgement() {fail=true;}
-  public org.springframework.transaction.TransactionStatus getTransaction(org.springframework.transaction.TransactionDefinition definition) {return delegate.getTransaction(definition);}
+  void failNextBegin() {failBegin=true;}
+  public org.springframework.transaction.TransactionStatus getTransaction(org.springframework.transaction.TransactionDefinition definition) {if(failBegin){failBegin=false;throw new org.springframework.transaction.TransactionSystemException("synthetic failed transaction begin");}return delegate.getTransaction(definition);}
   public void commit(org.springframework.transaction.TransactionStatus status) {boolean owning=status.isNewTransaction();delegate.commit(status);if(owning && fail){fail=false;throw new org.springframework.transaction.TransactionSystemException("synthetic lost acknowledgement");}}
   public void rollback(org.springframework.transaction.TransactionStatus status) {delegate.rollback(status);}
  }
@@ -102,6 +103,9 @@ class CdsImportLedgerMariaDbIntegrationTest {
    Job job=job("p"+UUID.randomUUID().toString().substring(0,8),false);
    expect("MANIFEST_ALREADY_SEALED",()->ledger.planUnit(job.id,job.epoch,job.patient,CdsImportKeys.hash("unexpected"),"ClinicalNotes",3,A,"/opaque/unexpected"));
    var published=files.published(job.id,job.epoch,"/opaque/immutable-"+UUID.randomUUID(),A,7);
+   long beforeBegin=countNative(); commitFault.failNextBegin();
+   expect("UNIT_TRANSACTION_START_FAILED",()->units.execute(job.id,job.epoch,job.first,()->{throw new AssertionError("Callback after transaction begin failure");},CdsImportLedgerMariaDbIntegrationTest::verify));
+   check(countNative()==beforeBegin && sql.queryForObject("select count(*) from cds_import_checkpoint where id=?",Long.class,job.first)==0,"failed transaction begin is known no-write, never unknown commit");
    CdsImportReceiptDto first=units.execute(job.id,job.epoch,job.first,()->{
     var receipt=write(job,"first"); files.reference(job.id,job.epoch,job.first,published.id(),A);
     fieldValues.preserve(job.id,job.epoch,job.first,"/@same",1,"","xs:string",null,"original-a","normalized-a",null,null,0,0);
@@ -298,6 +302,10 @@ class CdsImportLedgerMariaDbIntegrationTest {
   expect("SOURCE_REVISION_REVIEW_REQUIRED",()->ledger.planPatient(next,epoch,patient,source,copy,B));
   ledger.diagnostic(next,epoch,patient,null,"ERROR","SOURCE_REVISION_REVIEW_REQUIRED","PREFLIGHT",null,"Explicit unwritten revision approval required","/opaque/revision-context",true);
   check(ledger.diagnostics(next,0,10).stream().anyMatch(d->patient.equals(d.patientKey())),"canonical conflict keeps the patient key even before the new patient row exists");
+  ledger.recordRevisionConflictPatient(next,epoch,source,copy,B);
+  check(((Number)ledger.summary(next).get("sourcePatientsIdentified")).longValue()==1,"canonical conflict preserves already identified source patient inventory");
+  check("NOT_STARTED".equals(ledger.patientStatus(next,patient).state()) && ledger.patientStatus(next,patient).targetDemographicNo()==null,"identified conflict is neither an eligible plan nor a bound chart");
+  expect("SOURCE_REVISION_REVIEW_REQUIRED",()->ledger.planPatient(next,epoch,patient,source,copy,B));
   var projection=ledger.unwrittenRevision(next,epoch,source,copy,B);
   check(projection.eligible() && projection.priorRunIds().equals(List.of(old)) && projection.priorRunCount()==1,"new accepted source exposes exact bounded zero-write prior provenance");
   check(ledger.unwrittenRevisionPriorRuns(next,epoch,source,copy,"",1).equals(List.of(old)),"revision provenance is pageable without retaining patient graphs");
@@ -308,7 +316,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
   try { CdsImportLedgerService.template(commitFault).executeWithoutResult(status->ledger.approveUnwrittenRevision(next,epoch,1,source,copy,A,B,C,B));throw new AssertionError("Missing strict revision audit failure"); }
   catch(IllegalStateException expected) { check(A.equals(ledger.unwrittenRevision(next,epoch,source,copy,B).oldSourceDigest()),"strict audit failure rolls back canonical revision"); }
   CdsImportLedgerService.template(commitFault).executeWithoutResult(status->ledger.approveUnwrittenRevision(next,epoch,1,source,copy,A,B,C,B));
-  ledger.planPatient(next,epoch,patient,source,copy,B);ledger.release(next,epoch);
+  check("PLANNED".equals(ledger.planPatient(next,epoch,patient,source,copy,B).state()),"approved conflict row becomes an eligible administrative plan only after canonical CAS");ledger.release(next,epoch);
   String unit=CdsImportKeys.hash(source,"old-unit");long obsolete=ledger.claimPlanning(old,true);ledger.planUnit(old,obsolete,patient,unit,"Demographics",1,A,"/opaque/old-unit");ledger.seal(old,obsolete,C,1,1);
   long execution=ledger.acquire(old);
   expect("SOURCE_REVISION_REVIEW_REQUIRED",()->units.execute(old,execution,unit,()->{throw new AssertionError("Superseded source clinical write");},CdsImportLedgerMariaDbIntegrationTest::verify));
