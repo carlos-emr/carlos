@@ -115,6 +115,9 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
             requireClinicalAccessOpen();
             logger.error("HRM startup fixer failed ({}); completion flag is unchanged", failure.getClass().getName());
         }
+        requireClinicalAccessOpen();
+        SpringUtils.getBean(io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob.class)
+                .retryDeferredInitialization();
     }
 
     void initializeDefaultData(PlatformTransactionManager transactionManager) {

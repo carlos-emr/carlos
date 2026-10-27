@@ -31,6 +31,9 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportMaintenanceService;
 import io.github.carlos_emr.carlos.model.security.Secrole;
+import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
+import io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelper;
 import jakarta.servlet.ServletContextEvent;
 import java.util.List;
 import org.junit.jupiter.api.Tag;
@@ -40,11 +43,53 @@ import org.springframework.transaction.support.AbstractPlatformTransactionManage
 import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class ContextStartupListenerUnitTest {
+    @Test void shouldRetryFaxInitialization_onlyAfterTheGuardedClinicalStartupPhases() {
+        var maintenance = mock(CdsImportMaintenanceService.class);
+        var coordinator = mock(ClinicalStartupCoordinator.class);
+        var fax = mock(FaxSchedulerJob.class);
+        var transactionManager = mock(PlatformTransactionManager.class);
+        var listener = spy(new ContextStartupListener());
+        doNothing().when(listener).initializeDefaultData(transactionManager);
+        doNothing().when(listener).loadCaches();
+        ReflectionTestUtils.setField(listener, "maintenance", maintenance);
+        ReflectionTestUtils.setField(listener, "clinicalStartup", coordinator);
+        try (var spring = mockStatic(SpringUtils.class);
+                var jobs = mockStatic(OscarJobUtils.class);
+                var hrm = mockConstruction(HRMFixMissingReportHelper.class)) {
+            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactionManager);
+            spring.when(() -> SpringUtils.getBean(FaxSchedulerJob.class)).thenReturn(fax);
+            ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses");
+            verify(fax).retryDeferredInitialization();
+            verify(hrm.constructed().getFirst()).fixIt();
+            jobs.verify(OscarJobUtils::initializeJobExecutionFramework);
+        }
+    }
+
+    @Test void shouldNotStartFax_whenMaintenanceReentersAtTheFinalStartupBoundary() {
+        var maintenance = mock(CdsImportMaintenanceService.class);
+        when(maintenance.isClinicalAccessBlocked()).thenReturn(false, false, false, false, true);
+        var transactionManager = mock(PlatformTransactionManager.class);
+        var listener = spy(new ContextStartupListener());
+        doNothing().when(listener).initializeDefaultData(transactionManager);
+        doNothing().when(listener).loadCaches();
+        ReflectionTestUtils.setField(listener, "maintenance", maintenance);
+        ReflectionTestUtils.setField(listener, "clinicalStartup", mock(ClinicalStartupCoordinator.class));
+        try (var spring = mockStatic(SpringUtils.class);
+                var jobs = mockStatic(OscarJobUtils.class);
+                var hrm = mockConstruction(HRMFixMissingReportHelper.class)) {
+            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactionManager);
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses"))
+                    .isInstanceOf(IllegalStateException.class).hasMessage("Clinical startup deferred");
+            spring.verify(() -> SpringUtils.getBean(FaxSchedulerJob.class), never());
+        }
+    }
     @Test void shouldBootRecoveryContextWithoutClinicalQueries_whenMaintenanceIsRetained() {
         var maintenance = mock(CdsImportMaintenanceService.class);
         when(maintenance.isClinicalAccessBlocked()).thenReturn(true);
