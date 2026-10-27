@@ -69,11 +69,12 @@ public class CdsCorrectionLookupService {
 
     public CdsCorrectionSetDto find(String runId, String xmlRelative, String acceptedXmlSha256, Path parsedDirectory) throws IOException {
         String source=sourceKey(xmlRelative, acceptedXmlSha256);
-        Selection selected=transaction.execute(status -> {
+        java.util.Optional<Selection> found=java.util.Objects.requireNonNull(transaction.execute(status -> {
             var value=reviews.latestCorrection(runId, source);
-            return value==null?null:new Selection(value.getManifestLocation(), value.getManifestSha256(), value.getSourceXmlSha256());
-        });
-        if (selected==null) return null;
+            return value==null?java.util.Optional.<Selection>empty():java.util.Optional.of(new Selection(value.getManifestLocation(), value.getManifestSha256(), value.getSourceXmlSha256()));
+        }));
+        if (found.isEmpty()) return null;
+        Selection selected=found.get();
         if (!acceptedXmlSha256.equals(selected.xmlDigest())) throw new CdsImportException("REVIEW_ACCEPTED_SOURCE_CHANGED");
         Path root=jobs.root(runId).resolve("corrections").resolve(source);
         Path supplied=Path.of(selected.location());

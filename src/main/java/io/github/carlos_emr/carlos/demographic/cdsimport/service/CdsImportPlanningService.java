@@ -738,6 +738,8 @@ public class CdsImportPlanningService {
     private final class State implements AutoCloseable {
         final String runId; final long epoch; final CdsImportJobDocumentDto document; final CdsSnapshotDto snapshot;
         final Path workFile; final FileChannel channel; final OutputStream output;
+        // Each synchronous planOwned invocation creates and closes its own State; never shared across runs/threads.
+        @SuppressWarnings("java:S9428")
         final MessageDigest manifest = CdsPaths.sha256();
         long position; long patients; long units; long discoveredXmls; boolean blocked; boolean parseFailure;
         long reviewVersion;

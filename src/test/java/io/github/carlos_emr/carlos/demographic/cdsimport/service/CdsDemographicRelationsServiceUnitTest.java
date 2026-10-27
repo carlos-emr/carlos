@@ -187,6 +187,26 @@ class CdsDemographicRelationsServiceUnitTest {
     }
 
     @Test
+    void shouldRefuseMissingGeneratedIdentity_whenFlushedPharmacyAssociationHasNoId() {
+        var service=new CdsDemographicRelationsService(mock(CdsFieldParser.class));
+        var em=mock(EntityManager.class); ReflectionTestUtils.setField(service,"entityManager",em);
+        doAnswer(call->{
+            Object row=call.getArgument(0);
+            if (row instanceof PharmacyInfo pharmacy) pharmacy.setId(42);
+            return null;
+        }).when(em).persist(any());
+        var dto=new CdsDemographicRelationsDto(null,null,
+                new CdsDemographicRelationsDto.Pharmacy("Pharmacy",null,null,null,null,null,null,null),42,List.of());
+        try(var unit=mockStatic(CdsImportUnitService.class)) {
+            unit.when(CdsImportUnitService::isActiveForMaintenance).thenReturn(true);
+            assertThatThrownBy(()->service.write(999998,"T099",dto))
+                    .isInstanceOf(CdsImportException.class).hasMessage("DEMOGRAPHIC_RELATION_NATIVE_ID_MISSING");
+        }
+        verify(em,times(2)).persist(any());
+        verify(em,times(2)).flush();
+    }
+
+    @Test
     void shouldCreateNoRelations_whenSourceHasNoContextualAssociations() throws Exception {
         var dto=new CdsDemographicRelationsService(new CdsFieldParser()).prepare(
                 CdsClinicalFixture.record(directory,"Demographics",Map.of("UniqueVendorIdSequence","fixture")),command());

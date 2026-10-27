@@ -245,6 +245,8 @@ final class CdsRuntimeIdentity {
     }
 
     private static final class BoundedRuleOutput extends OutputStream {
+        // Owned solely by zoneRulesHash's calling thread and its local ObjectOutputStream.
+        @SuppressWarnings("java:S9428")
         private final MessageDigest digest;
         private long total;
         private long segment;

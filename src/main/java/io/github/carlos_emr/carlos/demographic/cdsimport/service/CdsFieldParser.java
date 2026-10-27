@@ -57,6 +57,7 @@ import java.util.Optional;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.io.BufferedOutputStream;
@@ -69,10 +70,10 @@ import org.springframework.stereotype.Service;
 public class CdsFieldParser {
     private static final Pattern ORDINAL=Pattern.compile("\\[[0-9]+\\]");
     private record FieldIndex(CdsRecordDto record, Map<String, CdsFieldDto> first, boolean complete) { }
-    private volatile FieldIndex firstFields;
+    private final AtomicReference<FieldIndex> firstFields=new AtomicReference<>();
     private record CorrectionCache(Path path, String digest, String xmlDigest, List<JsonNode> entries, boolean physicallyVerified) { }
     /** One bounded immutable manifest, never a cache that grows with patients or imports. */
-    private volatile CorrectionCache correctionCache;
+    private final AtomicReference<CorrectionCache> correctionCache=new AtomicReference<>();
     private static final ObjectMapper JSON = new ObjectMapper(com.fasterxml.jackson.core.JsonFactory.builder()
             .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION).build())
             .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
@@ -210,7 +211,7 @@ public class CdsFieldParser {
     void acceptVerifiedCorrections(CdsRecordDto record) throws IOException {
         if (record.corrections()==null) return;
         var reference=record.corrections(); List<JsonNode> entries=correctionEntries(reference, reference.manifestFile());
-        correctionCache=new CorrectionCache(reference.manifestFile(), reference.sha256(), reference.acceptedXmlSha256(), entries, true);
+        correctionCache.set(new CorrectionCache(reference.manifestFile(), reference.sha256(), reference.acceptedXmlSha256(), entries, true));
     }
 
     private String firstValue(CdsRecordDto record, String path, String namespace, int maxCharacters,
@@ -239,7 +240,7 @@ public class CdsFieldParser {
     }
 
     private FieldIndex firstIndex(CdsRecordDto record) throws IOException {
-        FieldIndex cached=firstFields;
+        FieldIndex cached=firstFields.get();
         if (cached!=null && sameSlice(cached.record(), record)) return cached;
         Map<String, CdsFieldDto> first=new LinkedHashMap<>(); boolean[] complete={true};
         forEachField(record, field-> {
@@ -250,7 +251,7 @@ public class CdsFieldParser {
             first.put(key, field);
         });
         FieldIndex built=new FieldIndex(record, Collections.unmodifiableMap(first), complete[0]);
-        firstFields=built; return built;
+        firstFields.set(built); return built;
     }
 
     private static boolean sameSlice(CdsRecordDto a, CdsRecordDto b) {
@@ -581,7 +582,7 @@ public class CdsFieldParser {
     }
 
     List<JsonNode> correctionEntries(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCorrectionSetDto reference, Path manifest) throws IOException {
-        CorrectionCache cached=correctionCache;
+        CorrectionCache cached=correctionCache.get();
         if (cached!=null && cached.path().equals(manifest) && cached.digest().equals(reference.sha256())
                 && cached.xmlDigest().equals(reference.acceptedXmlSha256())) {
             if (cached.physicallyVerified()) return cached.entries();
@@ -606,7 +607,7 @@ public class CdsFieldParser {
                 || !entries.isArray() || entries.size()>128) throw failure("CDS_CORRECTION_MANIFEST_INVALID");
         List<JsonNode> list=new ArrayList<>(entries.size()); entries.forEach(list::add);
         List<JsonNode> immutable=List.copyOf(list);
-        correctionCache=new CorrectionCache(manifest, reference.sha256(), reference.acceptedXmlSha256(), immutable, false);
+        correctionCache.set(new CorrectionCache(manifest, reference.sha256(), reference.acceptedXmlSha256(), immutable, false));
         return immutable;
     }
 

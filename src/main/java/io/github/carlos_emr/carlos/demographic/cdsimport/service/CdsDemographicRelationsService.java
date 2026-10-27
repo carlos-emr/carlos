@@ -173,12 +173,13 @@ public class CdsDemographicRelationsService {
             row.setPostalCode(p.postal()); row.setPhone1(p.phone()); row.setFax(p.fax()); row.setEmail(p.email());
             row.setStatus(PharmacyInfo.ACTIVE); row.setAddDate(new Date());
             entityManager.persist(row); entityManager.flush();
-            DemographicPharmacy association=new DemographicPharmacy(); association.setPharmacyId(row.getId());
+            int pharmacyId=requiredId(row.getId());
+            DemographicPharmacy association=new DemographicPharmacy(); association.setPharmacyId(pharmacyId);
             association.setDemographicNo(patient); association.setPreferredOrder(1);
             association.setStatus(DemographicPharmacy.ACTIVE); association.setConsentToContact(null); association.setAddDate(new Date());
             entityManager.persist(association); entityManager.flush();
-            references.put("pharmacyInfo", row.getId().toString());
-            references.put("demographicPharmacy", association.getId().toString());
+            references.put("pharmacyInfo", Integer.toString(pharmacyId));
+            references.put("demographicPharmacy", Integer.toString(requiredId(association.getId())));
         }
         return Map.copyOf(references);
     }
@@ -186,12 +187,17 @@ public class CdsDemographicRelationsService {
         if (person==null) return;
         ProfessionalContact contact=new ProfessionalContact(); contact.setFirstName(person.firstName()); contact.setLastName(person.lastName());
         entityManager.persist(contact); entityManager.flush();
-        DemographicContact relation=new DemographicContact(); relation.setContactId(contact.getId().toString());
+        int contactId=requiredId(contact.getId());
+        DemographicContact relation=new DemographicContact(); relation.setContactId(Integer.toString(contactId));
         relation.setDemographicNo(patient); relation.setCategory(DemographicContact.CATEGORY_PROFESSIONAL);
         relation.setType(DemographicContact.TYPE_CONTACT); relation.setRole(role); relation.setCreator(provider);
         relation.setFacilityId(facility); relation.setConsentToContact((Boolean) null); relation.setCreated(new Date());
         entityManager.persist(relation); entityManager.flush();
-        references.put("Contact#"+key, contact.getId().toString());
-        references.put("DemographicContact#"+key, relation.getId().toString());
+        references.put("Contact#"+key, Integer.toString(contactId));
+        references.put("DemographicContact#"+key, Integer.toString(requiredId(relation.getId())));
+    }
+    private static int requiredId(Integer id) {
+        if (id==null || id<1) throw new CdsImportException("DEMOGRAPHIC_RELATION_NATIVE_ID_MISSING");
+        return id;
     }
 }
