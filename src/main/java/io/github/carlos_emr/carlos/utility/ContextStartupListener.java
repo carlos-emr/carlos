@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.utility.RoleCache;
 import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelper;
+import io.github.carlos_emr.carlos.hospitalReportManager.HrmReportRepairDeferredException;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceResolver;
 
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
@@ -109,6 +110,7 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
         // Preserve the existing best-effort migration contract for genuine fixer errors.
         // An actual maintenance transition instead leaves initialization pending for retry.
         try { new HRMFixMissingReportHelper().fixIt(); }
+        catch (HrmReportRepairDeferredException deferred) { throw deferred; }
         catch (Exception failure) {
             requireClinicalAccessOpen();
             logger.error("HRM startup fixer failed ({}); completion flag is unchanged", failure.getClass().getName());
