@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicRelat
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicRelationsDto.Pharmacy;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsHealthCardAuthority;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPhoneComponents;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -69,8 +70,16 @@ public class CdsDemographicRelationsService {
             String address=formatted!=null?formatted:lines.isEmpty()?null:String.join("\n",lines);
             String postal=scalar(record,scope+"/Address/Structured/PostalZipCode/PostalCode",20,notices);
             if(postal==null) postal=scalar(record,scope+"/Address/Structured/PostalZipCode/ZipCode",20,notices);
+            String provincePath=scope+"/Address/Structured/CountrySubdivisionCode";
+            String sourceProvince=scalar(record,provincePath,255,notices);
+            String province=CdsHealthCardAuthority.normalize(sourceProvince);
+            if(!java.util.Objects.equals(sourceProvince,province)) {
+                notice(notices,"CDS_CANADIAN_PROVINCE_NORMALIZED",provincePath);
+            } else if(province!=null && !CdsHealthCardAuthority.CANADIAN.contains(province)) {
+                notice(notices,"CDS_CONTEXT_PHARMACY_PROVINCE_REQUIRES_REVIEW",provincePath);
+            }
             pharmacy=new Pharmacy(name,address,scalar(record,scope+"/Address/Structured/City",60,notices),
-                    scalar(record,scope+"/Address/Structured/CountrySubdivisionCode",255,notices),postal,
+                    province,postal,
                     phone(record,scope+"/PhoneNumber",notices),phone(record,scope+"/FaxNumber",notices),
                     scalar(record,scope+"/EmailAddress",100,notices));
             notice(notices,"CDS_PHARMACY_CONSENT_NOT_ASSERTED",scope);

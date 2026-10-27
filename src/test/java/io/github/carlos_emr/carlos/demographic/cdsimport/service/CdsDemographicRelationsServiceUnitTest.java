@@ -79,13 +79,32 @@ class CdsDemographicRelationsServiceUnitTest {
         var pharmacy=dto.preferredPharmacy();
         assertThat(pharmacy.name()).isEqualTo("  Unicode 藥局 ");
         assertThat(pharmacy.address()).isEqualTo("10 Main\nSuite 2");
-        assertThat(pharmacy.province()).isEqualTo("CA-ON");
+        assertThat(pharmacy.province()).isEqualTo("ON");
         assertThat(pharmacy.phone()).isEqualTo("613-555-0101 ext 12");
         assertThat(pharmacy.fax()).isEqualTo("+1-613-555-0102");
         assertThat(pharmacy.postal()).isEqualTo("M1M1M1");
         assertThat(pharmacy.email()).isEqualTo("fixture@example.invalid");
         assertThat(dto.diagnostics()).extracting(d->d.code())
-                .contains("CDS_PHONE_COMPONENTS_COMBINED","CDS_PHARMACY_CONSENT_NOT_ASSERTED");
+                .contains("CDS_PHONE_COMPONENTS_COMBINED","CDS_PHARMACY_CONSENT_NOT_ASSERTED","CDS_CANADIAN_PROVINCE_NORMALIZED");
+    }
+
+    @Test
+    void shouldNormalizeOnlyKnownCanadianProvinceAliases_withoutGuessingUnknownOrForeignSubdivisions() throws Exception {
+        for(String province:List.of("US-CA","CA-XX","ca-on","CA-ON ","-90")) {
+            var dto=new CdsDemographicRelationsService(new CdsFieldParser()).prepare(
+                    CdsClinicalFixture.record(directory,"Demographics",Map.of("PreferredPharmacy/Name","Pharmacy",
+                            "PreferredPharmacy/Address/Structured/CountrySubdivisionCode",province)),command());
+            assertThat(dto.preferredPharmacy().province()).isEqualTo(province);
+            assertThat(dto.diagnostics()).extracting(d->d.code()).contains("CDS_CONTEXT_PHARMACY_PROVINCE_REQUIRES_REVIEW")
+                    .doesNotContain("CDS_CANADIAN_PROVINCE_NORMALIZED");
+        }
+        for(String province:io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsHealthCardAuthority.CANADIAN) {
+            var dto=new CdsDemographicRelationsService(new CdsFieldParser()).prepare(
+                    CdsClinicalFixture.record(directory,"Demographics",Map.of("PreferredPharmacy/Name","Pharmacy",
+                            "PreferredPharmacy/Address/Structured/CountrySubdivisionCode","CA-"+province)),command());
+            assertThat(dto.preferredPharmacy().province()).isEqualTo(province);
+            assertThat(dto.diagnostics()).extracting(d->d.code()).contains("CDS_CANADIAN_PROVINCE_NORMALIZED");
+        }
     }
 
     @Test
