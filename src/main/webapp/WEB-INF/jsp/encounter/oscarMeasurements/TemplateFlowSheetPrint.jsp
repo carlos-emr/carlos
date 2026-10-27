@@ -817,8 +817,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                             if (k > num) {
                                 hider = "style=\"display:none;\"";
                             }
-                            if (hdata.get("prevention_date_info") instanceof io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO dateInfo
-                                    && !dateInfo.isExact()) hider = "";
+                            Object preventionDateInfo = hdata.get("prevention_date_info");
+                            if (preventionDateInfo instanceof io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                                    && !((io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO) preventionDateInfo).isExact()) hider = "";
 
                             //////PREV END
                     %>
