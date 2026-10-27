@@ -60,6 +60,7 @@ import io.github.carlos_emr.carlos.webserv.oauth.Client;
 // OAuth 1.0a - replaced cxf OAuthServiceException. 
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Permission;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthAccessTokenLifetime;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
 import io.github.carlos_emr.carlos.webserv.oauth.UserSubject;
@@ -190,16 +191,20 @@ public class OscarOAuthDataProvider {
         String tokenSecret = UUID.randomUUID().toString();
         long issuedAt = System.currentTimeMillis() / 1000;
 
-        AccessToken at = new AccessToken(requestToken.getClient(), accessTokenId, tokenSecret, 3600, issuedAt);
+        // The client is looked up only AFTER the atomic consume above, so a lost race never reads the client.
+        // The lifetime is computed once so the in-memory and the persisted token always agree.
+        ServiceClient sc = serviceClientDao.findByKey(requestToken.getClient().getConsumerKey());
+        long lifetime = OAuthAccessTokenLifetime.forClient(sc);
+
+        AccessToken at = new AccessToken(requestToken.getClient(), accessTokenId, tokenSecret, lifetime, issuedAt);
         at.setSubject(new UserSubject(srt.getProviderNo(), new ArrayList<>()));
         at.setScopes(requestToken.getScopes());
 
         ServiceAccessToken sat = new ServiceAccessToken();
-        ServiceClient sc = serviceClientDao.findByKey(requestToken.getClient().getConsumerKey());
         sat.setClientId(sc.getId());
         sat.setDateCreated(new Date());
         sat.setIssued(issuedAt);
-        sat.setLifetime(3600);
+        sat.setLifetime(lifetime);
         sat.setTokenId(accessTokenId);
         sat.setTokenSecret(tokenSecret);
         sat.setProviderNo(srt.getProviderNo());
