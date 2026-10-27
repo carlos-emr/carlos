@@ -1,7 +1,7 @@
 package io.github.carlos_emr.carlos.ar2005.impl;
 
 import org.apache.xmlbeans.impl.values.JavaFloatHolderEx;
-import org.apache.xmlbeans.impl.values.JavaStringEnumerationHolderEx;
+import io.github.carlos_emr.carlos.utility.LegacyXmlStringEnumerationHolder;
 import io.github.carlos_emr.carlos.ar2005.CustomLab;
 import io.github.carlos_emr.carlos.ar2005.PrenatalGeneticScreeningType;
 import org.apache.xmlbeans.XmlDate;
@@ -1551,7 +1551,7 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
-    public static class HivResultImpl extends JavaStringEnumerationHolderEx implements HivResult
+    public static class HivResultImpl extends LegacyXmlStringEnumerationHolder implements HivResult
     {
         private static final long serialVersionUID = 1L;
 
@@ -1615,7 +1615,7 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
-    public static class AboResultImpl extends JavaStringEnumerationHolderEx implements AboResult
+    public static class AboResultImpl extends LegacyXmlStringEnumerationHolder implements AboResult
     {
         private static final long serialVersionUID = 1L;
 
@@ -1647,7 +1647,7 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
-    public static class RhResultImpl extends JavaStringEnumerationHolderEx implements RhResult
+    public static class RhResultImpl extends LegacyXmlStringEnumerationHolder implements RhResult
     {
         private static final long serialVersionUID = 1L;
 
@@ -1679,7 +1679,7 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
-    public static class GcResultGonorrheaImpl extends JavaStringEnumerationHolderEx implements GcResultGonorrhea
+    public static class GcResultGonorrheaImpl extends LegacyXmlStringEnumerationHolder implements GcResultGonorrhea
     {
         private static final long serialVersionUID = 1L;
 
@@ -1711,7 +1711,7 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
-    public static class GcResultChlamydiaImpl extends JavaStringEnumerationHolderEx implements GcResultChlamydia
+    public static class GcResultChlamydiaImpl extends LegacyXmlStringEnumerationHolder implements GcResultChlamydia
     {
         private static final long serialVersionUID = 1L;
 
@@ -1743,7 +1743,7 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
-    public static class HbsAgResultImpl extends JavaStringEnumerationHolderEx implements HbsAgResult
+    public static class HbsAgResultImpl extends LegacyXmlStringEnumerationHolder implements HbsAgResult
     {
         private static final long serialVersionUID = 1L;
 
@@ -1775,7 +1775,7 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
-    public static class VdrlResultImpl extends JavaStringEnumerationHolderEx implements VdrlResult
+    public static class VdrlResultImpl extends LegacyXmlStringEnumerationHolder implements VdrlResult
     {
         private static final long serialVersionUID = 1L;
 
@@ -1807,7 +1807,7 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
-    public static class SickleCellResultImpl extends JavaStringEnumerationHolderEx implements SickleCellResult
+    public static class SickleCellResultImpl extends LegacyXmlStringEnumerationHolder implements SickleCellResult
     {
         private static final long serialVersionUID = 1L;
 

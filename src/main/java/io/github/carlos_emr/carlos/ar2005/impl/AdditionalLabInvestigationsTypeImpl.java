@@ -1,6 +1,6 @@
 package io.github.carlos_emr.carlos.ar2005.impl;
 
-import org.apache.xmlbeans.impl.values.JavaStringEnumerationHolderEx;
+import io.github.carlos_emr.carlos.utility.LegacyXmlStringEnumerationHolder;
 import io.github.carlos_emr.carlos.ar2005.CustomLab;
 import org.apache.xmlbeans.StringEnumAbstractBase;
 import org.apache.xmlbeans.XmlObject;
@@ -718,7 +718,7 @@ public class AdditionalLabInvestigationsTypeImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
-    public static class BloodGroupImpl extends JavaStringEnumerationHolderEx implements BloodGroup
+    public static class BloodGroupImpl extends LegacyXmlStringEnumerationHolder implements BloodGroup
     {
         private static final long serialVersionUID = 1L;
 
@@ -749,7 +749,7 @@ public class AdditionalLabInvestigationsTypeImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
-    public static class RhImpl extends JavaStringEnumerationHolderEx implements Rh
+    public static class RhImpl extends LegacyXmlStringEnumerationHolder implements Rh
     {
         private static final long serialVersionUID = 1L;
 
@@ -780,7 +780,7 @@ public class AdditionalLabInvestigationsTypeImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
-    public static class GBSImpl extends JavaStringEnumerationHolderEx implements GBS
+    public static class GBSImpl extends LegacyXmlStringEnumerationHolder implements GBS
     {
         private static final long serialVersionUID = 1L;
 

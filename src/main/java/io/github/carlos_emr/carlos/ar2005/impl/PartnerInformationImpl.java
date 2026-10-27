@@ -1,7 +1,7 @@
 package io.github.carlos_emr.carlos.ar2005.impl;
 
 import org.apache.xmlbeans.impl.values.JavaIntHolderEx;
-import org.apache.xmlbeans.impl.values.JavaStringEnumerationHolderEx;
+import io.github.carlos_emr.carlos.utility.LegacyXmlStringEnumerationHolder;
 import org.apache.xmlbeans.StringEnumAbstractBase;
 import org.apache.xmlbeans.XmlObject;
 import org.apache.xmlbeans.XmlString;
@@ -612,13 +612,13 @@ public class PartnerInformationImpl extends XmlComplexContentImpl implements Par
          * XMLBeans implementation for occupation value enumeration.
          *
          * This inner class provides XML data binding for the predefined occupation
-         * value enumeration. It extends JavaStringEnumerationHolderEx to support
+         * value enumeration. It extends LegacyXmlStringEnumerationHolder to support
          * type-safe enumeration values for occupation types.
          *
          * @see io.github.carlos_emr.carlos.ar2005.PartnerInformation.Occupation.Value
          * @since 2026-01-24
          */
-        public static class ValueImpl extends JavaStringEnumerationHolderEx implements Value
+        public static class ValueImpl extends LegacyXmlStringEnumerationHolder implements Value
         {
             private static final long serialVersionUID = 1L;
 
@@ -649,13 +649,13 @@ public class PartnerInformationImpl extends XmlComplexContentImpl implements Par
      * XMLBeans implementation for education level enumeration.
      *
      * This inner class provides XML data binding for the partner's education level
-     * enumeration. It extends JavaStringEnumerationHolderEx to support type-safe
+     * enumeration. It extends LegacyXmlStringEnumerationHolder to support type-safe
      * enumeration values for educational attainment levels.
      *
      * @see io.github.carlos_emr.carlos.ar2005.PartnerInformation.EducationLevel
      * @since 2026-01-24
      */
-    public static class EducationLevelImpl extends JavaStringEnumerationHolderEx implements EducationLevel
+    public static class EducationLevelImpl extends LegacyXmlStringEnumerationHolder implements EducationLevel
     {
         private static final long serialVersionUID = 1L;
 

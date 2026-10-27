@@ -1,6 +1,6 @@
 package io.github.carlos_emr.carlos.ar2005.impl;
 
-import org.apache.xmlbeans.impl.values.JavaStringEnumerationHolderEx;
+import io.github.carlos_emr.carlos.utility.LegacyXmlStringEnumerationHolder;
 import org.apache.xmlbeans.StringEnumAbstractBase;
 import org.apache.xmlbeans.SimpleValue;
 import org.apache.xmlbeans.XmlObject;
@@ -625,7 +625,7 @@ public class CurrentPregnancyTypeImpl extends XmlComplexContentImpl implements C
      * @see CigsPerDay
      * @since 2026-01-24
      */
-    public static class CigsPerDayImpl extends JavaStringEnumerationHolderEx implements CigsPerDay
+    public static class CigsPerDayImpl extends LegacyXmlStringEnumerationHolder implements CigsPerDay
     {
         private static final long serialVersionUID = 1L;
 

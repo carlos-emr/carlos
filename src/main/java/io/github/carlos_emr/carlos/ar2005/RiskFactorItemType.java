@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -101,27 +99,6 @@ public interface RiskFactorItemType extends XmlObject
         public static RiskFactorItemType parse(final Node node, final XmlOptions options) throws XmlException {
             return (RiskFactorItemType)XmlBeans.getContextTypeLoader().parse(node, RiskFactorItemType.type, options);
         }
-        
-        @Deprecated
-        public static RiskFactorItemType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (RiskFactorItemType)XmlBeans.getContextTypeLoader().parse(xis, RiskFactorItemType.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static RiskFactorItemType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (RiskFactorItemType)XmlBeans.getContextTypeLoader().parse(xis, RiskFactorItemType.type, options);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, RiskFactorItemType.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, RiskFactorItemType.type, options);
-        }
-        
         private Factory() {
         }
     }

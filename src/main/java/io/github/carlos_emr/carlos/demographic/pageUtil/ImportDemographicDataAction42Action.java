@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -666,8 +667,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             List c = new ArrayList();
 
             opts.setErrorListener(c);
-            opts.setDocumentType(OmdCdsDocument.Factory.newInstance().schemaType());
-            omdCds = OmdCdsDocument.Factory.parse(xmlF, opts).getOmdCds();
+            opts.setDocumentType(LegacyXmlBeans.newInstance(OmdCdsDocument.class, OmdCdsDocument.type).schemaType());
+            omdCds = LegacyXmlBeans.parse(OmdCdsDocument.class, OmdCdsDocument.type, xmlF, opts).getOmdCds();
 
             omdCds.validate(opts);
 
@@ -885,8 +886,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             List c = new ArrayList();
 
             opts.setErrorListener(c);
-            opts.setDocumentType(OmdCdsDocument.Factory.newInstance().schemaType());
-            OmdCdsDocument.OmdCds omdCds = OmdCdsDocument.Factory.parse(xmlF, opts).getOmdCds();
+            opts.setDocumentType(LegacyXmlBeans.newInstance(OmdCdsDocument.class, OmdCdsDocument.type).schemaType());
+            OmdCdsDocument.OmdCds omdCds = LegacyXmlBeans.parse(OmdCdsDocument.class, OmdCdsDocument.type, xmlF, opts).getOmdCds();
             omdCds.validate(opts);
             patientRec = omdCds.getPatientRecord();
         } catch (IOException ex) {

@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import cdsrourke.PatientDocument;
 import cdsrourke.PatientDocument.Patient;
 import org.apache.struts2.ActionSupport;
@@ -266,7 +267,7 @@ public class RourkeExport2Action extends ActionSupport {
         String demoNo;
         Demographic demo;
 
-        PatientDocument patientDocument = PatientDocument.Factory.newInstance();
+        PatientDocument patientDocument = LegacyXmlBeans.newInstance(PatientDocument.class, PatientDocument.type);
         Patient patient;
 
         for (int idx = 0; idx < patientList.size(); ++idx) {
@@ -3835,9 +3836,9 @@ public class RourkeExport2Action extends ActionSupport {
 
     private String makeFiles(PatientDocument patientDocument, String tmpDir) throws Exception {
         XmlOptions options = new XmlOptions();
-        options.put(XmlOptions.SAVE_PRETTY_PRINT);
-        options.put(XmlOptions.SAVE_PRETTY_PRINT_INDENT, 3);
-        options.put(XmlOptions.SAVE_AGGRESSIVE_NAMESPACES);
+        options.setSavePrettyPrint();
+        options.setSavePrettyPrintIndent(3);
+        options.setSaveAggressiveNamespaces();
 
         options.setSaveOuter();
 

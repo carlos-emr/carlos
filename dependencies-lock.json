@@ -1389,11 +1389,11 @@
   }, {
     "groupId" : "org.apache.commons",
     "artifactId" : "commons-compress",
-    "version" : "1.27.1",
+    "version" : "1.28.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:Xh/Pn1UquGvs7vZ0NgnpfXANy6pbXuWIWOdlwSOM1NvKKFLh60FbwqCdrUeNMRl93wmyuhSN0wvoyezVZXdSJg=="
+    "integrity" : "sha512:8fFA9PQKs88yZZGdudu5WmMaKap4TjBfKR3k5oh2u3EdkhfWLXk3zd3dOTmC3s33GmCLSzq39OY3XPKK8ok9fw=="
   }, {
     "groupId" : "org.apache.commons",
     "artifactId" : "commons-configuration2",
@@ -2133,19 +2133,19 @@
   }, {
     "groupId" : "org.apache.poi",
     "artifactId" : "poi-ooxml-lite",
-    "version" : "5.4.1",
+    "version" : "5.5.1",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:rJVCzZfCqe5WyhLc2WDK7uvVKAGFrntsSy29R+7kZh4QPtec8cX5PLcdesgjol/jPcFlzbh1pBii/oImCX08zg=="
+    "integrity" : "sha512:63M55dPb9l7MvwmK/x9sqNFcrcrs9BePhkyr3Ei2VQm1286ys/vCzOwdMFSqxH721PdURd+zltTXnmyjwyYmdQ=="
   }, {
     "groupId" : "org.apache.poi",
     "artifactId" : "poi-ooxml",
-    "version" : "5.4.1",
+    "version" : "5.5.1",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:+SF5NeMBcqaok3AytDqc2ZWbegwjuApdKfi9Ff+t4qBrWD/tpn7ylCHfUcHhXTMkYT4Yn7UD+V4j4BzBAzEYzA=="
+    "integrity" : "sha512:oDzuKsBKtVlvnsx8STSb6ToafloUW5v8nR03rmi4tskZQEoLrI+HRxXr0z6QS10/KzCYpKd4FOtAc2eDl2QFtg=="
   }, {
     "groupId" : "org.apache.poi",
     "artifactId" : "poi",
@@ -2293,11 +2293,11 @@
   }, {
     "groupId" : "org.apache.xmlbeans",
     "artifactId" : "xmlbeans",
-    "version" : "3.1.0",
+    "version" : "5.3.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:IbheUyQR7bv0kp4gxEkdP+DXtLsVcztYxkVckB1KBfkY5ztlIeccYqiaZXbUFs3ct5sMUggs2BMvwwxA5Qa01w=="
+    "integrity" : "sha512:rQx9t4djFqFBXxIsxzd8Qj46dcOtrNauzdcPL1KflZY4iW3JXJGt81TeexuXr68Gr9DUIhU9aU9m8yxWDRsIIQ=="
   }, {
     "groupId" : "org.apache.xmlgraphics",
     "artifactId" : "batik-anim",

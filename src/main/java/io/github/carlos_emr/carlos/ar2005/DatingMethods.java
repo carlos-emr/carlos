@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -117,27 +115,6 @@ public interface DatingMethods extends XmlObject
         public static DatingMethods parse(final Node node, final XmlOptions options) throws XmlException {
             return (DatingMethods)XmlBeans.getContextTypeLoader().parse(node, DatingMethods.type, options);
         }
-        
-        @Deprecated
-        public static DatingMethods parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (DatingMethods)XmlBeans.getContextTypeLoader().parse(xis, DatingMethods.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static DatingMethods parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (DatingMethods)XmlBeans.getContextTypeLoader().parse(xis, DatingMethods.type, options);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, DatingMethods.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, DatingMethods.type, options);
-        }
-        
         private Factory() {
         }
     }

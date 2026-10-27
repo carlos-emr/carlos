@@ -1,6 +1,6 @@
 package io.github.carlos_emr.carlos.ar2005.impl;
 
-import org.apache.xmlbeans.impl.values.JavaStringEnumerationHolderEx;
+import io.github.carlos_emr.carlos.utility.LegacyXmlStringEnumerationHolder;
 import org.apache.xmlbeans.XmlFloat;
 import org.apache.xmlbeans.XmlString;
 import org.apache.xmlbeans.StringEnumAbstractBase;
@@ -745,7 +745,7 @@ public class ObstetricalHistoryItemListImpl extends XmlComplexContentImpl implem
      * @see io.github.carlos_emr.carlos.ar2005.ObstetricalHistoryItemList.Sex
      * @since 2026-01-24
      */
-    public static class SexImpl extends JavaStringEnumerationHolderEx implements Sex
+    public static class SexImpl extends LegacyXmlStringEnumerationHolder implements Sex
     {
         private static final long serialVersionUID = 1L;
 
@@ -779,7 +779,7 @@ public class ObstetricalHistoryItemListImpl extends XmlComplexContentImpl implem
      * @see io.github.carlos_emr.carlos.ar2005.ObstetricalHistoryItemList.TypeOfDelivery
      * @since 2026-01-24
      */
-    public static class TypeOfDeliveryImpl extends JavaStringEnumerationHolderEx implements TypeOfDelivery
+    public static class TypeOfDeliveryImpl extends LegacyXmlStringEnumerationHolder implements TypeOfDelivery
     {
         private static final long serialVersionUID = 1L;
 

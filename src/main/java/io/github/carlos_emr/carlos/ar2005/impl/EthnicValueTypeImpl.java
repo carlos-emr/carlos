@@ -2,7 +2,7 @@ package io.github.carlos_emr.carlos.ar2005.impl;
 
 import org.apache.xmlbeans.SchemaType;
 import io.github.carlos_emr.carlos.ar2005.EthnicValueType;
-import org.apache.xmlbeans.impl.values.JavaStringEnumerationHolderEx;
+import io.github.carlos_emr.carlos.utility.LegacyXmlStringEnumerationHolder;
 
 /**
  * Implementation class for the EthnicValueType XML enumeration type used in BC Antenatal Record (BCAR) 2005 forms.
@@ -26,7 +26,7 @@ import org.apache.xmlbeans.impl.values.JavaStringEnumerationHolderEx;
  * @see io.github.carlos_emr.carlos.ar2005.PatientInformation
  * @since 2026-01-23
  */
-public class EthnicValueTypeImpl extends JavaStringEnumerationHolderEx implements EthnicValueType
+public class EthnicValueTypeImpl extends LegacyXmlStringEnumerationHolder implements EthnicValueType
 {
     private static final long serialVersionUID = 1L;
 

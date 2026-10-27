@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -370,64 +368,6 @@ public interface EthnicValueType extends XmlString
          */
         public static EthnicValueType parse(final Node node, final XmlOptions options) throws XmlException {
             return (EthnicValueType)XmlBeans.getContextTypeLoader().parse(node, EthnicValueType.type, options);
-        }
-
-        /**
-         * Parses XML from an XMLInputStream to create an EthnicValueType instance.
-         *
-         * @param xis XMLInputStream the XML input stream (legacy format)
-         * @return EthnicValueType the parsed ethnic value instance
-         * @throws XmlException if the XML is malformed or does not conform to the schema
-         * @throws XMLStreamException if an error occurs during stream processing
-         * @deprecated XMLInputStream is deprecated. Use {@link XMLStreamReader} instead.
-         */
-        @Deprecated
-        public static EthnicValueType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (EthnicValueType)XmlBeans.getContextTypeLoader().parse(xis, EthnicValueType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses XML from an XMLInputStream to create an EthnicValueType instance with custom options.
-         *
-         * @param xis XMLInputStream the XML input stream (legacy format)
-         * @param options XmlOptions the configuration options for parsing
-         * @return EthnicValueType the parsed ethnic value instance
-         * @throws XmlException if the XML is malformed or does not conform to the schema
-         * @throws XMLStreamException if an error occurs during stream processing
-         * @deprecated XMLInputStream is deprecated. Use {@link XMLStreamReader} instead.
-         */
-        @Deprecated
-        public static EthnicValueType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (EthnicValueType)XmlBeans.getContextTypeLoader().parse(xis, EthnicValueType.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream for schema validation.
-         *
-         * @param xis XMLInputStream the source XML input stream to validate
-         * @return XMLInputStream a validating stream wrapper
-         * @throws XmlException if the stream cannot be validated
-         * @throws XMLStreamException if an error occurs during stream processing
-         * @deprecated XMLInputStream is deprecated. Use {@link XMLStreamReader} for validation instead.
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, EthnicValueType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream for schema validation with custom options.
-         *
-         * @param xis XMLInputStream the source XML input stream to validate
-         * @param options XmlOptions the configuration options for validation
-         * @return XMLInputStream a validating stream wrapper
-         * @throws XmlException if the stream cannot be validated
-         * @throws XMLStreamException if an error occurs during stream processing
-         * @deprecated XMLInputStream is deprecated. Use {@link XMLStreamReader} for validation instead.
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, EthnicValueType.type, options);
         }
 
         /**
