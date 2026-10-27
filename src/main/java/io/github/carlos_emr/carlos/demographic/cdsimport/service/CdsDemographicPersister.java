@@ -368,7 +368,9 @@ public class CdsDemographicPersister {
         row.setHidden(false);
         entityManager.persist(row);
         entityManager.flush();
-        references.put("demographicExt#" + references.size(), row.getId().toString());
+        Integer nativeId=row.getId();
+        if (nativeId==null || nativeId<1) throw new CdsImportException("DEMOGRAPHIC_EXTENSION_NATIVE_ID_MISSING");
+        references.put("demographicExt#" + references.size(), Integer.toString(nativeId));
     }
 
     private static void applyAddress(Demographic patient, Address address, boolean residential) {
@@ -509,6 +511,8 @@ public class CdsDemographicPersister {
         final String group;
         final boolean address;
         final Map<String, String> values = new LinkedHashMap<>();
+        // A projection belongs to one prepare call and is consumed only by its synchronous field scan.
+        @SuppressWarnings("java:S9428")
         final MessageDigest digest = CdsPaths.sha256();
         String kind;
         boolean numberComponentUnavailable;

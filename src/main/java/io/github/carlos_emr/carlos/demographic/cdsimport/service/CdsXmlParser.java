@@ -123,30 +123,47 @@ public class CdsXmlParser {
         Path manifest = spool.resolve("records.jsonl");
         Path diagnostics = spool.resolve("validation-errors.jsonl");
         MessageDigest sourceHash = CdsPaths.sha256();
+        // Lexical ownership covers partial output construction and validator initialization failures.
         try (InputStream raw = Files.newInputStream(sourceXml, LinkOption.NOFOLLOW_LINKS);
-                Pipeline pipeline = new Pipeline(spool, fields, values, manifest, diagnostics, limits, cancelled, records, staged);
-                CountingInput counted = new CountingInput(raw, limits.maxSourceBytes(), pipeline);
-                DigestInputStream hashed = new DigestInputStream(counted, sourceHash);
-                Reader text = CdsXmlText.reader(hashed, limits.maxBoundedScalarCharacters())) {
-            XMLReader reader;
-            try {
-                reader=xmlReader();
-                reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-                reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
-                reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-                reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+                OutputStream fieldFile = CdsPaths.newPrivateFile(fields, spool);
+                BufferedOutputStream fieldBuffer = new BufferedOutputStream(fieldFile, 65536);
+                CountedOutput fieldOutput = new CountedOutput(fieldBuffer);
+                OutputStream valueFile = CdsPaths.newPrivateFile(values, spool);
+                BufferedOutputStream valueBuffer = new BufferedOutputStream(valueFile, 65536);
+                ValueOutput valueOutput = new ValueOutput(valueBuffer);
+                Writer valueWriter = new OutputStreamWriter(valueOutput, StandardCharsets.UTF_8.newEncoder()
+                        .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT));
+                OutputStream manifestFile = CdsPaths.newPrivateFile(manifest, spool);
+                BufferedOutputStream manifestBuffer = new BufferedOutputStream(manifestFile, 65536);
+                CountedOutput manifestOutput = new CountedOutput(manifestBuffer);
+                OutputStream diagnosticFile = CdsPaths.newPrivateFile(diagnostics, spool);
+                BufferedOutputStream diagnosticBuffer = new BufferedOutputStream(diagnosticFile, 65536);
+                CountedOutput diagnosticOutput = new CountedOutput(diagnosticBuffer)) {
+            Pipeline pipeline = new Pipeline(spool, fields, values, manifest, diagnostics, limits, cancelled,
+                    records, staged, fieldOutput, valueOutput, valueWriter, manifestOutput, diagnosticOutput);
+            try (CountingInput counted = new CountingInput(raw, limits.maxSourceBytes(), pipeline);
+                    DigestInputStream hashed = new DigestInputStream(counted, sourceHash);
+                    Reader text = CdsXmlText.reader(hashed, limits.maxBoundedScalarCharacters())) {
+                XMLReader reader;
+                try {
+                    reader=xmlReader();
+                    reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+                    reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
+                    reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+                    reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+                }
+                catch (javax.xml.parsers.ParserConfigurationException | SAXException unsupported) {
+                    throw CdsPaths.failure("CDS_SECURE_XML_PARSER_UNAVAILABLE");
+                }
+                reader.setContentHandler(pipeline);
+                reader.setErrorHandler(pipeline);
+                reader.parse(new InputSource(text));
+                String sourceDigest=CdsPaths.hex(sourceHash.digest());
+                pipeline.finish(sourceDigest, counted.count);
+                return new CdsParseResultDto(sourceDigest, counted.count,
+                        pipeline.records, pipeline.fields, pipeline.binaryBytes, manifest, values,
+                        pipeline.valuesSha256, pipeline.valueOutput.count);
             }
-            catch (javax.xml.parsers.ParserConfigurationException | SAXException unsupported) {
-                throw CdsPaths.failure("CDS_SECURE_XML_PARSER_UNAVAILABLE");
-            }
-            reader.setContentHandler(pipeline);
-            reader.setErrorHandler(pipeline);
-            reader.parse(new InputSource(text));
-            String sourceDigest=CdsPaths.hex(sourceHash.digest());
-            pipeline.finish(sourceDigest, counted.count);
-            return new CdsParseResultDto(sourceDigest, counted.count,
-                    pipeline.records, pipeline.fields, pipeline.binaryBytes, manifest, values,
-                    pipeline.valuesSha256, pipeline.valueOutput.count);
         } catch (CdsInputException failure) {
             throw failure;
         } catch (SAXException failure) {
@@ -176,7 +193,7 @@ public class CdsXmlParser {
         return reader;
     }
 
-    private static final class Pipeline extends DefaultHandler implements AutoCloseable {
+    private static final class Pipeline extends DefaultHandler {
         private final Path spool;
         private final Path fieldsPath;
         private final Path valuesPath;
@@ -201,6 +218,8 @@ public class CdsXmlParser {
         private final Set<String> qualifiedNames = new HashSet<>();
         private final long started = System.nanoTime();
         private Locator locator;
+        // One SAX Pipeline is created per parse and called only by that parse's synchronous reader.
+        @SuppressWarnings("java:S9428")
         private MessageDigest recordDigest;
         private String section;
         private long sectionOrdinal;
@@ -223,7 +242,9 @@ public class CdsXmlParser {
         private Frame closingScalar;
 
         Pipeline(Path spool, Path fields, Path values, Path manifest, Path diagnostics,
-                CdsInputLimitsDto limits, BooleanSupplier cancelled, Consumer<CdsRecordDto> consumer, CdsCorrectionSetDto corrections)
+                CdsInputLimitsDto limits, BooleanSupplier cancelled, Consumer<CdsRecordDto> consumer,
+                CdsCorrectionSetDto corrections, CountedOutput fieldOutput, ValueOutput valueOutput,
+                Writer valueWriter, CountedOutput manifestOutput, CountedOutput diagnosticOutput)
                 throws IOException {
             this.spool = spool; fieldsPath = fields; valuesPath = values; manifestPath = manifest;
             diagnosticsPath = diagnostics; this.limits = limits; this.cancelled = cancelled; this.consumer = consumer;
@@ -232,12 +253,8 @@ public class CdsXmlParser {
                 String path=entry.path("sourceXPath").asText();
                 if (path.isEmpty() || reviewed.put(path, entry)!=null) throw CdsPaths.failure("CDS_CORRECTION_TARGET_AMBIGUOUS");
             }
-            fieldOutput = new CountedOutput(new BufferedOutputStream(CdsPaths.newPrivateFile(fields, spool), 65536));
-            valueOutput = new ValueOutput(new BufferedOutputStream(CdsPaths.newPrivateFile(values, spool), 65536));
-            valueWriter = new OutputStreamWriter(valueOutput, StandardCharsets.UTF_8.newEncoder()
-                    .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT));
-            manifestOutput = new CountedOutput(new BufferedOutputStream(CdsPaths.newPrivateFile(manifest, spool), 65536));
-            diagnosticOutput = new CountedOutput(new BufferedOutputStream(CdsPaths.newPrivateFile(diagnostics, spool), 65536));
+            this.fieldOutput=fieldOutput; this.valueOutput=valueOutput; this.valueWriter=valueWriter;
+            this.manifestOutput=manifestOutput; this.diagnosticOutput=diagnosticOutput;
             validator = CdsSchemaValidator.newValidator();
             types = validator.getTypeInfoProvider();
             validator.setContentHandler(new DefaultHandler() {
@@ -526,14 +543,7 @@ public class CdsXmlParser {
             CdsPaths.forceFile(spool.resolve("parse.seal")); CdsPaths.forceDirectory(spool);
         }
 
-        @Override public void close() throws IOException {
-            IOException primary = null;
-            for (AutoCloseable closeable : new AutoCloseable[]{valueWriter, valueOutput, fieldOutput, manifestOutput, diagnosticOutput}) {
-                try { closeable.close(); }
-                catch (Exception failed) { if (primary == null) primary = new IOException("CDS_SPOOL_CLOSE_FAILED"); else primary.addSuppressed(failed); }
-            }
-            if (primary != null) throw primary;
-        }
+
     }
 
     private enum Mode { COMPLEX, BOUNDED, TEXT, LENGTH_TEXT, BINARY, INTEGER, DECIMAL }
@@ -710,6 +720,8 @@ public class CdsXmlParser {
 
     private static class CountedOutput extends OutputStream {
         private final OutputStream delegate;
+        // This output is owned and closed by one parse call; it is never shared between parser instances.
+        @SuppressWarnings("java:S9428")
         private final MessageDigest digest;
         protected long count;
         CountedOutput(OutputStream delegate) { this(delegate, true); }
@@ -724,7 +736,11 @@ public class CdsXmlParser {
     }
 
     private static final class ValueOutput extends CountedOutput {
+        // Per-parse output state, updated only by that parse's synchronous SAX callbacks.
+        @SuppressWarnings("java:S9428")
         private MessageDigest fieldDigest = CdsPaths.sha256();
+        // The same per-parse ownership applies to the aggregate value-file digest.
+        @SuppressWarnings("java:S9428")
         private final MessageDigest fileDigest = CdsPaths.sha256();
         ValueOutput(OutputStream output) { super(output, false); }
         @Override public void write(int value) throws IOException { super.write(value); fieldDigest.update((byte) value); fileDigest.update((byte) value); }

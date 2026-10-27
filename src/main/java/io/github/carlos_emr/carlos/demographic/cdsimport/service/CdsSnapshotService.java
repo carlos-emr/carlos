@@ -344,35 +344,88 @@ public class CdsSnapshotService {
         });
     }
 
+    // SecureSourceInputStream takes ownership immediately and closes the root on every constructor
+    // exit.
+    @SuppressWarnings("java:S2095")
     private static InputStream openSource(Path path, Path root) throws IOException {
         Path base = root.toRealPath(LinkOption.NOFOLLOW_LINKS);
         Path lexical = path.toAbsolutePath().normalize();
         CdsPaths.within(lexical, base);
+        Path directories = base.getRoot().relativize(base);
         Path relative = base.relativize(lexical);
-        Path filesystemRoot = base.getRoot();
-        DirectoryStream<Path> stream = Files.newDirectoryStream(filesystemRoot);
-        if (!(stream instanceof SecureDirectoryStream<Path> secure)) {
-            stream.close();
-            throw CdsPaths.failure("CDS_SECURE_SOURCE_OPEN_UNSUPPORTED");
+        return new SecureSourceInputStream(
+                Files.newDirectoryStream(base.getRoot()), directories, relative);
+    }
+
+    /** Owns the source channel before directory cleanup, including every exceptional constructor exit. */
+    static final class SecureSourceInputStream extends InputStream {
+        private SeekableByteChannel channel;
+        private final InputStream delegate;
+
+        SecureSourceInputStream(DirectoryStream<Path> openedRoot, Path base, Path relative)
+                throws IOException {
+            try (openedRoot) {
+                if (!(openedRoot instanceof SecureDirectoryStream<Path> secure))
+                    throw CdsPaths.failure("CDS_SECURE_SOURCE_OPEN_UNSUPPORTED");
+                try (DirectoryCursor cursor = new DirectoryCursor(secure)) {
+                    for (Path component : base) cursor.descend(component);
+                    for (int i = 0; i < relative.getNameCount() - 1; i++)
+                        cursor.descend(relative.getName(i));
+                    channel =
+                            cursor.current.newByteChannel(
+                                    relative.getFileName(),
+                                    Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
+                    delegate = Channels.newInputStream(channel);
+                }
+            } catch (IOException | RuntimeException | Error failure) {
+                if (channel != null) {
+                    try {
+                        channel.close();
+                    } catch (IOException | RuntimeException | Error closeFailure) {
+                        if (closeFailure != failure) failure.addSuppressed(closeFailure);
+                    }
+                }
+                throw failure;
+            }
         }
-        SecureDirectoryStream<Path> current = secure;
-        try {
-            for (Path component : filesystemRoot.relativize(base)) {
-                SecureDirectoryStream<Path> next = current.newDirectoryStream(component, LinkOption.NOFOLLOW_LINKS);
-                if (current != secure) current.close();
-                current = next;
-            }
-            for (int i = 0; i < relative.getNameCount() - 1; i++) {
-                SecureDirectoryStream<Path> next = current.newDirectoryStream(relative.getName(i), LinkOption.NOFOLLOW_LINKS);
-                if (current != secure) current.close();
-                current = next;
-            }
-            SeekableByteChannel channel = current.newByteChannel(relative.getFileName(),
-                    Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
-            return Channels.newInputStream(channel);
-        } finally {
-            if (current != secure) current.close();
-            secure.close();
+
+        @Override
+        public int read() throws IOException {
+            return delegate.read();
+        }
+
+        @Override
+        public int read(byte[] bytes, int offset, int length) throws IOException {
+            return delegate.read(bytes, offset, length);
+        }
+
+        @Override
+        public void close() throws IOException {
+            delegate.close();
+        }
+    }
+
+    /** Keeps at most the filesystem root and one descendant open; the caller owns the root. */
+    private static final class DirectoryCursor implements AutoCloseable {
+        private final SecureDirectoryStream<Path> root;
+        private SecureDirectoryStream<Path> current;
+
+        DirectoryCursor(SecureDirectoryStream<Path> root) {
+            this.root = root;
+            current = root;
+        }
+
+        void descend(Path component) throws IOException {
+            SecureDirectoryStream<Path> previous = current;
+            // Transfer first so outer cleanup also owns the new handle if closing its predecessor
+            // fails.
+            current = current.newDirectoryStream(component, LinkOption.NOFOLLOW_LINKS);
+            if (previous != root) previous.close();
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (current != root) current.close();
         }
     }
 
@@ -547,6 +600,8 @@ public class CdsSnapshotService {
         private final CdsInputLimitsDto limits;
         private final BooleanSupplier cancelled;
         private final long started = System.nanoTime();
+        // One snapshot invocation owns this Inventory and all synchronous copy callbacks.
+        @SuppressWarnings("java:S9428")
         private final MessageDigest manifestDigest = CdsPaths.sha256();
         private long entries;
         private long files;

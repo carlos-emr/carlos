@@ -123,8 +123,8 @@ public class CdsFieldParser {
     }
 
     public void forEachField(CdsRecordDto record, Consumer<CdsFieldDto> consumer) throws IOException {
-        try (InputStream slice = new BufferedInputStream(
-                openSlice(record.fieldsFile(), record.fieldsOffset(), record.fieldsLength()), 65536)) {
+        try (InputStream raw = openSlice(record.fieldsFile(), record.fieldsOffset(), record.fieldsLength());
+                InputStream slice = new BufferedInputStream(raw, 65536)) {
             byte[] line;
             long count = 0;
             MessageDigest digest = CdsPaths.sha256();
@@ -295,25 +295,33 @@ public class CdsFieldParser {
     public InputStream openValue(CdsRecordDto record, CdsFieldDto field) throws IOException {
         Path parent = record.fieldsFile().toAbsolutePath().getParent();
         Path path = PathValidationUtils.validatePrivateImportPath(record.valuesFile().toFile(), parent.toFile()).toPath();
+        MessageDigest valueDigest = CdsPaths.sha256();
         return new FilterInputStream(openSlice(path, field.offset(), field.length())) {
-            private final MessageDigest digest = CdsPaths.sha256();
             private boolean verified;
+
             private void verify() throws IOException {
                 if (!verified) {
                     verified = true;
-                    if (!field.sha256().equals(CdsPaths.hex(digest.digest()))) throw failure("CDS_SPOOL_VALUE_HASH_MISMATCH");
+                    if (!field.sha256().equals(CdsPaths.hex(valueDigest.digest())))
+                        throw failure("CDS_SPOOL_VALUE_HASH_MISMATCH");
                 }
             }
-            @Override public int read() throws IOException {
+
+            @Override
+            public int read() throws IOException {
                 checkControl();
                 int value = in.read();
-                if (value < 0) verify(); else digest.update((byte) value);
+                if (value < 0) verify();
+                else valueDigest.update((byte) value);
                 return value;
             }
-            @Override public int read(byte[] bytes, int offset, int length) throws IOException {
+
+            @Override
+            public int read(byte[] bytes, int offset, int length) throws IOException {
                 checkControl();
                 int n = in.read(bytes, offset, length);
-                if (n < 0) verify(); else if (n > 0) digest.update(bytes, offset, n);
+                if (n < 0) verify();
+                else if (n > 0) valueDigest.update(bytes, offset, n);
                 return n;
             }
         };
@@ -341,7 +349,8 @@ public class CdsFieldParser {
     public void forEachPage(CdsRecordDto record, int maximumFields, Consumer<CdsRecordDto> pages)
             throws IOException {
         if (maximumFields < 1 || maximumFields > 4096) throw new IllegalArgumentException("Invalid CDS field page size");
-        try (InputStream input = new BufferedInputStream(openSlice(record.fieldsFile(), record.fieldsOffset(), record.fieldsLength()), 65536)) {
+        try (InputStream raw = openSlice(record.fieldsFile(), record.fieldsOffset(), record.fieldsLength());
+                InputStream input = new BufferedInputStream(raw, 65536)) {
             MessageDigest original = CdsPaths.sha256();
             MessageDigest page = CdsPaths.sha256();
             long offset = record.fieldsOffset();
@@ -441,6 +450,8 @@ public class CdsFieldParser {
                     String scope;
                     String name;
                     long ordinal;
+                    // Created inside one synchronous forEachSubrecord call; never escapes its ChildSpool.
+                    @SuppressWarnings("java:S9428")
                     MessageDigest digest = CdsPaths.sha256();
                     void emit() throws IOException {
                         if (scope == null) return;
@@ -493,8 +504,8 @@ public class CdsFieldParser {
 
     public void forEachRecord(Path manifest, Consumer<CdsRecordDto> consumer) throws IOException {
         Path parent = manifest.toAbsolutePath().getParent();
-        try (InputStream input = new BufferedInputStream(
-                Files.newInputStream(manifest, LinkOption.NOFOLLOW_LINKS), 65536)) {
+        try (InputStream raw = Files.newInputStream(manifest, LinkOption.NOFOLLOW_LINKS);
+                InputStream input = new BufferedInputStream(raw, 65536)) {
             byte[] line;
             while ((line = readMetadataLine(input)) != null) {
                 checkControl();
@@ -642,33 +653,60 @@ public class CdsFieldParser {
         return PathValidationUtils.validatePrivateImportPath(parent.resolve(name).toFile(), parent.toFile()).toPath();
     }
 
+    // SliceInputStream owns the channel on success and closes it on all failed constructor paths,
+    // including Errors.
+    @SuppressWarnings("java:S2095")
     private static InputStream openSlice(Path path, long offset, long length) throws IOException {
         if (offset < 0 || length < 0) throw failure("CDS_SPOOL_RANGE_INVALID");
-        FileChannel channel = FileChannel.open(path, Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
-        try {
-            if (offset > channel.size() || length > channel.size() - offset) {
-                throw failure("CDS_SPOOL_RANGE_INVALID");
+        return new SliceInputStream(
+                FileChannel.open(path, Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)),
+                offset,
+                length);
+    }
+
+    /** Returned stream owns its channel; construction closes it even when validation fails with an Error. */
+    static final class SliceInputStream extends InputStream {
+        private final FileChannel channel;
+        private long remaining;
+
+        SliceInputStream(FileChannel channel, long offset, long length) throws IOException {
+            this.channel = channel;
+            try {
+                long size = channel.size();
+                if (offset < 0 || length < 0 || offset > size || length > size - offset)
+                    throw failure("CDS_SPOOL_RANGE_INVALID");
+                channel.position(offset);
+                remaining = length;
+            } catch (IOException | RuntimeException | Error failed) {
+                try {
+                    channel.close();
+                } catch (IOException | RuntimeException | Error closeFailure) {
+                    if (closeFailure != failed) failed.addSuppressed(closeFailure);
+                }
+                throw failed;
             }
-            channel.position(offset);
-            return new InputStream() {
-                private long remaining = length;
-                @Override public int read() throws IOException {
-                    byte[] one = new byte[1];
-                    return read(one, 0, 1) < 0 ? -1 : one[0] & 255;
-                }
-                @Override public int read(byte[] bytes, int start, int count) throws IOException {
-                    if (count == 0) return 0;
-                    if (remaining == 0) return -1;
-                    int n = channel.read(ByteBuffer.wrap(bytes, start, (int) Math.min(count, remaining)));
-                    if (n < 0) throw failure("CDS_SPOOL_TRUNCATED");
-                    remaining -= n;
-                    return n;
-                }
-                @Override public void close() throws IOException { channel.close(); }
-            };
-        } catch (IOException | RuntimeException failed) {
+        }
+
+        @Override
+        public int read() throws IOException {
+            byte[] one = new byte[1];
+            return read(one, 0, 1) < 0 ? -1 : one[0] & 255;
+        }
+
+        @Override
+        public int read(byte[] bytes, int start, int count) throws IOException {
+            java.util.Objects.checkFromIndexSize(start, count, bytes.length);
+            if (count == 0) return 0;
+            if (remaining == 0) return -1;
+            int n = channel.read(ByteBuffer.wrap(bytes, start, (int) Math.min(count, remaining)));
+            if (n < 0) throw failure("CDS_SPOOL_TRUNCATED");
+            remaining -= n;
+            return n;
+        }
+
+        @Override
+        public void close() throws IOException {
             channel.close();
-            throw failed;
         }
     }
 

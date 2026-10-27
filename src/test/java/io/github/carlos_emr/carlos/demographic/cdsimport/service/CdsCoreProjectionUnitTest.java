@@ -623,6 +623,17 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         assertThat(extensions.getAllValues())
                 .extracting(DemographicExt::getKey)
                 .containsExactly("hPhoneExt", "wPhoneExt", "demo_cell");
+        doAnswer(
+                        call -> {
+                            if (call.getArgument(0) instanceof Demographic patient)
+                                patient.setDemographicNo(42);
+                            return null;
+                        })
+                .when(em)
+                .persist(any());
+        assertThatThrownBy(() -> demographics.write("run", 1, "unit", record, command, n -> {}))
+                .isInstanceOf(CdsImportException.class)
+                .hasMessage("DEMOGRAPHIC_EXTENSION_NATIVE_ID_MISSING");
     }
 
     @Test
