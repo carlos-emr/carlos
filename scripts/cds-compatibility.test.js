@@ -65,3 +65,18 @@ test('expected negative evidence excludes only its actual request; competing sam
   assert.equal(competing.badResponses.length,1);
   assert.throws(()=>gate.qualifyContractRefusal(recorder([recorded(request,url,409)]),expected,'OTHER_ERROR'));
 });
+
+
+test('archived database uses its explicit TCP port while preserving the protected option-file position',()=>{
+  const seen=[];
+  const runner=gate.createArchivedSqlRunner({host:'127.0.0.1',port:13306,user:'synthetic',password:'private-unit',database:'cds_compatibility_old_test'},
+    (command,args)=>{seen.push({command,args});return 'cds_compatibility_old_test\n';});
+  try {
+    assert.equal(runner.value('SELECT DATABASE()'),'cds_compatibility_old_test');
+    assert.equal(seen.length,1);assert.equal(seen[0].command,'mysql');
+    assert.match(seen[0].args[0],/^--defaults-extra-file=/);
+    assert.equal(seen[0].args[1],'--port=13306');
+    assert.ok(!seen[0].args.some(value=>value.includes('private-unit')));
+  } finally {runner.dispose();}
+  for(const port of [undefined,0,65536,'13306',13306.5])assert.throws(()=>gate.createArchivedSqlRunner({port}));
+});

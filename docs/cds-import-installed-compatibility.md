@@ -44,9 +44,11 @@ disabled-feature response does not pass that check.
 The archived server uses only the new isolated `cds_compatibility_old_test`
 schema, its own archived migration chain, protected synthetic configuration,
 and disabled import workers/admission. It must contain no accepted jobs,
-uploads, checkpoints or clinical patients. Never attach it to retained or
-clinical state. Record its WAR/class/resource checksums, configuration scope,
-PID/start identity and complete migration/validation proof separately.
+uploads or checkpoints. Any official synthetic development/reference/security
+seed must have explicit source hashes and before/after native row counts;
+those legacy fixture rows are not described as newly imported patients. Never
+attach it to retained or clinical state. Record its WAR/class/resource checksums,
+configuration scope, PID/start identity and complete migration/validation proof separately.
 
 Both servers' import/quota/native counters and bounded filesystem metadata
 inventories must remain unchanged during the report and mixed-version probes.
@@ -86,7 +88,7 @@ uploaded as an artifact. Its structure is:
   },
   "old": {
     "baseUrl": "http://127.0.0.1:19081/carlos",
-    "mysql": {"host": "127.0.0.1", "user": "<synthetic DB user>", "password": "<private>", "database": "cds_compatibility_old_test"},
+    "mysql": {"host": "127.0.0.1", "port": 13306, "user": "<synthetic DB user>", "password": "<private>", "database": "cds_compatibility_old_test"},
     "login": {"testUser": "<synthetic native login>", "testPassword": "<private>", "testPin": "<private>"},
     "bundle": {"warFile": "/immutable/old.war", "warSha256": "<actual SHA256>", "file": "/protected/old-cds-import.js", "sha256": "<actual member SHA256>"},
     "roots": ["/old/source", "/old/staging", "/old/uploads", "/old/documents"]
@@ -94,7 +96,9 @@ uploaded as an artifact. Its structure is:
 }
 ```
 
-The evidence directory must be outside those state roots. The actual WARs must
+The archived database requires an explicit numeric TCP port; the gate does not
+inherit the current application’s database port. The evidence directory must be
+outside those state roots. The actual WARs must
 be readable by the driver; a supplied hash label alone is insufficient. Missing
 prerequisites, any unavailable proof or an unexpected refusal fail this gate.
 

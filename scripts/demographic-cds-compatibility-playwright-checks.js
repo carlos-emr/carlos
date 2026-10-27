@@ -61,6 +61,12 @@ function loadPrivate(file) {
     'Compatibility selectors must remain private and bounded');
   return JSON.parse(fs.readFileSync(file,'utf8'));
 }
+function createArchivedSqlRunner(config,exec=execFileSync) {
+  h.assert(Number.isInteger(config?.port) && config.port>=1 && config.port<=65535,
+    'The isolated archived database requires its explicit TCP port');
+  return h.createSqlRunner(config,{exec:(command,args,options)=>
+    exec(command,[args[0],`--port=${config.port}`,...args.slice(1)],options)});
+}
 function inventory(sql) {
   return sql.value(`SELECT CONCAT_WS('|',
     (SELECT COUNT(*) FROM cds_import_run),(SELECT COALESCE(SUM(review_version),0) FROM cds_import_run),
@@ -212,7 +218,7 @@ async function workflow(s) {
     archivedWarSha256:selectors.old.bundle.warSha256,steps:[]};
   const save=()=>privateJson(path.join(evidence,'proof.json'),proof);
   save();
-  const oldSql=h.createSqlRunner(selectors.old.mysql);
+  const oldSql=createArchivedSqlRunner(selectors.old.mysql);
   try {
     h.assert(s.sql.value("SELECT COUNT(*) FROM cds_import_patient WHERE held=1")==='0'
       && s.sql.value("SELECT maintenance_active FROM cds_import_admission WHERE id='clinical-maintenance'")==='0',
@@ -284,8 +290,8 @@ async function workflow(s) {
     } finally {await other.context.close();await anonymous.close();if(expired){await expired.clearCookies();await expired.close();}}
     const oldBaseline=inventory(oldSql);const oldTrees=treeProof(selectors.old.roots);
     h.assert(oldSql.value('SELECT DATABASE()')==='cds_compatibility_old_test'
-      && oldSql.value('SELECT (SELECT COUNT(*) FROM cds_import_run)+(SELECT COUNT(*) FROM cds_import_upload)+(SELECT COUNT(*) FROM cds_import_checkpoint)+(SELECT COUNT(*) FROM demographic)')==='0',
-    'Archived compatibility server must have no accepted jobs, uploads, checkpoints or clinical patients');
+      && oldSql.value('SELECT (SELECT COUNT(*) FROM cds_import_run)+(SELECT COUNT(*) FROM cds_import_upload)+(SELECT COUNT(*) FROM cds_import_checkpoint)')==='0',
+    'Archived compatibility server must have no accepted jobs, uploads or checkpoints');
     const oldBundle=loadBundle(selectors.old.bundle),newBundle=loadBundle(selectors.current.bundle);
     const oldOnNew=await cachedPage(browser,s.config,oldBundle,null,409,'IMPORT_CLIENT_REFRESH_REQUIRED');
     try {
@@ -315,9 +321,16 @@ async function workflow(s) {
       oldRefusal(refused);
       proof.newOnOld={initial:safeResult(newOnOld.observed),post:safeResult(refused),diagnostics:newOnOld.diagnostics};save();
     } finally {if(newOnOld)await newOnOld.context.close();await oldBrowser.close();}
-    h.assert(inventory(s.sql)===baseline&&JSON.stringify(treeProof(selectors.current.roots))===JSON.stringify(trees),
+    const currentAfter=inventory(s.sql),currentTreesAfter=treeProof(selectors.current.roots);
+    const oldAfter=inventory(oldSql),oldTreesAfter=treeProof(selectors.old.roots);
+    proof.inventories={counterOrder:['runs','reviewVersionSum','ownerEpochSum','patients','held','units','checkpoints','events',
+      'uploads','uploadVersionSum','receivedBytesSum','chunksSum','reservedBytesSum','nativePatients','nativeDrugs',
+      'nativeAllergies','nativePreventions','nativeDocuments','nativeNotes'],
+    current:{before:baseline,after:currentAfter,treesBefore:trees,treesAfter:currentTreesAfter},
+    old:{before:oldBaseline,after:oldAfter,treesBefore:oldTrees,treesAfter:oldTreesAfter}};save();
+    h.assert(currentAfter===baseline&&JSON.stringify(currentTreesAfter)===JSON.stringify(trees),
       'Current-server compatibility probes changed quota/import/native counters or protected state');
-    h.assert(inventory(oldSql)===oldBaseline&&JSON.stringify(treeProof(selectors.old.roots))===JSON.stringify(oldTrees),
+    h.assert(oldAfter===oldBaseline&&JSON.stringify(oldTreesAfter)===JSON.stringify(oldTrees),
       'Archived-server compatibility probes changed quota/import/native counters or protected state');
     proof.steps.push({gate:'W05',result:'PASSED',scope:'genuine opposite-WAR cached bundles on real markup/backends; explicit POST refusals'});
     proof.status='PASSED';save();
@@ -325,4 +338,4 @@ async function workflow(s) {
   finally {oldSql.dispose();}
 }
 if(require.main===module)runWorkflow('cds-import-compatibility',workflow,{openPatient:true});
-module.exports={workflow,loadBundle,treeProof,live,oldRefusal,noDownload,qualifyContractRefusal};
+module.exports={workflow,loadBundle,treeProof,live,oldRefusal,noDownload,qualifyContractRefusal,createArchivedSqlRunner};

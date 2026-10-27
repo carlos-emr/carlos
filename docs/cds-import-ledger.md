@@ -328,6 +328,13 @@ review-kind capacity; the migration/policy bindings were regenerated from the fr
 The eight actual service/ORM acceptance cases passed without failures or skips. Three separate
 exact-SQL metadata replays preserved a quoted comment/custom collation/default, nullable
 Unicode/NULL data, and an adopted `VARCHAR(64)` capacity; second replays changed nothing.
+A separate owned Ontario catalog applied the complete 67-migration predecessor, inserted a
+synthetic administrative run/diagnostic/review preservation fixture, then applied exactly
+`59.25`, validated, and repeated with zero migrations. All 450 table row counts apart from
+history, every CDS table's ordered row/control digest, all 67 prior migration checksums,
+review payload/Unicode data and holds were unchanged. The column's other metadata was
+unchanged. This is an actual forward-upgrade preservation proof, not an imported clinical
+patient. Only the owned temporary catalog was dropped, with absence verified afterward.
 
 A review-persistence error remains HTTP 503 with acceptance unconfirmed. A committed review
 can exist after a lost acknowledgement: refresh the same durable run before another action.
