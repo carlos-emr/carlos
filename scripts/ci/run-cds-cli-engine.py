@@ -334,12 +334,17 @@ print(json.dumps({'signal':'SIGKILL','verifiedServiceUid':uid,'javaPid':pid,'pro
         if not (outcome.get("clinicalComplete") is True and outcome.get("discoveryComplete") is True
                 and outcome.get("inventoryState") == "SEALED" and outcome.get("pendingUnits") == 0
                 and outcome.get("targetCopiesPlanned") == copies and outcome.get("reportsDelivered") is True
-                and outcome.get("cleanupComplete") is True):
+                and outcome.get("cleanupComplete") is True and outcome.get("resumeRequested") is False
+                and outcome.get("maintenanceReleasePending") is False and outcome.get("maintenanceReleaseState") == "RELEASED"):
             raise RuntimeError("clinical completion counters or delivery were incomplete")
 
     dry = submit("dry-run", metadata["sources"]["dryrun"], "--dry-run")
     if dry.get("state") != "DRY_RUN_COMPLETE" or dry.get("clinicalComplete") is not False or dry.get("committedUnits") != 0:
         raise RuntimeError("preview was mislabeled as clinical completion")
+    if dry.get("resumeRequested") is not False or dry.get("maintenanceReleasePending") is not False \
+            or dry.get("maintenanceReleaseState") != "RELEASED" or dry.get("reportsDelivered") is not True \
+            or dry.get("cleanupComplete") is not True:
+        raise RuntimeError("preview report, cleanup or verified maintenance release was incomplete")
     ordinary = submit("ordinary", metadata["sources"]["ordinary"])
     assert_complete(ordinary)
     recovered = result(invoke("submission-status", ["--status-submission", submissions["ordinary"], *common], {0}))

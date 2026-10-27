@@ -49,6 +49,9 @@ public final class CdsImportCli {
             "GLOBAL_HOLDS_REMAIN", "IMPORT_FILE_VERIFICATION_TIMEOUT", "IMPORT_PREPARATION_TIMEOUT",
             "CDS_INPUT_CANCELLED", "CDS_XML_SCHEMA_INVALID", "CDS_XML_READ_FAILED", "CDS_CORRECTION_STAGE_INVALID");
 
+    private static final Set<String> PUBLIC_RELEASE_STATES = Set.of(
+            "NOT_APPLICABLE", "RELEASE_PENDING", "RELEASE_DEFERRED", "REQUIRES_RECONCILIATION", "RELEASED");
+
     @FunctionalInterface
     public interface RuntimeFactory {
         CdsCliRuntime open(CdsCliConfiguration config, CdsCliArguments arguments,
@@ -205,6 +208,14 @@ public final class CdsImportCli {
                 "cleanComplete", "operationTerminal", "reviewVersion", "reviewState", "reviewId",
                 "pendingReviewCount", "inactiveDraftCount", "reviewErrorCode"}) {
             if (summary.containsKey(key)) result.put(key, summary.get(key));
+        }
+        for (String key : java.util.List.of("resumeRequested", "maintenanceReleasePending")) {
+            Object value = summary.get(key);
+            if (value instanceof Boolean) result.put(key, value);
+        }
+        Object releaseState = summary.get("maintenanceReleaseState");
+        if (releaseState instanceof String state && PUBLIC_RELEASE_STATES.contains(state)) {
+            result.put("maintenanceReleaseState", state);
         }
         return result;
     }

@@ -328,6 +328,33 @@ class CdsCliProtocolUnitTest {
                 .doesNotContain("private-patient-path", "PATIENT_ALICE_SMITH", "safeCode=IMPORT_BUSY");
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldReportTypedDurableResumeIntent_whenReadingCurrentStatus(boolean requested) {
+        FakeRuntime runtime = new FakeRuntime(); runtime.resumeRequested = requested; runtime.maintenanceReleasePending = requested; runtime.clean = !requested;
+        assertThat(invoke("status", runtime)).isZero();
+        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("\"resumeRequested\":" + requested,
+                "\"maintenanceReleasePending\":" + requested, "\"cleanComplete\":" + !requested);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PRIVATE_SOURCE_VALUE", "released", "RELEASED\nPRIVATE_SOURCE_VALUE"})
+    void shouldOmitInvalidControlSummaryValues_whenSummaryContainsFreeformOrWrongType(String value) {
+        FakeRuntime runtime = new FakeRuntime(); runtime.resumeRequested = value;
+        runtime.maintenanceReleasePending = value; runtime.maintenanceReleaseState = value;
+        assertThat(invoke("status", runtime)).isZero();
+        assertThat(stdout.toString(StandardCharsets.UTF_8)).doesNotContain("resumeRequested", "maintenanceReleasePending",
+                "maintenanceReleaseState", "PRIVATE_SOURCE_VALUE");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"NOT_APPLICABLE", "RELEASE_PENDING", "RELEASE_DEFERRED", "REQUIRES_RECONCILIATION", "RELEASED"})
+    void shouldReportFiniteMaintenanceReleaseState_whenReadingCurrentStatus(String state) {
+        FakeRuntime runtime = new FakeRuntime(); runtime.maintenanceReleaseState = state;
+        assertThat(invoke("status", runtime)).isZero();
+        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("\"maintenanceReleaseState\":\"" + state + "\"");
+    }
+
     private int invoke(String operation, FakeRuntime runtime) {
         String[] arguments = "import".equals(operation) ? IMPORT
                 : new String[]{"--operation", operation, "--provider", "999998", "--run", NONCE};
@@ -352,6 +379,7 @@ class CdsCliProtocolUnitTest {
         private final List<String> calls = new ArrayList<>();
         private boolean clean = true, closeFailure, executionFailure, acceptFailure, expectAcceptedHandle = true;
         private String resolvedRun;
+        private Object resumeRequested, maintenanceReleasePending, maintenanceReleaseState;
         private Runnable onExecution=() -> { };
         @Override public String resolveRunId(String requested) { return resolvedRun == null ? requested : resolvedRun; }
         @Override public String accept() throws IOException {
@@ -366,8 +394,13 @@ class CdsCliProtocolUnitTest {
         }
         @Override public void cancel(String run) { calls.add("cancel"); }
         @Override public Map<String, Object> summary(String run) {
-            calls.add("summary"); return Map.of("runId", run, "state", "COMPLETE", "cleanComplete", clean,
-                    "clinicalComplete", true, "operationTerminal", true);
+            calls.add("summary");
+            Map<String, Object> summary = new LinkedHashMap<>(Map.of("runId", run, "state", "COMPLETE", "cleanComplete", clean,
+                    "clinicalComplete", true, "operationTerminal", true));
+            if (resumeRequested != null) summary.put("resumeRequested", resumeRequested);
+            if (maintenanceReleasePending != null) summary.put("maintenanceReleasePending", maintenanceReleasePending);
+            if (maintenanceReleaseState != null) summary.put("maintenanceReleaseState", maintenanceReleaseState);
+            return summary;
         }
         @Override public Map<String, Object> reports(String run) { calls.add("reports"); return Map.of("reports", List.of()); }
         @Override public void close() throws IOException {

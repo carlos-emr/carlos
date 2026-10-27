@@ -138,7 +138,8 @@ def main() -> None:
         result = terminal[0]
         if result.get("cleanComplete") is not True or result.get("clinicalComplete") is not True \
                 or result.get("reportsDelivered") is not True or result.get("cleanupComplete") is not True \
-                or result.get("pendingUnits") != 0:
+                or result.get("pendingUnits") != 0 or result.get("resumeRequested") is not False \
+                or result.get("maintenanceReleasePending") is not False or result.get("maintenanceReleaseState") != "RELEASED":
             raise RuntimeError("container engine did not prove complete clinical/report/cleanup outcomes")
         return nonce, result
 
