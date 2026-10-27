@@ -5547,6 +5547,37 @@
       "fixtures": "Synthetic marker patients and completed owned clinical child rows are cleaned by demographic_no only after import holds clear. Immutable import and audit evidence remain; held/incomplete patients are retained with a visible failure. Required xmllint validates fixtures against the pinned OntarioMD schema. Explicit medication status is supplied; no source signature or prescriber is invented."
     },
     {
+      "name": "demographic-cds-retained-recovery",
+      "script": "scripts/demographic-cds-retained-recovery-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "manual": true,
+      "env": [
+        "CDS_RETAINED_RUN_ID",
+        "CDS_RECOVERY_EXECUTE",
+        "CDS_RECOVERY_SOURCE_FILE",
+        "CDS_RECOVERY_SOURCE_SHA256",
+        "CDS_RECOVERY_SOURCE_NAME",
+        "CDS_RECOVERY_PROVIDER_NO",
+        "CDS_RECOVERY_PROGRAM_ID",
+        "CDS_RECOVERY_FACILITY_ID",
+        "CDS_RECOVERY_MATCH_PROVIDER_NAMES",
+        "CDS_RECOVERY_RUN_ID"
+      ],
+      "notes": "Requires an explicitly prepared retained maintenance window and stopped unwritten run in a disposable reference database. Default is read-only restart/login/bookmark/status proof. Explicit execute uses identical independently pinned original XML, freezes reviewed command context, cancels the old unwritten attempt through the normal UI, approves the current-code revision through the visible review form, and requires native/report/cleanup/release and post-release startup proof. Exact accepted recovery handles must be reused.",
+      "fixtures": "It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Preserves all prior runs, source snapshots and audit history; accepted recovery source, review archives and the synthetic native chart remain for reconciliation. Never resets a schema, edits accepted metadata or changes namespace to bypass lineage. Initial maintenance remains retained in read-only mode; successful explicit replacement releases it.",
+      "mutates": [
+        "cds_import_admission",
+        "property:HRMFixMissingReportHelper.Run"
+      ]
+    },
+    {
       "name": "admin-sites-clinic-numbers",
       "script": "scripts/admin-sites-clinic-numbers-playwright-checks.js",
       "tiers": [
