@@ -136,6 +136,26 @@ class CdsCliProtocolUnitTest {
     }
 
     @Test
+    void shouldValidateBoundedAsciiClassSegments_whenFramesContainBoundaryOrHostileOwners() throws Exception {
+        String longest = "a.".repeat(127) + "$A";
+        String nested = "_package.$Outer_0$Inner";
+        var failure = new IOException("sensitive-source-value");
+        List<String> rejected = List.of("", ".owner", "owner.", "owner..Type", "owner.1Type",
+                "owner.\u00e9", "owner/Type", "owner\nType", longest + "X", "a.".repeat(128));
+        List<StackTraceElement> frames = new ArrayList<>();
+        frames.add(new StackTraceElement(longest, "accept", "sensitive-source-value", 1));
+        frames.add(new StackTraceElement(nested, "<init>", "sensitive-source-value", 2));
+        for (String owner : rejected) frames.add(new StackTraceElement(owner, "accept", "sensitive-source-value", 3));
+        failure.setStackTrace(frames.toArray(StackTraceElement[]::new));
+        var evidence = CdsCliLogging.operationFailure(new Properties(), failure);
+        var body = new ObjectMapper().readTree(evidence.technicalJson());
+        List<String> actual = new ArrayList<>();
+        body.path("causes").get(0).path("frames").forEach(frame -> actual.add(frame.asText()));
+        assertThat(actual).containsExactly(longest + "#accept:1", nested + "#<init>:2");
+        assertThat(evidence.technicalJson()).doesNotContain("sensitive-source-value");
+    }
+
+    @Test
     void shouldRetainSafeFallback_whenDiagnosticStorageIsNotWritableOrPrivate() throws Exception {
         Path file = directory.resolve("existing-file"); Files.writeString(file, "original");
         Properties properties = new Properties(); properties.setProperty("cds.import.stagingRoot", file.toString());

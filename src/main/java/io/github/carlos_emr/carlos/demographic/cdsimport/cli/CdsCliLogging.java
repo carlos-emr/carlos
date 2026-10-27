@@ -107,8 +107,21 @@ final class CdsCliLogging {
     }
 
     private static boolean typeName(String value) {
-        return value != null && value.length() <= 256
-                && value.matches("[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*");
+        if (value == null || value.isEmpty() || value.length() > 256) return false;
+        boolean segmentStart = true;
+        for (int index = 0; index < value.length(); index++) {
+            char current = value.charAt(index);
+            if (current == '.') {
+                if (segmentStart) return false;
+                segmentStart = true;
+            } else if (current >= 'A' && current <= 'Z' || current >= 'a' && current <= 'z'
+                    || current == '_' || current == '$' || !segmentStart && current >= '0' && current <= '9') {
+                segmentStart = false;
+            } else {
+                return false;
+            }
+        }
+        return !segmentStart;
     }
 
     private static String writeEvidence(Properties properties, String prefix, byte[] bytes) {
