@@ -69,6 +69,41 @@ class CdsTargetReceiptMariaDbIntegrationTest {
         }
     }
 
+    @Test void shouldResolveEveryAllowlistedKey_againstTheActualMigratedNativeTables() throws Exception {
+        try (Connection connection = connection()) {
+            for (String table : CdsTargetReceiptService.targetTables()) {
+                String id = java.util.Set.of("ctl_document", "casemgmt_issue_notes").contains(table)
+                        ? "2147483647_2147483647" : "2147483647";
+                assertThat(CdsTargetReceiptService.rowDigest(connection, table, id))
+                        .as("Absent native key resolves without an invalid column: %s", table).isNull();
+            }
+        }
+    }
+
+    @Test void shouldHashAndDetectAdmissionChanges_usingTheActualNativePrimaryKey() throws Exception {
+        try (Connection connection = connection()) {
+            connection.setAutoCommit(false);
+            try {
+                String id;
+                try (var insert = connection.prepareStatement(
+                        "INSERT INTO admission(client_id,program_id,provider_no,admission_date,admission_from_transfer,discharge_from_transfer,admission_status,lastUpdateDate) VALUES(2147483646,2147483646,'T099',NOW(),0,0,'current',NOW())",
+                        java.sql.Statement.RETURN_GENERATED_KEYS)) {
+                    assertThat(insert.executeUpdate()).isEqualTo(1);
+                    try (var keys = insert.getGeneratedKeys()) {
+                        assertThat(keys.next()).isTrue(); id = keys.getString(1);
+                    }
+                }
+                String original = CdsTargetReceiptService.rowDigest(connection, "admission", id);
+                assertThat(original).matches("[0-9a-f]{64}");
+                assertThat(CdsTargetReceiptService.rowDigest(connection, "admission", id)).isEqualTo(original);
+                try (var update = connection.prepareStatement("UPDATE admission SET admission_status='discharged' WHERE am_id=?")) {
+                    update.setString(1, id); assertThat(update.executeUpdate()).isEqualTo(1);
+                }
+                assertThat(CdsTargetReceiptService.rowDigest(connection, "admission", id)).isNotEqualTo(original);
+            } finally { connection.rollback(); }
+        }
+    }
+
     private static Connection connection() throws Exception {
         String selector = System.getProperty("cds.test.properties");
         Assumptions.assumeTrue(selector != null && !selector.isBlank(), "Explicit protected synthetic MariaDB tier required");

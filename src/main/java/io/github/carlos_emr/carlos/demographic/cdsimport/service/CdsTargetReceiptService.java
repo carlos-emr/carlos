@@ -58,7 +58,7 @@ public class CdsTargetReceiptService {
             Map.entry("hl7TextMessage", "lab_id"), Map.entry("hl7TextInfo", "id"),
             Map.entry("patientLabRouting", "id"), Map.entry("providerLabRouting", "id"),
             Map.entry("DemographicContact", "id"),
-            Map.entry("Contact", "id"), Map.entry("admission", "id"),
+            Map.entry("Contact", "id"), Map.entry("admission", "am_id"),
             Map.entry("demographicExt", "id"), Map.entry("demographiccust", "demographic_no"),
             Map.entry("pharmacyInfo", "recordID"), Map.entry("demographicPharmacy", "id"),
             Map.entry("cds_laboratory_result", "id"), Map.entry("cds_import_file", "id"),
