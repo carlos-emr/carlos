@@ -51,8 +51,14 @@ public class AllergyWs extends AbstractWs {
     @Autowired
     private AllergyManager allergyManager;
 
-    @org.springframework.beans.factory.annotation.Autowired
     private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
+    /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
+    @Autowired
+    @jakarta.jws.WebMethod(exclude = true)
+    public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
+        this.projections = java.util.Objects.requireNonNull(service);
+    }
 
     public AllergyTransfer getAllergy(Integer allergyId) {
         Allergy allergy = allergyManager.getAllergy(getLoggedInInfo(), allergyId);

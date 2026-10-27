@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnostic
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -79,9 +80,9 @@ public final class CdsWeb {
         if (failure instanceof CdsUploadException upload) { status = upload.status(); code = upload.code(); }
         else if (failure instanceof SecurityException) { status = 403; code = "IMPORT_ACCESS_DENIED"; }
         else if (failure instanceof IllegalArgumentException) { status = 400; code = "IMPORT_PARAMETERS_INVALID"; }
-        else if (failure.getClass().getSimpleName().equals("CdsImportException")) {
+        else if (failure instanceof CdsImportException problem) {
             status = 409;
-            String candidate = failure.getMessage();
+            String candidate = problem.getCode();
             if (candidate != null && candidate.matches("[A-Z][A-Z0-9_]{0,79}")) code = candidate;
         }
         json(response, status, Map.of("ok", false, "code", code,
@@ -122,6 +123,12 @@ public final class CdsWeb {
         return result;
     }
 
+    private static boolean sensitiveSummaryKey(String key) {
+        String lower = key.toLowerCase(java.util.Locale.ROOT);
+        return lower.contains("location") || lower.contains("directory") || lower.contains("password")
+                || lower.contains("secret") || lower.contains("path");
+    }
+
     /** Bounded scalar/count projection also removes Java-time serializer dependence from JSON. */
     public static Object summary(Object value) { return summary(value, 0); }
 
@@ -138,7 +145,7 @@ public final class CdsWeb {
             Map<String, Object> result = new LinkedHashMap<>();
             for (var entry : map.entrySet()) {
                 if (!(entry.getKey() instanceof String key) || key.length() > 128
-                        || key.toLowerCase(java.util.Locale.ROOT).matches(".*(location|directory|password|secret|path).*")) {
+                        || sensitiveSummaryKey(key)) {
                     throw new CdsUploadException("IMPORT_SUMMARY_INVALID", 503);
                 }
                 result.put(key, summary(entry.getValue(), depth + 1));

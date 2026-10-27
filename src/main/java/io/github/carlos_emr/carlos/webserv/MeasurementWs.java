@@ -53,8 +53,14 @@ public class MeasurementWs extends AbstractWs {
     @Autowired
     private MeasurementManager measurementManager;
 
-    @org.springframework.beans.factory.annotation.Autowired
     private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
+    /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
+    @Autowired
+    @jakarta.jws.WebMethod(exclude = true)
+    public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
+        this.projections = java.util.Objects.requireNonNull(service);
+    }
 
     public MeasurementTransfer getMeasurement(Integer measurementId) {
         Measurement measurement = measurementManager.getMeasurement(getLoggedInInfo(), measurementId);

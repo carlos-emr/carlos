@@ -83,8 +83,13 @@ public class LabService extends AbstractServiceImpl {
 	@Autowired
 	private SecurityInfoManager securityInfoManager;
 
-    @Autowired
     private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
+    /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
+    @Autowired
+    public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
+        this.projections = java.util.Objects.requireNonNull(service);
+    }
 
     @GET
     @Path("/hl7LabsByDemographicNo")

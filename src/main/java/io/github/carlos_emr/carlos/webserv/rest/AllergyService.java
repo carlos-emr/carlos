@@ -60,8 +60,13 @@ public class AllergyService extends AbstractServiceImpl {
     @Autowired
     private CdsTemporalReadService dates;
 
-    @Autowired
     private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService legacyProjection;
+
+    /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
+    @Autowired
+    public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
+        this.legacyProjection = java.util.Objects.requireNonNull(service);
+    }
 
     @GET
     @Path("/active")
