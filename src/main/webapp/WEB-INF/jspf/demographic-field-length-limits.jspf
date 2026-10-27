@@ -32,6 +32,7 @@
 
     @since 2026-04-21
 --%>
+<fmt:message key="admin.securityupdate.msgMaximumCharacters" var="demographicCodePointLimitMessage"/>
 <script type="text/javascript">
     function applyDemographicFieldLengthLimits() {
         var fieldLengthLimits = {
@@ -64,7 +65,26 @@
 
             var fields = document.querySelectorAll('input[name="' + fieldName + '"], textarea[name="' + fieldName + '"]');
             for (var i = 0; i < fields.length; i++) {
-                fields[i].setAttribute('maxlength', fieldLengthLimits[fieldName]);
+                var maximum = fieldLengthLimits[fieldName];
+                if (fieldName === 'first_name' || fieldName === 'last_name') {
+                    // HTML counts UTF-16 units; native VARCHAR/XSD names count Unicode code points.
+                    fields[i].setAttribute('maxlength', maximum * 2);
+                    fields[i].setAttribute('data-max-codepoints', maximum);
+                    (function (field, limit) {
+                        function validateNameLength() {
+                            var valid = Array.from(field.value || '').length <= limit;
+                            field.setCustomValidity(valid ? '' : '${carlos:forJavaScript(demographicCodePointLimitMessage)}'.replace('{0}', limit));
+                            return valid;
+                        }
+                        field.addEventListener('input', validateNameLength);
+                        if (field.form) field.form.addEventListener('submit', function (event) {
+                            if (!validateNameLength()) { event.preventDefault(); field.reportValidity(); }
+                        });
+                        validateNameLength();
+                    })(fields[i], maximum);
+                } else {
+                    fields[i].setAttribute('maxlength', maximum);
+                }
             }
         }
     }

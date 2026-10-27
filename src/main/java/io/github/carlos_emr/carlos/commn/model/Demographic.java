@@ -371,7 +371,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     private static void addFieldLengthError(List<String> errors, String fieldName, String value, int maxLength) {
-        if (StringUtils.length(value) > maxLength) {
+        if (value != null && value.codePointCount(0, value.length()) > maxLength) {
             String unit = maxLength == 1 ? "character" : "characters";
             errors.add(fieldName + " exceeds maximum length of " + maxLength + " " + unit + ".");
         }
