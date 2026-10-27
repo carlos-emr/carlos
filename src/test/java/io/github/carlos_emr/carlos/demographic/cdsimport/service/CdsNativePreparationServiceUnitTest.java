@@ -25,12 +25,17 @@ import io.github.carlos_emr.carlos.commn.dao.CdsImportPreparationDao;
 import io.github.carlos_emr.carlos.commn.model.CdsImportPreparation;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import java.nio.file.Path;
+import java.time.OffsetDateTime;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsLaboratoryNativeDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import static org.assertj.core.api.Assertions.*;
@@ -86,6 +91,29 @@ class CdsNativePreparationServiceUnitTest {
                 new Source("x".repeat(1100000), Map.of()))).isInstanceOf(Exception.class)
                 .hasStackTraceContaining("NATIVE_PREPARATION_CAPACITY_EXCEEDED");
         verifyNoInteractions(dao);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2025-03-04T10:20:30.125-05:00", "-0004-12-31T23:59:59.123456789+05:45"})
+    void shouldPreserveExactSourceOffsetAndFraction_whenNativePreparationIsDecodedAfterRestart(String original) throws Exception {
+        var dao = mock(CdsImportPreparationDao.class);
+        Map<String, CdsImportPreparation> rows = new HashMap<>();
+        when(dao.get(anyString())).thenAnswer(call -> rows.get(call.getArgument(0)));
+        doAnswer(call -> { CdsImportPreparation row = call.getArgument(0); rows.put(row.getId(), row); return null; }).when(dao).persist(any());
+        OffsetDateTime clock = OffsetDateTime.parse(original);
+        var temporal = new CdsTemporalDto(CdsTemporalDto.Precision.OFFSET_DATE_TIME, original,
+                clock.toLocalDate(), clock.toLocalDate(), clock.toLocalDateTime(), clock);
+        var source = new CdsLaboratoryNativeDto(Map.of("ResultStatus", "Final"), temporal, CdsTemporalDto.unknown());
+        service(dao).store("run", 1, "a".repeat(64), "b".repeat(64), command(), source);
+        // Only the unit ownership boundary is mocked; exercise the real persisted
+        // JSON, digest verification and decode with a fresh service instance.
+        try (var ownership = mockStatic(CdsImportUnitService.class)) {
+            var decoded = service(dao).load("run", 1, "a".repeat(64), "b".repeat(64), command(), CdsLaboratoryNativeDto.class);
+            assertThat(decoded).isEqualTo(source);
+            assertThat(decoded.collection().offsetDateTime().getOffset()).isEqualTo(clock.getOffset());
+            assertThat(decoded.collection().offsetDateTime().getNano()).isEqualTo(clock.getNano());
+            assertThat(decoded.collection().original()).isEqualTo(original);
+        }
     }
 
     private static CdsNativePreparationService service(CdsImportPreparationDao dao) {
