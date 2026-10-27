@@ -163,6 +163,9 @@
         <bouncycastle.version>1.86</bouncycastle.version>
         <!-- JasperReports -->
         <jasperreports.version>7.0.8</jasperreports.version>
+        <!-- Keep the POI core/OOXML family aligned with its XMLBeans runtime. -->
+        <poi.version>5.5.1</poi.version>
+        <xmlbeans.version>5.3.0</xmlbeans.version>
         <!-- Modern OpenPDF uses org.openpdf.* for handwritten PDF code.
              JasperReports PDF still uses the legacy com.lowagie.* OpenPDF coordinate;
              keep both coordinates distinct so Maven does not replace the JasperReports
@@ -234,6 +237,21 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml-lite</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
             <!-- Struts 7.4.0 brings OGNL 3.4.12. Keep the supported 3.4 line
                  on a patched release for CVE-2026-113730. -->
             <dependency>
@@ -1045,7 +1063,7 @@
         <dependency>
             <groupId>org.apache.xmlbeans</groupId>
             <artifactId>xmlbeans</artifactId>
-            <version>3.1.0</version>
+            <version>${xmlbeans.version}</version>
         </dependency>
 
         <!-- ==================== Email ==================== -->
@@ -1066,7 +1084,7 @@
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi</artifactId>
-            <version>5.5.1</version>
+            <version>${poi.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>

@@ -22,6 +22,7 @@
 
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import cds.CareElementsDocument.CareElements;
 import cds.NewCategoryDocument.NewCategory;
 import cds.OmdCdsDocument;
@@ -255,7 +256,7 @@ class CdsNeurologicalExamUnitTest {
 
     /** Builds one patient record the way the export action's care-element loop does. */
     private static final class Export {
-        private final OmdCdsDocument doc = OmdCdsDocument.Factory.newInstance();
+        private final OmdCdsDocument doc = LegacyXmlBeans.newInstance(OmdCdsDocument.class, OmdCdsDocument.type);
         private final PatientRecord patient = doc.addNewOmdCds().addNewPatientRecord();
         private final CareElements care = patient.addNewCareElements();
         private NewCategory marker;
@@ -275,7 +276,7 @@ class CdsNeurologicalExamUnitTest {
         }
 
         OmdCdsDocument reparse() throws Exception {
-            return OmdCdsDocument.Factory.parse(doc.xmlText(new XmlOptions().setSavePrettyPrint()));
+            return LegacyXmlBeans.parse(OmdCdsDocument.class, OmdCdsDocument.type, doc.xmlText(new XmlOptions().setSavePrettyPrint()));
         }
     }
 

@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -780,64 +778,6 @@ public interface ObstetricalHistoryItemList extends XmlObject
          */
         public static ObstetricalHistoryItemList parse(final Node node, final XmlOptions options) throws XmlException {
             return (ObstetricalHistoryItemList)XmlBeans.getContextTypeLoader().parse(node, ObstetricalHistoryItemList.type, options);
-        }
-
-        /**
-         * Parses XML from an XMLInputStream into an ObstetricalHistoryItemList instance.
-         *
-         * @param xis XMLInputStream the XML input stream
-         * @return ObstetricalHistoryItemList the parsed instance
-         * @throws XmlException if the XML is malformed or invalid
-         * @throws XMLStreamException if there is an error processing the stream
-         * @deprecated Use {@link #parse(InputStream)} or {@link #parse(XMLStreamReader)} instead
-         */
-        @Deprecated
-        public static ObstetricalHistoryItemList parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (ObstetricalHistoryItemList)XmlBeans.getContextTypeLoader().parse(xis, ObstetricalHistoryItemList.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses XML from an XMLInputStream into an ObstetricalHistoryItemList instance with specified options.
-         *
-         * @param xis XMLInputStream the XML input stream
-         * @param options XmlOptions the XML parsing options to use
-         * @return ObstetricalHistoryItemList the parsed instance
-         * @throws XmlException if the XML is malformed or invalid
-         * @throws XMLStreamException if there is an error processing the stream
-         * @deprecated Use {@link #parse(InputStream, XmlOptions)} or {@link #parse(XMLStreamReader, XmlOptions)} instead
-         */
-        @Deprecated
-        public static ObstetricalHistoryItemList parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (ObstetricalHistoryItemList)XmlBeans.getContextTypeLoader().parse(xis, ObstetricalHistoryItemList.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from an existing XMLInputStream.
-         *
-         * @param xis XMLInputStream the source XML input stream
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if validation setup fails
-         * @throws XMLStreamException if there is an error processing the stream
-         * @deprecated XMLInputStream is deprecated; use XMLStreamReader instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, ObstetricalHistoryItemList.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from an existing XMLInputStream with specified options.
-         *
-         * @param xis XMLInputStream the source XML input stream
-         * @param options XmlOptions the XML validation options to use
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if validation setup fails
-         * @throws XMLStreamException if there is an error processing the stream
-         * @deprecated XMLInputStream is deprecated; use XMLStreamReader instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, ObstetricalHistoryItemList.type, options);
         }
 
         /**

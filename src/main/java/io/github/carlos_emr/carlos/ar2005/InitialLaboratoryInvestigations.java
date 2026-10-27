@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -1612,64 +1610,6 @@ public interface InitialLaboratoryInvestigations extends XmlObject
          */
         public static InitialLaboratoryInvestigations parse(final Node node, final XmlOptions options) throws XmlException {
             return (InitialLaboratoryInvestigations)XmlBeans.getContextTypeLoader().parse(node, InitialLaboratoryInvestigations.type, options);
-        }
-
-        /**
-         * Parses an InitialLaboratoryInvestigations document from an XMLInputStream.
-         *
-         * @param xis XMLInputStream the input stream containing XML content to parse
-         * @return InitialLaboratoryInvestigations the parsed instance
-         * @throws XmlException if the XML is invalid or cannot be parsed
-         * @throws XMLStreamException if an XML streaming error occurs
-         * @deprecated XMLInputStream is deprecated, use parse(InputStream) or parse(XMLStreamReader) instead
-         */
-        @Deprecated
-        public static InitialLaboratoryInvestigations parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (InitialLaboratoryInvestigations)XmlBeans.getContextTypeLoader().parse(xis, InitialLaboratoryInvestigations.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses an InitialLaboratoryInvestigations document from an XMLInputStream with options.
-         *
-         * @param xis XMLInputStream the input stream containing XML content to parse
-         * @param options XmlOptions the XML options to use for parsing
-         * @return InitialLaboratoryInvestigations the parsed instance
-         * @throws XmlException if the XML is invalid or cannot be parsed
-         * @throws XMLStreamException if an XML streaming error occurs
-         * @deprecated XMLInputStream is deprecated, use parse(InputStream, XmlOptions) or parse(XMLStreamReader, XmlOptions) instead
-         */
-        @Deprecated
-        public static InitialLaboratoryInvestigations parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (InitialLaboratoryInvestigations)XmlBeans.getContextTypeLoader().parse(xis, InitialLaboratoryInvestigations.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from an existing XMLInputStream.
-         *
-         * @param xis XMLInputStream the input stream to validate
-         * @return XMLInputStream a validating input stream
-         * @throws XmlException if validation setup fails
-         * @throws XMLStreamException if an XML streaming error occurs
-         * @deprecated XMLInputStream is deprecated, use XMLStreamReader validation instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, InitialLaboratoryInvestigations.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from an existing XMLInputStream with options.
-         *
-         * @param xis XMLInputStream the input stream to validate
-         * @param options XmlOptions the XML options to use for validation
-         * @return XMLInputStream a validating input stream
-         * @throws XmlException if validation setup fails
-         * @throws XMLStreamException if an XML streaming error occurs
-         * @deprecated XMLInputStream is deprecated, use XMLStreamReader validation instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, InitialLaboratoryInvestigations.type, options);
         }
 
         private Factory() {
