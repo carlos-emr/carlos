@@ -22,6 +22,11 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsFieldDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsFieldParser;
+import java.io.IOException;
+import java.util.function.Consumer;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsXmlParser;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import java.io.BufferedWriter;
@@ -49,6 +54,11 @@ class CdsXmlParserLargeInputTest {
         probe("diagnostics", "BOUNDED_DIAGNOSTICS_OK");
     }
 
+    @Test
+    void shouldBuildOneBoundedDescriptorIndex_whenOneRecordHasOverAMillionResidualFields() throws Exception {
+        probe("index", "BOUNDED_INDEX_OK");
+    }
+
     private void probe(String mode,String success) throws Exception {
         String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
         String classpath = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
@@ -68,6 +78,7 @@ class CdsXmlParserLargeInputTest {
             Path directory = Path.of(args[0]); Path source = directory.resolve("large.xml");
             String fixture = CdsXmlParserUnitTest.fixture();
             if(args.length>1 && args[1].equals("diagnostics")) { diagnostics(directory,source,fixture);return; }
+            if(args.length>1 && args[1].equals("index")) { descriptorIndex(directory,source,fixture);return; }
             String start = fixture.substring(0, fixture.indexOf("</PatientRecord>"));
             long binaryBytes = 96L << 20;
             try (BufferedWriter xml = Files.newBufferedWriter(source, StandardCharsets.UTF_8)) {
@@ -85,6 +96,40 @@ class CdsXmlParserLargeInputTest {
             var parsed = new CdsXmlParser().parse(source, directory.resolve("spool"), CdsInputLimitsDto.defaults(), () -> false, record -> { });
             if (parsed.records() != 6 || parsed.decodedBinaryBytes() != binaryBytes) throw new AssertionError("Incorrect complete output");
             System.out.println("BOUNDED_CDS_OK sourceBytes=" + Files.size(source) + " heap=" + heap + " decoded=" + parsed.decodedBinaryBytes());
+        }
+
+        private static void descriptorIndex(Path directory, Path source, String fixture) throws Exception {
+            try (BufferedWriter xml = Files.newBufferedWriter(source, StandardCharsets.UTF_8)) {
+                xml.write(fixture.substring(0, fixture.indexOf("<ClinicalNotes>")));
+                xml.write("<MedicationsAndTreatments><ResidualInfo>");
+                String member = "<cdsd:DataElement><cdsd:Name>field</cdsd:Name><cdsd:DataType>string</cdsd:DataType><cdsd:Content>"
+                        + "x".repeat(512) + "</cdsd:Content></cdsd:DataElement>";
+                for (int i = 0; i < 400_000; i++) xml.write(member);
+                xml.write("</ResidualInfo><DrugName>INDEX TEST</DrugName></MedicationsAndTreatments>");
+                xml.write(fixture.substring(fixture.indexOf("<ClinicalNotes>")));
+            }
+            CdsRecordDto[] medication = {null};
+            new CdsXmlParser().parse(source, directory.resolve("spool"), CdsInputLimitsDto.defaults(), () -> false,
+                    record -> { if (record.section().equals("MedicationsAndTreatments")) medication[0] = record; });
+            if (medication[0] == null || medication[0].fieldCount() != 1_200_001) throw new AssertionError("Incomplete residual record");
+            CountingFields fields = new CountingFields();
+            for (int i = 0; i < 50; i++) {
+                if (!"INDEX TEST".equals(fields.firstText(medication[0], "DrugName", 120))) throw new AssertionError("Missing selected field");
+                if (fields.firstText(medication[0], "Missing" + i, 120) != null) throw new AssertionError("Invented absent field");
+            }
+            long heap = Runtime.getRuntime().maxMemory();
+            if (fields.scans != 1 || heap > (80L << 20) || Files.size(source) < 3 * heap) {
+                throw new AssertionError("Index did not remain bounded or reread metadata: " + fields.scans);
+            }
+            System.out.println("BOUNDED_INDEX_OK sourceBytes=" + Files.size(source) + " fields=" + medication[0].fieldCount()
+                    + " scans=" + fields.scans + " heap=" + heap);
+        }
+
+        private static final class CountingFields extends CdsFieldParser {
+            int scans;
+            @Override public void forEachField(CdsRecordDto record, Consumer<CdsFieldDto> consumer) throws IOException {
+                scans++; super.forEachField(record, consumer);
+            }
         }
 
         private static void diagnostics(Path directory,Path source,String fixture) throws Exception {

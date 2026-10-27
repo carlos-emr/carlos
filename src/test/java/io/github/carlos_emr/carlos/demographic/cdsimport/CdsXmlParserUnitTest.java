@@ -56,6 +56,32 @@ class CdsXmlParserUnitTest {
     private final AtomicInteger sequence = new AtomicInteger();
 
     @Test
+    void shouldReuseFirstDescriptorIndex_andKeepExplicitIndexesAndNamespacesExact() throws Exception {
+        List<CdsRecordDto> records = parse(fixture().replace("<ClinicalNotes>", "<MedicationsAndTreatments><ResidualInfo>"
+                + "<cdsd:DataElement><cdsd:Name>first</cdsd:Name><cdsd:DataType>string</cdsd:DataType><cdsd:Content>A</cdsd:Content></cdsd:DataElement>"
+                + "<cdsd:DataElement><cdsd:Name>second</cdsd:Name><cdsd:DataType>string</cdsd:DataType><cdsd:Content>B</cdsd:Content></cdsd:DataElement>"
+                + "</ResidualInfo><DrugName>INDEX</DrugName></MedicationsAndTreatments><ClinicalNotes>"));
+        CdsRecordDto record = records.get(3);
+        AtomicInteger scans = new AtomicInteger();
+        CdsFieldParser indexed = new CdsFieldParser() {
+            @Override public void forEachField(CdsRecordDto selected, java.util.function.Consumer<CdsFieldDto> consumer) throws java.io.IOException {
+                scans.incrementAndGet(); super.forEachField(selected, consumer);
+            }
+        };
+        for (int i = 0; i < 50; i++) {
+            assertEquals("first", indexed.firstText(record, "ResidualInfo/DataElement/Name", "cds_dt", 10));
+            assertNull(indexed.firstText(record, "Absent" + i, 10));
+        }
+        assertEquals(1, scans.get());
+        assertNull(indexed.firstText(record, "ResidualInfo/DataElement/Name", "cds", 10));
+        assertEquals(1, scans.get());
+        assertEquals("second", indexed.firstText(record, "ResidualInfo[1]/DataElement[2]/Name[1]", "cds_dt", 10));
+        assertEquals(2, scans.get());
+        assertEquals("first", indexed.firstText(record, "ResidualInfo[1]/DataElement[1]/Name[1]", "cds_dt", 10));
+        assertEquals(2, scans.get());
+    }
+
+    @Test
     void shouldPreserveNamespacedFieldsAndAttributes_whenExistingSyntheticFixtureIsValid() throws Exception {
         List<CdsRecordDto> records = parse(fixture());
         assertEquals(4, records.size());

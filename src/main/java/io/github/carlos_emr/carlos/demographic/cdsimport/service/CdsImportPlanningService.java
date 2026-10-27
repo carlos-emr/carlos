@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCourseCopyDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDocumentDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportWorkDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsParseResultDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
@@ -228,7 +229,16 @@ public class CdsImportPlanningService {
                 String patientKey = CdsImportKeys.hash(command.sourceNamespace(), source.sourceId(), copy.copyKey());
                 if (correction!=null) corrections.rebind(state.runId, state.epoch, state.reviewVersion, xml.relativeName(), xml.sha256(),
                         correction.sha256(), patientKey, sourceDigest);
-                var patient = ledger.planPatient(state.runId, state.epoch, patientKey, source.sourceId(), copy.copyKey(), sourceDigest);
+                CdsImportPatientDto patient;
+                try {
+                    patient=ledger.planPatient(state.runId, state.epoch, patientKey, source.sourceId(), copy.copyKey(), sourceDigest);
+                } catch (CdsImportException conflict) {
+                    if (!conflict.getCode().equals("SOURCE_REVISION_REVIEW_REQUIRED")) throw conflict;
+                    Path proof=revisionConflict(state, xml, demographic[0], parseResult, patientKey, source.sourceId(), copy.copyKey(), sourceDigest);
+                    state.blocked=true;
+                    diagnostic(state, patientKey, conflict.getCode(), demographic[0].sourceXPath(), proof.toString());
+                    return;
+                }
                 boolean declined=corrections!=null && corrections.declined(state.runId, patientKey);
                 if (!preflightIdentity.register(state.runId, state.epoch, patientKey, copy.copyKey(), source, valid[0] && !declined)) {
                     ledger.diagnostic(state.runId, state.epoch, patientKey, null, "WARNING", "DUPLICATE_IDENTICAL_SOURCE_PATIENT",
@@ -296,6 +306,32 @@ public class CdsImportPlanningService {
             }
         });
         if (!valid[0] && !boundTyped[0] && state.blocked) emitTyped(state, typed.path, null);
+    }
+
+    /** Immutable private evidence for an explicit review; canonical revision never happens during discovery. */
+    private Path revisionConflict(State state, CdsSnapshotFileDto xml, CdsRecordDto demographic, Path parseResult,
+            String patientKey, String sourcePatientId, String copyKey, String sourceDigest) throws IOException {
+        var revision=ledger.unwrittenRevision(state.runId, state.epoch, sourcePatientId, copyKey, sourceDigest);
+        if (!state.runId.equals(revision.runId()) || !patientKey.equals(revision.patientKey())
+                || !sourceDigest.equals(revision.newSourceDigest())) throw new CdsImportException("REVISION_PROOF_IDENTITY_MISMATCH");
+        var root=JSON.createObjectNode().put("version", 1).put("sourceMember", xml.relativeName())
+                .put("sourceXmlSha256", xml.sha256()).put("recordXPath", demographic.sourceXPath())
+                .put("parseResultFile", parseResult.toString()).put("patientKey", patientKey)
+                .put("newPatientSourceDigest", sourceDigest);
+        root.set("revision", JSON.valueToTree(revision));
+        byte[] bytes=JSON.writeValueAsBytes(root);
+        if (bytes.length>65536) throw new CdsImportException("REVISION_PROOF_BYTE_LIMIT");
+        String hash=CdsPaths.hex(CdsPaths.sha256().digest(bytes));
+        Path proof=CdsPaths.within(parseResult.getParent().resolve("revision-conflict-"+hash+".json"), state.document.jobRoot());
+        if (Files.exists(proof, LinkOption.NOFOLLOW_LINKS)) {
+            if (Files.isSymbolicLink(proof) || Files.size(proof)!=bytes.length || !hashFile(proof).equals(hash)) {
+                throw new CdsImportException("REVISION_PROOF_HASH_MISMATCH");
+            }
+        } else {
+            try (OutputStream output=CdsPaths.newPrivateFile(proof, proof.getParent())) { output.write(bytes); }
+            CdsPaths.forceFile(proof); CdsPaths.forceDirectory(proof.getParent());
+        }
+        return proof;
     }
 
     private void validateChildren(State state, CdsRecordDto record, String suffix, CdsSnapshotFileDto xml) throws IOException {

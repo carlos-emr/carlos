@@ -97,6 +97,32 @@ class CdsImportPlanningServiceUnitTest {
         verify(review).revalidated(eq("run"),eq(1L),eq(1L),matches("[0-9a-f]{64}"));
     }
 
+    @Test void shouldBindCanonicalRevisionReview_toExactPatientAndImmutablePrivateConflictProof() throws Exception {
+        Fixture fixture=fixture(false,false);
+        when(fixture.ledger.planPatient(anyString(),anyLong(),anyString(),anyString(),anyString(),anyString()))
+                .thenThrow(new CdsImportException("SOURCE_REVISION_REVIEW_REQUIRED"));
+        when(fixture.ledger.unwrittenRevision(anyString(),anyLong(),anyString(),anyString(),anyString())).thenAnswer(call -> {
+            String patient=CdsImportKeys.hash("test-source","source-id","clinical");
+            return new CdsImportRevisionDto("run",patient,patient,"test-source","source-id","clinical",
+                    "a".repeat(64),"b".repeat(64),"c".repeat(64),call.getArgument(4),"d".repeat(64),"e".repeat(64),
+                    null,0,true,java.util.List.of("prior-run"),1,false);
+        });
+        fixture.planner.plan("run",1,fixture.document,fixture.snapshot);
+        var detail=org.mockito.ArgumentCaptor.forClass(String.class);
+        String patient=CdsImportKeys.hash("test-source","source-id","clinical");
+        verify(fixture.ledger).diagnostic(eq("run"),eq(1L),eq(patient),isNull(),eq("ERROR"),eq("SOURCE_REVISION_REVIEW_REQUIRED"),
+                eq("PREFLIGHT"),endsWith("/Demographics[1]"),anyString(),detail.capture(),eq(true));
+        Path proof=Path.of(detail.getValue());
+        org.junit.jupiter.api.Assertions.assertTrue(proof.startsWith(fixture.document.jobRoot().resolve("parsed")));
+        var json=new com.fasterxml.jackson.databind.ObjectMapper().readTree(Files.readAllBytes(proof));
+        org.junit.jupiter.api.Assertions.assertEquals(patient,json.path("patientKey").asText());
+        org.junit.jupiter.api.Assertions.assertEquals("one.xml",json.path("sourceMember").asText());
+        org.junit.jupiter.api.Assertions.assertEquals(1,json.path("revision").path("priorRunCount").asLong());
+        org.junit.jupiter.api.Assertions.assertTrue(Files.isRegularFile(Path.of(json.path("parseResultFile").asText())));
+        verify(fixture.ledger,never()).seal(anyString(),anyLong(),anyString(),anyLong(),anyLong());
+        verify(fixture.ledger,never()).planUnit(anyString(),anyLong(),anyString(),anyString(),anyString(),anyLong(),anyString(),anyString());
+    }
+
     private static void canonical(Fixture fixture) {
         when(fixture.ledger.planPatient(anyString(),anyLong(),anyString(),anyString(),anyString(),anyString())).thenAnswer(call->
                 new CdsImportPatientDto(call.getArgument(2),call.getArgument(3),call.getArgument(4),
