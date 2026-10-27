@@ -4,6 +4,7 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportMaintenanceService;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.ClinicalStartupCoordinator;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -49,13 +50,23 @@ public final class CdsImportMaintenanceFilter implements Filter {
         boolean blocked;
         try { blocked = maintenance.get().isClinicalAccessBlocked(); }
         catch (RuntimeException unavailable) { blocked = true; }
-        if (!blocked) { chain.doFilter(request, response); return; }
+        if (!blocked) {
+            Object startup = http.getServletContext().getAttribute(ClinicalStartupCoordinator.ATTRIBUTE);
+            if (!(startup instanceof ClinicalStartupCoordinator coordinator) || coordinator.isReady()) {
+                chain.doFilter(request, response); return;
+            }
+            unavailable(reply, http, "Clinical startup initialization is pending. ");
+            return;
+        }
+        unavailable(reply, http, "Clinical access is unavailable during CDS import maintenance or chart reconciliation. ");
+    }
+
+    private static void unavailable(HttpServletResponse reply, HttpServletRequest http, String message) throws IOException {
         reply.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
         reply.setHeader("Cache-Control", "no-store");
         reply.setHeader("Retry-After", "60");
         reply.setContentType("text/plain;charset=UTF-8");
-        reply.getWriter().write("Clinical access is unavailable during CDS import maintenance or chart reconciliation. "
-                + "Authorized operators can use " + http.getContextPath() + "/form/importUpload.");
+        reply.getWriter().write(message + "Authorized operators can use " + http.getContextPath() + "/form/importUpload.");
     }
 
     static boolean allowed(String path) {

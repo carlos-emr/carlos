@@ -23,6 +23,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026: defer clinical bootstrap during retained import maintenance.
  */
 
 package io.github.carlos_emr.carlos.utility;
@@ -40,7 +41,6 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
-import io.github.carlos_emr.carlos.PMmodule.utility.ProgramAccessCache;
 import io.github.carlos_emr.carlos.PMmodule.utility.RoleCache;
 import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelper;
@@ -48,10 +48,16 @@ import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceRe
 
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportMaintenanceService;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 public class ContextStartupListener implements jakarta.servlet.ServletContextListener {
     private static final Logger logger = MiscUtils.getLogger();
     private static final CarlosProperties oscarProperties = CarlosProperties.getInstance();
+
+    private ClinicalStartupCoordinator clinicalStartup;
+    private CdsImportMaintenanceService maintenance;
 
     @Override
     public void contextInitialized(jakarta.servlet.ServletContextEvent sce) {
@@ -75,40 +81,57 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
             MiscUtils.setShutdownSignaled(false);
             MiscUtils.registerShutdownHook();
 
-            createOscarProgramIfNecessary();
-            createDefaultSiteIfNecessary();
-
-            OscarJobUtils.initializeJobExecutionFramework();
-
-
             if (oscarProperties.isPropertyActive("encrypted_xml.remove_cid_prefix")) {
                 ResourceResolver.register(new CidPrefixResourceResolver(), true);
             }
-
-            //Run some optimizations
-            loadCaches();
-
-            logger.info("OSCAR server processes started. context=" + contextPath);
-
-            //bug 4195 - only runs once so long as it finishes..if you want it to not run, add entry
-            //try your property table called "HRMFixMissingReportHelper.Run" with value = 1
-            HRMFixMissingReportHelper hrmFixer = new HRMFixMissingReportHelper();
-            try {
-                hrmFixer.fixIt();
-            } catch (Exception e) {
-                logger.error("Error running HRM fixer", e);
-            }
+            maintenance = SpringUtils.getBean(CdsImportMaintenanceService.class);
+            clinicalStartup = new ClinicalStartupCoordinator(maintenance::isClinicalAccessBlocked,
+                    this::initializeClinicalProcesses);
+            sce.getServletContext().setAttribute(ClinicalStartupCoordinator.ATTRIBUTE, clinicalStartup);
+            clinicalStartup.start();
+            logger.info("OSCAR web context started. context={} clinicalStartup={}", contextPath, clinicalStartup.state());
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
             throw (new RuntimeException(e));
         }
     }
 
-    public void loadCaches() {
-        ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
-        for (Program program : programDao.getActivePrograms()) {
-            ProgramAccessCache.setAccessMap(program.getId().longValue());
+    private void initializeClinicalProcesses() throws Exception {
+        requireClinicalAccessOpen();
+        // All default rows/links commit together. A new maintenance owner must drain this
+        // ordinary transaction before closing admission, rather than leaving half a default.
+        initializeDefaultData(SpringUtils.getBean(PlatformTransactionManager.class));
+        requireClinicalAccessOpen();
+        loadCaches();
+        requireClinicalAccessOpen();
+        OscarJobUtils.initializeJobExecutionFramework();
+        requireClinicalAccessOpen();
+        // Preserve the existing best-effort migration contract for genuine fixer errors.
+        // An actual maintenance transition instead leaves initialization pending for retry.
+        try { new HRMFixMissingReportHelper().fixIt(); }
+        catch (Exception failure) {
+            requireClinicalAccessOpen();
+            logger.error("HRM startup fixer failed ({}); completion flag is unchanged", failure.getClass().getName());
         }
+    }
+
+    void initializeDefaultData(PlatformTransactionManager transactionManager) {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            createOscarProgramIfNecessary();
+            createDefaultSiteIfNecessary();
+        });
+    }
+
+    private void requireClinicalAccessOpen() {
+        if (Thread.currentThread().isInterrupted() || clinicalStartup.state() == ClinicalStartupCoordinator.State.CLOSED) {
+            throw new IllegalStateException("Clinical startup stopped");
+        }
+        if (maintenance.isClinicalAccessBlocked()) throw new IllegalStateException("Clinical startup deferred");
+    }
+
+    public void loadCaches() {
+        // ProgramAccessCache already loads each real access map on a cache miss.
+        // Avoid eagerly materializing every Program entity/formula and access map here.
         RoleCache.reload();
     }
 
@@ -197,6 +220,8 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
     public void contextDestroyed(jakarta.servlet.ServletContextEvent sce) {
         logger.info("Server processes stopping. context=" + sce.getServletContext().getContextPath());
 
+        if (clinicalStartup != null) clinicalStartup.close();
+        sce.getServletContext().removeAttribute(ClinicalStartupCoordinator.ATTRIBUTE);
         try {
             MiscUtils.checkShutdownSignaled();
             MiscUtils.deregisterShutdownHook();

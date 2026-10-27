@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportMaintenanceService;
+import io.github.carlos_emr.carlos.utility.ClinicalStartupCoordinator;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -32,6 +33,37 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsImportMaintenanceFilterUnitTest {
+    @Test
+    void shouldHoldOrdinaryRequests_whenDeferredStartupIsIncomplete() throws Exception {
+        CdsImportMaintenanceService service = mock(CdsImportMaintenanceService.class);
+        ClinicalStartupCoordinator startup = mock(ClinicalStartupCoordinator.class);
+        var request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.getServletContext().setAttribute(ClinicalStartupCoordinator.ATTRIBUTE, startup);
+        var response = new MockHttpServletResponse(); FilterChain chain = mock(FilterChain.class);
+        new CdsImportMaintenanceFilter(() -> service).doFilter(request, response, chain);
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).contains("startup initialization is pending");
+        verifyNoInteractions(chain);
+        when(startup.isReady()).thenReturn(true);
+        response = new MockHttpServletResponse();
+        new CdsImportMaintenanceFilter(() -> service).doFilter(request, response, chain);
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    void shouldKeepRecoveryAvailable_whenClinicalStartupIsDeferred() throws Exception {
+        CdsImportMaintenanceService service = mock(CdsImportMaintenanceService.class);
+        ClinicalStartupCoordinator startup = mock(ClinicalStartupCoordinator.class);
+        for (String path : new String[] {"/login", "/form/importUpload", "/form/cdsImportStatus", "/form/cdsImportControl"}) {
+            var request = new MockHttpServletRequest("GET", path);
+            request.getServletContext().setAttribute(ClinicalStartupCoordinator.ATTRIBUTE, startup);
+            var response = new MockHttpServletResponse(); FilterChain chain = mock(FilterChain.class);
+            new CdsImportMaintenanceFilter(() -> service).doFilter(request, response, chain);
+            verify(chain).doFilter(request, response);
+        }
+        verifyNoInteractions(service, startup);
+    }
+
     @Test
     void shouldReadTheFiveNativeLoginAssets_whenMaintenanceIsActive() throws Exception {
         CdsImportMaintenanceService service = mock(CdsImportMaintenanceService.class);
