@@ -157,8 +157,8 @@ public class CdsXmlParser {
     }
 
     static XMLReader xmlReader() throws javax.xml.parsers.ParserConfigurationException, SAXException {
-        // Pinned Xerces keeps schema-error pressure bounded. Its JAXP DTD-access property is
-        // unavailable; complete DOCTYPE denial, disabled entities and the deny resolver enforce it.
+        // Pinned Xerces bounds schema-error pressure; its JAXP DTD-access property is unavailable.
+        // Audit: throw-only resolver returns no InputSource and performs no I/O; DTD/entity controls remain fail-closed.
         SAXParserFactory factory = new SAXParserFactoryImpl();
         factory.setNamespaceAware(true);
         factory.setXIncludeAware(false);
@@ -172,7 +172,7 @@ public class CdsXmlParser {
         reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
         reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-        reader.setEntityResolver((publicId, systemId) -> { throw new SAXException("CDS_EXTERNAL_ENTITY_BLOCKED"); });
+        reader.setEntityResolver((publicId, systemId) -> { throw new SAXException("CDS_EXTERNAL_ENTITY_BLOCKED"); }); // nosemgrep: java.lang.security.audit.xml-custom-entityresolver.xml-custom-entityresolver
         return reader;
     }
 
