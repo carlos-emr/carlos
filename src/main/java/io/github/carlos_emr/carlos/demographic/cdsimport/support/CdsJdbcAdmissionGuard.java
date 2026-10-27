@@ -422,11 +422,11 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
         return name.startsWith("cds_import_");
     }
     private static SqlShape classify(String sql) throws SQLException {
-        String normalized = sql.strip().replaceFirst(";+\\s*$", "");
+        String normalized = stripTerminalSemicolons(sql);
         // Hibernate's MariaDB PESSIMISTIC_READ spelling is not supported by JSQLParser.
         // Normalize only the terminal lock clause for classification; execute the original
         // SQL unchanged, including its real shared row lock and transaction lifetime.
-        String parserSql=normalized.replaceFirst("(?i)\\s+LOCK\\s+IN\\s+SHARE\\s+MODE\\s*$", " FOR SHARE");
+        String parserSql = normalizeSharedLock(normalized);
         // parse() accepts a leading statement and can ignore a trailing COMMIT. Count the
         // complete stream before even administrative/metadata exemptions are considered.
         final net.sf.jsqlparser.statement.Statement parsed;
@@ -491,6 +491,40 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
             throw refused("SQL cannot be admitted safely by the CDS maintenance guard");
         }
     }
+
+    /** Preserve strip/terminal-semicolon semantics without retrying a regex at every semicolon. */
+    static String stripTerminalSemicolons(String sql) {
+        String stripped = sql.strip();
+        int end = stripped.length();
+        while (end > 0 && stripped.charAt(end - 1) == ';') end--;
+        return end == stripped.length() ? stripped : stripped.substring(0, end);
+    }
+
+    /** Only the fixed terminal MariaDB clause is rewritten, in one backwards scan. */
+    static String normalizeSharedLock(String sql) {
+        int end = sql.length();
+        while (end > 0 && sqlWhitespace(sql.charAt(end - 1))) end--;
+        for (String word : new String[] {"MODE", "SHARE", "IN", "LOCK"}) {
+            int start = end - word.length();
+            if (start < 0) return sql;
+            for (int i = 0; i < word.length(); i++) {
+                char actual = sql.charAt(start + i);
+                if (actual >= 'a' && actual <= 'z') actual -= 'a' - 'A';
+                if (actual != word.charAt(i)) return sql;
+            }
+            end = start;
+            while (end > 0 && sqlWhitespace(sql.charAt(end - 1))) end--;
+            if (end == start) return sql; // Each word, including LOCK, needs preceding whitespace.
+        }
+        return sql.substring(0, end) + " FOR SHARE";
+    }
+
+    private static boolean sqlWhitespace(char value) {
+        // Java Pattern's default \\s is ASCII; Unicode folding would broaden accepted syntax.
+        return value == ' ' || value == '\t' || value == '\n' || value == '\u000b'
+                || value == '\f' || value == '\r';
+    }
+
     private Object guardedUnwrap(Object guarded, java.sql.Wrapper delegate, Class<?> type) throws SQLException {
         return state==null && !type.isInstance(guarded) ? delegate.unwrap(type) : safeUnwrap(guarded, type);
     }

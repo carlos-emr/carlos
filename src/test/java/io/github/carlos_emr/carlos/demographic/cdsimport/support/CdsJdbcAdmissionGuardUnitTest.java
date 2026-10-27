@@ -22,12 +22,55 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.support;
 
 import java.sql.SQLException;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.time.Duration;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsJdbcAdmissionGuardUnitTest {
+    @Test
+    void shouldNormalizeSuffixesInLinearTime_whenLongRunsDoNotTerminateTheStatement() {
+        String semicolons = "select id from cds_import_admission" + ";".repeat(200000) + " commit";
+        String wrongLock = "select id from cds_import_admission" + " ".repeat(200000) + "LOCK IN SHARE MODX";
+        assertTimeoutPreemptively(Duration.ofSeconds(3), () -> {
+            assertThat(CdsJdbcAdmissionGuard.stripTerminalSemicolons(semicolons)).isEqualTo(semicolons);
+            assertThat(CdsJdbcAdmissionGuard.normalizeSharedLock(semicolons)).isEqualTo(semicolons);
+            assertThat(CdsJdbcAdmissionGuard.normalizeSharedLock(wrongLock)).isEqualTo(wrongLock);
+        });
+    }
+
+    @Test
+    void shouldRetainExactSuffixSemantics_whenWhitespaceAndCaseVary() throws Exception {
+        assertThat(CdsJdbcAdmissionGuard.stripTerminalSemicolons("\u2003select 1;;;\u2003")).isEqualTo("select 1");
+        assertThat(CdsJdbcAdmissionGuard.stripTerminalSemicolons("select 1;; ;")).isEqualTo("select 1;; ");
+        assertThat(CdsJdbcAdmissionGuard.normalizeSharedLock("select id from cds_import_admission \tLoCk\tIn\fShArE\rMoDe \n"))
+                .isEqualTo("select id from cds_import_admission FOR SHARE");
+        for (String suffix : new String[] {"LOCK IN SHARE MODEX", "LOCK IN SHARE MOD", "LOCK IN SHARE MODE NOWAIT",
+                "LOCK\u2003IN SHARE MODE", "LOC\u212a IN SHARE MODE", "LOCK INSHARE MODE"}) {
+            String sql = "select id from cds_import_admission " + suffix;
+            assertThat(CdsJdbcAdmissionGuard.normalizeSharedLock(sql)).isEqualTo(sql);
+        }
+        String prefix = "select id from cds_import_admission";
+        assertThat(CdsJdbcAdmissionGuard.clinical(prefix + " ".repeat(200000) + "lock in share mode;;;")).isFalse();
+        assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(prefix + ";".repeat(10000) + "commit"))
+                .isInstanceOf(SQLException.class);
+    }
+
+    @Test
+    void shouldExecuteTheOriginalSharedLockSql_whenClassificationNormalizesItsSuffix() throws Exception {
+        Connection connection = mock(Connection.class);
+        Statement statement = mock(Statement.class);
+        when(connection.createStatement()).thenReturn(statement);
+        String original = "select id from cds_import_admission \tLoCk\tIn ShArE MoDe;;;";
+        CdsJdbcAdmissionGuard.wrap(connection, null, () -> false).createStatement().execute(original);
+        verify(statement).execute(original);
+    }
+
     @Test
     void shouldReadAdministrativeProgramPreferences_whenMaintenanceIsActive() throws Exception {
         assertThat(CdsJdbcAdmissionGuard.clinical("select p.program_id from provider_default_program p "
