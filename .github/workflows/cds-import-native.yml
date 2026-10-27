@@ -10,6 +10,9 @@ on:
       - 'src/main/resources/cds-import/**'
       - 'src/test/java/**/cdsimport/**'
       - 'src/test/resources/demographic/cds-import-*.xml'
+      - 'src/test/resources/cds-spec/**'
+      - 'docs/cds-spec*'
+      - 'scripts/cds-spec*'
       - 'database/mysql/migration/**'
       - 'scripts/ci/*cds*'
       - 'scripts/ci/CdsImportMariaDbBootstrap.java'
@@ -48,6 +51,10 @@ jobs:
           docker exec carlos-tomcat-dev mvn -B
           -Dtest=CdsXmlParserLargeInputUnitTest -Dgroups=performance
           -Dtest.forkCount=1 test
+      - name: Verify every pinned CDS wire field and choice with the real parser
+        run: >-
+          docker exec carlos-tomcat-dev mvn -B
+          -Dtest=CdsSpecificationCrosswalkUnitTest -Dgroups=unit test
       - name: Prepare harness workspace ownership
         run: sudo chown -R "$(id -u):$(id -g)" target
       - name: Install hash-pinned native harness dependencies
@@ -56,6 +63,10 @@ jobs:
           "$RUNNER_TEMP/cds-native-venv/bin/python" -m pip install \
             --disable-pip-version-check --require-hashes -r scripts/ci/requirements.txt
           echo "$RUNNER_TEMP/cds-native-venv/bin" >> "$GITHUB_PATH"
+      - name: Verify deterministic CDS specification crosswalk
+        run: |
+          python3 scripts/cds-spec-crosswalk.py --check
+          python3 -m unittest discover -s scripts/ci -p test_cds_spec_crosswalk.py -v
       - name: Verify native harness fail-closed behavior
         run: python3 -m unittest discover -s scripts/ci -p test_run_cds_native_tier.py -v
       - name: Run non-skipping physical database contracts
