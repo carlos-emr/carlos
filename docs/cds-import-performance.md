@@ -74,7 +74,10 @@ submission. The proof records actual per-invocation and observed-milestone
 digest count/time deltas, with a finite statement class and an in-server hash of
 each normalized shape. SQL text, bound values and transaction SQL are never
 selected into the proof. Missing instrumentation, digest overflow/eviction or
-counter reset fails the gate. These counts include the observers and are kept
+counter reset fails the gate. Complete class/count/time totals and a canonical
+hash cover every changed digest; each observation projects the top 64 shapes
+with explicit omitted shape/count/time totals to keep all nine cases within
+the existing bounded artifact contract. These counts include observers and are kept
 alongside their explicit invocation count; no automatic subtraction or increase
 of the 500-per-unit query budget occurs. Actual CLI progress-event counts make
 time-based operator reporting overhead visible.

@@ -244,6 +244,24 @@ class PerformanceEvidenceTest(unittest.TestCase):
             with self.subTest(actual=actual,budget=budget):
                 with self.assertRaises(RuntimeError):GATE.verified_query_budget_status(actual,budget)
 
+    def test_top_digest_projection_keeps_complete_totals_and_explicit_omitted_counts_within_artifact_bound(self):
+        complete=GATE.statement_digest_snapshot([[f'{number:032x}','b'*64,'LEDGER_READ',str(number+1),'3']
+            for number in range(70)])
+        delta=GATE.statement_digest_delta({},complete)
+        self.assertEqual(len(delta['digests']),64)
+        self.assertEqual(delta['digestShapeCount'],70)
+        self.assertEqual(delta['omittedDigestShapeCount'],6)
+        self.assertEqual(delta['statementCount'],sum(range(1,71)))
+        self.assertEqual(delta['omittedStatementCount'],sum(range(1,7)))
+        self.assertEqual(delta['omittedTimerPicoseconds'],18)
+        self.assertEqual(delta['statementCount'],sum(row['count'] for row in delta['digests'])+delta['omittedStatementCount'])
+        self.assertEqual(delta['countsByClass'],{'LEDGER_READ':sum(range(1,71))})
+        self.assertRegex(delta['completeDigestSetSha256'],r'^[0-9a-f]{64}$')
+        changed={key:dict(value) for key,value in complete.items()}
+        changed[f'{0:032x}']['timerPicoseconds']+=1
+        self.assertNotEqual(delta['completeDigestSetSha256'],GATE.statement_digest_delta({},changed)['completeDigestSetSha256'])
+        self.assertLess(len(json.dumps(delta))*3*9,1<<20)
+
     def test_an_oom_or_counter_reset_stops_before_any_query_only_failure_may_continue(self):
         initial={'memory.events':{'oom':'0','oom_kill':'0','oom_group_kill':'0'}}
         GATE.require_no_cgroup_oom(initial,initial)

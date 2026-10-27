@@ -566,9 +566,17 @@ def statement_digest_delta(before: dict, after: dict) -> dict:
         if count:
             entries.append({'digest':key,**current,'count':count,'timerPicoseconds':timer})
             classes[current['statementClass']]+=count
+    ordered=sorted(entries,key=lambda row:(-row['count'],row['digest']))
+    selected=ordered[:64]
+    omitted=ordered[64:]
     return {'scope':'exclusive server; normalized SQL is classified and hashed in-server; counts include observers',
             'statementCount':sum(classes.values()),'countsByClass':dict(classes),
-            'digests':sorted(entries,key=lambda row:(-row['count'],row['digest']))}
+            'digestShapeCount':len(ordered),'completeDigestSetSha256':hashlib.sha256(
+                json.dumps(ordered,sort_keys=True,separators=(',',':')).encode()).hexdigest(),
+            'topDigestLimit':64,'omittedDigestShapeCount':len(omitted),
+            'omittedStatementCount':sum(row['count'] for row in omitted),
+            'omittedTimerPicoseconds':sum(row['timerPicoseconds'] for row in omitted),
+            'digests':selected}
 
 
 def verified_query_budget_status(actual: int, budget: int) -> str:
