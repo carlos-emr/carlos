@@ -23,6 +23,7 @@
  *
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
+ * Modifications by CARLOS Contributors, 2026.
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
@@ -45,12 +46,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class RoleCache {
 
-    static SecroleDao secroleDao = (SecroleDao) SpringUtils.getBean(SecroleDao.class);
-    static DefaultRoleAccessDAO defaultRoleAccessDAO =
-            (DefaultRoleAccessDAO) SpringUtils.getBean(DefaultRoleAccessDAO.class);
-    static CaisiAccessTypeDao accessTypeDao =
-            (CaisiAccessTypeDao) SpringUtils.getBean(CaisiAccessTypeDao.class);
-
     private record Snapshot(
             Map<Long, Secrole> roles,
             Map<String, Integer> accessTypes,
@@ -60,6 +55,9 @@ public class RoleCache {
 
     /** A failed or held reload must preserve the previous complete policy, never publish partial maps. */
     public static synchronized void reload() {
+        SecroleDao secroleDao = SpringUtils.getBean(SecroleDao.class);
+        DefaultRoleAccessDAO defaultRoleAccessDAO = SpringUtils.getBean(DefaultRoleAccessDAO.class);
+        CaisiAccessTypeDao accessTypeDao = SpringUtils.getBean(CaisiAccessTypeDao.class);
         Map<String, Integer> accessTypes = new HashMap<>();
         for (CaisiAccessType at : accessTypeDao.findAll())
             accessTypes.put(at.getName(), at.getId());
