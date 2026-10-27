@@ -124,10 +124,10 @@ public class CdsXmlParser {
         Path diagnostics = spool.resolve("validation-errors.jsonl");
         MessageDigest sourceHash = CdsPaths.sha256();
         try (InputStream raw = Files.newInputStream(sourceXml, LinkOption.NOFOLLOW_LINKS);
-                CountingInput counted = new CountingInput(raw, limits.maxSourceBytes());
+                Pipeline pipeline = new Pipeline(spool, fields, values, manifest, diagnostics, limits, cancelled, records, staged);
+                CountingInput counted = new CountingInput(raw, limits.maxSourceBytes(), pipeline);
                 DigestInputStream hashed = new DigestInputStream(counted, sourceHash);
-                Reader text = CdsXmlText.reader(hashed, limits.maxBoundedScalarCharacters());
-                Pipeline pipeline = new Pipeline(spool, fields, values, manifest, diagnostics, limits, cancelled, records, staged)) {
+                Reader text = CdsXmlText.reader(hashed, limits.maxBoundedScalarCharacters())) {
             XMLReader reader;
             try {
                 reader=xmlReader();
@@ -269,6 +269,14 @@ public class CdsXmlParser {
         @Override public void setDocumentLocator(Locator value) { locator = value; validator.setDocumentLocator(value); }
         @Override public void startDocument() throws SAXException { validator.startDocument(); }
         @Override public void endDocument() throws SAXException { validator.endDocument(); }
+        @Override public void processingInstruction(String target, String data) throws SAXException {
+            try {
+                check();
+                // Xerces interns PI targets in the same document symbol table as element names.
+                // Count their diversity/length too; never retain or accumulate PI content.
+                name(target);
+            } catch (IOException failure) { throw protectedFailure(failure); }
+        }
         @Override public void startPrefixMapping(String prefix, String uri) throws SAXException {
             try {
                 if (prefix.length() > limits.maxXmlNameCharacters() || uri.length() > limits.maxNamespaceUriCharacters()) fail("CDS_XML_NAMESPACE_RESOURCE_LIMIT");
@@ -727,13 +735,22 @@ public class CdsXmlParser {
 
     private static final class CountingInput extends FilterInputStream {
         private final long maximum;
+        private final Pipeline pipeline;
         private long count;
-        CountingInput(InputStream input, long maximum) { super(input); this.maximum = maximum; }
+        CountingInput(InputStream input, long maximum, Pipeline pipeline) {
+            super(input); this.maximum = maximum; this.pipeline = pipeline;
+        }
         @Override public int read() throws IOException {
-            int value = in.read(); if (value >= 0) add(1); return value;
+            pipeline.check();
+            int value = in.read(); if (value >= 0) add(1);
+            pipeline.check(); return value;
         }
         @Override public int read(byte[] bytes, int offset, int length) throws IOException {
-            int n = in.read(bytes, offset, length); if (n > 0) add(n); return n;
+            // SAX emits no content callbacks for bounded comments/PIs outside the root.
+            // Check the same throttled operational control at the actual transport boundary.
+            pipeline.check();
+            int n = in.read(bytes, offset, length); if (n > 0) add(n);
+            pipeline.check(); return n;
         }
         private void add(int amount) throws IOException {
             count = Math.addExact(count, amount);

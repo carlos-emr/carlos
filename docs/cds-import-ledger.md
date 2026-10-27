@@ -231,7 +231,7 @@ require recreating only a disposable database, never repairing checksums.
 The `CDS import native contracts` workflow compiles the actual application and test classes, then
 runs `scripts/ci/run-cds-native-tier.py`. The harness creates a uniquely owned internal-network
 MariaDB server with checked tmpfs storage and bootstraps two empty schemas through the complete
-common/Ontario Flyway chain. A separate workflow step runs four fresh 64MiB parser probes.
+common/Ontario Flyway chain. A separate workflow step runs five fresh 64MiB parser probes.
 The nine required native suites include demographic and document ORM
 callbacks alongside maintenance, identity, clinical capacity, appointments, history visibility,
 ledger recovery and target receipts. Missing reports, zero tests, skips, inconsistent counters,
@@ -284,3 +284,6 @@ Admission seeds for `global`, `clinical-maintenance` and `UPLOAD_BUDGET` use exp
 statements against a uniquely named scratch clone, verifies existing owner/reservation and
 maintenance-generation values remain unchanged, and verifies unrelated storage errors remain
 errors. It drops and checks absence of the scratch table before physical contract export.
+
+
+Parser operational controls also run before and after each bounded transport read, sharing the existing 250ms durable-cancellation throttle. A suffix of individually short comments or processing instructions cannot defer cancellation, interruption or the elapsed deadline until EOF; incomplete parsing never publishes `parse.seal`. Processing-instruction target names share the bounded name-length/vocabulary accounting because the pinned Xerces scanner interns them in its document symbol table. PI content is never accumulated. The focused parser/control suite passes 24 tests; the additional fresh64MiB probe refuses a 111,491,543-byte distinct-target source with `CDS_XML_NAME_RESOURCE_LIMIT` and no seal. The prior four fresh64MiB payload/diagnostic/index/markup probes also pass; the integrated candidate must run all five together.
