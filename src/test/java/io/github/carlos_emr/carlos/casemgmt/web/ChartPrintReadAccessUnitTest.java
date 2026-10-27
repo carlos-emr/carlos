@@ -18,6 +18,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
@@ -112,11 +113,23 @@ class ChartPrintReadAccessUnitTest extends CarlosUnitTestBase {
     private CaseManagementNoteDAO notes;
     private DemographicDao demographics;
     private AllergyDao allergies;
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
     private ActionContext previousContext;
     private EctProgramManager defaultPrograms;
 
+    @Test
+    void shouldRefusePdfBeforeWritingBytes_whenStructuredChartCannotBeProjected() throws Exception {
+        org.mockito.Mockito.doThrow(new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException())
+                .when(projections).requireWholeChartSupported(101);
+        fullChart.print();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("cannot represent");
+        assertThat(response.getContentType()).startsWith("text/plain");
+    }
+
     @BeforeEach
     void prepareOwnChart() {
+        projections = createAndRegisterMock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
         notes = createAndRegisterMock(CaseManagementNoteDAO.class);
         createAndRegisterMock(CaseManagementIssueDAO.class);
         createAndRegisterMock(CaseManagementNoteExtDAO.class);

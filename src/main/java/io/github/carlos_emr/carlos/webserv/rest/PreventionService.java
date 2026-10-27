@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
@@ -62,10 +63,13 @@ public class PreventionService extends AbstractServiceImpl {
 
     private final PreventionManager preventionManager;
     private final PreventionDateService dateService;
+    private final io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
 
-    public PreventionService(PreventionManager preventionManager, PreventionDateService dateService) {
+    public PreventionService(PreventionManager preventionManager, PreventionDateService dateService,
+            io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections) {
         this.preventionManager = preventionManager;
         this.dateService = dateService;
+        this.projections = projections;
     }
 
     @GET
@@ -74,6 +78,7 @@ public class PreventionService extends AbstractServiceImpl {
     public PreventionResponse getCurrentPreventions(@QueryParam("demographicNo") Integer demographicNo) {
         List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(getLoggedInInfo(), demographicNo);
 
+        projections.requireRestSupported(demographicNo, java.util.Set.of("Immunizations"));
         return response(preventions, false);
     }
 
@@ -82,6 +87,7 @@ public class PreventionService extends AbstractServiceImpl {
     @Produces({MediaType.APPLICATION_JSON})
     public PreventionResponse getImmunizations(@PathParam("demographicNo") Integer demographicNo) {
         List<Prevention> immunizations = preventionManager.getImmunizationsByDemographic(getLoggedInInfo(), demographicNo);
+        projections.requireRestSupported(demographicNo, java.util.Set.of("Immunizations"));
         return response(immunizations, false);
     }
 
@@ -89,14 +95,18 @@ public class PreventionService extends AbstractServiceImpl {
     @Path("/active/precision")
     @Produces(MediaType.APPLICATION_JSON)
     public PreventionResponse getCurrentPreventionsWithPrecision(@QueryParam("demographicNo") Integer demographicNo) {
-        return response(preventionManager.getPreventionsByDemographicNo(getLoggedInInfo(), demographicNo), true);
+        List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(getLoggedInInfo(), demographicNo);
+        projections.requireRestSupported(demographicNo, java.util.Set.of("Immunizations"));
+        return response(preventions, true);
     }
 
     @GET
     @Path("/immunizations/{demographicNo}/precision")
     @Produces(MediaType.APPLICATION_JSON)
     public PreventionResponse getImmunizationsWithPrecision(@PathParam("demographicNo") Integer demographicNo) {
-        return response(preventionManager.getImmunizationsByDemographic(getLoggedInInfo(), demographicNo), true);
+        List<Prevention> preventions = preventionManager.getImmunizationsByDemographic(getLoggedInInfo(), demographicNo);
+        projections.requireRestSupported(demographicNo, java.util.Set.of("Immunizations"));
+        return response(preventions, true);
     }
 
     private PreventionResponse response(List<Prevention> preventions, boolean precisionAware) {

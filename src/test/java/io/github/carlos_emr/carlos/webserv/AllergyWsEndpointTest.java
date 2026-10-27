@@ -17,6 +17,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.webserv;
 
@@ -63,12 +64,26 @@ class AllergyWsEndpointTest extends CarlosSoapTestBase {
     @Mock
     private AllergyManager allergyManager;
 
+    @Mock
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
     private AllergyWs ws;
 
     @Override
     protected Object getServiceBean() {
         ws = new AllergyWs();
+        injectDependency(ws,"projections",projections);
         return ws;
+    }
+
+    @Test
+    void shouldFaultInsteadOfReturningEmptySubset_whenStructuredSourceCannotBeProjected() {
+        when(allergyManager.getByDemographicIdUpdatedAfterDate(any(LoggedInInfo.class),eq(123),any(java.util.Date.class))).thenReturn(java.util.List.of());
+        org.mockito.Mockito.doThrow(new org.apache.cxf.binding.soap.SoapFault("Structured projection requires review",
+                org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT))
+                .when(projections).requireSoapSupported(123,java.util.Set.of("AllergiesAndAdverseReactions"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->createClient(AllergyWs.class).getAllergiesByDemographicIdAfter(java.util.Calendar.getInstance(),123))
+                .hasMessageContaining("Structured projection requires review");
     }
 
     @Override

@@ -17,6 +17,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.webserv;
 
@@ -69,12 +70,25 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
     @Mock
     private PartialDateDao partialDateDao;
 
+    @Mock
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
     private PreventionWs ws;
 
     @Override
     protected Object getServiceBean() {
-        ws = new PreventionWs(preventionManager, new PreventionDateService(partialDateDao));
+        ws = new PreventionWs(preventionManager, new PreventionDateService(partialDateDao), projections);
         return ws;
+    }
+
+    @Test
+    void shouldFaultInsteadOfReturningEmptySubset_whenStructuredSourceCannotBeProjected() {
+        when(preventionManager.getByDemographicIdUpdatedAfterDate(any(LoggedInInfo.class),eq(123),any(java.util.Date.class))).thenReturn(java.util.List.of());
+        org.mockito.Mockito.doThrow(new org.apache.cxf.binding.soap.SoapFault("Structured projection requires review",
+                org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT))
+                .when(projections).requireSoapSupported(123,java.util.Set.of("Immunizations"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->createClient(PreventionWs.class).getPreventionsByDemographicIdAfter(java.util.Calendar.getInstance(),123))
+                .hasMessageContaining("Structured projection requires review");
     }
 
     @Override
@@ -90,6 +104,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
     @Test
     void shouldRefuseDateOnlyResponse_whenHistoryHasPartialTiming() {
         Prevention record = new Prevention();
+            record.setDemographicId(123);
         org.springframework.test.util.ReflectionTestUtils.setField(record, "id", 41);
         record.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
         when(partialDateDao.getFormat(4, 41, 7)).thenReturn("YYYY");
@@ -115,6 +130,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
         @DisplayName("should return prevention transfer when found")
         void shouldReturnPreventionTransfer_whenFound() {
             Prevention prevention = new Prevention();
+            prevention.setDemographicId(123);
             prevention.setPreventionType("Flu");
             prevention.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
             when(preventionManager.getPrevention(any(LoggedInInfo.class), eq(7))).thenReturn(prevention);
@@ -151,6 +167,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
         void shouldReturnPreventionArray_whenResultsExist() {
             List<Prevention> preventions = new ArrayList<>();
             Prevention p = new Prevention();
+            p.setDemographicId(123);
             p.setPreventionType("Flu");
             p.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
             preventions.add(p);
@@ -190,6 +207,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
         void shouldReturnPreventions_forDemographicAfterDate() {
             List<Prevention> preventions = new ArrayList<>();
             Prevention p = new Prevention();
+            p.setDemographicId(123);
             p.setPreventionType("Flu");
             p.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
             preventions.add(p);

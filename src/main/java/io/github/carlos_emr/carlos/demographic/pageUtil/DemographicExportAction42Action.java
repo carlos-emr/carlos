@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
@@ -431,6 +432,18 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         } else {
             list.add(demographicNo);
+        }
+
+        try {
+            var projection = SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
+            for (String patient : list) projection.requireWholeChartSupported(Integer.parseInt(patient));
+        } catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException unsupported) {
+            writeExportAuditLog(loggedInInfo, list.size(), "unsupported_structured_projection", "<unavailable>", null);
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            response.setContentType("text/plain;charset=UTF-8");
+            response.setHeader("Cache-Control", "no-store");
+            response.getWriter().write(unsupported.getMessage());
+            return NONE;
         }
 
         // This legacy export performs Date-only native prevention calculations. Refuse before

@@ -3708,6 +3708,27 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         boolean printPreventions = request.getParameter("printPreventions") != null && request.getParameter("printPreventions").equalsIgnoreCase("true");
         boolean printAllergies = request.getParameter("printAllergies") != null && request.getParameter("printAllergies").equalsIgnoreCase("true");
 
+        java.util.Set<String> projectedCategories = new java.util.HashSet<>();
+        if (printAllNotes || noteIds.length>0) projectedCategories.add("ClinicalNotes");
+        if (printCPP) projectedCategories.addAll(java.util.Set.of("PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList", "RiskFactors", "AlertsAndSpecialNeeds"));
+        if (printRx) projectedCategories.add("MedicationsAndTreatments");
+        if (printLabs) projectedCategories.add("LaboratoryResults");
+        if (printPreventions) projectedCategories.add("Immunizations");
+        if (printAllergies) projectedCategories.add("AllergiesAndAdverseReactions");
+        if (!projectedCategories.isEmpty()) {
+            try {
+                SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class)
+                        .requireSupported(demographicNo, projectedCategories);
+            } catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException unsupported) {
+                response.setHeader("Content-Disposition", null);
+                response.setStatus(HttpServletResponse.SC_CONFLICT);
+                response.setContentType("text/plain;charset=UTF-8");
+                response.setHeader("Cache-Control", "no-store");
+                response.getWriter().write(unsupported.getMessage());
+                return NONE;
+            }
+        }
+
         CaseManagementPrint cmp = new CaseManagementPrint();
         try {
             cmp.doPrint(loggedInInfo, demographicNo, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, (pType != null && "dates".equals(pType)) ? true : false, cStartDate, cEndDate, request, response.getOutputStream());

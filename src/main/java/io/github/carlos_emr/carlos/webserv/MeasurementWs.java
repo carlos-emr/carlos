@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 
 package io.github.carlos_emr.carlos.webserv;
@@ -52,13 +53,18 @@ public class MeasurementWs extends AbstractWs {
     @Autowired
     private MeasurementManager measurementManager;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
     public MeasurementTransfer getMeasurement(Integer measurementId) {
         Measurement measurement = measurementManager.getMeasurement(getLoggedInInfo(), measurementId);
+        if (measurement!=null) projections.requireSoapSupported(measurement.getDemographicId(),java.util.Set.of("CareElements"));
         return (MeasurementTransfer.toTransfer(measurement));
     }
 
     public MeasurementTransfer[] getMeasurementsCreatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
         List<Measurement> results = measurementManager.getCreatedAfterDate(getLoggedInInfo(), updatedAfterThisDateExclusive, itemsToReturn);
+        projections.requireSoapFeedSupported(java.util.Set.of("CareElements"));
         return (MeasurementTransfer.toTransfers(results));
     }
 
@@ -79,11 +85,14 @@ public class MeasurementWs extends AbstractWs {
 
     public MeasurementTransfer[] getMeasurementsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
         List<Measurement> measurements = measurementManager.getMeasurementsByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
+        if (demographicId==null) projections.requireSoapFeedSupported(java.util.Set.of("CareElements"));
+        else projections.requireSoapSupported(demographicId,java.util.Set.of("CareElements"));
         return (MeasurementTransfer.toTransfers(measurements));
     }
 
     public MeasurementTransfer[] getMeasurementsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
         List<Measurement> measurements = measurementManager.getMeasurementByDemographicIdAfter(getLoggedInInfo(), demographicId, lastUpdate.getTime());
+        projections.requireSoapSupported(demographicId,java.util.Set.of("CareElements"));
         return (MeasurementTransfer.toTransfers(measurements));
     }
 

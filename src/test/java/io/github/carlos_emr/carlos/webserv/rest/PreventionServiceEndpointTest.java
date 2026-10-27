@@ -17,6 +17,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
@@ -60,10 +61,23 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
     private PreventionManager mockPreventionManager;
     @Mock
     private PartialDateDao partialDateDao;
+    @Mock
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
 
     @Override
     protected Object getServiceBean() {
-        return new PreventionService(mockPreventionManager, new PreventionDateService(partialDateDao));
+        return new PreventionService(mockPreventionManager, new PreventionDateService(partialDateDao), projections);
+    }
+
+    @Test
+    void shouldReturnExplicitConflict_whenStructuredImmunizationsCannotBeProjected() {
+        when(mockPreventionManager.getPreventionsByDemographicNo(any(LoggedInInfo.class), eq(123))).thenReturn(List.of());
+        org.mockito.Mockito.doThrow(new jakarta.ws.rs.WebApplicationException(Response.status(409)
+                .type("text/plain").entity("Structured projection requires review").build()))
+                .when(projections).requireRestSupported(123,java.util.Set.of("Immunizations"));
+        Response response=request().path("/preventions/active/precision").query("demographicNo",123).get();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.readEntity(String.class)).contains("requires review");
     }
 
     @Test

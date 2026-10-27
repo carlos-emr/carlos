@@ -26,6 +26,7 @@ package io.github.carlos_emr.carlos.integration.fhir.manager;
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 
 import java.util.ArrayList;
@@ -75,6 +76,7 @@ public class OscarFhirResourceManager {
         List<Immunization<Prevention>> immunizations = null;
         List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(configurationManager.getLoggedInInfo(), demographicNo);
 
+        requireStructuredImmunizationsSupported(demographicNo);
         if (preventions != null) {
             for (Prevention prevention : preventions) {
                 requireExactImmunizationDate(prevention);
@@ -110,12 +112,22 @@ public class OscarFhirResourceManager {
         Immunization<Prevention> immunization = null;
 
         if (prevention != null) {
+            requireStructuredImmunizationsSupported(prevention.getDemographicId());
             requireExactImmunizationDate(prevention);
             LogAction.addLogSynchronous(configurationManager.getLoggedInInfo(), "OscarFhirResourceManager.getImmunizationsByDemographicNo", "Retrieved Immunization list for FHIR transport ");
             immunization = new Immunization<Prevention>(prevention, configurationManager);
         }
 
         return immunization;
+    }
+
+    private static void requireStructuredImmunizationsSupported(int demographicNo) {
+        try {
+            SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class)
+                    .requireSupported(demographicNo, java.util.Set.of("Immunizations"));
+        } catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException unsupported) {
+            throw new ca.uhn.fhir.rest.server.exceptions.UnprocessableEntityException(unsupported.getMessage());
+        }
     }
 
     private static void requireExactImmunizationDate(Prevention prevention) {

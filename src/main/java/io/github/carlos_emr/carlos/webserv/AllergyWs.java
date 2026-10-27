@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 
 package io.github.carlos_emr.carlos.webserv;
@@ -50,23 +51,31 @@ public class AllergyWs extends AbstractWs {
     @Autowired
     private AllergyManager allergyManager;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
     public AllergyTransfer getAllergy(Integer allergyId) {
         Allergy allergy = allergyManager.getAllergy(getLoggedInInfo(), allergyId);
+        if (allergy!=null) projections.requireSoapSupported(allergy.getDemographicNo(),java.util.Set.of("AllergiesAndAdverseReactions"));
         return (AllergyTransfer.toTransfer(allergy));
     }
 
     public AllergyTransfer[] getAllergiesUpdatedAfterDate(Date updatedAfterThisDateInclusive, int itemsToReturn) {
         List<Allergy> allergies = allergyManager.getUpdatedAfterDate(getLoggedInInfo(), updatedAfterThisDateInclusive, itemsToReturn);
+        projections.requireSoapFeedSupported(java.util.Set.of("AllergiesAndAdverseReactions"));
         return (AllergyTransfer.toTransfers(allergies));
     }
 
     public AllergyTransfer[] getAllergiesByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateInclusive, int itemsToReturn) {
         List<Allergy> allergies = allergyManager.getAllergiesByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateInclusive, itemsToReturn);
+        if (demographicId==null) projections.requireSoapFeedSupported(java.util.Set.of("AllergiesAndAdverseReactions"));
+        else projections.requireSoapSupported(demographicId,java.util.Set.of("AllergiesAndAdverseReactions"));
         return (AllergyTransfer.toTransfers(allergies));
     }
 
     public AllergyTransfer[] getAllergiesByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
         List<Allergy> allergies = allergyManager.getByDemographicIdUpdatedAfterDate(getLoggedInInfo(), demographicId, lastUpdate.getTime());
+        projections.requireSoapSupported(demographicId,java.util.Set.of("AllergiesAndAdverseReactions"));
         return (AllergyTransfer.toTransfers(allergies));
     }
 }
