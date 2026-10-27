@@ -117,11 +117,12 @@ public class CdsImportExecutionService {
                     || !job.optionsDigest().equals(CdsImportJobService.optionsDigest(document.command()))) throw new CdsImportException("IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE");
             try (var owner=maintenance.acquire()) {
                 safety.verify(owner);
+                boolean preflightRecovery=resume || job.ownerEpoch()>0;
                 epoch=ledger.claimPreparation(runId, coordinator, owner, resume);
             if (!ledger.isSealed(runId)) {
-                epoch=ledger.claimPlanning(runId, resume);
+                epoch=ledger.claimPlanning(runId, coordinator, owner);
                 ledger.resolveReauthorizedAccess(runId, epoch);
-                if (resume) ledger.preparePreflightResume(runId, epoch);
+                if (preflightRecovery) ledger.preparePreflightResume(runId, epoch);
                 var snapshot=jobs.snapshot(runId, document);
                 ledger.inventoryDiscovered(runId, epoch, snapshot.files(), snapshot.patientXmlFiles(), snapshot.totalBytes());
                 final long planningEpoch=epoch;
@@ -140,7 +141,7 @@ public class CdsImportExecutionService {
                 deliver(runId, epoch); return ledger.status(runId);
             }
             boolean recovery=resume || Set.of("RUNNING", "FINALIZING", "RECONCILING").contains(job.state());
-                epoch=resume?ledger.resume(runId):ledger.acquire(runId);
+                epoch=ledger.claimExecution(runId, coordinator, owner);
                 try (var control=ioControl(runId, epoch, coordinator, "IMPORT_FILE_VERIFICATION_TIMEOUT")) {
                     fileVerification.verify(runId, epoch);
                 }

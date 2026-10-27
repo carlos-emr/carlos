@@ -97,6 +97,34 @@ class CdsImportLedgerControlUnitTest {
         engine.superviseFatal("run");engine.superviseFatal("run");
         verify(state,times(1)).refuseResumeIntent("run",12L,"WORKER_FATAL");
     }
+    @ParameterizedTest
+    @ValueSource(strings={"PLANNING","RUNNING"})
+    void laterCancelStillWinsBetweenPreparationAndTheActualPhaseCommit(String phase) {
+        var gate=new CdsImportAdmission();gate.setId("global");gate.setOwnerRunId("run");when(admission.lock("global")).thenReturn(gate);
+        var coordinator=mock(CdsImportCoordinatorService.Owner.class);var window=mock(CdsImportMaintenanceService.Owner.class);
+        when(window.read(any())).thenAnswer(call->((java.util.function.Supplier<?>)call.getArgument(0)).get());
+        ledger.requestResume("run");long prepared=ledger.claimPreparation("run",coordinator,window,true);
+        assertThat(run.isResumeRequested()).isTrue();assertThat(ledger.pendingResumeEvent("run")).isEqualTo(12);
+        if("RUNNING".equals(phase))run.setExecutionDigest("a".repeat(64));
+        ledger.cancel("run");
+        assertThatThrownBy(()->claimPhase(phase,coordinator,window)).hasMessage("IMPORT_CANCELLED");
+        assertThat(run.getOwnerEpoch()).isEqualTo(prepared);assertThat(run.isCancelRequested()).isTrue();assertThat(run.isResumeRequested()).isFalse();
+    }
+    @ParameterizedTest
+    @ValueSource(strings={"PLANNING","RUNNING"})
+    void newReviewOrDraftDefersThePhaseWithoutConsumingANewerResume(String phase) {
+        var gate=new CdsImportAdmission();gate.setId("global");gate.setOwnerRunId("run");when(admission.lock("global")).thenReturn(gate);
+        var coordinator=mock(CdsImportCoordinatorService.Owner.class);var window=mock(CdsImportMaintenanceService.Owner.class);
+        when(window.read(any())).thenAnswer(call->((java.util.function.Supplier<?>)call.getArgument(0)).get());
+        ledger.requestResume("run");long prepared=ledger.claimPreparation("run",coordinator,window,true);
+        if("RUNNING".equals(phase))run.setExecutionDigest("a".repeat(64));
+        when(events.pendingResumeEvent("run")).thenReturn(14L);when(runs.reviewBlocksExecution("run")).thenReturn(true);
+        assertThatThrownBy(()->claimPhase(phase,coordinator,window)).hasMessage("IMPORT_REVIEW_PENDING");
+        assertThat(run.getOwnerEpoch()).isEqualTo(prepared);assertThat(run.isResumeRequested()).isTrue();assertThat(ledger.pendingResumeEvent("run")).isEqualTo(14);
+    }
+    private long claimPhase(String phase,CdsImportCoordinatorService.Owner coordinator,CdsImportMaintenanceService.Owner window) {
+        return "PLANNING".equals(phase)?ledger.claimPlanning("run",coordinator,window):ledger.claimExecution("run",coordinator,window);
+    }
     private static CdsImportRun row(String id,String state) {
         var row=new CdsImportRun();row.setId(id);row.setState(state);row.setOperator("fixture");row.setProviderNo("999998");row.setUpdatedAt(Instant.EPOCH);row.setCreatedAt(Instant.EPOCH);row.setReportState("DELIVERED");row.setCleanupState("COMPLETE");return row;
     }

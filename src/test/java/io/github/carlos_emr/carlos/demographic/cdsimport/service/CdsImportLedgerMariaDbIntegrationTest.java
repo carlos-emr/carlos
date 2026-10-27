@@ -175,6 +175,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    verifyMaintenanceReleaseOutcome(job);
    verifyStoppedReportsRediscoveredWithoutClinicalResume();
    verifyDeadOwnerResume(jdbc);
+   CdsResumeHandoffTestFixture.unsealed(jdbc);
   } finally {ctx.close();}
  }
  static void verifyDeadOwnerResume(Properties jdbc) throws Exception {
@@ -232,13 +233,45 @@ class CdsImportLedgerMariaDbIntegrationTest {
    long refusals=sql.queryForObject("select count(*) from cds_import_diagnostic where run_id=? and code='RESUME_INTENT_REFUSED'",Long.class,id);
    incompatible.execute(id);check(sql.queryForObject("select count(*) from cds_import_diagnostic where run_id=? and code='RESUME_INTENT_REFUSED'",Long.class,id)==refusals,"definitive refusal cannot become an automatic execution retry loop");
    ledger.control(id,actor,"RESUME_REQUESTED",()->ledger.requestResumeParticipating(id));
-   // Old worker may finish/report after the enqueue was lost: the indexed intent remains discoverable.
-   sql.update("update cds_import_run set state='INCOMPLETE',report_state='DELIVERED' where id=?",id);
-   check(ledger.pending("",200).stream().anyMatch(value->id.equals(value.id())),"stopped delivered report cannot hide accepted resume intent");
-   try(var worker=java.util.concurrent.Executors.newSingleThreadExecutor()) {
-    var completed=worker.submit(()->engine.execute(id)).get(30,java.util.concurrent.TimeUnit.SECONDS);
-    check("COMPLETE".equals(completed.state()),"fresh worker resumes the original accepted partial run: "+completed.state()+" / "+ledger.summary(id).get("safeErrorCode")+" / "+ledger.diagnostics(id,0,100).stream().map(CdsImportDiagnosticDto::code).toList());
+   // An old live worker may stop/report after a newer enqueue was lost; use actual phase/outcome APIs.
+   try(var oldCoordinator=coordinators.acquire();var oldWindow=maintenance.acquire()) {
+    safety.verify(oldWindow);ledger.claimPreparation(id,oldCoordinator,oldWindow,true);
+    long oldEpoch=ledger.claimExecution(id,oldCoordinator,oldWindow);
+    ledger.control(id,actor,"RESUME_REQUESTED",()->ledger.requestResumeParticipating(id));
+    ledger.markPatient(id,oldEpoch,"patient","PARTIAL_COMMITTED");ledger.finish(id,oldEpoch);
+    CdsImportLedgerMariaDbIntegrationTest.reports.select(id,oldEpoch,ledger.status(id).reportGeneration(),C,"/opaque/stopped-report-"+UUID.randomUUID(),A);
+    ledger.operational(id,oldEpoch,null,"COMPLETE",null);
    }
+   check(ledger.pending("",200).stream().anyMatch(value->id.equals(value.id())),"stopped delivered report cannot hide accepted resume intent");
+   try(var successor=coordinators.acquire();var window=maintenance.acquire()) {
+    safety.verify(window);ledger.claimPreparation(id,successor,window,true);
+    check(ledger.pendingResumeEvent(id)>0 && Boolean.TRUE.equals(ledger.summary(id).get("resumeRequested")),"preparation commit cannot consume recovery routing before its phase starts");
+   }
+   check(ledger.pending("",16).stream().anyMatch(value->id.equals(value.id())),"restart discovers stopped DELIVERED work immediately after preparation ownership commit");
+   var interrupted=org.mockito.Mockito.spy(ledger);var phaseStop=new AssertionError("Synthetic process stop immediately after RUNNING commit");
+   org.mockito.Mockito.doAnswer(call->{ledger.claimExecution(id,call.getArgument(1),call.getArgument(2));throw phaseStop;})
+    .when(interrupted).claimExecution(org.mockito.ArgumentMatchers.eq(id),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any());
+   var phaseWorker=new CdsImportExecutionService(interrupted,units,jobs,planner,nativeRecords,access,config,maintenance,reports,coordinators,
+    org.mockito.Mockito.mock(CdsImportFileVerificationService.class),safety,org.mockito.Mockito.mock(CdsImportFailureEvidenceService.class),new CdsFieldParser());
+   org.assertj.core.api.Assertions.assertThatThrownBy(()->phaseWorker.execute(id)).isSameAs(phaseStop);
+   check("RUNNING".equals(ledger.status(id).state()) && ledger.pendingResumeEvent(id)==0 && !Boolean.TRUE.equals(ledger.summary(id).get("resumeRequested")),"RUNNING phase and request consumption are one committed handoff");
+   check("PENDING".equals(ledger.summary(id).get("reportState")) && "PENDING".equals(ledger.summary(id).get("cleanupState")),"old delivered reports and cleanup cannot certify the new recovery phase");
+   check(countNative()==before+1 && ledger.isHeld(job.target),"process stop after phase commit adds no clinical row and preserves the partial hold");
+   var completed=new java.util.concurrent.CountDownLatch(1);
+   org.mockito.Mockito.doAnswer(call->{if("COMPLETE".equals(ledger.status(id).state()))completed.countDown();return null;})
+    .when(reports).generate(org.mockito.ArgumentMatchers.eq(id),org.mockito.ArgumentMatchers.anyLong());
+   var dispatchLedger=org.mockito.Mockito.spy(ledger);
+   org.mockito.Mockito.doAnswer(call->ledger.pending(call.getArgument(0),call.getArgument(1)).stream().filter(value->id.equals(value.id())).toList())
+    .when(dispatchLedger).pending(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyInt());
+   var reviews=org.mockito.Mockito.mock(CdsImportReviewService.class);var cleanup=org.mockito.Mockito.mock(CdsImportCleanupService.class);
+   org.mockito.Mockito.when(cleanup.housekeeping()).thenReturn(Map.of("state","COMPLETE","fullPassComplete",true));
+   var freshEngine=new CdsImportExecutionService(ledger,units,jobs,planner,nativeRecords,access,config,maintenance,reports,coordinators,
+    org.mockito.Mockito.mock(CdsImportFileVerificationService.class),safety,org.mockito.Mockito.mock(CdsImportFailureEvidenceService.class),new CdsFieldParser());
+   var facade=new CdsImportService(dispatchLedger,jobs,freshEngine,reports,access,config,cleanup,reviews,org.mockito.Mockito.mock(CdsImportFailureEvidenceService.class));
+   try(AutoCloseable dispatcher=facade::close) {
+    facade.start();check(completed.await(30,java.util.concurrent.TimeUnit.SECONDS),"fresh default dispatcher resumes the committed RUNNING phase without a new Resume or in-memory queue");
+   }
+   check("COMPLETE".equals(ledger.status(id).state()),"fresh default worker completes the original accepted partial run");
    check(countNative()==before+2 && verifications.get()>=2,"unknown commit is verified by exact target receipt and never inserted twice");
    check(!ledger.isHeld(job.target) && !ledger.status(id).cancelRequested() && ledger.pendingResumeEvent(id)==0,"complete verified recovery releases only its own hold and consumes intent");
    check(!Boolean.TRUE.equals(ledger.summary(id).get("resumeRequested")),"operator summary clears consumed resume intent");

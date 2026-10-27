@@ -289,20 +289,29 @@ public class CdsImportLedgerService {
     }
 
     /** Caller must hold the approved migration-window/advisory protocol; never infer takeover from a heartbeat. */
-    public long acquire(String runId) { return claimExecution(runId, false); }
-    private long claimExecution(String runId, boolean resumed) {
-        return write(() -> {
+    public long acquire(String runId) { return write(() -> claimExecutionLocked(runId, null, null)); }
+    long claimExecution(String runId, CdsImportCoordinatorService.Owner coordinator,
+            CdsImportMaintenanceService.Owner window) {
+        Objects.requireNonNull(coordinator, "coordinator"); Objects.requireNonNull(window, "window");
+        return window.read(() -> write(() -> claimExecutionLocked(runId, coordinator, window)));
+    }
+    private long claimExecutionLocked(String runId, CdsImportCoordinatorService.Owner coordinator,
+            CdsImportMaintenanceService.Owner window) {
             CdsImportAdmission gate=admission.lock("global");
             if (gate==null) throw new CdsImportException("IMPORT_SCHEMA_NOT_READY");
             if (gate.getOwnerRunId()!=null && !gate.getOwnerRunId().equals(runId)) throw new CdsImportException("IMPORT_BUSY");
             CdsImportRun run=requiredRun(runId, true);
+            if (coordinator!=null) { coordinator.check(); Objects.requireNonNull(window, "window").requireVerifiedRecoveryOwner(); }
             if (run.getExecutionDigest()==null) throw new CdsImportException("UNSEALED_MANIFEST_REFUSED");
-            if (resumed && run.isCancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
+            if (run.isCancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
+            if (runs.reviewBlocksExecution(runId)) throw new CdsImportException("IMPORT_REVIEW_PENDING");
             if (run.getOwnerEpoch()==Long.MAX_VALUE) throw new CdsImportException("OWNER_EPOCH_EXHAUSTED");
             gate.setOwnerRunId(runId); run.setOwnerEpoch(run.getOwnerEpoch()+1);
-            if (!"COMPLETE".equals(run.getState())) run.setState("RUNNING");
+            if (!"COMPLETE".equals(run.getState())) {
+                run.setState("RUNNING"); run.setReportState("PENDING"); run.setCleanupState("PENDING");
+            }
+            consumeResumeIntent(run);
             touch(run); event(run, null, "OWNER_ACQUIRED"); return run.getOwnerEpoch();
-        });
     }
 
     /** A takeover requires both physical owners; an old RUNNING label never proves that its process is alive. */
@@ -319,7 +328,9 @@ public class CdsImportLedgerService {
             boolean pending=run.isResumeRequested() && events.pendingResumeEvent(runId)>0;
             if (run.isCancelRequested() && !(resume && pending)) throw new CdsImportException("IMPORT_CANCELLED");
             gate.setOwnerRunId(runId); run.setOwnerEpoch(run.getOwnerEpoch()+1);
-            if (resume && pending) { run.setCancelRequested(false); run.setResumeRequested(false); event(run, null, "RESUME_INTENT_APPLIED"); }
+            // Preparation ownership is not the durable start of a recovery phase. Keep the request
+            // discoverable until PLANNING/SEALING or RUNNING and its consumption commit together.
+            if (resume && pending) run.setCancelRequested(false);
             touch(run); event(run, null, "PREPARATION_OWNER_ACQUIRED"); return run.getOwnerEpoch(); }));
     }
     public long pendingResumeEvent(String runId) {
@@ -349,21 +360,47 @@ public class CdsImportLedgerService {
     /** Claim preflight without allowing clinical units; all native writes still require the final seal. */
     public long claimPlanning(String runId) { return claimPlanning(runId, false); }
 
-    public long claimPlanning(String runId, boolean resume) { return claimPlanning(runId, resume, false); }
+    public long claimPlanning(String runId, boolean resume) { return claimPlanningOwner(runId, false); }
     /** Finish an already accepted administrative review without erasing a later cancellation. */
-    public long claimReviewPlanning(String runId) { return claimPlanning(runId, true, true); }
-    private long claimPlanning(String runId, boolean resume, boolean reviewAdministrative) {
-        return write(() -> {
+    public long claimReviewPlanning(String runId) { return claimPlanningOwner(runId, true); }
+    private long claimPlanningOwner(String runId, boolean reviewAdministrative) {
+        return write(() -> claimPlanningLocked(runId, reviewAdministrative, null, null));
+    }
+    long claimPlanning(String runId, CdsImportCoordinatorService.Owner coordinator,
+            CdsImportMaintenanceService.Owner window) {
+        Objects.requireNonNull(coordinator, "coordinator"); Objects.requireNonNull(window, "window");
+        return window.read(() -> write(() -> claimPlanningLocked(runId, false, coordinator, window)));
+    }
+    private long claimPlanningLocked(String runId, boolean reviewAdministrative,
+            CdsImportCoordinatorService.Owner coordinator, CdsImportMaintenanceService.Owner window) {
             CdsImportAdmission gate=admission.lock("global");
             if (gate==null) throw new CdsImportException("IMPORT_SCHEMA_NOT_READY");
             if (gate.getOwnerRunId()!=null && !runId.equals(gate.getOwnerRunId())) throw new CdsImportException("IMPORT_BUSY");
             CdsImportRun run=requiredRun(runId, true);
+            if (coordinator!=null) { coordinator.check(); Objects.requireNonNull(window, "window").requireVerifiedRecoveryOwner(); }
             if (run.getExecutionDigest()!=null) throw new CdsImportException("SEALED_RUN_REQUIRES_EXECUTION_OWNER");
+            if (!reviewAdministrative) {
+                if (run.isCancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
+                if ("REPLANNING".equals(run.getState())) throw new CdsImportException("REVIEW_RESET_IN_PROGRESS");
+                if (runs.reviewBlocksExecution(runId)) throw new CdsImportException("IMPORT_REVIEW_PENDING");
+            }
             if (run.getOwnerEpoch()==Long.MAX_VALUE) throw new CdsImportException("OWNER_EPOCH_EXHAUSTED");
             gate.setOwnerRunId(runId); run.setOwnerEpoch(run.getOwnerEpoch()+1);
-            if (resume) { if (run.isCancelRequested() && !reviewAdministrative) throw new CdsImportException("IMPORT_CANCELLED"); if (Set.of("FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "REVIEW_REQUIRED").contains(run.getState())) run.setState(run.getManifestDigest()==null?"PLANNING":"SEALING"); }
+            if (!reviewAdministrative) {
+                run.setState(run.getManifestDigest()==null?"PLANNING":"SEALING");
+                run.setReportState("PENDING"); run.setCleanupState("PENDING"); consumeResumeIntent(run);
+            } else if (Set.of("FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "REVIEW_REQUIRED").contains(run.getState())) {
+                run.setState(run.getManifestDigest()==null?"PLANNING":"SEALING");
+            }
             touch(run); event(run, null, "PLANNING_OWNER_ACQUIRED"); return run.getOwnerEpoch();
-        });
+    }
+
+    /** Caller owns the run row and the phase transition commits in this same transaction. */
+    private void consumeResumeIntent(CdsImportRun run) {
+        if (run.isResumeRequested()) {
+            if (events.pendingResumeEvent(run.getId())<1) throw new CdsImportException("RESUME_INTENT_RECONCILIATION_REQUIRED");
+            run.setResumeRequested(false); event(run, null, "RESUME_INTENT_APPLIED");
+        }
     }
 
     CdsImportRun lockPlanningOwned(String runId, long epoch) { return planningOwned(runId, Long.valueOf(epoch)); }
@@ -636,7 +673,7 @@ public class CdsImportLedgerService {
     }
 
     /** Explicit resume clears cancellation only after a new fenced owner was established. */
-    public long resume(String runId) { return claimExecution(runId, true); }
+    public long resume(String runId) { return acquire(runId); }
 
     /** Report-only ownership also advances the epoch, fencing a coordinator whose physical lock was lost. */
     public long claimReporting(String runId) {
