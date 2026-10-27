@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissio
 import io.github.carlos_emr.carlos.managers.SecurityInfoManagerImpl;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
 import jakarta.persistence.EntityManagerFactory;
+import java.sql.Connection;
 import java.time.Duration;
 import java.util.Properties;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -86,6 +87,10 @@ public class CdsCliSpringConfiguration {
         source.setUsername(required(properties, "db_username"));
         source.setPassword(required(properties, "db_password"));
         source.setDefaultAutoCommit(true);
+        source.setDefaultTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+        // This dedicated context changes transaction state through JDBC setters,
+        // including Spring/Hibernate. Raw SQL must not change that cached state.
+        source.addConnectionProperty("useLocalSessionState", "true");
         // CLI has one foreground worker and a bounded progress reader, never the
         // web server's full pool or abandoned-transaction recovery heuristics.
         source.setMaxTotal(4); source.setMaxIdle(2); source.setMinIdle(0);
