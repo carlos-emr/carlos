@@ -105,6 +105,32 @@ and a bounded log tail with the fresh database secret removed are published.
 The owned synthetic runtime/database retire only when their CI job ends; this
 does not authorize cleanup of any developer, retained-failure or clinical state.
 
+Two additional installed profiles cover preaccept storage failure. Each owns a
+fresh database and runtime with a dedicated64MiB tmpfs for its entire synthetic
+fixture. `disk-reserve` keeps the default512MiB reserve and must produce the
+finite operator reason `CDS_INPUT_DISK_RESERVE`; it does not claim ENOSPC.
+`disk-enospc` freezes a zero reserve before the first submission solely to inject
+the storage failure. A valid48MiB external PDF and XML fit as originals, while
+their physical snapshot cannot also fit. Raw-register-only failed-write tracing
+must prove actual kernel `ENOSPC` from the identified non-root service JVM,
+and the operator must see `CDS_SOURCE_SNAPSHOT_FAILED`. Syscall payloads,
+transaction SQL and credentials are never included in this trace. No ptrace
+capability is added to the runtime.
+This failure occurs while making the first durable source snapshot before
+acceptance, with the original still present; it is not evidence of a later
+clinical publication or second snapshot-copy failure.
+
+Both profiles require a retained unique submission nonce, nonzero command exit,
+unchanged original bytes/configuration, an intact matching preaccept journal,
+no accepting/accepted seal and registry/native/checkpoint/hold absence verified
+against the actual database. Supported submission lookup must remain visibly
+incomplete. CLI snapshot copying precedes registry acceptance; these are
+preaccept refusals, not claims of rollback after an uncertain clinical commit.
+The complete synthetic tmpfs, including its partial snapshot, is archived and
+independently hash-verified into the job artifact before the owned environment
+retires. The gate never fills another filesystem, retries the failed source,
+resets a namespace or changes policy after submission.
+
 These scripts are executable gates. Their existence is not an execution result.
 Record the actual candidate hashes, runner resources and successful artifacts
 before claiming the corresponding release acceptance has passed.

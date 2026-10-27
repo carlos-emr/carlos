@@ -10,6 +10,7 @@ on:
       - 'src/test/resources/demographic/cds-import-*.xml'
       - 'database/mysql/migration/**'
       - 'scripts/ci/*cds*performance*'
+      - 'scripts/ci/*cds*disk*'
       - 'scripts/ci/cds-performance-runtime.Dockerfile'
       - 'debian/carlos-ctl.pin'
       - 'pom.xml'
@@ -32,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [scaling, aggregate20, zip64]
+        profile: [scaling, aggregate20, zip64, disk-reserve, disk-enospc]
     steps:
       - name: Checkout candidate
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1

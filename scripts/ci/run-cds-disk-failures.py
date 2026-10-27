@@ -1,0 +1,325 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
+"""Installed preaccept reserve/ENOSPC gates on a dedicated, bounded CI tmpfs.
+
+Never fill an existing filesystem or change configuration after submission.
+The owning CI runtime/database are disposable; failure evidence is retained.
+"""
+from __future__ import annotations
+import argparse
+import importlib.util
+import json
+import os
+from pathlib import Path
+import pwd
+import re
+import signal
+import shutil
+import subprocess
+import sys
+import tarfile
+import time
+import uuid
+from urllib.parse import urlsplit
+
+SPEC=importlib.util.spec_from_file_location('cds_resources',Path(__file__).with_name('run-cds-performance.py'))
+RESOURCE=importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(RESOURCE)
+MIB=1<<20
+CONFIG=Path('/etc/carlos-emr/carlos.properties')
+
+
+def require(condition: bool, code: str) -> None:
+    if not condition:
+        raise RuntimeError(code)
+
+
+def operator_reason(log: Path) -> dict:
+    reasons=[]
+    with log.open() as stream:
+        for line in stream:
+            require(len(line)<=65536,'DISK_FAULT_LOG_CAPACITY')
+            matched=re.fullmatch(r'CDS_REASON: safeCode=([A-Z][A-Z0-9_]{0,95}) outcomeUnknown=(true|false)\n',line)
+            if matched:
+                reasons.append({'code':matched[1],'outcomeUnknown':matched[2]=='true'})
+    require(len(reasons)==1,'DISK_FAULT_OPERATOR_REASON_MISSING')
+    return reasons[0]
+
+
+def refusal(log: Path) -> dict:
+    values=RESOURCE.rows(log)
+    submitted=[row for row in values if row.get('event')=='SUBMISSION']
+    require(len(submitted)==1 and RESOURCE.UUID.fullmatch(str(submitted[0].get('submissionKey',''))),
+            'DISK_FAULT_SUBMISSION_HANDLE_MISSING')
+    require(not any(row.get('event') in ('ACCEPTED','RESULT') for row in values),'DISK_FAULT_UNEXPECTED_ACCEPTANCE_OR_RESULT')
+    return {'submissionKey':submitted[0]['submissionKey'],'reason':operator_reason(log)}
+
+
+def raw_enospc(path: Path) -> int:
+    """Only register addresses/counts and errno may occur; never accept decoded buffers."""
+    require(path.is_file() and not path.is_symlink() and path.stat().st_size<=MIB,'DISK_FAULT_TRACE_MISSING')
+    count=0
+    with path.open() as stream:
+        for line in stream:
+            require(len(line)<=1024,'DISK_FAULT_TRACE_CAPACITY')
+            if re.search(r'\b(?:write|writev|pwrite64)\(',line):
+                require(re.fullmatch(r'(?:write|writev|pwrite64)\((?:0|0x[0-9a-f]+), (?:0|0x[0-9a-f]+), (?:0|0x[0-9a-f]+)(?:, (?:0|0x[0-9a-f]+))?\) = -1 [A-Z0-9_]+ \([^\r\n]{1,128}\)\n',line)
+                        is not None,'DISK_FAULT_TRACE_NOT_RAW_REGISTERS')
+                if ' = -1 ENOSPC (No space left on device)' in line:
+                    count+=1
+            else:
+                require(line.startswith(('+++ ','--- ')),'DISK_FAULT_UNEXPECTED_TRACE_RECORD')
+    return count
+
+
+def private_json(path: Path, maximum: int=65536, *, owner: int=0) -> dict:
+    RESOURCE.protected_file(path,owner=owner)
+    require(path.stat().st_size<=maximum,'DISK_FAULT_PRIVATE_METADATA_CAPACITY')
+    return json.loads(path.read_text())
+
+
+def retain_tmpfs(root: Path, destination: Path) -> dict:
+    """Retain this entire synthetic failed fixture before its owned CI runtime retires."""
+    require(not destination.exists(),'DISK_FAULT_ARCHIVE_ALREADY_EXISTS')
+    files=total=0
+    with tarfile.open(destination,'x:gz',dereference=False) as archive:
+        for directory,children,names in os.walk(root,followlinks=False):
+            require(len(children)+len(names)<=1024,'DISK_FAULT_ARCHIVE_ENTRY_CAPACITY')
+            for name in sorted([*children,*names]):
+                selected=Path(directory)/name
+                require(not selected.is_symlink() and selected.name!='carlos.properties' and selected.suffix!='.properties',
+                        'DISK_FAULT_ARCHIVE_FOREIGN_OR_SECRET_INPUT')
+                files+=1
+                require(files<=2048,'DISK_FAULT_ARCHIVE_ENTRY_CAPACITY')
+                if selected.is_file():
+                    total+=selected.stat().st_size
+                    require(total<=64*MIB,'DISK_FAULT_ARCHIVE_BYTE_CAPACITY')
+                archive.add(selected,arcname=str(Path('fixture')/selected.relative_to(root)),recursive=False)
+    destination.chmod(0o600)
+    return {'bytes':destination.stat().st_size,'sha256':RESOURCE.digest(destination),
+            'retainedEntries':files,'retainedRegularFileBytes':total}
+
+
+def main() -> None:
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--disposable',action='store_true')
+    parser.add_argument('--scenario',choices=('reserve','enospc'),required=True)
+    parser.add_argument('--fixture-metadata',type=Path,required=True)
+    parser.add_argument('--jdbc-properties',type=Path,required=True)
+    parser.add_argument('--evidence',type=Path,required=True)
+    parser.add_argument('--classpath',required=True)
+    parser.add_argument('--candidate-sha256',required=True)
+    args=parser.parse_args()
+    require(args.disposable and os.geteuid()==0 and Path('/.dockerenv').is_file(),'DISK_FAULT_DISPOSABLE_ROOT_REQUIRED')
+    require(re.fullmatch(r'[0-9a-f]{64}',args.candidate_sha256) is not None,'DISK_FAULT_CANDIDATE_REQUIRED')
+    require(args.evidence.is_absolute() and not args.evidence.exists() and args.evidence.parent==Path('/run'),
+            'DISK_FAULT_PRIVATE_EVIDENCE_REQUIRED')
+    args.evidence.mkdir(mode=0o700)
+    proof=args.evidence/'proof.json'
+    result={'protocol':1,'scenario':args.scenario,'candidateSha256':args.candidate_sha256,'status':'RUNNING',
+            'scope':'preaccept disk failure; no accepted clinical run is expected'}
+    save=lambda:RESOURCE.private_json(proof,result)
+    save()
+    process=None
+    owned_root=None
+    client=args.evidence/'mysql-client.cnf'
+    env={key:value for key,value in os.environ.items()
+         if key not in {'JAVA_TOOL_OPTIONS','JDK_JAVA_OPTIONS','_JAVA_OPTIONS','CLASSPATH'}}
+    try:
+        metadata=private_json(args.fixture_metadata)
+        root=args.fixture_metadata.parent
+        require(str(root)==metadata['fixtureRoot'] and root.parent==Path('/var/lib/carlos-emr'),'DISK_FAULT_ROOT_BINDING')
+        matches=[line.split() for line in Path('/proc/self/mountinfo').read_text().splitlines()
+                 if len(line.split())>6 and line.split()[4]=='/var/lib/carlos-emr']
+        require(len(matches)==1 and matches[0][matches[0].index('-')+1]=='tmpfs','DISK_FAULT_OWNED_TMPFS_REQUIRED')
+        usage=os.statvfs(root)
+        require(usage.f_blocks*usage.f_frsize==64*MIB and usage.f_bavail*usage.f_frsize>50*MIB,
+                'DISK_FAULT_FIXED_TMPFS_CAPACITY')
+        sys.path.insert(0,'/usr/lib/carlos-ctl')
+        from carlos_ctl.o19_preflight import parse_properties_text
+        require(CONFIG.is_file() and not CONFIG.is_symlink() and CONFIG.stat().st_uid==0
+                and CONFIG.stat().st_mode&0o022==0 and CONFIG.stat().st_size<=65536,'DISK_FAULT_INSTALLED_CONFIG_TRUST')
+        properties=parse_properties_text(CONFIG.read_text(encoding='ISO-8859-1'))
+        jdbc=parse_properties_text(RESOURCE.protected_file(args.jdbc_properties).read_text(encoding='ISO-8859-1'))
+        endpoint=urlsplit(jdbc['jdbcUrl'].removeprefix('jdbc:'))
+        database=endpoint.path.removeprefix('/')
+        require(endpoint.scheme=='mysql' and re.fullmatch(r'[A-Za-z0-9_]+_test',database)
+                and not any((endpoint.username,endpoint.password,endpoint.query,endpoint.fragment)),
+                'DISK_FAULT_EXPLICIT_TEST_DATABASE_REQUIRED')
+        escape=lambda value:'"'+str(value).replace('\\','\\\\').replace('"','\\"').replace('\n','\\n').replace('\r','\\r')+'"'
+        with os.fdopen(os.open(client,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'w') as output:
+            output.write('[client]\n'+'\n'.join(key+'='+escape(value) for key,value in {
+                'host':endpoint.hostname,'port':endpoint.port or 3306,'user':jdbc['jdbcUser'],'password':jdbc['jdbcPassword']}.items())+'\n')
+        def ledger_counts():
+            tables=('cds_import_run','cds_import_patient','cds_import_unit','cds_import_checkpoint','cds_import_event','cds_import_lineage')
+            selected=[*('(SELECT COUNT(*) FROM '+table+')' for table in tables),
+                      '(SELECT COALESCE(SUM(maintenance_active),0) FROM cds_import_admission)',
+                      '(SELECT COALESCE(SUM(reserved_bytes),0) FROM cds_import_admission)']
+            names=(*tables,'maintenanceActive','reservedUploadBytes')
+            statement='SELECT '+','.join(selected)
+            measured=subprocess.run(['mariadb','--defaults-file='+str(client),'--batch','--raw','--skip-column-names',database,'-e',statement],
+                                    env=env,capture_output=True,text=True,timeout=30)
+            fields=measured.stdout.strip().split('\t')
+            require(measured.returncode==0 and len(fields)==len(names) and all(value.isdecimal() for value in fields),
+                    'DISK_FAULT_LEDGER_ABSENCE_PROOF_UNAVAILABLE')
+            return dict(zip(names,map(int,fields)))
+        floor=int(properties.get('cds.import.minimumFreeDiskBytes',str(512*MIB)))
+        require(floor==(0 if args.scenario=='enospc' else 512*MIB),'DISK_FAULT_FROZEN_RESERVE_POLICY')
+        frozen_config=RESOURCE.digest(CONFIG)
+        result.update(configurationSha256=frozen_config,tmpfsCapacityBytes=64*MIB,minimumFreeDiskBytes=floor,
+                      faultPolicy='reserve disabled BEFORE submission only to force kernel ENOSPC' if floor==0 else 'unchanged production reserve')
+        helper=['java','-Xmx128m','-cp',args.classpath,
+                'io.github.carlos_emr.carlos.demographic.cdsimport.cli.CdsCliEngineFixture']
+        def fixture(operation,value):
+            done=subprocess.run([*helper,operation,str(args.jdbc_properties),str(value)],env=env,capture_output=True,text=True,timeout=90)
+            require(done.returncode==0 and len(done.stdout)<=65536,'DISK_FAULT_NATIVE_FIXTURE_VERIFICATION')
+            return json.loads(done.stdout)
+        require(fixture('verify-prepared',root)==metadata,'DISK_FAULT_PREPARED_BINDING')
+        owned_root=root
+        before=fixture('inspect','fixture')
+        initial_ledger=ledger_counts()
+        require(all(value==0 for value in [*before.values(),*initial_ledger.values()]),'DISK_FAULT_NONEMPTY_CLINICAL_DATABASE')
+        result['beforeLedger']=initial_ledger
+        source=Path(metadata['sources']['ordinary'])
+        if args.scenario=='enospc':
+            folder=source.parent/'kernel-enospc'
+            folder.mkdir(mode=0o755)
+            pdf=folder/'source.pdf'
+            RESOURCE.pdf(pdf,48*MIB,'F15-'+uuid.uuid4().hex)
+            source=folder
+            xml=folder/'patient.xml'
+            xml.write_bytes(RESOURCE.xml_start('F15'+uuid.uuid4().hex[:16].upper())+RESOURCE.report(pdf.name)+b'</PatientRecord></OmdCds>')
+            xml.chmod(0o644)
+            with xml.open('rb') as incoming:
+                checked=subprocess.run(['xmllint','--nonet','--stream','--noout','--schema',
+                    str(Path(__file__).resolve().parents[2]/'src/main/resources/cds-import/schema/EMR_Data_Migration_Schema.xsd'),'-'],
+                    stdin=incoming,env=env,capture_output=True,timeout=30)
+            require(checked.returncode==0,'DISK_FAULT_SOURCE_SCHEMA_INVALID')
+        originals={file.name:{'bytes':file.stat().st_size,'sha256':RESOURCE.digest(file)}
+                   for file in sorted(source.iterdir())} if source.is_dir() else {
+                       source.name:{'bytes':source.stat().st_size,'sha256':RESOURCE.digest(source)}}
+        result.update(originals=originals,beforeNative=before,freeBeforeSubmissionBytes=os.statvfs(root).f_bavail*usage.f_frsize)
+        save()
+        log=args.evidence/'operator.log'
+        trace=args.evidence/'failed-syscalls'
+        command=['strace','-qq','-ff','-e','trace=write,writev,pwrite64','-e','raw=write,writev,pwrite64',
+                 '-e','status=failed','-o',str(trace),'/usr/sbin/carlos-ctl','cds-import','--input',str(source),
+                 '--provider',str(metadata['provider']),'--source-namespace',metadata['namespace'],
+                 '--source-profile',metadata['profile'],'--no-match-providers']
+        started=time.monotonic()
+        worker=None
+        with os.fdopen(os.open(log,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'wb') as output:
+            process=subprocess.Popen(command,env=env,stdout=output,stderr=subprocess.STDOUT,start_new_session=True)
+            while process.poll() is None:
+                require(time.monotonic()-started<300,'DISK_FAULT_DEADLINE_RETAIN_STATE')
+                # The runtime is dedicated/exclusive. Restrict to exact public import argv,
+                # service UID/executable/start identity, not the handshake or runuser parent.
+                for entry in Path('/proc').iterdir():
+                    if not entry.name.isdecimal():
+                        continue
+                    try:
+                        argv=(entry/'cmdline').read_bytes().split(b'\0')
+                        if not RESOURCE.is_import_command(argv,str(source),str(metadata['provider'])):
+                            continue
+                        sample=RESOURCE.service_sample(int(entry.name))
+                        if sample is None or sample['uid']!=pwd.getpwnam('carlos').pw_uid:
+                            continue
+                        identity=(int(entry.name),sample['started'])
+                        require(worker is None or worker==identity,'DISK_FAULT_MULTIPLE_SERVICE_JVMS')
+                        if worker is None:
+                            require(argv.count(b'-Xmx512m')==1,'DISK_FAULT_SERVICE_HEAP_CHANGED')
+                            account=pwd.getpwnam('carlos')
+                            RESOURCE.verify_java_identity(identity[0],account.pw_uid,account.pw_gid,Path('/usr/bin/java').resolve(),identity[1])
+                            worker=identity
+                            result['serviceJvm']={'pid':worker[0],'startTimeTicks':worker[1],'uid':account.pw_uid}
+                            save()
+                    except FileNotFoundError:
+                        continue
+                time.sleep(0.1)
+        result['importElapsedSeconds']=time.monotonic()-started
+        require(process.returncode==4 and worker is not None,'DISK_FAULT_EXPECTED_OPERATOR_REFUSAL')
+        operator=refusal(log)
+        require(operator['reason']=={'code':'CDS_SOURCE_SNAPSHOT_FAILED' if args.scenario=='enospc' else 'CDS_INPUT_DISK_RESERVE',
+                                      'outcomeUnknown':False},'DISK_FAULT_WRONG_OPERATOR_REASON')
+        result.update(operator=operator,operatorExitCode=process.returncode)
+        save()
+        trace_file=Path(str(trace)+'.'+str(worker[0]))
+        failures=raw_enospc(trace_file)
+        result['kernelEnospcFailedWrites']=failures
+        require((failures>0)==(args.scenario=='enospc'),'DISK_FAULT_KERNEL_ERRNO_PROOF_MISMATCH')
+        safe_trace=args.evidence/'service-failed-syscalls.log'
+        shutil.copyfile(trace_file,safe_trace)
+        safe_trace.chmod(0o600)
+        result['rawRegisterOnlySyscallTrace']={'bytes':safe_trace.stat().st_size,'sha256':RESOURCE.digest(safe_trace)}
+        staged=Path(properties['cds.import.stagingRoot'])
+        jobs=list(staged.glob('job-*'))
+        require(len(jobs)==1 and jobs[0].is_dir() and not jobs[0].is_symlink(),'DISK_FAULT_PREACCEPT_STATE_MISSING')
+        service_uid=pwd.getpwnam('carlos').pw_uid
+        seal=private_json(jobs[0]/'acceptance.seal',owner=service_uid)
+        document=jobs[0]/seal['document']
+        require(document.parent==jobs[0] and document.name=='acceptance-'+seal['intentSha256']+'.json'
+                and RESOURCE.digest(document)==seal['intentSha256'],'DISK_FAULT_PREACCEPT_SEAL_CHANGED')
+        journal=private_json(document,owner=service_uid)
+        require(journal['operator']=='root' and journal['submissionKey']==operator['submissionKey']
+                and journal['originalSourceModifiedByImporter'] is False
+                and journal['request']['command']['input']==str(source)
+                and not (jobs[0]/'accepting.seal').exists() and not (jobs[0]/'accepted.seal').exists(),
+                'DISK_FAULT_PREACCEPT_OWNERSHIP_CHANGED')
+        require((jobs[0]/'snapshot.pending').is_dir(),'DISK_FAULT_PARTIAL_SNAPSHOT_NOT_RETAINED')
+        result['failureStage']='preaccept durable source snapshot (retained snapshot.pending), before registry acceptance'
+        require(RESOURCE.digest(CONFIG)==frozen_config,'DISK_FAULT_CONFIGURATION_CHANGED_AFTER_SUBMISSION')
+        for name,expected in originals.items():
+            file=source/name if source.is_dir() else source
+            require(file.stat().st_size==expected['bytes'] and RESOURCE.digest(file)==expected['sha256'],
+                    'DISK_FAULT_ORIGINAL_CHANGED')
+        after=fixture('inspect','fixture')
+        require(after==before and fixture('verify-prepared',root)==metadata,'DISK_FAULT_CLINICAL_OR_ACCEPTANCE_MUTATION')
+        lookup=args.evidence/'submission-lookup.log'
+        with os.fdopen(os.open(lookup,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'wb') as output:
+            found=subprocess.run(['/usr/sbin/carlos-ctl','cds-import','--status-submission',operator['submissionKey'],
+                                  '--provider',str(metadata['provider'])],env=env,stdout=output,stderr=subprocess.STDOUT,timeout=180)
+        require(found.returncode==4 and not any(row.get('event') in ('ACCEPTED','RESULT') for row in RESOURCE.rows(lookup)),
+                'DISK_FAULT_SUBMISSION_RECONCILIATION_FALSE_SUCCESS')
+        lookup_reason=operator_reason(lookup)
+        require(lookup_reason['code']=='SUBMISSION_OUTCOME_NOT_YET_KNOWN','DISK_FAULT_SUBMISSION_LOOKUP_REASON')
+        final_ledger=ledger_counts()
+        require(final_ledger==initial_ledger,'DISK_FAULT_LEDGER_OR_CHECKPOINT_MUTATION')
+        result.update(status='PASSED',afterNative=after,acceptedRuns=0,
+                      originalSourceUnchanged=True,configurationUnchanged=True,partialPreacceptRetained=True,
+                      freeAfterBytes=os.statvfs(root).f_bavail*usage.f_frsize,
+                      traceSha256=RESOURCE.digest(trace_file),preacceptJournalSha256=seal['intentSha256'],
+                      submissionLookupExitCode=found.returncode,submissionLookupReason=lookup_reason,afterLedger=final_ledger,
+                      acceptanceProof='source snapshot precedes registry acceptance; no accepting seal; registry absence verified; not a clinical rollback claim')
+        save()
+    except Exception as failure:
+        result.update(status='FAILED',failure=RESOURCE.safe_failure(failure))
+        save()
+        raise RuntimeError('CDS disk fault gate failed; retain exact source, submission and private evidence') from None
+    finally:
+        client.unlink(missing_ok=True)
+        if process is not None and process.poll() is None:
+            result['terminationRequested']=True
+            os.killpg(process.pid,signal.SIGTERM)
+            try:
+                process.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                result['terminationConfirmed']=False
+            else:
+                result['terminationConfirmed']=True
+        if owned_root is not None:
+            try:
+                result['retainedStateArchive']=retain_tmpfs(owned_root,args.evidence/'retained-preaccept.tar.gz')
+            except Exception as failure:
+                result.update(status='FAILED',retentionFailure=RESOURCE.safe_failure(failure))
+                save()
+                raise RuntimeError('CDS disk fault retention failed; do not retire its owned runtime') from None
+        save()
+    print('PASS installed disk fault:',args.scenario,'acceptedRuns=0 kernelEnospcWrites='+str(failures),flush=True)
+
+
+if __name__=='__main__':
+    try:
+        main()
+    except RuntimeError as failure:
+        print(str(failure),flush=True)
+        raise SystemExit(1) from None

@@ -24,7 +24,7 @@ DATABASE_IMAGE = "mariadb:11.8@sha256:f16d7a344413e519dff518f27bdb221388f84b0d27
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--profile", choices=("scaling", "aggregate20", "zip64"), required=True)
+    parser.add_argument("--profile", choices=("scaling", "aggregate20", "zip64", "disk-reserve", "disk-enospc"), required=True)
     parser.add_argument("--cli-source", type=Path, required=True)
     parser.add_argument("--build-container", default="carlos-tomcat-dev")
     args = parser.parse_args()
@@ -88,7 +88,8 @@ def main() -> int:
                         target.chmod(0o644)
             status["productionClasses"] = sum(1 for _ in (webapp / "WEB-INF/classes").rglob("*.class"))
             status["productionJars"] = len(list((webapp / "WEB-INF/lib").glob("*.jar")))
-            required = (4 if args.profile == "scaling" else 50 if args.profile == "aggregate20" else 20) * (1 << 30)
+            disk_fault = args.profile.startswith('disk-')
+            required = (4 if args.profile == "scaling" or disk_fault else 50 if args.profile == "aggregate20" else 20) * (1 << 30)
             available = shutil.disk_usage(base).free
             status["freeBeforeRunBytes"], status["requiredFreeBytes"] = available, required
             status["stage"] = "STORAGE_PREREQUISITE"
@@ -130,10 +131,12 @@ def main() -> int:
             build(["java", "-cp", helper+":"+cp, "CdsImportMariaDbBootstrap", credentials, "database/mysql/migration", "on"])
             # Publicly traversable fixture mount ancestors; private credentials remain0700/0600.
             base.chmod(0o755)
+            state_mount = ["--tmpfs","/var/lib/carlos-emr:rw,nosuid,nodev,noexec,size=64m"] if disk_fault else [
+                "--mount", "type=bind,src="+str(state)+",dst=/var/lib/carlos-emr"]
             execute(docker+["run", "-d", "--name", runtime, "--network", network, "--memory", "1536m", "--cpus", "2",
                 "--mount", "type=bind,src="+str(repository)+",dst=/workspace,readonly",
                 "--mount", "type=bind,src="+str(webapp)+",dst=/usr/share/carlos-emr/webapp/carlos,readonly",
-                "--mount", "type=bind,src="+str(state)+",dst=/var/lib/carlos-emr",
+                *state_mount,
                 "--mount", "type=bind,src="+str(private/"jdbc.properties")+",dst=/run/source-jdbc.properties,readonly", image]); created_runtime = True
             runtime_exec = docker+["exec", "--workdir", "/workspace", runtime]
             execute(runtime_exec+["install", "-d", "-m", "0700", "/run/cds-test"])
@@ -144,16 +147,46 @@ def main() -> int:
                 "io.github.carlos_emr.carlos.demographic.cdsimport.cli.CdsCliEngineFixture", "prepare", "/run/cds-test/jdbc.properties", root])
             execute(runtime_exec+["python3", "-m", "unittest", "discover", "-s", "scripts/ci", "-p", "test_run_cds_performance.py", "-v"])
             status["stage"] = "INSTALLED_PROFILE"
-            executed = execute(runtime_exec+["python3", "scripts/ci/run-cds-performance.py", "--disposable", "--exclusive-server",
-                "--fixture-metadata", root+"/fixture.json", "--jdbc-properties", "/run/cds-test/jdbc.properties",
-                "--root", root+"/source/performance", "--classpath", runtime_cp, "--candidate-sha256", status["warSha256"],
-                "--expected-memory-mib","1536","--expected-cpus","2","--profile", args.profile], check=False)
+            if disk_fault:
+                if args.profile=='disk-enospc':
+                    # Explicit fault-only policy, frozen BEFORE the first submission.
+                    # The dedicated64MiB tmpfs cannot affect any other state filesystem.
+                    execute(runtime_exec+["python3","-c",
+                        "import pathlib;p=pathlib.Path('/etc/carlos-emr/carlos.properties');s=p.read_text();"
+                        "assert 'cds.import.minimumFreeDiskBytes' not in s;"
+                        "p.open('a').write('\\ncds.import.minimumFreeDiskBytes=0\\n')"])
+                execute(runtime_exec+["python3","-m","unittest","discover","-s","scripts/ci","-p","test_run_cds_disk_failures.py","-v"])
+                executed=execute(runtime_exec+["python3","scripts/ci/run-cds-disk-failures.py","--disposable",
+                    "--scenario",args.profile.removeprefix('disk-'),"--fixture-metadata",root+"/fixture.json",
+                    "--jdbc-properties","/run/cds-test/jdbc.properties","--evidence","/run/cds-disk-evidence",
+                    "--classpath",runtime_cp,"--candidate-sha256",status['warSha256']],check=False)
+                proof_path='/run/cds-disk-evidence/proof.json'
+            else:
+                executed = execute(runtime_exec+["python3", "scripts/ci/run-cds-performance.py", "--disposable", "--exclusive-server",
+                    "--fixture-metadata", root+"/fixture.json", "--jdbc-properties", "/run/cds-test/jdbc.properties",
+                    "--root", root+"/source/performance", "--classpath", runtime_cp, "--candidate-sha256", status["warSha256"],
+                    "--expected-memory-mib","1536","--expected-cpus","2","--profile", args.profile], check=False)
+                proof_path=root+"/source/performance/evidence/proof.json"
             # The runtime owns mode0700 evidence. Read it as that root, with a bound, not through host permissions.
             copied = execute(runtime_exec+["python3", "-c",
                 "import pathlib,sys;p=pathlib.Path(sys.argv[1]);assert p.is_file() and not p.is_symlink() and p.stat().st_size<(1<<20);sys.stdout.write(p.read_text())",
-                root+"/source/performance/evidence/proof.json"], capture=True).stdout
+                proof_path], capture=True).stdout
             proof = json.loads(copied)
             (public/"performance-proof.json").write_text(json.dumps(proof,sort_keys=True,indent=2))
+            if disk_fault and proof.get('retainedStateArchive'):
+                retained=public/'retained-preaccept.tar.gz'
+                execute(docker+['cp',runtime+':/run/cds-disk-evidence/retained-preaccept.tar.gz',str(retained)])
+                with retained.open('rb') as original:
+                    retained_digest=hashlib.file_digest(original,'sha256').hexdigest()
+                if retained.stat().st_size!=proof['retainedStateArchive']['bytes'] or retained_digest!=proof['retainedStateArchive']['sha256']:
+                    raise RuntimeError('retained failed tmpfs state artifact hash/size differs')
+            if disk_fault and proof.get('rawRegisterOnlySyscallTrace'):
+                syscall=public/'service-failed-syscalls.log'
+                execute(docker+['cp',runtime+':/run/cds-disk-evidence/service-failed-syscalls.log',str(syscall)])
+                with syscall.open('rb') as trace_source:
+                    trace_digest=hashlib.file_digest(trace_source,'sha256').hexdigest()
+                if syscall.stat().st_size!=proof['rawRegisterOnlySyscallTrace']['bytes'] or trace_digest!=proof['rawRegisterOnlySyscallTrace']['sha256']:
+                    raise RuntimeError('raw-register-only kernel proof artifact hash/size differs')
             if proof.get("status") != "PASSED":
                 raise RuntimeError("profile evidence did not pass")
             if executed.returncode:
