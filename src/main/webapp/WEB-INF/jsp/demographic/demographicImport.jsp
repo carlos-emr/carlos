@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -30,245 +29,146 @@
 
 --%>
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
-%>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
-</security:oscarSec>
-<%
-    if (!authed) {
-        return;
-    }
-%>
-
-<%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao, io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.PMmodule.model.Program" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page contentType="text/html; charset=UTF-8" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib prefix="s" uri="/struts-tags" %>
-<fmt:setBundle basename="oscarResources"/>
-
-
-<%
-    ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
-    List<Program> programs = programDao.getAllPrograms();
-    List<Program> courses = new ArrayList<Program>();
-    for (Program p : programs) {
-        if (p.getSiteSpecificField() != null && p.getSiteSpecificField().equals("course")) {
-            courses.add(p);
-        }
-    }
-
-%>
-<html>
-    <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <!--I18n-->
-        <title><fmt:message key="admin.admin.DemoImport"/></title>
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-
-        <link rel="stylesheet" type="text/css"
-              href="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
-
-
-        <script>
-            $(document).ready(function () {
-                $("form[name='ImportDemographicDataForm']").submit(function (event) {
-                    event.preventDefault();
-
-                    const files = $("#importFile")[0].files;
-
-                    if (files.length === 0) {
-                        alert("Please select at least one file.");
-                        return;
-                    }
-
-                    $('#result').empty();
-                    uploadFiles(files, this).then(() => {
-                        $('#importFile').val('');
-                    }).catch(error => {
-                        console.error("Error in file upload:", error);
-                    });
-
-                });
-            });
-
-            async function uploadFiles(files, form) {
-                // Loop through each selected file
-                for (let i = 0; i < files.length; i++) {
-                    ShowSpin(true);
-                    const cloneForm = $(form).clone();
-                    const file = files[i];
-                    let newImportFile = $("<input type='file' name='importFile'>");
-                    let newFileList = new DataTransfer();
-                    newFileList.items.add(file);
-                    newImportFile[0].files = newFileList.files;
-                    cloneForm.find("#importFile").replaceWith(newImportFile);
-
-                    try {
-                        await uploadFile(file, cloneForm);
-                    } catch (error) {
-                        //console.error("Error in AJAX call:", error);
-                    }
-                }
-            }
-
-            function uploadFile(file, formData) {
-                return new Promise((resolve, reject) => {
-                    $.ajax({
-                        url: formData.attr('action'),
-                        type: "POST",
-                        data: new FormData(formData[0]),
-                        processData: false,
-                        contentType: false,
-                        dataType: "json",
-                        success: function (response) {
-                            HideSpin();
-                            showResponse(file.name, response);
-                            resolve(response);
-                        },
-                        error: function (error) {
-                            HideSpin();
-                            showError(file.name, error.responseText);
-                            reject(error);
-                        }
-                    });
-                });
-            }
-
-            function importOutcome(imported, refused) {
-                if (!Number.isSafeInteger(imported) || !Number.isSafeInteger(refused) || imported < 0 || refused < 0) {
-                    return {heading: 'Import outcome unavailable', color: 'red'};
-                }
-                if (imported === 0) return {heading: 'No patients imported', color: 'red'};
-                if (refused > 0) return {heading: 'Import completed with refusals', color: '#8a5700'};
-                return {heading: 'Imported Successfully', color: 'green'};
-            }
-
-            function showResponse(fileName, response) {
-                const {warnings, importLog, importedPatients, refusedPatients} = response;
-                const outcome = importOutcome(importedPatients, refusedPatients);
-                const resultDiv = $('<div>');
-
-                resultDiv.append($('<h4>').text('File Name: ' + fileName));
-
-                resultDiv.append($('<h5>').text(outcome.heading).css('color', outcome.color));
-                resultDiv.append($('<p>').text('Patients imported: ' + importedPatients + '; refused: ' + refusedPatients));
-
-                if (warnings && warnings.length > 0) {
-                    resultDiv.append($('<h5>').text('Warnings:'));
-                    const warningsList = $('<ul>');
-                    warnings.forEach(warning => {
-                        warningsList.append($('<li>').text(warning));
-                    });
-                    resultDiv.append(warningsList);
-                }
-
-                if (importLog) {
-                    resultDiv.append($('<a>').attr('href', '<%=request.getContextPath() %>/form/importLogDownload?importlog=' + encodeURIComponent(importLog)).attr('target', '_blank').text('Download Import Event Log'));
-                }
-                resultDiv.append($('<hr>'));
-
-                $('#result').append(resultDiv);
-            }
-
-            function showError(fileName, responseText) {
-                const errorDiv = $('<div>');
-
-                errorDiv.append($('<h4>').text('File Name: ' + fileName));
-
-                errorDiv.append($('<h5>').text('Import failed: check the file and try again').css('color', 'red'));
-                // Interceptor INPUT responses are HTML. Read only validation text; never insert their markup.
-                if (typeof responseText === 'string' && responseText.length > 0) {
-                    const rejected = new window.DOMParser().parseFromString(responseText, 'text/html');
-                    const warnings = rejected.querySelectorAll('#importValidationErrors li');
-                    if (warnings.length) {
-                        const list = $('<ul>');
-                        warnings.forEach(warning => list.append($('<li>').text(warning.textContent.trim())));
-                        errorDiv.append(list);
-                    }
-                }
-                errorDiv.append($('<hr>'));
-
-                $('#result').append(errorDiv);
-            }
-
-            $(document).ready(function () {
-            });
-        </script>
-
-    </head>
-    <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
-    <body vlink="#0000FF">
-<%-- Multipart rejections (an empty part, a file over the 50MB cap, too many
-     files, a field over struts.multipart.maxStringLength, a parse failure) are
-     produced by the interceptor stack BEFORE this page's action runs, and reach
-     this page through its "input" result. The action never executed, so any
-     error channel keyed off an attribute the action sets is empty here -- and
-     without this block the rejection renders the ordinary form again with no
-     explanation, which is indistinguishable from a page refresh. --%>
-<s:if test="hasActionErrors()">
-    <div id="importValidationErrors" class="alert alert-danger" role="alert">
-        <s:actionerror/>
-    </div>
-</s:if>
-
-
-    <%
-        CarlosProperties op = CarlosProperties.getInstance();
-        String learningEnabled = op.getProperty("OSCAR_LEARNING");
-        if (!Util.checkDir(op.getProperty("TMP_DIR"))) { %>
-    <p>
-    <h2>Error! Cannot perform demographic import. Please contact support.</h2>
-
-    <%
-    } else {
-    %>
-
-    <div class="container-fluid card card-body bg-body-tertiary">
-        <h3><fmt:message key="admin.admin.DemoImport"/></h3>
-
-        <form name="ImportDemographicDataForm" action="${pageContext.request.contextPath}/form/importUpload" method="POST"
-                   enctype="multipart/form-data">
-        <p><input type="file" name="importFile" id="importFile" multiple="multiple"/>
-            <span id="uploadWarn" title="<fmt:message key="global.uploadWarningBody"/>"
-                  style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
-                    border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span></span>
-
-        </p>
-                <%if(learningEnabled != null && learningEnabled.equalsIgnoreCase("yes")) { %>
-        <!-- Drop Down box of courses -->
-        Course:&nbsp;<select name="courseId" id="courseId">
-        <option value="0">Choose One</option>
-                <%for(Program course:courses) { %>
-        <option value="<%=course.getId().intValue()%>"><%=course.getName()%>
-        </option>
-                <% } %>
-        </select><br/>
-        Timeshift (in days +/-):&nbsp;<input type="text" name="timeshiftInDays" value="0" size="5"/></br/>
-                <%} %>
-        If patient's providers do not have OHIP numbers:<br>
-        <input type="radio" name="matchProviderNames" value="true" checked/>
-        Match providers in database by first and last names (Recommended)
-        <br>
-        <input type="radio" name="matchProviderNames" value="false"/>
-        Import as new - same provider may have multiple entries
-        <br><br>
-        <p><input class="btn btn-primary" type="submit" name="Submit" value="Import (EMR DM 5.0)"></p>
-        </form>
-
-        <div id="result"></div>
-
-                <% } %>
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-
-    </body>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="cdsImportMessages" var="cds"/>
+<!DOCTYPE html>
+<html lang="${carlos:forHtmlAttribute(pageContext.response.locale.language)}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><fmt:message key="title" bundle="${cds}"/></title>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css">
+    <script src="${pageContext.request.contextPath}/js/demographic/cds-import.js" defer></script>
+</head>
+<body>
+<main id="cdsImport" class="container-fluid p-3"
+      data-context="${carlos:forHtmlAttribute(pageContext.request.contextPath)}"
+      data-owner="${carlos:forHtmlAttribute(model.operatorKey)}"
+      data-max-file-bytes="${carlos:forHtmlAttribute(model.maxFileBytes)}"
+      data-chunk-bytes="${carlos:forHtmlAttribute(model.chunkBytes)}">
+    <h1 class="h3"><fmt:message key="title" bundle="${cds}"/></h1>
+    <p><fmt:message key="intro" bundle="${cds}"/></p>
+    <c:if test="${not model.enabled}">
+        <div class="alert alert-warning" role="status"><fmt:message key="disabled" bundle="${cds}"/></div>
+    </c:if>
+    <c:if test="${empty model.sources}">
+        <div class="alert alert-warning" role="status"><fmt:message key="sourcesMissing" bundle="${cds}"/></div>
+    </c:if>
+    <noscript><div class="alert alert-danger"><fmt:message key="javascript" bundle="${cds}"/></div></noscript>
+    <div id="cdsNotice" class="alert alert-info" role="status" aria-live="polite" hidden></div>
+    <form id="cdsImportForm" name="ImportDemographicDataForm" method="POST"
+          action="${pageContext.request.contextPath}/form/cdsImportSubmit">
+        <fieldset id="cdsOptions" <c:if test="${not model.enabled or empty model.sources}">disabled</c:if>>
+            <legend class="h5"><fmt:message key="sourceOptions" bundle="${cds}"/></legend>
+            <div class="mb-3">
+                <label for="importFile" class="form-label"><fmt:message key="files" bundle="${cds}"/></label>
+                <input id="importFile" name="importFile" type="file" accept=".xml,.zip" multiple class="form-control">
+                <div class="form-text"><fmt:message key="filesHelp" bundle="${cds}"/></div>
+            </div>
+            <div class="mb-3">
+                <label for="cdsSource" class="form-label"><fmt:message key="profile" bundle="${cds}"/></label>
+                <select id="cdsSource" class="form-select" required>
+                    <option value=""><fmt:message key="selectSource" bundle="${cds}"/></option>
+                    <c:forEach items="${model.sources}" var="source">
+                        <option value="${carlos:forHtmlAttribute(source.namespace)}|${carlos:forHtmlAttribute(source.profile)}"
+                                data-namespace="${carlos:forHtmlAttribute(source.namespace)}"
+                                data-profile="${carlos:forHtmlAttribute(source.profile)}"><carlos:encode value="${source.label}"/></option>
+                    </c:forEach>
+                </select>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-sm-4"><label for="providerNo" class="form-label"><fmt:message key="provider" bundle="${cds}"/></label>
+                    <input id="providerNo" name="providerNo" class="form-control" value="${carlos:forHtmlAttribute(model.providerNo)}" pattern="[0-9]{1,16}" required></div>
+                <div class="col-sm-4"><label for="programId" class="form-label"><fmt:message key="program" bundle="${cds}"/></label>
+                    <input id="programId" name="programId" type="number" min="1" class="form-control" value="${carlos:forHtmlAttribute(model.programId)}"></div>
+                <div class="col-sm-4"><label for="facilityId" class="form-label"><fmt:message key="facility" bundle="${cds}"/></label>
+                    <input id="facilityId" name="facilityId" type="number" min="1" class="form-control" value="${carlos:forHtmlAttribute(model.facilityId)}"></div>
+            </div>
+            <div class="form-check"><input id="matchProviderNames" name="matchProviderNames" type="checkbox" checked class="form-check-input">
+                <label for="matchProviderNames" class="form-check-label"><fmt:message key="providerMatching" bundle="${cds}"/></label></div>
+            <div class="form-check"><input id="mergeExisting" name="mergeExisting" type="checkbox" class="form-check-input">
+                <label for="mergeExisting" class="form-check-label"><fmt:message key="merge" bundle="${cds}"/></label></div>
+            <div class="form-check mb-3"><input id="dryRun" name="dryRun" type="checkbox" class="form-check-input">
+                <label for="dryRun" class="form-check-label"><fmt:message key="dryRun" bundle="${cds}"/></label></div>
+            <c:if test="${model.learningEnabled}">
+                <div class="border rounded p-3 mb-3">
+                    <div class="form-check"><input id="synthetic" name="synthetic" type="checkbox" class="form-check-input">
+                        <label for="synthetic" class="form-check-label"><fmt:message key="synthetic" bundle="${cds}"/></label></div>
+                    <div class="row g-3">
+                        <div class="col-sm-6"><label for="courseId" class="form-label"><fmt:message key="course" bundle="${cds}"/></label>
+                            <input id="courseId" name="courseId" type="number" min="1" class="form-control"></div>
+                        <div class="col-sm-6"><label for="timeshiftInDays" class="form-label"><fmt:message key="timeshift" bundle="${cds}"/></label>
+                            <input id="timeshiftInDays" name="timeshiftInDays" type="number" value="0" class="form-control"></div>
+                    </div>
+                </div>
+            </c:if>
+            <p><fmt:message key="window" bundle="${cds}"/></p>
+            <button id="cdsStart" name="Submit" type="submit" class="btn btn-primary"><fmt:message key="start" bundle="${cds}"/></button>
+        </fieldset>
+    </form>
+    <section class="my-4" aria-labelledby="uploadHeading">
+        <h2 id="uploadHeading" class="h5"><fmt:message key="uploads" bundle="${cds}"/></h2>
+        <p id="currentUpload" aria-live="polite"></p>
+        <progress id="uploadProgress" max="1" value="0" class="w-100" aria-label="Upload progress"></progress>
+        <div class="d-flex flex-wrap gap-2 my-2">
+            <button id="refreshUploads" type="button" class="btn btn-outline-secondary"><fmt:message key="refreshUploads" bundle="${cds}"/></button>
+            <button id="nextUploads" type="button" class="btn btn-outline-secondary"><fmt:message key="nextPage" bundle="${cds}"/></button>
+        </div>
+        <div class="table-responsive"><table class="table table-sm"><thead><tr>
+            <th><fmt:message key="file" bundle="${cds}"/></th><th><fmt:message key="state" bundle="${cds}"/></th>
+            <th><fmt:message key="bytes" bundle="${cds}"/></th><th><fmt:message key="actions" bundle="${cds}"/></th>
+        </tr></thead><tbody id="uploadRows"></tbody></table></div>
+        <div class="mb-2"><label for="uploadResumeId" class="form-label"><fmt:message key="resumeUpload" bundle="${cds}"/></label>
+            <input id="uploadResumeId" class="form-control" autocomplete="off" placeholder="00000000-0000-0000-0000-000000000000"></div>
+        <button id="submitCompletedUpload" type="button" class="btn btn-outline-primary"><fmt:message key="submitCompleted" bundle="${cds}"/></button>
+    </section>
+    <section class="my-4" aria-labelledby="runHeading">
+        <h2 id="runHeading" class="h5"><fmt:message key="runs" bundle="${cds}"/></h2>
+        <div id="recentRuns" class="d-flex flex-wrap gap-2 mb-2"></div>
+        <div class="input-group"><input id="runId" class="form-control" aria-label="Run ID" autocomplete="off">
+            <button id="openRun" type="button" class="btn btn-outline-primary"><fmt:message key="openRun" bundle="${cds}"/></button></div>
+        <p id="runState" class="mt-2" aria-live="polite"></p>
+        <pre id="runSummary" class="border rounded p-2 text-wrap"></pre>
+        <div class="d-flex flex-wrap gap-2 my-2">
+            <button id="cancelRun" type="button" class="btn btn-outline-danger"><fmt:message key="cancel" bundle="${cds}"/></button>
+            <button id="resumeRun" type="button" class="btn btn-outline-primary"><fmt:message key="resumeRun" bundle="${cds}"/></button>
+            <a id="eventReport" class="btn btn-outline-secondary" hidden><fmt:message key="eventLog" bundle="${cds}"/></a>
+            <a id="errorReport" class="btn btn-outline-secondary" hidden><fmt:message key="errorLog" bundle="${cds}"/></a>
+            <a id="receiptReport" class="btn btn-outline-secondary" hidden><fmt:message key="receipt" bundle="${cds}"/></a>
+        </div>
+        <h3 class="h6"><fmt:message key="patients" bundle="${cds}"/></h3>
+        <div class="table-responsive"><table class="table table-sm"><thead><tr>
+            <th><fmt:message key="sourcePatient" bundle="${cds}"/></th><th><fmt:message key="state" bundle="${cds}"/></th>
+            <th><fmt:message key="held" bundle="${cds}"/></th><th><fmt:message key="units" bundle="${cds}"/></th>
+        </tr></thead><tbody id="patientRows"></tbody></table></div>
+        <button id="nextPatients" type="button" class="btn btn-outline-secondary"><fmt:message key="nextPage" bundle="${cds}"/></button>
+        <h3 class="h6 mt-3"><fmt:message key="diagnostics" bundle="${cds}"/></h3>
+        <div class="table-responsive"><table class="table table-sm"><thead><tr>
+            <th>ID</th><th><fmt:message key="code" bundle="${cds}"/></th><th><fmt:message key="detail" bundle="${cds}"/></th>
+            <th><fmt:message key="review" bundle="${cds}"/></th>
+        </tr></thead><tbody id="diagnosticRows"></tbody></table></div>
+        <button id="nextDiagnostics" type="button" class="btn btn-outline-secondary"><fmt:message key="nextPage" bundle="${cds}"/></button>
+        <p class="form-text"><fmt:message key="pagesHelp" bundle="${cds}"/></p>
+    </section>
+    <form id="cdsReviewForm" method="POST" action="${pageContext.request.contextPath}/form/cdsImportControl" class="border rounded p-3" hidden>
+        <h2 class="h5"><fmt:message key="review" bundle="${cds}"/></h2>
+        <p><fmt:message key="reviewHelp" bundle="${cds}"/></p>
+        <input id="reviewDiagnosticId" type="hidden"><input id="reviewPatientKey" type="hidden">
+        <input id="reviewUnitKey" type="hidden"><input id="reviewVersion" type="hidden">
+        <label for="reviewKind" class="form-label"><fmt:message key="reviewKind" bundle="${cds}"/></label>
+        <select id="reviewKind" class="form-select"><option value="CORRECT_VALUE"><fmt:message key="correctValue" bundle="${cds}"/></option>
+            <option value="DECLINE_PATIENT"><fmt:message key="declinePatient" bundle="${cds}"/></option></select>
+        <label for="reviewXPath" class="form-label">XML XPath</label><input id="reviewXPath" class="form-control" maxlength="2048">
+        <label for="reviewValue" class="form-label"><fmt:message key="replacement" bundle="${cds}"/></label>
+        <textarea id="reviewValue" class="form-control" rows="3" maxlength="65536"></textarea>
+        <label for="reviewReason" class="form-label"><fmt:message key="reason" bundle="${cds}"/></label>
+        <textarea id="reviewReason" class="form-control" rows="2" maxlength="4000" required></textarea>
+        <button type="submit" class="btn btn-primary mt-2"><fmt:message key="submitReview" bundle="${cds}"/></button>
+    </form>
+</main>
+</body>
 </html>

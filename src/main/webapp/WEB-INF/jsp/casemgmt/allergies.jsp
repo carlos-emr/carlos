@@ -29,6 +29,7 @@
 --%>
 
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -48,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
+<div><source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="AllergiesAndAdverseReactions"/></div>
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
     <tr class="title">

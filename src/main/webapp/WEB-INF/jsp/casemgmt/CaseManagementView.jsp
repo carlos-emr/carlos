@@ -33,6 +33,7 @@
 <%-- Updated by Eugene Petruhin on 15 jan 2009 while fixing #2510692 --%>
 <%-- Updated by Eugene Petruhin on 27 jan 2009 while fixing #2510693 --%>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 
@@ -65,6 +66,7 @@
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/oscarClientManagement/profilePicture.js"></script>
 </head>
 <body>
+    <div>Clinical notes: <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="ClinicalNotes"/> — Additional clinical categories: <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="NewCategory"/></div>
     <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView" method="post">
         <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
         <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>

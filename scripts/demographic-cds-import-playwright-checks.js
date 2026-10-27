@@ -1,27 +1,12 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
- * Demographic CDS import (coverage plan §2.4 `demographic-cds-import`).
- *
- * User path: Schedule ▸ Administration ▸ Data Management ▸ Demographic Import
- * (the page loads into the admin shell's #myFrame), choose a file, Import, then
- * "Download Import Event Log" from the result panel.
- *
- * Asserts: an empty submit is refused client-side with its alert; an owned
- * synthetic EMR DM 5.0 (CDS) patient file -- demographics, one medication, one
- * allergy, one clinical note, validated against the CDS schema first -- creates
- * exactly one patient whose demographic, drugs, allergies and casemgmt_note rows
- * carry the file's values and the matched test provider; the downloaded import
- * event log counts 1 allergy / 1 medication / 1 clinical note for that patient;
- * re-importing the same file creates no second patient, lists the duplicate, and
- * is not labelled "Imported Successfully"; mixed and all-refused ZIP imports report exact counts.
- *
- * Fixtures and cleanup: the patient exists only because the check imported it
- * (surname = per-run FAKE-PW marker). Cleanup, registered before the upload,
- * removes every row the importer wrote for that demographic_no (and nothing
- * keyed to any other patient) and asserts each is gone. The import names the
- * test login's own provider as primary physician/note author, so no provider
- * row is created or changed.
+ * Real menu/form, bounded raw-body upload, durable jobs and protected reports.
+ * Required environment: disposable migrated database, enabled CDS importer,
+ * approved source namespace/profile and maintenance admission. Missing feature
+ * configuration fails visibly; it must never silently skip this release gate.
+ * Synthetic owned clinical fixtures are removed only after their import holds
+ * clear. Durable import receipts and audit evidence remain for investigation.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -29,7 +14,8 @@ const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
-const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { runWorkflow } = require('./lib/workflow-session');
+const { createHash, randomUUID } = require('node:crypto');
 
 const xmlText = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
@@ -52,7 +38,7 @@ function fixtureValues(marker) {
   };
 }
 
-/** A single-patient EMR DM 5.0 file. Pure, so it can be schema-checked offline. */
+/** A single-patient XML fixture, validated against the pinned OntarioMD migration schema. */
 function buildCdsXml(v, provider) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <OmdCds xmlns="cds" xmlns:cdsd="cds_dt">
@@ -92,6 +78,9 @@ function buildCdsXml(v, provider) {
 <Frequency>BID</Frequency>
 <Duration>30</Duration>
 <Quantity>60</Quantity>
+<PastMedications><cdsd:ynIndicatorsimple>N</cdsd:ynIndicatorsimple></PastMedications>
+<PrescriptionStatus>Active</PrescriptionStatus>
+<NonAuthoritativeIndicator>N</NonAuthoritativeIndicator>
 </MedicationsAndTreatments>
 <ClinicalNotes>
 <NoteType>Clinical</NoteType>
@@ -109,11 +98,11 @@ function buildCdsXml(v, provider) {
 function assertSchemaValid(xml) {
   try {
     execFileSync('xmllint', ['--nonet', '--noout', '--schema',
-      path.join(__dirname, '../src/main/resources/omdDataMigration/EMR_Data_Migration_Schema.xsd'), '-'],
+      path.join(__dirname, '../src/main/resources/cds-import/schema/EMR_Data_Migration_Schema.xsd'), '-'],
     { input: Buffer.from(xml, 'utf8'), stdio: ['pipe', 'pipe', 'pipe'], timeout: 30000 });
   } catch (error) {
-    if (error.code === 'ENOENT') throw new h.SkipCheck('xmllint (libxml2-utils) is needed to validate the CDS fixture');
-    throw new Error('The synthetic CDS fixture does not validate against the EMR DM 5.0 schema');
+    if (error.code === 'ENOENT') throw new Error('Required CDS regression prerequisite missing: xmllint (libxml2-utils)');
+    throw new Error('The synthetic CDS fixture does not validate against the pinned OntarioMD migration schema');
   }
 }
 
@@ -168,280 +157,249 @@ function remainingChildren(sql, id) {
     + (SELECT COUNT(*) FROM demographicPharmacy WHERE demographic_no=${id})`);
 }
 
-async function workflow(s) {
-  const v = fixtureValues(s.marker);
-  const mixedFirst = 'Mixed } import';
-  const mixedLast = `${s.marker}-B`;
-  const concurrentLast = `${s.marker}-C`;
-  const owner = `(last_name=${h.sqlString(v.lastName)} AND first_name=${h.sqlString(v.firstName)})
-    OR (last_name=${h.sqlString(mixedLast)} AND first_name=${h.sqlString(mixedFirst)})
-    OR (last_name=${h.sqlString(concurrentLast)} AND first_name=${h.sqlString(v.firstName)})`;
-  const importedIds = () => s.sql.rows(`SELECT demographic_no FROM demographic WHERE (${owner}) ORDER BY demographic_no`).flat();
-  s.cleanup(() => {
-    for (const id of importedIds()) {
-      h.assert(/^[1-9]\d*$/.test(id), 'Imported patient has an invalid identity');
-      const ids = sql => s.sql.rows(sql).flat().join(',') || '0';
-      const drugIds = ids(`SELECT drugid FROM drugs WHERE demographic_no=${id}`);
-      const allergyIds = ids(`SELECT allergyid FROM allergies WHERE demographic_no=${id}`);
-      const noteIds = ids(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${h.sqlString(id)}`);
-      s.sql.execute(childCleanup(id).join(';\n'));
-      h.assert(remainingChildren(s.sql, id) === '0' && s.sql.value(`SELECT
-        (SELECT COUNT(*) FROM partial_date WHERE (table_name=2 AND table_id IN (${drugIds}))
-          OR (table_name=1 AND table_id IN (${allergyIds})))
-        + (SELECT COUNT(*) FROM casemgmt_note_link WHERE note_id IN (${noteIds}))
-        + (SELECT COUNT(*) FROM casemgmt_issue_notes WHERE note_id IN (${noteIds}))`) === '0',
-      'Imported patient child rows were not removed');
-      s.sql.execute(`DELETE FROM demographic WHERE demographic_no=${id} AND (${owner})`);
-    }
-    h.assert(importedIds().length === 0, 'The imported patient was not removed');
+/** Open the actual existing administration menu route, including its Struts/JSP binding. */
+async function openImportFrame(s, label = 'cds-import-admin') {
+  const {page: admin} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
+    {context: s.context, recorder: s.recorder, label, timeout: 20000});
+  const link = admin.locator('#adminNav a.xlink[rel$="/form/importUpload"]');
+  await revealAuditLink(admin, link, 20000); await link.click();
+  const iframe = admin.locator('#dynamic-content iframe#myFrame'); await iframe.waitFor();
+  const frame = await (await iframe.elementHandle()).contentFrame();
+  h.assert(frame, 'Demographic Import frame did not load');
+  await frame.locator('#cdsImportForm #importFile').waitFor();
+  h.assert(!await frame.locator('#cdsOptions').isDisabled(), 'Required import feature/source registration is unavailable');
+  await frame.waitForFunction(() => Boolean(document.querySelector('input[name="CSRF-TOKEN"]')?.value));
+  const source = await frame.locator('#cdsSource option[data-profile]').evaluateAll(options => {
+    const option = options.find(value => value.dataset.profile === 'pcon-2024-02') || options[0];
+    return option ? option.value : null;
   });
-  const [first, last] = s.sql.rows(`SELECT first_name,last_name FROM provider WHERE provider_no=${h.sqlString(s.provider)}`)[0] || [];
-  h.assert(first && last, 'The test provider has no name to match as primary physician');
-  // The importer matches a named physician by first/last name; an ambiguous name
-  // would silently attach the patient to someone else.
-  h.assert(s.sql.value(`SELECT COUNT(*) FROM provider WHERE first_name=${h.sqlString(first)}
-    AND last_name=${h.sqlString(last)}`) === '1', 'The test provider name is not unique, so the import cannot target it');
-  const xml = buildCdsXml(v, { first, last });
-  assertSchemaValid(xml);
-  const file = { name: `${s.marker}.xml`, mimeType: 'text/xml', buffer: Buffer.from(xml, 'utf8') };
-
-  let admin;
-  let frame;
-  await s.step('Administration ▸ Data Management ▸ Demographic Import opens the upload form', async () => {
-    ({ page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
-      { context: s.context, recorder: s.recorder, label: 'cds-import-admin', timeout: 20000 }));
-    const link = admin.locator('#adminNav a.xlink[rel$="/form/importUpload"]');
-    await revealAuditLink(admin, link, 20000);
-    await link.click();
-    const iframe = admin.locator('#dynamic-content iframe#myFrame');
-    await iframe.waitFor();
-    frame = await (await iframe.elementHandle()).contentFrame();
-    h.assert(frame, 'Demographic Import frame did not load');
-    await frame.locator('form[name="ImportDemographicDataForm"] #importFile').waitFor();
-  });
-
-  await s.step('Import without a file is refused in the browser and writes nothing', async () => {
-    const seen = await h.withExpectedDialogs(admin, async () => {
-      const dialog = admin.waitForEvent('dialog', { timeout: 10000 });
-      await frame.locator('input[type="submit"][name="Submit"]').click();
-      await dialog;
-    });
-    h.assert(seen.length === 1 && /select at least one file/i.test(seen[0].text),
-      'Importing with no file did not raise the "select at least one file" alert');
-    h.assert(importedIds().length === 0, 'An empty import created a patient');
-  });
-
-  await s.step('a rejected upload filename returns its JSON warning without a success or log link', async () => {
-    const refusedFile = {...file, name: '.hidden.xml'};
-    await frame.locator('#importFile').setInputFiles(refusedFile);
-    const uploaded = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/form/importUpload')
-      && r.request().method() === 'POST', {timeout: 120000});
-    await frame.locator('input[type="submit"][name="Submit"]').click();
-    const response = await uploaded;
-    h.assert(response.status() === 200, `Refused upload answered HTTP ${response.status()}`);
-    const outcome = await response.json();
-    h.assert(outcome.importedPatients === 0 && outcome.refusedPatients === 0 && outcome.importLog === null,
-      'A rejected upload reported imported patients or a nonexistent log');
-    h.assert(outcome.warnings.some(warning => warning.startsWith('Invalid filename.')),
-      'The upload validation warning was not returned');
-    const result = frame.locator('#result > div').filter({hasText: refusedFile.name}).last();
-    await result.locator('h5', {hasText: 'No patients imported'}).waitFor();
-    h.assert((await result.innerText()).includes(outcome.warnings[0]), 'The validation warning was not displayed');
-    h.assert(await result.locator('a').count() === 0, 'A refused upload offers an invalid event log');
-    h.assert(importedIds().length === 0, 'The rejected upload created a patient');
-  });
-
-  await s.step('A multipart interceptor rejection displays its warning and imports nothing', async () => {
-    await frame.locator('#importFile').setInputFiles(file);
-    await frame.locator('#importFile').evaluate(input => {
-      const oversized = document.createElement('input');
-      oversized.type = 'hidden';
-      oversized.name = 'ownedMultipartLimitProbe';
-      oversized.id = 'ownedMultipartLimitProbe';
-      oversized.value = 'x'.repeat(8192);
-      input.form.appendChild(oversized);
-    });
-    try {
-      const uploaded = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/form/importUpload')
-        && r.request().method() === 'POST', {timeout: 120000});
-      await frame.locator('input[type="submit"][name="Submit"]').click();
-      const response = await uploaded;
-      h.assert(response.status() === 200 && (response.headers()['content-type'] || '').includes('text/html'),
-        'The multipart limit did not return the interceptor INPUT page');
-      const messages = await frame.evaluate(text => Array.from(new DOMParser().parseFromString(text, 'text/html')
-        .querySelectorAll('#importValidationErrors li'), node => node.textContent.trim()), await response.text());
-      h.assert(messages.length > 0 && messages.every(Boolean), 'The rejection page contained no validation reason');
-      const result = frame.locator('#result > div').filter({hasText: file.name}).last();
-      await result.locator('li').first().waitFor();
-      h.assert(JSON.stringify(await result.locator('li').allTextContents()) === JSON.stringify(messages),
-        'The result panel hid or changed the interceptor warning');
-      h.assert(await result.locator('a').count() === 0 && importedIds().length === 0,
-        'The rejected multipart request imported a patient or offered a log');
-    } finally {
-      await frame.locator('#ownedMultipartLimitProbe').evaluate(input => input.remove());
-    }
-  });
-
-  let importLogHref;
-  let id;
-  await s.step('importing the CDS file reports success and offers the import event log', async () => {
-    await frame.locator('#importFile').setInputFiles(file);
-    const uploaded = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/form/importUpload')
-      && r.request().method() === 'POST', { timeout: 120000 });
-    await frame.locator('input[type="submit"][name="Submit"]').click();
-    const response = await uploaded;
-    h.assert(response.status() === 200, `Import upload answered HTTP ${response.status()}`);
-    const outcome = await response.json();
-    h.assert(outcome.importedPatients === 1 && outcome.refusedPatients === 0, 'The first import did not count one imported patient');
-    const result = frame.locator('#result > div').filter({ hasText: file.name });
-    await result.getByRole('link', { name: 'Download Import Event Log' }).waitFor({ timeout: 120000 });
-    h.assert(await result.locator('h5', { hasText: 'Imported Successfully' }).count() === 1,
-      'The import result panel did not report success');
-    importLogHref = await result.getByRole('link', { name: 'Download Import Event Log' }).getAttribute('href');
-    h.assert(/\/form\/importLogDownload\?importlog=/.test(importLogHref || ''), 'The result panel links no import log');
-    const ids = importedIds();
-    h.assert(ids.length === 1, `Expected exactly one imported patient, found ${ids.length}`);
-    [id] = ids;
-  });
-
-  await s.step('the imported demographic row carries the file values and the matched provider', async () => {
-    const row = s.sql.rows(`SELECT CONCAT_WS('|',year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
-      provider_no,address,city,province,postal,phone) FROM demographic WHERE demographic_no=${id}`).flat()[0];
-    h.assert(row === ['1971', '03', '04', 'F', 'AC', s.provider, v.address, v.city, 'ON', v.postal, v.phone].join('|'),
-      'Imported demographic fields differ from the CDS file');
-  });
-
-  await s.step('the medication, allergy and clinical note land on the imported patient', async () => {
-    h.assert(s.sql.value(`SELECT CONCAT_WS('|',customName,rx_date,duration,durunit,quantity,\`repeat\`,route,freqcode,
-      provider_no,archived) FROM drugs WHERE demographic_no=${id}`)
-      === [v.drug, '2026-01-15', '30', 'D', '60', '2', 'PO', 'BID', s.provider, '0'].join('|'),
-    'Imported medication row differs from the CDS file');
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${id}`) === '1', 'Medication was not imported exactly once');
-    h.assert(s.sql.value(`SELECT CONCAT_WS('|',DESCRIPTION,TYPECODE,reaction,severity_of_reaction,start_date,archived)
-      FROM allergies WHERE demographic_no=${id}`) === [v.allergen, '13', 'Rash', '2', '2020-05-06', '0'].join('|'),
-    'Imported allergy row differs from the CDS file');
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${id}`) === '1', 'Allergy was not imported exactly once');
-    h.assert(s.sql.value(`SELECT CONCAT_WS('|',provider_no,signing_provider_no,observation_date) FROM casemgmt_note
-      WHERE demographic_no=${h.sqlString(id)} AND note=${h.sqlString(v.note)}`)
-      === [s.provider, s.provider, '2026-02-03 10:20:00'].join('|'),
-    'Imported clinical note is missing or not attributed to the matched provider');
-  });
-
-  await s.step('Download Import Event Log returns the log counting this patient\'s records', async () => {
-    const link = frame.locator('#result > div').filter({ hasText: file.name })
-      .getByRole('link', { name: 'Download Import Event Log' });
-    const popupOrDownload = Promise.race([
-      admin.waitForEvent('download', { timeout: 30000 }),
-      s.context.waitForEvent('page', { timeout: 30000 }).then(p => p.waitForEvent('download', { timeout: 30000 })),
-    ]);
-    await link.click();
-    const download = await popupOrDownload;
-    h.assert(/^ImportEvent-.*\.log$/.test(download.suggestedFilename()), 'Import log download has an unexpected name');
-    const text = fs.readFileSync(await download.path(), 'utf8');
-    const counts = parseImportLogCounts(text);
-    h.assert(counts.Patient === id, 'Import log summary does not name the imported patient');
-    h.assert(counts.Allergy === '1' && counts.Medication === '1' && counts.Clinical === '1',
-      'Import log does not count one allergy, one medication and one clinical note');
-    // id is the numeric demographic_no of the single owned imported fixture.
-    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
-    h.assert(new RegExp(`^${id}\\s+\\|`, 'm').test(text.split(/Errors\/Notes/)[1] || ''),
-      'Import log error section does not list the imported patient');
-  });
-
-  await s.step('re-importing the same file is refused as a duplicate and creates no second patient', async () => {
-    await frame.locator('#importFile').setInputFiles(file);
-    const uploaded = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/form/importUpload')
-      && r.request().method() === 'POST', { timeout: 120000 });
-    await frame.locator('input[type="submit"][name="Submit"]').click();
-    const response = await uploaded;
-    h.assert(response.status() === 200, 'Duplicate import upload did not complete');
-    const outcome = await response.json();
-    h.assert(outcome.importedPatients === 0 && outcome.refusedPatients === 1, 'The duplicate did not count one refused patient');
-    const result = frame.locator('#result > div').filter({ hasText: file.name });
-    await result.locator('li', { hasText: /already exist/ }).waitFor({ timeout: 60000 });
-    h.assert(importedIds().length === 1, 'Re-importing the same file created a second patient');
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${id}`) === '1'
-      && s.sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${id}`) === '1',
-    'Re-importing the same file duplicated the existing patient\'s records');
-  });
-
-  // Keep the original positive import, clinical rows and event-log assertions above.
-  await s.step('the refused duplicate is not reported as "Imported Successfully"', async () => {
-    const panels = frame.locator('#result > div').filter({ hasText: file.name });
-    h.assert(await panels.count() === 1, 'The duplicate import produced no result panel of its own');
-    h.assert(await panels.locator('h5', { hasText: 'Imported Successfully' }).count() === 0,
-      'A file whose only patient was refused as a duplicate is reported as "Imported Successfully"');
-  });
-  const mixedXml = buildCdsXml({...v, firstName: mixedFirst, lastName: mixedLast}, {first, last});
-  assertSchemaValid(mixedXml);
-  const zip = execFileSync('python3', ['-c',
-    'import io,json,sys,zipfile; entries=json.load(sys.stdin); out=io.BytesIO(); z=zipfile.ZipFile(out,"w",zipfile.ZIP_DEFLATED); [z.writestr(name,text) for name,text in entries]; z.close(); sys.stdout.buffer.write(out.getvalue())'],
-    {input: JSON.stringify([['new-patient.xml', mixedXml], ['existing-patient.xml', xml]]), timeout: 30000});
-  const batch = {name: `${s.marker}-batch.zip`, mimeType: 'application/zip', buffer: zip};
-  for (const [imported, refused, heading] of [[1, 1, 'Import completed with refusals'], [0, 2, 'No patients imported']]) {
-    await s.step(`ZIP import reports ${imported} imported and ${refused} refused patients`, async () => {
-      await frame.locator('#importFile').setInputFiles(batch);
-      const uploaded = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/form/importUpload')
-        && r.request().method() === 'POST', {timeout: 120000});
-      await frame.locator('input[type="submit"][name="Submit"]').click();
-      const response = await uploaded;
-      h.assert(response.status() === 200, `ZIP import answered HTTP ${response.status()}`);
-      const outcome = await response.json();
-      h.assert(outcome.importedPatients === imported && outcome.refusedPatients === refused,
-        `ZIP import did not return the exact ${imported}/${refused} patient counts`);
-      const panel = frame.locator('#result > div').filter({hasText: batch.name});
-      await panel.getByRole('heading', {name: heading, exact: true}).waitFor({timeout: 60000});
-      h.assert(await panel.locator('p').innerText() === `Patients imported: ${imported}; refused: ${refused}`,
-        'The visible ZIP counts differ from the response');
-      const ids = importedIds();
-      h.assert(ids.length === 2, 'The mixed/refused ZIP changed the expected two owned patients');
-      for (const patientId of ids) {
-        h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patientId}`) === '1'
-          && s.sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${patientId}`) === '1'
-          && s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patientId} AND note=${h.sqlString(v.note)}`) === '1',
-        'The ZIP import omitted or duplicated an owned clinical record');
-      }
-    });
-  }
-  await s.step('Concurrent uploads create one patient and refuse the duplicate without duplicating clinical rows', async () => {
-    const concurrentXml = buildCdsXml({...v, lastName: concurrentLast}, {first, last});
-    assertSchemaValid(concurrentXml);
-    const fields = await frame.locator('#importFile').evaluate(input => Object.fromEntries(
-      Array.from(new FormData(input.form)).filter(([, value]) => typeof value === 'string')));
-    h.assert(fields['CSRF-TOKEN'], 'The concurrent import has no session CSRF token');
-    const post = async () => {
-      const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/form/importUpload'), {
-        multipart: {...fields, importFile: {name: `${s.marker}-concurrent.xml`, mimeType: 'text/xml', buffer: Buffer.from(concurrentXml)}},
-        timeout: 120000,
-      });
-      h.assert(response.status() === 200, `Concurrent upload answered HTTP ${response.status()}`);
-      const result = await response.json();
-      await response.dispose();
-      return [result.importedPatients, result.refusedPatients];
-    };
-    const results = await Promise.all([post(), post()]);
-    h.assert(JSON.stringify(results.sort((a, b) => a[0] - b[0])) === JSON.stringify([[0, 1], [1, 0]]),
-      'Concurrent imports did not report exactly one insertion and one duplicate refusal');
-    const ids = s.sql.rows(`SELECT demographic_no FROM demographic WHERE last_name=${h.sqlString(concurrentLast)}
-      AND first_name=${h.sqlString(v.firstName)}`).flat();
-    h.assert(ids.length === 1, 'Concurrent imports created duplicate patients');
-    for (const table of ['drugs', 'allergies']) {
-      h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE demographic_no=${Number(ids[0])}`) === '1',
-        `Concurrent imports duplicated or omitted ${table}`);
-    }
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${Number(ids[0])}
-      AND note=${h.sqlString(v.note)}`) === '1', 'Concurrent imports duplicated or omitted the clinical note');
-    // The importer also stores linked medication/allergy/demographic annotations in this table.
-    // Require the same total as the equivalent single import, including those ancillary notes.
-    const singleNotes = s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${id}`);
-    const concurrentNotes = s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${Number(ids[0])}`);
-    h.assert(concurrentNotes === singleNotes,
-      `Concurrent import stored ${concurrentNotes} total notes; the equivalent single import stored ${singleNotes}`);
-    await expectValue(s.sql, "SELECT IS_FREE_LOCK(CONCAT('carlos-cds-import-', MD5(DATABASE())))", '1',
-      'A completed import retained its database lock');
-  });
-
+  h.assert(source, 'Required approved import source/profile is missing');
+  await frame.locator('#cdsSource').selectOption(source);
+  h.assert(!await frame.locator('#mergeExisting').isChecked(), 'Existing-patient merge must default off');
+  return {admin, frame};
 }
 
-if (require.main === module) runWorkflow('demographic-cds-import', workflow, { openPatient: false });
-module.exports = { workflow, buildCdsXml, fixtureValues, parseImportLogCounts };
+/** Browser-authenticated API probes use the same CSRF guard and bounded DTO routes as the UI. */
+async function importApi(frame, route, params = {}, method = 'GET') {
+  return frame.evaluate(async ({route, params, method}) => {
+    const root = document.getElementById('cdsImport');
+    const token = document.querySelector('input[name="CSRF-TOKEN"]')?.value;
+    if (!token) throw new Error('IMPORT_CSRF_TOKEN_UNAVAILABLE');
+    const url = new URL(root.dataset.context + '/form/' + route, location.origin);
+    const options = {method, credentials: 'same-origin', cache: 'no-store',
+      headers: {'CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest'}};
+    if (method === 'GET') for (const [key, value] of Object.entries(params)) url.searchParams.set(key, String(value));
+    else options.body = new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)]));
+    const response = await fetch(url, options); const text = await response.text();
+    let body; try { body = JSON.parse(text); } catch (_) { body = null; }
+    return {status: response.status, body, type: response.headers.get('content-type'), redirected: response.redirected};
+  }, {route, params, method});
+}
+
+async function awaitRunReceipt(frame, id, timeout = 180000) {
+  await frame.waitForFunction(runId => {
+    try {
+      const value = JSON.parse(document.getElementById('runSummary').textContent);
+      return value.job.id === runId && value.summary.operationTerminal === true;
+    } catch (_) { return false; }
+  }, id, {timeout, polling: 500});
+  return JSON.parse(await frame.locator('#runSummary').innerText());
+}
+
+async function uploadAndAwaitRun(s, admin, frame, file, {dryRun = false} = {}) {
+  if (!await frame.locator('#cdsSource').inputValue()) {
+    const value=await frame.locator('#cdsSource option[data-profile]').evaluateAll(options =>
+      (options.find(option=>option.dataset.profile==='pcon-2024-02') || options[0])?.value);
+    h.assert(value,'Required registered source disappeared after page reload');
+    await frame.locator('#cdsSource').selectOption(value);
+  }
+  await frame.locator('#dryRun').setChecked(dryRun);
+  await frame.locator('#uploadResumeId').fill('');
+  await frame.locator('#importFile').setInputFiles(file);
+  const begin = admin.waitForResponse(response => new URL(response.url()).pathname.endsWith('/form/cdsUpload')
+    && response.request().method() === 'POST' && response.request().postData()?.includes('operation=begin'), {timeout: 30000});
+  const chunk = admin.waitForRequest(request => new URL(request.url()).pathname.endsWith('/form/cdsUpload')
+    && new URL(request.url()).searchParams.get('operation') === 'chunk', {timeout: 30000});
+  const acceptance = admin.waitForResponse(response => new URL(response.url()).pathname.endsWith('/form/cdsImportSubmit')
+    && response.request().method() === 'POST', {timeout: 120000});
+  await frame.locator('#cdsStart').click();
+  const begun = await begin; h.assert(begun.status() === 200, 'Upload reservation did not create a durable owner receipt');
+  const {upload} = await begun.json();
+  h.assert((await chunk).headers()['content-type'] === 'application/octet-stream', 'Upload regressed to buffered multipart');
+  const accepted = await acceptance; const result = await accepted.json();
+  h.assert(accepted.status() === 202 && result.accepted === true && result.job?.id,
+    'Submission did not return a distinct durable acceptance receipt');
+  const receipt = await awaitRunReceipt(frame, result.job.id);
+  await frame.locator('#cdsStart').waitFor({state: 'visible'});
+  await frame.waitForFunction(() => !document.getElementById('cdsOptions').disabled);
+  return {uploadId: upload.id, id: result.job.id, ...receipt};
+}
+
+function registerImportCleanup(s, owner) {
+  const ids = () => s.sql.rows(`SELECT demographic_no FROM demographic WHERE ${owner} ORDER BY demographic_no`).flat();
+  s.cleanup(() => {
+    for (const id of ids()) {
+      h.assert(/^[1-9]\d*$/.test(id), 'Imported fixture has an invalid identity');
+      h.assert(s.sql.value(`SELECT COUNT(*) FROM cds_import_patient WHERE target_demographic_no=${id} AND held=1`) === '0',
+        'Incomplete/held fixture retained with its evidence; cleanup cannot hide failed import recovery');
+      s.sql.execute(childCleanup(id).join(';\n'));
+      h.assert(remainingChildren(s.sql, id) === '0', 'Owned imported clinical fixture cleanup is incomplete');
+      s.sql.execute(`DELETE FROM demographic WHERE demographic_no=${id} AND (${owner})`);
+    }
+    h.assert(ids().length === 0, 'Owned imported fixture was not removed');
+    // Audit, immutable source, import ledger and outcome receipts deliberately remain for review/retention.
+  });
+  return ids;
+}
+
+async function workflow(s) {
+  const v = fixtureValues(s.marker); const mixedLast = `${s.marker}-B`;
+  const owner = `first_name=${h.sqlString(v.firstName)} AND last_name IN (${h.sqlString(v.lastName)},${h.sqlString(mixedLast)})`;
+  const importedIds = registerImportCleanup(s, owner);
+  const [first, last] = s.sql.rows(`SELECT first_name,last_name FROM provider WHERE provider_no=${h.sqlString(s.provider)}`)[0] || [];
+  h.assert(first && last, 'Test provider has no source-physician fixture name');
+  const xml = buildCdsXml(v, {first, last}); assertSchemaValid(xml);
+  const file = {name: `${s.marker}.xml`, mimeType: 'text/xml', buffer: Buffer.from(xml)};
+  let admin, frame, dry, actual, id;
+  await s.step('Existing menu and bookmark route render the secured durable import UI', async () => {
+    ({admin, frame} = await openImportFrame(s));
+    h.assert(await frame.locator('#cancelRun,#resumeRun,#eventReport,#errorReport,#receiptReport').count() === 5,
+      'Operator controls or protected reports are missing');
+  });
+  await s.step('Empty input visibly refuses acceptance and leaves the database unchanged', async () => {
+    await frame.locator('#cdsStart').click();
+    await frame.locator('#cdsNotice.alert-danger').waitFor();
+    h.assert(/select at least one/i.test(await frame.locator('#cdsNotice').innerText()), 'Missing-file refusal is not visible');
+    h.assert(importedIds().length === 0, 'Empty input wrote clinical rows');
+  });
+  await s.step('Mutators reject GET and a stale synchronous form refuses before acceptance', async () => {
+    for (const route of ['cdsUpload', 'cdsImportSubmit', 'cdsImportControl']) {
+      h.assert((await importApi(frame, route)).status === 405, `${route} accepted GET`);
+    }
+    const stale = await importApi(frame, 'importUpload', {}, 'POST');
+    h.assert(stale.status === 409 && stale.body?.code === 'IMPORT_CLIENT_REFRESH_REQUIRED', 'Old synchronous client was not explicitly refused');
+    h.assert(importedIds().length === 0, 'A stale client wrote clinical rows');
+  });
+  await s.step('Raw chunk upload and dry run produce a terminal receipt without clinical writes or clinical-success styling', async () => {
+    dry = await uploadAndAwaitRun(s, admin, frame, file, {dryRun: true});
+    h.assert(dry.job.state === 'DRY_RUN_COMPLETE' && dry.summary.clinicalComplete === false, 'Dry run claimed clinical completion');
+    h.assert(importedIds().length === 0, 'Dry run wrote a patient');
+    h.assert(!await frame.locator('#runState').evaluate(node => node.classList.contains('text-success')), 'Dry run was styled as imported success');
+  });
+  await s.step('Execute the same immutable upload after preflight and reconnect to durable completion', async () => {
+    await frame.locator('#dryRun').uncheck(); await frame.locator('#uploadResumeId').fill(dry.uploadId);
+    const acceptance = admin.waitForResponse(response => new URL(response.url()).pathname.endsWith('/form/cdsImportSubmit')
+      && response.request().method() === 'POST', {timeout: 120000});
+    await frame.locator('#submitCompletedUpload').click();
+    const accepted = await acceptance; const body = await accepted.json();
+    h.assert(accepted.status() === 202 && body.accepted === true && body.job.id !== dry.id, 'Execute did not get its independent durable attempt');
+    const bookmark = new URL(frame.url()); bookmark.searchParams.set('runId', body.job.id);
+    await frame.goto(bookmark.href); await frame.locator('#cdsImport').waitFor();
+    actual = await awaitRunReceipt(frame, body.job.id);
+    h.assert(actual.summary.cleanComplete === true && actual.summary.clinicalComplete === true
+      && actual.summary.reportsDelivered === true && actual.summary.cleanupComplete === true,
+    'Completion receipt did not prove clinical writes, report publication and cleanup');
+    h.assert(await frame.locator('#runState').evaluate(node => node.classList.contains('text-success')), 'Verified clinical completion is not visible');
+    const ids = importedIds(); h.assert(ids.length === 1, `Expected one patient, found ${ids.length}`); [id] = ids;
+  });
+  await s.step('Native demographic and clinical fields preserve values without inventing source authors or signatures', async () => {
+    h.assert(s.sql.value(`SELECT CONCAT_WS('|',year_of_birth,month_of_birth,date_of_birth,sex,patient_status,address,city,province,postal,phone)
+      FROM demographic WHERE demographic_no=${id}`) === ['1971','03','04','F','AC',v.address,v.city,'ON',v.postal,v.phone].join('|'),
+    'Native demographic values differ from the source');
+    h.assert(s.sql.value(`SELECT CONCAT_WS('|',customName,rx_date,duration,quantity,\`repeat\`,route,freqcode,archived,cds_currentness)
+      FROM drugs WHERE demographic_no=${id}`) === [v.drug,'2026-01-15','30','60','2','PO','BID','0','CURRENT'].join('|'),
+    'Native medication values/currentness differ from explicit source evidence');
+    h.assert(s.sql.value(`SELECT CONCAT_WS('|',DESCRIPTION,TYPECODE,reaction,severity_of_reaction,start_date,archived)
+      FROM allergies WHERE demographic_no=${id}`) === [v.allergen,'0','Rash','2','2020-05-06','0'].join('|'),
+    'Allergy values differ or DR was falsely classified as a brand');
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${id} AND note=${h.sqlString(v.note)}
+      AND (signing_provider_no IS NULL OR signing_provider_no='') AND signed=0`) === '1',
+    'Source encounter note was omitted, duplicated or falsely signed');
+    for (const table of ['drugs','allergies']) h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE demographic_no=${id}`) === '1', `${table} not exactly once`);
+  });
+  await s.step('Run-scoped protected downloads deliver durable event, error and reconciliation evidence', async () => {
+    for (const [selector, type] of [['eventReport','event'],['errorReport','error'],['receiptReport','receipt']]) {
+      const link = frame.locator('#' + selector); await link.waitFor({state: 'visible'});
+      const href = await link.getAttribute('href'); const url = new URL(href, frame.url());
+      h.assert(url.searchParams.get('runId') === actual.job.id && url.searchParams.get('type') === type
+        && !url.searchParams.has('importlog'), 'Report URL exposes a storage name rather than authorized run identity');
+      const download = admin.waitForEvent('download', {timeout: 30000}); await link.click();
+      const saved = await download; const contents = fs.readFileSync(await saved.path(), 'utf8');
+      h.assert(!/<html/i.test(contents), `Protected ${type} report is a login page`);
+      if (type === 'event') {
+        const rows=contents.trim().split(/\r?\n/).filter(Boolean).map(row=>JSON.parse(row));
+        h.assert(rows.length === 1 && rows[0].patientId === v.lastName.slice(-20) && rows[0].held === false
+          && rows[0].inventoryComplete === true, 'Event log does not reconcile the exact source patient/copy');
+        const counts=rows[0].importedOccurrences;
+        h.assert(counts.Demographics === 1 && counts.MedicationsAndTreatments === 1
+          && counts.AllergiesAndAdverseReactions === 1 && counts.ClinicalNotes === 1
+          && Object.keys(counts).length === 17, 'Event log category occurrences omit, duplicate or count helper units');
+        h.assert(Object.values(rows[0].notCommittedOccurrences).every(count=>count === 0), 'Successful event receipt contains uncommitted clinical occurrences');
+      } else if (type === 'receipt') {
+        const receipt=JSON.parse(contents);
+        h.assert(receipt.runId === actual.job.id && receipt.clinicalComplete === true && receipt.reportsDelivered === true
+          && receipt.cleanupComplete === true && receipt.manifestDigest === actual.job.manifestDigest,
+        'Completion file does not reconcile its run, immutable manifest, clinical outcome and delivery');
+      } else {
+        const errors=contents.trim().split(/\r?\n/).filter(Boolean).map(row=>JSON.parse(row));
+        h.assert(errors.every(row => !(row.blocking === true && row.resolved === false)
+          && row.code !== 'SOURCE_UNIT_NOT_COMMITTED'), 'Clean completion has unreported blocking or uncommitted units');
+      }
+    }
+  });
+  await s.step('Exact concurrent submission retry returns one job and cannot duplicate clinical units', async () => {
+    const options = await frame.evaluate(() => {
+      const source = document.querySelector('#cdsSource option[data-profile="pcon-2024-02"]') || document.querySelector('#cdsSource option[data-profile]');
+      return {providerNo: document.getElementById('providerNo').value, sourceNamespace: source.dataset.namespace,
+        sourceProfile: source.dataset.profile, matchProviderNames: true, mergeExisting: false, dryRun: false,
+        ...(document.getElementById('programId').value ? {programId:document.getElementById('programId').value} : {}),
+        ...(document.getElementById('facilityId').value ? {facilityId:document.getElementById('facilityId').value} : {})};
+    });
+    const results = await Promise.all([1,2].map(() => importApi(frame, 'cdsImportSubmit', {...options, uploadId: dry.uploadId}, 'POST')));
+    h.assert(results.every(result => result.status === 202 && result.body?.job?.id === actual.job.id), 'Identical acceptance retry changed run identity');
+    h.assert(importedIds().length === 1 && s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${id}`) === '1'
+      && s.sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${id}`) === '1', 'Acceptance retry duplicated clinical data');
+  });
+  await s.step('Exact committed chunk retry is idempotent and altered retry is refused', async () => {
+    const reservation = await importApi(frame,'cdsUpload',{operation:'begin',fileName:file.name,expectedBytes:file.buffer.length},'POST');
+    h.assert(reservation.status === 200 && reservation.body?.upload?.id, 'Chunk probe reservation failed');
+    const probeId=reservation.body.upload.id;
+    const token = await frame.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const post = async bytes => {
+      const url = new URL(h.appUrl(s.config.baseUrl, '/form/cdsUpload'));
+      for (const [key,value] of Object.entries({operation:'chunk',uploadId:probeId,offset:0,bytes:bytes.length,
+        sha256:createHash('sha256').update(bytes).digest('hex')})) url.searchParams.set(key,String(value));
+      const response = await s.context.request.post(url.href, {data:bytes, headers:{'CSRF-TOKEN':token,
+        'X-Requested-With':'XMLHttpRequest','Content-Type':'application/octet-stream'}});
+      const status=response.status(); await response.dispose(); return status;
+    };
+    const same = await Promise.all([post(file.buffer),post(file.buffer)]);
+    h.assert(same.every(status => [200,409].includes(status)) && same.includes(200), 'Concurrent exact chunk receipt retries did not reconcile');
+    const changed=Buffer.from(file.buffer); changed[0]^=1;
+    h.assert(await post(changed) === 409, 'Altered committed chunk was accepted');
+    h.assert((await importApi(frame,'cdsUpload',{operation:'abandon',uploadId:probeId},'POST')).status === 200, 'Unsubmitted probe cleanup failed');
+  });
+  await s.step('Multi-patient ZIP includes both copies and identical replay cannot insert duplicates', async () => {
+    const other = buildCdsXml({...v,lastName:mixedLast},{first,last}); assertSchemaValid(other);
+    const zip=execFileSync('python3',['-c','import io,json,sys,zipfile; out=io.BytesIO(); z=zipfile.ZipFile(out,"w",zipfile.ZIP_DEFLATED); [z.writestr(n,t) for n,t in json.load(sys.stdin)]; z.close(); sys.stdout.buffer.write(out.getvalue())'],
+      {input:JSON.stringify([['new/patient.xml',other],['existing/patient.xml',xml],['associated/readme.txt','Synthetic ancillary bytes retained in manifest.']]),timeout:30000});
+    const batch={name:`${s.marker}-batch.zip`,mimeType:'application/zip',buffer:zip};
+    const run=await uploadAndAwaitRun(s,admin,frame,batch);
+    h.assert(run.summary.discoveryComplete === true && run.summary.expectedPatients === 2, 'ZIP did not account for both source patients');
+    h.assert(importedIds().length === 2, 'ZIP omitted a new patient or duplicated the existing patient');
+    const replay=await uploadAndAwaitRun(s,admin,frame,batch);
+    h.assert(replay.summary.operationTerminal === true && importedIds().length === 2, 'ZIP replay omitted terminal accounting or inserted duplicates');
+    h.assert(await frame.locator('#patientRows tr').count() <= 50 && await frame.locator('#diagnosticRows tr').count() <= 50
+      && await frame.locator('#uploadRows tr').count() <= 50, 'Operator DOM exceeded bounded page sizes');
+  });
+  await s.step('Foreign run and physical report-path probes are refused without revealing paths', async () => {
+    const foreign=await importApi(frame,'cdsImportStatus',{runId:randomUUID()});
+    h.assert([403,404,409].includes(foreign.status) && foreign.body?.ok === false, 'Unknown run was exposed or treated as success');
+    const report=await importApi(frame,'cdsImportReport',{runId:actual.job.id,type:'../../etc/passwd'});
+    h.assert(report.status === 400, 'Physical report-path probe was not refused');
+  });
+}
+
+if (require.main === module) runWorkflow('demographic-cds-import', workflow, {openPatient:false});
+module.exports = {workflow,buildCdsXml,fixtureValues,parseImportLogCounts,assertSchemaValid,
+  openImportFrame,importApi,awaitRunReceipt,uploadAndAwaitRun,registerImportCleanup};

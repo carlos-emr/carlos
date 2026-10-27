@@ -26,6 +26,7 @@
   for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -475,6 +476,7 @@
         </h2>
 
         <div id="docListAlertContainer"></div>
+        <c:if test="${requestScope.normalizedFunction eq 'demographic' or param.function eq 'demographic' or requestScope.function eq 'demographic'}"><div><source:cdsSourceFields demographicNo="${not empty requestScope.functionid ? requestScope.functionid : param.functionid}" category="Reports"/></div></c:if>
 
         <% if ("demographic".equals(module)) { %>
         <oscar:nameage demographicNo="<%= moduleid %>"/>

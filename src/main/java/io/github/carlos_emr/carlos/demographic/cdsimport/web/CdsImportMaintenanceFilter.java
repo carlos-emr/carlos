@@ -1,0 +1,65 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+package io.github.carlos_emr.carlos.demographic.cdsimport.web;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportMaintenanceService;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Set;
+import java.util.function.Supplier;
+
+/**
+ * While durable maintenance/holds exist, clinical HTTP reads/egress stay closed as well as writes.
+ * Existing authentication and importer actions retain their own authorization/CSRF checks.
+ * Pool-level admission independently excludes background/non-HTTP clinical SQL.
+ */
+public final class CdsImportMaintenanceFilter implements Filter {
+    private static final Set<String> ROUTES = Set.of("/", "/index", "/index.jsp", "/login", "/login.do",
+            "/logout", "/logout.do", "/logoutPage", "/loginfailed", "/forcepasswordreset",
+            "/forcepasswordresetSubmit", "/location", "/select_facility", "/csrfguard",
+            "/mfa/loginMfa", "/securityRecord/mfa", "/form/importUpload", "/form/cdsUpload", "/form/cdsImportSubmit", "/form/cdsImportStatus",
+            "/form/cdsImportControl", "/form/cdsImportReport", "/form/importLogDownload");
+    private static final String[] STATIC = {"/css/", "/js/", "/images/", "/fonts/", "/library/", "/loginResource/"};
+    private final Supplier<CdsImportMaintenanceService> maintenance;
+
+    /** Servlet-container compatibility boundary; dependency resolution is deferred until context startup completes. */
+    public CdsImportMaintenanceFilter() { this(() -> SpringUtils.getBean(CdsImportMaintenanceService.class)); }
+    public CdsImportMaintenanceFilter(Supplier<CdsImportMaintenanceService> maintenance) { this.maintenance = maintenance; }
+
+    @Override public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+        if (!(request instanceof HttpServletRequest http) || !(response instanceof HttpServletResponse reply)) {
+            chain.doFilter(request, response); return;
+        }
+        String path = http.getRequestURI().substring(http.getContextPath().length());
+        if (allowed(path)) { chain.doFilter(request, response); return; }
+        boolean blocked;
+        try { blocked = maintenance.get().isClinicalAccessBlocked(); }
+        catch (RuntimeException unavailable) { blocked = true; }
+        if (!blocked) { chain.doFilter(request, response); return; }
+        reply.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        reply.setHeader("Cache-Control", "no-store");
+        reply.setHeader("Retry-After", "60");
+        reply.setContentType("text/plain;charset=UTF-8");
+        reply.getWriter().write("Clinical access is unavailable during CDS import maintenance or chart reconciliation. "
+                + "Authorized operators can use " + http.getContextPath() + "/form/importUpload.");
+    }
+
+    static boolean allowed(String path) {
+        if (path == null || path.contains("%") || path.contains(";") || path.contains("\\")
+                || path.contains("//") || path.contains("/../") || path.contains("/./")) return false;
+        String route = path.endsWith(".do") ? path.substring(0, path.length() - 3)
+                : path.endsWith(".action") ? path.substring(0, path.length() - 7) : path;
+        if (ROUTES.contains(route)) return true;
+        if (path.startsWith("/WEB-INF/jsp/login/") || path.startsWith("/WEB-INF/jsp/mfa/")) return true;
+        if (path.equals("/WEB-INF/jsp/demographic/demographicImport.jsp")) return true;
+        for (String prefix : STATIC) if (path.startsWith(prefix)) return true;
+        return false;
+    }
+}

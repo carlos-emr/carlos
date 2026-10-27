@@ -33,6 +33,7 @@
 --%>
 <!DOCTYPE html>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -871,6 +872,7 @@
         </script>
     </head>
     <body onload="setfocus();updateTime();locale()">
+    <div><source:cdsSourceFields demographicNo="${not empty pageScope.appointment ? pageScope.appointment.demographicNo : param.demographic_no}" category="Appointments"/></div>
 
 <div id="editAppointment" >
     <div class="container" >

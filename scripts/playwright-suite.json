@@ -5543,8 +5543,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Imports a schema-valid owned CDS patient, verifies demographic and clinical rows plus the event-log download, then proves a refused duplicate reports zero imported and one refused. Mixed and all-refused ZIP imports must show exact patient counts without duplicating clinical records. Empty submissions still raise the client alert; all imported fixture rows are removed.",
-      "fixtures": "The imported patient (marker surname) and every child row the import wrote (drugs, allergies, casemgmt_note/link, partial_date, admission) are deleted by demographic_no. The CDS XML is built per run and validated with xmllint against the shipped schema; names the test login's own provider so no provider rows are created."
+      "notes": "Requires enabled CDS import, registered source/profile and maintenance admission in a disposable migrated environment. Exercises the existing web menu, bounded raw upload, dry run then execute, reload recovery, durable clinical/report/cleanup receipts, per-category protected reports, idempotent concurrent acceptance/chunk retry, ZIP replay and bounded pages. Stale synchronous clients and unsafe methods are explicitly refused.",
+      "fixtures": "Synthetic marker patients and completed owned clinical child rows are cleaned by demographic_no only after import holds clear. Immutable import and audit evidence remain; held/incomplete patients are retained with a visible failure. Required xmllint validates fixtures against the pinned OntarioMD schema. Explicit medication status is supplied; no source signature or prescriber is invented."
     },
     {
       "name": "admin-sites-clinic-numbers",

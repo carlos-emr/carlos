@@ -30,6 +30,7 @@
 --%>
 
 <%-- ========== PAGE IMPORTS ========== --%>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.lab.service.LabPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
@@ -188,6 +189,7 @@
 </head>
 
 <body>
+<div><source:cdsSourceFields demographicNo="${pageScope.demographicNo}" category="LaboratoryResults"/></div>
 <div class="container-fluid mt-2">
 
     <form name="reassignForm" method="post" action="${ctx}/oscarMDS/ReportReassign" id="lab_form">

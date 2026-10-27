@@ -155,6 +155,9 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     static Stream<Arguments> unconditionalMutators() {
         return Stream.of(
+            Arguments.of("io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsUpload2Action", "_demographic", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.demographic.cdsimport.web.SubmitCdsImport2Action", "_demographic", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsImportControl2Action", "_demographic", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
                     "_prevention", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action",
@@ -697,6 +700,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * follow-up waves.
      */
     private static final List<String> IN_SCOPE_PACKAGE_PREFIXES = List.of(
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.",
         "io.github.carlos_emr.carlos.appointment.",
         "io.github.carlos_emr.carlos.decision.",
         // Measurements (issue #3335): every *2Action in the slice was audited; the writes are

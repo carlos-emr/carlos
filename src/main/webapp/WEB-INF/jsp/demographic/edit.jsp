@@ -11,6 +11,7 @@
 
     @since 2026-04-04
 --%>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.net.*" %>
 <%@ page import="java.text.DecimalFormat" %>
@@ -1027,6 +1028,7 @@
 
     <body onLoad="setfocus(); checkONReferralNo(); formatPhoneNum(); checkRosterStatus2();"
           topmargin="0" leftmargin="0" rightmargin="0" id="demographiceditdemographic">
+    <div><source:cdsSourceFields demographicNo="${requestScope.demographic_no}" category="Demographics"/></div>
     <!-- Bootstrap dismissible alert container -->
     <div id="carlos-alert-container" aria-live="polite"
          style="position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;min-width:300px;max-width:600px;"></div>
