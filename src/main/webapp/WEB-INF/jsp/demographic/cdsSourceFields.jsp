@@ -29,9 +29,9 @@
                     <p><fmt:message key="sourceExternalValue" bundle="${cds}"/> <carlos:encode value="${field.payloadBytes}"/> bytes</p>
                 </c:when><c:otherwise>
                     <h3 class="h6"><fmt:message key="sourceOriginalValue" bundle="${cds}"/></h3><pre class="text-wrap text-break"><carlos:encode value="${field.originalPreview}"/></pre>
-                    <h3 class="h6"><fmt:message key="sourceNormalizedValue" bundle="${cds}"/></h3><pre class="text-wrap text-break"><carlos:encode value="${field.normalizedPreview}"/></pre>
-                    <c:if test="${field.truncated}"><p class="text-warning"><fmt:message key="sourcePreviewTruncated" bundle="${cds}"/></p></c:if>
                 </c:otherwise></c:choose>
+                <c:if test="${field.normalizedAvailable}"><h3 class="h6"><fmt:message key="sourceNormalizedValue" bundle="${cds}"/></h3><pre class="text-wrap text-break"><carlos:encode value="${field.normalizedPreview}"/></pre></c:if>
+                <c:if test="${field.truncated}"><p class="text-warning"><fmt:message key="sourcePreviewTruncated" bundle="${cds}"/></p></c:if>
                 <c:url var="originalUrl" value="/demographic/cdsSourceFieldContent"><c:param name="demographicNo" value="${model.demographicNo}"/><c:param name="category" value="${model.category}"/><c:param name="fieldId" value="${field.id}"/></c:url>
                 <a class="btn btn-sm btn-outline-secondary" href="${carlos:forHtmlAttribute(originalUrl)}"><fmt:message key="sourceDownload" bundle="${cds}"/></a>
             </div>
@@ -40,7 +40,30 @@
     <c:url var="firstUrl" value="/demographic/cdsSourceFields"><c:param name="demographicNo" value="${model.demographicNo}"/><c:param name="category" value="${model.category}"/></c:url>
     <a class="btn btn-outline-secondary" href="${carlos:forHtmlAttribute(firstUrl)}"><fmt:message key="sourceFirstPage" bundle="${cds}"/></a>
     <c:if test="${not empty model.nextCursor}">
-        <c:url var="nextUrl" value="/demographic/cdsSourceFields"><c:param name="demographicNo" value="${model.demographicNo}"/><c:param name="category" value="${model.category}"/><c:param name="after" value="${model.nextCursor}"/></c:url>
+        <c:url var="nextUrl" value="/demographic/cdsSourceFields"><c:param name="demographicNo" value="${model.demographicNo}"/><c:param name="category" value="${model.category}"/><c:param name="after" value="${model.nextCursor}"/><c:param name="reviewAfter" value="${model.reviewCursor}"/></c:url>
         <a class="btn btn-outline-primary" href="${carlos:forHtmlAttribute(nextUrl)}"><fmt:message key="nextPage" bundle="${cds}"/></a>
     </c:if>
+<section class="mt-4" aria-labelledby="reviewProvenanceHeading">
+        <h2 id="reviewProvenanceHeading" class="h5"><fmt:message key="sourceReviews" bundle="${cds}"/></h2>
+        <p><fmt:message key="sourceReviewsHelp" bundle="${cds}"/></p>
+        <c:if test="${empty model.reviews}"><p><fmt:message key="sourceReviewsEmpty" bundle="${cds}"/></p></c:if>
+        <c:forEach items="${model.reviews}" var="review">
+            <article class="card mb-3" id="review-${carlos:forHtmlAttribute(review.reviewId)}"><div class="card-body">
+                <c:url var="reviewUrl" value="/demographic/cdsSourceFields"><c:param name="demographicNo" value="${model.demographicNo}"/><c:param name="category" value="${model.category}"/><c:param name="after" value="${model.fieldCursor}"/><c:param name="reviewAfter" value="${model.reviewCursor}"/></c:url>
+                <h3 class="h6"><a href="${carlos:forHtmlAttribute(reviewUrl)}#review-${carlos:forHtmlAttribute(review.reviewId)}"><carlos:encode value="${review.reviewId}"/></a></h3>
+                <dl class="row small">
+                    <dt class="col-sm-3"><fmt:message key="sourceReviewOperator" bundle="${cds}"/></dt><dd class="col-sm-9"><carlos:encode value="${review.operator}"/></dd>
+                    <dt class="col-sm-3"><fmt:message key="sourceReviewTime" bundle="${cds}"/></dt><dd class="col-sm-9"><carlos:encode value="${review.actedAt}"/></dd>
+                    <dt class="col-sm-3"><fmt:message key="reviewKind" bundle="${cds}"/></dt><dd class="col-sm-9"><carlos:encode value="${review.kind}"/> — <carlos:encode value="${review.state}"/></dd>
+                    <dt class="col-sm-3"><fmt:message key="sourceReviewVersion" bundle="${cds}"/></dt><dd class="col-sm-9"><carlos:encode value="${review.acceptedVersion}"/></dd>
+                    <dt class="col-sm-3">XML XPath</dt><dd class="col-sm-9 text-break"><carlos:encode value="${review.sourceXPath}"/></dd>
+                </dl>
+                <p class="fw-bold"><fmt:message key="reason" bundle="${cds}"/></p><pre class="text-wrap text-break"><carlos:encode value="${review.reason}"/></pre>
+            </div></article>
+        </c:forEach>
+        <c:if test="${not empty model.reviewNextCursor}">
+            <c:url var="reviewNextUrl" value="/demographic/cdsSourceFields"><c:param name="demographicNo" value="${model.demographicNo}"/><c:param name="category" value="${model.category}"/><c:param name="after" value="${model.fieldCursor}"/><c:param name="reviewAfter" value="${model.reviewNextCursor}"/></c:url>
+            <a class="btn btn-outline-primary" href="${carlos:forHtmlAttribute(reviewNextUrl)}"><fmt:message key="sourceReviewNextPage" bundle="${cds}"/></a>
+        </c:if>
+    </section>
 </main></body></html>

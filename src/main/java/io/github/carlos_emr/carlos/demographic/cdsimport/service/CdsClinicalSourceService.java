@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportAdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportPatientDao;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportFieldDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewProvenanceDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
@@ -60,13 +61,14 @@ public class CdsClinicalSourceService {
     private final CdsLaboratoryReadService laboratory;
     private final CdsImportAdmissionDao admission;
     private final CdsImportConfigurationService configuration;
+    private final CdsCorrectionLookupService corrections;
     private final TransactionTemplate transaction;
 
     public CdsClinicalSourceService(CdsImportAccessService access, CdsImportFieldPersister fields, CdsImportPatientDao patients,
             CdsImportMaintenanceService maintenance, CdsLaboratoryReadService laboratory, CdsImportAdmissionDao admission,
-            CdsImportConfigurationService configuration, PlatformTransactionManager manager) {
+            CdsImportConfigurationService configuration, CdsCorrectionLookupService corrections, PlatformTransactionManager manager) {
         this.access=access; this.fields=fields; this.patients=patients; this.maintenance=maintenance; this.laboratory=laboratory;
-        this.admission=admission; this.configuration=configuration;
+        this.admission=admission; this.configuration=configuration; this.corrections=corrections;
         transaction=new TransactionTemplate(manager); transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.setTimeout(15); transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
     }
@@ -74,6 +76,11 @@ public class CdsClinicalSourceService {
     public List<CdsImportFieldDto> page(LoggedInInfo actor,int patient,String category,String after,int limit) {
         if (limit<1 || limit>50 || (after!=null && !after.isEmpty() && !after.matches("[0-9a-f]{64}"))) throw problem("SOURCE_FIELD_PAGE_INVALID",400);
         return read(actor,patient,category,()->fields.fields(patient,category,after,limit));
+    }
+
+    public List<CdsImportReviewProvenanceDto> provenance(LoggedInInfo actor,int patient,String category,String after,int limit) {
+        if(limit<1 || limit>50 || after!=null && !after.isEmpty() && !after.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) throw problem("SOURCE_FIELD_REVIEW_PAGE_INVALID",400);
+        return read(actor,patient,category,()->corrections.pageByDemographic(patient,category,after,limit));
     }
 
     public CdsImportFieldDto original(LoggedInInfo actor,int patient,String category,String fieldId) throws IOException {

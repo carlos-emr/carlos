@@ -60,6 +60,8 @@
     </c:if>
     <noscript><div class="alert alert-danger"><fmt:message key="javascript" bundle="${cds}"/></div></noscript>
     <div id="cdsNotice" class="alert alert-info" role="status" aria-live="polite" hidden></div>
+    <div id="cdsAdministrativeAlert" class="alert alert-warning" role="alert" hidden></div>
+    <div id="cdsWorkerAlert" class="alert alert-danger" role="alert" hidden></div>
     <form id="cdsImportForm" name="ImportDemographicDataForm" method="POST"
           action="${pageContext.request.contextPath}/form/cdsImportSubmit">
         <fieldset id="cdsOptions" <c:if test="${not model.enabled or empty model.sources}">disabled</c:if>>
@@ -82,7 +84,7 @@
             </div>
             <div class="row g-3 mb-3">
                 <div class="col-sm-4"><label for="providerNo" class="form-label"><fmt:message key="provider" bundle="${cds}"/></label>
-                    <input id="providerNo" name="providerNo" class="form-control" value="${carlos:forHtmlAttribute(model.providerNo)}" pattern="[0-9]{1,16}" required></div>
+                    <input id="providerNo" name="providerNo" class="form-control" value="${carlos:forHtmlAttribute(model.providerNo)}" pattern="[A-Za-z0-9_-]{1,16}" maxlength="16" required></div>
                 <div class="col-sm-4"><label for="programId" class="form-label"><fmt:message key="program" bundle="${cds}"/></label>
                     <input id="programId" name="programId" type="number" min="1" class="form-control" value="${carlos:forHtmlAttribute(model.programId)}"></div>
                 <div class="col-sm-4"><label for="facilityId" class="form-label"><fmt:message key="facility" bundle="${cds}"/></label>
@@ -134,8 +136,8 @@
         <p id="runState" class="mt-2" aria-live="polite"></p>
         <pre id="runSummary" class="border rounded p-2 text-wrap"></pre>
         <div class="d-flex flex-wrap gap-2 my-2">
-            <button id="cancelRun" type="button" class="btn btn-outline-danger"><fmt:message key="cancel" bundle="${cds}"/></button>
-            <button id="resumeRun" type="button" class="btn btn-outline-primary"><fmt:message key="resumeRun" bundle="${cds}"/></button>
+            <button id="cancelRun" type="button" class="btn btn-outline-danger" disabled><fmt:message key="cancel" bundle="${cds}"/></button>
+            <button id="resumeRun" type="button" class="btn btn-outline-primary" disabled><fmt:message key="resumeRun" bundle="${cds}"/></button>
             <a id="eventReport" class="btn btn-outline-secondary" hidden><fmt:message key="eventLog" bundle="${cds}"/></a>
             <a id="errorReport" class="btn btn-outline-secondary" hidden><fmt:message key="errorLog" bundle="${cds}"/></a>
             <a id="receiptReport" class="btn btn-outline-secondary" hidden><fmt:message key="receipt" bundle="${cds}"/></a>
@@ -161,8 +163,10 @@
         <input id="reviewUnitKey" type="hidden"><input id="reviewVersion" type="hidden">
         <label for="reviewKind" class="form-label"><fmt:message key="reviewKind" bundle="${cds}"/></label>
         <select id="reviewKind" class="form-select"><option value="CORRECT_VALUE"><fmt:message key="correctValue" bundle="${cds}"/></option>
-            <option value="DECLINE_PATIENT"><fmt:message key="declinePatient" bundle="${cds}"/></option></select>
-        <label for="reviewXPath" class="form-label">XML XPath</label><input id="reviewXPath" class="form-control" maxlength="2048">
+            <option id="reviewDeclineOption" value="DECLINE_PATIENT"><fmt:message key="declinePatient" bundle="${cds}"/></option></select>
+        <p id="reviewPatientHelp" class="form-text" role="status"></p>
+        <label for="reviewXPath" class="form-label">XML XPath</label><input id="reviewXPath" class="form-control" maxlength="2048" aria-describedby="reviewXPathHelp">
+        <p id="reviewXPathHelp" class="form-text"><fmt:message key="reviewXPathHelp" bundle="${cds}"/></p>
         <label for="reviewValue" class="form-label"><fmt:message key="replacement" bundle="${cds}"/></label>
         <textarea id="reviewValue" class="form-control" rows="3" maxlength="65536"></textarea>
         <label for="reviewReason" class="form-label"><fmt:message key="reason" bundle="${cds}"/></label>

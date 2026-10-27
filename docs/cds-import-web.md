@@ -1,0 +1,77 @@
+# CDS web import and clinical source fields
+
+Target branch: `release/2026.08`. The existing **Administration → Data Management → Demographic Import** menu and `/form/importUpload` bookmark open the durable importer.
+
+Follow the [maintenance admission procedure](cds-maintenance-admission.md), [clinical import contract](cds-clinical-import-contract.md), and [implementation plan](cds-import-implementation-plan.md). The web and foreground command adapters share the application service, source parser, ledger and clinical writers.
+
+## Operator workflow
+
+1. Register the actual source namespace and approved specification profile on the server. The page lists only registered namespace/profile pairs. Select the importing provider and authorized facility/program scope. Existing-patient merge starts **off**.
+2. Select XML or ZIP. Each selected top-level file gets a separate upload and durable run. A patient package with attachments must be a ZIP preserving its relative names; use one ZIP for large patient batches. Nested attachment ZIPs are retained as attachment bytes, rather than recursively treated as new migration packages.
+3. A dry run validates and plans without clinical writes. Its terminal `DRY_RUN_COMPLETE` receipt is distinct from clinical completion. To execute that same immutable upload, clear **Dry run**, select its upload ID and use **Submit or recover acceptance**. Execute and dry run have separate acceptance identities.
+4. Read the durable run state, per-patient outcomes, category counts and diagnostics. Transfer reaching 100%, HTTP 202 acceptance, a heartbeat and a final clinical state are separate observations. The page continues polling until the server reports that the entire operation is terminal, including report delivery and cleanup.
+5. Download the event log, error/diagnostic log and completion receipt. Event rows identify the source patient/copy and reconcile all 17 source categories, including verified prior occurrences and uncommitted occurrences. Bounded web pages do not replace the complete reports.
+6. Resolve versioned clinical review findings through the review flow. Corrections require the exact indexed scalar-field XPath and a clinical reason. Enter the original source value before any synthetic date shift; a correction applies to every authorized copy of that source patient. A decline affects only the identified patient copy and is unavailable when the diagnostic cannot identify it. Acknowledging a warning cannot clear a blocker. A stale review version or unsupported correction is explicitly refused. Cancellation preserves committed data; resume uses the durable source and commit receipts.
+7. Complete the admission procedure before reopening ordinary chart access. Held or incomplete charts remain unavailable through clinical source-field views as well as the usual modules.
+
+An administrative upload-cleanup failure and a terminated import worker appear as separate visible alerts. Their safe error codes can be provided to an administrator without copying patient values into an ordinary log.
+
+## Transfer and acceptance recovery
+
+The browser hashes and sends one bounded raw `application/octet-stream` chunk at a time. This uses the existing CSRF guard without its multipart buffering path. It requires a secure browser context: approved HTTPS in operation, or a loopback origin for isolated testing.
+
+If transfer stops before acceptance, reopen the page's owned upload list, select the upload ID and reselect exactly the same local file. Every committed prefix chunk is checked against its durable receipt before new bytes are appended. Matching filename and size alone cannot establish a safe resume. A changed chunk at an already committed offset is refused.
+
+After acceptance, the background job survives closing the browser. Reopen its run ID/bookmark or use the owned upload history. Lost acceptance acknowledgements are recovered with the same upload ID and immutable options. A different option set cannot silently become the same accepted submission.
+
+Unsubmitted abandoned/expired payloads can be removed by bounded housekeeping. Accepted or acceptance-uncertain bytes are retained until the verified snapshot-publication protocol proves a durable replacement. Dry-run bytes remain available for later execute. Actual snapshot publication retires the redundant payload and releases its reservation once; the small chunk receipt journal remains available for retry verification.
+
+## Clinical category views
+
+Links in the medication, allergy, prevention, laboratory, document, appointment, demographic, measurement and case-management/history modules open the corresponding protected source-field category. Contact details remain in the demographic source category, alongside their native contact associations.
+
+Each page contains at most 50 fields. It shows the logical XPath, XML namespace, value type, date precision, occurrence and separately encoded original/normalized values. A display preview is limited to 2,000 characters and explicitly identified when shortened. The complete original value is available through an authorized opaque field-ID download; large values are streamed with bounded buffers after range-hash verification. Physical storage paths never become download parameters or view-model fields.
+
+The effective normalized value includes any accepted logical correction while the original value remains unchanged. A separate bounded review-history page shows the operator, timestamp, decision, request state, reason, XPath and accepted request version. A ready review request is not proof that revalidation or clinical import has completed. Correction payloads and storage paths never enter this history projection.
+
+Access rechecks the current account/provider, requested patient, category privilege, patient-record restriction, maintenance state and import hold. Source-restricted laboratory data additionally requires the laboratory sensitivity gate. Import-operator access does not substitute for clinical patient/category read access.
+
+Repeated conflicting addresses or telephone values, unrepresentable native scalars and incomplete calendar timing remain in their clinical source category with explicit diagnostics. Native clinical statements are never constructed from a clipped narrative. Notes above the bounded native-note projection use a visible source-view marker while retaining the complete original field.
+
+Appointment notes retain the complete CDS 32K field in native storage and the editor. The browser retains up to 65,536 UTF-16 units so 32,768 supplementary Unicode codepoints fit; browser and server validators enforce the 32,768-codepoint business limit. Live and archive storage must both support the imported notes and status before deployment.
+
+## MVC and memory boundaries
+
+- Prototype actions enforce HTTP methods, reauthorize, bind a bounded command and delegate. No action chooses an arbitrary server input or report path.
+- `CdsImportViewModelAssembler` and `CdsSourceFieldsViewModelAssembler` build immutable bounded presentation models. JSPs render encoded model values and perform no DAO work.
+- `CdsUploadService` owns durable byte checkpoints, quota reservation and payload retirement. Body transfer occurs outside database transactions; short row-locked transactions seal completed chunks.
+- `CdsImportService` owns durable job operations. Focused native demographic/history/appointment writers load bounded hash-bound DTOs prepared outside the clinical transaction. Unbounded source metadata scans do not run under a clinical unit's database locks.
+- Source-field reads take a shared admission lock through authorization and bounded metadata selection. Protected payload I/O occurs after that short transaction ends.
+- The browser keeps only bounded opaque run IDs in local storage, replaces bounded table pages, limits status JSON to 2 MiB and aborts timed-out requests. It clears stale run content when switching runs and requires a fresh receipt before enabling run controls.
+
+## Configuration and routes
+
+| Property | Default / purpose |
+| --- | --- |
+| `cds.import.enabled` | `false`; explicit admission |
+| `cds.import.sourceNamespaces` | Explicit server-owned namespace list |
+| `cds.import.source.<namespace>.profiles` | Registered `pcon-2024-02` and/or `omd-5.2` profiles |
+| `cds.import.uploadRoot` | Required private upload storage |
+| `cds.import.upload.maxChunkBytes` | 4 MiB; supported range 64 KiB–16 MiB |
+| `cds.import.upload.maxFileBytes` | 64 GiB |
+| `cds.import.upload.maxTotalBytes` | 256 GiB reserved transfer bytes |
+| `cds.import.upload.maxFiles` | 20,000 reserved uploads |
+| `cds.import.minimumFreeDiskBytes` | 512 MiB floor |
+| `cds.import.upload.ttlHours` | 24 hours for unsubmitted expiry |
+| `cds.import.clinicalZone` | Explicit clinic/source time zone; no guessed local-time resolution |
+| `cds.import.native.maxNoteBytes` | 256 KiB bounded native narrative projection; maximum 384 KiB |
+
+All mutators require authenticated CSRF-protected POST. GET/HEAD on upload, submit or control returns 405 before mutation dependencies. A stale synchronous POST to `/form/importUpload` returns 409 and requires a refresh. Old temporary-basename log URLs return an explicit expired-link response.
+
+Read routes return bounded authorized status/patient/diagnostic/upload/chunk pages, or stream a selected durable report by run ID. Clinical source routes accept an exact patient/category and opaque field ID. They accept no caller-controlled storage path.
+
+## Verification
+
+The focused unit suites cover durable chunk retries and orphan tails, changed-prefix refusal, quota/retirement ordering, current patient/category authorization, hold/sensitivity failures, range-only original streaming, stale-client/method refusal, native source projection and the existing appointment editor bounds. Node tests exercise real SHA256, bounded network JSON, exact prefix verification, truthful completion presentation and complete Unicode note limits.
+
+The menu-to-form Playwright workflows exercise real upload/acceptance, dry-run/execute separation, page reload recovery, complete protected reports, repeat acceptance/chunk requests and multi-patient ZIP replay. They require an enabled registered source, migrated disposable database, approved admission state and a working secure browser context. Their execution remains an explicit release gate; unit success does not imply browser deployment success.

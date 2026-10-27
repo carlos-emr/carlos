@@ -35,18 +35,19 @@ import org.springframework.stereotype.Component;
 @Component("viewCdsSourceFields2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class ViewCdsSourceFields2Action extends ActionSupport {
     private final transient CdsSourceFieldsViewModelAssembler assembler;
-    private int demographicNo; private String category,after="";
+    private int demographicNo; private String category,after="",reviewAfter="";
     public ViewCdsSourceFields2Action(CdsSourceFieldsViewModelAssembler assembler){this.assembler=assembler;}
     @Override public String execute() throws Exception {
         var request=ServletActionContext.getRequest(); var response=ServletActionContext.getResponse();
         if(!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))){response.setHeader("Allow","GET, HEAD");response.sendError(405);return NONE;}
         try {
-            var actor=CdsWeb.authenticated(request); CdsWeb.parameters(request,Set.of("demographicNo","category","after"));
-            request.setAttribute("model",assembler.assemble(actor,demographicNo,category,after));
+            var actor=CdsWeb.authenticated(request); CdsWeb.parameters(request,Set.of("demographicNo","category","after","reviewAfter"));
+            request.setAttribute("model",assembler.assemble(actor,demographicNo,category,after,reviewAfter));
             response.setHeader("Cache-Control","no-store");response.setHeader("X-Content-Type-Options","nosniff");return SUCCESS;
         }catch(Exception failure){CdsWeb.failure(response,failure);return NONE;}
     }
     @StrutsParameter public void setDemographicNo(int value){demographicNo=value;}
     @StrutsParameter public void setCategory(String value){category=value;}
     @StrutsParameter public void setAfter(String value){after=value;}
+    @StrutsParameter public void setReviewAfter(String value){reviewAfter=value;}
 }

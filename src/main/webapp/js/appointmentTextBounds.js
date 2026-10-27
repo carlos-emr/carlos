@@ -3,7 +3,7 @@
     'use strict';
     const fields = [
         ['keyword', 'name', 255, false], ['reason', 'reason', 80, true],
-        ['notes', 'notes', 255, true], ['resources', 'resources', 255, false],
+        ['notes', 'notes', 32768, true], ['resources', 'resources', 255, false],
     ];
     const logicalLines = value => String(value).replace(/\r\n?/g, '\n');
     function validUnicode(value) {

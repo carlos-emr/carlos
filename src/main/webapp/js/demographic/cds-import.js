@@ -33,12 +33,23 @@
         return summary?.operationTerminal === true;
     }
 
+    function indexedSourceValuePath(value) {
+        if (typeof value !== 'string' || value.length > 2048) return false;
+        // This only validates the indexed address shape. The backend must locate an exact scalar leaf.
+        return /^\/OmdCds\[1\]\/PatientRecord\[[1-9][0-9]*\](?:\/[A-Za-z_][A-Za-z0-9_.-]*\[[1-9][0-9]*\]){2,}(?:\/@[A-Za-z_][A-Za-z0-9_.-]*)?$/.test(value);
+    }
+
+    function reviewEligibility(diagnostic) {
+        return {canDecline: /^[0-9a-f]{64}$/.test(diagnostic?.patientKey || ''),
+            initialXPath: indexedSourceValuePath(diagnostic?.sourceXPath) ? diagnostic.sourceXPath : ''};
+    }
+
     function effectiveOptions(values) {
         const result = {providerNo: String(values.providerNo || ''), sourceNamespace: String(values.sourceNamespace || ''),
             sourceProfile: String(values.sourceProfile || ''), mergeExisting: Boolean(values.mergeExisting),
             dryRun: Boolean(values.dryRun), matchProviderNames: Boolean(values.matchProviderNames),
             synthetic: Boolean(values.synthetic), timeshiftInDays: values.synthetic ? Number(values.timeshiftInDays || 0) : 0};
-        if (!/^[0-9]{1,16}$/.test(result.providerNo) || !result.sourceNamespace || !result.sourceProfile
+        if (!/^[A-Za-z0-9_-]{1,16}$/.test(result.providerNo) || !result.sourceNamespace || !result.sourceProfile
                 || !Number.isSafeInteger(result.timeshiftInDays) || (result.synthetic && result.mergeExisting)) {
             throw new Error('IMPORT_OPTIONS_INVALID');
         }
@@ -54,9 +65,31 @@
     }
 
     async function sha256(blob, cryptoApi = global.crypto) {
+        if (!cryptoApi?.subtle) throw new Error('UPLOAD_SECURE_CONTEXT_REQUIRED');
         const bytes = await blob.arrayBuffer();
         const digest = await cryptoApi.subtle.digest('SHA-256', bytes);
         return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function boundedJson(response, maximumBytes = 2 * 1024 * 1024) {
+        if (!response.body || !Number.isSafeInteger(maximumBytes) || maximumBytes < 1) throw new Error('IMPORT_RESPONSE_UNAVAILABLE');
+        const reader = response.body.getReader();
+        const decoder = new global.TextDecoder('utf-8', {fatal: true});
+        let bytes = 0; let text = ''; let ended = false;
+        try {
+            while (true) {
+                const chunk = await reader.read();
+                if (chunk.done) { ended = true; break; }
+                bytes += chunk.value.byteLength;
+                if (bytes > maximumBytes) throw new Error('IMPORT_RESPONSE_CAPACITY_EXCEEDED');
+                text += decoder.decode(chunk.value, {stream: true});
+            }
+            text += decoder.decode();
+            return JSON.parse(text);
+        } finally {
+            if (!ended) await reader.cancel().catch(() => {});
+            reader.releaseLock();
+        }
     }
 
     async function verifyPrefix(file, receipt, readPage, hash = sha256, progress = () => {}) {
@@ -87,7 +120,8 @@
         return offset;
     }
 
-    const api = {statusPresentation, boundedIds, mayStopPolling, effectiveOptions, sha256, verifyPrefix};
+    const api = {statusPresentation, boundedIds, mayStopPolling, indexedSourceValuePath, reviewEligibility,
+        effectiveOptions, sha256, boundedJson, verifyPrefix};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CarlosCdsImport = api;
     if (!global.document) return;
@@ -105,8 +139,13 @@
             queued: 'fichier(s) accepté(s). Vérifier les reçus durables de chaque tâche.', resume: 'Sélectionner pour reprise',
             open: 'Ouvrir la tâche', abandon: 'Abandonner le transfert non soumis', review: 'Réviser',
             reviewVersion: 'Aucune version de révision sûre n’est disponible. Recharger l’état ou consulter le rapport.',
+            reviewPath: 'Indiquer le XPath indexé exact d’une valeur scalaire, pas un patient ou une section.',
+            reviewPatient: 'Le diagnostic ne désigne aucune copie de patient vérifiable. Le refus est indisponible; consulter le rapport protégé ou corriger la source.',
             page: 'Cette page est limitée; les rapports complets restent disponibles.', current: 'Courant',
             selectOne: 'Resélectionner exactement un fichier pour reprendre un transfert.',
+            housekeeping: 'Le nettoyage des transferts nécessite une intervention administrative. Vérifier les transferts en attente et les réservations du disque.',
+            worker: 'Le processus d’importation s’est arrêté. La récupération et la réconciliation des validations sont en attente.',
+            secure: 'Une connexion sécurisée au navigateur est requise pour vérifier les octets transférés. Ouvrir CARLOS par son adresse HTTPS approuvée.',
         } : {
             failed: 'The request did not complete. Check durable status before retrying.',
             choose: 'Select at least one XML/ZIP file.', maxFiles: 'Select at most 128 files at once; use a ZIP for larger batches.',
@@ -115,8 +154,13 @@
             queued: 'file(s) accepted. Check each durable run receipt.', resume: 'Select for resume',
             open: 'Open run', abandon: 'Abandon unsubmitted upload', review: 'Review',
             reviewVersion: 'No safe review version is available. Reload status or inspect the protected report.',
+            reviewPath: 'Enter the exact indexed XPath of a scalar value, rather than a patient or section.',
+            reviewPatient: 'This diagnostic has no verifiable patient copy. Decline is unavailable; inspect the protected report or correct the source.',
             page: 'This is a bounded page; complete protected reports remain available.', current: 'Current',
             selectOne: 'Reselect exactly one file to resume an upload.',
+            housekeeping: 'Upload cleanup needs administrator attention. Check pending uploads and disk reservations.',
+            worker: 'The import worker stopped. Recovery and commit reconciliation are pending.',
+            secure: 'A secure browser connection is required to verify uploaded bytes. Open CARLOS at its approved HTTPS address.',
         };
         let activeRun = '';
         let timer;
@@ -150,16 +194,29 @@
                 body = new URLSearchParams();
                 for (const [name, value] of Object.entries(params)) if (value !== undefined && value !== null) body.set(name, String(value));
             }
-            const response = await global.fetch(url, {method, headers, body, credentials: 'same-origin', cache: 'no-store'});
-            const type = response.headers.get('content-type') || '';
-            if (response.redirected || !type.includes('application/json')) throw new Error('IMPORT_RESPONSE_UNAVAILABLE_HTTP_' + response.status);
-            const data = await response.json();
-            if (!response.ok || data.ok !== true) {
-                const failure = new Error(data.code || 'IMPORT_RESPONSE_FAILED'); failure.status = response.status; throw failure;
+            const controller = new global.AbortController();
+            const deadline = global.setTimeout(() => controller.abort(), options.body !== undefined ? 135000 : 30000);
+            try {
+                const response = await global.fetch(url, {method, headers, body, signal: controller.signal,
+                    credentials: 'same-origin', cache: 'no-store'});
+                const type = response.headers.get('content-type') || '';
+                if (response.redirected || !type.includes('application/json')) {
+                    await response.body?.cancel().catch(() => {});
+                    throw new Error('IMPORT_RESPONSE_UNAVAILABLE_HTTP_' + response.status);
+                }
+                const data = await boundedJson(response);
+                if (!response.ok || data?.ok !== true) {
+                    const failure = new Error(data?.code || 'IMPORT_RESPONSE_FAILED'); failure.status = response.status; throw failure;
+                }
+                return data;
+            } finally {
+                global.clearTimeout(deadline);
             }
-            return data;
         }
-        function failure(error) { notice(text.failed + ' ' + String(error.message || 'IMPORT_UNAVAILABLE').slice(0, 160), true); }
+        function failure(error) {
+            notice(error.message === 'UPLOAD_SECURE_CONTEXT_REQUIRED' ? text.secure
+                : text.failed + ' ' + String(error.message || 'IMPORT_UNAVAILABLE').slice(0, 160), true);
+        }
         function safe(action) { return () => Promise.resolve().then(action).catch(failure); }
         function readOptions() {
             const selection = byId('cdsSource').selectedOptions[0];
@@ -201,6 +258,7 @@
         }
 
         async function transfer(file, resumeId) {
+            if (!global.crypto?.subtle) throw new Error('UPLOAD_SECURE_CONTEXT_REQUIRED');
             if (!Number.isSafeInteger(file.size) || file.size < 1 || file.size > Number(root.dataset.maxFileBytes)
                     || !/\.(xml|zip)$/i.test(file.name)) throw new Error('UPLOAD_FILE_SIZE_OR_TYPE_REFUSED');
             let receipt;
@@ -297,10 +355,19 @@
         async function updateStatus(id) {
             const data = await request('cdsImportStatus', {runId: id});
             if (id !== activeRun) return;
+            if (!data.job || data.job.id !== id) throw new Error('IMPORT_STATUS_RUN_CONFLICT');
             latestSummary = data.summary || {};
+            const administrativeAlert = byId('cdsAdministrativeAlert');
+            administrativeAlert.hidden = !latestSummary.administrativeAlert;
+            administrativeAlert.textContent = latestSummary.administrativeAlert
+                ? text.housekeeping + ' ' + String(latestSummary.administrativeAlert).slice(0, 96) : '';
+            const workerAlert = byId('cdsWorkerAlert'); workerAlert.hidden = !latestSummary.workerAlert;
+            workerAlert.textContent = latestSummary.workerAlert
+                ? text.worker + ' ' + String(latestSummary.workerAlert).slice(0, 96) : '';
             const presentation = statusPresentation(data.job, latestSummary);
             byId('runState').textContent = text.state + ': ' + presentation.state + ' — ' + id + ' — ' + (data.job.updatedAt || '');
             byId('runState').className = presentation.clean ? 'text-success' : 'text-body';
+            byId('cancelRun').disabled = false; byId('resumeRun').disabled = false;
             const summary = JSON.stringify({job: data.job, summary: latestSummary}, null, 2);
             byId('runSummary').textContent = summary.length > 32000 ? summary.slice(0, 32000) + '\n' + text.page : summary;
             for (const [element, type] of [['eventReport', 'event'], ['errorReport', 'error'], ['receiptReport', 'receipt']]) {
@@ -317,11 +384,18 @@
         }
         async function poll(id) {
             try { await updateStatus(id); }
-            catch (error) { if (id === activeRun) { byId('runState').textContent = text.unavailable; failure(error); } }
+            catch (error) { if (id === activeRun) {
+                byId('runState').textContent = text.unavailable;
+                byId('cancelRun').disabled = true; byId('resumeRun').disabled = true; failure(error);
+            } }
         }
         async function openRun(id) {
             if (!UUID.test(id || '')) throw new Error('IMPORT_RUN_ID_INVALID');
             global.clearTimeout(timer); activeRun = id; byId('runId').value = id;
+            latestSummary = {}; byId('runState').textContent = text.unavailable; byId('runState').className = 'text-body';
+            byId('runSummary').textContent = ''; byId('patientRows').replaceChildren(); byId('diagnosticRows').replaceChildren();
+            byId('cdsReviewForm').hidden = true; byId('cancelRun').disabled = true; byId('resumeRun').disabled = true;
+            for (const name of ['eventReport', 'errorReport', 'receiptReport']) byId(name).hidden = true;
             patientCursor = ''; diagnosticCursor = 0;
             patientPageStart = ''; diagnosticPageStart = 0; lastRunUpdated = '';
             await updateStatus(id);
@@ -353,9 +427,14 @@
                 const actions = cell(row, item.resolved ? 'RESOLVED' : item.severity);
                 if (item.blocking && !item.resolved) actions.append(button(text.review, () => {
                     if (!Number.isSafeInteger(latestSummary.reviewVersion) || latestSummary.reviewVersion < 0) throw new Error(text.reviewVersion);
+                    const eligibility = reviewEligibility(item);
                     byId('reviewDiagnosticId').value = item.id; byId('reviewPatientKey').value = item.patientKey || '';
                     byId('reviewUnitKey').value = item.unitKey || ''; byId('reviewVersion').value = latestSummary.reviewVersion;
-                    byId('reviewXPath').value = item.sourceXPath || ''; byId('reviewValue').value = ''; byId('reviewReason').value = '';
+                    byId('reviewKind').value = 'CORRECT_VALUE';
+                    byId('reviewDeclineOption').disabled = !eligibility.canDecline;
+                    byId('reviewPatientHelp').textContent = eligibility.canDecline ? '' : text.reviewPatient;
+                    byId('reviewXPath').value = eligibility.initialXPath; byId('reviewValue').value = ''; byId('reviewReason').value = '';
+                    updateReviewKind();
                     byId('cdsReviewForm').hidden = false; byId('reviewReason').focus();
                 }));
                 return row;
@@ -375,9 +454,19 @@
                 await request('cdsImportControl', {operation, runId: activeRun}, {method: 'POST'}); await openRun(activeRun);
             }));
         }
+        function updateReviewKind() {
+            const correction = byId('reviewKind').value === 'CORRECT_VALUE';
+            byId('reviewXPath').disabled = !correction; byId('reviewXPath').required = correction;
+            byId('reviewValue').disabled = !correction;
+        }
+        byId('reviewKind').addEventListener('change', updateReviewKind);
         byId('cdsReviewForm').addEventListener('submit', event => {
             event.preventDefault();
             safe(async () => {
+                if (byId('reviewKind').value === 'DECLINE_PATIENT'
+                        && !reviewEligibility({patientKey: byId('reviewPatientKey').value}).canDecline) throw new Error(text.reviewPatient);
+                if (byId('reviewKind').value === 'CORRECT_VALUE'
+                        && !indexedSourceValuePath(byId('reviewXPath').value)) throw new Error(text.reviewPath);
                 await request('cdsImportControl', {operation: 'review', runId: activeRun, kind: byId('reviewKind').value,
                     diagnosticId: byId('reviewDiagnosticId').value, patientKey: byId('reviewPatientKey').value,
                     unitKey: byId('reviewUnitKey').value, expectedVersion: byId('reviewVersion').value,

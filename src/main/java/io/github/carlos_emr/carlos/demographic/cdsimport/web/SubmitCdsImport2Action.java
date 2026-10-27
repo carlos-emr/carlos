@@ -71,6 +71,9 @@ public class SubmitCdsImport2Action extends ActionSupport {
             var command = new CdsImportCommand(configuration.uploadRoot(), receipt.submissionKey() + (dryRun ? "-dry-run" : "-import"),
                     providerNo == null ? actor.getLoggedInProviderNo() : providerNo, programId, facilityId,
                     sourceNamespace, sourceProfile, mergeExisting, dryRun, matchProviderNames, timeshiftInDays, courseId, synthetic);
+            // Reject known authorization/delegation/course failures before fencing bytes as acceptance-uncertain.
+            // The facade rechecks these scopes again at durable acceptance; this precheck grants no capability.
+            access.webActor(actor, command);
             var input = uploads.claimForSubmission(operator, uploadId);
             command = new CdsImportCommand(input, command.submissionKey(), command.providerNo(), command.programId(), command.facilityId(),
                     command.sourceNamespace(), command.sourceProfile(), command.mergeExisting(), command.dryRun(), command.matchProviderNames(),

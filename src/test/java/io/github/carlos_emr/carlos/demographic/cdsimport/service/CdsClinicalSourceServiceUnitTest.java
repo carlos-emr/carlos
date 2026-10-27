@@ -56,6 +56,7 @@ class CdsClinicalSourceServiceUnitTest extends CarlosUnitTestBase {
     private CdsImportMaintenanceService maintenance;
     private CdsLaboratoryReadService laboratory;
     private CdsImportAdmissionDao admission;
+    private CdsCorrectionLookupService corrections;
     private CdsImportAdmission barrier;
     private PlatformTransactionManager manager;
     private LoggedInInfo actor;
@@ -65,8 +66,8 @@ class CdsClinicalSourceServiceUnitTest extends CarlosUnitTestBase {
         maintenance=mock(CdsImportMaintenanceService.class);laboratory=mock(CdsLaboratoryReadService.class);admission=mock(CdsImportAdmissionDao.class);
         barrier=new CdsImportAdmission();barrier.setId(CdsJdbcAdmissionState.ROW);when(admission.readLock(CdsJdbcAdmissionState.ROW)).thenReturn(barrier);
         manager=mock(PlatformTransactionManager.class);when(manager.getTransaction(any())).thenAnswer(call->new SimpleTransactionStatus());
-        actor=mock(LoggedInInfo.class);Properties properties=new Properties();properties.setProperty("cds.import.stagingRoot",temporary.toString());
-        source=new CdsClinicalSourceService(access,fields,patients,maintenance,laboratory,admission,new CdsImportConfigurationService(properties),manager);
+        actor=mock(LoggedInInfo.class);corrections=mock(CdsCorrectionLookupService.class);Properties properties=new Properties();properties.setProperty("cds.import.stagingRoot",temporary.toString());
+        source=new CdsClinicalSourceService(access,fields,patients,maintenance,laboratory,admission,new CdsImportConfigurationService(properties),corrections,manager);
     }
     @Test void shouldDenyHeldPartialPatient_beforeReadingAnySourceValues(){
         when(patients.held(42)).thenReturn(true);
@@ -88,6 +89,16 @@ class CdsClinicalSourceServiceUnitTest extends CarlosUnitTestBase {
         doThrow(new SecurityException("denied")).when(laboratory).requireSourceFieldsReadable(actor,42);
         clearInvocations(fields);
         assertThatThrownBy(()->source.page(actor,42,"LaboratoryResults","",50)).isInstanceOf(SecurityException.class);verifyNoInteractions(fields);
+    }
+    @Test void shouldApplyPatientCategoryHoldAndSensitivityPolicy_toReviewProvenanceAsWell() {
+        when(corrections.pageByDemographic(42,"ClinicalNotes","",50)).thenReturn(List.of());
+        assertThat(source.provenance(actor,42,"ClinicalNotes","",50)).isEmpty();
+        verify(access).requireClinicalRead(actor,42,"ClinicalNotes");verify(corrections).pageByDemographic(42,"ClinicalNotes","",50);
+        clearInvocations(corrections);when(patients.held(42)).thenReturn(true);
+        assertThatThrownBy(()->source.provenance(actor,42,"ClinicalNotes","",50)).hasMessage("SOURCE_FIELD_IMPORT_HOLD");verifyNoInteractions(corrections);
+        when(patients.held(42)).thenReturn(false);doThrow(new SecurityException("restricted")).when(laboratory).requireSourceFieldsReadable(actor,42);
+        assertThatThrownBy(()->source.provenance(actor,42,"LaboratoryResults","",50)).isInstanceOf(SecurityException.class);verifyNoInteractions(corrections);
+        assertThatThrownBy(()->source.provenance(actor,42,"ClinicalNotes","../../file",50)).hasMessage("SOURCE_FIELD_REVIEW_PAGE_INVALID");
     }
     @Test void shouldRejectOversizedPagesForgedCategoryAndCursor_beforeAnyDatabaseRead(){
         assertThatThrownBy(()->source.page(actor,42,"ClinicalNotes","",51)).hasMessage("SOURCE_FIELD_PAGE_INVALID");

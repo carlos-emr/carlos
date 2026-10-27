@@ -1202,6 +1202,17 @@ class MutatorActionGetRejectionContractUnitTest {
 
     private static Object instantiateAction(Class<?> actionClass, Map<Class<?>, Object> autoMocks)
             throws Exception {
+        if (actionClass.getPackageName().equals("io.github.carlos_emr.carlos.demographic.cdsimport.web")) {
+            // New CDS actions use one explicit constructor; method rejection must run before any injected service.
+            var constructors = actionClass.getConstructors();
+            assertThat(constructors).as("one constructor for the CDS action boundary").hasSize(1);
+            Class<?>[] types = constructors[0].getParameterTypes();
+            Object[] arguments = new Object[types.length];
+            for (int index = 0; index < types.length; index++) {
+                arguments[index] = autoMocks.computeIfAbsent(types[index], Mockito::mock);
+            }
+            return constructors[0].newInstance(arguments);
+        }
         if (actionClass.equals(DelEForm2Action.class)) {
             return new DelEForm2Action(mock(SecurityInfoManager.class));
         }
