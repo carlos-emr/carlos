@@ -24,6 +24,10 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -34,7 +38,8 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.util.List;
 import java.util.Objects;
-import org.springframework.stereotype.Service;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 
 /** Physical reconciliation is streaming and outside clinical transactions, including resumed/no-op references. */
 @Service
@@ -43,60 +48,126 @@ public class CdsImportFileVerificationService {
     private final CdsImportLedgerService ledger;
     private final CdsImportConfigurationService configuration;
 
-    public CdsImportFileVerificationService(CdsImportFileService files, CdsImportLedgerService ledger,
-            CdsImportConfigurationService configuration) {
-        this.files=files; this.ledger=ledger; this.configuration=configuration;
+    private final CdsFieldParser fields;
+    private final LongSupplier nanoTime;
+
+    @Autowired
+    public CdsImportFileVerificationService(
+            CdsImportFileService files,
+            CdsImportLedgerService ledger,
+            CdsImportConfigurationService configuration,
+            CdsFieldParser fields) {
+        this(files, ledger, configuration, fields, System::nanoTime);
+    }
+
+    CdsImportFileVerificationService(
+            CdsImportFileService files,
+            CdsImportLedgerService ledger,
+            CdsImportConfigurationService configuration,
+            CdsFieldParser fields,
+            LongSupplier nanoTime) {
+        this.files = files;
+        this.ledger = ledger;
+        this.configuration = configuration;
+        this.fields = fields;
+        this.nanoTime = nanoTime;
     }
 
     public void verify(String run, long epoch) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
-        String after="";
+        var control = new VerificationControl(run, epoch);
+        String after = "";
         while (true) {
-            requireOwner(run, epoch);
-            List<CdsImportFileDto> page=files.referencedFiles(run, after, 100);
+            control.check(true);
+            List<CdsImportFileDto> page = files.referencedFiles(run, after, 100);
             if (page.isEmpty()) return;
-            for (CdsImportFileDto file:page) {
-                requireOwner(run, epoch); verify(run, epoch, file); after=file.id();
+            for (CdsImportFileDto file : page) {
+                control.check(true);
+                verify(run, epoch, file, control);
+                after = file.id();
             }
         }
     }
 
-    private void verify(String run, long epoch, CdsImportFileDto file) throws IOException {
-        if (!"PUBLISHED".equals(file.state())) throw new CdsImportException("REFERENCED_FILE_NOT_PUBLISHED");
-        Path path=Path.of(file.location()).toAbsolutePath().normalize();
-        Path staging=configuration.stagingRoot();
-        Path document=PathValidationUtils.getRequiredDocumentDirectory().toPath().toAbsolutePath().normalize();
-        Path allowed=path.startsWith(staging)?staging:path.startsWith(document)?document:null;
-        if (allowed==null) throw new CdsImportException("REFERENCED_FILE_LOCATION_INVALID");
-        path=CdsPaths.within(path, allowed);
-        BasicFileAttributes before=Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-        if (!before.isRegularFile() || before.size()!=file.byteLength()) throw new CdsImportException("REFERENCED_FILE_LENGTH_MISMATCH");
-        MessageDigest hash=CdsPaths.sha256();
-        long bytes=0;
-        long nextCheck=16L<<20;
-        try (InputStream input=Files.newInputStream(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
-            byte[] buffer=new byte[65536];
+    private void verify(String run, long epoch, CdsImportFileDto file, VerificationControl control)
+            throws IOException {
+        if (!"PUBLISHED".equals(file.state()))
+            throw new CdsImportException("REFERENCED_FILE_NOT_PUBLISHED");
+        Path path = Path.of(file.location()).toAbsolutePath().normalize();
+        Path staging = configuration.stagingRoot();
+        Path document =
+                PathValidationUtils.getRequiredDocumentDirectory()
+                        .toPath()
+                        .toAbsolutePath()
+                        .normalize();
+        Path allowed =
+                path.startsWith(staging) ? staging : path.startsWith(document) ? document : null;
+        if (allowed == null) throw new CdsImportException("REFERENCED_FILE_LOCATION_INVALID");
+        path = CdsPaths.within(path, allowed);
+        BasicFileAttributes before =
+                Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (!before.isRegularFile() || before.size() != file.byteLength())
+            throw new CdsImportException("REFERENCED_FILE_LENGTH_MISMATCH");
+        MessageDigest hash = CdsPaths.sha256();
+        long bytes = 0;
+        try (InputStream input =
+                Files.newInputStream(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            byte[] buffer = new byte[65536];
             int count;
-            while ((count=input.read(buffer))!=-1) {
-                bytes=Math.addExact(bytes, count); hash.update(buffer, 0, count);
-                if (bytes>file.byteLength()) throw new CdsImportException("REFERENCED_FILE_LENGTH_MISMATCH");
-                if (bytes>=nextCheck) { requireOwner(run, epoch); nextCheck=Math.addExact(bytes, 16L<<20); }
+            while ((count = input.read(buffer)) != -1) {
+                control.check(false);
+                bytes = Math.addExact(bytes, count);
+                hash.update(buffer, 0, count);
+                if (bytes > file.byteLength())
+                    throw new CdsImportException("REFERENCED_FILE_LENGTH_MISMATCH");
             }
         }
-        BasicFileAttributes after=Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-        if (bytes!=file.byteLength() || !CdsPaths.hex(hash.digest()).equals(file.digest())
-                || !Objects.equals(before.fileKey(), after.fileKey()) || before.size()!=after.size()
+        BasicFileAttributes after =
+                Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (bytes != file.byteLength()
+                || !CdsPaths.hex(hash.digest()).equals(file.digest())
+                || !Objects.equals(before.fileKey(), after.fileKey())
+                || before.size() != after.size()
                 || !before.lastModifiedTime().equals(after.lastModifiedTime())) {
             throw new CdsImportException("REFERENCED_FILE_DIGEST_MISMATCH");
         }
-        requireOwner(run, epoch);
+        control.check(true);
         files.verifiedIfOwned(run, epoch, file.id(), file.digest(), file.byteLength());
     }
 
+    /** Elapsed-time polling applies even to slow reads that never reach the old 16MiB threshold. */
+    private final class VerificationControl {
+        private final String run;
+        private final long epoch;
+        private final long started = nanoTime.getAsLong();
+        private final long maximumMillis = configuration.limits().maxDurationMillis();
+        private long nextPoll;
+
+        VerificationControl(String run, long epoch) {
+            this.run = run;
+            this.epoch = epoch;
+        }
+
+        void check(boolean forceOwner) throws IOException {
+            if (Thread.currentThread().isInterrupted())
+                throw new CdsImportException("IMPORT_CANCELLED");
+            fields.checkpoint();
+            long now = nanoTime.getAsLong();
+            if (TimeUnit.NANOSECONDS.toMillis(now - started) >= maximumMillis)
+                throw new CdsImportException("IMPORT_FILE_VERIFICATION_TIMEOUT");
+            if (forceOwner || now >= nextPoll) {
+                requireOwner(run, epoch);
+                nextPoll = now + 250_000_000L;
+            }
+        }
+    }
+
     private void requireOwner(String run, long epoch) {
-        if (Thread.currentThread().isInterrupted()) throw new CdsImportException("IMPORT_CANCELLED");
-        var job=ledger.status(run);
-        if (job.ownerEpoch()!=epoch) throw new CdsImportException("OWNER_FENCED");
+        if (Thread.currentThread().isInterrupted())
+            throw new CdsImportException("IMPORT_CANCELLED");
+        var job = ledger.status(run);
+        if (job.ownerEpoch() != epoch || !ledger.ownsAdmission(run, epoch))
+            throw new CdsImportException("OWNER_FENCED");
         if (job.cancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
     }
 }

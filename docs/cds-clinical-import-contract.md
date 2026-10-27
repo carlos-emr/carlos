@@ -140,3 +140,6 @@ Resuming after clinical writes deliberately requires the same frozen application
 
 
 The follow-up isolated Java25 component run passes 293 tests with zero skipped, including seventeen report-media/preparation cases and seven runtime-identity cases. These cover a synthetic 64 GiB binary source inspected within the fixed header budget, a streamed 20 MiB text source, multibyte boundaries, media/encoding warnings, I/O/close/length failures, ownership loss before publication, whole-second report projection, retry after fingerprint failure, and locale/time-zone mutation refusal. Actual native report storage, the final whole application/runtime-origin fingerprint parity, and installed complete import verification remain required integrated gates.
+
+
+Physical referenced-file verification now uses the same scoped coordinator, epoch, admission, cancellation and deadline controls before and after writes. Every bounded 64 KiB read checks interruption and elapsed budget; durable owner/admission/cancel polling uses elapsed time rather than a sixteen-megabyte threshold, so a slow small file cannot evade it. No verification I/O runs inside a clinical unit transaction. Eight deterministic seven-byte-read regressions cover these failures, exact digest proof and proof refusal; the focused component suite now passes 301 tests with zero skipped.

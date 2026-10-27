@@ -126,7 +126,9 @@ public class CdsImportExecutionService {
             }
             boolean recovery=resume || Set.of("RUNNING", "FINALIZING", "RECONCILING").contains(job.state());
                 epoch=resume?ledger.resume(runId):ledger.acquire(runId);
-                fileVerification.verify(runId, epoch);
+                try (var control=ioControl(runId, epoch, coordinator, "IMPORT_FILE_VERIFICATION_TIMEOUT")) {
+                    fileVerification.verify(runId, epoch);
+                }
                 // Verify current-run receipts before new writes. Completed patients retain their existing publication.
                 String patientAfter="";
                 while (true) {
@@ -160,13 +162,7 @@ public class CdsImportExecutionService {
                         owner.read(() -> access.context(work.actor(), work.command(), ledger.patientStatus(runId, unit.patientKey()).targetDemographicNo()));
                         planning.publishValues(runId, epoch, work);
                         final long preparationEpoch=epoch;
-                        long started=System.nanoTime(), maximumMillis=configuration.limits().maxDurationMillis();
-                        try (var control=fields.control(() -> {
-                            coordinator.check(); var current=ledger.status(runId);
-                            if (Thread.currentThread().isInterrupted() || current.cancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
-                            if (current.ownerEpoch()!=preparationEpoch || !ledger.ownsAdmission(runId, preparationEpoch)) throw new CdsImportException("OWNER_FENCED");
-                            if (java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-started)>=maximumMillis) throw new CdsImportException("IMPORT_PREPARATION_TIMEOUT");
-                        })) {
+                        try (var control=ioControl(runId, preparationEpoch, coordinator, "IMPORT_PREPARATION_TIMEOUT")) {
                             owner.readIo(() -> {nativeRecords.prepare(runId,preparationEpoch,unit,work.record(),work.command(),work.snapshot(),work.xmlRelative());return null;});
                         }
                         final long unitEpoch=epoch;
@@ -174,7 +170,9 @@ public class CdsImportExecutionService {
                     }
                 }
                 currentPatient=null; currentUnit=null;
-                fileVerification.verify(runId, epoch);
+                try (var control=ioControl(runId, epoch, coordinator, "IMPORT_FILE_VERIFICATION_TIMEOUT")) {
+                    fileVerification.verify(runId, epoch);
+                }
                 if (recovery) ledger.resolveRecoveredExecution(runId, epoch);
                 String after="";
                 while (true) {
@@ -262,4 +260,21 @@ public class CdsImportExecutionService {
         }
         return path==null || path.isBlank() || path.length()>2048?null:path;
     }
+    /** One bounded control scope ends before any clinical unit transaction begins. */
+    private CdsFieldParser.ControlScope ioControl(String run, long epoch,
+            CdsImportCoordinatorService.Owner coordinator, String timeoutCode) {
+        long started = System.nanoTime();
+        long maximumMillis = configuration.limits().maxDurationMillis();
+        return fields.control(() -> {
+            coordinator.check();
+            var current = ledger.status(run);
+            if (Thread.currentThread().isInterrupted() || current.cancelRequested())
+                throw new CdsImportException("IMPORT_CANCELLED");
+            if (current.ownerEpoch() != epoch || !ledger.ownsAdmission(run, epoch))
+                throw new CdsImportException("OWNER_FENCED");
+            if (java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) >= maximumMillis)
+                throw new CdsImportException(timeoutCode);
+        });
+    }
+
 }
