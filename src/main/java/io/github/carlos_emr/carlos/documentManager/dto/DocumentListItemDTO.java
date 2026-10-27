@@ -55,6 +55,7 @@ public class DocumentListItemDTO implements Serializable {
     private char status;
     private String contenttype;
     private Date contentdatetime;
+    private String cdsContentPrecision;
     private Date observationdate;
     private String reviewer;
     private Date reviewdatetime;
@@ -92,6 +93,16 @@ public class DocumentListItemDTO implements Serializable {
                                String source, char status, String contenttype, Date contentdatetime,
                                Date observationdate, String reviewer, Date reviewdatetime,
                                Integer numberofpages, Integer appointmentNo, boolean abnormal) {
+        this(documentNo,doctype,docClass,docSubClass,docdesc,docfilename,doccreator,responsible,source,status,
+                contenttype,contentdatetime,observationdate,reviewer,reviewdatetime,numberofpages,appointmentNo,abnormal,null);
+    }
+
+    public DocumentListItemDTO(Integer documentNo, String doctype, String docClass, String docSubClass,
+                               String docdesc, String docfilename, String doccreator, String responsible,
+                               String source, char status, String contenttype, Date contentdatetime,
+                               Date observationdate, String reviewer, Date reviewdatetime,
+                               Integer numberofpages, Integer appointmentNo, boolean abnormal,String cdsContentPrecision) {
+        this.cdsContentPrecision=cdsContentPrecision;
         this.documentNo = documentNo;
         this.doctype = doctype;
         this.docClass = docClass;
@@ -125,7 +136,7 @@ public class DocumentListItemDTO implements Serializable {
                 d.getDocdesc(), d.getDocfilename(), d.getDoccreator(), d.getResponsible(),
                 d.getSource(), d.getStatus(), d.getContenttype(), d.getContentdatetime(),
                 d.getObservationdate(), d.getReviewer(), d.getReviewdatetime(),
-                d.getNumberofpages(), d.getAppointmentNo(), d.isAbnormal()
+                d.getNumberofpages(), d.getAppointmentNo(), d.isAbnormal(),d.getCdsContentPrecision()
         );
     }
 
@@ -161,6 +172,8 @@ public class DocumentListItemDTO implements Serializable {
     public String getContenttype() { return contenttype; }
     public void setContenttype(String contenttype) { this.contenttype = contenttype; }
     public Date getContentdatetime() { return contentdatetime; }
+    public String getCdsContentPrecision() { return cdsContentPrecision; }
+    public void setCdsContentPrecision(String value) { cdsContentPrecision=value; }
     public void setContentdatetime(Date contentdatetime) { this.contentdatetime = contentdatetime; }
     public Date getObservationdate() { return observationdate; }
     public void setObservationdate(Date observationdate) { this.observationdate = observationdate; }

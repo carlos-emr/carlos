@@ -683,7 +683,7 @@
                                 </td>
                                 <td><carlos:encode value='<%= curdoc.getObservationDate() %>' context="html"/>
                                 </td>
-                                <td><%=curdoc.getContentDateTime()%>
+                                <td><carlos:encode value='<%=curdoc.getContentDateTimeDisplay()%>' context="html"/>
                                 </td>
 
                                 <td style="text-align: right;">

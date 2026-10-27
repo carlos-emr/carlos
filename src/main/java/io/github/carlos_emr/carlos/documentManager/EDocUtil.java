@@ -317,6 +317,7 @@ public final class EDocUtil {
         doc.setResponsible(newDocument.getResponsibleId());
         doc.setProgramId(newDocument.getProgramId());
         doc.setUpdatedatetime(newDocument.getDateTimeStampAsDate());
+        doc.setCdsContentPrecision(newDocument.getCdsContentPrecision());
         doc.setContentdatetime(newDocument.getContentDateTime());
         doc.setStatus(newDocument.getStatus());
         doc.setContenttype(newDocument.getContentType());
@@ -432,7 +433,9 @@ public final class EDocUtil {
             if (newDocument.getFileName().length() > 0) {
                 doc.setDocfilename(newDocument.getFileName());
                 doc.setContenttype(newDocument.getContentType());
-                doc.setContentdatetime(newDocument.getContentDateTime());
+                // Content time is read-only in this metadata editor. Preserve the imported
+                // source value even when an EDoc constructor populated an upload-time default.
+                if(doc.getCdsContentPrecision()==null) doc.setContentdatetime(newDocument.getContentDateTime());
                 // The replacement's page count, as adding a document stores it (0 when it is not a PDF);
                 // the inbox view, the document display and Split read it.
                 doc.setNumberofpages(newDocument.getNumberOfPages());
@@ -508,6 +511,7 @@ public final class EDocUtil {
             currentdoc.setReviewerId(d.getReviewer());
             currentdoc.setReviewDateTime(ConversionUtils.toTimestampString(d.getReviewdatetime()));
             currentdoc.setReviewDateTimeDate(d.getReviewdatetime());
+            currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
             currentdoc.setContentDateTime(d.getContentdatetime());
 
             if (d.isRestrictToProgram() != null) {
@@ -544,6 +548,7 @@ public final class EDocUtil {
                 currentdoc.setReviewerId(d.getReviewer());
                 currentdoc.setReviewDateTime(ConversionUtils.toTimestampString(d.getReviewdatetime()));
                 currentdoc.setReviewDateTimeDate(d.getReviewdatetime());
+                currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
                 currentdoc.setContentDateTime(d.getContentdatetime());
                 currentdoc.setRestrictToProgram(d.isRestrictToProgram());
 
@@ -601,6 +606,7 @@ public final class EDocUtil {
             currentdoc.setReviewerId(d.getReviewer());
             currentdoc.setReviewDateTime(ConversionUtils.toTimestampString(d.getReviewdatetime()));
             currentdoc.setReviewDateTimeDate(d.getReviewdatetime());
+            currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
             currentdoc.setContentDateTime(d.getContentdatetime());
             currentdoc.setAbnormal(String.valueOf(d.isAbnormal()));
         }
@@ -710,6 +716,7 @@ public final class EDocUtil {
         currentdoc.setDateTimeStampAsDate(d.getUpdatedatetime());
         currentdoc.setDocClass(d.getDocClass());
         currentdoc.setDocSubClass(d.getDocSubClass());
+        currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
         currentdoc.setContentDateTime(d.getContentdatetime());
         if (d.isRestrictToProgram() != null && d.isRestrictToProgram()) {
             currentdoc.setRestrictToProgram(true);
@@ -748,6 +755,7 @@ public final class EDocUtil {
             currentdoc.setStatus(d.getStatus());
             currentdoc.setContentType(d.getContenttype());
             currentdoc.setObservationDate(d.getObservationdate());
+            currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
             currentdoc.setContentDateTime(d.getContentdatetime());
 
             list.add(currentdoc);
@@ -821,6 +829,7 @@ public final class EDocUtil {
             currentdoc.setReviewerId(d.getReviewer());
             currentdoc.setReviewDateTime(ConversionUtils.toTimestampString(d.getReviewdatetime()));
             currentdoc.setReviewDateTimeDate(d.getReviewdatetime());
+            currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
             currentdoc.setContentDateTime(d.getContentdatetime());
             resultDocs.add(currentdoc);
         }
@@ -869,7 +878,8 @@ public final class EDocUtil {
             currentdoc.setHtml(d.getDocxml());
             currentdoc.setStatus(d.getStatus());
             currentdoc.setContentType(d.getContenttype());
-            currentdoc.setNumberOfPages(d.getNumberofpages());
+            currentdoc.setNumberOfPages(d.getNumberofpages()==null?0:d.getNumberofpages());
+            currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
             currentdoc.setContentDateTime(d.getContentdatetime());
 
             currentdoc.setReceivedDate(d.getReceivedDate());

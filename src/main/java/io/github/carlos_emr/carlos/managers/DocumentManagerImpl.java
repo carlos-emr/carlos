@@ -392,6 +392,9 @@ public class DocumentManagerImpl implements DocumentManager {
      * @return Integer the document ID
      */
     private Integer updateDocument(LoggedInInfo loggedInInfo, Document document) {
+        // The generic metadata form does not edit imported source timestamps. A detached
+        // EDoc/default Date must not turn an unknown source time into an upload-time assertion.
+        document.preserveImportedContentFrom(documentDao.find(document.getDocumentNo()));
         documentDao.merge(document);
         LogAction.addLog(loggedInInfo, "DocumentManager.saveDocument", "Document updated ", "Document No." + document.getDocumentNo(), "", "");
         return document.getId();
