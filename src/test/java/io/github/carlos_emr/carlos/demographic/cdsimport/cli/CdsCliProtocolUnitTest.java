@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullSource;
 import static org.assertj.core.api.Assertions.*;
 
 @Tag("unit")
@@ -221,19 +222,23 @@ class CdsCliProtocolUnitTest {
             default -> UUID.randomUUID().toString();
         };
         value.put(field, changed);
-        assertThatThrownBy(() -> CdsDelegationVerifier.verifyDocument(new ObjectMapper().writeValueAsBytes(value),
-                NONCE + ".json", CdsCliArguments.parse(IMPORT), IMPORT, Instant.ofEpochSecond(1000))).isInstanceOf(IOException.class);
+        byte[] forged = new ObjectMapper().writeValueAsBytes(value);
+        var arguments = CdsCliArguments.parse(IMPORT);
+        assertThatThrownBy(() -> CdsDelegationVerifier.verifyDocument(forged,
+                NONCE + ".json", arguments, IMPORT, Instant.ofEpochSecond(1000))).isInstanceOf(IOException.class);
     }
 
     @Test
     void shouldRejectAmbiguousJsonAndExpiredProof_whenDuplicateTrailingOrOverlongControlInputArrives() throws Exception {
         String document = new String(document(), StandardCharsets.UTF_8);
+        var arguments = CdsCliArguments.parse(IMPORT);
         for (String malformed : List.of(document + " {}", document.replace("\"protocol\":1", "\"protocol\":1,\"protocol\":1"), " ".repeat(65537))) {
             assertThatThrownBy(() -> CdsDelegationVerifier.verifyDocument(malformed.getBytes(StandardCharsets.UTF_8),
-                    NONCE + ".json", CdsCliArguments.parse(IMPORT), IMPORT, Instant.ofEpochSecond(1000))).isInstanceOf(IOException.class);
+                    NONCE + ".json", arguments, IMPORT, Instant.ofEpochSecond(1000))).isInstanceOf(IOException.class);
         }
-        assertThatThrownBy(() -> CdsDelegationVerifier.verifyDocument(document(), NONCE + ".json",
-                CdsCliArguments.parse(IMPORT), IMPORT, Instant.ofEpochSecond(1400))).isInstanceOf(IOException.class);
+        byte[] expired = document();
+        assertThatThrownBy(() -> CdsDelegationVerifier.verifyDocument(expired, NONCE + ".json",
+                arguments, IMPORT, Instant.ofEpochSecond(1400))).isInstanceOf(IOException.class);
     }
 
     @Test
@@ -294,6 +299,33 @@ class CdsCliProtocolUnitTest {
         assertThat(invoke("import", runtime)).isEqualTo(4);
         assertThat(stdout.toString(StandardCharsets.UTF_8)).contains(NONCE);
         assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("CDS_INCOMPLETE").doesNotContain("sensitive-path");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"IMPORT_BUSY", "IMPORT_ALREADY_RUNNING", "IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE",
+            "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION"})
+    void shouldExposeFiniteSafeReason_whenSharedEngineRefusesControl(String reason) {
+        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                CdsCliArguments.parse(new String[]{"--operation", "resume", "--provider", "999998", "--run", NONCE}),
+                new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE), out, err,
+                (config, selected, delegation) -> { throw new CdsImportException(reason, true, new IOException("sensitive-path")); });
+        assertThat(code).isEqualTo(4);
+        assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("safeCode=" + reason, "outcomeUnknown=true")
+                .doesNotContain("sensitive-path");
+        assertThat(stdout.toString(StandardCharsets.UTF_8)).doesNotContain("ACCEPTED", "RESULT");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"private-patient-path", "PATIENT_ALICE_SMITH", "IMPORT_BUSY\nprivate-patient-path",
+            "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"})
+    void shouldProtectUnknownAndAdversarialCodes_whenRefusalReasonIsNotPublic(String reason) {
+        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                CdsCliArguments.parse(IMPORT), new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                out, err, (config, selected, delegation) -> { throw new CdsImportException(reason); });
+        assertThat(code).isEqualTo(4);
+        assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("safeCode=DETAILS_PROTECTED", "outcomeUnknown=false")
+                .doesNotContain("private-patient-path", "PATIENT_ALICE_SMITH", "safeCode=IMPORT_BUSY");
     }
 
     private int invoke(String operation, FakeRuntime runtime) {

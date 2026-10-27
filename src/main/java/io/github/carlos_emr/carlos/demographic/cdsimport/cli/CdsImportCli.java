@@ -26,6 +26,7 @@ import java.io.PrintStream;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
@@ -33,6 +34,20 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputExcepti
 /** Process protocol and operator output only. Clinical meaning and completion remain authoritative in the shared engine. */
 public final class CdsImportCli {
     private CdsImportCli() { }
+
+    // Console reasons are a finite public contract. Unknown or attacker-supplied
+    // exception text remains in protected diagnostics, even if it resembles a token.
+    private static final Set<String> PUBLIC_REFUSALS = Set.of(
+            "IMPORT_BUSY", "IMPORT_ALREADY_RUNNING", "IMPORT_COORDINATOR_BUSY", "IMPORT_COORDINATOR_LOST",
+            "IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE", "IMPORT_CANCELLED", "IMPORT_DISABLED",
+            "IMPORT_SCHEMA_NOT_READY", "IMPORT_CLINICAL_ZONE_INVALID", "IMPORT_RUNTIME_ZONE_MISMATCH",
+            "OWNER_FENCED", "REVIEW_RESET_IN_PROGRESS", "REVIEW_REQUIRED", "REVIEW_WORKER_FATAL",
+            "SOURCE_REVISION_REVIEW_REQUIRED", "SUBMISSION_OUTCOME_NOT_YET_KNOWN",
+            "CONTROL_COMMIT_OUTCOME_UNKNOWN", "ACCEPTANCE_COMMIT_OUTCOME_UNKNOWN",
+            "MAINTENANCE_OWNER_BUSY", "LOCAL_MAINTENANCE_OWNER_BUSY", "MAINTENANCE_MODE_NOT_ACTIVATED",
+            "MAINTENANCE_GUARD_NOT_READY", "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION",
+            "GLOBAL_HOLDS_REMAIN", "IMPORT_FILE_VERIFICATION_TIMEOUT", "IMPORT_PREPARATION_TIMEOUT",
+            "CDS_INPUT_CANCELLED", "CDS_XML_SCHEMA_INVALID", "CDS_XML_READ_FAILED", "CDS_CORRECTION_STAGE_INVALID");
 
     @FunctionalInterface
     public interface RuntimeFactory {
@@ -93,6 +108,12 @@ public final class CdsImportCli {
         } catch (SecurityException denied) {
             err.println("CDS_AUTHORIZATION: operator/provider/source access denied"); outcome = 3;
         } catch (CdsImportException | CdsInputException refused) {
+            String code = refused instanceof CdsImportException engine ? engine.getCode() : ((CdsInputException) refused).code();
+            boolean uncertain = refused instanceof CdsImportException engine && engine.isOutcomeUnknown();
+            if (code == null || code.length() > 96 || !code.matches("[A-Z][A-Z0-9_]{0,95}") || !PUBLIC_REFUSALS.contains(code)) {
+                code = "DETAILS_PROTECTED";
+            }
+            err.println("CDS_REASON: safeCode=" + code + " outcomeUnknown=" + uncertain);
             err.println(arguments.submissionKey() == null
                     ? "CDS_INCOMPLETE: import was refused, failed or requires reconciliation; inspect the durable run"
                     : "CDS_INCOMPLETE: submission outcome is not yet known; retain original source and submission evidence before retrying"); outcome = 4;

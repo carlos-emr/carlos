@@ -62,7 +62,7 @@ public final class CdsCliEngineFixture {
             Properties jdbc = new Properties();
             try (InputStream input = Files.newInputStream(credentials)) { jdbc.load(input); }
             String url = jdbc.getProperty("jdbcUrl", "").replace("jdbc:mariadb:", "jdbc:mysql:");
-            if (!url.matches("jdbc:mysql://[^/]+/(?:carlos_cds_test|cds_full_test|cds_cli_test)(?:\\?.*)?")) {
+            if (!url.matches("jdbc:mysql://[^/]+/(?:carlos_cds_test|cds_full_test|cds_cli_test|cds_cli_final_test)(?:\\?.*)?")) {
                 throw new IllegalArgumentException("Explicit disposable database required");
             }
             Class.forName("com.mysql.cj.jdbc.Driver");
@@ -71,7 +71,7 @@ public final class CdsCliEngineFixture {
                 try (var statement = connection.createStatement(); var result = statement.executeQuery("SELECT DATABASE()")) {
                     if (!result.next()) throw new IllegalStateException("Database unavailable"); actual = result.getString(1);
                 }
-                if (!List.of("carlos_cds_test", "cds_full_test", "cds_cli_test").contains(actual)) throw new IllegalStateException("Non-test database");
+                if (!List.of("carlos_cds_test", "cds_full_test", "cds_cli_test", "cds_cli_final_test").contains(actual)) throw new IllegalStateException("Non-test database");
                 if (args[0].startsWith("verify-")) {
                     Properties installed = CdsCliConfiguration.load(Map.of("CARLOS_CDS_PROPERTIES", CONFIG.toString())).properties();
                     if (!url.equals(installed.getProperty("db_uri", "") + installed.getProperty("db_name", ""))

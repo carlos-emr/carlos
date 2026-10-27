@@ -63,7 +63,10 @@ The gate requires all of these outcomes:
 The script streams command output into mode-0600 files under its private
 `operator-evidence` directory. It prints only a bounded operational pass record
 with run IDs, the evidence directory and observed child-process peak RSS.
-Credentials, patient XML and clinical report bodies are not printed. A timeout
+A refused command also prints a finite public `safeCode` and outcome-uncertainty
+flag. Unknown or malformed exception codes remain protected; raw exception
+messages are never printed. Credentials, patient XML and clinical report bodies
+are not printed. A timeout
 stops the process group; forced termination aborts the gate and requires durable
 reconciliation instead of automatic resubmission. Synthetic accepted sources,
 run state and native rows remain intact for inspection until the disposable
