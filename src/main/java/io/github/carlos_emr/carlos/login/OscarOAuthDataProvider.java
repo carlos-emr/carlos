@@ -249,7 +249,14 @@ public class OscarOAuthDataProvider {
         return sat != null ? sat.getTokenSecret() : null;
     }
 
-    /** Only the client to which this grant was issued may use its signing secret. */
+    /**
+     * Retrieves a signing secret only for an unexpired grant owned by the supplied consumer.
+     *
+     * @param accessTokenId the persisted access-token key
+     * @param consumerKey the registered consumer key that must own the grant
+     * @return the original token secret, or {@code null} if the token is missing, expired,
+     *         malformed, or does not belong to an existing client with this consumer key
+     */
     public String getAccessTokenSecret(String accessTokenId, String consumerKey) {
         ServiceAccessToken token = findUnexpiredAccessToken(accessTokenId);
         if (token == null || token.getClientId() == null || consumerKey == null) {

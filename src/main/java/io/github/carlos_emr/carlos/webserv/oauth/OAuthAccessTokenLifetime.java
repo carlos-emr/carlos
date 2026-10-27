@@ -28,10 +28,20 @@ import io.github.carlos_emr.carlos.commn.model.ServiceClient;
  * exactly -1 means no expiry. No floor, cap or one-hour fallback is applied.
  * Client settings affect new grants only; existing tokens retain their own
  * persisted issuance time and duration, including grants imported from O19.
+ *
+ * @since 2026-10-26
  */
 public final class OAuthAccessTokenLifetime {
     private OAuthAccessTokenLifetime() { }
 
+    /**
+     * Reads the O19 duration for a newly issued grant without changing existing grants.
+     *
+     * @param client the registered client, or {@code null} if it no longer exists
+     * @return the exact configured seconds, including zero or {@code -1} for no expiry
+     * @throws OAuth1Exception with HTTP 401 if the client is absent, or HTTP 400 if its
+     *         setting is absent or is a negative value other than {@code -1}
+     */
     public static long forClient(ServiceClient client) {
         if (client == null) {
             throw new OAuth1Exception(401, "invalid_consumer");
@@ -47,6 +57,12 @@ public final class OAuthAccessTokenLifetime {
      * The O19 CXF validator expires a finite grant only AFTER issued + lifetime,
      * in epoch seconds. Zero is not a request for a default duration. Malformed
      * timestamps, unknown negative durations and arithmetic overflow fail closed.
+     *
+     * @param issued the original issuance time in epoch seconds, which must be positive
+     * @param lifetime the persisted duration in seconds, or exactly {@code -1} for no expiry
+     * @param now the current time in epoch seconds
+     * @return {@code true} for a finite grant past its O19 expiry boundary or malformed
+     *         metadata; {@code false} for a current grant, including a valid non-expiring grant
      */
     public static boolean isExpired(long issued, long lifetime, long now) {
         if (issued <= 0 || lifetime < -1) {

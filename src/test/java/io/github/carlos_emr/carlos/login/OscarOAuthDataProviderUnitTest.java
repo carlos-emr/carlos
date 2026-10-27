@@ -405,6 +405,29 @@ class OscarOAuthDataProviderUnitTest {
         InOrder inOrder = inOrder(issued.requestTokenDao(), issued.clientDao());
         inOrder.verify(issued.requestTokenDao()).deleteByTokenId(LIFETIME_TOKEN_KEY);
         inOrder.verify(issued.clientDao()).findByKey(LIFETIME_CONSUMER_KEY);
+        // InOrder alone could match a second lookup and overlook an earlier one.
+        verify(issued.clientDao()).findByKey(LIFETIME_CONSUMER_KEY);
+        verifyNoMoreInteractions(issued.clientDao());
+    }
+
+    @Test
+    @DisplayName("should never read a client or mint a grant after losing request-token consumption")
+    void shouldRejectIssuance_whenRequestTokenWasConsumedConcurrently() {
+        ServiceRequestTokenDao requests = mock(ServiceRequestTokenDao.class);
+        ServiceClientDao clients = mock(ServiceClientDao.class);
+        ServiceAccessTokenDao tokens = mock(ServiceAccessTokenDao.class);
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        ReflectionTestUtils.setField(provider, "serviceRequestTokenDao", requests);
+        ReflectionTestUtils.setField(provider, "serviceClientDao", clients);
+        ReflectionTestUtils.setField(provider, "serviceAccessTokenDao", tokens);
+        when(requests.findByTokenId(LIFETIME_TOKEN_KEY)).thenReturn(new ServiceRequestToken());
+        when(requests.deleteByTokenId(LIFETIME_TOKEN_KEY)).thenReturn(0);
+        RequestToken request = new RequestToken(
+                new Client(LIFETIME_CONSUMER_KEY, "fixture-secret", "App", ""),
+                LIFETIME_TOKEN_KEY, "fixture-request-secret");
+        assertThatThrownBy(() -> provider.createAccessToken(request))
+                .isInstanceOf(OAuth1Exception.class).hasMessage("Invalid request token");
+        org.mockito.Mockito.verifyNoInteractions(clients, tokens);
     }
 
     @Test
