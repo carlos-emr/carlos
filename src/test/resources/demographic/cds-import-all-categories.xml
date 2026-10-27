@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic corpus. Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. -->
+<OmdCds xmlns="cds" xmlns:cdsd="cds_dt">
+  <PatientRecord>
+    <Demographics>
+      <Names>
+        <cdsd:LegalName namePurpose="L">
+          <cdsd:FirstName>
+            <cdsd:Part>Import</cdsd:Part>
+            <cdsd:PartType>GIV</cdsd:PartType>
+          </cdsd:FirstName>
+          <cdsd:LastName>
+            <cdsd:Part>FAKE-CDS-CORPUS-202608</cdsd:Part>
+            <cdsd:PartType>FAMC</cdsd:PartType>
+          </cdsd:LastName>
+        </cdsd:LegalName>
+      </Names>
+      <DateOfBirth>1971-03-04</DateOfBirth>
+      <Gender>F</Gender>
+      <UniqueVendorIdSequence>E-CDS-CORPUS-202608</UniqueVendorIdSequence>
+      <Address addressType="M">
+        <cdsd:Structured>
+          <cdsd:Line1>004241 Fixture Import Rd</cdsd:Line1>
+          <cdsd:City>Fixture City</cdsd:City>
+          <cdsd:CountrySubdivisionCode>CA-ON</cdsd:CountrySubdivisionCode>
+          <cdsd:PostalZipCode>
+            <cdsd:PostalCode>K1A0B1</cdsd:PostalCode>
+          </cdsd:PostalZipCode>
+        </cdsd:Structured>
+      </Address>
+      <PhoneNumber phoneNumberType="R">
+        <cdsd:phoneNumber>613-555-0142</cdsd:phoneNumber>
+      </PhoneNumber>
+      <Contact>
+        <ContactPurpose>
+          <cdsd:PurposeAsEnum>EC</cdsd:PurposeAsEnum>
+        </ContactPurpose>
+        <Name>
+          <cdsd:FirstName>Synthetic</cdsd:FirstName>
+          <cdsd:LastName>Contact</cdsd:LastName>
+        </Name>
+        <PhoneNumber phoneNumberType="R">
+          <cdsd:phoneNumber>6135550143</cdsd:phoneNumber>
+        </PhoneNumber>
+        <Note>Source consent is unknown</Note>
+      </Contact>
+      <PrimaryPhysician>
+        <Name>
+          <cdsd:FirstName>Test</cdsd:FirstName>
+          <cdsd:LastName>Provider</cdsd:LastName>
+        </Name>
+      </PrimaryPhysician>
+      <PersonStatusCode>
+        <PersonStatusAsEnum>A</PersonStatusAsEnum>
+      </PersonStatusCode>
+    </Demographics>
+    <PersonalHistory>
+      <ResidualInfo>
+        <cdsd:DataElement>
+          <cdsd:Name>Occupation</cdsd:Name>
+          <cdsd:DataType>String</cdsd:DataType>
+          <cdsd:Content>Synthetic occupation</cdsd:Content>
+        </cdsd:DataElement>
+      </ResidualInfo>
+    </PersonalHistory>
+    <FamilyHistory>
+      <StartDate>
+        <cdsd:YearOnly>2001</cdsd:YearOnly>
+      </StartDate>
+      <ProblemDiagnosisProcedureDescription>Family source condition</ProblemDiagnosisProcedureDescription>
+      <Relationship>Sibling</Relationship>
+      <Notes>Family note retained</Notes>
+    </FamilyHistory>
+    <PastHealth>
+      <PastHealthProblemDescriptionOrProcedures>Past source procedure</PastHealthProblemDescriptionOrProcedures>
+      <OnsetOrEventDate>
+        <cdsd:YearMonth>2002-03</cdsd:YearMonth>
+      </OnsetOrEventDate>
+      <Notes>Past history retained</Notes>
+    </PastHealth>
+    <ProblemList>
+      <ProblemDiagnosisDescription>Source problem</ProblemDiagnosisDescription>
+      <ProblemStatus>Active</ProblemStatus>
+      <OnsetDate>
+        <cdsd:FullDate>2020-05-06</cdsd:FullDate>
+      </OnsetDate>
+      <Notes>Source problem narrative</Notes>
+    </ProblemList>
+    <RiskFactors>
+      <RiskFactor>Synthetic exposure</RiskFactor>
+      <ExposureDetails>Source exposure details</ExposureDetails>
+      <StartDate>
+        <cdsd:YearOnly>2010</cdsd:YearOnly>
+      </StartDate>
+      <Notes>Risk source note</Notes>
+    </RiskFactors>
+    <AllergiesAndAdverseReactions>
+      <OffendingAgentDescription>FAKE-PW0000000000004241 Fixture Allergen</OffendingAgentDescription>
+      <PropertyOfOffendingAgent>DR</PropertyOfOffendingAgent>
+      <ReactionType>AL</ReactionType>
+      <StartDate>
+        <cdsd:FullDate>2020-05-06</cdsd:FullDate>
+      </StartDate>
+      <Severity>MO</Severity>
+      <Reaction>Rash</Reaction>
+      <RecordedDate>
+        <cdsd:FullDate>2020-05-07</cdsd:FullDate>
+      </RecordedDate>
+    </AllergiesAndAdverseReactions>
+    <MedicationsAndTreatments>
+      <PrescriptionWrittenDate>
+        <cdsd:FullDate>2026-01-15</cdsd:FullDate>
+      </PrescriptionWrittenDate>
+      <StartDate>
+        <cdsd:FullDate>2026-01-15</cdsd:FullDate>
+      </StartDate>
+      <DrugName>FAKE-PW0000000000004241 Fixture Med</DrugName>
+      <NumberOfRefills>2</NumberOfRefills>
+      <Dosage>1</Dosage>
+      <DosageUnitOfMeasure>tab</DosageUnitOfMeasure>
+      <Route>PO</Route>
+      <Frequency>BID</Frequency>
+      <Duration>30</Duration>
+      <Quantity>60</Quantity>
+    </MedicationsAndTreatments>
+    <Immunizations>
+      <ImmunizationName>Tetanus source vaccine</ImmunizationName>
+      <ImmunizationType>Td</ImmunizationType>
+      <Manufacturer>Source manufacturer</Manufacturer>
+      <LotNumber>SYNTHETIC-LOT</LotNumber>
+      <Date>
+        <cdsd:YearOnly>2020</cdsd:YearOnly>
+      </Date>
+      <RefusedFlag><cdsd:ynIndicatorsimple>N</cdsd:ynIndicatorsimple></RefusedFlag>
+      <Notes>Year precision retained</Notes>
+    </Immunizations>
+    <LaboratoryResults>
+      <LaboratoryName>Synthetic laboratory</LaboratoryName>
+      <TestNameReportedByLab>Source test</TestNameReportedByLab>
+      <LabTestCode>1234</LabTestCode>
+      <TestName>Synthetic glucose</TestName>
+      <AccessionNumber>SYNTHETIC-ACCESSION</AccessionNumber>
+      <Result>
+        <Value>5.7</Value>
+        <UnitOfMeasure>mmol/L</UnitOfMeasure>
+      </Result>
+      <ReferenceRange>
+        <LowLimit>3.5</LowLimit>
+        <HighLimit>5.5</HighLimit>
+      </ReferenceRange>
+      <CollectionDateTime>
+        <cdsd:FullDateTime>2025-03-04T10:20:30.125-05:00</cdsd:FullDateTime>
+      </CollectionDateTime>
+      <ResultNormalAbnormalFlag>
+        <cdsd:resultNormalAbnormalFlagAsPlainText>H</cdsd:resultNormalAbnormalFlagAsPlainText>
+      </ResultNormalAbnormalFlag>
+      <NotesFromLab>Lab comment | literal delimiter</NotesFromLab>
+      <PhysiciansNotes>PRIVATE SYNTHETIC PHYSICIAN NOTE</PhysiciansNotes>
+      <TestResultStatus>Final</TestResultStatus>
+    </LaboratoryResults>
+    <Appointments>
+      <AppointmentTime>09:30:00</AppointmentTime>
+      <Duration>30</Duration>
+      <AppointmentStatus>Source complete</AppointmentStatus>
+      <AppointmentDate>
+        <cdsd:FullDate>2025-02-03</cdsd:FullDate>
+      </AppointmentDate>
+      <AppointmentPurpose>Synthetic visit</AppointmentPurpose>
+      <AppointmentNotes>Complete source appointment note</AppointmentNotes>
+    </Appointments>
+    <ClinicalNotes>
+      <NoteType>Clinical</NoteType>
+      <MyClinicalNotesContent>FAKE-PW0000000000004241 imported fixture encounter note</MyClinicalNotesContent>
+      <EventDateTime>
+        <cdsd:FullDate>2026-02-03</cdsd:FullDate>
+      </EventDateTime>
+      <ParticipatingProviders>
+        <Name>
+          <cdsd:FirstName>Test</cdsd:FirstName>
+          <cdsd:LastName>Provider</cdsd:LastName>
+        </Name>
+        <DateTimeNoteCreated>
+          <cdsd:FullDateTime>2026-02-03T10:25:00</cdsd:FullDateTime>
+        </DateTimeNoteCreated>
+      </ParticipatingProviders>
+    </ClinicalNotes>
+    <Reports>
+      <Format>Text</Format>
+      <Content>
+        <cdsd:TextContent>Synthetic source report
+Complete UTF8 text: café 😀</cdsd:TextContent>
+      </Content>
+      <Class>Consultant Report</Class>
+      <EventDateTime>
+        <cdsd:YearMonth>2025-02</cdsd:YearMonth>
+      </EventDateTime>
+      <SourceAuthorPhysician>
+        <AuthorFreeText>External source author</AuthorFreeText>
+      </SourceAuthorPhysician>
+    </Reports>
+    <Reports>
+      <Format>Binary</Format>
+      <FileExtensionAndVersion>PNG</FileExtensionAndVersion>
+      <Content>
+        <cdsd:Media>iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jc1kAAAAASUVORK5CYII=</cdsd:Media>
+      </Content>
+      <Class>Diagnostic Imaging Report</Class>
+    </Reports>
+    <CareElements>
+      <SmokingStatus>
+        <cdsd:Status>N</cdsd:Status>
+        <cdsd:Date>2025-02-03</cdsd:Date>
+      </SmokingStatus>
+      <Weight>
+        <cdsd:Weight>72.5</cdsd:Weight>
+        <cdsd:WeightUnit>kg</cdsd:WeightUnit>
+        <cdsd:Date>2025-02-03</cdsd:Date>
+      </Weight>
+    </CareElements>
+    <AlertsAndSpecialNeeds>
+      <AlertDescription>Synthetic accessibility need</AlertDescription>
+      <Notes>Source alert details</Notes>
+      <DateActive>
+        <cdsd:YearMonth>2020-03</cdsd:YearMonth>
+      </DateActive>
+    </AlertsAndSpecialNeeds>
+    <NewCategory>
+      <CategoryName>Synthetic vendor category</CategoryName>
+      <CategoryDescription>Lossless category-local extension</CategoryDescription>
+      <ResidualInfo>
+        <cdsd:DataElement>
+          <cdsd:Name>Source scalar</cdsd:Name>
+          <cdsd:DataType>String</cdsd:DataType>
+          <cdsd:Content>Original structured value</cdsd:Content>
+        </cdsd:DataElement>
+      </ResidualInfo>
+    </NewCategory>
+  </PatientRecord>
+</OmdCds>
