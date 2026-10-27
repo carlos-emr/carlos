@@ -27,6 +27,10 @@ public final class CdsImportMaintenanceFilter implements Filter {
             "/mfa/loginMfa", "/securityRecord/mfa", "/form/importUpload", "/form/cdsUpload", "/form/cdsImportSubmit", "/form/cdsImportStatus", "/form/cdsImportDiagnostic",
             "/form/cdsImportControl", "/form/cdsImportReport", "/form/importLogDownload");
     private static final String[] STATIC = {"/css/", "/js/", "/images/", "/fonts/", "/library/", "/loginResource/"};
+    // Exact dependencies of the native login's global-head.jspf. Other shared
+    // resources remain subject to maintenance admission.
+    private static final Set<String> LOGIN_ASSETS = Set.of("/share/css/global.css", "/share/css/searchBox.css",
+            "/share/css/transitions.css", "/share/javascript/Oscar.js", "/share/javascript/carlos-ajax.js");
     private final Supplier<CdsImportMaintenanceService> maintenance;
 
     /** Servlet-container compatibility boundary; dependency resolution is deferred until context startup completes. */
@@ -39,7 +43,9 @@ public final class CdsImportMaintenanceFilter implements Filter {
             chain.doFilter(request, response); return;
         }
         String path = http.getRequestURI().substring(http.getContextPath().length());
-        if (allowed(path)) { chain.doFilter(request, response); return; }
+        boolean loginAssetRead = !LOGIN_ASSETS.contains(path)
+                || "GET".equals(http.getMethod()) || "HEAD".equals(http.getMethod());
+        if (allowed(path) && loginAssetRead) { chain.doFilter(request, response); return; }
         boolean blocked;
         try { blocked = maintenance.get().isClinicalAccessBlocked(); }
         catch (RuntimeException unavailable) { blocked = true; }
@@ -58,6 +64,7 @@ public final class CdsImportMaintenanceFilter implements Filter {
         String route = path.endsWith(".do") ? path.substring(0, path.length() - 3)
                 : path.endsWith(".action") ? path.substring(0, path.length() - 7) : path;
         if (ROUTES.contains(route)) return true;
+        if (LOGIN_ASSETS.contains(path)) return true;
         if (path.startsWith("/WEB-INF/jsp/login/") || path.startsWith("/WEB-INF/jsp/mfa/")) return true;
         if (path.equals("/WEB-INF/jsp/demographic/demographicImport.jsp")) return true;
         for (String prefix : STATIC) if (path.startsWith(prefix)) return true;

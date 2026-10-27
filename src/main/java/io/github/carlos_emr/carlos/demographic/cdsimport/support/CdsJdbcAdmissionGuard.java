@@ -60,7 +60,7 @@ import net.sf.jsqlparser.util.TablesNamesFinder;
 public final class CdsJdbcAdmissionGuard implements InvocationHandler {
     private static final Set<String> AUTH_READ = Set.of("provider", "security", "securityarchive", "secuserrole",
             "secrole", "secobjectname", "secobjprivilege", "secprivilege", "securitytoken", "facility",
-            "program", "program_provider", "role", "provider_facility", "providersite", "site", "property",
+            "program", "program_provider", "provider_default_program", "role", "provider_facility", "providersite", "site", "property",
             "mygroup", "clinic", "resourcestorage", "providerpreference", "providerpreferenceappointmentscreenform",
             "providerpreferenceappointmentscreeneform", "providerpreferenceappointmentscreenquicklink");
     private static final Set<String> AUTH_WRITE = Set.of("security", "securityarchive", "securitytoken", "log");

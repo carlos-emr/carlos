@@ -29,6 +29,28 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("unit")
 class CdsJdbcAdmissionGuardUnitTest {
     @Test
+    void shouldReadAdministrativeProgramPreferences_whenMaintenanceIsActive() throws Exception {
+        assertThat(CdsJdbcAdmissionGuard.clinical("select p.program_id from provider_default_program p "
+                + "where p.provider_no=? order by p.id")).isFalse();
+        assertThat(CdsJdbcAdmissionGuard.clinical("select p.id,p.name from program p join provider_default_program d "
+                + "on p.id=d.program_id where d.provider_no=?")).isFalse();
+    }
+
+    @Test
+    void shouldGuardPreferenceWritesAndClinicalProgramGraphs_whenPreferenceReadsAreAllowed() throws Exception {
+        for (String sql : new String[] {
+                "update provider_default_program set program_id=? where provider_no=?",
+                "insert into provider_default_program (provider_no,program_id) values (?,?)",
+                "delete from provider_default_program where provider_no=?",
+                "select d.program_id from provider_default_program d join admission a on a.program_id=d.program_id",
+                "select d.program_id from provider_default_program d join program_queue q on q.program_id=d.program_id",
+                "select d.program_id,(select count(*) from admission a where a.program_id=d.program_id) from provider_default_program d",
+                "select * from provider_default_program d join demographic p on p.provider_no=d.provider_no"}) {
+            assertThat(CdsJdbcAdmissionGuard.clinical(sql)).as(sql).isTrue();
+        }
+    }
+
+    @Test
     void shouldGuardClinicalWrites_acrossNativeAndOrmSqlShapes() throws Exception {
         assertThat(CdsJdbcAdmissionGuard.clinical("update demographic set last_name=? where demographic_no=?")).isTrue();
         assertThat(CdsJdbcAdmissionGuard.clinical("insert into drugs (demographic_no) values (?)")).isTrue();
