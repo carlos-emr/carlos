@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import runpy
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -67,6 +68,23 @@ class SonarReliabilityReportTest(unittest.TestCase):
         self.assertEqual("GET", connection.request.call_args.args[0])
         self.assertTrue(connection.request.call_args.args[1].startswith("/api/issues/search?"))
         connection.close.assert_called_once()
+
+    def test_command_boundary_fails_nonzero_with_a_safe_explicit_ci_error(self):
+        response = Mock(status=401)
+        response.read.return_value = b"synthetic-secret response must never be printed"
+        connection = Mock()
+        connection.getresponse.return_value = response
+        output, errors = io.StringIO(), io.StringIO()
+        with patch.dict(os.environ, {"SONAR_TOKEN": "synthetic-secret", "PR_NUMBER": "5347", "GITHUB_ACTIONS": "true"}), \
+                patch("http.client.HTTPSConnection", return_value=connection), \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+            with self.assertRaises(SystemExit) as failure:
+                runpy.run_path(sonar.__file__, run_name="__main__")
+        self.assertEqual(1, failure.exception.code)
+        self.assertIn("::error title=Sonar diagnostic report incomplete::", output.getvalue())
+        self.assertIn("HTTP 401", errors.getvalue())
+        self.assertNotIn("synthetic-secret", output.getvalue() + errors.getvalue())
+        response.read.assert_not_called()
 
     def test_summary_and_notices_cannot_execute_source_markup_or_workflow_commands(self):
         payload = "</pre><script>unsafe</script>\n::error::forged %0A"
@@ -183,13 +201,15 @@ class SonarReliabilityReportTest(unittest.TestCase):
                 sonar.write_report(artifact, {"findings": []})
             self.assertEqual([], list(Path(directory).iterdir()))
 
-    def test_workflow_uploads_both_diagnostic_generations_without_ignoring_report_failures(self):
+    def test_workflow_keeps_prefetch_independent_and_requires_post_analysis_artifacts(self):
         workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/sonarcloud.yml").read_text()
         self.assertIn("${{ runner.temp }}/sonar-quality-latest.json", workflow)
         self.assertIn("${{ runner.temp }}/sonar-quality-after-analysis.json", workflow)
         self.assertIn("name: sonar-pr-quality-findings", workflow)
         self.assertIn("if-no-files-found: error", workflow)
-        self.assertNotIn("continue-on-error: true", workflow)
+        self.assertEqual(1, workflow.count("continue-on-error: true"))
+        post_analysis = workflow.split("- name: Report PR security and reliability after server processing", 1)[1]
+        self.assertNotIn("continue-on-error:", post_analysis)
         self.assertNotIn("if ! python3 scripts/sonar_reliability_report.py", workflow)
 
 

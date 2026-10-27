@@ -91,6 +91,9 @@ jobs:
       # This is diagnostic only; the separate Sonar quality gate remains authoritative.
       - name: Report latest PR security and reliability findings
         if: github.event_name == 'pull_request'
+        # A transient fetch of the older analysis must not prevent a fresh independent analysis.
+        # The failed step outcome remains visible; the post-analysis report and artifact are mandatory.
+        continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

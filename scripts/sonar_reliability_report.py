@@ -151,6 +151,14 @@ def strict_object(pairs):
     return value
 
 
+def report_failure(category):
+    # Callers supply only a status number or exception class, never an exception message or response body.
+    message = "Sonar security/reliability report failed: " + category
+    print(message, file=sys.stderr)
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print("::error title=Sonar diagnostic report incomplete::" + message)
+
+
 def main():
     token = os.environ.get("SONAR_TOKEN", "")
     pull_request = os.environ.get("PR_NUMBER", "")
@@ -216,8 +224,8 @@ if __name__ == "__main__":
         main()
     except HTTPError as error:
         # Never print response bodies or request headers containing authentication material.
-        print(f"Sonar security/reliability report failed: HTTP {error.code}", file=sys.stderr)
+        report_failure(f"HTTP {error.code}")
         sys.exit(1)
     except Exception as error:
-        print(f"Sonar security/reliability report failed: {type(error).__name__}", file=sys.stderr)
+        report_failure(type(error).__name__)
         sys.exit(1)
