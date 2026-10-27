@@ -430,9 +430,9 @@ class SmsTransactionUnitTest {
     @ParameterizedTest
     @EnumSource(value = SmsStatus.class, names = {"SENT", "DELIVERED"})
     @DisplayName("an unmatched callback placeholder can progress without a local send attempt")
-    void shouldUpdatePlaceholder_whenDeliveryCallbackHasNoQueuedRecipient(SmsStatus callbackStatus) {
+    void shouldUpdatePlaceholder_whenDeliveryCallbackHasNoLocalSend(SmsStatus callbackStatus) {
         SmsTransaction placeholder = SmsTransaction.deliveryEvent(new SmsDeliveryWebhookDto(
-                SmsProviderType.STUB, "provider-unmatched", SmsStatus.QUEUED,
+                SmsProviderType.STUB, "provider-unmatched", SmsStatus.SENT,
                 Instant.parse("2026-09-22T09:59:00Z"), null, null, null));
 
         placeholder.markDeliveryEvent(new SmsDeliveryWebhookDto(
