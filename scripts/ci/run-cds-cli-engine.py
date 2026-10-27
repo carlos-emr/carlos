@@ -13,10 +13,13 @@ import hashlib
 import json
 import os
 import resource
+import re
 import shutil
 import signal
 import subprocess
+import sys
 import time
+import uuid
 from pathlib import Path
 
 FIXTURE = "io.github.carlos_emr.carlos.demographic.cdsimport.cli.CdsCliEngineFixture"
@@ -30,14 +33,15 @@ def main() -> None:
     parser.add_argument("--java", default="/usr/bin/java")
     parser.add_argument("--cli", default="/usr/sbin/carlos-ctl")
     parser.add_argument("--disposable", action="store_true")
+    parser.add_argument("--prepared-fixture", action="store_true", help="continue verified preparation only when no run has been accepted")
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args()
     if os.geteuid() != 0 or not args.disposable or not Path("/.dockerenv").is_file():
         parser.error("requires root in an explicitly disposable Docker container")
     if args.timeout < 30 or args.timeout > 3600 or not args.fixture_root.is_absolute():
         parser.error("timeout must be 30..3600 seconds and fixture root must be absolute")
-    if args.fixture_root.exists() or args.fixture_root.is_symlink():
-        parser.error("fixture root must be absent; accepted evidence is never replaced")
+    if args.fixture_root.is_symlink() or (args.fixture_root.exists() and not args.prepared_fixture):
+        parser.error("fixture root must be absent unless explicitly verifying an unaccepted preparation")
     if not args.jdbc_properties.is_file() or args.jdbc_properties.is_symlink():
         parser.error("protected JDBC properties must be a regular file")
     if args.jdbc_properties.stat().st_mode & 0o077:
@@ -46,7 +50,7 @@ def main() -> None:
         parser.error("actual installed CLI and Java runtime are required")
     # Only the helper may create the fixed production properties, and it refuses
     # an existing configuration and non-test database before any mutation.
-    if Path("/etc/carlos-emr/carlos.properties").exists():
+    if Path("/etc/carlos-emr/carlos.properties").exists() and not args.prepared_fixture:
         parser.error("refusing to replace existing production configuration")
     environment = {key: value for key, value in os.environ.items()
                    if key not in {"JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "CLASSPATH"}}
@@ -56,15 +60,19 @@ def main() -> None:
         completed = subprocess.run([*helper, operation, str(args.jdbc_properties), *values], env=environment,
                                    text=True, capture_output=True, timeout=args.timeout, check=False)
         if completed.returncode or len(completed.stdout.encode()) > 65536:
+            for line in completed.stderr[-65536:].splitlines():
+                if re.fullmatch(r"CDS_SYNTHETIC_FIXTURE_FAILED:[A-Za-z0-9_$]+:[A-Za-z0-9_$]+:[0-9]+"
+                                r"(?::sqlState=[A-Z0-9]{5}:vendorCode=-?[0-9]+)?", line):
+                    print(line, file=sys.stderr)
             raise RuntimeError("synthetic fixture operation failed; no raw JDBC diagnostic is printed")
         document = json.loads(completed.stdout)
         if not isinstance(document, dict):
             raise RuntimeError("synthetic fixture metadata was not an object")
         return document
 
-    metadata = fixture("prepare", str(args.fixture_root))
+    metadata = fixture("verify-prepared" if args.prepared_fixture else "prepare", str(args.fixture_root))
     root = args.fixture_root.resolve(strict=True)
-    logs = root / "operator-evidence"
+    logs = root / ("operator-evidence-continuation-" + uuid.uuid4().hex if args.prepared_fixture else "operator-evidence")
     logs.mkdir(mode=0o700)
     common = ["--provider", str(metadata["provider"])]
     contract = ["--source-namespace", metadata["namespace"], "--source-profile", metadata["profile"], "--no-match-providers"]

@@ -73,3 +73,12 @@ web import refuses a mismatched runtime zone without changing the shared web
 JVM. Root-owned delegation/source properties are immutable for each running
 context: reload/restart is required for a running context to observe edits.
 Provider/account/role changes in the database are checked at unit boundaries.
+
+If fixture preparation succeeded but environment discovery failed before any
+acceptance, `--prepared-fixture` continues the same fixture. It verifies the
+protected configuration/metadata/root binding, original namespace/profile and
+exact source XML, directory and ZIP contents. It requires zero accepted runs
+and zero rows in all sixteen native verification counts, and creates a new
+private continuation log directory. Existing logs and source/configuration
+remain unchanged. Once any run is accepted, use its recorded recovery path;
+this preparation-only continuation refuses further use.

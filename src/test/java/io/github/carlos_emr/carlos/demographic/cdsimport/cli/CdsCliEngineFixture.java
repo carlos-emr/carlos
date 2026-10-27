@@ -75,6 +75,7 @@ public final class CdsCliEngineFixture {
                 Object result = switch (args[0]) {
                     case "prepare" -> prepare(connection, jdbc, url, Path.of(args[2]));
                     case "inspect" -> inspect(connection, args[2]);
+                    case "verify-prepared" -> verifyPrepared(connection, Path.of(args[2]));
                     case "control" -> {
                         if (args.length != 4) throw new IllegalArgumentException("Control required");
                         yield control(connection, Path.of(args[2]), args[3]);
@@ -293,6 +294,93 @@ public final class CdsCliEngineFixture {
             connection.commit(); return Map.of("control", operation, "totalNativePatients", scalar(connection, "SELECT COUNT(*) FROM demographic"));
         } catch (Exception failure) { connection.rollback(); throw failure; }
         finally { connection.setAutoCommit(true); }
+    }
+
+    /** Continues only an intact preparation that has never accepted an import. */
+    private static Object verifyPrepared(Connection connection, Path root) throws Exception {
+        if (!root.isAbsolute() || !root.equals(root.normalize())) throw new IllegalArgumentException("Exact fixture root required");
+        Path metadataFile = root.resolve("fixture.json");
+        protectedPreparedPath(root, true); protectedPreparedPath(metadataFile, false);
+        if ((((int) Files.getAttribute(metadataFile, "unix:mode")) & 0777) != 0600 || Files.size(metadataFile) > 65536) {
+            throw new IllegalStateException("Protected fixture metadata required");
+        }
+        Properties config = CdsCliConfiguration.load(Map.of("CARLOS_CDS_PROPERTIES", CONFIG.toString())).properties();
+        JsonNode metadata = JSON.readTree(Files.readString(metadataFile));
+        if (!root.toString().equals(metadata.path("fixtureRoot").asText())
+                || !metadataFile.toString().equals(metadata.path("metadataFile").asText())
+                || !metadataFile.toString().equals(config.getProperty("cds.test.fixtureMetadata"))
+                || !root.resolve("source").toString().equals(config.getProperty("cds.import.allowedRoot"))
+                || !root.resolve("state/runs").toString().equals(config.getProperty("cds.import.stagingRoot"))
+                || !root.resolve("state/uploads").toString().equals(config.getProperty("cds.import.uploadRoot"))
+                || !root.resolve("documents").toString().equals(config.getProperty("DOCUMENT_DIR"))
+                || !PROVIDER.equals(metadata.path("provider").asText())
+                || !"pcon-2024-02".equals(metadata.path("profile").asText())) {
+            throw new IllegalStateException("Prepared configuration binding mismatch");
+        }
+        String namespace = metadata.path("namespace").asText();
+        if (!namespace.matches("cli-e2e-[a-f0-9]{8}") || !namespace.equals(config.getProperty("cds.import.sourceNamespaces"))
+                || !"pcon-2024-02".equals(config.getProperty("cds.import.source." + namespace + ".profiles"))) {
+            throw new IllegalStateException("Prepared source registration mismatch");
+        }
+        if (scalar(connection, "SELECT COUNT(*) FROM cds_import_run") != 0) throw new IllegalStateException("Accepted runs require durable recovery");
+        Map<?, ?> counts = (Map<?, ?>) inspect(connection, "fixture");
+        for (Object value : counts.values()) if (!(value instanceof Number number) || number.longValue() != 0) {
+            throw new IllegalStateException("Native data already exists");
+        }
+        String token = namespace.substring(8);
+        String baseline = resource("/demographic/cds-import-summary.xml");
+        String full = resource("/demographic/cds-import-all-categories.xml");
+        String minimal = baseline.substring(0, baseline.indexOf("</Demographics>") + "</Demographics>".length()) + "</PatientRecord></OmdCds>";
+        java.util.Set<String> expectedKeys = java.util.Set.of("ordinary", "dryrun", "course", "allcategory", "allcategoryAlpha", "cancel", "directory", "archive");
+        java.util.Set<String> actualKeys = new java.util.HashSet<>(); metadata.path("sources").fieldNames().forEachRemaining(actualKeys::add);
+        if (!actualKeys.equals(expectedKeys)) throw new IllegalStateException("Prepared source inventory mismatch");
+        for (String label : List.of("ordinary", "dryrun", "course", "allcategory", "allcategoryAlpha", "cancel")) {
+            String text = switch (label) { case "allcategory", "allcategoryAlpha" -> full; case "course" -> baseline; default -> minimal; };
+            text = distinct(text, token, label);
+            if (label.equals("cancel")) {
+                StringBuilder notes = new StringBuilder();
+                for (int i = 0; i < 256; i++) notes.append("<ClinicalNotes><MyClinicalNotesContent>Synthetic cancellation occurrence ").append(i).append("</MyClinicalNotesContent></ClinicalNotes>");
+                text = text.replace("</PatientRecord>", notes + "</PatientRecord>");
+            }
+            verifyPreparedXml(root.resolve("source/" + label + ".xml"), metadata.path("sources").path(label).asText(), text);
+        }
+        Path batch = root.resolve("source/batch"); protectedPreparedPath(batch, true);
+        if (!batch.toString().equals(metadata.path("sources").path("directory").asText())) throw new IllegalStateException("Prepared directory mismatch");
+        try (var children = Files.list(batch)) { if (children.limit(3).count() != 2) throw new IllegalStateException("Prepared directory inventory mismatch"); }
+        for (int i = 1; i <= 2; i++) verifyPreparedXml(batch.resolve("patient" + i + ".xml"), batch.resolve("patient" + i + ".xml").toString(), distinct(minimal, token, "batch" + i));
+        Path archive = root.resolve("source/patients.zip"); protectedPreparedPath(archive, false);
+        if (!archive.toString().equals(metadata.path("sources").path("archive").asText()) || Files.size(archive) > 1048576) throw new IllegalStateException("Prepared archive mismatch");
+        try (var zip = new java.util.zip.ZipFile(archive.toFile())) {
+            if (zip.size() != 2) throw new IllegalStateException("Prepared archive inventory mismatch");
+            for (int i = 1; i <= 2; i++) {
+                ZipEntry entry = zip.getEntry("patient" + i + ".xml");
+                if (entry == null || entry.isDirectory()) throw new IllegalStateException("Prepared archive member missing");
+                try (var input = zip.getInputStream(entry)) {
+                    byte[] bytes = input.readNBytes(65537);
+                    if (bytes.length > 65536 || !new String(bytes, StandardCharsets.UTF_8).equals(distinct(minimal, token, "archive" + i))) throw new IllegalStateException("Prepared archive content mismatch");
+                }
+            }
+        }
+        return JSON.convertValue(metadata, Map.class);
+    }
+
+    private static void verifyPreparedXml(Path path, String recorded, String expected) throws Exception {
+        protectedPreparedPath(path, false);
+        if (!path.toString().equals(recorded) || Files.size(path) > 65536 || !Files.readString(path).equals(expected)) {
+            throw new IllegalStateException("Prepared XML content mismatch");
+        }
+    }
+
+    private static void protectedPreparedPath(Path path, boolean directory) throws Exception {
+        for (Path cursor = path; cursor != null; cursor = cursor.getParent()) {
+            if (Files.isSymbolicLink(cursor) || (((int) Files.getAttribute(cursor, "unix:mode", LinkOption.NOFOLLOW_LINKS)) & 0022) != 0) {
+                throw new IllegalStateException("Prepared path is not protected");
+            }
+        }
+        if (((int) Files.getAttribute(path, "unix:uid", LinkOption.NOFOLLOW_LINKS)) != 0
+                || !(directory ? Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) : Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))) {
+            throw new IllegalStateException("Prepared source ownership mismatch");
+        }
     }
 
     private static int baseline(Connection connection) throws Exception {
