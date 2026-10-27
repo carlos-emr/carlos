@@ -160,8 +160,8 @@ class OAuthImportedTokenUnitTest {
                 .collect(java.util.stream.Collectors.joining("&"));
         String base = "GET&" + enc("https://clinic.example" + PATH) + "&" + enc(normalized);
         Mac mac = Mac.getInstance("HmacSHA1");
-        mac.init(new SecretKeySpec((enc(secret) + "&" + enc(token.getTokenSecret()))
-                .getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
+        String signingKey = enc(secret) + '&' + enc(token.getTokenSecret());
+        mac.init(new SecretKeySpec(signingKey.getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
         params.put("oauth_signature", Base64.getEncoder().encodeToString(mac.doFinal(base.getBytes(StandardCharsets.UTF_8))));
         MockHttpServletRequest request = new MockHttpServletRequest("GET", PATH);
         request.setScheme("https");
