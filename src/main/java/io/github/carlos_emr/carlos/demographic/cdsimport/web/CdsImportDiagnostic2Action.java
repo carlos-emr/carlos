@@ -74,6 +74,7 @@ public class CdsImportDiagnostic2Action extends ActionSupport {
                 response.setCharacterEncoding("UTF-8");
                 response.setHeader("Cache-Control", "no-store");
                 response.setHeader("X-Content-Type-Options", "nosniff");
+                response.setHeader(CdsWeb.API_VERSION_HEADER, Integer.toString(CdsWeb.API_VERSION));
             } else CdsWeb.json(response, 200, Map.of("ok", true, "evidence", evidence));
         } catch (Exception failure) {
             CdsWeb.failure(response, failure);

@@ -63,6 +63,7 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
     @BeforeEach void prepare() {
         request = new MockHttpServletRequest(); response = new MockHttpServletResponse();
         request.setMethod("GET"); request.getSession();
+        request.addParameter(CdsWeb.API_VERSION_PARAMETER, Integer.toString(CdsWeb.API_VERSION));
         access = mock(CdsImportAccessService.class); imports = mock(CdsImportService.class); uploads = mock(CdsUploadService.class);
         actor = mock(LoggedInInfo.class); Security login = new Security(); login.setSecurityNo(42);
         when(actor.getLoggedInSecurity()).thenReturn(login); when(actor.getLoggedInProviderNo()).thenReturn("999998");

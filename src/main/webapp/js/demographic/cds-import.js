@@ -2,6 +2,9 @@
 (function (global) {
     'use strict';
 
+    const API_VERSION = 2;
+    const API_VERSION_HEADER = 'X-CARLOS-CDS-API-Version';
+
     const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
     const COMPLETE = new Set(['COMPLETE', 'COMPLETE_WITH_NONLOSSY_WARNINGS', 'ALREADY_COMPLETE', 'DRY_RUN_COMPLETE']);
     const FINAL = new Set([...COMPLETE, 'FAILED_BEFORE_WRITE', 'REFUSED', 'CANCELLED_BEFORE_WRITE',
@@ -110,6 +113,18 @@
         return JSON.parse(text);
     }
 
+    async function apiResponse(response) {
+        if (response.headers.get(API_VERSION_HEADER) !== String(API_VERSION)) {
+            await response.body?.cancel().catch(() => {});
+            throw new Error('IMPORT_CLIENT_REFRESH_REQUIRED');
+        }
+        const data = await boundedJson(response);
+        if (!data || Array.isArray(data) || data.apiVersion !== API_VERSION) {
+            throw new Error('IMPORT_CLIENT_REFRESH_REQUIRED');
+        }
+        return data;
+    }
+
     async function verifyPrefix(file, receipt, readPage, hash = sha256, progress = () => {}) {
         if (!Number.isSafeInteger(receipt.receivedBytes) || receipt.receivedBytes < 0
                 || receipt.expectedBytes !== file.size || receipt.receivedBytes > file.size
@@ -138,8 +153,8 @@
         return offset;
     }
 
-    const api = {statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
-        effectiveOptions, sha256, boundedJson, verifyPrefix};
+    const api = {API_VERSION, API_VERSION_HEADER, statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
+        effectiveOptions, sha256, boundedJson, apiResponse, verifyPrefix};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CarlosCdsImport = api;
     if (!global.document) return;
@@ -216,6 +231,7 @@
             return field.value;
         }
         async function request(route, params = {}, options = {}) {
+            params = {...params, apiVersion: API_VERSION};
             const method = options.method || 'GET';
             const headers = {'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token(), ...(options.headers || {})};
             const url = new URL(root.dataset.context + '/form/' + route, global.location.origin);
@@ -236,7 +252,7 @@
                     await response.body?.cancel().catch(() => {});
                     throw new Error('IMPORT_RESPONSE_UNAVAILABLE_HTTP_' + response.status);
                 }
-                const data = await boundedJson(response);
+                const data = await apiResponse(response);
                 if (!response.ok || data?.ok !== true) {
                     const failure = new Error(data?.code || 'IMPORT_RESPONSE_FAILED'); failure.status = response.status; throw failure;
                 }

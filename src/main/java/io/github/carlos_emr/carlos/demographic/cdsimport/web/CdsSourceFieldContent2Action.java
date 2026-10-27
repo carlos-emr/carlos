@@ -41,7 +41,7 @@ public class CdsSourceFieldContent2Action extends ActionSupport {
         var request=ServletActionContext.getRequest(); var response=ServletActionContext.getResponse();
         if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))){response.setHeader("Allow", "GET, HEAD"); response.sendError(405); return NONE; }
         try {
-            var actor=CdsWeb.authenticated(request); CdsWeb.parameters(request, Set.of("demographicNo", "category", "fieldId"));
+            var actor=CdsWeb.authenticated(request); CdsWeb.readOnlyParameters(request, Set.of("demographicNo", "category", "fieldId"));
             var field=source.original(actor, demographicNo, category, fieldId);
             response.setHeader("Cache-Control", "no-store"); response.setHeader("X-Content-Type-Options", "nosniff");
             response.setHeader("Content-Security-Policy", "sandbox"); response.setContentType("application/octet-stream");

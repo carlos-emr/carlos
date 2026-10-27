@@ -40,6 +40,9 @@ import java.time.temporal.TemporalAccessor;
 
 /** HTTP-only safe projection. Physical storage paths and protected exception chains never enter JSON. */
 public final class CdsWeb {
+    public static final int API_VERSION = 2;
+    public static final String API_VERSION_PARAMETER = "apiVersion";
+    public static final String API_VERSION_HEADER = "X-CARLOS-CDS-API-Version";
     private static final ObjectMapper JSON = new ObjectMapper();
     private CdsWeb() { }
 
@@ -60,18 +63,49 @@ public final class CdsWeb {
     public static String operator(LoggedInInfo actor) { return "web-" + actor.getLoggedInSecurity().getId(); }
 
     public static void parameters(HttpServletRequest request, Set<String> accepted) {
+        requireApiVersion(request, false);
+        acceptedParameters(request, accepted);
+    }
+
+    /** Only explicitly selected read-only HTML/binary callers preserve durable versionless links. */
+    public static void readOnlyParameters(HttpServletRequest request, Set<String> accepted) {
+        if (!Set.of("GET", "HEAD").contains(request.getMethod())) {
+            throw new CdsUploadException("IMPORT_PARAMETERS_INVALID", 405);
+        }
+        requireApiVersion(request, true);
+        acceptedParameters(request, accepted);
+    }
+
+    private static void requireApiVersion(HttpServletRequest request, boolean versionlessReadOnly) {
+        String[] versions = request.getParameterValues(API_VERSION_PARAMETER);
+        if (versionlessReadOnly && versions == null) return;
+        if (versions == null || versions.length != 1 || !Integer.toString(API_VERSION).equals(versions[0])) {
+            throw new CdsUploadException("IMPORT_CLIENT_REFRESH_REQUIRED", 409);
+        }
+    }
+
+    private static void acceptedParameters(HttpServletRequest request, Set<String> accepted) {
         request.getParameterMap().forEach((key, values) -> {
-            if (!(accepted.contains(key) || "CSRF-TOKEN".equals(key)) || values == null || values.length != 1) {
+            if (!(accepted.contains(key) || "CSRF-TOKEN".equals(key) || API_VERSION_PARAMETER.equals(key))
+                    || values == null || values.length != 1) {
                 throw new CdsUploadException("IMPORT_PARAMETERS_INVALID", 400);
             }
         });
     }
 
     public static void json(HttpServletResponse response, int status, Object data) throws IOException {
+        if (!(data instanceof Map<?, ?> fields)) throw new IllegalArgumentException("IMPORT_JSON_ENVELOPE_INVALID");
+        Map<String, Object> envelope = new LinkedHashMap<>();
+        for (var entry : fields.entrySet()) {
+            if (!(entry.getKey() instanceof String key)) throw new IllegalArgumentException("IMPORT_JSON_ENVELOPE_INVALID");
+            envelope.put(key, entry.getValue());
+        }
+        envelope.put(API_VERSION_PARAMETER, API_VERSION);
         response.setStatus(status); response.setCharacterEncoding("UTF-8");
         response.setContentType("application/json"); response.setHeader("Cache-Control", "no-store");
         response.setHeader("X-Content-Type-Options", "nosniff");
-        JSON.writeValue(response.getWriter(), data);
+        response.setHeader(API_VERSION_HEADER, Integer.toString(API_VERSION));
+        JSON.writeValue(response.getWriter(), envelope);
     }
 
     public static void failure(HttpServletResponse response, Exception failure) throws IOException {

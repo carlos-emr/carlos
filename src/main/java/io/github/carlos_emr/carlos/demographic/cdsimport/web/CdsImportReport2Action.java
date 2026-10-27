@@ -52,7 +52,7 @@ public class CdsImportReport2Action extends ActionSupport {
         }
         try {
             var actor = CdsWeb.authorize(request, access);
-            CdsWeb.parameters(request, Set.of("runId", "type"));
+            CdsWeb.readOnlyParameters(request, Set.of("runId", "type"));
             if (runId == null || !runId.matches("[0-9a-f-]{36}") || type == null || !Set.of("event", "error", "receipt").contains(type)) throw new CdsUploadException("IMPORT_REPORT_INVALID", 400);
             var path = imports.report(actor, runId, type);
             response.setContentType("application/octet-stream"); response.setHeader("Cache-Control", "no-store");

@@ -41,7 +41,7 @@ public class ViewCdsSourceFields2Action extends ActionSupport {
         var request=ServletActionContext.getRequest(); var response=ServletActionContext.getResponse();
         if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))){response.setHeader("Allow", "GET, HEAD"); response.sendError(405); return NONE; }
         try {
-            var actor=CdsWeb.authenticated(request); CdsWeb.parameters(request, Set.of("demographicNo", "category", "after", "reviewAfter"));
+            var actor=CdsWeb.authenticated(request); CdsWeb.readOnlyParameters(request, Set.of("demographicNo", "category", "after", "reviewAfter"));
             request.setAttribute("model", assembler.assemble(actor, demographicNo, category, after, reviewAfter));
             response.setHeader("Cache-Control", "no-store"); response.setHeader("X-Content-Type-Options", "nosniff"); return SUCCESS;
         }catch (Exception failure){CdsWeb.failure(response, failure); return NONE; }
