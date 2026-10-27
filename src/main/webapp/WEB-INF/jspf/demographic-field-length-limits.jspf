@@ -34,7 +34,8 @@
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<fmt:message key="admin.securityupdate.msgMaximumCharacters" var="demographicCodePointLimitMessage"/>
+<fmt:setBundle basename="oscarResources" var="demographicFieldLimitsBundle"/>
+<fmt:message key="admin.securityupdate.msgMaximumCharacters" bundle="${demographicFieldLimitsBundle}" var="demographicCodePointLimitMessage"/>
 <script type="text/javascript">
     function applyDemographicFieldLengthLimits() {
         var fieldLengthLimits = {
