@@ -484,10 +484,11 @@ public class CdsSnapshotService {
                 (manifestHash + "\n" + archiveHash).getBytes(StandardCharsets.US_ASCII)));
     }
 
-    private static boolean patientCandidate(Path source, CdsInputLimitsDto limits) throws IOException {
+    private static boolean patientCandidate(Path source, CdsInputLimitsDto limits, CdsZipDirectory.Check checkpoint) throws IOException {
         boolean[] candidate = {true};
         try (InputStream raw=Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
-                InputStream input=new java.io.FilterInputStream(raw) {
+                InputStream checked=new CountingSource(raw, limits.maxSourceBytes(), checkpoint);
+                InputStream input=new java.io.FilterInputStream(checked) {
                     long remaining=65536;
                     @Override public int read() throws IOException {if (remaining==0) return -1; int value=in.read(); if (value>=0)remaining--; return value; }
                     @Override public int read(byte[] bytes, int offset, int length) throws IOException {
@@ -516,6 +517,9 @@ public class CdsSnapshotService {
             catch (SAXException malformed) { return true; }
         } catch (javax.xml.parsers.ParserConfigurationException | SAXException configuration) {
             throw CdsPaths.failure("CDS_SECURE_XML_PARSER_UNAVAILABLE");
+        } catch (CdsInputException stopped) {
+            if (Set.of("CDS_INPUT_CANCELLED", "CDS_INPUT_DEADLINE", "CDS_INPUT_DISK_RESERVE", "CDS_INPUT_BYTE_LIMIT").contains(stopped.code())) throw stopped;
+            return true;
         } catch (IOException unresolved) {
             return true;
         }
@@ -524,7 +528,8 @@ public class CdsSnapshotService {
 
     private static void copyReferencedFiles(Path originalXml, Inventory inventory) throws IOException {
         Path copied = inventory.members.resolve("000000000001.bin");
-        try (InputStream input = Files.newInputStream(copied, LinkOption.NOFOLLOW_LINKS);
+        try (InputStream raw = Files.newInputStream(copied, LinkOption.NOFOLLOW_LINKS);
+                InputStream input = new CountingSource(raw, inventory.limits.maxSourceBytes(), inventory::check);
                 Reader text = CdsXmlText.reader(input, inventory.limits.maxBoundedScalarCharacters())) {
             var reader = CdsXmlParser.xmlReader();
             reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -746,7 +751,7 @@ public class CdsSnapshotService {
             }
             CdsPaths.forceFile(destination);
             boolean xmlName = relative.toLowerCase(Locale.ROOT).endsWith(".xml");
-            boolean xml = sourceRole == 1 || sourceRole == 0 && (xmlName || signature.xml()) && patientCandidate(destination, limits);
+            boolean xml = sourceRole == 1 || sourceRole == 0 && (xmlName || signature.xml()) && patientCandidate(destination, limits, this::check);
             ObjectNode node = JSON.createObjectNode().put("relativeName", relative).put("member", member)
                     .put("sha256", CdsPaths.hex(bytesDigest.digest())).put("length", size).put("patientXml", xml);
             node.put("crc32", crc.getValue());

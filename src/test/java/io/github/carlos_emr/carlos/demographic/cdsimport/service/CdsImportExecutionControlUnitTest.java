@@ -288,6 +288,92 @@ class CdsImportExecutionControlUnitTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test void sourceClassificationStopsWithinAValidCommentAndPiPrefix_beforeTheRootOrSnapshotSeal(
+            @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
+        for(boolean cancellation:new boolean[]{false,true}) {
+            markupStop(Files.createDirectory(temp.resolve("prefix-"+cancellation)),true,cancellation);
+        }
+    }
+
+    @Test void attachmentDiscoveryStopsWithinAValidCommentAndPiSuffix_beforeEofAndSnapshotSeal(
+            @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
+        for(boolean cancellation:new boolean[]{false,true}) {
+            markupStop(Files.createDirectory(temp.resolve("suffix-"+cancellation)),false,cancellation);
+        }
+    }
+
+    @Test void checkedCancellationDuringClassificationIsNotSwallowedAsAnXmlCandidate(
+            @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
+        Path xml=markupSource(temp,true);Path durable=Files.createDirectory(temp.resolve("job"));
+        Path pending=durable.resolve("stopped.pending");Path copied=pending.resolve("members/000000000001.bin");
+        long sourceBytes=Files.size(xml);var probes=new AtomicInteger();
+        try {
+            var failure=org.junit.jupiter.api.Assertions.assertThrows(
+                    io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException.class,
+                    ()->new CdsSnapshotService().snapshot(xml.getParent(),xml.getParent(),durable,"stopped",
+                            CdsInputLimitsDto.defaults(),()->false,()->{
+                                try {
+                                    if(Files.isRegularFile(copied) && Files.size(copied)==sourceBytes && probes.incrementAndGet()==3)
+                                        Thread.currentThread().interrupt();
+                                } catch(java.io.IOException failed){throw new java.io.UncheckedIOException(failed);}
+                            }));
+            assertThat(failure.code()).isEqualTo("CDS_INPUT_CANCELLED");
+        } finally {Thread.interrupted();}
+        assertThat(Files.exists(durable.resolve("stopped"))).isFalse();
+        assertThat(Files.exists(pending.resolve("snapshot.seal"))).isFalse();
+        try(var names=Files.list(pending.resolve("names"))) {assertThat(names.count()).isZero();}
+        assertThat(Files.mismatch(xml,copied)).isEqualTo(-1);
+    }
+
+    private static Path markupSource(Path temp,boolean prefix) throws Exception {
+        Path sources=Files.createDirectory(temp.resolve("sources"));Path xml=sources.resolve("source.xml");
+        byte[] body;
+        try(var input=CdsImportExecutionControlUnitTest.class.getResourceAsStream("/demographic/cds-import-summary.xml")) {
+            body=new String(input.readNBytes(65536),StandardCharsets.UTF_8)
+                    .replaceFirst("^<\\?xml[^>]*>\\s*","").replaceAll(">\\s+<","><").getBytes(StandardCharsets.UTF_8);
+        }
+        byte[] markup="<!--bounded--><?probe safe?>".getBytes(StandardCharsets.UTF_8);
+        try(var output=new java.io.BufferedOutputStream(Files.newOutputStream(xml),65536)) {
+            if(!prefix)output.write(body);
+            for(int index=0;index<(prefix?2048:262144);index++)output.write(markup);
+            if(prefix)output.write(body);
+        }
+        // The short markup tokens surround a real pinned-schema fixture; no large scalar is fabricated.
+        var valid=new CdsXmlParser().parse(xml,temp.resolve("schema-check"),CdsInputLimitsDto.defaults(),()->false,record->{});
+        assertThat(valid.records()).isPositive();
+        return xml;
+    }
+
+    private static void markupStop(Path temp,boolean prefix,boolean cancellation) throws Exception {
+        Path xml=markupSource(temp,prefix);Path sources=xml.getParent();
+        Path durable=Files.createDirectory(temp.resolve("job"));Path pending=durable.resolve("stopped.pending");
+        Path copied=pending.resolve("members/000000000001.bin");long sourceBytes=Files.size(xml);
+        var owner=owner();var fields=new CdsFieldParser();var clock=new AtomicLong();var probes=new AtomicInteger();
+        int stopAfter=prefix?3:256;
+        try(var control=scope(owner,fields,clock,10000,()->{
+            try {
+                if(Files.isRegularFile(copied) && Files.size(copied)==sourceBytes && probes.incrementAndGet()==stopAfter) {
+                    if(cancellation) {
+                        clock.set(250_000_000L);
+                        when(owner.control("run")).thenReturn(new CdsImportControlDto(true,true,7,true,true));
+                    } else throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");
+                }
+            } catch(java.io.IOException failed){throw new java.io.UncheckedIOException(failed);}
+        })) {
+            assertThatThrownBy(()->new CdsSnapshotService().snapshot(prefix?sources:xml,sources,durable,
+                    "stopped",CdsInputLimitsDto.defaults(),()->false,()->control.check(false)))
+                    .hasMessage(cancellation?"IMPORT_CANCELLED":"IMPORT_ATTEMPT_TIMEOUT");
+        }
+        assertThat(probes.get()).isEqualTo(stopAfter);
+        assertThat(Files.exists(durable.resolve("stopped"))).isFalse();
+        assertThat(Files.exists(pending.resolve("snapshot.seal"))).isFalse();
+        assertThat(Files.mismatch(xml,copied)).isEqualTo(-1);
+        if(prefix)try(var names=Files.list(pending.resolve("names"))) {
+            assertThat(names.count()).isZero(); // Root classification never reached its durable name marker.
+        }
+        verify(owner,times(cancellation?2:1)).control("run");
+    }
+
     private static CdsImportWorkDto publication(Planning f,Path temp) throws Exception {
         var records=new ArrayList<CdsRecordDto>();Path folder=temp.resolve("publication");
         var parsed=new CdsXmlParser().parse(f.source,folder,CdsInputLimitsDto.defaults(),()->false,records::add);
