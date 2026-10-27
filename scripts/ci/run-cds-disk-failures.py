@@ -124,6 +124,9 @@ def retain_tmpfs(root: Path, destination: Path) -> dict:
     require(not destination.exists(),'DISK_FAULT_ARCHIVE_ALREADY_EXISTS')
     files=total=0
     with tarfile.open(destination,'x:gz',dereference=False) as archive:
+        require(root.is_dir() and not root.is_symlink(),'DISK_FAULT_ARCHIVE_ROOT_INVALID')
+        archive.add(root,arcname='fixture',recursive=False)
+        files+=1
         for directory,children,names in os.walk(root,followlinks=False):
             require(len(children)+len(names)<=1024,'DISK_FAULT_ARCHIVE_ENTRY_CAPACITY')
             for name in sorted([*children,*names]):

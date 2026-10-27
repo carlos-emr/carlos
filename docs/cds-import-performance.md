@@ -117,7 +117,11 @@ Two additional installed profiles cover preaccept storage failure. Each owns a
 fresh database and runtime with a dedicated64MiB tmpfs for its entire synthetic
 fixture. `disk-reserve` keeps the default512MiB reserve and must produce the
 finite operator reason `CDS_INPUT_DISK_RESERVE`; it does not claim ENOSPC.
-The mount's initial root identity/mode is explicit. Before any submission, the
+The mount's initial root identity/mode is explicit: Docker can retain the
+image home directory's0750 mode while making the tmpfs root-owned, which denies
+service traversal. The fixture mounts0:0/0755 before preparation, while its
+source/fixture and service-owned staging directories retain their private modes.
+Before any submission, the
 real service UID/GID records every ancestor's ownership/mode and its filesystem
 UID/GID, then proves private creation, writing, locking and file/directory fsync
 with a tiny owned probe that it retires. An inaccessible ancestor fails fixture

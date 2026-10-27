@@ -57,6 +57,7 @@ class DiskFailureEvidenceTest(unittest.TestCase):
         self.assertEqual(proof['retainedRegularFileBytes'],31)
         self.assertEqual(proof['sha256'],GATE.RESOURCE.digest(retained))
         with tarfile.open(retained) as archive:
+            self.assertEqual(archive.getmember('fixture').mode,owned.stat().st_mode&0o777)
             self.assertEqual(archive.extractfile('fixture/source/original.xml').read(),b'exact synthetic original')
             self.assertEqual(archive.extractfile('fixture/snapshot.pending/member.bin').read(),b'partial')
         with self.assertRaises(RuntimeError):GATE.retain_tmpfs(owned,retained)
