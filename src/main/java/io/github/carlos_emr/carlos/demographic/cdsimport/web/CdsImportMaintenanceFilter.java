@@ -97,6 +97,7 @@ public final class CdsImportMaintenanceFilter implements Filter {
                     "Clinical access is unavailable during CDS import maintenance or chart reconciliation. "
                     + "Authorized operators can open the CDS import page by adding "
                     + "/form/importUpload to the application base address.");
+            default -> throw new IllegalStateException("Unsupported clinical availability reason");
         }
     }
 
