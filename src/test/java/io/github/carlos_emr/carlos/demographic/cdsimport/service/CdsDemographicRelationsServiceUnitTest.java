@@ -194,6 +194,17 @@ class CdsDemographicRelationsServiceUnitTest {
         assertThat(dto.preferredPharmacy()).isNull(); assertThat(dto.diagnostics()).isEmpty();
     }
 
+    @Test
+    void shouldTraverseTheMetadataOnlyOnce_whenContextualRelationsAreAbsentFromALargeDemographic() throws Exception {
+        Map<String,String> values=new LinkedHashMap<>();
+        for(int index=1;index<=2000;index++) values.put("Extensions/VendorValue["+index+"]","unrelated source value");
+        var record=CdsClinicalFixture.record(directory,"Demographics",values);
+        var fields=spy(new CdsFieldParser()); var dto=new CdsDemographicRelationsService(fields).prepare(record,command());
+        assertThat(dto.familyPhysician()).isNull(); assertThat(dto.preferredPharmacy()).isNull();
+        verify(fields,times(1)).forEachField(eq(record),any());
+        verify(fields,never()).firstText(any(),anyString(),anyInt());
+    }
+
     private CdsImportCommand command() {
         return new CdsImportCommand(directory,"relations-test","T099",null,42,"synthetic","pcon-2024-02",
                 false,false,false,0,null,false);
