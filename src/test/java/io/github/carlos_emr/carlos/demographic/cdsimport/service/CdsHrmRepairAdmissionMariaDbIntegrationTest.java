@@ -51,6 +51,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.time.Duration;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -250,6 +252,53 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldRetainOrdinaryAdmission_whenDbcpActuallyReclaimsTheJdbcIdleCopyTransaction() throws Exception {
+        CountDownLatch copying=new CountDownLatch(1);
+        AtomicLong pooledId=new AtomicLong();
+        var helper=helper((file, target) -> {
+            pooledId.set(new org.springframework.jdbc.core.JdbcTemplate(ordinary).queryForObject("SELECT CONNECTION_ID()", Long.class));
+            copying.countDown();
+            try {
+                if (!releaseCopy.await(12, TimeUnit.SECONDS)) throw new IllegalStateException("Synthetic copy release timeout");
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(interrupted);
+            }
+            copies.incrementAndGet();
+            Files.copy(file.toPath(), target.toPath().resolve(file.getName()));
+        });
+        var fixing=workers.submit(helper::fixIt);
+        assertThat(copying.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(ordinary.getRemoveAbandonedOnBorrow()).isTrue();
+        // Only the file operation is paused. Two pressure borrows satisfy DBCP's
+        // active>maxTotal-3 / idle<2 reclamation condition after its actual timeout.
+        Thread.sleep(2200);
+        try (Connection firstPressure=ordinary.getConnection(); Connection secondPressure=ordinary.getConnection()) {
+            assertThat(firstPressure.isClosed()).isFalse();
+            assertThat(secondPressure.isClosed()).isFalse();
+            assertThat(ordinary.getNumActive()).isEqualTo(2);
+            try (Connection raw=ordinary.openUnpooledCdsMaintenanceConnection();
+                    var query=raw.prepareStatement("SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID=?")) {
+                query.setLong(1, pooledId.get());
+                try (var rows=query.executeQuery()) { rows.next(); assertThat(rows.getLong(1)).isZero(); }
+            }
+            var entering=workers.submit(this::acquire);
+            awaitAdvisoryOwner();
+            assertThatThrownBy(() -> entering.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            assertThat(Files.exists(documents.resolve(filename))).isFalse();
+            releaseCopy.countDown();
+            assertThatThrownBy(() -> fixing.get(5, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class).hasCauseInstanceOf(HrmReportRepairDeferredException.class);
+            var owner=entering.get(5, TimeUnit.SECONDS);
+            safety.verify(owner);
+            assertThat(Files.readString(documents.resolve(filename))).isEqualTo(Files.readString(source));
+            assertThat(copies).hasValue(1);
+            assertThat(markerCount()).isZero();
+            owner.allowReopen();
+        }
+    }
+
+    @Test
     void shouldRefuseAFileCopyAndMarker_whenMaintenanceIsAlreadyActive() throws Exception {
         var owner = acquire();
         safety.verify(owner);
@@ -286,6 +335,59 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
         var owner = workers.submit(this::acquire).get(5, TimeUnit.SECONDS);
         safety.verify(owner);
         owner.allowReopen();
+    }
+
+    @Test
+    void shouldNeverPublishAPartialCopyOrMarkComplete_whenLegacyCopierFailsWithIo() throws Exception {
+        helper((file, target) -> {
+            assertThat(Files.getPosixFilePermissions(target.toPath()))
+                    .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+            Files.writeString(target.toPath().resolve(file.getName()), "partial");
+            throw new java.io.IOException("Synthetic partial copy");
+        }).fixIt();
+        assertThat(Files.exists(documents.resolve(filename))).isFalse();
+        assertThat(markerCount()).isZero();
+        try (var paths=Files.list(documents)) { assertThat(paths.toList()).isEmpty(); }
+        // The error is retryable without a destructive flag reset or manual file removal.
+        helper(this::copy).fixIt();
+        assertThat(Files.readString(documents.resolve(filename))).isEqualTo(Files.readString(source));
+        assertThat(markerCount()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldPublishAndMarkCompleteForAnExistingNestedTargetDirectory() throws Exception {
+        String relative="nested/"+filename;
+        Files.createDirectory(documents.resolve("nested"));
+        try (Connection raw=ordinary.openUnpooledCdsMaintenanceConnection();
+                var update=raw.prepareStatement("UPDATE HRMDocument SET reportFile=? WHERE id=?")) {
+            update.setString(1, relative); update.setInt(2, documentId); assertThat(update.executeUpdate()).isEqualTo(1);
+        }
+        descriptors.descriptor.setReportFile(relative);
+        helper(this::copy).fixIt();
+        assertThat(Files.readString(documents.resolve(relative))).isEqualTo(Files.readString(source));
+        assertThat(Files.exists(documents.resolve(filename))).isFalse();
+        assertThat(markerCount()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldNeverOverwriteATargetThatAppearsDuringPrivateCopy() throws Exception {
+        helper((file, target) -> {
+            Files.copy(file.toPath(), target.toPath().resolve(file.getName()));
+            Files.writeString(documents.resolve(filename), "independent target");
+        }).fixIt();
+        assertThat(Files.readString(documents.resolve(filename))).isEqualTo("independent target");
+        assertThat(markerCount()).isZero();
+        try (var paths=Files.list(documents)) { assertThat(paths.toList()).containsExactly(documents.resolve(filename)); }
+    }
+
+    @Test
+    void shouldRefuseAnAmbientTransaction_beforeFilesystemOrAdmissionWork() {
+        var tx=new org.springframework.transaction.support.TransactionTemplate(context.getBean(PlatformTransactionManager.class));
+        var helper=helper(this::copy);
+        assertThatThrownBy(() -> tx.executeWithoutResult(status -> helper.fixIt()))
+                .isInstanceOf(HrmReportRepairDeferredException.class).hasMessage("HRM_REPAIR_AMBIENT_TRANSACTION");
+        assertThat(copies).hasValue(0);
+        assertThat(Files.exists(documents.resolve(filename))).isFalse();
     }
 
     @Test
@@ -364,6 +466,9 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
         source.setUsername(jdbc.getProperty("jdbcUser"));
         source.setPassword(jdbc.getProperty("jdbcPassword"));
         source.setMaxTotal(4);
+        source.setRemoveAbandonedOnBorrow(true);
+        source.setRemoveAbandonedTimeout(Duration.ofSeconds(1));
+        source.setLogAbandoned(false);
         return source;
     }
 }

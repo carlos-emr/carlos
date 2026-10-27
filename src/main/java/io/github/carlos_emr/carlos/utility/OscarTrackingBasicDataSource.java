@@ -88,6 +88,16 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         return createConnectionFactory().createConnection();
     }
 
+    /**
+     * Ordinary guarded admission for a bounded filesystem operation. Its single physical connection
+     * is outside DBCP abandoned reclamation; neither SQL nor maintenance privileges escape to callers.
+     */
+    public io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.OrdinaryAdmissionLease acquireOrdinaryAdmissionLease() throws SQLException {
+        if (isClosed()) throw new SQLException("Data source closed", "08003");
+        return io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.ordinaryLease(
+                createConnectionFactory().createConnection(), cdsAdmissionState.get());
+    }
+
     private Connection cdsAdmission(Connection connection) {
         var state = cdsAdmissionState.get();
         if (state!=null) return io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.wrap(connection, state);

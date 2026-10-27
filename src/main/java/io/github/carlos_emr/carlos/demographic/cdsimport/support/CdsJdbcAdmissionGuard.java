@@ -104,6 +104,56 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
         return guard.proxy;
     }
 
+    /**
+     * One infrastructure-owned physical connection holds ordinary admission across non-JDBC work.
+     * The caller receives no connection/SQL capability; import and owner-read privileges are never used.
+     */
+    public static OrdinaryAdmissionLease ordinaryLease(Connection connection, CdsJdbcAdmissionState state) throws SQLException {
+        var lease=new OrdinaryAdmissionLease(new CdsJdbcAdmissionGuard(connection, state, () -> false));
+        try {
+            connection.setAutoCommit(false);
+            lease.connectionId=lease.currentConnectionId();
+            lease.verify();
+            return lease;
+        } catch (SQLException | RuntimeException | Error primary) {
+            try { lease.close(); }
+            catch (SQLException | RuntimeException | Error cleanup) { if (cleanup!=primary) primary.addSuppressed(cleanup); }
+            throw primary;
+        }
+    }
+
+    /** No raw connection escapes; closing rolls back its read-only-in-effect admission transaction. */
+    public static final class OrdinaryAdmissionLease implements AutoCloseable {
+        private final CdsJdbcAdmissionGuard ordinary;
+        private boolean closed;
+        private long connectionId;
+
+        private OrdinaryAdmissionLease(CdsJdbcAdmissionGuard ordinary) { this.ordinary=ordinary; }
+
+        public void verify() throws SQLException {
+            if (closed || ordinary.raw.isClosed()) throw new SQLException("Ordinary admission lease closed", "08003");
+            if (ordinary.state!=null) ordinary.admit(false);
+            if (currentConnectionId()!=connectionId) throw new SQLException("Ordinary admission session changed", "08007");
+        }
+
+        private long currentConnectionId() throws SQLException {
+            try (PreparedStatement query=ordinary.raw.prepareStatement("SELECT CONNECTION_ID(),@@autocommit")) {
+                query.setQueryTimeout(3);
+                try (ResultSet rows=query.executeQuery()) {
+                    if (!rows.next() || rows.getLong(1)<1 || rows.getBoolean(2))
+                        throw new SQLException("Ordinary admission transaction unavailable", "08007");
+                    return rows.getLong(1);
+                }
+            }
+        }
+
+        @Override public void close() throws SQLException {
+            if (closed) return;
+            closed=true;
+            try (Connection connection=ordinary.raw) { connection.rollback(); }
+        }
+    }
+
     @Override public Object invoke(Object target, Method method, Object[] args) throws Throwable {
         String name = method.getName();
         if (name.equals("unwrap")) {
