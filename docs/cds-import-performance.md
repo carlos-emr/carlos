@@ -52,6 +52,15 @@ columns and numeric timestamped sample deltas, import time separately from
 verification/rehashing time,
 global counters, available disk, exact native rows/checkpoints/holds, independent
 native-document hash/size multisets and all four protected report hashes.
+One-second read-only observations also record connected/running database
+threads, the current run's pending work after its execution inventory is sealed,
+and usable bytes/inodes on the source filesystem. Unsealed inventory counts
+remain unknown. Sampled maxima are lower bounds on the true peaks and sampled
+minima are upper bounds on the true minima. Database observations include their
+own connections/query overhead; the proof counts observer queries explicitly.
+The transaction metric is the sampled age of the oldest currently active
+InnoDB transaction on this exclusive synthetic server. It does not measure a
+committed transaction's exact duration or select transaction SQL/parameters.
 The required event file reconciles source patients and category occurrences;
 clean completion also requires report delivery, cleanup and verified maintenance
 release. Operator output remains in protected files. Failures retain the exact

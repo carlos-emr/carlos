@@ -163,5 +163,40 @@ class PerformanceEvidenceTest(unittest.TestCase):
         self.assertTrue(evidence['codeLocations'])
         self.assertNotIn(sentinel,json.dumps(evidence))
 
+    def test_resource_samples_preserve_unknown_inventory_and_observed_peaks_after_completion(self):
+        run='12345678-1234-1234-1234-123456789abc'
+        calls=[]
+        responses=iter([[['12','2','3']],[['0','-1','0']],[['14','3','5']],[['1','514','256']],
+                        [['11','1','0']],[['1','514','0']]])
+        def query(statement):
+            calls.append(statement)
+            return next(responses)
+        summary={'maxObservedPendingUnits':None}
+        initial=GATE.resource_observation(query,self.root,run)
+        self.assertIsNone(initial['pendingUnits']);self.assertIsNone(initial['expectedUnits'])
+        GATE.retain_resource_observation(summary,initial)
+        self.assertIsNone(summary['maxObservedPendingUnits'])
+        GATE.retain_resource_observation(summary,GATE.resource_observation(query,self.root,run))
+        GATE.retain_resource_observation(summary,GATE.resource_observation(query,self.root,run))
+        self.assertEqual(summary['maxObservedPendingUnits'],256)
+        self.assertEqual(summary['last']['pendingUnits'],0)
+        self.assertEqual(summary['maxObservedThreadsConnected'],14)
+        self.assertEqual(summary['maxObservedActiveTransactionAgeSeconds'],5)
+        self.assertEqual(summary['samples'],3)
+        self.assertEqual(summary['unsealedOrNotAcceptedSamples'],1)
+        self.assertEqual(summary['sealedInventorySamples'],2)
+        self.assertGreaterEqual(summary['minimumObservedFreeInodes'],0)
+        self.assertEqual(len(calls),6)
+        self.assertNotIn('trx_query',' '.join(calls).lower())
+
+    def test_resource_samples_refuse_missing_live_metrics_and_impossible_sealed_backlog(self):
+        run='12345678-1234-1234-1234-123456789abc'
+        for response in ([],[['1','2']],[['1','NaN','2']]):
+            with self.subTest(response=response):
+                with self.assertRaises(RuntimeError):GATE.resource_observation(lambda _:response,self.root,None)
+        responses=iter([[['1','1','0']],[['1','4','5']]])
+        with self.assertRaisesRegex(RuntimeError,'impossible backlog'):
+            GATE.resource_observation(lambda _:next(responses),self.root,run)
+
 
 if __name__=='__main__':unittest.main()

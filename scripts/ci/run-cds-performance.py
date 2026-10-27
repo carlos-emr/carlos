@@ -186,6 +186,54 @@ def storage_admission(path: Path, minimum: int) -> dict:
     return {"freeBytes": usage.free, "requiredFreeBytes": minimum}
 
 
+def resource_observation(query, root: Path, run: str | None) -> dict:
+    """Finite global/load observations; never select SQL text or transaction parameters."""
+    rows = query("SELECT (SELECT VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME='Threads_connected'),"
+                 "(SELECT VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME='Threads_running'),"
+                 "COALESCE((SELECT GREATEST(MAX(TIMESTAMPDIFF(SECOND,trx_started,CURRENT_TIMESTAMP)),0) FROM information_schema.INNODB_TRX),0)")
+    if len(rows) != 1 or len(rows[0]) != 3 or not all(value.isdecimal() for value in rows[0]):
+        raise RuntimeError("bounded database resource sample is unavailable")
+    connected, running, age = map(int, rows[0])
+    expected = pending = None
+    if run is not None:
+        if not UUID.fullmatch(run):
+            raise RuntimeError("resource observer requires the exact accepted handle")
+        rows = query("SELECT execution_digest IS NOT NULL,expected_units,"
+                     "(SELECT COUNT(*) FROM cds_import_unit u WHERE u.run_id=r.id AND u.state NOT IN ('COMMITTED','ALREADY_COMPLETE')) "
+                     "FROM cds_import_run r WHERE id='" + run + "'")
+        if len(rows) != 1 or len(rows[0]) != 3 or rows[0][0] not in ('0','1'):
+            raise RuntimeError("accepted resource inventory sample is unavailable")
+        if rows[0][0] == '1':
+            if not all(value.isdecimal() for value in rows[0][1:]):
+                raise RuntimeError("sealed resource inventory metrics are invalid")
+            expected, pending = map(int, rows[0][1:])
+            if pending > expected:
+                raise RuntimeError("sealed resource inventory has impossible backlog")
+    space = os.statvfs(root)
+    if space.f_bavail < 0 or space.f_favail < 0:
+        raise RuntimeError("filesystem availability metrics are unavailable")
+    return {'threadsConnected':connected,'threadsRunning':running,
+            'oldestActiveTransactionAgeSeconds':age,'expectedUnits':expected,'pendingUnits':pending,
+            'freeBytes':space.f_bavail*space.f_frsize,'freeInodes':space.f_favail}
+
+
+def retain_resource_observation(summary: dict, sample: dict) -> None:
+    summary['samples'] = summary.get('samples',0)+1
+    for selected, source in (('maxObservedThreadsConnected','threadsConnected'),
+                             ('maxObservedThreadsRunning','threadsRunning'),
+                             ('maxObservedActiveTransactionAgeSeconds','oldestActiveTransactionAgeSeconds')):
+        summary[selected] = max(summary.get(selected,0),sample[source])
+    for selected, source in (('minimumObservedFreeBytes','freeBytes'),('minimumObservedFreeInodes','freeInodes')):
+        summary[selected] = min(summary.get(selected,sample[source]),sample[source])
+    if sample['expectedUnits'] is None:
+        summary['unsealedOrNotAcceptedSamples'] = summary.get('unsealedOrNotAcceptedSamples',0)+1
+    else:
+        summary['sealedInventorySamples'] = summary.get('sealedInventorySamples',0)+1
+        prior = summary.get('maxObservedPendingUnits')
+        summary['maxObservedPendingUnits'] = max(prior if prior is not None else 0,sample['pendingUnits'])
+    summary['last'] = sample
+
+
 def xml_start(identity: str) -> bytes:
     if not re.fullmatch(r"[A-Z0-9-]{1,20}", identity):
         raise ValueError("synthetic source identity must fit its actual wire capacity")
@@ -395,7 +443,8 @@ def main() -> None:
     evidence = args.root / "evidence"
     evidence.mkdir(mode=0o700)
     result = {"protocol": 1, "candidateSha256": args.candidate_sha256, "profile": args.profile,
-              "status": "RUNNING", "cases": [], "queryCounterScope": "server-global; exclusive-server attestation required"}
+              "status": "RUNNING", "cases": [], "observerQueriesExecuted":0,
+              "queryCounterScope": "server-global; exclusive-server attestation required"}
     proof = evidence / "proof.json"
     private_json(proof, result, exclusive=True)
     def stage(value: str) -> None:
@@ -425,6 +474,7 @@ def main() -> None:
         with os.fdopen(descriptor, "w") as output:
             output.write(content)
         def query(statement: str) -> list[list[str]]:
+            result['observerQueriesExecuted'] += 1
             completed = subprocess.run([args.mysql, "--defaults-file=" + str(client), "--batch", "--raw", "--skip-column-names", database,
                                         "-e", statement], env=env, capture_output=True, text=True, timeout=30, check=False)
             if completed.returncode or len(completed.stdout) > 1048576:
@@ -491,8 +541,26 @@ def main() -> None:
                     "expectedPatients": patients, "expectedNotes": source["notes"], "expectedLabs": source["labs"],
                     "expectedDocuments": source["documents"], "beforeCounters": before, "status": "RUNNING",
                     "acceptedRunIds":[],"submissionKeys":[],"phase":"PREPARED"}
+            case['resourceObservations']={'intervalSeconds':1,'maxObservedPendingUnits':None,
+                'sampledPeaksAreLowerBounds':True,'sampledMinimaAreUpperBounds':True,
+                'databaseScope':'exclusive server-global; includes observer connections/queries',
+                'transactionMetric':'sampled oldest active transaction AGE; not committed transaction latency',
+                'inventoryCountsUnknownUntilSealed':True}
+            observer_before = result['observerQueriesExecuted']
+            observation_started = time.monotonic()
+            observed_at = 0.0
+            def observe_resources():
+                nonlocal observed_at
+                handle = case['acceptedRunIds'][0] if case['acceptedRunIds'] else None
+                value = resource_observation(query,args.root,handle)
+                value['elapsedSinceObservationStartSeconds']=time.monotonic()-observation_started
+                retain_resource_observation(case['resourceObservations'],value)
+                case['observerQueriesDuringImport']=result['observerQueriesExecuted']-observer_before
+                observed_at = time.monotonic()
+                private_json(proof,result)
             result["cases"].append(case)
             stage('INSTALLED_IMPORT')
+            observe_resources()
             log = evidence / (label + ".log")
             fd = os.open(log, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
             common = ["--provider", str(metadata["provider"])]
@@ -543,6 +611,8 @@ def main() -> None:
                                                env=env, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
                     while process.poll() is None:
                         bindings()
+                        if time.monotonic()-observed_at >= 1:
+                            observe_resources()
                         if time.monotonic() - started > args.timeout:
                             os.killpg(process.pid, signal.SIGTERM)
                             raise RuntimeError("benchmark deadline exceeded; retain exact accepted run and reconcile")
@@ -605,6 +675,7 @@ def main() -> None:
                         time.sleep(0.1)
                     import_elapsed = time.monotonic()-started
                     bindings()
+                    observe_resources()
                     if process.returncode != 0:
                         raise RuntimeError("installed benchmark import refused or failed; preserve accepted evidence")
             finally:
