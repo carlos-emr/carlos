@@ -118,7 +118,10 @@
     <section class="my-4" aria-labelledby="uploadHeading">
         <h2 id="uploadHeading" class="h5"><fmt:message key="uploads" bundle="${cds}"/></h2>
         <p id="currentUpload" aria-live="polite"></p>
-        <progress id="uploadProgress" max="1" value="0" class="w-100" aria-label="Upload progress"></progress>
+        <label for="uploadProgress" class="form-label"><fmt:message key="transferProgress" bundle="${cds}"/></label>
+        <progress id="uploadProgress" max="1" value="0" class="w-100" aria-describedby="uploadTransferHelp"></progress>
+        <p id="uploadTransferHelp" class="form-text"><fmt:message key="transferHelp" bundle="${cds}"/></p>
+        <p class="form-text"><fmt:message key="ownedHistoryHelp" bundle="${cds}"/></p>
         <div class="d-flex flex-wrap gap-2 my-2">
             <button id="refreshUploads" type="button" class="btn btn-outline-secondary"><fmt:message key="refreshUploads" bundle="${cds}"/></button>
             <button id="nextUploads" type="button" class="btn btn-outline-secondary"><fmt:message key="nextPage" bundle="${cds}"/></button>
@@ -137,7 +140,36 @@
         <div class="input-group"><input id="runId" class="form-control" aria-label="Run ID" autocomplete="off">
             <button id="openRun" type="button" class="btn btn-outline-primary"><fmt:message key="openRun" bundle="${cds}"/></button></div>
         <p id="runState" class="mt-2" aria-live="polite"></p>
-        <pre id="runSummary" class="border rounded p-2 text-wrap"></pre>
+        <section id="jobOverview" class="border rounded p-3 mb-3" aria-labelledby="jobStage" data-fresh="false" hidden>
+            <h3 id="jobStage" class="h5" aria-live="polite"><fmt:message key="checkingStatus" bundle="${cds}"/></h3>
+            <p id="jobConnection" role="status" aria-live="polite"></p>
+            <label id="clinicalProgressLabel" for="clinicalProgress" class="form-label"><fmt:message key="clinicalProgress" bundle="${cds}"/></label>
+            <progress id="clinicalProgress" max="1" class="w-100" aria-describedby="clinicalProgressHelp"></progress>
+            <p id="clinicalProgressHelp" class="form-text"><fmt:message key="clinicalProgressHelp" bundle="${cds}"/></p>
+            <dl class="row mb-2">
+                <div class="col-md-6 col-xl-3"><dt><fmt:message key="sourcePatientsIdentified" bundle="${cds}"/></dt><dd id="jobSourcePatients">—</dd></div>
+                <div class="col-md-6 col-xl-3"><dt><fmt:message key="patientsConfirmed" bundle="${cds}"/></dt><dd id="jobPatients">—</dd></div>
+                <div class="col-md-6 col-xl-3"><dt><fmt:message key="clinicalRecordsConfirmed" bundle="${cds}"/></dt><dd id="jobRecords">—</dd></div>
+                <div class="col-md-6 col-xl-3"><dt><fmt:message key="newClinicalRecords" bundle="${cds}"/></dt><dd id="jobImported">—</dd></div>
+                <div class="col-md-6 col-xl-3"><dt><fmt:message key="verifiedPriorRecords" bundle="${cds}"/></dt><dd id="jobPrior">—</dd></div>
+                <div class="col-md-6 col-xl-3"><dt><fmt:message key="pendingWorkItems" bundle="${cds}"/></dt><dd id="jobPending">—</dd></div>
+                <div class="col-md-6 col-xl-3"><dt><fmt:message key="openReviewItems" bundle="${cds}"/></dt><dd id="jobReviews">—</dd></div>
+                <div class="col-md-6 col-xl-3"><dt><fmt:message key="reportReadiness" bundle="${cds}"/></dt><dd id="jobReports">—</dd></div>
+                <div class="col-md-6 col-xl-3"><dt><fmt:message key="cleanupReadiness" bundle="${cds}"/></dt><dd id="jobCleanup">—</dd></div>
+            </dl>
+            <p class="small text-body-secondary"><fmt:message key="lastConfirmed" bundle="${cds}"/> <time id="jobLastConfirmed">—</time></p>
+            <p class="small text-body-secondary"><fmt:message key="lastRecordedUpdate" bundle="${cds}"/> <time id="jobRecordedUpdate">—</time></p>
+            <div class="d-flex flex-wrap gap-2">
+                <a id="jobStatusLink" class="btn btn-outline-primary" target="_blank" rel="noopener noreferrer" hidden><fmt:message key="openStatusPage" bundle="${cds}"/></a>
+                <button id="copyJobStatus" type="button" class="btn btn-outline-secondary" disabled><fmt:message key="copyStatusLink" bundle="${cds}"/></button>
+                <button id="retryJobStatus" type="button" class="btn btn-outline-secondary" disabled><fmt:message key="retryStatus" bundle="${cds}"/></button>
+            </div>
+            <p class="form-text mb-0 mt-2"><fmt:message key="acceptedJobHelp" bundle="${cds}"/></p>
+        </section>
+        <details id="jobAdvanced" class="border rounded p-2">
+            <summary><fmt:message key="advancedJobDetails" bundle="${cds}"/></summary>
+            <pre id="runSummary" class="p-2 text-wrap"></pre>
+        </details>
         <div class="d-flex flex-wrap gap-2 my-2">
             <button id="cancelRun" type="button" class="btn btn-outline-danger" disabled><fmt:message key="cancel" bundle="${cds}"/></button>
             <button id="resumeRun" type="button" class="btn btn-outline-primary" disabled><fmt:message key="resumeRun" bundle="${cds}"/></button>

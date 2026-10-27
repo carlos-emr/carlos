@@ -4,7 +4,7 @@
 const fs = require('node:fs');
 const {createHash} = require('node:crypto');
 const h = require('./lib/playwright-harness');
-const {importApi, awaitRunReceipt, uploadAndAwaitRun} = require('./demographic-cds-import-playwright-checks');
+const {assertPrimaryJobStatus, importApi, awaitRunReceipt, uploadAndAwaitRun} = require('./demographic-cds-import-playwright-checks');
 const {installCdsMetadataTransportObserver} = require('./lib/cds-metadata-transport');
 const {createCdsMetadataProver} = require('./lib/cds-metadata-domain-proof');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -84,7 +84,7 @@ async function run(env = process.env) {
     await page.waitForFunction(id => {
       try { return JSON.parse(document.getElementById('runSummary').textContent).job.id === id; } catch (_) { return false; }
     }, oldId);
-    let prior = JSON.parse(await page.locator('#runSummary').innerText());
+    let prior = JSON.parse(await page.locator('#runSummary').textContent());
     h.assert(prior.job.id === oldId && typeof prior.summary.resumeRequested === 'boolean',
       'The visible durable run contract is incomplete');
     await qualify(); h.assertStrictPage(recorder);
@@ -113,7 +113,7 @@ async function run(env = process.env) {
             && row.summary.reportsDelivered===true && row.summary.operationTerminal===true
             && row.summary.resumeRequested===false; } catch (_) { return false; }
       }, {id:oldId,generation}, {timeout:180000});
-      prior = JSON.parse(await page.locator('#runSummary').innerText());
+      prior = JSON.parse(await page.locator('#runSummary').textContent());
       h.assert(retainedCancellationComplete(prior, oldId, generation),
         'Cancellation must retain the clinical failure and deliver a newer non-success report generation');
     }
@@ -168,6 +168,7 @@ async function run(env = process.env) {
       }, current.summary.reviewVersion, {timeout:120000});
       current = await awaitRunReceipt(page, id, 300000);
     }
+    await assertPrimaryJobStatus(page,id);
     h.assert(current.summary.cleanComplete === true && current.summary.clinicalComplete === true
       && current.summary.reportsDelivered === true && current.summary.cleanupComplete === true
       && current.summary.resumeRequested === false, 'Recovery did not prove clinical/report/cleanup completion');

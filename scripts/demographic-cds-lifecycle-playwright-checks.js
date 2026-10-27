@@ -9,7 +9,7 @@ const {createHash, randomUUID} = require('node:crypto');
 const {execFileSync,spawn} = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const {assertRetainedLogin} = require('./demographic-cds-retained-recovery-playwright-checks');
-const {importApi:sharedImportApi, awaitRunReceipt, uploadAndAwaitRun, assertSchemaValid} = require('./demographic-cds-import-playwright-checks');
+const {assertPrimaryJobStatus, importApi:sharedImportApi, awaitRunReceipt, uploadAndAwaitRun, assertSchemaValid} = require('./demographic-cds-import-playwright-checks');
 const {installCdsMetadataTransportObserver} = require('./lib/cds-metadata-transport');
 const {createCdsMetadataProver} = require('./lib/cds-metadata-domain-proof');
 const {effectiveOptions} = require('../src/main/webapp/js/demographic/cds-import');
@@ -644,6 +644,7 @@ async function run(env = process.env) {
     h.assert(sql.value('SELECT COUNT(*) FROM cds_import_run WHERE operator=' + q(owner)
       + ' AND submission_key=(SELECT submission_key FROM cds_import_upload WHERE id=' + q(state.uploadId) + ')') === '1',
       'A lost ACK or reconnect created another accepted run');
+    await assertPrimaryJobStatus(current.page,state.runId);
     const reports = protectedEvidence(sql,state,env);
     for (const [selector,key] of [['eventReport','event'],['errorReport','error'],['receiptReport','completion'],['unitsReport','units']]) {
       const transfer = current.page.waitForEvent('download',{timeout:30000});

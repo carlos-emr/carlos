@@ -2,10 +2,10 @@
 const test = require('node:test'),assert=require('node:assert/strict');
 const {createCdsMetadataProver,verifyMetadataPage}=require('./lib/cds-metadata-domain-proof');
 const id='12345678-1234-4234-8234-123456789abc',owner='web-77';
-function fixture({dry=true,mode=dry?'1':'0',summaryChanges={},checkpoints=0,advanced=0,reportChanges={}}={}) {
+function fixture({dry=true,mode=dry?'1':'0',summaryChanges={},checkpoints=0,advanced=0,reportChanges={},visibleId=id}={}) {
   const job={id,state:dry?'DRY_RUN_COMPLETE':'COMPLETE',sourceDigest:'a'.repeat(64),optionsDigest:'b'.repeat(64),rulesetDigest:'c'.repeat(64),manifestDigest:'d'.repeat(64)};
   const summary={dryRun:dry,cleanComplete:true,clinicalComplete:!dry,reportsDelivered:true,cleanupComplete:true,resumeRequested:false,expectedPatients:1,...summaryChanges};
-  const frame={locator(selector){return{async getAttribute(){assert.equal(selector,'#cdsImport');return owner;},async innerText(){assert.equal(selector,'#runSummary');return JSON.stringify({job,summary});}};}};
+  const frame={locator(selector){return{async getAttribute(){assert.equal(selector,'#cdsImport');return owner;},async textContent(){assert.equal(selector,'#runSummary');return JSON.stringify({job,summary});}async inputValue(){assert.equal(selector,'#runId');return visibleId;},async count(){assert.equal(selector,'#jobOverview');return 0;}};}};
   const sql={value(query){
     if(query.includes('SELECT security_no'))return'77';
     if(query.startsWith('SELECT operator FROM'))return owner;
@@ -58,4 +58,10 @@ test('chunk pages require exact journal hashes and represented verified prefix w
  const frame={locator(){return{async evaluate(){return 65536;}};}};
  await verifyMetadataPage({uploadId:id,page},frame,async()=>({status:200,body:{ok:true,rows:[row]}}));
  await assert.rejects(verifyMetadataPage({uploadId:id,page},frame,async()=>({status:200,body:{ok:true,rows:[{...row,sha256:'b'.repeat(64)}]}})),/Immutable bounded-page content changed/);
+});
+
+
+test('closed advanced diagnostics cannot qualify another visible job handle',async()=>{
+ const{prover,receipt}=fixture({visibleId:'22222222-2222-4222-8222-222222222222'});
+ await assert.rejects(prover(receipt),/visible job handle differs/);
 });

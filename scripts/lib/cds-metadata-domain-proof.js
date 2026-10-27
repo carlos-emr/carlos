@@ -108,8 +108,12 @@ function createCdsMetadataProver({frame, config, sql, readApi}) {
       h.assert(sql.value('SELECT operator FROM cds_import_run WHERE id=' + h.sqlString(receipt.runId)) === owner,
         'Durable run has another owner');
       let visible;
-      try { visible = JSON.parse(await frame.locator('#runSummary').innerText()); } catch (_) { /* Checked below. */ }
+      try { visible = JSON.parse(await frame.locator('#runSummary').textContent()); } catch (_) { /* Checked below. */ }
       h.assert(visible?.job?.id === job.id, 'The exact observed run is not rendered');
+      h.assert(await frame.locator('#runId').inputValue() === job.id, 'The visible job handle differs from the observed run');
+      const overview=frame.locator('#jobOverview');
+      if (await overview.count()) h.assert(await overview.isVisible() && await overview.getAttribute('data-fresh') === 'true',
+        'The primary job view is not visible and freshly confirmed');
       for (const key of ['sourceDigest','optionsDigest','rulesetDigest']) {
         h.assert(visible.job[key] === job[key] && (!receipt[key] || receipt[key] === job[key]),
           'Visible/observed/independent immutable run provenance differs');

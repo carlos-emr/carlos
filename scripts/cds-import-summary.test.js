@@ -173,3 +173,88 @@ test('missing or untyped recovery status requires refreshed server status', () =
       {state: 'UNAVAILABLE', clean: false, final: false});
   }
 });
+
+test('status permalinks contain only a validated job handle and the application context', () => {
+  assert.equal(client.jobStatusUrl('/carlos',id), '/carlos/form/importUpload?runId='+id);
+  assert.equal(client.jobStatusUrl('',id), '/form/importUpload?runId='+id);
+  assert.equal(client.jobStatusUrl('/carlos-2026.08.0-alpha20-SNAPSHOT',id), '/carlos-2026.08.0-alpha20-SNAPSHOT/form/importUpload?runId='+id);
+  for(const context of ['https://example.test','//example.test','/carlos?CSRF-TOKEN=private','/carlos#private','/../private','/carlos/../private','/%2e%2e'])
+    assert.throws(()=>client.jobStatusUrl(context,id),/IMPORT_STATUS_LINK_INVALID/);
+  for(const changed of ['',undefined,id+'?CSRF-TOKEN=private','../private'])
+    assert.throws(()=>client.jobStatusUrl('/carlos',changed),/IMPORT_STATUS_LINK_INVALID/);
+});
+const dashboardSummary = () => ({...clean,dryRun:false,inventoryState:'SEALED',sourcePatients:1,
+  categories:[{category:'Demographics',expected:1},{category:'ClinicalNotes',expected:3}],
+  committedClinicalOccurrences:4,alreadyCompleteClinicalOccurrences:0,committedUnits:8,alreadyCompleteUnits:0,expectedUnits:8});
+
+test('the dashboard distinguishes source patients, patient copies, clinical records and helper work', () => {
+  const value=client.jobPresentation({id,state:'COMPLETE'},{...dashboardSummary(),expectedPatients:2,outcomes:{COMPLETE:2}});
+  assert.equal(value.sourcePatients,'1');assert.equal(value.patients,'2 / 2');
+  assert.equal(value.records,'4 / 4');assert.equal(value.imported,'4');assert.equal(value.prior,'0');
+  assert.deepEqual(value.progress,{value:4,maximum:4});assert.equal(value.clean,true);
+});
+test('unknown, unsealed, malformed and zero clinical totals never become a completion percentage', () => {
+  for(const changed of [{inventoryState:'UNSEALED'},{discoveryComplete:false},{categories:[]},
+    {categories:[{expected:0}]},{categories:[{expected:-1}]},{categories:[{expected:NaN}]},
+    {categories:[{expected:Number.MAX_SAFE_INTEGER},{expected:1}]}]) {
+    const view=client.jobPresentation({id,state:'RUNNING'},{...dashboardSummary(),...changed});
+    assert.equal(view.progress,null);assert.equal(view.clean,false);
+  }
+  assert.equal(client.jobPresentation(null,null).clean,false);
+});
+test('all saved records remain finalizing until reports, cleanup, recovery and counts are confirmed', () => {
+  for(const state of ['COMPLETE','COMPLETE_WITH_NONLOSSY_WARNINGS','ALREADY_COMPLETE']) {
+    for(const changed of [{reportsDelivered:false},{cleanupComplete:false},{resumeRequested:true},
+      {pendingUnits:1},{unresolvedReviewItems:1},{categories:[{expected:5}]}]) {
+      const view=client.jobPresentation({id,state},{...dashboardSummary(),...changed});
+      assert.equal(view.clean,false);assert.equal(view.progress,null);
+      assert.doesNotMatch(view.stage,/^Import complete|^Previously imported/);
+    }
+  }
+});
+test('preview completion never becomes clinical success even when its durable clean flag is true', () => {
+  for(const french of [false,true]) {
+    const value=client.jobPresentation({id,state:'DRY_RUN_COMPLETE'},{...dashboardSummary(),dryRun:true,cleanComplete:true,
+      committedClinicalOccurrences:0,committedUnits:0,pendingUnits:8,outcomes:{PLANNED:1}},french);
+    assert.equal(value.preview,true);assert.equal(value.clean,false);assert.equal(value.progress,null);
+    assert.match(value.stage,french?/aucune donnée clinique importée/:/no clinical data imported/);
+  }
+});
+test('clinical progress counts verified prior records without treating an uploaded file as an import', () => {
+  const view=client.jobPresentation({id,state:'RUNNING'},{...dashboardSummary(),committedClinicalOccurrences:1,
+    alreadyCompleteClinicalOccurrences:1,pendingUnits:4,cleanComplete:false});
+  assert.deepEqual(view.progress,{value:2,maximum:4});assert.equal(view.records,'2 / 4');
+  assert.match(client.uploadPresentation('COMPLETE'),/File received/);
+  assert.doesNotMatch(client.uploadPresentation('COMPLETE'),/Import complete/);
+  assert.match(client.uploadPresentation('COMPLETE',true),/Fichier reçu/);
+});
+
+test('terminal report or cleanup failures require attention rather than an endless finishing state', () => {
+  for(const changed of [{reportDeliveryFailed:true,reportState:'FAILED',reportsDelivered:false},
+    {cleanupState:'FAILED',cleanupComplete:false},{maintenanceReleaseState:'RELEASE_FAILED',cleanupComplete:false}]) {
+    const view=client.jobPresentation({id,state:'COMPLETE'},{...dashboardSummary(),...changed,operationTerminal:true});
+    assert.equal(view.clean,false);assert.equal(view.attention,true);assert.equal(view.progress,null);
+    assert.match(view.stage,/attention needed/);
+    assert.match(changed.reportDeliveryFailed?view.reports:view.cleanup,/Failed/);
+  }
+  const preview=client.jobPresentation({id,state:'DRY_RUN_COMPLETE'},{...dashboardSummary(),dryRun:true,
+    operationTerminal:true,reportState:'FAILED',reportDeliveryFailed:true,reportsDelivered:false});
+  assert.equal(preview.clean,false);assert.equal(preview.attention,true);
+  assert.match(preview.stage,/reports or cleanup need attention; no clinical data imported/);
+});
+
+test('real long-running engine phases have readable labels without inventing write activity or timing', () => {
+  for(const state of ['PREFLIGHTING','READY','REPLANNING','RESUME_REQUESTED','DISCOVERING','VALIDATING','PREFLIGHT','PAUSED','REPORTING']) {
+    assert.notEqual(client.friendlyState(state),'Check job details');
+    assert.notEqual(client.friendlyState(state,true),'Vérifier les détails de la tâche');
+  }
+  assert.match(client.friendlyState('RUNNING'),/Processing/);
+  const failed=client.jobPresentation({id,state:'INCOMPLETE'},{...dashboardSummary(),clinicalComplete:false,cleanComplete:false,
+    operationTerminal:true,reportState:'FAILED',reportDeliveryFailed:true,reportsDelivered:false,committedClinicalOccurrences:0});
+  assert.match(failed.stage,/Import needs attention/);assert.doesNotMatch(failed.stage,/Data saved/);
+});
+
+test('clean imports still surface preserved patient warnings without inventing a warning total', () => {
+  const view=client.jobPresentation({id,state:'COMPLETE'},{...dashboardSummary(),outcomes:{COMPLETE_WITH_NONLOSSY_WARNINGS:1}});
+  assert.equal(view.clean,true);assert.match(view.stage,/review warnings/);assert.equal(view.reviews,'0');
+});

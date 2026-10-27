@@ -260,7 +260,26 @@ async function awaitRunReceipt(frame, id, timeout = 180000) {
       return value.job.id === runId && value.summary.operationTerminal === true;
     } catch (_) { return false; }
   }, id, {timeout, polling: 500});
-  return JSON.parse(await frame.locator('#runSummary').innerText());
+  return JSON.parse(await frame.locator('#runSummary').textContent());
+}
+
+async function assertPrimaryJobStatus(frame, id, {preview = false} = {}) {
+  const overview=frame.locator('#jobOverview'); await overview.waitFor({state:'visible'});
+  h.assert(await overview.getAttribute('data-fresh') === 'true','The primary job status is not freshly confirmed');
+  h.assert(await frame.locator('#jobAdvanced').evaluate(node=>node.open === false),
+    'Raw diagnostic JSON must be closed by default');
+  const location=new URL(frame.url());
+  h.assert(location.pathname.endsWith('/form/importUpload') && location.searchParams.get('runId')===id
+    && [...location.searchParams.keys()].join(',')==='runId' && !location.hash,
+  'The status page is not a canonical bookmark containing only the exact accepted job handle');
+  const link=new URL(await frame.locator('#jobStatusLink').getAttribute('href'),frame.url());
+  h.assert(link.href===location.href,'The visible status link differs from the exact canonical job bookmark');
+  h.assert((await frame.locator('#jobLastConfirmed').getAttribute('datetime'))?.endsWith('Z'),
+    'Primary status has no confirmed server-read timestamp');
+  h.assert((await frame.locator('#jobPatients').innerText()).includes(' / ')
+    && (await frame.locator('#jobRecords').innerText()).includes(' / '),'Primary patient/clinical counts are absent');
+  if(preview) h.assert(/no clinical data imported|aucune donnée clinique importée/.test(await frame.locator('#jobStage').innerText()),
+    'A validation preview did not clearly distinguish itself from a clinical import');
 }
 
 async function uploadAndAwaitRun(s, admin, frame, file, {dryRun = false} = {}) {
@@ -352,6 +371,7 @@ async function workflow(s) {
   });
   await s.step('Raw chunk upload and dry run produce a terminal receipt without clinical writes or clinical-success styling', async () => {
     dry = await uploadAndAwaitRun(s, admin, frame, file, {dryRun: true});
+    await assertPrimaryJobStatus(frame,dry.id,{preview:true});
     h.assert(dry.job.state === 'DRY_RUN_COMPLETE' && dry.summary.clinicalComplete === false, 'Dry run claimed clinical completion');
     h.assert(importedIds().length === 0, 'Dry run wrote a patient');
     h.assert(!await frame.locator('#runState').evaluate(node => node.classList.contains('text-success')), 'Dry run was styled as imported success');
@@ -374,6 +394,7 @@ async function workflow(s) {
     const bookmark = new URL(frame.url()); bookmark.searchParams.set('runId', acceptedRun);
     await frame.goto(bookmark.href); await frame.locator('#cdsImport').waitFor();
     actual = await awaitRunReceipt(frame, acceptedRun);
+    await assertPrimaryJobStatus(frame,acceptedRun);
     h.assert(actual.summary.cleanComplete === true && actual.summary.clinicalComplete === true
       && actual.summary.reportsDelivered === true && actual.summary.cleanupComplete === true,
     'Completion receipt did not prove clinical writes, report publication and cleanup');
@@ -535,6 +556,7 @@ async function nativeViewsWorkflow(s) {
   await s.step('Complete pinned corpus imports through the existing web menu with a clean durable receipt', async () => {
     ({frame, admin} = await openImportFrame(s));
     run = await uploadAndAwaitRun(s, admin, frame, {name:`${name}.xml`,mimeType:'text/xml',buffer:Buffer.from(xml)});
+    await assertPrimaryJobStatus(frame,run.job.id);
     h.assert(run.summary.cleanComplete === true && run.summary.expectedPatients === 1
       && run.summary.operationTerminal === true, 'Full corpus did not complete cleanly');
     const ids = s.sql.rows(`SELECT demographic_no FROM demographic WHERE first_name='Import' AND last_name=${h.sqlString(name)}`).flat();
@@ -667,5 +689,5 @@ async function nativeViewsWorkflow(s) {
 
 if (require.main === module) runWorkflow(process.env.CDS_BROWSER_CORPUS === 'true' ? 'demographic-cds-native-views' : 'demographic-cds-import',
   process.env.CDS_BROWSER_CORPUS === 'true' ? nativeViewsWorkflow : workflow, {openPatient:false});
-module.exports = {workflow,nativeViewsWorkflow,buildCdsXml,fixtureValues,parseImportLogCounts,assertSchemaValid,
+module.exports = {workflow,nativeViewsWorkflow,assertPrimaryJobStatus,buildCdsXml,fixtureValues,parseImportLogCounts,assertSchemaValid,
   openImportFrame,importApi,awaitRunReceipt,uploadAndAwaitRun,registerImportCleanup,qualifyCdsMetadata};

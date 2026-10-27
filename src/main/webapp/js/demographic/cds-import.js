@@ -29,6 +29,113 @@
         return {state: job.state, clean: Boolean(clean), final: FINAL.has(job.state)};
     }
 
+    function jobStatusUrl(context, id) {
+        if (!UUID.test(id || '') || typeof context !== 'string' || !/^(?:\/[A-Za-z0-9_.-]+)*$/.test(context) || context.split('/').some(part => part === '.' || part === '..'))
+            throw new Error('IMPORT_STATUS_LINK_INVALID');
+        return context + '/form/importUpload?' + new URLSearchParams({runId: id});
+    }
+
+    function friendlyState(state, french = false) {
+        const labels = {
+            DISCOVERING: ['Discovering files and patients', 'Recherche des fichiers et des patients'],
+            PREFLIGHTING: ['Validating source data', 'Validation des données sources'],
+            VALIDATING: ['Validating source data', 'Validation des données sources'],
+            PREFLIGHT: ['Validating source data', 'Validation des données sources'],
+            READY: ['Checks complete — waiting to import', 'Vérifications terminées — en attente d’importation'],
+            REPLANNING: ['Rechecking revised source data', 'Nouvelle vérification des données révisées'],
+            RESUME_REQUESTED: ['Recovery requested — waiting for processing', 'Reprise demandée — en attente du traitement'],
+            PAUSED: ['Paused — review the job before continuing', 'En pause — vérifier la tâche avant de poursuivre'],
+            REPORTING: ['Preparing completion reports', 'Préparation des rapports de fin'],
+            CLI_ACCEPTED: ['Accepted — waiting to start', 'Acceptée — en attente'],
+            ACCEPTED: ['Accepted — waiting to start', 'Acceptée — en attente'],
+            SNAPSHOTTING: ['Securing the uploaded source', 'Conservation du fichier reçu'],
+            PLANNING: ['Checking patient data', 'Vérification des données des patients'],
+            SEALING: ['Confirming the complete inventory', 'Confirmation de l’inventaire complet'],
+            RUNNING: ['Processing patient data', 'Traitement des données des patients'],
+            FINALIZING: ['Finishing and checking the import', 'Vérification finale de l’importation'],
+            RECONCILING: ['Checking previously saved work', 'Vérification du travail déjà enregistré'],
+            REVIEW_REQUIRED: ['Clinical review needed', 'Révision clinique requise'],
+            INCOMPLETE: ['Import incomplete — attention needed', 'Importation incomplète — intervention requise'],
+            RECONCILIATION_REQUIRED: ['Saved work needs reconciliation', 'Le travail enregistré doit être rapproché'],
+            PARTIAL_COMMITTED: ['Some data saved — attention needed', 'Certaines données sont enregistrées — intervention requise'],
+            FAILED_BEFORE_WRITE: ['Stopped before clinical data was saved', 'Arrêt avant l’enregistrement de données cliniques'],
+            CANCELLED_BEFORE_WRITE: ['Cancelled before clinical data was saved', 'Annulée avant l’enregistrement de données cliniques'],
+            CANCELLED: ['Cancellation recorded — inspect outcomes', 'Annulation enregistrée — vérifier les résultats'],
+            COMPLETE: ['Import complete', 'Importation terminée'],
+            COMPLETE_WITH_NONLOSSY_WARNINGS: ['Import complete — review warnings', 'Importation terminée — vérifier les avertissements'],
+            ALREADY_COMPLETE: ['Previously imported data verified', 'Données déjà importées et vérifiées'],
+            DRY_RUN_COMPLETE: ['Validation complete — no clinical data imported', 'Validation terminée — aucune donnée clinique importée'],
+            DRY_RUN_INCOMPLETE: ['Validation needs attention — no clinical data imported', 'Validation à réviser — aucune donnée clinique importée'],
+            OPEN: ['Transfer in progress', 'Transfert en cours'],
+            SUBMITTING: ['Confirming acceptance', 'Confirmation de l’acceptation'],
+            SUBMITTED: ['Accepted for processing', 'Accepté pour traitement'],
+            ABANDONED: ['Unsubmitted transfer abandoned', 'Transfert non soumis abandonné'],
+            EXPIRED: ['Transfer expired', 'Transfert expiré'],
+            REFUSED: ['Import refused — inspect findings', 'Importation refusée — vérifier les résultats'],
+            FAILED: ['Stopped — attention needed', 'Arrêt — intervention requise'],
+            NOT_STARTED: ['Not started', 'Non démarrée']
+        };
+        return labels[state]?.[french ? 1 : 0] || (french ? 'Vérifier les détails de la tâche' : 'Check job details');
+    }
+
+    function uploadPresentation(state, french = false) {
+        const labels={OPEN:['Transferring file','Transfert du fichier'],COMPLETE:['File received — ready to submit','Fichier reçu — prêt à soumettre'],
+            SUBMITTING:['Confirming acceptance','Confirmation de l’acceptation'],SUBMITTED:['Accepted for processing','Accepté pour traitement'],
+            ABANDONED:['Unsubmitted transfer abandoned','Transfert non soumis abandonné'],EXPIRED:['Transfer expired','Transfert expiré']};
+        return labels[state]?.[french ? 1 : 0] || (french ? 'Vérifier le transfert' : 'Check transfer status');
+    }
+
+    function jobPresentation(job, summary = {}, french = false) {
+        summary = summary && typeof summary === 'object' && !Array.isArray(summary) ? summary : {};
+        const count = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
+        const shown = value => value === null ? (french ? 'Pas encore connu' : 'Not yet known') : String(value);
+        const sealed = summary.inventoryState === 'SEALED' && summary.discoveryComplete === true;
+        const preview = summary.dryRun === true || (typeof job?.state === 'string' && job.state.startsWith('DRY_RUN_'));
+        const reportFailed = summary.reportDeliveryFailed === true || summary.reportState === 'FAILED';
+        const cleanupFailed = summary.cleanupState === 'FAILED' || ['FAILED','RELEASE_FAILED'].includes(summary.maintenanceReleaseState);
+        const baseClean = !preview && !reportFailed && !cleanupFailed && statusPresentation(job, summary).clean;
+        const outcomes = summary.outcomes;
+        const completed = outcomes && !Array.isArray(outcomes) && typeof outcomes === 'object'
+            ? ['COMPLETE','COMPLETE_WITH_NONLOSSY_WARNINGS','ALREADY_COMPLETE'].reduce((total, key) => {
+                const next = count(outcomes[key] === undefined ? 0 : outcomes[key]);
+                return total === null || next === null || !Number.isSafeInteger(total + next) ? null : total + next;
+            }, 0) : null;
+        const categories = summary.categories;
+        const expectedRecords = sealed && Array.isArray(categories) && categories.length > 0 && categories.length <= 128
+            ? categories.reduce((total, row) => {
+                const next = count(row?.expected);
+                return total === null || next === null || !Number.isSafeInteger(total + next) ? null : total + next;
+            }, 0) : null;
+        const imported = count(summary.committedClinicalOccurrences), prior = count(summary.alreadyCompleteClinicalOccurrences);
+        const confirmed = imported !== null && prior !== null && Number.isSafeInteger(imported + prior) ? imported + prior : null;
+        const pending = count(summary.pendingUnits), reviews = count(summary.unresolvedReviewItems);
+        const expectedPatients = sealed ? count(summary.expectedPatients) : null;
+        const coherent = confirmed !== null && expectedRecords !== null && expectedRecords > 0 && confirmed <= expectedRecords;
+        const clean = baseClean && coherent && confirmed === expectedRecords;
+        // Clinical totals never become an overall completion claim. Final delivery/release remains a separate stage.
+        const progress = !preview && coherent && !(baseClean && !clean) && (confirmed < expectedRecords || clean)
+            ? {value: confirmed, maximum: expectedRecords} : null;
+        let stage = friendlyState(job?.state, french);
+        if (!preview && !clean && ['COMPLETE','COMPLETE_WITH_NONLOSSY_WARNINGS','ALREADY_COMPLETE','FINALIZING'].includes(job?.state))
+            stage = french ? 'Données enregistrées — finalisation des rapports et de l’accès' : 'Data saved — finishing reports and access';
+        if (clean && count(outcomes?.COMPLETE_WITH_NONLOSSY_WARNINGS) > 0) stage = friendlyState('COMPLETE_WITH_NONLOSSY_WARNINGS', french);
+        if (baseClean && !clean) stage = french ? 'Les totaux doivent être vérifiés' : 'Counts need review';
+        const attention = reportFailed || cleanupFailed || ['INCOMPLETE','RECONCILIATION_REQUIRED','PARTIAL_COMMITTED','FAILED_BEFORE_WRITE','FAILED','REFUSED','REVIEW_REQUIRED','DRY_RUN_INCOMPLETE'].includes(job?.state)
+            || (!clean && !preview && summary.operationTerminal === true && ['COMPLETE','COMPLETE_WITH_NONLOSSY_WARNINGS','ALREADY_COMPLETE'].includes(job?.state));
+        if (reportFailed || cleanupFailed || (attention && ['COMPLETE','COMPLETE_WITH_NONLOSSY_WARNINGS','ALREADY_COMPLETE'].includes(job?.state)))
+            stage = preview ? (french ? 'Validation terminée — intervention requise pour les rapports ou le nettoyage; aucune donnée clinique importée' : 'Validation finished — reports or cleanup need attention; no clinical data imported')
+                : summary.clinicalComplete === true && ['COMPLETE','COMPLETE_WITH_NONLOSSY_WARNINGS','ALREADY_COMPLETE'].includes(job?.state)
+                    ? (french ? 'Données enregistrées — intervention requise pour terminer les rapports ou libérer l’accès' : 'Data saved — attention needed to finish reports or release access')
+                    : (french ? 'Importation à réviser — échec des rapports ou du nettoyage' : 'Import needs attention — reports or cleanup failed');
+        return {stage, clean, preview, attention, progress,
+            sourcePatients: shown(summary.discoveryComplete === true ? count(summary.sourcePatients) : null),
+            patients: shown(completed) + ' / ' + shown(expectedPatients),
+            records: shown(confirmed) + ' / ' + shown(expectedRecords),
+            imported: shown(imported), prior: shown(prior), pending: shown(pending), reviews: shown(reviews),
+            reports: reportFailed ? (french ? 'Échec — intervention requise' : 'Failed — attention needed') : summary.reportsDelivered === true ? (french ? 'Prêts' : 'Ready') : (french ? 'Pas encore confirmés' : 'Not yet confirmed'),
+            cleanup: cleanupFailed ? (french ? 'Échec — intervention requise' : 'Failed — attention needed') : summary.cleanupComplete === true ? (french ? 'Terminée' : 'Complete') : (french ? 'Pas encore confirmée' : 'Not yet confirmed')};
+    }
+
     function boundedIds(values, maximum = 20) {
         return [...new Set(values.filter(value => typeof value === 'string' && UUID.test(value)))].slice(-maximum);
     }
@@ -153,7 +260,7 @@
         return offset;
     }
 
-    const api = {API_VERSION, API_VERSION_HEADER, statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
+    const api = {API_VERSION, API_VERSION_HEADER, jobStatusUrl, friendlyState, uploadPresentation, jobPresentation, statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
         effectiveOptions, sha256, boundedJson, apiResponse, verifyPrefix};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CarlosCdsImport = api;
@@ -210,6 +317,36 @@
             secure: 'A secure browser connection is required to verify uploaded bytes. Open CARLOS at its approved HTTPS address.',
         };
         let activeRun = '';
+        let lastConfirmed = '';
+        const optionalText = (id, value) => { const node = byId(id); if (node && node.textContent !== String(value)) node.textContent = value; };
+        function statusUnknown() {
+            optionalText('jobConnection', fr ? 'État inconnu. Les dernières valeurs confirmées sont conservées; réessayer ou se reconnecter.' : 'Status unknown. Last confirmed values are retained; retry or sign in again.');
+            const panel = byId('jobOverview'); if (panel) { panel.hidden=false; panel.dataset.fresh = 'false'; }
+            const unknown = fr ? 'État inconnu — actualiser la tâche' : 'Status unknown — refresh this job';
+            optionalText('jobStage', unknown); optionalText('runState', unknown);
+            const progress = byId('clinicalProgress'); if (progress) { progress.removeAttribute('value'); progress.hidden=true; }
+            const label=byId('clinicalProgressLabel'); if(label)label.hidden=true;
+            byId('runState').className = 'text-body';
+        }
+        function renderJob(job, summary) {
+            const view = jobPresentation(job, summary, fr);
+            for (const [id,value] of Object.entries({jobStage:view.stage,jobPatients:view.patients,jobSourcePatients:view.sourcePatients,jobRecords:view.records,jobImported:view.imported,jobPrior:view.prior,jobPending:view.pending,jobReviews:view.reviews,jobReports:view.reports,jobCleanup:view.cleanup})) optionalText(id,value);
+            const progress = byId('clinicalProgress');
+            const hideProgress=view.preview || view.attention || (summary.operationTerminal === true && !view.clean);
+            if (progress) { progress.hidden=hideProgress; if (view.progress) { progress.max=view.progress.maximum; progress.value=view.progress.value; } else progress.removeAttribute('value'); }
+            const label=byId('clinicalProgressLabel'); if(label)label.hidden=hideProgress;
+            lastConfirmed = new Date().toISOString();
+            const confirmed = byId('jobLastConfirmed'); if (confirmed) { confirmed.dateTime=lastConfirmed; confirmed.textContent=new Date(lastConfirmed).toLocaleString(fr ? 'fr-CA' : 'en-CA'); }
+            const recorded=byId('jobRecordedUpdate'); if(recorded) { const valid=typeof job.updatedAt === 'string' && Number.isFinite(Date.parse(job.updatedAt)); recorded.textContent=valid ? new Date(job.updatedAt).toLocaleString(fr ? 'fr-CA' : 'en-CA') : (fr ? 'Pas encore connu' : 'Not yet known'); if(valid)recorded.dateTime=job.updatedAt;else recorded.removeAttribute('datetime'); }
+            optionalText('jobConnection', fr ? 'État confirmé par le serveur.' : 'Status confirmed by the server.');
+            const panel = byId('jobOverview'); if (panel) { panel.hidden=false; panel.dataset.fresh='true'; }
+            const url=jobStatusUrl(root.dataset.context,job.id);
+            global.history.replaceState(null,'',url);
+            const link=byId('jobStatusLink'); if (link) { link.href=url; link.hidden=false; }
+            const copy=byId('copyJobStatus'); if (copy) copy.disabled=false;
+            const retry=byId('retryJobStatus'); if (retry) retry.disabled=false;
+            return view;
+        }
         let timer;
         let busy = false;
         let patientCursor = '';
@@ -293,7 +430,7 @@
             node.textContent = label; node.addEventListener('click', safe(action)); return node;
         }
         function renderRecent(ids) {
-            byId('recentRuns').replaceChildren(...boundedIds(ids).map(id => button(id, () => openRun(id))));
+            byId('recentRuns').replaceChildren(...boundedIds(ids).map(id => button((fr ? 'Tâche ' : 'Job ') + id.slice(0,8), () => openRun(id))));
         }
         function cell(row, value) { const td = document.createElement('td'); td.textContent = value == null ? '' : String(value); row.append(td); return td; }
 
@@ -386,11 +523,12 @@
             const rows = Array.isArray(data.rows) ? data.rows : [];
             if (rows.length > 50) throw new Error('IMPORT_PAGE_LIMIT_VIOLATED');
             const nodes = rows.map(upload => {
-                const row = document.createElement('tr'); cell(row, upload.fileName + ' — ' + upload.id); cell(row, upload.state);
+                const row = document.createElement('tr'); cell(row, upload.fileName + ' — ' + upload.id); cell(row, uploadPresentation(upload.state, fr));
                 cell(row, upload.receivedBytes + ' / ' + upload.expectedBytes);
                 const actions = cell(row, '');
                 const latestAttempt = latestUploadAttempt(upload);
-                if (latestAttempt) actions.append(button(text.open, () => openRun(latestAttempt)));
+                if (latestAttempt) actions.append(button((upload.runId ? (fr ? 'Ouvrir l’importation' : 'Open import') : (fr ? 'Ouvrir la validation' : 'Open validation')), () => openRun(latestAttempt)));
+                if (upload.runId && upload.dryRunId) actions.append(button(fr ? 'Ouvrir la validation' : 'Open validation', () => openRun(upload.dryRunId)));
                 actions.append(button(text.resume, () => { byId('uploadResumeId').value = upload.id; progress(upload); }));
                 if (['OPEN', 'COMPLETE'].includes(upload.state)) actions.append(button(text.abandon, async () => {
                     await request('cdsUpload', {operation: 'abandon', uploadId: upload.id}, {method: 'POST'}); await loadUploads(true);
@@ -428,8 +566,9 @@
             byId('cdsOperationalAlert').textContent = operational.join(' ');
             const presentation = statusPresentation(data.job, latestSummary);
             if (presentation.state === 'UNAVAILABLE') throw new Error('IMPORT_STATUS_CONTRACT_REFRESH_REQUIRED');
-            byId('runState').textContent = text.state + ': ' + presentation.state + ' — ' + id + ' — ' + (data.job.updatedAt || '');
-            byId('runState').className = presentation.clean ? 'text-success' : 'text-body';
+            const jobView = renderJob(data.job, latestSummary);
+            optionalText('runState', jobView.stage);
+            byId('runState').className = jobView.clean ? 'text-success' : jobView.attention ? 'text-danger' : 'text-body';
             byId('cancelRun').disabled = false; byId('resumeRun').disabled = false;
             byId('resumeRun').disabled = recoveryControls(latestSummary).resumeDisabled;
             const summary = JSON.stringify({job: data.job, summary: latestSummary}, null, 2);
@@ -451,14 +590,22 @@
         async function poll(id) {
             try { await updateStatus(id); }
             catch (error) { if (id === activeRun) {
-                byId('runState').textContent = text.unavailable;
+                statusUnknown();
                 byId('cancelRun').disabled = true; byId('resumeRun').disabled = true; failure(error);
             } }
         }
         async function openRun(id) {
             if (!UUID.test(id || '')) throw new Error('IMPORT_RUN_ID_INVALID');
-            global.clearTimeout(timer); activeRun = id; byId('runId').value = id;
-            latestSummary = {}; byId('runState').textContent = text.unavailable; byId('runState').className = 'text-body';
+            global.clearTimeout(timer);
+            if (activeRun !== id) { lastConfirmed=''; optionalText('jobLastConfirmed','—'); for (const name of ['jobPatients','jobSourcePatients','jobRecords','jobImported','jobPrior','jobPending','jobReviews','jobReports','jobCleanup']) optionalText(name,'—'); }
+            activeRun = id; byId('runId').value = id;
+            const statusUrl=jobStatusUrl(root.dataset.context,id);
+            global.history.replaceState(null,'',statusUrl);
+            const link=byId('jobStatusLink'); if (link) { link.href=statusUrl; link.hidden=false; }
+            const copy=byId('copyJobStatus'); if (copy) copy.disabled=false;
+            const retry=byId('retryJobStatus'); if (retry) retry.disabled=false;
+            statusUnknown();
+            latestSummary = {}; byId('runState').className = 'text-body';
             byId('runSummary').textContent = ''; byId('patientRows').replaceChildren(); byId('diagnosticRows').replaceChildren();
             byId('cdsReviewForm').hidden = true; byId('cancelRun').disabled = true; byId('resumeRun').disabled = true;
             byId('diagnosticEvidencePanel').hidden = true; byId('diagnosticEvidence').textContent = '';
@@ -526,6 +673,16 @@
             byId('nextDiagnostics').disabled = data.rows.length < 50;
         }
 
+        const retryStatus=byId('retryJobStatus');
+        if (retryStatus) retryStatus.addEventListener('click', safe(() => activeRun ? openRun(activeRun) : Promise.resolve()));
+        const copyStatus=byId('copyJobStatus');
+        if (copyStatus) copyStatus.addEventListener('click', safe(async () => {
+            if (!activeRun) throw new Error('IMPORT_RUN_ID_INVALID');
+            const url=new URL(jobStatusUrl(root.dataset.context,activeRun),global.location.origin).href;
+            if (!global.navigator.clipboard?.writeText) { notice(fr ? 'Ouvrir le lien de statut et copier son adresse.' : 'Open the status link and copy its address.'); return; }
+            try { await global.navigator.clipboard.writeText(url); notice(fr ? 'Lien de statut copié.' : 'Status link copied.'); }
+            catch (_) { notice(fr ? 'Ouvrir le lien de statut et copier son adresse.' : 'Open the status link and copy its address.'); }
+        }));
         byId('refreshUploads').addEventListener('click', safe(() => loadUploads(true)));
         byId('nextUploads').addEventListener('click', safe(() => loadUploads(false)));
         byId('submitCompletedUpload').addEventListener('click', safe(() => submitUpload(byId('uploadResumeId').value.trim(), readOptions())));
