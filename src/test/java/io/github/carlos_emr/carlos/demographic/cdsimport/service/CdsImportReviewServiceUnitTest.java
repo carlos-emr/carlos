@@ -69,6 +69,8 @@ class CdsImportReviewServiceUnitTest {
     private final CdsUnwrittenRevisionReviewService revisions=mock(CdsUnwrittenRevisionReviewService.class);
     private final EntityManager entityManager=mock(EntityManager.class);
     private final TypedQuery<Long> count=mock(TypedQuery.class);
+    private final TypedQuery<String> touchedPatients=mock(TypedQuery.class);
+    private final TypedQuery<String> advancedUnits=mock(TypedQuery.class);
     private final AtomicReference<CdsImportReview> stored=new AtomicReference<>();
     private final Map<String,CdsImportReview> history=new LinkedHashMap<>();
     private final CdsFieldParser fields=new CdsFieldParser();
@@ -90,6 +92,12 @@ class CdsImportReviewServiceUnitTest {
         var field=CdsImportReviewService.class.getDeclaredField("entityManager");field.setAccessible(true);field.set(service,entityManager);
         when(entityManager.createQuery(anyString(),eq(Long.class))).thenReturn(count);
         when(count.setParameter(anyString(),any())).thenReturn(count);when(count.getSingleResult()).thenReturn(0L);
+        when(entityManager.createQuery(startsWith("select p.id"),eq(String.class))).thenReturn(touchedPatients);
+        when(entityManager.createQuery(startsWith("select u.id"),eq(String.class))).thenReturn(advancedUnits);
+        for (var query:List.of(touchedPatients,advancedUnits)) {
+            when(query.setParameter(anyString(),any())).thenReturn(query);when(query.setMaxResults(1)).thenReturn(query);
+            when(query.getResultList()).thenReturn(List.of());
+        }
         run=new CdsImportRun();run.setId(RUN);run.setState("REVIEW_REQUIRED");
         when(runs.lock(RUN)).thenReturn(run);when(runs.get(RUN)).thenReturn(run);
         diagnostic=new CdsImportDiagnostic();diagnostic.setId(1L);diagnostic.setRunId(RUN);
@@ -129,7 +137,7 @@ class CdsImportReviewServiceUnitTest {
     void shouldRejectStaleVersionAndCommittedTargets_whenReviewCannotSafelyReplan() throws Exception {
         run.setReviewVersion(2);
         assertThatThrownBy(() -> service.accept(viewer,RUN,command("M"))).hasMessage("REVIEW_VERSION_CONFLICT");
-        run.setReviewVersion(0);when(count.getSingleResult()).thenReturn(1L);
+        run.setReviewVersion(0);when(touchedPatients.getResultList()).thenReturn(List.of("written-patient"));
         assertThatThrownBy(() -> service.accept(viewer,RUN,command("M"))).hasMessage("REVIEW_AFTER_WRITE_REQUIRES_RECONCILIATION");
         verify(reviews,never()).persist(any());assertThat(run.getReviewVersion()).isZero();
     }
@@ -231,6 +239,131 @@ class CdsImportReviewServiceUnitTest {
         when(reviews.inactiveDraftCount(RUN)).thenReturn(1L);
         assertThat(service.hasPending(RUN)).isTrue();
         assertThat(service.summary(RUN)).containsEntry("inactiveDraftCount",1L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"REVIEW_REQUIRED","FAILED_BEFORE_WRITE","CANCELLED_BEFORE_WRITE"})
+    void shouldExposeRevisionRequestAvailability_whenStoppedWithAnUnwrittenConflict(String state) {
+        run.setState(state);when(diagnostics.hasUnwrittenRevisionContext(RUN)).thenReturn(true);
+        assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",true);
+        verify(touchedPatients).setMaxResults(1);verify(advancedUnits).setMaxResults(1);
+        verifyNoInteractions(revisions,snapshots,corrections);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"ACCEPTED","PLANNING","READY","RUNNING","RECONCILIATION_REQUIRED","COMPLETE"})
+    void shouldHideRevisionApproval_whenTheJobIsNotStoppedBeforeWrites(String state) {
+        run.setState(state);when(diagnostics.hasUnwrittenRevisionContext(RUN)).thenReturn(true);
+        assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
+        verify(diagnostics,never()).hasUnwrittenRevisionContext(anyString());
+    }
+
+    @Test
+    void shouldHideRevisionApproval_whenTheConflictOrUnwrittenProofIsUnavailable() {
+        assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
+        when(diagnostics.hasUnwrittenRevisionContext(RUN)).thenReturn(true);
+        when(touchedPatients.getResultList()).thenReturn(List.of("held-target-or-checkpoint"));
+        assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
+        when(touchedPatients.getResultList()).thenReturn(List.of());when(advancedUnits.getResultList()).thenReturn(List.of("uncertain-unit"));
+        assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
+        when(advancedUnits.getResultList()).thenReturn(List.of());run.setExecutionDigest("a".repeat(64));
+        assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
+        run.setExecutionDigest(null);run.setManifestDigest("b".repeat(64));
+        assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
+        run.setManifestDigest(null);run.setReviewVersion(Long.MAX_VALUE);
+        assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
+    }
+
+    @Test
+    void shouldHideRevisionApproval_whenAReviewOrInactiveDraftAlreadyBlocksExecution() {
+        when(diagnostics.hasUnwrittenRevisionContext(RUN)).thenReturn(true);
+        when(reviews.pendingRun(RUN,2)).thenReturn(List.of(new CdsImportReview()));
+        assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
+        when(reviews.pendingRun(RUN,2)).thenReturn(List.of());when(reviews.inactiveDraftCount(RUN)).thenReturn(1L);
+        assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
+        verify(diagnostics,never()).hasUnwrittenRevisionContext(anyString());
+    }
+
+    @Test
+    void shouldEnableTheActualBrowserControlOnlyFromBackendProducedEligibility() throws Exception {
+        when(diagnostics.hasUnwrittenRevisionContext(RUN)).thenReturn(true);
+        assertThat(browserRevisionEligibility(service.summary(RUN))).isTrue();
+        when(touchedPatients.getResultList()).thenReturn(List.of("committed-target"));
+        assertThat(browserRevisionEligibility(service.summary(RUN))).isFalse();
+    }
+
+    @Test
+    void shouldRequireExactUnresolvedRevisionEvidence_whenQueryingRealJpaMetadata() throws Exception {
+        var factory=new org.hibernate.cfg.Configuration().addAnnotatedClass(CdsImportDiagnostic.class)
+                .addAnnotatedClass(CdsImportPatient.class).addAnnotatedClass(CdsImportLineage.class)
+                .addAnnotatedClass(CdsImportCheckpoint.class).addAnnotatedClass(CdsImportUnit.class)
+                .setProperty("jakarta.persistence.jdbc.url","jdbc:h2:mem:revision-hint-"+UUID.randomUUID())
+                .setProperty("jakarta.persistence.jdbc.driver","org.h2.Driver")
+                .setProperty("hibernate.hbm2ddl.auto","create-drop").buildSessionFactory();
+        try (factory;var actual=factory.createEntityManager()) {
+            var dao=new CdsImportDiagnosticDao();
+            org.springframework.test.util.ReflectionTestUtils.setField(dao,"entityManager",actual);
+            org.springframework.test.util.ReflectionTestUtils.setField(service,"entityManager",actual);
+            org.springframework.test.util.ReflectionTestUtils.setField(service,"diagnostics",dao);
+            actual.getTransaction().begin();
+            var context=revisionDiagnostic("SOURCE_REVISION_REVIEW_REQUIRED");actual.persist(context);actual.flush();
+            assertThat(dao.hasUnwrittenRevisionContext(RUN)).isTrue();
+            context.setResolved(true);assertThat(dao.hasUnwrittenRevisionContext(RUN)).isFalse();context.setResolved(false);
+            context.setBlocking(false);assertThat(dao.hasUnwrittenRevisionContext(RUN)).isFalse();context.setBlocking(true);
+            context.setStage("EXECUTION");assertThat(dao.hasUnwrittenRevisionContext(RUN)).isFalse();context.setStage("PREFLIGHT");
+            context.setPatientKey(null);assertThat(dao.hasUnwrittenRevisionContext(RUN)).isFalse();context.setPatientKey("a".repeat(64));
+            context.setProtectedDetailLocation("");assertThat(dao.hasUnwrittenRevisionContext(RUN)).isFalse();context.setProtectedDetailLocation("/private/context");
+            context.setCode("OTHER_SOURCE_ERROR");assertThat(dao.hasUnwrittenRevisionContext(RUN)).isFalse();context.setCode("SOURCE_REVISION_REVIEW_REQUIRED");
+            assertThat(dao.hasUnwrittenRevisionContext(UUID.randomUUID().toString())).isFalse();
+            var uncertain=revisionDiagnostic("UNIT_COMMIT_OUTCOME_UNKNOWN");actual.persist(uncertain);
+            assertThat(dao.hasUnwrittenRevisionContext(RUN)).isFalse();
+            uncertain.setCode("CONTROL_COMMIT_OUTCOME_UNKNOWN");assertThat(dao.hasUnwrittenRevisionContext(RUN)).isFalse();
+            uncertain.setResolved(true);assertThat(dao.hasUnwrittenRevisionContext(RUN)).isTrue();
+            var patient=new CdsImportPatient();patient.setId("b".repeat(64));patient.setRunId(RUN);patient.setPatientKey("a".repeat(64));
+            patient.setLineageKey("a".repeat(64));patient.setSourcePatientId("fixture");patient.setCopyKey("original");
+            patient.setSourceDigest("b".repeat(64));patient.setState("NOT_STARTED");actual.persist(patient);
+            var lineage=new CdsImportLineage();lineage.setId(patient.getLineageKey());lineage.setSourceNamespace("fixture");
+            lineage.setSourcePatientId("fixture");lineage.setCopyKey("original");lineage.setSourceDigest("a".repeat(64));
+            lineage.setOptionsDigest("b".repeat(64));lineage.setRulesetDigest("c".repeat(64));actual.persist(lineage);
+            assertThat(browserRevisionEligibility(service.summary(RUN))).isTrue();
+            patient.setTargetDemographicNo(123);assertThat(browserRevisionEligibility(service.summary(RUN))).isFalse();patient.setTargetDemographicNo(null);
+            patient.setHeld(true);assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);patient.setHeld(false);
+            patient.setState("RECONCILIATION_REQUIRED");assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);patient.setState("NOT_STARTED");
+            lineage.setTargetDemographicNo(123);assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);lineage.setTargetDemographicNo(null);
+            var checkpoint=new CdsImportCheckpoint();checkpoint.setId("c".repeat(64));checkpoint.setLineageKey(lineage.getId());
+            checkpoint.setSourceDigest("a".repeat(64));checkpoint.setOptionsDigest("b".repeat(64));checkpoint.setRulesetDigest("c".repeat(64));
+            checkpoint.setTargetReferences("{}");checkpoint.setTargetDigest("d".repeat(64));checkpoint.setFirstRunId(RUN);checkpoint.setCommittedAt(Instant.now());
+            actual.persist(checkpoint);assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);actual.remove(checkpoint);
+            var unit=new CdsImportUnit();unit.setId("d".repeat(64));unit.setRunId(RUN);unit.setPatientKey(patient.getPatientKey());
+            unit.setUnitKey(unit.getId());unit.setLineageKey(lineage.getId());unit.setCategory("Demographics");unit.setOrdinal(1);
+            unit.setSourceDigest("a".repeat(64));unit.setSpoolLocation("/private/work");unit.setState("EXPECTED");actual.persist(unit);
+            assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",true);
+            unit.setState("COMMITTED");assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
+            unit.setState("UNKNOWN");assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
+            actual.getTransaction().rollback();
+        }
+    }
+
+    private static CdsImportDiagnostic revisionDiagnostic(String code) {
+        var value=new CdsImportDiagnostic();value.setRunId(RUN);value.setCode(code);value.setStage("PREFLIGHT");
+        value.setPatientKey("a".repeat(64));value.setProtectedDetailLocation("/private/context");value.setBlocking(true);
+        value.setSeverity("ERROR");value.setSafeSummary("Protected review evidence");value.setCreatedAt(Instant.now());return value;
+    }
+
+    private boolean browserRevisionEligibility(Map<String,Object> summary) throws Exception {
+        String script="const fs=require('node:fs');const client=require('./src/main/webapp/js/demographic/cds-import.js');"
+                +"const summary=JSON.parse(fs.readFileSync(0,'utf8'));process.stdout.write(JSON.stringify(client.reviewEligibility("
+                +"{code:'SOURCE_REVISION_REVIEW_REQUIRED',patientKey:'a'.repeat(64)},summary).canApproveRevision));";
+        Process process=new ProcessBuilder("node","-e",script).redirectError(ProcessBuilder.Redirect.INHERIT).start();
+        try {
+            try (var input=process.getOutputStream()) {
+                input.write(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(summary));
+            }
+            assertThat(process.waitFor(10,java.util.concurrent.TimeUnit.SECONDS)).as("bounded backend-to-browser contract process").isTrue();
+            assertThat(process.exitValue()).isZero();
+            String result=new String(process.getInputStream().readNBytes(16),StandardCharsets.UTF_8);
+            assertThat(result).isIn("true","false");return Boolean.parseBoolean(result);
+        } finally {process.destroyForcibly();}
     }
 
     @Test

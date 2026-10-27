@@ -54,4 +54,10 @@ public class CdsImportDiagnosticDao extends AbstractDaoImpl<CdsImportDiagnostic>
         return entityManager.createQuery("select d from CdsImportDiagnostic d where d.runId=:run and d.patientKey is null and d.blocking=false and d.resolved=false and d.code=:code order by d.id", CdsImportDiagnostic.class)
                 .setParameter("run", runId).setParameter("code", code).setMaxResults(limit).getResultList();
     }
+
+    /** A polling hint needs only one bound revision diagnostic, never its protected source payload. */
+    public boolean hasUnwrittenRevisionContext(String runId) {
+        return !entityManager.createQuery("select d.id from CdsImportDiagnostic d where d.runId=:run and d.blocking=true and d.resolved=false and d.stage='PREFLIGHT' and d.code='SOURCE_REVISION_REVIEW_REQUIRED' and d.patientKey is not null and length(d.patientKey)=64 and d.protectedDetailLocation is not null and length(d.protectedDetailLocation)>0 and not exists(select x.id from CdsImportDiagnostic x where x.runId=d.runId and x.resolved=false and x.code in ('UNIT_COMMIT_OUTCOME_UNKNOWN','CONTROL_COMMIT_OUTCOME_UNKNOWN'))", Long.class)
+                .setParameter("run", runId).setMaxResults(1).getResultList().isEmpty();
+    }
 }

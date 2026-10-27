@@ -100,6 +100,13 @@ uncertainty. Only that zero-write proof permits rebinding the canonical fingerpr
 remain fenced from clinical writes. Operators never need to invent a namespace or edit database
 rows to approve a legitimate unwritten replacement.
 
+The protected operator summary supplies `unwrittenRevisionApprovalAllowed` to the browser.
+This is a bounded metadata hint that a stopped, unsealed job can request that review: it requires
+the exact unresolved preflight conflict and private evidence reference, no pending review or
+inactive draft, and no target, hold, checkpoint, advanced unit or unresolved commit uncertainty.
+Polling never reads source files or validates the entire historical lineage. Review acceptance
+and publication still revalidate the current version and immutable evidence under ownership.
+
 An explicit review uses a compare-and-set review version. It archives the prior patient/unit/
 dependency plan with counts and a durable digest, validates the effective corrected source against
 the pinned schema, and publishes an immutable correction manifest. Only a checkpoint-free,

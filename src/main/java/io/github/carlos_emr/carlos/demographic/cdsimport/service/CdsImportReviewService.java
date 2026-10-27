@@ -181,10 +181,20 @@ public class CdsImportReviewService {
     public Map<String, Object> summary(String runId) {
         return transaction.execute(status -> {
             var rows=reviews.pendingRun(runId, 2); var latest=reviews.latest(runId);
-            Map<String, Object> value=new LinkedHashMap<>(); value.put("pendingReviewCount", rows.size()); value.put("inactiveDraftCount", reviews.inactiveDraftCount(runId));
+            long drafts=reviews.inactiveDraftCount(runId);
+            Map<String, Object> value=new LinkedHashMap<>(); value.put("pendingReviewCount", rows.size()); value.put("inactiveDraftCount", drafts);
             value.put("reviewState", latest==null?"IDLE":latest.getState()); value.put("reviewId", latest==null?null:latest.getId());
-            value.put("reviewErrorCode", latest==null?null:latest.getSafeErrorCode()); return value;
+            value.put("reviewErrorCode", latest==null?null:latest.getSafeErrorCode());
+            value.put("unwrittenRevisionApprovalAllowed", rows.isEmpty() && drafts==0 && revisionRequestAllowed(runs.get(runId)));
+            return value;
         });
+    }
+
+    /** Availability to request review; the worker still validates immutable lineage and evidence under ownership. */
+    private boolean revisionRequestAllowed(CdsImportRun run) {
+        return run!=null && Set.of("REVIEW_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE").contains(run.getState())
+                && run.getReviewVersion()!=Long.MAX_VALUE && run.getManifestDigest()==null && run.getExecutionDigest()==null
+                && diagnostics.hasUnwrittenRevisionContext(run.getId()) && !hasWrittenOrUncertainWork(run.getId());
     }
     public void cancel(String runId) {
         transaction.executeWithoutResult(status -> {
@@ -591,9 +601,13 @@ public class CdsImportReviewService {
     }
     private void requireUnwritten(CdsImportRun run) {
         if (run==null || run.getManifestDigest()!=null || run.getExecutionDigest()!=null) throw new CdsImportException("REVIEW_AFTER_SEAL_REFUSED");
-        Long touched=entityManager.createQuery("select count(p) from CdsImportPatient p where p.runId=:run and (p.held=true or p.targetDemographicNo is not null or exists(select l.id from CdsImportLineage l where l.id=p.lineageKey and l.targetDemographicNo is not null) or exists(select c.id from CdsImportCheckpoint c where c.lineageKey=p.lineageKey))", Long.class).setParameter("run", run.getId()).getSingleResult();
-        Long advanced=entityManager.createQuery("select count(u) from CdsImportUnit u where u.runId=:run and u.state<>'EXPECTED'", Long.class).setParameter("run", run.getId()).getSingleResult();
-        if (touched!=0 || advanced!=0) throw new CdsImportException("REVIEW_AFTER_WRITE_REQUIRES_RECONCILIATION");
+        if (hasWrittenOrUncertainWork(run.getId())) throw new CdsImportException("REVIEW_AFTER_WRITE_REQUIRES_RECONCILIATION");
+    }
+    private boolean hasWrittenOrUncertainWork(String runId) {
+        boolean touched=!entityManager.createQuery("select p.id from CdsImportPatient p where p.runId=:run and (p.held=true or p.targetDemographicNo is not null or p.state='RECONCILIATION_REQUIRED' or exists(select l.id from CdsImportLineage l where l.id=p.lineageKey and l.targetDemographicNo is not null) or exists(select c.id from CdsImportCheckpoint c where c.lineageKey=p.lineageKey))", String.class)
+                .setParameter("run", runId).setMaxResults(1).getResultList().isEmpty();
+        return touched || !entityManager.createQuery("select u.id from CdsImportUnit u where u.runId=:run and u.state<>'EXPECTED'", String.class)
+                .setParameter("run", runId).setMaxResults(1).getResultList().isEmpty();
     }
     private static FileLock lock(FileChannel channel) throws IOException {
         try {var lock=channel.tryLock(); if (lock==null) throw new CdsImportException("REVIEW_PLANNING_BUSY"); return lock; }
