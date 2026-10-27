@@ -576,9 +576,9 @@ overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 > section 3 preseed, refuses to continue unless `carlos-ctl check` reports
 > "All checks passed" and no `.install-incomplete` marker remains, stages the
 > section 4 fixtures, performs the section 6 first-login reset, writes
-> `/root/suite-env.sh` and creates the Vascular Tracker measurement dictionary
+> `/root/suite-env.sh`, initializes shared E-Chart measurement definitions and creates the Vascular Tracker measurement dictionary
 > (`scripts/vascular-dictionary-initialize.js`; the VT checks refuse to start
-> without it so its one-off creation stays out of a run's residue window). Then it runs the suite and the server-log audit inside
+> without it so these one-off creations stay out of a run's residue window). Then it runs the suite and the server-log audit inside
 > the container, where the MariaDB socket is:
 >
 > ```bash

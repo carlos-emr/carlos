@@ -4510,8 +4510,8 @@
         "FORM_PRINT_NAME",
         "FORM_PRINT_TIMEOUT_MS"
       ],
-      "notes": "Drives the registered Ontario lab requisition from the chart and verifies saved form PDF content. Missing table or encounterForm registration is SKIP; a registered form missing from the menu is FAIL.",
-      "fixtures": "Ontario lab requisition table and encounterForm registration for FORM_PRINT_NAME (default Lab Req 2007); configured demo patient; pdftotext; MYSQL_* cleanup access."
+      "notes": "Drives the registered Ontario lab requisition from the chart and verifies saved form PDF content. Missing table or enabled encounterForm registration is SKIP; an enabled form missing from the menu is FAIL.",
+      "fixtures": "Ontario lab requisition table and enabled encounterForm registration (hidden > 0) for FORM_PRINT_NAME (default Lab Req 2007); configured demo patient; pdftotext; MYSQL_* cleanup access."
     },
     {
       "name": "page-script-repairs",

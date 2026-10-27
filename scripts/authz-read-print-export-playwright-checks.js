@@ -90,12 +90,10 @@ async function workflow(s) {
     for (const role of ['receptionist', 'nurse', 'er_clerk']) sessions[role] = await signIn(s, fixture.addLogin(role));
   });
 
-  // PreventionPrintPdf consumes the selected rows serialized by the print form;
-  // a patient-only URL has no printHP and fails before producing a PDF.
+  // The print loader accepts configured type names and reads chart rows itself.
+  // A patient-only URL or the old numeric printHP index produces no sections.
   const preventionPrint = () => `prevention/printPrevention?${new URLSearchParams({
-    demographicNo: patient, printHP: '0', preventionHeader0: 'Flu', immunizationOnly: 'false',
-    'preventProcedureAge0-0': '46', 'preventProcedureDate0-0': '2026-01-05',
-    'preventProcedureStatus0-0': 'given', 'preventProcedureComments0-0': `${tag}-prev`,
+    demographicNo: patient, printHP: 'Inf', immunizationOnly: 'false',
   })}`;
   const printRoutes = () => [
     preventionPrint(),
