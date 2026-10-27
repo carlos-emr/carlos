@@ -166,6 +166,7 @@ public final class CdsCliEngineFixture {
         config.setProperty("db_uri", url.substring(0, slash + 1)); config.setProperty("db_name", url.substring(slash + 1));
         config.setProperty("db_driver", "com.mysql.cj.jdbc.Driver"); config.setProperty("db_username", jdbc.getProperty("jdbcUser")); config.setProperty("db_password", jdbc.getProperty("jdbcPassword"));
         config.setProperty("hibernate.dialect", "org.hibernate.dialect.MariaDBDialect"); config.setProperty("billregion", "ON");
+        config.setProperty("db_default_use_information_schema", "false");
         for (String key : List.of("enabled", "maintenanceGuardEnabled", "maintenanceMode")) config.setProperty("cds.import." + key, "true");
         config.setProperty("carlos.flyway.onBoot", "validate"); config.setProperty("cds.import.clinicalZone", "America/Toronto"); config.setProperty("cds.import.cliHeapMiB", "512");
         config.setProperty("cds.import.allowedRoot", source.toString()); config.setProperty("cds.import.stagingRoot", state.resolve("runs").toString()); config.setProperty("cds.import.uploadRoot", state.resolve("uploads").toString()); config.setProperty("DOCUMENT_DIR", root.resolve("documents").toString());
@@ -215,6 +216,9 @@ public final class CdsCliEngineFixture {
         result.put("admissions", count(connection, "SELECT COUNT(*) FROM admission a WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=a.client_id)", run));
         result.put("preventionCreatorMatchesProvider", preventionCount > 0 && creatorMismatch == 0);
         result.put("shiftedBirthDates", shifted);
+        result.put("shiftedMedicationDates", count(connection, "SELECT COUNT(*) FROM drugs d WHERE d.rx_date='2026-01-22' AND d.written_date='2026-01-22' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=d.demographic_no)", run));
+        result.put("shiftedAllergyDates", count(connection, "SELECT COUNT(*) FROM allergies a WHERE DATE(a.start_date)='2020-05-13' AND DATE(a.entry_date)='2020-05-14' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=a.demographic_no)", run));
+        result.put("shiftedNoteDates", count(connection, "SELECT COUNT(*) FROM casemgmt_note n WHERE DATE(n.observation_date)='2026-02-10' AND EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND CAST(p.target_demographic_no AS CHAR)=n.demographic_no)", run));
         result.put("nativeDrugs", count(connection, "SELECT COUNT(*) FROM drugs d WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=d.demographic_no)", run));
         result.put("nativeAllergies", count(connection, "SELECT COUNT(*) FROM allergies a WHERE EXISTS(SELECT 1 FROM cds_import_patient p WHERE p.run_id=? AND p.target_demographic_no=a.demographic_no)", run));
         result.put("nativePreventions", preventionCount);
