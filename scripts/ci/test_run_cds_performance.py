@@ -103,6 +103,9 @@ class PerformanceEvidenceTest(unittest.TestCase):
         self.assertEqual(len(expected),2)
         self.assertIn(b'<FilePath>',(Path(case['source'])/'patient-000000.xml').read_bytes())
         self.assertIn(b'<cdsd:Media>',(Path(case['source'])/'patient-000000.xml').read_bytes())
+        xml=(Path(case['source'])/'patient-000000.xml').read_bytes()
+        self.assertEqual(xml.count(b'<Reports><Format>Binary</Format>'),2)
+        self.assertEqual(xml.count(b'<FileExtensionAndVersion>PDF</FileExtensionAndVersion>'),2)
 
     def test_streamed_zip_retains_exact_original_members_and_declares_actual_zip64_sizes(self):
         case=GATE.generate_case(self.root,'zip','ABCDEF0002',2,0,10000,archive=True)
@@ -113,6 +116,8 @@ class PerformanceEvidenceTest(unittest.TestCase):
             for row in case['members']:
                 data=archive.read(row['member']);self.assertEqual(len(data),row['bytes'])
                 self.assertEqual(__import__('hashlib').sha256(data).hexdigest(),row['sha256'])
+                if row['member'].endswith('.xml'):
+                    self.assertIn(b'<Format>Binary</Format><FileExtensionAndVersion>PDF</FileExtensionAndVersion><FilePath>',data)
             first=archive.infolist()[0]
             with Path(case['source']).open('rb') as source:
                 source.seek(first.header_offset)

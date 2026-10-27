@@ -300,7 +300,7 @@ def pdf(path: Path, stream_bytes: int, seed: str, *, max_stream_bytes: int = 64 
 def report(reference: str) -> bytes:
     if not re.fullmatch(r"[A-Za-z0-9_.-]+\.pdf", reference):
         raise ValueError("unsafe synthetic report reference")
-    return (f"<Reports><Format>Binary</Format><FilePath>{reference}</FilePath>"
+    return (f"<Reports><Format>Binary</Format><FileExtensionAndVersion>PDF</FileExtensionAndVersion><FilePath>{reference}</FilePath>"
             f"<Class>Medical Records Report</Class></Reports>").encode()
 
 
@@ -349,7 +349,7 @@ def generate_case(root: Path, label: str, token: str, patients: int = 1,
                     document_bytes += length
                     output.write(report(attachment.name))
                     if not archive:
-                        output.write(b"<Reports><Format>Binary</Format><Content><cdsd:Media>")
+                        output.write(b"<Reports><Format>Binary</Format><FileExtensionAndVersion>PDF</FileExtensionAndVersion><Content><cdsd:Media>")
                         with attachment.open("rb") as incoming:
                             while chunk := incoming.read(49152):
                                 output.write(base64.b64encode(chunk))
