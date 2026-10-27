@@ -153,15 +153,16 @@ test('bounded evidence hashing refuses symlinks and capacity overflow', () => {
 test('the session helper receives only the selected synthetic cookie through stdin and rejects false scope', () => {
   const selected = 'A'.repeat(32);
   const command = [process.execPath,'-e',`let s='';process.stdin.on('data',c=>s+=c);process.stdin.on('end',()=>{
-    if(s!=='${selected}\\n')process.exit(1);console.log(JSON.stringify({expired:true,scope:'selected-HttpSession',naturalTimeout:false,atomicReference:true}));});`];
-  gate.expireSession(command,selected);
+    if(s!=='${selected}\\n')process.exit(1);console.log(JSON.stringify({expired:true,scope:'selected-HttpSession',naturalTimeout:false,atomicReference:true,pid:123,startEpochMillis:456}));});`];
+  assert.deepEqual(gate.expireSession(command,selected,{pid:123,startEpochMillis:456}),{pid:123,startEpochMillis:456});
+  assert.throws(() => gate.expireSession(command,selected,{pid:123,startEpochMillis:457}),/process identity changed/);
   assert.throws(() => gate.expireSession(command,'not-a-cookie'),/identity/);
   assert.throws(() => gate.expireSession([process.execPath,'-e',"console.log('{}')"],selected),/receipt/);
 });
 
 test('unsupported atomic attach is refused before a new acceptance', () => {
-  const command=[process.execPath,'-e',"console.log(JSON.stringify({preflight:true,supported:true,atomicReference:true}))"];
-  gate.preflightSession(command);
+  const command=[process.execPath,'-e',"console.log(JSON.stringify({preflight:true,supported:true,atomicReference:true,pid:123,startEpochMillis:456}))"];
+  assert.deepEqual(gate.preflightSession(command),{pid:123,startEpochMillis:456});
   assert.throws(() => gate.preflightSession(null),/preflight argv/);
   assert.throws(() => gate.preflightSession([process.execPath,'-e',"console.log('{}')"]),/before acceptance/);
   assert.throws(() => gate.preflightSession([process.execPath,'-e','process.exit(1)']),/no new acceptance/);

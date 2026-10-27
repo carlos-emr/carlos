@@ -333,7 +333,14 @@ async function startRelay(env,stateFile,state) {
   }
 }
 
-function expireSession(command, sessionId) {
+function processProof(receipt, expected) {
+  h.assert(Number.isSafeInteger(receipt.pid) && receipt.pid>0 && Number.isSafeInteger(receipt.startEpochMillis)
+    && receipt.startEpochMillis>0 && (!expected || (receipt.pid===expected.pid && receipt.startEpochMillis===expected.startEpochMillis)),
+    'The native session helper process identity changed or was not attested');
+  return {pid:receipt.pid,startEpochMillis:receipt.startEpochMillis};
+}
+
+function expireSession(command, sessionId, expectedProcess) {
   h.assert(Array.isArray(command) && command.length >= 2 && command.length <= 16
     && command.every(part => typeof part === 'string' && part.length > 0 && part.length < 4096),
     'An explicit native Tomcat session-expiry helper argv is required');
@@ -346,6 +353,7 @@ function expireSession(command, sessionId) {
   h.assert(receipt.expired === true && receipt.scope === 'selected-HttpSession' && receipt.naturalTimeout === false
     && receipt.atomicReference === true,
     'The native session expiry receipt is incomplete');
+  return processProof(receipt,expectedProcess);
 }
 
 function preflightSession(command) {
@@ -358,6 +366,7 @@ function preflightSession(command) {
   const receipt=JSON.parse(output);
   h.assert(receipt.preflight===true && receipt.supported===true && receipt.atomicReference===true,
     'Atomic native session preflight did not prove support before acceptance');
+  return processProof(receipt);
 }
 
 async function run(env = process.env) {
@@ -378,9 +387,12 @@ async function run(env = process.env) {
   if (synthetic) h.assert(/^[1-8]$/.test(env.CDS_LIFECYCLE_EXPECTED_COPIES || ''),
     'The authorized course copy count is required before acceptance');
   const expiry = synthetic ? null : JSON.parse(env.CDS_LIFECYCLE_SESSION_EXPIRE_ARGV || 'null');
+  let nativeProcess;
   if (!synthetic) {
     h.assert(Array.isArray(expiry), 'Native session expiry must be configured before any acceptance');
-    preflightSession(JSON.parse(env.CDS_LIFECYCLE_SESSION_PREFLIGHT_ARGV || 'null'));
+    nativeProcess=preflightSession(JSON.parse(env.CDS_LIFECYCLE_SESSION_PREFLIGHT_ARGV || 'null'));
+    h.assert(Number(expiry.at(-2))===nativeProcess.pid && expiry.at(-1)==='/carlos',
+      'Expiry and preflight must address the exact same reviewed native Tomcat process/context');
   }
   let state = fs.existsSync(stateFile) ? readState(stateFile) : null;
   const notePadding=state?.notePadding ?? (synthetic ? 0 : 49152);
@@ -564,7 +576,7 @@ async function run(env = process.env) {
       const cookies = await context.cookies(String(config.baseUrl));
       const sessions = cookies.filter(cookie => cookie.name === 'JSESSIONID');
       h.assert(sessions.length === 1, 'The synthetic browser has no unique selected native session');
-      expireSession(expiry,sessions[0].value);
+      state.nativeSessionProcess=expireSession(expiry,sessions[0].value,nativeProcess);save();
       state.expiryAfter = progress(sql,state.runId); requirePending(state.expiryAfter); save();
       const refused = await context.request.get(h.appUrl(config.baseUrl,'/form/cdsImportStatus?apiVersion=2&runId=' + state.runId),
         {headers:{'CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'},maxRedirects:0,failOnStatusCode:false});
@@ -633,6 +645,7 @@ async function run(env = process.env) {
       sourceSha256:state.sourceSha256,optionsDigest:state.optionsDigest,sourceDigest:state.sourceDigest,
       sourceBytes:source.buffer.length,notePayloadBytes:state.notePadding,
       manifestDigest:state.manifestDigest,rulesetDigest:state.rulesetDigest,completed:state.completed,native:stored,reports,
+      nativeSessionProcess:state.nativeSessionProcess || null,
       sessionExpiry:'selected-native-HttpSession-administrative-expiry-not-inactivity-timer'}));
   },async cleanup() {
     const failures=[];
@@ -652,4 +665,4 @@ async function run(env = process.env) {
 
 if (require.main === module) run().then(result => { if (result?.outcome === 'NOT_EXECUTED') process.exitCode = 2; })
   .catch(() => { console.error('FAIL lifecycle gate: accepted state retained; inspect protected artifacts'); process.exitCode = 1; });
-module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertAcceptance,assertScopedFault,expireSession,preflightSession,hashFile,evidencePath,protectedEvidence,contractApi};
+module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertAcceptance,assertScopedFault,expireSession,preflightSession,processProof,hashFile,evidencePath,protectedEvidence,contractApi};

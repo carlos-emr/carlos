@@ -118,7 +118,8 @@ through stdin and an owned bounded0600 temporary request file, deleted in finall
 it is never an agent argument or general log. Unsupported attach fails before
 acceptance rather than falling back to a different session mechanism.
 The preflight stdout contract is the bounded object
-`{"preflight":true,"supported":true,"atomicReference":true}`; normal expiration
+`{"preflight":true,"supported":true,"atomicReference":true}` plus positive `pid`
+and `startEpochMillis`; normal expiration must return the same process identity and
 additionally returns `expired:true`, `scope:"selected-HttpSession"`, and
 `naturalTimeout:false`. Neither operation may print the session secret.
 
