@@ -329,6 +329,10 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
                 try (var beans = mockStatic(SpringUtils.class, CALLS_REAL_METHODS)) {
                     beans.when(() -> SpringUtils.getBean(ClientImageManager.class)).thenReturn(mock(ClientImageManager.class));
                     beans.when(() -> SpringUtils.getBean(ProviderManager.class)).thenReturn(mock(ProviderManager.class));
+                    // This ordinary-note fixture has no CDS source representation.
+                    beans.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class))
+                            .thenReturn(new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService(
+                                    mock(io.github.carlos_emr.carlos.commn.dao.CdsLegacyProjectionDao.class)));
                     CaseManagementEntry2Action action = new CaseManagementEntry2Action();
                     ReflectionTestUtils.setField(action, "securityInfoManager", readGrants());
                     try (var clinic = mockConstruction(ClinicData.class)) { action.print(); }

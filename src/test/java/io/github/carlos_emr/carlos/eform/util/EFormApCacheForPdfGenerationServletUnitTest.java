@@ -227,7 +227,9 @@ class EFormApCacheForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
         data.setProviderNo("999998");
         data.setFormData("<html></html>");
         EFormDataDao dao = mock(EFormDataDao.class);
-        when(dao.find(77)).thenReturn(data);
+        // EForm(String) resolves the boxed persistence key through find(Object),
+        // not the separate primitive convenience overload.
+        when(dao.find((Object) Integer.valueOf(77))).thenReturn(data);
         registerMock(EFormDataDao.class, dao);
 
         try (MockedStatic<EFormUtil> eFormUtil = mockStatic(EFormUtil.class);
