@@ -159,7 +159,8 @@ while it still owns the advisory lock. A retained chart from another run produce
 retains a specific operational reconciliation diagnostic. Neither filesystem cleanup nor report
 delivery can clear these states or make `cleanComplete` true. Explicit resume of a completed run
 reacquires the real maintenance owner, verifies the target catalogue and global hold/drain proof,
-then retries release and regenerates the reports; it does not replay clinical writes.
+then retries release and regenerates the reports; it does not replay clinical writes. The explicit
+release-retry request is durable even if its queued worker is lost or the process restarts.
 
 Cleanup records an actual bounded catalogue of retained/removed artifact counts and logical bytes.
 Accepted snapshots, parsed source, review evidence, durable report sets and resumable native

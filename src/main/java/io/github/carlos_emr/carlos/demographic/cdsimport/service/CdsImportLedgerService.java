@@ -69,6 +69,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class CdsImportLedgerService {
+    static final String MAINTENANCE_RETRY_CODE="MAINTENANCE_RELEASE_RETRY_REQUESTED";
     static final String MAINTENANCE_PENDING_CODE="MAINTENANCE_RELEASE_PENDING";
     static final String MAINTENANCE_DEFERRED_CODE="MAINTENANCE_RELEASE_DEFERRED";
     static final String MAINTENANCE_RELEASE_CODE="MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION";
@@ -841,7 +842,11 @@ public class CdsImportLedgerService {
             CdsImportRun run=epoch==null?requiredRun(runId, true):lockSealingOwner(runId, epoch);
             if (epoch==null && run.getExecutionDigest()!=null) throw new CdsImportException("DIAGNOSTIC_OWNER_REQUIRED");
             if (blocking && "COMPLETE".equals(run.getState())) throw new CdsImportException("PUBLISHED_RESULT_REQUIRES_REVIEW_TRANSITION");
-            if (blocking && patientKey!=null && COMPLETE_PATIENT.contains(patient(runId, patientKey).getState())) throw new CdsImportException("PUBLISHED_PATIENT_REQUIRES_REVIEW_TRANSITION");
+            if (blocking && patientKey!=null) {
+                CdsImportPatient identified=patients.findKey(runId, patientKey);
+                if (identified==null && !"SOURCE_REVISION_REVIEW_REQUIRED".equals(code)) throw new CdsImportException("PATIENT_NOT_FOUND");
+                if (identified!=null && COMPLETE_PATIENT.contains(identified.getState())) throw new CdsImportException("PUBLISHED_PATIENT_REQUIRES_REVIEW_TRANSITION");
+            }
             addDiagnostic(runId, patientKey, unitKey, severity, code, stage, sourcePath, safeSummary, protectedDetailLocation, blocking);
         };
         if (TransactionSynchronizationManager.isActualTransactionActive()) action.run();
@@ -862,7 +867,7 @@ public class CdsImportLedgerService {
             lockOperational(runId, epoch); CdsImportDiagnostic item=diagnostics.lock(diagnosticId);
             if (item==null || !item.getRunId().equals(runId)) throw new CdsImportException("DIAGNOSTIC_NOT_FOUND");
             if (item.isBlocking()) throw new CdsImportException("BLOCKING_DIAGNOSTIC_REQUIRES_VERIFIED_CORRECTION");
-            if (Set.of(MAINTENANCE_RELEASE_CODE, MAINTENANCE_PENDING_CODE, MAINTENANCE_DEFERRED_CODE).contains(item.getCode())) throw new CdsImportException("MAINTENANCE_RELEASE_PROOF_REQUIRED");
+            if (Set.of(MAINTENANCE_RELEASE_CODE, MAINTENANCE_PENDING_CODE, MAINTENANCE_DEFERRED_CODE, MAINTENANCE_RETRY_CODE).contains(item.getCode())) throw new CdsImportException("MAINTENANCE_RELEASE_PROOF_REQUIRED");
             item.setResolved(true); return null;
         });
     }
@@ -884,6 +889,17 @@ public class CdsImportLedgerService {
                 "Clinical processing completed; the maintenance owner's durable release still requires verification", null, false);
         run.setCleanupState("PENDING"); run.setReportState("PENDING"); event(run, null, "MAINTENANCE_RELEASE_PENDING");
     }
+    public boolean maintenanceReleaseRetryRequested(String runId) {
+        return write(() -> { requiredRun(runId, false); return !diagnostics.unresolvedOperationalCode(runId, MAINTENANCE_RETRY_CODE, 1).isEmpty(); });
+    }
+    void maintenanceReleaseRetryAttempted(String runId, long epoch) {
+        while (write(() -> { CdsImportRun run=lockOperational(runId, epoch);
+            List<CdsImportDiagnostic> page=diagnostics.unresolvedOperationalCode(runId, MAINTENANCE_RETRY_CODE, 200);
+            for (CdsImportDiagnostic diagnostic:page) diagnostic.setResolved(true);
+            if (!page.isEmpty()) { touch(run); event(run, null, "MAINTENANCE_RELEASE_RETRY_ATTEMPTED"); }
+            return !page.isEmpty(); })) { /* One request normally; bounded historical recovery. */ }
+    }
+
     private boolean maintenanceReleasePending(CdsImportRun run) {
         String state=maintenanceReleaseState(run); return !"NOT_APPLICABLE".equals(state) && !"RELEASED".equals(state);
     }
@@ -912,7 +928,7 @@ public class CdsImportLedgerService {
         while (write(() -> { CdsImportRun run=lockOperational(runId, epoch);
             if (!Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState())) throw new CdsImportException("CLINICAL_COMPLETION_REQUIRED");
             List<CdsImportDiagnostic> page=new ArrayList<>();
-            for (String code:List.of(MAINTENANCE_RELEASE_CODE, MAINTENANCE_PENDING_CODE, MAINTENANCE_DEFERRED_CODE)) {
+            for (String code:List.of(MAINTENANCE_RELEASE_CODE, MAINTENANCE_PENDING_CODE, MAINTENANCE_DEFERRED_CODE, MAINTENANCE_RETRY_CODE)) {
                 if (page.size()<200) page.addAll(diagnostics.unresolvedOperationalCode(runId, code, 200-page.size()));
             }
             for (CdsImportDiagnostic diagnostic:page) diagnostic.setResolved(true);
@@ -979,6 +995,10 @@ public class CdsImportLedgerService {
         if (Set.of("RUNNING", "FINALIZING", "DISCOVERING", "VALIDATING", "PREFLIGHT", "PREFLIGHTING", "SEALING").contains(run.getState())) throw new CdsImportException("IMPORT_ALREADY_RUNNING");
         if ("REPLANNING".equals(run.getState())) throw new CdsImportException("REVIEW_RESET_IN_PROGRESS");
         run.setCancelRequested(false); run.setReportState("PENDING"); run.setCleanupState("PENDING");
+        if (maintenanceReleasePending(run) && diagnostics.unresolvedOperationalCode(run.getId(), MAINTENANCE_RETRY_CODE, 1).isEmpty()) {
+            addDiagnostic(run.getId(), null, null, "INFO", MAINTENANCE_RETRY_CODE, "MAINTENANCE", null,
+                    "An authorized operator requested maintenance release recovery; the request remains durable across worker restart", null, false);
+        }
         if (!Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState())) run.setState("RESUME_REQUESTED"); touch(run);
     }
 

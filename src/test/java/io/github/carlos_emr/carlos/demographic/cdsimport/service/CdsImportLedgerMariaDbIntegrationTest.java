@@ -273,6 +273,8 @@ class CdsImportLedgerMariaDbIntegrationTest {
   ledger.maintenanceReleaseDeferred(complete.id,complete.epoch,"GLOBAL_HOLDS_REMAIN");
   check("RELEASE_DEFERRED".equals(ledger.summary(complete.id).get("maintenanceReleaseState")),"another run held chart is visible release deferral, not a clinical failure");
   check("COMPLETE".equals(ledger.status(complete.id).state()),"other global holds never reclassify this completed clinical run");
+  ledger.requestResume(complete.id);
+  check(ledger.maintenanceReleaseRetryRequested(complete.id),"completed-run maintenance recovery intent survives loss of the in-memory queue");
   ledger.maintenanceReleaseFailed(complete.id,complete.epoch,null);
   check("COMPLETE".equals(ledger.status(complete.id).state()),"release failure preserves already published clinical outcome");
   check(Boolean.TRUE.equals(ledger.summary(complete.id).get("maintenanceReleasePending")),"own failed maintenance close remains durable and unresolved");
@@ -284,6 +286,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
   // The separate maintenance real-DB suite proves actual owner-specific release/readback; this verifies only its ledger participant.
   ledger.maintenanceReleaseReconciled(complete.id,complete.epoch);
   check(!ledger.maintenanceReleasePending(complete.id),"verified release retires only the operational latch");
+  check(!ledger.maintenanceReleaseRetryRequested(complete.id),"verified release consumes its durable recovery request");
   check("COMPLETE".equals(ledger.status(complete.id).state()),"verified operational recovery never changes clinical completion");
  }
  static void verifyUnwrittenRevisionApproval() {
@@ -293,6 +296,8 @@ class CdsImportLedgerMariaDbIntegrationTest {
   String next=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(),"fixture","999998","fixture","omd-5.2",B,C,A,"/opaque/revision-new")).id();
   long epoch=ledger.claimPlanning(next);
   expect("SOURCE_REVISION_REVIEW_REQUIRED",()->ledger.planPatient(next,epoch,patient,source,copy,B));
+  ledger.diagnostic(next,epoch,patient,null,"ERROR","SOURCE_REVISION_REVIEW_REQUIRED","PREFLIGHT",null,"Explicit unwritten revision approval required","/opaque/revision-context",true);
+  check(ledger.diagnostics(next,0,10).stream().anyMatch(d->patient.equals(d.patientKey())),"canonical conflict keeps the patient key even before the new patient row exists");
   var projection=ledger.unwrittenRevision(next,epoch,source,copy,B);
   check(projection.eligible() && projection.priorRunIds().equals(List.of(old)) && projection.priorRunCount()==1,"new accepted source exposes exact bounded zero-write prior provenance");
   check(ledger.unwrittenRevisionPriorRuns(next,epoch,source,copy,"",1).equals(List.of(old)),"revision provenance is pageable without retaining patient graphs");

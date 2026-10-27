@@ -86,13 +86,16 @@ public class CdsImportExecutionService {
             if (Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(job.state())
                     || !resume && Set.of("INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "DRY_RUN_INCOMPLETE", "REVIEW_REQUIRED").contains(job.state())) {
                 boolean releasePending=ledger.maintenanceReleasePending(runId);
-                if (releasePending && resume) {
+                boolean retryRelease=releasePending && (resume || ledger.maintenanceReleaseRetryRequested(runId));
+                if (retryRelease) {
                     epoch=ledger.claimReporting(runId);
                     CdsImportMaintenanceService.ReleaseStatus released=maintenance.reconcileCompletedRelease(safety);
                     if (released==CdsImportMaintenanceService.ReleaseStatus.RELEASED) ledger.maintenanceReleaseReconciled(runId, epoch);
+                    else if (released==CdsImportMaintenanceService.ReleaseStatus.REQUIRES_RECONCILIATION) ledger.maintenanceReleaseFailed(runId, epoch, null);
                     else ledger.maintenanceReleaseDeferred(runId, epoch, released.name());
+                    ledger.maintenanceReleaseRetryAttempted(runId, epoch);
                 }
-                if (releasePending && resume || !Boolean.TRUE.equals(ledger.summary(runId).get("reportsDelivered")) || !Boolean.TRUE.equals(ledger.summary(runId).get("cleanupComplete"))) { epoch=ledger.claimReporting(runId); deliver(runId, epoch); }
+                if (retryRelease || !Boolean.TRUE.equals(ledger.summary(runId).get("reportsDelivered")) || !Boolean.TRUE.equals(ledger.summary(runId).get("cleanupComplete"))) { epoch=ledger.claimReporting(runId); deliver(runId, epoch); }
                 return ledger.status(runId);
             }
             coordinator.check(); epoch=ledger.claimPreparation(runId); configuration.requireEnabled();
