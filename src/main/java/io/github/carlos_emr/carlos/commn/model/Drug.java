@@ -23,6 +23,8 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.commn.model;
@@ -101,7 +103,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Temporal(TemporalType.DATE)
     private Date lastRefillDate = null;
     @Column(name = "nosubs")
-    private boolean noSubs;
+    private Boolean noSubs = Boolean.FALSE;
     private boolean prn;
     private String special = null;
     private String special_instruction = null;
@@ -155,6 +157,14 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     private Date pickupDateTime;
     private String eTreatmentType = null;
     private String rxStatus = null;
+
+    /** Imported currentness is independent from archive state and prescription lifecycle. */
+    @Column(name = "cds_currentness", length = 16)
+    private String cdsCurrentness;
+
+    /** Exact imported dose text, including fractions/ranges that cannot be represented by float. */
+    @Column(name = "cds_dose_text", length = 120)
+    private String cdsDoseText;
     @Column(name = "hide_cpp")
     @Convert(converter = LegacyFalseFlagConverter.class)
     private boolean hideFromCpp;
@@ -224,10 +234,13 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.quantity = drug.getQuantity();
         this.repeat = drug.getRepeat();
         this.lastRefillDate = drug.getLastRefillDate();
-        this.noSubs = drug.getNosubs();
+        this.noSubs = drug.getCdsCurrentness() == null
+                ? Boolean.valueOf(drug.getNosubs()) : drug.getCdsSubstitutionNotAllowed();
         this.prn = drug.getPrn();
         this.special = drug.getSpecial();
         this.special_instruction = drug.getSpecialInstruction();
+        this.cdsCurrentness = drug.getCdsCurrentness();
+        this.cdsDoseText = drug.getCdsDoseText();
         this.archived = drug.isArchived();
         this.archivedReason = drug.getLastArchReason();
         this.archivedDate = drug.getArchivedDate();
@@ -252,6 +265,10 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.outsideProviderOhip = drug.getOutsideProviderOhip();
         this.hideFromDrugProfile = false;
         this.customNote = drug.isCustomNote();
+        if (drug.getCdsCurrentness() != null) {
+            this.nonAuthoritative = drug.getCdsNonAuthoritative();
+            this.comment = drug.getComment();
+        }
         this.eTreatmentType = drug.getETreatmentType();
         this.rxStatus = drug.getRxStatus();
         this.refillDuration = drug.getRefillDuration();
@@ -303,6 +320,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public String getDosageDisplay() {
+        if (cdsDoseText != null) return cdsDoseText;
         String ret = "";
         if (this.getTakeMin() != this.getTakeMax()) {
             ret += RxUtil.FloatToString(this.getTakeMin()) + "-" + RxUtil.FloatToString(this.getTakeMax());
@@ -331,6 +349,25 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     public Boolean isNonAuthoritative() {
         if (nonAuthoritative == null) return false;
         return nonAuthoritative;
+    }
+
+    /** Nullable source value; absence is not electronic dispensing authority. */
+    public Boolean getNonAuthoritative() { return nonAuthoritative; }
+
+    public String getCdsCurrentness() { return cdsCurrentness; }
+
+    public void setCdsCurrentness(String currentness) {
+        if (currentness != null && !java.util.Set.of("CURRENT", "HISTORICAL", "SUSPENDED", "NEW", "UNKNOWN").contains(currentness)) {
+            throw new IllegalArgumentException("Invalid CDS medication currentness");
+        }
+        this.cdsCurrentness = currentness;
+    }
+
+    public String getCdsDoseText() { return cdsDoseText; }
+
+    public void setCdsDoseText(String value) {
+        if (value != null && value.codePointCount(0, value.length()) > 120) throw new IllegalArgumentException("Imported dose exceeds target capacity");
+        this.cdsDoseText = value;
     }
 
     public void setNonAuthoritative(Boolean nonAuthoritative) {
@@ -391,6 +428,14 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     public void setProviderNo(String providerNo) {
         this.providerNo = StringUtils.trimToNull(providerNo);
+    }
+
+    /** Empty means the imported original prescriber is not a resolved local provider, never the importer. */
+    public void setImportedPrescriberNo(String providerNo) {
+        if (providerNo != null && !providerNo.isEmpty() && !providerNo.matches("[0-9]{1,6}")) {
+            throw new IllegalArgumentException("Invalid imported prescriber reference");
+        }
+        this.providerNo = providerNo == null ? "" : providerNo;
     }
 
     public Integer getDemographicId() {
@@ -515,8 +560,13 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean isNoSubs() {
-        return noSubs;
+        return Boolean.TRUE.equals(noSubs);
     }
+
+    /** Nullable native value for source-unknown substitution; boolean display helpers are not evidence. */
+    public Boolean getNoSubs() { return noSubs; }
+
+    public void setNoSubs(Boolean noSubs) { this.noSubs = noSubs; }
 
     public void setNoSubs(boolean noSubs) {
         this.noSubs = noSubs;
@@ -745,6 +795,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean isCurrent() {
+        if (cdsCurrentness != null) return !archived && "CURRENT".equals(cdsCurrentness);
         boolean b = false;
 
         try {
@@ -882,6 +933,14 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     public void setComment(String comment) {
         this.comment = StringUtils.trimToNull(comment);
+    }
+
+    /** Preserve XML text whitespace for imported provider-only Notes, without changing native edit defaults. */
+    public void setImportedProviderNotes(String notes) {
+        if (notes != null && notes.codePointCount(0, notes.length()) > 32768) {
+            throw new IllegalArgumentException("Imported provider notes exceed target capacity");
+        }
+        this.comment = notes;
     }
 
     public Date getLastUpdateDate() {

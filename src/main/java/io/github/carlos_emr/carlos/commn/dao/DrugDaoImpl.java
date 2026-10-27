@@ -27,6 +27,8 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
@@ -98,7 +100,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     public List<Drug> findByDemographicId(Integer demographicId, Boolean archived) {
 
         String sqlCommand = "select x from Drug x where x.demographicId=?1 "
-                + (archived == null ? "" : "and x.archived=?2 ") + " order by x.createDate DESC";
+                + (archived == null ? "" : "and x.archived=?2 ")
+                + currentImportClause("x", archived) + " order by x.createDate DESC";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -136,7 +139,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     public List<Drug> findByDemographicIdOrderByDate(Integer demographicId, Boolean archived) {
         // build sql string
         String sqlCommand = "select x from Drug x where x.demographicId=?1 "
-                + (archived == null ? "" : "and x.archived=?2") + " order by x.rxDate desc, x.id desc";
+                + (archived == null ? "" : "and x.archived=?2")
+                + currentImportClause("x", archived) + " order by x.rxDate desc, x.id desc";
 
         // set parameters
         Query query = entityManager.createQuery(sqlCommand);
@@ -183,7 +187,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     public List<Drug> findByDemographicIdOrderByPosition(Integer demographicId, Boolean archived) {
         // build sql string
         String sqlCommand = "select x from Drug x where x.demographicId=?1 "
-                + (archived == null ? "" : "and x.archived=?2") + " order by x.position desc, x.rxDate desc, x.id desc";
+                + (archived == null ? "" : "and x.archived=?2")
+                + currentImportClause("x", archived) + " order by x.position desc, x.rxDate desc, x.id desc";
         // set parameters
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -640,7 +645,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
 
     @Override
     public List<Drug> findLongTermDrugsByDemographic(Integer demographicId) {
-        String sqlCommand = "select x from Drug x where x.demographicId=?1 and x.archived = false and x.longTerm = true";
+        String sqlCommand = "select x from Drug x where x.demographicId=?1 and x.archived = false and x.longTerm = true"
+                + currentImportClause("x", false);
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -649,6 +655,12 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         List<Drug> results = query.getResultList();
         return (results);
 
+    }
+
+    /** Legacy rows keep their existing selection; uncertain imported history is never labeled active. */
+    private static String currentImportClause(String alias, Boolean archived) {
+        return Boolean.FALSE.equals(archived)
+                ? " and (" + alias + ".cdsCurrentness is null or " + alias + ".cdsCurrentness = 'CURRENT') " : "";
     }
 
     /**

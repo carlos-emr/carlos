@@ -1,0 +1,121 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsimport.support;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.Precision;
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.Year;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.time.format.ResolverStyle;
+
+/** Strict, side-effect-free interpretation of the actual XML date choice branches. */
+public final class CdsTemporal {
+    private CdsTemporal() { }
+
+    public static CdsTemporalDto parse(String year, String month, String date, String dateTime,
+            String field) {
+        var supplied = java.util.stream.Stream.of(year, month, date, dateTime)
+                .filter(java.util.Objects::nonNull).toList();
+        if (supplied.isEmpty()) return CdsTemporalDto.unknown();
+        if (supplied.size() != 1) throw new CdsClinicalException("CDS_DATE_CHOICE_CONFLICT", field);
+        String lexical = supplied.get(0);
+        if (lexical.isBlank()) throw new CdsClinicalException("CDS_DATE_EMPTY", field);
+        try {
+            if (year != null) {
+                String value = calendarLexical(year, 4, field);
+                Year parsed = Year.parse(value, DateTimeFormatter.ofPattern("uuuu")
+                        .withResolverStyle(ResolverStyle.STRICT));
+                requireClinicalYear(parsed.getValue(), field);
+                return new CdsTemporalDto(Precision.YEAR, lexical, parsed.atDay(1),
+                        parsed.atMonth(12).atEndOfMonth(), null, null);
+            }
+            if (month != null) {
+                String value = calendarLexical(month, 7, field);
+                YearMonth parsed = YearMonth.parse(value,
+                        DateTimeFormatter.ofPattern("uuuu-MM").withResolverStyle(ResolverStyle.STRICT));
+                requireClinicalYear(parsed.getYear(), field);
+                return new CdsTemporalDto(Precision.MONTH, lexical, parsed.atDay(1),
+                        parsed.atEndOfMonth(), null, null);
+            }
+            if (date != null) {
+                LocalDate parsed = LocalDate.parse(calendarLexical(date, 10, field),
+                        DateTimeFormatter.ISO_LOCAL_DATE.withResolverStyle(ResolverStyle.STRICT));
+                requireClinicalYear(parsed.getYear(), field);
+                return new CdsTemporalDto(Precision.FULL_DATE, lexical, parsed, parsed, null, null);
+            }
+            String interpretedTime = endOfDay(dateTime);
+            if (interpretedTime.endsWith("Z") || interpretedTime.matches(".*[+-]\\d{2}:\\d{2}$")) {
+                OffsetDateTime parsed = OffsetDateTime.parse(interpretedTime,
+                        DateTimeFormatter.ISO_OFFSET_DATE_TIME.withResolverStyle(ResolverStyle.STRICT));
+                if (Math.abs(parsed.getOffset().getTotalSeconds()) > 14 * 3600) {
+                    throw new CdsClinicalException("CDS_DATE_INVALID", field);
+                }
+                requireClinicalYear(parsed.getYear(), field);
+                return new CdsTemporalDto(Precision.OFFSET_DATE_TIME, lexical, parsed.toLocalDate(),
+                        parsed.toLocalDate(), null, parsed);
+            }
+            LocalDateTime parsed = LocalDateTime.parse(interpretedTime,
+                    DateTimeFormatter.ISO_LOCAL_DATE_TIME.withResolverStyle(ResolverStyle.STRICT));
+            requireClinicalYear(parsed.getYear(), field);
+            return new CdsTemporalDto(Precision.LOCAL_DATE_TIME, lexical, parsed.toLocalDate(),
+                    parsed.toLocalDate(), parsed, null);
+        } catch (DateTimeException failure) {
+            throw new CdsClinicalException("CDS_DATE_INVALID", field);
+        }
+    }
+
+    private static void requireClinicalYear(int year, String field) {
+        if (year < 1 || year > 9999) {
+            throw new CdsClinicalException("CDS_DATE_OUTSIDE_TARGET_CALENDAR", field);
+        }
+    }
+
+    /** XML Schema permits exactly midnight as 24:00:00; this is the following day's 00:00:00. */
+    private static String endOfDay(String lexical) {
+        var match = java.util.regex.Pattern.compile(
+                "^([0-9]{4}-[0-9]{2}-[0-9]{2})T24:00:00(?:\\.0+)?(Z|[+-][0-9]{2}:[0-9]{2})?$")
+                .matcher(lexical);
+        if (!match.matches()) return lexical;
+        LocalDate next = LocalDate.parse(match.group(1)).plusDays(1);
+        return next + "T00:00:00" + (match.group(2) == null ? "" : match.group(2));
+    }
+
+    private static String calendarLexical(String lexical, int length, String field) {
+        if (lexical.length() < length) throw new CdsClinicalException("CDS_DATE_INVALID", field);
+        String suffix = lexical.substring(length);
+        if (!suffix.isEmpty() && !suffix.equals("Z")) {
+            if (!suffix.matches("[+-]\\d{2}:\\d{2}")) {
+                throw new CdsClinicalException("CDS_DATE_INVALID", field);
+            }
+            var offset = java.time.ZoneOffset.of(suffix);
+            if (Math.abs(offset.getTotalSeconds()) > 14 * 3600) {
+                throw new CdsClinicalException("CDS_DATE_INVALID", field);
+            }
+        }
+        return lexical.substring(0, length);
+    }
+}
