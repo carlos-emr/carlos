@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {createHash} = require('node:crypto');
-const {journalRow,rawPost,verifyUploadedBody} = require('./demographic-cds-large-ingress-playwright-checks');
+const {journalRow,rawPost,interruptPost,verifyUploadedBody} = require('./demographic-cds-large-ingress-playwright-checks');
 
 test('independent upload journal includes exact big-endian index, offset, byte count and full hash', () => {
   const hash = createHash('sha256').update('synthetic').digest('hex');
@@ -65,6 +65,21 @@ test('a slow drip cannot evade the absolute request deadline',async t=>{
   const start=performance.now();
   await assert.rejects(rawPost(new URL('http://127.0.0.1:'+server.address().port),{},Buffer.from('x'),{timeout:120}),/absolute request deadline/);
   assert.ok(performance.now()-start<1000);
+});
+
+test('controlled disconnect sends a real partial body without an EOF that could certify its declaration',async t=>{
+  let observed;const incomplete=new Promise(resolve=>{observed=resolve;});
+  const server=http.createServer((request,response)=>{
+    let bytes=0;request.on('data',chunk=>{bytes+=chunk.length;});
+    request.on('aborted',()=>observed({bytes,complete:request.complete}));
+    request.on('end',()=>{response.end('{"ok":true}');observed({bytes,complete:request.complete});});
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const prefix=Buffer.alloc(65536,65);
+  const result=await interruptPost(new URL('http://127.0.0.1:'+server.address().port),{},prefix,4*1024*1024);
+  const actual=await incomplete;
+  assert.equal(result.sentPrefixBytes,prefix.length);assert.equal(actual.bytes,prefix.length);assert.equal(actual.complete,false);
 });
 
 test('physical upload proof refuses same-length corruption and redirected payload paths',t=>{

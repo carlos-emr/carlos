@@ -63,7 +63,10 @@ larger than64MiB twice through real HTTP requests, once with Content-Length and
 once with unknown-length chunked framing. Each request remains within the
 server-advertised chunk bound. Independent52-byte journal hashing verifies the
 entire completed transfer. Oversized individual requests must refuse without a
-committed byte/chunk. This is authenticated transport verification through the
+committed byte/chunk. Missing/invalid CSRF must refuse without a reservation.
+The first real declared-length request disconnects after a64KiB prefix; the same
+upload UUID and exact chunk then resume to the complete independently verified
+source, without another acceptance or transfer identity. This is authenticated transport verification through the
 actual filters/connector; the ordinary browser gate separately exercises file
 selection and visible submission controls. It accepts no clinical job, proves
 run/native/checkpoint/hold counts unchanged, and retires only its explicitly

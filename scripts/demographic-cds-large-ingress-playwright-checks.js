@@ -87,6 +87,27 @@ async function rawPost(url, headers, body, {chunked = false, length = body.lengt
   });
 }
 
+async function interruptPost(url,headers,prefix,declaredBytes) {
+  h.assert(prefix.length>0 && prefix.length<declaredBytes,'An interruption requires a genuinely partial request body');
+  const transport=url.protocol==='https:'?https:http;
+  return new Promise((resolve,reject)=>{
+    let settled=false;let interrupted=false;
+    const finish=(error)=>{if(settled)return;settled=true;clearTimeout(timer);
+      if(error)reject(new Error('Controlled upload interruption could not be established'));
+      else resolve({sentPrefixBytes:prefix.length,declaredBytes,connectionClosed:true});};
+    const request=transport.request(url,{method:'POST',headers:{...headers,'Content-Length':String(declaredBytes)}},response=>{
+      response.destroy();request.destroy();finish(true);
+    });
+    const timer=setTimeout(()=>{request.destroy();finish(true);},5000);
+    request.on('error',()=>{if(!interrupted)finish(true);});
+    request.on('close',()=>finish(!interrupted));
+    request.write(prefix,error=>{
+      if(error){request.destroy();finish(true);return;}
+      setTimeout(()=>{interrupted=true;request.destroy();},25);
+    });
+  });
+}
+
 function verifyUploadedBody(properties, library, id, expected) {
   h.assert(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id),'Invalid owned upload identity');
   const root = execFileSync('python3',['-c',
@@ -200,6 +221,18 @@ async function run(env = process.env) {
     const cookies = await context.cookies(url.href);
     const headers = {'Cookie':cookies.map(cookie => cookie.name+'='+cookie.value).join('; '),
       'CSRF-TOKEN':token, 'X-Requested-With':'XMLHttpRequest','Content-Type':'application/octet-stream'};
+    const reservationCounts=()=>sql.value(`SELECT CONCAT_WS('|',(SELECT COUNT(*) FROM cds_import_upload),
+      (SELECT COALESCE(SUM(reserved_bytes),0) FROM cds_import_admission))`);
+    const beforeCsrf=reservationCounts();report.csrfRefusals=[];
+    for(const kind of ['missing','invalid']) {
+      const csrfHeaders={'X-Requested-With':'XMLHttpRequest'};
+      if(kind==='invalid')csrfHeaders['CSRF-TOKEN']='synthetic-invalid-csrf-token';
+      const denied=await context.request.post(url.href,{form:{operation:'begin',fileName:'synthetic-csrf.xml',expectedBytes:'1'},
+        headers:csrfHeaders,maxRedirects:0,timeout:30000});
+      const status=denied.status();await denied.dispose();
+      h.assert(status===403 && reservationCounts()===beforeCsrf,'Invalid CSRF was not refused before durable upload reservation');
+      report.csrfRefusals.push({kind,status,reservationCountsUnchanged:true});save();
+    }
     const source = path.join(evidence,'synthetic-large.xml'); report.source = writeFixture(source, 64 * MiB);
     const contextPath=new URL(config.baseUrl).pathname.replace(/^\/+|\/+$/g,'');
     h.assert(/^[A-Za-z0-9_-]+$/.test(contextPath),'Physical ingress proof requires one explicit deployed application context');
@@ -224,7 +257,20 @@ async function run(env = process.env) {
           const count = fs.readSync(fd,buffer,0,expected,offset); h.assert(count === expected,'Synthetic source shortened');
           const body = buffer.subarray(0,count); const sha256 = createHash('sha256').update(body).digest('hex');
           const endpoint = new URL(url); for (const [key,value] of Object.entries({operation:'chunk',uploadId:upload.id,offset,bytes:count,sha256})) endpoint.searchParams.set(key,String(value));
-          const response = await rawPost(endpoint,headers,body,{chunked});
+          if(!chunked && index===0) {
+            ownership.phase='INTERRUPTION_STARTED';save();
+            report.interruption={uploadId:upload.id,...await interruptPost(endpoint,headers,body.subarray(0,65536),count)};save();
+            const current=await importApi(page,'cdsImportStatus',{section:'upload',uploadId:upload.id});
+            h.assert(current.body?.upload?.receivedBytes===0 && current.body?.upload?.committedChunks===0
+              && current.body?.upload?.runId===null,'An incomplete transport body advanced its durable checkpoint');
+            ownership.phase='RESUMING_SAME_UUID';save();
+          }
+          let response;
+          for(let attempt=0;attempt<10;attempt++) {
+            response=await rawPost(endpoint,headers,body,{chunked});
+            if(response.status!==409 || response.json?.code!=='UPLOAD_BUSY')break;
+            await new Promise(resolve=>setTimeout(resolve,100));
+          }
           h.assert(response.status === 200 && response.json?.ok === true && response.json.upload?.receivedBytes === offset+count,
             'Actual framed request did not commit its exact bounded receipt');
           digest.update(journalRow(index,offset,count,sha256)); index++; offset += count;
@@ -272,4 +318,4 @@ async function run(env = process.env) {
   finally { clearInterval(metricTimer); if (browser) await browser.close(); if (sql) sql.dispose(); }
 }
 if (require.main === module) run().catch(error => { console.error(error.message); process.exitCode=1; });
-module.exports = {writeFixture,journalRow,rawPost,serverSample,verifyUploadedBody,run};
+module.exports = {writeFixture,journalRow,rawPost,interruptPost,serverSample,verifyUploadedBody,run};
