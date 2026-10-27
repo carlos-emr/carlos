@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.assembler;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportConfigurationService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.viewmodel.CdsImportViewModel;
-import io.github.carlos_emr.carlos.encounter.data.EctProgram;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsProgramContextService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
@@ -36,7 +36,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsImportViewModelAssembler {
     private final CdsImportConfigurationService configuration;
-    public CdsImportViewModelAssembler(CdsImportConfigurationService configuration) { this.configuration = configuration; }
+    private final CdsProgramContextService programs;
+    public CdsImportViewModelAssembler(CdsImportConfigurationService configuration, CdsProgramContextService programs) {
+        this.configuration = configuration; this.programs = programs;
+    }
 
     public CdsImportViewModel assemble(HttpServletRequest request, LoggedInInfo actor) {
         String configured = configuration.value("cds.import.sourceNamespaces", "");
@@ -57,8 +60,8 @@ public class CdsImportViewModelAssembler {
                 }
             }
         }
-        String program = new EctProgram(request.getSession()).getProgram(actor.getLoggedInProviderNo());
-        if (program == null || program.equals("0")) program = "";
+        Integer selectedProgram = programs.defaultProgramId(actor.getLoggedInProviderNo());
+        String program = selectedProgram == null ? "" : selectedProgram.toString();
         String facility = actor.getCurrentFacility() == null ? "" : String.valueOf(actor.getCurrentFacility().getId());
         return new CdsImportViewModel(configuration.enabled(),
                 configuration.value("OSCAR_LEARNING", "no").equalsIgnoreCase("yes"),

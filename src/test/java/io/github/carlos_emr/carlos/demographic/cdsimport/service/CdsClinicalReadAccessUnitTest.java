@@ -42,7 +42,7 @@ class CdsClinicalReadAccessUnitTest extends CarlosUnitTestBase {
         when(actor.getLoggedInSecurity()).thenReturn(account);when(actor.getLoggedInProviderNo()).thenReturn("999998");
         EntityManager em=mock(EntityManager.class);when(em.find(Security.class,42)).thenReturn(account);
         Provider provider=new Provider();provider.setProviderNo("999998");provider.setStatus("1");when(em.find(Provider.class,"999998")).thenReturn(provider);
-        access=new CdsImportAccessService(security,mock(CdsImportConfigurationService.class),mock(CdsCourseService.class));ReflectionTestUtils.setField(access,"entityManager",em);
+        access=new CdsImportAccessService(security,mock(CdsImportConfigurationService.class),mock(CdsCourseService.class),mock(CdsProgramContextService.class));ReflectionTestUtils.setField(access,"entityManager",em);
         when(security.hasPrivilegeReadOnly(any(),eq("_demographic"),eq("r"),eq("123"))).thenReturn(true);
         when(security.hasPrivilegeReadOnly(any(),eq("_rx"),eq("r"),eq("123"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(),eq(123))).thenReturn(true);

@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
-import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
@@ -43,12 +42,14 @@ public class CdsImportAccessService {
     private final SecurityInfoManager security;
     private final CdsImportConfigurationService configuration;
     private final CdsCourseService courses;
+    private final CdsProgramContextService programs;
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
 
-    public CdsImportAccessService(SecurityInfoManager security, CdsImportConfigurationService configuration, CdsCourseService courses) {
+    public CdsImportAccessService(SecurityInfoManager security, CdsImportConfigurationService configuration, CdsCourseService courses, CdsProgramContextService programs) {
         this.security = security;
         this.configuration = configuration;
         this.courses = courses;
+        this.programs = programs;
     }
 
     @Transactional(readOnly = true)
@@ -103,13 +104,10 @@ public class CdsImportAccessService {
         }
         if (command.synthetic()) courses.requireCopy(actor, command);
         if (actor.programId() != null && !command.synthetic()) {
-            Program program = entityManager.find(Program.class, actor.programId());
-            if (program == null || !"active".equalsIgnoreCase(program.getProgramStatus())
-                    || (actor.facilityId() != null && !Objects.equals(program.getFacilityId(), actor.facilityId()))) deny();
-            Long membership = entityManager.createQuery(
-                    "select count(p.id) from ProgramProvider p where p.programId=:program and p.providerNo=:provider", Long.class)
-                    .setParameter("program", actor.programId().longValue()).setParameter("provider", actor.providerNo()).getSingleResult();
-            if (membership == 0) deny();
+            var program = programs.metadata(actor.programId());
+            if (program == null || !"active".equalsIgnoreCase(program.status())
+                    || (actor.facilityId() != null && !Objects.equals(program.facilityId(), actor.facilityId()))) deny();
+            if (!programs.member(actor.providerNo(), actor.programId())) deny();
         }
         effective.setInitiatingCode("CdsImport/" + actor.operator());
         effective.setIp(actor.securityNo() == null ? "cli/delegated" : "web/import-worker");

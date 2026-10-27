@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
-import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCourseCopyDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto;
@@ -40,10 +39,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class CdsCourseService {
     private final CdsImportConfigurationService configuration;
     private final TransactionTemplate read;
+    private final CdsProgramContextService programs;
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
 
-    public CdsCourseService(CdsImportConfigurationService configuration, PlatformTransactionManager manager) {
+    public CdsCourseService(CdsImportConfigurationService configuration, PlatformTransactionManager manager, CdsProgramContextService programs) {
         this.configuration = configuration;
+        this.programs = programs;
         read = new TransactionTemplate(manager); read.setReadOnly(true); read.setTimeout(30);
     }
 
@@ -89,22 +90,22 @@ public class CdsCourseService {
     public void requireCopy(CdsImportActorDto actor, CdsImportCommand command) {
         requireEducator(actor, command);
         if (command.programId() == null || command.programId().equals(command.courseId())) return;
-        Program program = entityManager.find(Program.class, command.programId());
-        if (program == null || !program.getName().startsWith("program")) deny();
-        String student = program.getName().substring("program".length());
+        var program = programs.metadata(command.programId());
+        if (program == null || program.name() == null || !program.name().startsWith("program")) deny();
+        String student = program.name().substring("program".length());
         Long enrolled = entityManager.createQuery("select count(pp.id) from ProgramProvider pp join pp.role r "
                 + "join pp.provider p where pp.programId=:course and pp.providerNo=:student and lower(r.roleName)='student' and p.status='1'", Long.class)
                 .setParameter("course", command.courseId().longValue()).setParameter("student", student).getSingleResult();
-        if (enrolled == 0 || !"active".equalsIgnoreCase(program.getProgramStatus())
-                || (command.facilityId() != null && !Objects.equals(command.facilityId(), program.getFacilityId()))) deny();
+        if (enrolled == 0 || !"active".equalsIgnoreCase(program.status())
+                || (command.facilityId() != null && !Objects.equals(command.facilityId(), program.facilityId()))) deny();
     }
 
     private void requireEducator(CdsImportActorDto actor, CdsImportCommand command) {
         if (!command.synthetic() || command.courseId() == null || command.mergeExisting()
                 || !"yes".equalsIgnoreCase(configuration.value("OSCAR_LEARNING", "no"))
                 || !Boolean.parseBoolean(configuration.value("cds.import.source." + command.sourceNamespace() + ".synthetic", "false"))) deny();
-        Program course = entityManager.find(Program.class, command.courseId());
-        if (course == null || !"active".equalsIgnoreCase(course.getProgramStatus())) deny();
+        var course = programs.metadata(command.courseId());
+        if (course == null || !"active".equalsIgnoreCase(course.status())) deny();
         String authorized = configuration.value("cds.import.course." + command.courseId() + ".educators", "");
         if (authorized.length() > 8192 || Arrays.stream(authorized.split(",")).map(String::trim)
                 .noneMatch(actor.providerNo()::equals)) deny();

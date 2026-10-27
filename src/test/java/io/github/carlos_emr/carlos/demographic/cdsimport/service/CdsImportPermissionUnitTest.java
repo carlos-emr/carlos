@@ -58,7 +58,7 @@ class CdsImportPermissionUnitTest {
     private static Fixture fixture() {
         var security = mock(SecurityInfoManager.class);
         when(security.hasPrivilegeReadOnly(any(), eq("_demographic"), eq("w"), isNull())).thenReturn(true);
-        var access = new CdsImportAccessService(security, new CdsImportConfigurationService(new Properties()), mock(CdsCourseService.class));
+        var access = new CdsImportAccessService(security, new CdsImportConfigurationService(new Properties()), mock(CdsCourseService.class),mock(CdsProgramContextService.class));
         var entities = mock(EntityManager.class);
         Security account = new Security(); account.setSecurityNo(9); account.setProviderNo("77");
         Provider provider = new Provider(); provider.setProviderNo("77"); provider.setStatus("1");
