@@ -30,7 +30,7 @@ public final class CdsMedicationDose {
     public record Range(float minimum, float maximum) { }
 
     public static Optional<Range> parse(String source) {
-        if (source == null || !source.matches("[0-9]+(?:\\.[0-9]+)?(?:-[0-9]+(?:\\.[0-9]+)?)?")) {
+        if (source == null || !source.matches("[0-9]++(?:\\.[0-9]++)?(?:-[0-9]++(?:\\.[0-9]++)?)?")) {
             return Optional.empty();
         }
         String[] range = source.split("-", -1);

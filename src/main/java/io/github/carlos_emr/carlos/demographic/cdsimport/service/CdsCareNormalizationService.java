@@ -167,7 +167,7 @@ public class CdsCareNormalizationService {
     }
     private static String nonnegativeDecimal(String original) {
         String value = original.strip();
-        if (!value.matches("[+]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)")) return null;
+        if (!value.matches("[+]?(?:[0-9]++(?:\\.[0-9]*+)?|\\.[0-9]++)")) return null;
         BigDecimal number = new BigDecimal(value);
         if (!Double.isFinite(number.doubleValue())) return null;
         return number.stripTrailingZeros().toPlainString();

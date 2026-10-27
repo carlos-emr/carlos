@@ -37,6 +37,13 @@ class CdsMedicationDoseUnitTest {
         assertThat(dose.maximum()).isEqualTo(1.25f);
     }
 
+    @Test
+    void shouldKeepUnrepresentableLongNumericText_whenItEndsInAnInvalidCharacter() {
+        String text = "9".repeat(100_000) + "!";
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(5),
+                () -> assertThat(CdsMedicationDose.parse(text)).isEmpty());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"1/2", "1–2", "1 tablet", "2-1", "0.1", "99999999999999999999999999999999999999999999999"})
     void shouldRequireTextAwareConsumer_whenLegacyFloatCannotRepresentSourceExactly(String text) {

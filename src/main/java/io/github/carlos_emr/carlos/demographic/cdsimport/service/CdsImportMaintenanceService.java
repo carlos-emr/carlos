@@ -282,11 +282,7 @@ public class CdsImportMaintenanceService {
                 try { connection.rollback(); } catch (SQLException cleanup) { failure.addSuppressed(cleanup); }
             } finally {
                 state.release(lease);
-                try {
-                    if (scalar(connection, "SELECT RELEASE_LOCK(?)", state.lockName())!=1) {
-                        throw new SQLException("Maintenance advisory release was not acknowledged", "45000");
-                    }
-                }
+                try { requireAdvisoryRelease(connection, state.lockName()); }
                 catch (SQLException cleanup) { if (failure == null) failure = cleanup; else failure.addSuppressed(cleanup); }
                 try { connection.close(); }
                 catch (SQLException cleanup) { if (failure == null) failure = cleanup; else failure.addSuppressed(cleanup); }
@@ -297,4 +293,10 @@ public class CdsImportMaintenanceService {
             }
         }
     }
+    private static void requireAdvisoryRelease(Connection connection, String lockName) throws SQLException {
+        if (scalar(connection, "SELECT RELEASE_LOCK(?)", lockName) != 1) {
+            throw new SQLException("Maintenance advisory release was not acknowledged", "45000");
+        }
+    }
+
 }
