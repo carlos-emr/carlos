@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.cli;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -303,7 +304,7 @@ class CdsCliProtocolUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"IMPORT_BUSY", "IMPORT_ALREADY_RUNNING", "IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE",
-            "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION"})
+            "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION", "CDS_INPUT_DISK_RESERVE", "CDS_SOURCE_SNAPSHOT_FAILED"})
     void shouldExposeFiniteSafeReason_whenSharedEngineRefusesControl(String reason) {
         int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
                 CdsCliArguments.parse(new String[]{"--operation", "resume", "--provider", "999998", "--run", NONCE}),
@@ -316,8 +317,21 @@ class CdsCliProtocolUnitTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"CDS_INPUT_DISK_RESERVE", "CDS_SOURCE_SNAPSHOT_FAILED"})
+    void shouldRetainSubmissionNonceWithoutClaimingAcceptance_whenInputStorageFails(String reason) {
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.inputFailureCode = reason;
+        assertThat(invoke("import", runtime)).isEqualTo(4);
+        assertThat(runtime.calls).containsExactly("accept", "close");
+        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("SUBMISSION", NONCE).doesNotContain("ACCEPTED", "RESULT");
+        assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("safeCode=" + reason, "outcomeUnknown=false")
+                .doesNotContain("sensitive-path", "patient-value", "NOT_ACCEPTED", "rolled back");
+    }
+
+    @ParameterizedTest
     @NullSource
     @ValueSource(strings = {"private-patient-path", "PATIENT_ALICE_SMITH", "IMPORT_BUSY\nprivate-patient-path",
+            "CDS_INPUT_DISK_RESERVE_PRIVATE", "CDS_SOURCE_SNAPSHOT_FAILED\nprivate-patient-path",
             "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"})
     void shouldProtectUnknownAndAdversarialCodes_whenRefusalReasonIsNotPublic(String reason) {
         int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
@@ -325,7 +339,8 @@ class CdsCliProtocolUnitTest {
                 out, err, (config, selected, delegation) -> { throw new CdsImportException(reason); });
         assertThat(code).isEqualTo(4);
         assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("safeCode=DETAILS_PROTECTED", "outcomeUnknown=false")
-                .doesNotContain("private-patient-path", "PATIENT_ALICE_SMITH", "safeCode=IMPORT_BUSY");
+                .doesNotContain("private-patient-path", "PATIENT_ALICE_SMITH", "safeCode=IMPORT_BUSY",
+                        "safeCode=CDS_INPUT_DISK_RESERVE", "safeCode=CDS_SOURCE_SNAPSHOT_FAILED");
     }
 
     @ParameterizedTest
@@ -378,12 +393,15 @@ class CdsCliProtocolUnitTest {
     private final class FakeRuntime implements CdsCliRuntime {
         private final List<String> calls = new ArrayList<>();
         private boolean clean = true, closeFailure, executionFailure, acceptFailure, expectAcceptedHandle = true;
-        private String resolvedRun;
+        private String resolvedRun, inputFailureCode;
         private Object resumeRequested, maintenanceReleasePending, maintenanceReleaseState;
         private Runnable onExecution=() -> { };
         @Override public String resolveRunId(String requested) { return resolvedRun == null ? requested : resolvedRun; }
         @Override public String accept() throws IOException {
-            calls.add("accept"); if (acceptFailure) throw new IOException("sensitive-path"); return NONCE;
+            calls.add("accept");
+            if (inputFailureCode != null) throw new CdsInputException(inputFailureCode, "sensitive-path", "patient-value");
+            if (acceptFailure) throw new IOException("sensitive-path");
+            return NONCE;
         }
         @Override public void observe(String run, String operation) { calls.add("observe:" + operation); }
         @Override public void execute(String run, boolean resume) {
