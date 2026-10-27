@@ -27,6 +27,8 @@
 		<property name="url" value="${db_uri}${db_name}" />
 		<!-- Null in ordinary WARs; explicit operator URL/driver options retain precedence. -->
 		<property name="defaultUseInformationSchema" value="${db_default_use_information_schema:}" />
+        <!-- Opt-in CDS nodes apply finite network policy before Flyway's first pool connection. -->
+        <property name="boundedCdsConnections" value="${cds.import.maintenanceGuardEnabled:false}" />
 		<property name="defaultAutoCommit" value="true" />
 
 		<property name="username" value="${db_username}" />

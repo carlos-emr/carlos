@@ -77,6 +77,7 @@ public class CdsCliSpringConfiguration {
     @Bean(destroyMethod = "close")
     public OscarTrackingBasicDataSource dataSource(@Qualifier("cdsImportProperties") Properties properties) {
         OscarTrackingBasicDataSource source = new OscarTrackingBasicDataSource();
+        source.setBoundedCdsConnections(true);
         source.setDriverClassName(required(properties, "db_driver"));
         String metadata = properties.getProperty("db_default_use_information_schema");
         if (metadata != null && !metadata.isBlank()) source.setDefaultUseInformationSchema(

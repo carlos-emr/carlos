@@ -66,6 +66,26 @@ import org.apache.logging.log4j.Logger;
 public class OscarTrackingBasicDataSource extends BasicDataSource {
     private final AtomicReference<io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState> cdsAdmissionState=new AtomicReference<>();
     private volatile boolean cdsMetadataGuardReady;
+    private volatile boolean boundedCdsConnections;
+
+    /** Configure before the first pool borrow: opt-in CDS nodes also bound Flyway/JPA network I/O. */
+    public synchronized void setBoundedCdsConnections(boolean enabled) {
+        if (getConnectionPool()!=null) throw new IllegalStateException("CDS connection policy requires an uninitialized pool");
+        boundedCdsConnections=enabled;
+    }
+
+    public boolean isBoundedCdsConnections() { return boundedCdsConnections; }
+
+    @Override protected org.apache.commons.dbcp2.ConnectionFactory createConnectionFactory() throws SQLException {
+        var configured=super.createConnectionFactory();
+        return boundedCdsConnections
+                ? io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcConnectionTimeouts.bounded(configured)
+                : configured;
+    }
+
+    private org.apache.commons.dbcp2.ConnectionFactory controlledConnectionFactory() throws SQLException {
+        return io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcConnectionTimeouts.bounded(super.createConnectionFactory());
+    }
 
     /** New CDS metadata stays lossless before maintenance activation; ordinary SQL is unchanged. */
     public void enableCdsMetadataGuard() {
@@ -85,7 +105,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     /** Uses the configured driver/credentials directly, never an abandoned-reclaimable pool lease. */
     public Connection openUnpooledCdsMaintenanceConnection() throws SQLException {
-        return createConnectionFactory().createConnection();
+        return controlledConnectionFactory().createConnection();
     }
 
     /**
@@ -95,7 +115,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
     public io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.OrdinaryAdmissionLease acquireOrdinaryAdmissionLease() throws SQLException {
         if (isClosed()) throw new SQLException("Data source closed", "08003");
         return io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.ordinaryLease(
-                createConnectionFactory().createConnection(), cdsAdmissionState.get());
+                controlledConnectionFactory().createConnection(), cdsAdmissionState.get());
     }
 
     private Connection cdsAdmission(Connection connection) {

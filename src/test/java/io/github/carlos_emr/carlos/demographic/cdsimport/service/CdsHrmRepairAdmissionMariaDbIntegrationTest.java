@@ -143,6 +143,10 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
         ownsFixture = true;
         new CdsJdbcAdmissionInitializer(ordinary, true, "validate").initialize();
         new CdsJdbcAdmissionInitializer(importing, true, "validate").initialize();
+        try (Connection pooled=ordinary.getConnection(); Connection controlled=ordinary.openUnpooledCdsMaintenanceConnection()) {
+            assertThat(pooled.getNetworkTimeout()).isEqualTo(60000);
+            assertThat(controlled.getNetworkTimeout()).isEqualTo(60000);
+        }
         Properties policy = new Properties();
         policy.setProperty("cds.import.enabled", "true");
         policy.setProperty("cds.import.maintenanceMode", "true");
@@ -461,6 +465,7 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
 
     private static OscarTrackingBasicDataSource dataSource(Properties jdbc) {
         var source = new OscarTrackingBasicDataSource();
+        source.setBoundedCdsConnections(true);
         source.setDriverClassName("com.mysql.cj.jdbc.Driver");
         source.setUrl(jdbc.getProperty("jdbcUrl").replace("jdbc:mariadb:", "jdbc:mysql:"));
         source.setUsername(jdbc.getProperty("jdbcUser"));
