@@ -236,3 +236,25 @@ for (const [name,mutate,match] of [
   try {mutate(fixture);assert.throws(() => gate.protectedEvidence(fixture.sql,fixture.selected,fixture.env),match);}
   finally {fs.rmSync(fixture.directory,{recursive:true,force:true});}
 });
+
+
+test('an enabled required lifecycle gate refuses missing native credentials before fixture or acceptance work',async()=>{
+  await assert.rejects(()=>gate.run({CDS_LIFECYCLE_EXECUTE:'true'}),error=>error.name!=='SkipCheck'
+    && error.message.includes('Required lifecycle native prerequisite missing: TEST_USER'));
+  const native={TEST_USER:'synthetic',TEST_PASSWORD:'private-unit',TEST_PIN:'2026',MYSQL_PASSWORD:''};
+  assert.doesNotThrow(()=>gate.requireNativeEnvironment(native));
+  for(const name of Object.keys(native)) {
+    const env={...native};delete env[name];
+    assert.throws(()=>gate.requireNativeEnvironment(env),error=>error.name!=='SkipCheck'&&error.message.includes(name));
+  }
+});
+
+test('a nested missing-prerequisite SkipCheck becomes required-gate FAIL1 while actual cleanup still runs',async()=>{
+  const processRef={env:{}};let cleaned=false;
+  const result=await h.runCheck({name:'required-lifecycle-unit',processRef,stdout:{log(){}},
+    createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+    run:()=>gate.requiredLifecycleStep(()=>{throw new h.SkipCheck('unit prerequisite unavailable');}),
+    cleanup(){cleaned=true;}});
+  assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleaned,true);
+  assert.match(result.detail,/cannot skip/);
+});

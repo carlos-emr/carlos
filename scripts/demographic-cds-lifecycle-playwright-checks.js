@@ -369,11 +369,30 @@ function preflightSession(command) {
   return processProof(receipt);
 }
 
+function requireNativeEnvironment(env) {
+  for (const [name,alias] of [['TEST_USER','CARLOS_USER'],['TEST_PASSWORD','CARLOS_PASSWORD'],['TEST_PIN','CARLOS_PIN']]) {
+    const value=env[name]||env[alias];
+    h.assert(typeof value==='string' && value.length>0,
+      'Required lifecycle native prerequisite missing: '+name+' (no default login or skipped proof)');
+  }
+  h.assert(typeof env.MYSQL_PASSWORD==='string',
+    'Required lifecycle native prerequisite missing: MYSQL_PASSWORD (no skipped proof)');
+}
+async function requiredLifecycleStep(action) {
+  try { return await action(); }
+  catch (failure) {
+    if (failure instanceof h.SkipCheck || failure?.name==='SkipCheck') {
+      throw new Error('Required lifecycle prerequisite is unavailable; this installed gate cannot skip', {cause:failure});
+    }
+    throw failure;
+  }
+}
 async function run(env = process.env) {
   if (env.CDS_LIFECYCLE_EXECUTE !== 'true') {
     console.log('NOT_EXECUTED: lifecycle accepts are held; explicit CDS_LIFECYCLE_EXECUTE=true and reviewed artifact/context are required');
     return {outcome:'NOT_EXECUTED'};
   }
+  requireNativeEnvironment(env);
   let browser; let sql; let relay;
   const stateFile = safeStatePath(env.CDS_LIFECYCLE_STATE_FILE);
   const synthetic = env.CDS_LIFECYCLE_MODE === 'synthetic';
@@ -406,6 +425,7 @@ async function run(env = process.env) {
   }
   const save = () => writeState(stateFile,state);
   return h.runCheck({name:'demographic-cds-lifecycle',async run() {
+    return requiredLifecycleStep(async () => {
     const proxy=synthetic ? null : boundedJson(env.CDS_LIFECYCLE_PROXY_CONTRACT_FILE).value;
     if(proxy)h.assert(proxy.listener==='http://127.0.0.1:18085/carlos' && proxy.upstream==='http://127.0.0.1:18086'
       && proxy.proxyReadTimeoutSeconds===15 && proxy.blockingModSecurity===true
@@ -647,6 +667,7 @@ async function run(env = process.env) {
       manifestDigest:state.manifestDigest,rulesetDigest:state.rulesetDigest,completed:state.completed,native:stored,reports,
       nativeSessionProcess:state.nativeSessionProcess || null,
       sessionExpiry:'selected-native-HttpSession-administrative-expiry-not-inactivity-timer'}));
+    });
   },async cleanup() {
     const failures=[];
     try {if(browser)await browser.close();} catch(failure){failures.push(failure);}
@@ -665,4 +686,4 @@ async function run(env = process.env) {
 
 if (require.main === module) run().then(result => { if (result?.outcome === 'NOT_EXECUTED') process.exitCode = 2; })
   .catch(() => { console.error('FAIL lifecycle gate: accepted state retained; inspect protected artifacts'); process.exitCode = 1; });
-module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertAcceptance,assertScopedFault,expireSession,preflightSession,processProof,hashFile,evidencePath,protectedEvidence,contractApi};
+module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertAcceptance,assertScopedFault,expireSession,preflightSession,processProof,hashFile,evidencePath,protectedEvidence,contractApi,requireNativeEnvironment,requiredLifecycleStep};
