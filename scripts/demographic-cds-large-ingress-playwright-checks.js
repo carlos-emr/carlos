@@ -226,12 +226,15 @@ async function run(env = process.env) {
     const url = new URL(h.appUrl(config.baseUrl,'/form/cdsUpload'));
     const cookies = await context.cookies(url.href);
     const headers = {'Cookie':cookies.map(cookie => cookie.name+'='+cookie.value).join('; '),
-      'CSRF-TOKEN':token, 'X-Requested-With':'XMLHttpRequest','Content-Type':'application/octet-stream'};
+      'CSRF-TOKEN':token,'X-Requested-With':'XMLHttpRequest','Content-Type':'application/octet-stream',
+      'Accept':'application/json','User-Agent':await page.evaluate(()=>navigator.userAgent),
+      'Origin':new URL(config.baseUrl).origin,'Referer':page.url()};
     const reservationCounts=()=>sql.value(`SELECT CONCAT_WS('|',(SELECT COUNT(*) FROM cds_import_upload),
       (SELECT COALESCE(SUM(reserved_bytes),0) FROM cds_import_admission))`);
     const beforeCsrf=reservationCounts();report.csrfRefusals=[];
     for(const kind of ['missing','invalid']) {
-      const csrfHeaders={'X-Requested-With':'XMLHttpRequest'};
+      const csrfHeaders={'X-Requested-With':'XMLHttpRequest','Accept':'application/json',
+        'User-Agent':headers['User-Agent'],'Origin':headers.Origin,'Referer':headers.Referer};
       if(kind==='invalid')csrfHeaders['CSRF-TOKEN']='synthetic-invalid-csrf-token';
       const denied=await context.request.post(url.href,{form:{apiVersion:'2',operation:'begin',fileName:'synthetic-csrf.xml',expectedBytes:'1'},
         headers:csrfHeaders,maxRedirects:0,timeout:30000});
