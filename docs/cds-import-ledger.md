@@ -317,6 +317,24 @@ re-export comparison and migration/policy binding; the incremental shape is exac
 and ten index-definition rows per province, with unchanged database defaults. This schema proof
 does not substitute for the combined candidate's required native recovery and installed-runtime gates.
 
+Migration `V1.0.59.25` widens `cds_import_review.kind` from 24 to 32 characters so the
+26-character `APPROVE_UNWRITTEN_REVISION` control can be durably accepted. It retains an
+already larger capacity and preserves nullability, collation, default, comment and existing
+values. Published migration bytes remain unchanged. Fresh references applied and validated
+all 68 Ontario migrations (450 tables) and 65 BC migrations (483 tables), followed by a
+zero-migration repeat. Both canonical contracts were generated from those actual databases
+and independently re-exported and checked. The only physical column change is the intended
+review-kind capacity; the migration/policy bindings were regenerated from the frozen source.
+The eight actual service/ORM acceptance cases passed without failures or skips. Three separate
+exact-SQL metadata replays preserved a quoted comment/custom collation/default, nullable
+Unicode/NULL data, and an adopted `VARCHAR(64)` capacity; second replays changed nothing.
+
+A review-persistence error remains HTTP 503 with acceptance unconfirmed. A committed review
+can exist after a lost acknowledgement: refresh the same durable run before another action.
+Do not infer `NOT_ACCEPTED` or automatically resubmit. Bounded protected technical evidence
+and a live nonblocking operational diagnostic can explain that request failure without
+rewriting an already selected immutable report generation or changing its clinical flags.
+
 An additional actual MariaDB query-plan probe used 5,006 owned synthetic run rows and 100,001
 events. The three candidate queries visited respectively two, one and one matching index rows,
 without traversing the 5,000 delivered historical runs. Latest-control checks covered no control,

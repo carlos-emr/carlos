@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "105a162abb2b7029758d1018e5ea480d81e6f0597f2c4b2a54d5179dff81cbdb",
+ "migration_sha256": "e400dabe823ceef55888effbcd18e254c1f6b6bc9f9a6bc8f371cb0610c33134",
  "province": "on",
  "schema": {
   "checks": [
@@ -15283,7 +15283,7 @@
    [
     "cds_import_review",
     "kind",
-    "varchar(24)",
+    "varchar(32)",
     "NO",
     null,
     "",
