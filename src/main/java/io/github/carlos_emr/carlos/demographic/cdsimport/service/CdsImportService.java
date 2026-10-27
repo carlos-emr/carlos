@@ -166,6 +166,14 @@ public class CdsImportService {
     private Map<String, Object> operatorSummary(String run) {
         Map<String, Object> value=new java.util.LinkedHashMap<>(ledger.summary(run));
         value.putAll(reviews.summary(run));
+        // A stopped report can be delivered before its already accepted review reaches
+        // this node's queue. Report delivery cannot terminate that pending operation.
+        if (value.get("pendingReviewCount") instanceof Number count && count.longValue()>0) {
+            value.put("cleanComplete", false);
+            if (!"REVIEW_WORKER_FATAL".equals(value.get("reviewErrorCode"))) {
+                value.put("operationTerminal", false);
+            }
+        }
         value.put("administrativeCleanup", administrativeCleanup.get()); value.put("administrativeAlert", housekeepingAlert); value.put("workerAlert", supervisorAlert!=null?supervisorAlert:run.equals(fatalRun.get())?"WORKER_FATAL":fatalReview.get()!=null?"REVIEW_WORKER_FATAL":null);
         return java.util.Collections.unmodifiableMap(value);
     }

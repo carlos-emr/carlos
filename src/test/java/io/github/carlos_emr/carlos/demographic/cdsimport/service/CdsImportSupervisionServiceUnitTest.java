@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -118,6 +119,56 @@ class CdsImportSupervisionServiceUnitTest {
         when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
         call("schedule", new Class<?>[]{String.class, boolean.class}, "run", true); barrier();
         verifyNoInteractions(execution);
+    }
+    @ParameterizedTest
+    @ValueSource(strings={"REQUESTED", "VALIDATING", "OVERLAY_PUBLISHED", "PATIENT_DECLINED", "REVISION_PUBLISHED"})
+    void deliveredStoppedReportCannotTerminateAnAcceptedReviewWaitingForTheWorker(String state) throws Exception {
+        var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+        when(job.state()).thenReturn("REVIEW_REQUIRED");
+        when(ledger.status("run")).thenReturn(job);
+        AtomicBoolean delivered=new AtomicBoolean();
+        when(ledger.hasPendingReport("run")).thenAnswer(call->!delivered.get());
+        when(ledger.summary("run")).thenAnswer(call->Map.of(
+                "operationTerminal", delivered.get(), "cleanComplete", false, "reportsDelivered", delivered.get()));
+        when(reviews.hasPending("run")).thenReturn(true);
+        when(reviews.summary("run")).thenReturn(Map.of("pendingReviewCount", 1, "reviewState", state));
+        doAnswer(call->{delivered.set(true);return null;}).when(execution).reportOnly("run");
+        // This reproduces the durable review -> dispatcher report -> review-enqueue window.
+        // The actual bounded facade worker delivers the report before any review is scheduled.
+        call("schedule", new Class<?>[]{String.class, boolean.class}, "run", false); barrier();
+        assertThat(ledger.summary("run").get("operationTerminal")).isEqualTo(true);
+        var summary=(Map<?, ?>)call("operatorSummary", new Class<?>[]{String.class}, "run");
+        assertThat(summary.get("reportsDelivered")).isEqualTo(true);
+        assertThat(summary.get("pendingReviewCount")).isEqualTo(1);
+        assertThat(summary.get("reviewState")).isEqualTo(state);
+        assertThat(summary.get("operationTerminal")).isEqualTo(false);
+        assertThat(summary.get("cleanComplete")).isEqualTo(false);
+        verify(execution).reportOnly("run");
+        verify(execution, never()).execute("run", false);
+        verify(execution, never()).execute("run", true);
+        verify(reviews, never()).process(anyString());
+    }
+    @Test void supervisedFatalReviewKeepsItsStoppedTerminalOutcomeAndExplicitRecoveryCode() throws Exception {
+        when(ledger.summary("run")).thenReturn(Map.of("operationTerminal", true, "cleanComplete", true));
+        when(reviews.summary("run")).thenReturn(Map.of(
+                "pendingReviewCount", 1, "reviewState", "REVISION_PUBLISHED", "reviewErrorCode", "REVIEW_WORKER_FATAL"));
+        var summary=(Map<?, ?>)call("operatorSummary", new Class<?>[]{String.class}, "run");
+        assertThat(summary.get("operationTerminal")).isEqualTo(true);
+        assertThat(summary.get("cleanComplete")).isEqualTo(false);
+        assertThat(summary.get("reviewErrorCode")).isEqualTo("REVIEW_WORKER_FATAL");
+        assertThat(summary.get("pendingReviewCount")).isEqualTo(1);
+    }
+    @Test void pendingReviewCountRemainsTypedAndZeroDoesNotRewriteTheLedgerOutcome() throws Exception {
+        when(ledger.summary("run")).thenReturn(Map.of("operationTerminal", true, "cleanComplete", true));
+        when(reviews.summary("run")).thenReturn(Map.of("pendingReviewCount", 0));
+        var zero=(Map<?, ?>)call("operatorSummary", new Class<?>[]{String.class}, "run");
+        assertThat(zero.get("operationTerminal")).isEqualTo(true);
+        assertThat(zero.get("cleanComplete")).isEqualTo(true);
+        when(reviews.summary("run")).thenReturn(Map.of("pendingReviewCount", 2L));
+        var positive=(Map<?, ?>)call("operatorSummary", new Class<?>[]{String.class}, "run");
+        assertThat(positive.get("operationTerminal")).isEqualTo(false);
+        assertThat(positive.get("cleanComplete")).isEqualTo(false);
+        assertThat(positive.get("pendingReviewCount")).isEqualTo(2L);
     }
     private void barrier() throws Exception {worker.submit(()->{}).get(5, TimeUnit.SECONDS);}
     private Object call(String name, Class<?>[] parameterTypes, Object... arguments) throws Exception {
