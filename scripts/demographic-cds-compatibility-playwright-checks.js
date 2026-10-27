@@ -67,6 +67,12 @@ function createArchivedSqlRunner(config,exec=execFileSync) {
   return h.createSqlRunner(config,{exec:(command,args,options)=>
     exec(command,[args[0],`--port=${config.port}`,...args.slice(1)],options)});
 }
+function requireDocumentStore(directory) {
+  h.assert(typeof directory==='string' && path.isAbsolute(directory) && fs.existsSync(directory)
+    && fs.statSync(directory).isDirectory(),
+  'The required installed compatibility gate needs its readable ordinary DOCUMENT_DIR; it cannot skip that proof');
+  fs.accessSync(directory,fs.constants.R_OK|fs.constants.X_OK);
+}
 function inventory(sql) {
   return sql.value(`SELECT CONCAT_WS('|',
     (SELECT COUNT(*) FROM cds_import_run),(SELECT COALESCE(SUM(review_version),0) FROM cds_import_run),
@@ -210,6 +216,7 @@ async function cachedPage(browser,config,bundle,expectedVersion,status,code) {
 async function workflow(s) {
   h.assert(process.env.CDS_COMPATIBILITY_DISPOSABLE==='true' && process.env.CDS_COMPATIBILITY_EXCLUSIVE==='true',
     'Explicit disposable exclusive installed compatibility authorization is required');
+  requireDocumentStore(process.env.DOCUMENT_DIR);
   const selectors=loadPrivate(process.env.CDS_COMPATIBILITY_SELECTORS);
   const run=process.env.CDS_COMPATIBILITY_REPORT_RUN;
   h.assert(UUID.test(run||'') && selectors.old?.mysql?.database==='cds_compatibility_old_test',
@@ -341,4 +348,4 @@ async function workflow(s) {
   finally {oldSql.dispose();}
 }
 if(require.main===module)runWorkflow('cds-import-compatibility',workflow,{openPatient:true});
-module.exports={workflow,loadBundle,treeProof,live,oldRefusal,noDownload,qualifyContractRefusal,createArchivedSqlRunner};
+module.exports={workflow,loadBundle,treeProof,live,oldRefusal,noDownload,qualifyContractRefusal,createArchivedSqlRunner,requireDocumentStore};

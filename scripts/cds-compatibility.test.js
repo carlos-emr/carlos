@@ -80,3 +80,14 @@ test('archived database uses its explicit TCP port while preserving the protecte
   } finally {runner.dispose();}
   for(const port of [undefined,0,65536,'13306',13306.5])assert.throws(()=>gate.createArchivedSqlRunner({port}));
 });
+
+
+test('required ordinary multipart evidence fails missing or invalid document-store prerequisites instead of skipping',t=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'cds-compat-documents-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const file=path.join(root,'file');fs.writeFileSync(file,'not a directory');
+  assert.doesNotThrow(()=>gate.requireDocumentStore(root));
+  for(const directory of [undefined,'relative',path.join(root,'missing'),file]) {
+    assert.throws(()=>gate.requireDocumentStore(directory),error=>error.name!=='SkipCheck'
+      && error.message.includes('cannot skip that proof'));
+  }
+});
