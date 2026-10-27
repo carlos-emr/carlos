@@ -212,6 +212,9 @@ class PerformanceEvidenceTest(unittest.TestCase):
         actual=GATE.operator_projection(log)
         self.assertEqual(actual['technicalFailureEvidence'][0]['causes'][0]['type'],'java.nio.file.FileSystemException')
         self.assertNotIn(hidden,json.dumps(actual))
+        empty=GATE.technical_failure_projection({**value,'causes':[]})
+        self.assertTrue(empty['technicalDetailsUnavailable'])
+        self.assertEqual(empty['clinicalAcceptance'],'RECONCILE_DURABLE_STATE')
         for changed in ({**value,'clinicalAcceptance':'NOT_STARTED'},
                         {**value,'causes':[{'type':'java.io.IOException','frames':['message '+hidden]}]},
                         {**value,'causes':[{'type':'java.io.IOException','frames':['a.B#method:1']*33}]}):

@@ -409,7 +409,7 @@ def rows(path: Path) -> list[dict]:
 def technical_failure_projection(value: dict) -> dict:
     if not isinstance(value,dict) or value.get('code')!='CDS_OPERATION_FAILED' \
             or value.get('clinicalAcceptance')!='RECONCILE_DURABLE_STATE' \
-            or not isinstance(value.get('causes'),list) or not 1<=len(value['causes'])<=16:
+            or not isinstance(value.get('causes'),list) or not 0<=len(value['causes'])<=16:
         raise RuntimeError('technical failure receipt has an invalid finite contract')
     causes=[]
     frames=0
@@ -433,7 +433,8 @@ def technical_failure_projection(value: dict) -> dict:
                 raise RuntimeError('technical failure vendor code is invalid')
             selected['vendorCode']=item['vendorCode']
         causes.append(selected)
-    return {'code':'CDS_OPERATION_FAILED','clinicalAcceptance':'RECONCILE_DURABLE_STATE','causes':causes}
+    return {'code':'CDS_OPERATION_FAILED','clinicalAcceptance':'RECONCILE_DURABLE_STATE','causes':causes,
+            'technicalDetailsUnavailable':not causes}
 
 
 def operator_projection(path: Path, diagnostics_root: Path | None=None) -> dict:
