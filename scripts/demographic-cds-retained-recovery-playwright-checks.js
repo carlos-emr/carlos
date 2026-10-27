@@ -91,8 +91,10 @@ async function run(env = process.env) {
       h.assert(/^[1-9][0-9]*$/.test(env[name] || '') && Number.isSafeInteger(Number(env[name])),
         name + ' must freeze the reviewed positive numeric context');
     }
+    h.assert(prior.summary.operationTerminal === true && prior.summary.resumeRequested === false,
+      'Prior run must finish its worker, reports and cleanup before zero-write replacement');
     if (!['CANCELLED_BEFORE_WRITE','CANCELLED'].includes(prior.job.state)) {
-      h.assert(prior.job.state === 'REVIEW_REQUIRED' || prior.job.state === 'FAILED_BEFORE_WRITE',
+      h.assert(['REVIEW_REQUIRED','FAILED_BEFORE_WRITE','INCOMPLETE'].includes(prior.job.state),
         'Prior run must be stopped and proven unwritten before this recovery gate cancels it');
       await page.locator('#cancelRun').click();
       await page.waitForFunction(id => {
