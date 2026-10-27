@@ -157,4 +157,59 @@ class CdsRuntimeIdentityUnitTest {
             TimeZone.setDefault(original);
         }
     }
+
+    @Test
+    void shouldDistinguishActualRules_whenSimpleTimeZonesShareTheSameId() {
+        var utc = new java.util.SimpleTimeZone(0, "UTC");
+        var shifted = new java.util.SimpleTimeZone(3_600_000, "UTC");
+        assertThat(CdsCalendarZone.evidence(utc)).isNotEqualTo(CdsCalendarZone.evidence(shifted));
+        var firstDst = new java.util.SimpleTimeZone(0, "UTC", 2, 1, 1, 0, 9, 1, 1, 0);
+        var secondDst = new java.util.SimpleTimeZone(0, "UTC", 3, 1, 1, 0, 9, 1, 1, 0);
+        assertThat(CdsCalendarZone.evidence(firstDst))
+                .isNotEqualTo(CdsCalendarZone.evidence(secondDst));
+    }
+
+    @Test
+    void shouldRejectUntrustedSubclass_whenCalendarEvidenceIsRequested() {
+        var custom = new java.util.SimpleTimeZone(0, "UTC") {};
+        assertThatThrownBy(() -> CdsCalendarZone.evidence(custom))
+                .hasMessage("IMPORT_RUNTIME_TIME_ZONE_UNSUPPORTED");
+    }
+
+    @Test
+    @ResourceLock("java.util.TimeZone")
+    void shouldRejectSameIdWrongCalendarRules_whenImportAdmissionIsChecked() {
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(new java.util.SimpleTimeZone(3_600_000, "UTC"));
+            for (String clinicalZone : new String[] {"", "UTC"}) {
+                var properties = new java.util.Properties();
+                properties.setProperty("cds.import.enabled", "true");
+                properties.setProperty("cds.import.clinicalZone", clinicalZone);
+                var configuration =
+                        new io.github.carlos_emr.carlos.demographic.cdsimport.service
+                                .CdsImportConfigurationService(properties);
+                assertThatThrownBy(configuration::requireEnabled)
+                        .hasMessage("IMPORT_RUNTIME_ZONE_MISMATCH");
+            }
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @Test
+    @ResourceLock("java.util.TimeZone")
+    void shouldAcceptExactFixedOffsetRules_whenTrustedCalendarMatchesItsZoneId() {
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(new java.util.SimpleTimeZone(0, "UTC"));
+            assertThat(CdsCalendarZone.requireCurrentCalendarRules())
+                    .isEqualTo(java.time.ZoneId.of("UTC"));
+            TimeZone.setDefault(TimeZone.getTimeZone("America/Toronto"));
+            assertThat(CdsCalendarZone.requireCurrentCalendarRules())
+                    .isEqualTo(java.time.ZoneId.of("America/Toronto"));
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
 }

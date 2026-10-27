@@ -54,6 +54,7 @@ public class CdsImportConfigurationService {
 
     public void requireEnabled() {
         if (!enabled()) throw new CdsImportException("IMPORT_ADMISSION_DISABLED");
+        java.time.ZoneId runtimeZone = io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsCalendarZone.requireCurrentCalendarRules();
         String clinicalZone = value("cds.import.clinicalZone", "");
         if (!clinicalZone.isEmpty()) {
             final java.time.ZoneId selected;
@@ -62,7 +63,7 @@ public class CdsImportConfigurationService {
             // Native CARLOS calendar consumers use the instance JVM zone. The CLI sets
             // its one-shot process zone before boot; web imports must use a matching
             // deployment setting without changing a live shared JVM's global calendar.
-            if (!selected.getRules().equals(java.time.ZoneId.systemDefault().getRules())) {
+            if (!selected.getRules().equals(runtimeZone.getRules())) {
                 throw new CdsImportException("IMPORT_RUNTIME_ZONE_MISMATCH");
             }
         }

@@ -133,6 +133,8 @@ final class CdsRuntimeIdentity {
         CdsImportKeys.add(result, frozen.displayLocale.toLanguageTag());
         CdsImportKeys.add(result, "java.default-zone");
         CdsImportKeys.add(result, frozen.zone.getID());
+        CdsImportKeys.add(result, "java.default-calendar-rules");
+        CdsImportKeys.add(result, CdsCalendarZone.evidence(frozen.zone));
         CdsImportKeys.add(result, "java.zone-rules");
         CdsImportKeys.add(result, frozen.rulesHash);
         frozen.verify();
@@ -160,6 +162,7 @@ final class CdsRuntimeIdentity {
     static FrozenRuntime snapshot() throws IOException {
         Locale locale = Locale.getDefault();
         TimeZone zone = TimeZone.getDefault();
+        CdsCalendarZone.requireTrusted(zone);
         Locale formatLocale = Locale.getDefault(Locale.Category.FORMAT);
         Locale displayLocale = Locale.getDefault(Locale.Category.DISPLAY);
         FrozenRuntime result =
@@ -190,6 +193,7 @@ final class CdsRuntimeIdentity {
         }
 
         void verifyDefaults() {
+            CdsCalendarZone.requireTrusted(TimeZone.getDefault());
             if (!locale.equals(Locale.getDefault())
                     || !formatLocale.equals(Locale.getDefault(Locale.Category.FORMAT))
                     || !displayLocale.equals(Locale.getDefault(Locale.Category.DISPLAY))
