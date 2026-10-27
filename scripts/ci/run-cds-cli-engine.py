@@ -138,14 +138,31 @@ def main() -> None:
     def hard_crash_engine(process: subprocess.Popen, run: str, observed: dict, label: str) -> None:
         # runuser and Java have their own session. Killing the outer CLI group
         # would strand a live engine; target only the exact verified service JVM.
-        children = Path(f"/proc/{process.pid}/task/{process.pid}/children").read_text().split()
+        def children_of(parent: int) -> list[int]:
+            found = []
+            seen = 0
+            for entry in Path("/proc").iterdir():
+                if not entry.name.isdecimal():
+                    continue
+                seen += 1
+                if seen > 4096:
+                    raise RuntimeError("process tree exceeded the bounded hard-crash lookup")
+                try:
+                    fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
+                except FileNotFoundError:
+                    continue
+                if int(fields[1]) == parent:
+                    found.append(int(entry.name))
+            return found
+
+        children = children_of(process.pid)
         if len(children) != 1:
             raise RuntimeError("hard-crash target has an ambiguous supervisor child")
         runuser = int(children[0])
         if Path(f"/proc/{runuser}/comm").read_text().strip() != "runuser" \
                 or Path(f"/proc/{runuser}/exe").resolve(strict=True) != Path("/usr/sbin/runuser").resolve(strict=True):
             raise RuntimeError("hard-crash target is not the expected runuser supervisor")
-        descendants = Path(f"/proc/{runuser}/task/{runuser}/children").read_text().split()
+        descendants = children_of(runuser)
         if len(descendants) != 1:
             raise RuntimeError("hard-crash target has ambiguous service descendants")
         service = pwd.getpwnam("carlos")
@@ -192,7 +209,7 @@ print(json.dumps({'signal':'SIGKILL','verifiedServiceUid':uid,'javaPid':pid,'pro
 """
         command = ["setpriv", "--reuid=" + str(service.pw_uid), "--regid=" + str(service.pw_gid), "--clear-groups",
                    "--bounding-set=-all", "--inh-caps=-all", "--ambient-caps=-all", "--no-new-privs", "python3", "-c", script,
-                   descendants[0], str(runuser), str(process.pid), str(service.pw_uid), args.java, run, str(metadata["provider"])]
+                   str(descendants[0]), str(runuser), str(process.pid), str(service.pw_uid), args.java, run, str(metadata["provider"])]
         killed = subprocess.run(command, env=environment, capture_output=True, timeout=30, check=False)
         if killed.returncode or len(killed.stdout) > 4096:
             raise RuntimeError("exact service JVM hard-crash proof failed; no alternate process was targeted")
