@@ -67,7 +67,8 @@ class OAuthAccessTokenLifetimeUnitTest {
     @Test
     @DisplayName("should report an absent stored setting rather than grant an extra hour")
     void shouldRejectIssuance_whenLifetimeMissing() {
-        assertThatThrownBy(() -> OAuthAccessTokenLifetime.forClient(new ServiceClient()))
+        ServiceClient client = new ServiceClient();
+        assertThatThrownBy(() -> OAuthAccessTokenLifetime.forClient(client))
                 .isInstanceOf(OAuth1Exception.class).hasMessage("invalid_token_lifetime");
     }
 

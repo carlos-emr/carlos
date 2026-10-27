@@ -73,7 +73,7 @@ public final class OAuthAccessTokenLifetime {
         }
         try {
             return now > Math.addExact(issued, lifetime);
-        } catch (ArithmeticException e) {
+        } catch (ArithmeticException _) {
             return true;
         }
     }

@@ -98,7 +98,8 @@ class OAuthImportedTokenUnitTest {
     @Test
     void shouldRejectDifferentConsumer_evenWithAValidHmacAndTheTokenSecret() throws Exception {
         MockHttpServletRequest request = signed("other-consumer", "other-secret");
-        assertThatThrownBy(() -> verifier.verifySignature(request, config("other-consumer", "other-secret")))
+        AppOAuth1Config config = config("other-consumer", "other-secret");
+        assertThatThrownBy(() -> verifier.verifySignature(request, config))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(tokens, never()).remove(token);
     }
@@ -116,8 +117,8 @@ class OAuthImportedTokenUnitTest {
     void shouldRejectExpiredImportedToken_withoutRenewingIt() throws Exception {
         token.setLifetime(3600);
         MockHttpServletRequest request = signed("fixture-o19-consumer", "fixture-o19-consumer-secret");
-        assertThatThrownBy(() -> verifier.verifySignature(request,
-                config("fixture-o19-consumer", "fixture-o19-consumer-secret")))
+        AppOAuth1Config config = config("fixture-o19-consumer", "fixture-o19-consumer-secret");
+        assertThatThrownBy(() -> verifier.verifySignature(request, config))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(tokens).remove(token);
         assertThat(token.getIssued()).isEqualTo(1550000000L);
@@ -127,8 +128,8 @@ class OAuthImportedTokenUnitTest {
     void shouldRejectRevokedToken_withoutCreatingAnotherGrant() throws Exception {
         when(tokens.findByTokenId(token.getTokenId())).thenReturn(null);
         MockHttpServletRequest request = signed("fixture-o19-consumer", "fixture-o19-consumer-secret");
-        assertThatThrownBy(() -> verifier.verifySignature(request,
-                config("fixture-o19-consumer", "fixture-o19-consumer-secret")))
+        AppOAuth1Config config = config("fixture-o19-consumer", "fixture-o19-consumer-secret");
+        assertThatThrownBy(() -> verifier.verifySignature(request, config))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(tokens, never()).persist(any(ServiceAccessToken.class));
     }
@@ -136,8 +137,8 @@ class OAuthImportedTokenUnitTest {
     @Test
     void shouldRejectForgery_withoutDeletingTheImportedGrant() throws Exception {
         MockHttpServletRequest request = signed("fixture-o19-consumer", "wrong-consumer-secret");
-        assertThatThrownBy(() -> verifier.verifySignature(request,
-                config("fixture-o19-consumer", "fixture-o19-consumer-secret")))
+        AppOAuth1Config config = config("fixture-o19-consumer", "fixture-o19-consumer-secret");
+        assertThatThrownBy(() -> verifier.verifySignature(request, config))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(tokens, never()).remove(token);
     }
