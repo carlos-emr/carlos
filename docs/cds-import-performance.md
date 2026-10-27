@@ -61,6 +61,14 @@ own connections/query overhead; the proof counts observer queries explicitly.
 The transaction metric is the sampled age of the oldest currently active
 InnoDB transaction on this exclusive synthetic server. It does not measure a
 committed transaction's exact duration or select transaction SQL/parameters.
+Before the measured imports, the same installed runtime/configuration executes
+a separate read-only lookup of a fresh unknown submission. Its exact finite
+refusal, unchanged native/registry state, configuration hash and exclusive
+per-command SQL counter window record the framework startup cost. This control
+does not resolve a patient/source profile or change the500-queries-per-unit
+regression budget. Per-import counters sampled when SUBMISSION and ACCEPTED
+messages are observed help separate bootstrap, source-copy and clinical work;
+those samples are explicitly not atomic phase boundaries.
 The required event file reconciles source patients and category occurrences;
 clean completion also requires report delivery, cleanup and verified maintenance
 release. Operator output remains in protected files. Failures retain the exact

@@ -494,6 +494,12 @@ def capture_evidence(case: dict, key: str, read) -> None:
         case.setdefault('failureEvidenceErrors',{})[key]=safe_failure(failure)
 
 
+def require_startup_control(exit_code: int, evidence: dict) -> None:
+    if exit_code!=4 or evidence.get('reasonCodes')!=[{'code':'SUBMISSION_OUTCOME_NOT_YET_KNOWN','outcomeUnknown':True}] \
+            or evidence.get('events')!=[{'event':'INITIALIZING','operation':'status'}]:
+        raise RuntimeError('read-only startup control did not prove an unknown submission refusal')
+
+
 def complete_result(values: list[dict]) -> dict:
     accepted = [row for row in values if row.get("event") == "ACCEPTED"]
     results = [row for row in values if row.get("event") == "RESULT"]
@@ -613,6 +619,35 @@ def main() -> None:
             if completed.returncode or len(completed.stdout) > 65536:
                 raise RuntimeError("protected native verification failed")
             return json.loads(completed.stdout)
+        stage('READ_ONLY_STARTUP_SQL_CONTROL')
+        control={'candidateSha256':args.candidate_sha256,'configurationSha256':digest(Path('/etc/carlos-emr/carlos.properties')),
+                 'operation':'status of a fresh unknown submission; no import requested',
+                 'scope':'exclusive per-command global counter window; includes counter observer overhead; no automatic budget subtraction',
+                 'sameConfiguredNamespace':metadata['namespace'],'sameConfiguredProfile':metadata['profile']}
+        result['startupSqlControl']=control
+        baseline_native=inspect('fixture')
+        ledger_statement="SELECT (SELECT COUNT(*) FROM cds_import_run),(SELECT COUNT(*) FROM cds_import_unit)," \
+            "(SELECT COUNT(*) FROM cds_import_checkpoint),(SELECT COUNT(*) FROM cds_import_patient WHERE held=1)"
+        baseline_ledger=query(ledger_statement)
+        control['beforeCounters']=counters()
+        observer_before=result['observerQueriesExecuted']
+        control_log=evidence/'startup-control.log'
+        controlled_started=time.monotonic()
+        with os.fdopen(os.open(control_log,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'wb') as output:
+            controlled=subprocess.run([args.cli,'cds-import','--status-submission',str(uuid.uuid4()),'--provider',str(metadata['provider'])],
+                                     env=env,stdout=output,stderr=subprocess.STDOUT,timeout=min(args.timeout,180))
+        control.update(elapsedSeconds=time.monotonic()-controlled_started,exitCode=controlled.returncode)
+        control['afterCounters']=counters()
+        control['observerSqlInvocationsDuringWindow']=result['observerQueriesExecuted']-observer_before
+        control['globalQueries']=control['afterCounters']['Questions']-control['beforeCounters']['Questions']
+        control['operatorEvidence']=operator_projection(control_log,args.fixture_metadata.parent/'state/runs/cli-diagnostics')
+        private_json(proof,result)
+        require_startup_control(controlled.returncode,control['operatorEvidence'])
+        if control['globalQueries']<0 or inspect('fixture')!=baseline_native or query(ledger_statement)!=baseline_ledger \
+                or digest(Path('/etc/carlos-emr/carlos.properties'))!=control['configurationSha256']:
+            raise RuntimeError('startup control changed clinical/registry/configuration state or counters reset')
+        control.update(status='VERIFIED_READ_ONLY',nativeAndLedgerUnchanged=True)
+        private_json(proof,result)
         token = uuid.uuid4().hex
         service_account = pwd.getpwnam('carlos')
         expected_java = Path(args.java).resolve(strict=True)

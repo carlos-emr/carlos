@@ -217,6 +217,16 @@ class PerformanceEvidenceTest(unittest.TestCase):
                         {**value,'causes':[{'type':'java.io.IOException','frames':['a.B#method:1']*33}]}):
             with self.assertRaises(RuntimeError):GATE.technical_failure_projection(changed)
 
+    def test_startup_control_cannot_treat_an_acceptance_or_generic_error_as_readonly_baseline(self):
+        good={'events':[{'event':'INITIALIZING','operation':'status'}],
+              'reasonCodes':[{'code':'SUBMISSION_OUTCOME_NOT_YET_KNOWN','outcomeUnknown':True}]}
+        GATE.require_startup_control(4,good)
+        for code,evidence in ((0,good),(2,good),(4,{**good,'events':good['events']+[{'event':'ACCEPTED'}]}),
+                              (4,{**good,'reasonCodes':[{'code':'CDS_RUNTIME','outcomeUnknown':True}]}),
+                              (4,{**good,'reasonCodes':[{'code':'SUBMISSION_OUTCOME_NOT_YET_KNOWN','outcomeUnknown':False}]})):
+            with self.subTest(code=code,evidence=evidence):
+                with self.assertRaises(RuntimeError):GATE.require_startup_control(code,evidence)
+
     def test_resource_samples_preserve_unknown_inventory_and_observed_peaks_after_completion(self):
         run='12345678-1234-1234-1234-123456789abc'
         calls=[]
