@@ -136,7 +136,17 @@ async function run(env = process.env) {
       h.assert(await page.locator('#reviewKind').inputValue() === 'APPROVE_UNWRITTEN_REVISION',
         'The UI did not explicitly offer zero-write revision review');
       await page.locator('#reviewReason').fill('Synthetic release gate: reviewed identical retained source bytes, same namespace and frozen command context; authorize current-code replacement only after server zero-write and historical provenance proof.');
+      const acknowledgement = page.waitForResponse(response => {
+        const request = response.request();
+        return new URL(response.url()).pathname.endsWith('/form/cdsImportControl')
+          && request.method() === 'POST' && request.postData()?.includes('operation=review')
+          && request.postData()?.includes('runId=' + id);
+      }, {timeout:30000});
+      acknowledgement.catch(() => {});
       await page.locator('#cdsReviewForm button[type=submit]').click();
+      const reviewed = await acknowledgement;
+      h.assert(reviewed.status() === 200,
+        'Revision review was refused with HTTP ' + reviewed.status() + '; retain the exact accepted recovery run');
       await page.waitForFunction(version => {
         try { return JSON.parse(document.getElementById('runSummary').textContent).summary.reviewVersion > version; }
         catch (_) { return false; }
