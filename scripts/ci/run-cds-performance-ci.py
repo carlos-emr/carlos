@@ -152,7 +152,9 @@ def main() -> int:
                 "--mount", "type=bind,src="+str(webapp)+",dst=/usr/share/carlos-emr/webapp/carlos,readonly",
                 *state_mount,
                 "--mount", "type=bind,src="+str(private/"jdbc.properties")+",dst=/run/source-jdbc.properties,readonly", image]); created_runtime = True
-            runtime_exec = docker+["exec", "--workdir", "/workspace", runtime]
+            # Only the owned fixture driver starts as root: the installed CLI must
+            # exercise its real root-to-service delegation, whose JVM UID is checked.
+            runtime_exec = docker+["exec", "--user", "0", "--workdir", "/workspace", runtime]
             execute(runtime_exec+["install", "-d", "-m", "0700", "/run/cds-test"])
             execute(runtime_exec+["install", "-m", "0600", "/run/source-jdbc.properties", "/run/cds-test/jdbc.properties"])
             runtime_cp = "/workspace/target/test-classes:/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes:/usr/share/carlos-emr/webapp/carlos/WEB-INF/lib/*:/usr/share/tomcat11/lib/*"

@@ -21,4 +21,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends /tmp/cli-packag
     && groupadd --system carlos \
     && useradd --system --gid carlos --home-dir /var/lib/carlos-emr --create-home --shell /usr/sbin/nologin carlos
 WORKDIR /workspace
+USER carlos
 CMD ["sleep", "infinity"]
