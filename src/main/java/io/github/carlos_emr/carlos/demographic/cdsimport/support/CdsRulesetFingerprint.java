@@ -46,6 +46,11 @@ public record CdsRulesetFingerprint(String sha256) {
         "commn/model/Prevention",
         "commn/model/PartialDate",
         "commn/model/Demographic",
+        "PMmodule/model/Program",
+        "PMmodule/model/ProgramProvider",
+        "commn/model/ProviderDefaultProgram",
+        "model/security/Secrole",
+        "commn/model/Facility",
         "commn/model/Appointment",
         "commn/model/Document",
         "commn/model/CtlDocument",
@@ -140,9 +145,22 @@ public record CdsRulesetFingerprint(String sha256) {
         }
     }
 
+    /** Uncached compatibility inspection uses the same deployed resource and runtime contract. */
+    static CdsRulesetFingerprint forClassLoader(ClassLoader loader, NativeResourceOpener opener) {
+        return calculate(loader, opener).fingerprint();
+    }
+
     private static Cached calculate() {
+        return calculate(CdsImportJobService.class.getClassLoader(), URL::openStream);
+    }
+
+    @FunctionalInterface
+    interface NativeResourceOpener {
+        InputStream open(URL resource) throws IOException;
+    }
+
+    private static Cached calculate(ClassLoader loader, NativeResourceOpener opener) {
         try {
-            ClassLoader loader = CdsImportJobService.class.getClassLoader();
             URL anchor = loader.getResource(ANCHOR);
             if (anchor == null) throw unavailable();
             String anchorUrl = anchor.toExternalForm();
@@ -180,7 +198,7 @@ public record CdsRulesetFingerprint(String sha256) {
                 URL nativeClass = loader.getResource(BASE + name + ".class");
                 if (nativeClass == null || !nativeClass.toExternalForm().startsWith(origin + BASE))
                     throw unavailable();
-                try (InputStream input = nativeClass.openStream()) {
+                try (InputStream input = opener.open(nativeClass)) {
                     add(classes, BASE + name + ".class", input, buffer);
                 }
                 Resource[] nested = resolver.getResources("classpath*:" + BASE + name + "$*.class");

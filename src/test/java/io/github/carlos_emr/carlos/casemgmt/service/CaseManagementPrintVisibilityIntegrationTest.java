@@ -69,7 +69,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import org.apache.pdfbox.Loader;
-import org.apache.commons.collections4.map.MultiValueMap;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -115,6 +114,8 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
     private String facilitySetting;
     private String documentSetting;
     private final List<CacheField> originalCacheFields = new ArrayList<>();
+    private Object originalRoleSnapshot;
+    private boolean roleSnapshotSaved;
 
     @BeforeEach
     void configureRealReporterRoleRestrictions() {
@@ -177,6 +178,7 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
             restore("FILTER_ON_FACILITY", facilitySetting);
             restore("DOCUMENT_DIR", documentSetting);
         } finally {
+            if (roleSnapshotSaved) { roleSnapshots().set(originalRoleSnapshot); roleSnapshotSaved=false; }
             for (CacheField original : originalCacheFields.reversed()) {
                 ReflectionTestUtils.setField(original.owner(), original.name(), original.value());
                 assertThat(ReflectionTestUtils.getField(original.owner(), original.name())).isSameAs(original.value());
@@ -195,11 +197,15 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
         bindCacheField(RoleCache.class, "secroleDao", applicationContext.getBean(SecroleDao.class));
         bindCacheField(RoleCache.class, "defaultRoleAccessDAO", applicationContext.getBean(DefaultRoleAccessDAO.class));
         bindCacheField(RoleCache.class, "accessTypeDao", applicationContext.getBean(CaisiAccessTypeDao.class));
-        bindCacheField(RoleCache.class, "roleMap", new HashMap<>());
-        bindCacheField(RoleCache.class, "accessTypeMap", new HashMap<>());
-        bindCacheField(RoleCache.class, "defaultRoleAccessMap", new MultiValueMap<>());
+        originalRoleSnapshot = roleSnapshots().getAndSet(null);
+        roleSnapshotSaved=true;
         bindCacheField(ProgramAccessCache.class, "programAccessDAO", applicationContext.getBean("programAccessDAO", ProgramAccessDAO.class));
         bindCacheField(ProgramAccessCache.class, "accessMaps", new HashMap<>());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static java.util.concurrent.atomic.AtomicReference<Object> roleSnapshots() {
+        return (java.util.concurrent.atomic.AtomicReference<Object>) ReflectionTestUtils.getField(RoleCache.class, "snapshot");
     }
 
     private void bindCacheField(Class<?> owner, String name, Object replacement) {
