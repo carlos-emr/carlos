@@ -281,9 +281,20 @@ class PerformanceEvidenceTest(unittest.TestCase):
                 decodedBinaryBytes=67109326,valuesBytes=67109469,
                 validator='actual CdsXmlParser/pinned schema/default limits; no DB or clinical write',
                 heapMiB=64,elapsedSeconds=4.6)]
+            case.update(completedCgroupCounters=proof['initialCgroupCounters'],
+                verificationElapsedSeconds=60.0,sourceBytesPerImportSecond=1000000.0,
+                distinctDocumentDigests=2,remainingDiskBytes=999999999999999)
             proof['cases'].append(case)
-        proof['startupControl']={'statementDigests':digests,'beforeCounters':original['beforeCounters'],
-            'afterCounters':original['afterCounters'],'operatorEvidence':original['operatorEvidence']}
+        proof['startupSqlControl']={'statementDigests':digests,'beforeCounters':original['beforeCounters'],
+            'afterCounters':original['afterCounters'],'operatorEvidence':original['operatorEvidence'],
+            'candidateSha256':'f'*64,'configurationSha256':'f'*64,
+            'operation':'status of a fresh unknown submission; no import requested',
+            'scope':'exclusive per-command global counter window; includes counter observer overhead; no automatic budget subtraction',
+            'sameConfiguredNamespace':'synthetic-performance','sameConfiguredProfile':'synthetic-performance',
+            'elapsedSeconds':30.0,'exitCode':4,'observerSqlInvocationsDuringWindow':10,
+            'globalQueries':1000,'status':'VERIFIED_READ_ONLY','nativeAndLedgerUnchanged':True}
+        proof['finalCgroupCounters']=proof['initialCgroupCounters']
+        proof['cgroupMemoryPeakIncludingFileCache']='999999999999999'
         for state in ('PASSED','FAILED_QUERY_BUDGET'):
             with self.subTest(state=state):
                 proof['status']='PASSED' if state=='PASSED' else 'FAILED'
