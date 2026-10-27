@@ -77,6 +77,49 @@ public class CdsFieldParser {
             .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION).build())
             .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final int MAX_METADATA_LINE = 65536;
+    private final ThreadLocal<ControlState> controls=new ThreadLocal<>();
+
+    private static final class ControlState {
+        final Runnable probe;
+        final ControlState previous;
+        long nextProbe;
+        ControlState(Runnable probe, ControlState previous) { this.probe=probe; this.previous=previous; }
+    }
+
+    /** Scoped operational control for I/O outside clinical transactions; nested callers restore their predecessor. */
+    public final class ControlScope implements AutoCloseable {
+        private final ControlState state;
+        private final Thread owner=Thread.currentThread();
+        private boolean closed;
+        private ControlScope(ControlState state) { this.state=state; }
+        @Override public void close() {
+            if (closed) return;
+            if (owner!=Thread.currentThread() || controls.get()!=state) throw new IllegalStateException("CDS_IO_CONTROL_SCOPE_ORDER_INVALID");
+            if (state.previous==null) controls.remove(); else controls.set(state.previous);
+            closed=true;
+        }
+    }
+
+    public ControlScope control(Runnable probe) {
+        if (probe==null) throw new IllegalArgumentException("Missing CDS operational probe");
+        ControlState state=new ControlState(probe, controls.get());
+        controls.set(state); return new ControlScope(state);
+    }
+
+    /** Allows related bounded file hashing to share the current operational I/O scope. */
+    public void checkpoint() throws IOException { checkControl(); }
+
+    private void checkControl() throws IOException {
+        if (Thread.currentThread().isInterrupted()) throw failure("CDS_INPUT_CANCELLED");
+        ControlState state=controls.get();
+        if (state!=null) {
+            long now=System.nanoTime();
+            if (now>=state.nextProbe) {
+                state.nextProbe=now+250_000_000L;
+                state.probe.run();
+            }
+        }
+    }
 
     public void forEachField(CdsRecordDto record, Consumer<CdsFieldDto> consumer) throws IOException {
         try (InputStream slice = new BufferedInputStream(
@@ -85,6 +128,7 @@ public class CdsFieldParser {
             long count = 0;
             MessageDigest digest = CdsPaths.sha256();
             while ((line = readMetadataLine(slice)) != null) {
+                checkControl();
                 CdsFieldDto field = JSON.readValue(line, CdsFieldDto.class);
                 digest.update(identity(field));
                 consumer.accept(field);
@@ -172,6 +216,7 @@ public class CdsFieldParser {
     private String firstValue(CdsRecordDto record, String path, String namespace, int maxCharacters,
             String explicitWhitespace) throws IOException {
         if (path == null || maxCharacters < 0) throw new IllegalArgumentException("Invalid field request");
+        checkControl();
         FieldIndex index=firstIndex(record);
         String normalized=unindexed(path);
         CdsFieldDto selected=null;
@@ -232,6 +277,7 @@ public class CdsFieldParser {
             int characters = 0;
             int n;
             while ((n = reader.read(buffer)) >= 0) {
+                checkControl();
                 for (int i = 0; i < n; i++) {
                     if (!Character.isLowSurrogate(buffer[i])) characters++;
                 }
@@ -258,11 +304,13 @@ public class CdsFieldParser {
                 }
             }
             @Override public int read() throws IOException {
+                checkControl();
                 int value = in.read();
                 if (value < 0) verify(); else digest.update((byte) value);
                 return value;
             }
             @Override public int read(byte[] bytes, int offset, int length) throws IOException {
+                checkControl();
                 int n = in.read(bytes, offset, length);
                 if (n < 0) verify(); else if (n > 0) digest.update(bytes, offset, n);
                 return n;
@@ -301,6 +349,7 @@ public class CdsFieldParser {
             long total = 0;
             byte[] row;
             while ((row = readMetadataLine(input)) != null) {
+                checkControl();
                 CdsFieldDto field = JSON.readValue(row, CdsFieldDto.class);
                 byte[] identity = identity(field);
                 original.update(identity); page.update(identity);
@@ -447,6 +496,7 @@ public class CdsFieldParser {
                 Files.newInputStream(manifest, LinkOption.NOFOLLOW_LINKS), 65536)) {
             byte[] line;
             while ((line = readMetadataLine(input)) != null) {
+                checkControl();
                 JsonNode node = JSON.readTree(line);
                 Path fields = member(parent, node.path("fieldsFile").asText());
                 Path values = member(parent, node.path("valuesFile").asText());
@@ -478,7 +528,7 @@ public class CdsFieldParser {
             char[] chars = new char[4096];
             int n;
             while ((n = reader.read(chars)) >= 0) {
-                if (Thread.currentThread().isInterrupted()) throw failure("CDS_INPUT_CANCELLED");
+                checkControl();
                 for (int i = 0; i < n; i++) {
                     char c = chars[i];
                     boolean space = c == ' ' || c == '\t' || c == '\n' || c == '\r';

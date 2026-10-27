@@ -123,6 +123,30 @@ class CdsImportPlanningServiceUnitTest {
         verify(fixture.ledger,never()).planUnit(anyString(),anyLong(),anyString(),anyString(),anyString(),anyLong(),anyString(),anyString());
     }
 
+    @Test void shouldNotPublishParseOrPlanSeal_whenOwnedIoScopeObservesCancellation() throws Exception {
+        assertOwnedIoStop(true);
+    }
+
+    @Test void shouldNotPublishParseOrPlanSeal_whenOwnedIoScopeLosesItsEpoch() throws Exception {
+        assertOwnedIoStop(false);
+    }
+
+    private void assertOwnedIoStop(boolean cancellation) throws Exception {
+        Fixture fixture=fixture(false,false);
+        CdsImportJobDto original=fixture.ledger.status("run");
+        CdsImportJobDto changed=new CdsImportJobDto(original.id(),original.operator(),original.providerNo(),original.sourceNamespace(),
+                original.profile(),original.state(),original.sourceDigest(),original.optionsDigest(),original.rulesetDigest(),null,0,0,
+                cancellation?1:2,cancellation,original.createdAt(),original.updatedAt(),0,null,null);
+        when(fixture.ledger.status("run")).thenReturn(original,changed);
+        var failure=org.junit.jupiter.api.Assertions.assertThrows(CdsImportException.class,
+                ()->fixture.planner.plan("run",1,fixture.document,fixture.snapshot));
+        org.junit.jupiter.api.Assertions.assertEquals(cancellation?"IMPORT_CANCELLED":"OWNER_FENCED",failure.getCode());
+        verify(fixture.ledger,never()).seal(anyString(),anyLong(),anyString(),anyLong(),anyLong());
+        try (var files=Files.walk(fixture.document.jobRoot())) {
+            org.junit.jupiter.api.Assertions.assertFalse(files.anyMatch(path->path.getFileName().toString().equals("parse.seal")));
+        }
+    }
+
     private static void canonical(Fixture fixture) {
         when(fixture.ledger.planPatient(anyString(),anyLong(),anyString(),anyString(),anyString(),anyString())).thenAnswer(call->
                 new CdsImportPatientDto(call.getArgument(2),call.getArgument(3),call.getArgument(4),

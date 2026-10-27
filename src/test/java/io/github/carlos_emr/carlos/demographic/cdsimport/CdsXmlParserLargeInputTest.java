@@ -117,6 +117,15 @@ class CdsXmlParserLargeInputTest {
                 if (!"INDEX TEST".equals(fields.firstText(medication[0], "DrugName", 120))) throw new AssertionError("Missing selected field");
                 if (fields.firstText(medication[0], "Missing" + i, 120) != null) throw new AssertionError("Invented absent field");
             }
+            CountingFields interrupted = new CountingFields();
+            interrupted.interruptAt=32768;
+            try {
+                interrupted.firstText(medication[0], "DrugName", 120);
+                throw new AssertionError("Interrupted giant index unexpectedly returned");
+            } catch (CdsInputException stopped) {
+                if (!stopped.code().equals("CDS_INPUT_CANCELLED")) throw stopped;
+            } finally { Thread.interrupted(); }
+            if (interrupted.visited!=32768) throw new AssertionError("Cancellation was not checked during the giant scan");
             long heap = Runtime.getRuntime().maxMemory();
             if (fields.scans != 1 || heap > (80L << 20) || Files.size(source) < 3 * heap) {
                 throw new AssertionError("Index did not remain bounded or reread metadata: " + fields.scans);
@@ -127,8 +136,12 @@ class CdsXmlParserLargeInputTest {
 
         private static final class CountingFields extends CdsFieldParser {
             int scans;
+            long visited,interruptAt=-1;
             @Override public void forEachField(CdsRecordDto record, Consumer<CdsFieldDto> consumer) throws IOException {
-                scans++; super.forEachField(record, consumer);
+                scans++; super.forEachField(record, field->{
+                    consumer.accept(field);
+                    if (++visited==interruptAt) Thread.currentThread().interrupt();
+                });
             }
         }
 

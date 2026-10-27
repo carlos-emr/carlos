@@ -136,7 +136,7 @@ public class CdsImportPlanningService {
         Path parsedRoot = directory(document.jobRoot().resolve("parsed"), document.jobRoot());
         Path workFile = document.jobRoot().resolve("work.jsonl");
         State state = new State(runId, epoch, document, snapshot, workFile);
-        try (state) {
+        try (state; var control=fields.control(state::cancelled)) {
             long reviewVersion=corrections==null ? 0 : corrections.version(runId);
             state.reviewVersion=reviewVersion;
             Path copies = freezeCopies(document);
@@ -223,6 +223,7 @@ public class CdsImportPlanningService {
         boolean[] boundTyped={false};
         forEachCopy(copies, copy -> {
             try {
+                state.cancelled();
                 CdsImportCommand command = copyCommand(state.document.command(), copy);
                 CdsImportActorDto actor = copyActor(state.document.actor(), command);
                 var source = identity.source(demographic[0], command);
@@ -566,7 +567,7 @@ public class CdsImportPlanningService {
         if (bytes!=length || !expected.equals(CdsPaths.hex(digest.digest()))) throw new CdsImportException("VALUE_SPOOL_HASH_MISMATCH");
     }
 
-    private static void verifyParseMetadata(Path folder, CdsParseResultDto parsed, boolean verifyFiles) throws IOException {
+    private void verifyParseMetadata(Path folder, CdsParseResultDto parsed, boolean verifyFiles) throws IOException {
         JsonNode seal=JSON.readTree(CdsImportJobService.boundedFile(folder.resolve("parse.seal"), 65536));
         if (seal.path("version").asInt()!=2 || !parsed.sourceSha256().equals(seal.path("sourceSha256").asText())
                 || parsed.sourceBytes()!=seal.path("sourceBytes").asLong(-1) || parsed.records()!=seal.path("records").asLong(-1)
@@ -593,6 +594,7 @@ public class CdsImportPlanningService {
             long[] count={0}, bytes={0}; var limits=configuration.limits();
             Consumer<CdsCourseCopyDto> save = copy -> {
                 try {
+                    fields.checkpoint();
                     byte[] row=JSON.writeValueAsBytes(copy);
                     count[0]++; bytes[0]=Math.addExact(bytes[0], row.length+1L);
                     if (count[0]>limits.maxEntries() || bytes[0]>limits.maxExpandedBytes()) throw new CdsImportException("FROZEN_COPIES_RESOURCE_LIMIT");
@@ -697,11 +699,11 @@ public class CdsImportPlanningService {
         } catch (OverlappingFileLockException busy) { throw new CdsImportException("IMPORT_PLANNING_STORAGE_BUSY"); }
     }
 
-    private static String hashFile(Path path) throws IOException {
+    private String hashFile(Path path) throws IOException {
         MessageDigest digest = CdsPaths.sha256();
         try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
             byte[] buffer = new byte[65536]; int n;
-            while ((n = input.read(buffer)) >= 0) digest.update(buffer, 0, n);
+            while ((n = input.read(buffer)) >= 0) { fields.checkpoint(); digest.update(buffer, 0, n); }
         }
         return CdsPaths.hex(digest.digest());
     }

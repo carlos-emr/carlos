@@ -473,6 +473,7 @@ public class CdsXmlParser {
 
         void finish(String sourceSha256, long sourceBytes) throws IOException {
             check();
+            if (cancelled.getAsBoolean()) fail("CDS_INPUT_CANCELLED");
             if (!rootSeen || patients != 1 || !stack.isEmpty()) fail("CDS_XML_ENVELOPE_INVALID");
             if (corrections!=null && (!corrections.acceptedXmlSha256().equals(sourceSha256) || applied.size()!=reviewed.size())) fail("CDS_CORRECTION_SOURCE_XML_OR_TARGET_MISMATCH");
             fieldOutput.flush(); valueWriter.flush(); valueOutput.flush(); manifestOutput.flush(); diagnosticOutput.flush();
@@ -488,6 +489,7 @@ public class CdsXmlParser {
                 metadata.write(metadataBytes);
             }
             CdsPaths.forceFile(spool.resolve("values-meta.json"));
+            if (cancelled.getAsBoolean() || Thread.currentThread().isInterrupted()) fail("CDS_INPUT_CANCELLED");
             try (OutputStream seal = CdsPaths.newPrivateFile(spool.resolve("parse.seal"), spool)) {
                 ObjectNode proof=JSON.createObjectNode().put("version", 2).put("sourceSha256", sourceSha256).put("sourceBytes", sourceBytes)
                         .put("schemaWarnings",schemaWarnings)
