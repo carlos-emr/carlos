@@ -33,7 +33,7 @@ public record CdsImportCommand(Path input, String submissionKey, String provider
         Objects.requireNonNull(input, "input");
         bounded(submissionKey, 128); bounded(providerNo, 16);
         bounded(sourceNamespace, 128); bounded(sourceProfile, 32);
-        if (!providerNo.matches("[0-9]{1,16}") || (programId != null && programId < 1)
+        if (!providerNo.matches("[A-Za-z0-9_-]{1,16}") || (programId != null && programId < 1)
                 || (facilityId != null && facilityId < 1) || (courseId != null && courseId < 1)
                 || (!synthetic && (timeshiftDays != 0 || courseId != null))
                 || (synthetic && (mergeExisting || courseId == null))) {
