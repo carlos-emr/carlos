@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto;
 import java.io.IOException;
 import java.util.List;
@@ -157,7 +158,7 @@ public class CdsImportExecutionService {
             boolean recovery=resume || Set.of("RUNNING", "FINALIZING", "RECONCILING").contains(job.state());
                 epoch=ledger.claimExecution(runId, coordinator, owner);
                 try (var control=ioControl(runId, epoch, coordinator, "IMPORT_FILE_VERIFICATION_TIMEOUT", attemptBudget)) {
-                    fileVerification.verify(runId, epoch);
+                    fileVerification.verify(runId, epoch, control);
                 }
                 attemptBudget.run();
                 // Verify current-run receipts before new writes. Completed patients retain their existing publication.
@@ -175,7 +176,7 @@ public class CdsImportExecutionService {
                                     attemptBudget.run();
                                     if (Set.of("COMMITTED", "ALREADY_COMPLETE").contains(unit.state())) {
                                         currentPatient=unit.patientKey(); currentUnit=unit.unitKey();
-                                        units.execute(runId, epoch, unit.unitKey(), () -> { throw new CdsImportException("COMMITTED_UNIT_REPLAY_REFUSED"); }, nativeRecords::verify);
+                                        executeUnit(runId, epoch, unit.unitKey(), () -> { throw new CdsImportException("COMMITTED_UNIT_REPLAY_REFUSED"); }, attemptBudget);
                                     }
                                     after=unit.unitKey();
                                 }
@@ -202,13 +203,13 @@ public class CdsImportExecutionService {
                         }
                         attemptBudget.run();
                         final long unitEpoch=epoch;
-                        units.execute(runId, epoch, unit.unitKey(), () -> nativeRecords.write(runId, unitEpoch, unit, work.record(), work.command(), work.actor(), work.snapshot(), work.xmlRelative()), nativeRecords::verify);
+                        executeUnit(runId, epoch, unit.unitKey(), () -> nativeRecords.write(runId, unitEpoch, unit, work.record(), work.command(), work.actor(), work.snapshot(), work.xmlRelative()), attemptBudget);
                         attemptBudget.run();
                     }
                 }
                 currentPatient=null; currentUnit=null;
                 try (var control=ioControl(runId, epoch, coordinator, "IMPORT_FILE_VERIFICATION_TIMEOUT", attemptBudget)) {
-                    fileVerification.verify(runId, epoch);
+                    fileVerification.verify(runId, epoch, control);
                 }
                 attemptBudget.run();
                 if (recovery) ledger.resolveRecoveredExecution(runId, epoch);
@@ -301,22 +302,31 @@ public class CdsImportExecutionService {
         }
         return path==null || path.isBlank() || path.length()>2048?null:path;
     }
-    /** One bounded control scope ends before any clinical unit transaction begins. */
-    private CdsFieldParser.ControlScope ioControl(String run, long epoch,
-            CdsImportCoordinatorService.Owner coordinator, String timeoutCode, Runnable attemptBudget) {
-        long started = nanoTime.getAsLong();
-        long maximumMillis = configuration.limits().maxDurationMillis();
-        return fields.control(() -> {
+    /** Only local budget checks participate in the atomic unit; no owner SQL or nested transaction. */
+    CdsImportReceiptDto executeUnit(
+            String run, long epoch, String unit, CdsImportUnitService.Work work, Runnable attemptBudget) {
+        try (var control=fields.controlEveryCheckpoint(attemptBudget)) {
             attemptBudget.run();
-            coordinator.check();
-            var current = ledger.status(run);
-            if (Thread.currentThread().isInterrupted() || current.cancelRequested())
-                throw new CdsImportException("IMPORT_CANCELLED");
-            if (current.ownerEpoch() != epoch || !ledger.ownsAdmission(run, epoch))
-                throw new CdsImportException("OWNER_FENCED");
-            if (java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(nanoTime.getAsLong() - started) >= maximumMillis)
-                throw new CdsImportException(timeoutCode);
-        });
+            return units.execute(run, epoch, unit, () -> {
+                attemptBudget.run();
+                var receipt=work.write();
+                attemptBudget.run();
+                return receipt;
+            }, previous -> {
+                attemptBudget.run();
+                boolean verified=nativeRecords.verify(previous);
+                // A real target mismatch retains its reconciliation precedence.
+                if (verified) attemptBudget.run();
+                return verified;
+            });
+        }
+    }
+
+    /** Physical owner polling applies only outside clinical unit transactions. */
+    private CdsImportExecutionControl ioControl(String run, long epoch,
+            CdsImportCoordinatorService.Owner coordinator, String timeoutCode, Runnable attemptBudget) {
+        return new CdsImportExecutionControl(run, epoch, coordinator, timeoutCode,
+                configuration.limits().maxDurationMillis(), nanoTime, attemptBudget, fields);
     }
     private Runnable attemptBudget() {
         long started=nanoTime.getAsLong(), maximumMillis=configuration.limits().maxDurationMillis();

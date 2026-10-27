@@ -45,12 +45,12 @@ class CdsImportAttemptBudgetUnitTest {
             f.engine.execute("run");
             assertEquals(2,f.committed());assertEquals("INCOMPLETE",f.state.get());
             assertTrue(f.codes.contains("IMPORT_ATTEMPT_TIMEOUT"));
-            verify(f.window,never()).allowReopen();verify(f.records,never()).write(eq("run"),anyLong(),eq(f.units.get(2)),any(),any(),any(),any(),any());
+            verify(f.window,never()).allowReopen();assertEquals("EXPECTED",f.units.get(2).state());
             // A long stopped/review interval is not charged to the next explicit active attempt.
             f.clock.addAndGet(TimeUnit.DAYS.toNanos(2));when(f.ledger.pendingResumeEvent("run")).thenReturn(1L);
             f.engine.execute("run",true);
             assertEquals(3,f.committed());assertEquals("COMPLETE",f.state.get());
-            for(var unit:f.units)verify(f.records,times(1)).write(eq("run"),anyLong(),eq(unit),any(),any(),any(),any(),any());
+            for(int index=0;index<f.units.size();index++)verify(f.records,times(index==2?2:1)).write(eq("run"),anyLong(),eq(f.units.get(index)),any(),any(),any(),any(),any());
             verify(f.window,times(1)).allowReopen();verify(f.jobs,times(2)).load("run");
         }
     }
@@ -58,7 +58,7 @@ class CdsImportAttemptBudgetUnitTest {
     @Test void verificationProbeStopsBeforeAnyClinicalWrite() throws Exception {
         Fixture f=new Fixture();
         doAnswer(call->{f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100));f.fields.checkpoint();return null;})
-                .when(f.verification).verify("run",1L);
+                .when(f.verification).verify(eq("run"),eq(1L),any(CdsImportExecutionControl.class));
         try(var keys=f.keys()){f.engine.execute("run");}
         assertEquals(0,f.committed());assertTrue(f.codes.contains("IMPORT_ATTEMPT_TIMEOUT"));
         verify(f.records,never()).write(anyString(),anyLong(),any(),any(),any(),any(),any(),any());
@@ -108,7 +108,10 @@ class CdsImportAttemptBudgetUnitTest {
             var job=mock(CdsImportJobDto.class);when(ledger.status("run")).thenReturn(job);
             when(job.state()).thenAnswer(call->state.get());when(job.ownerEpoch()).thenReturn(1L);when(job.rulesetDigest()).thenReturn("rules");when(job.optionsDigest()).thenReturn("options");
             when(jobs.load("run")).thenReturn(document);when(ledger.isSealed("run")).thenReturn(true);when(ledger.ownsAdmission("run",1L)).thenReturn(true);
-            var coordinator=mock(CdsImportCoordinatorService.class);when(coordinator.acquire()).thenReturn(mock(CdsImportCoordinatorService.Owner.class));
+            var coordinator=mock(CdsImportCoordinatorService.class);
+            var coordinatorOwner=mock(CdsImportCoordinatorService.Owner.class);
+            when(coordinatorOwner.control("run")).thenReturn(new CdsImportControlDto(true,true,1L,false,true));
+            when(coordinator.acquire()).thenReturn(coordinatorOwner);
             var maintenance=mock(CdsImportMaintenanceService.class);when(maintenance.acquire()).thenReturn(window);when(window.releaseVerified()).thenReturn(true);
             when(window.read(any())).thenAnswer(call->call.<java.util.function.Supplier<?>>getArgument(0).get());
             when(window.readIo(any())).thenAnswer(call->call.<CdsImportMaintenanceService.IoRead<?>>getArgument(0).get());
@@ -125,7 +128,7 @@ class CdsImportAttemptBudgetUnitTest {
             }
             when(ledger.units(eq("run"),eq("patient"),anyString(),eq(100))).thenAnswer(call->call.<String>getArgument(2).isEmpty()?units:List.of());
             when(ledger.readyUnits("run",100)).thenAnswer(call->units.stream().filter(u->u.state().equals("EXPECTED")).toList());
-            when(records.write(anyString(),anyLong(),any(),any(),any(),any(),any(),any())).thenAnswer(call->{clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(60));return new CdsImportReceiptDto("{}","digest");});
+            when(records.write(anyString(),anyLong(),any(),any(),any(),any(),any(),any())).thenAnswer(call->{clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(40));return new CdsImportReceiptDto("{}","digest");});
             when(unitService.execute(eq("run"),eq(1L),anyString(),any(),any())).thenAnswer(call->{
                 int i=Integer.parseInt(call.<String>getArgument(2).substring(4));
                 if(unitStates.get(i).get().equals("COMMITTED"))return new CdsImportReceiptDto("{}","digest",true);

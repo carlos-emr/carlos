@@ -21,59 +21,83 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportControlDto;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-/** One physical unpooled coordinator excludes duplicate preflight as well as execution across nodes. */
+/** One physical unpooled coordinator excludes duplicate preflight and execution across nodes. */
 @Service
 public class CdsImportCoordinatorService {
-    private final OscarTrackingBasicDataSource dataSource;
-    public CdsImportCoordinatorService(@Qualifier("dataSource") OscarTrackingBasicDataSource dataSource) { this.dataSource=dataSource; }
+    private final CdsImportCoordinatorDao coordinator;
+
+    @Autowired
+    public CdsImportCoordinatorService(CdsImportCoordinatorDao coordinator) {
+        this.coordinator = coordinator;
+    }
+
+    /** Compatibility for existing explicitly constructed runtimes; Spring injects the DAO. */
+    public CdsImportCoordinatorService(OscarTrackingBasicDataSource dataSource) {
+        this(new CdsImportCoordinatorDao(dataSource));
+    }
+
     public Owner acquire() {
         CdsImportLedgerService.requireNoTransaction();
-        Connection connection=null;
         try {
-            connection=dataSource.openUnpooledCdsMaintenanceConnection();
-            String database;
-            try (PreparedStatement query=connection.prepareStatement("SELECT DATABASE()"); ResultSet rows=query.executeQuery()) {
-                if (!rows.next() || (database=rows.getString(1))==null) throw new SQLException("Import database is not selected");
+            var lease = coordinator.acquire();
+            if (lease == null) throw new CdsImportException("IMPORT_COORDINATOR_BUSY");
+            try { return new Owner(lease); }
+            catch (RuntimeException | Error failure) {
+                try { lease.close(); }
+                catch (SQLException | RuntimeException | Error cleanup) {
+                    if (cleanup != failure) failure.addSuppressed(cleanup);
+                }
+                throw failure;
             }
-            String name="cds.coordinator."+io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys.hash(database).substring(0, 40);
-            if (scalar(connection, "SELECT GET_LOCK(?,0)", name)!=1) throw new CdsImportException("IMPORT_COORDINATOR_BUSY");
-            return new Owner(connection, name);
         } catch (SQLException | RuntimeException failure) {
-            if (connection!=null) try { connection.close(); } catch (SQLException cleanup) { failure.addSuppressed(cleanup); }
             if (failure instanceof CdsImportException known) throw known;
             throw new CdsImportException("IMPORT_COORDINATOR_UNAVAILABLE", false, failure);
         }
     }
-    private static long scalar(Connection connection, String sql, String name) throws SQLException {
-        try (PreparedStatement query=connection.prepareStatement(sql)) {
-            query.setQueryTimeout(3); query.setString(1, name);
-            try (ResultSet rows=query.executeQuery()) { if (!rows.next()) throw new SQLException("Missing coordinator lock response"); return rows.getLong(1); }
-        }
-    }
+
     public static final class Owner implements AutoCloseable {
-        private final Connection connection; private final String name; private boolean closed;
-        private Owner(Connection connection, String name) { this.connection=connection; this.name=name; }
+        private final CdsImportCoordinatorDao.Lease lease;
+        private boolean closed;
+
+        private Owner(CdsImportCoordinatorDao.Lease lease) { this.lease = lease; }
+
         public void check() {
-            if (closed) throw new CdsImportException("IMPORT_COORDINATOR_LOST");
-            try (PreparedStatement query=connection.prepareStatement("SELECT IS_USED_LOCK(?)=CONNECTION_ID()")) {
-                query.setQueryTimeout(3); query.setString(1, name);
-                try (ResultSet rows=query.executeQuery()) { if (!rows.next() || !rows.getBoolean(1)) throw new CdsImportException("IMPORT_COORDINATOR_LOST"); }
-            } catch (SQLException failure) { throw new CdsImportException("IMPORT_COORDINATOR_LOST", false, failure); }
-        }
-        @Override public void close() {
-            if (closed) return; closed=true;
-            try (Connection retiring=connection) {
-                if (scalar(retiring, "SELECT RELEASE_LOCK(?)", name)!=1) throw new CdsImportException("IMPORT_COORDINATOR_RELEASE_FAILED");
+            requireOpen();
+            try {
+                if (!lease.physicalOwned()) throw new CdsImportException("IMPORT_COORDINATOR_LOST");
+            } catch (SQLException failure) {
+                throw new CdsImportException("IMPORT_COORDINATOR_LOST", false, failure);
             }
-            catch (SQLException failure) { throw new CdsImportException("IMPORT_COORDINATOR_RELEASE_FAILED", false, failure); }
+        }
+
+        public CdsImportControlDto control(String runId) {
+            requireOpen();
+            try {
+                return lease.control(runId);
+            } catch (SQLException failure) {
+                throw new CdsImportException("IMPORT_COORDINATOR_LOST", false, failure);
+            }
+        }
+
+        private void requireOpen() {
+            if (closed) throw new CdsImportException("IMPORT_COORDINATOR_LOST");
+        }
+
+        @Override public void close() {
+            if (closed) return;
+            closed = true;
+            try {
+                lease.close();
+            } catch (SQLException failure) {
+                throw new CdsImportException("IMPORT_COORDINATOR_RELEASE_FAILED", false, failure);
+            }
         }
     }
 }

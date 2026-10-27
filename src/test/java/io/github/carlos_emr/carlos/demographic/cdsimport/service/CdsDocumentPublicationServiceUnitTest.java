@@ -75,6 +75,36 @@ class CdsDocumentPublicationServiceUnitTest {
         }
     }
 
+    @Test void shouldRetireOnlyUnpublishedPartial_whenActualCopyExhaustsAttemptBudgetOutsideTransaction() throws Exception {
+        byte[] content=new byte[3*65536];java.util.Arrays.fill(content,(byte)65);
+        var files=mock(CdsImportFileService.class);var fields=new CdsFieldParser();
+        var clock=new java.util.concurrent.atomic.AtomicLong();var reads=new java.util.concurrent.atomic.AtomicInteger();
+        var owner=mock(CdsImportCoordinatorService.Owner.class);
+        when(owner.control("run")).thenReturn(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportControlDto(true,true,1,false,true));
+        Runnable budget=()->{if(clock.get()>=100_000_000)throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");};
+        try (MockedStatic<PathValidationUtils> paths=mockStatic(PathValidationUtils.class,CALLS_REAL_METHODS);
+                var control=new CdsImportExecutionControl("run",1,owner,"IMPORT_PREPARATION_TIMEOUT",10000,clock::get,budget,fields)) {
+            paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(directory.toFile());
+            assertThatThrownBy(()->service(files,fields).publish("run",1,unit,"embedded","txt",sha(content),content.length,
+                    ()->new java.io.FilterInputStream(new ByteArrayInputStream(content)) {
+                        @Override public int read(byte[] bytes,int offset,int length) throws java.io.IOException {
+                            int read=super.read(bytes,offset,Math.min(length,65536));
+                            if(read>0 && reads.incrementAndGet()==2) {
+                                try(var walk=Files.walk(directory)) {
+                                    var partial=walk.filter(path->path.getFileName().toString().equals("payload.partial")).findFirst().orElseThrow();
+                                    assertThat(Files.size(partial)).isEqualTo(65536);
+                                }
+                                clock.set(100_000_000);
+                            }
+                            return read;
+                        }
+                    })).hasMessage("IMPORT_ATTEMPT_TIMEOUT");
+            assertThat(reads).hasValue(2);
+            try(var walk=Files.walk(directory)){assertThat(walk.filter(Files::isRegularFile).count()).isZero();}
+            verifyNoInteractions(files);verify(owner,times(1)).control("run");
+        }
+    }
+
     @Test void shouldBoundExistingFileVerification_whenFileGrowsAfterItsInitialLengthCheck() throws Exception {
         byte[] content="synthetic report".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var files=mock(CdsImportFileService.class); var fields=mock(CdsFieldParser.class);

@@ -83,8 +83,11 @@ public class CdsFieldParser {
     private static final class ControlState {
         final Runnable probe;
         final ControlState previous;
+        final boolean everyCheckpoint;
         long nextProbe;
-        ControlState(Runnable probe, ControlState previous) { this.probe=probe; this.previous=previous; }
+        ControlState(Runnable probe, ControlState previous, boolean everyCheckpoint) {
+            this.probe=probe; this.previous=previous; this.everyCheckpoint=everyCheckpoint;
+        }
     }
 
     /** Scoped operational control for I/O outside clinical transactions; nested callers restore their predecessor. */
@@ -103,8 +106,17 @@ public class CdsFieldParser {
 
     public ControlScope control(Runnable probe) {
         if (probe==null) throw new IllegalArgumentException("Missing CDS operational probe");
-        ControlState state=new ControlState(probe, controls.get());
-        controls.set(state); return new ControlScope(state);
+        ControlState state=new ControlState(probe, controls.get(), false);
+        ControlScope scope=new ControlScope(state);
+        controls.set(state); return scope;
+    }
+
+    /** The run-bound control owns SQL throttling; local budgets still run at every bounded read. */
+    ControlScope controlEveryCheckpoint(Runnable probe) {
+        if (probe==null) throw new IllegalArgumentException("Missing CDS operational probe");
+        ControlState state=new ControlState(probe, controls.get(), true);
+        ControlScope scope=new ControlScope(state);
+        controls.set(state); return scope;
     }
 
     /** Allows related bounded file hashing to share the current operational I/O scope. */
@@ -115,7 +127,7 @@ public class CdsFieldParser {
         ControlState state=controls.get();
         if (state!=null) {
             long now=System.nanoTime();
-            if (now>=state.nextProbe) {
+            if (state.everyCheckpoint || now>=state.nextProbe) {
                 state.nextProbe=now+250_000_000L;
                 state.probe.run();
             }

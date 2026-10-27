@@ -74,8 +74,14 @@ public class CdsImportFileVerificationService {
     }
 
     public void verify(String run, long epoch) throws IOException {
+        verify(run, epoch, null);
+    }
+
+    /** Explicit typed binding shares the executor's physical/fenced control; generic field scopes never authorize a skip. */
+    void verify(String run, long epoch, CdsImportExecutionControl shared) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
-        var control = new VerificationControl(run, epoch);
+        if (shared != null) shared.requireBinding(run, epoch);
+        var control = new VerificationControl(run, epoch, shared);
         String after = "";
         while (true) {
             control.check(true);
@@ -142,13 +148,19 @@ public class CdsImportFileVerificationService {
         private final long started = nanoTime.getAsLong();
         private final long maximumMillis = configuration.limits().maxDurationMillis();
         private long nextPoll;
+        private final CdsImportExecutionControl shared;
 
-        VerificationControl(String run, long epoch) {
+        VerificationControl(String run, long epoch, CdsImportExecutionControl shared) {
             this.run = run;
             this.epoch = epoch;
+            this.shared = shared;
         }
 
         void check(boolean forceOwner) throws IOException {
+            if (shared != null) {
+                shared.check(forceOwner);
+                return;
+            }
             if (Thread.currentThread().isInterrupted())
                 throw new CdsImportException("IMPORT_CANCELLED");
             fields.checkpoint();

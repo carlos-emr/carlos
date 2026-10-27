@@ -114,6 +114,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    },CdsImportLedgerMariaDbIntegrationTest::verify);
    check(fieldValues.fields(job.target,"Demographics","",10).size()==2,"same-local fields in distinct namespaces remain individually addressable");
    check(!first.alreadyComplete(),"first source occurrence imported");
+   verifyUnitFieldBudgetRollsBackBeforeCheckpoint(job);
    var ownership=files.ownedFiles(job.id,"",10);
    check(ownership.size()==1 && ownership.get(0).referenceCount()==1,"bounded owned-file catalogue counts all durable references");
    long before=countNative();
@@ -178,6 +179,34 @@ class CdsImportLedgerMariaDbIntegrationTest {
    CdsResumeHandoffTestFixture.unsealed(jdbc);
   } finally {ctx.close();}
  }
+ static void verifyUnitFieldBudgetRollsBackBeforeCheckpoint(Job job) throws Exception {
+  Path root=Files.createTempDirectory("cds-unit-budget-proof-");
+  try {
+   Path source=root.resolve("original.xml");
+   try(InputStream input=CdsImportLedgerMariaDbIntegrationTest.class.getResourceAsStream("/demographic/cds-import-all-categories.xml")) { Files.copy(Objects.requireNonNull(input),source); }
+   var record=new java.util.concurrent.atomic.AtomicReference<CdsRecordDto>();
+   new CdsXmlParser().parse(source,root.resolve("parsed"),CdsInputLimitsDto.defaults(),()->false,
+     value->{if("Demographics".equals(value.section()) && record.get()==null)record.set(value);});
+   check(record.get()!=null && record.get().fieldCount()>1,"actual pinned-schema source exposes multiple bounded fields");
+   var fields=new CdsFieldParser();var clock=new java.util.concurrent.atomic.AtomicLong();
+   var nativeRecords=org.mockito.Mockito.mock(CdsImportNativeService.class);
+   var engine=new CdsImportExecutionService(ledger,units,null,null,nativeRecords,null,null,null,null,null,null,null,null,fields);
+   Runnable budget=()->{if(clock.get()>=100_000_000)throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");};
+   long before=countNative();
+   expect("IMPORT_ATTEMPT_TIMEOUT",()->engine.executeUnit(job.id,job.epoch,job.second,()->{
+    var receipt=write(job,"budget-rollback");
+    fields.forEachField(record.get(),field->clock.set(100_000_000));
+    return receipt;
+   },budget));
+   check(countNative()==before,"actual native write rolls back when the following field read exhausts the attempt");
+   check(sql.queryForObject("select count(*) from cds_import_checkpoint where id=?",Long.class,job.second)==0,"timed-out current unit has no checkpoint");
+   check(sql.queryForObject("select count(*) from cds_import_checkpoint where id=?",Long.class,job.first)==1,"earlier acknowledged unit checkpoint remains committed");
+   check("COMMITTED".equals(ledger.unitStatus(job.id,job.first).state()) && "EXPECTED".equals(ledger.unitStatus(job.id,job.second).state()),"timeout preserves exact prior/current unit disposition");
+  } finally {
+   try(var paths=Files.walk(root)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}
+  }
+ }
+
  static void verifyDeadOwnerResume(Properties jdbc) throws Exception {
   Properties policy=new Properties();policy.setProperty("cds.import.enabled","true");policy.setProperty("cds.import.maintenanceMode","true");
   var config=new CdsImportConfigurationService(policy);

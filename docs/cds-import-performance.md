@@ -81,6 +81,18 @@ the existing bounded artifact contract. These counts include observers and are k
 alongside their explicit invocation count; no automatic subtraction or increase
 of the 500-per-unit query budget occurs. Actual CLI progress-event counts make
 time-based operator reporting overhead visible.
+Bounded file and field reads share one explicit run/epoch control scope. Each
+read checks interruption and active-attempt/stage budgets locally. At most every
+250ms, and at every forced boundary, one prepared SELECT on the already-owned
+unpooled coordinator checks its physical lock, run epoch, cancellation and global
+admission in a fresh autocommit snapshot. It does not borrow an ordinary pool
+connection or open a Hibernate transaction for each polling read. Clinical unit
+transactions retain their independent locks, fencing and atomic checkpoints.
+Inside a clinical unit, a separate local-only scope checks the same active
+attempt budget for bounded source-field reads and before/after successful work
+and verification callbacks. It performs no owner SQL or nested transaction.
+Binary publication remains outside the short clinical reference transaction;
+an expired preparation copy retires only its own unpublished partial bytes.
 Only a query-budget comparison may be deferred to later independent workloads,
 and only after that case's engine, native rows/files/hashes, all reports, zero
 holds, cleanup and release have passed every check. Its exact failed budget and
