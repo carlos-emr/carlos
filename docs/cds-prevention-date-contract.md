@@ -75,6 +75,10 @@ alone does not protect existing partial records.
 | `formbchppg1.jsp`, `formbchppg2.jsp`, `RhInjectionDisplay.jsp` | Date parsing / Date-only selection from maps needs explicit uncertain-state handling. |
 | `demographic/pageUtil/DemographicExportAction42Action` | Existing export parses prevention strings; no export feature work is claimed, but safe egress or explicit refusal is required before activation. |
 | `dao/ProviderDao` intake prevention query | Raw table projection exposes anchors without the partial-date metadata. |
+| `resources/indicatorXMLTemplates/` prevention indicators | `smoking.xml`, `pneumococcal_immunization.xml`, `flu_immuzation.xml`, `flu_immunization_bonus.xml`, `colorectal_cancer.xml`, `colorectal_cancer_bonus.xml`, `childhood_immunization_bonus.xml`, `cervical_cancer.xml`, `cervical_cancer_bonus.xml`, `breast cancer.xml` and `breast_cancer_bonus.xml` use date cutoffs, age calculations, latest-date aggregates or direct date formatting without precision. |
+| `resources/oscar/oscarReport/ClinicalReports/ClinicalReports.xml` | Embedded prevention cutoff SQL bypasses the guarded native DAO operations. |
+| `resources/oscar/eform/apconfig.xml` | Embedded `DATE_FORMAT(prevention_date)` and latest-row eForm autofill SQL bypasses precision readers. |
+| Installed report templates, eForms and query definitions in the database | Database-supplied SQL/templates are another reader surface; bundled source inventory cannot prove every installed definition safe. |
 | External REST/SOAP/integrator/portal/cache/index clients | Actual installed client inventory and protocol/rollout proof remain required. Source searches cannot establish that inventory. |
 
 The edit/save web flow must recognize the added map metadata and use a blank editable
