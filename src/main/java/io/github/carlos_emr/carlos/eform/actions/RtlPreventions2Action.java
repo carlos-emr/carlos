@@ -166,7 +166,7 @@ public class RtlPreventions2Action extends ActionSupport {
                 out.print(html.toString());
             }
         } catch (Exception e) {
-            logger.error("Failed to retrieve preventions for demographic_no={}", demographicNo, e);
+            logger.error("Failed to retrieve prevention data", e);
             // Guard against IllegalStateException if response was partially written
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to retrieve prevention data");
