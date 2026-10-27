@@ -282,12 +282,19 @@ public class CdsImportMaintenanceService {
                 try { connection.rollback(); } catch (SQLException cleanup) { failure.addSuppressed(cleanup); }
             } finally {
                 state.release(lease);
-                try { scalar(connection, "SELECT RELEASE_LOCK(?)", state.lockName()); }
+                try {
+                    if (scalar(connection, "SELECT RELEASE_LOCK(?)", state.lockName())!=1) {
+                        throw new SQLException("Maintenance advisory release was not acknowledged", "45000");
+                    }
+                }
                 catch (SQLException cleanup) { if (failure == null) failure = cleanup; else failure.addSuppressed(cleanup); }
                 try { connection.close(); }
                 catch (SQLException cleanup) { if (failure == null) failure = cleanup; else failure.addSuppressed(cleanup); }
             }
-            if (failure != null) throw new CdsImportException("MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION", false, failure);
+            if (failure != null) {
+                releaseVerified=false; // A retained/uncertain advisory connection can still deny ordinary access.
+                throw new CdsImportException("MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION", false, failure);
+            }
         }
     }
 }
