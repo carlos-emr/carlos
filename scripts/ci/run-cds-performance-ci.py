@@ -22,6 +22,18 @@ import zipfile
 DATABASE_IMAGE = "mariadb:11.8@sha256:f16d7a344413e519dff518f27bdb221388f84b0d274c97c4fb5f2cb0dc1b34fa"
 
 
+def disk_retirement_allowed(attempted: bool, proof: dict | None, archive_verified: bool) -> bool:
+    if not attempted:
+        return True
+    # A partial/unknown outcome is not a zero-acceptance fixture. Preserve its
+    # database as well as the source volume, even if copying its files succeeded.
+    ledger=proof.get('afterLedger') if isinstance(proof,dict) else None
+    required={'cds_import_run','cds_import_patient','cds_import_unit','cds_import_checkpoint','cds_import_event',
+              'cds_import_lineage','maintenanceActive','reservedUploadBytes'}
+    return bool(archive_verified and isinstance(proof,dict) and proof.get('status')=='PASSED' and proof.get('acceptedRuns')==0
+                and isinstance(ledger,dict) and set(ledger)==required and all(value==0 for value in ledger.values()))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", choices=("scaling", "aggregate20", "zip64", "disk-reserve", "disk-enospc"), required=True)
@@ -41,6 +53,8 @@ def main() -> int:
     image = "carlos-cds-perf:" + nonce
     docker = ["docker", "--host=unix:///var/run/docker.sock"]
     created_runtime = created_database = created_network = build_connected = False
+    disk_attempted=archive_verified=False
+    profile_proof=None
     password = None
     status = {"protocol": 1, "profile": args.profile, "status": "RUNNING"}
     log_path = private / "harness.log"
@@ -156,6 +170,7 @@ def main() -> int:
                         "assert 'cds.import.minimumFreeDiskBytes' not in s;"
                         "p.open('a').write('\\ncds.import.minimumFreeDiskBytes=0\\n')"])
                 execute(runtime_exec+["python3","-m","unittest","discover","-s","scripts/ci","-p","test_run_cds_disk_failures.py","-v"])
+                disk_attempted=True
                 executed=execute(runtime_exec+["python3","scripts/ci/run-cds-disk-failures.py","--disposable",
                     "--scenario",args.profile.removeprefix('disk-'),"--fixture-metadata",root+"/fixture.json",
                     "--jdbc-properties","/run/cds-test/jdbc.properties","--evidence","/run/cds-disk-evidence",
@@ -172,6 +187,7 @@ def main() -> int:
                 "import pathlib,sys;p=pathlib.Path(sys.argv[1]);assert p.is_file() and not p.is_symlink() and p.stat().st_size<(1<<20);sys.stdout.write(p.read_text())",
                 proof_path], capture=True).stdout
             proof = json.loads(copied)
+            profile_proof=proof
             (public/"performance-proof.json").write_text(json.dumps(proof,sort_keys=True,indent=2))
             if disk_fault and proof.get('retainedStateArchive'):
                 retained=public/'retained-preaccept.tar.gz'
@@ -180,6 +196,7 @@ def main() -> int:
                     retained_digest=hashlib.file_digest(original,'sha256').hexdigest()
                 if retained.stat().st_size!=proof['retainedStateArchive']['bytes'] or retained_digest!=proof['retainedStateArchive']['sha256']:
                     raise RuntimeError('retained failed tmpfs state artifact hash/size differs')
+                archive_verified=True
             if disk_fault and proof.get('rawRegisterOnlySyscallTrace'):
                 syscall=public/'service-failed-syscalls.log'
                 execute(docker+['cp',runtime+':/run/cds-disk-evidence/service-failed-syscalls.log',str(syscall)])
@@ -203,15 +220,23 @@ def main() -> int:
         return 1
     finally:
         cleanup = []
+        retire=disk_retirement_allowed(disk_attempted,profile_proof,archive_verified)
+        if not retire:
+            status.update(status='FAILED',retirementBlocked=True,retentionIncomplete=not archive_verified,
+                          outcomeRequiresReconciliation=not disk_retirement_allowed(disk_attempted,profile_proof,True),
+                          runtimeRetainedForReconciliation=runtime,databaseRetainedForReconciliation=database,
+                          networkRetainedForReconciliation=network,protectedPrerequisitesRetained=True)
+            save()
         with (private/"cleanup.log").open("w") as log:
             for owned, command in ((created_runtime,["rm","--force","--volumes",runtime]),
                                    (created_database,["rm","--force","--volumes",database]),
                                    (build_connected,["network","disconnect",network,args.build_container]),
                                    (created_network,["network","rm",network])):
-                if owned and subprocess.run(docker+command,stdout=log,stderr=log).returncode:
+                if owned and retire and subprocess.run(docker+command,stdout=log,stderr=log).returncode:
                     cleanup.append(command[0])
-        for name in ("password","client.cnf","jdbc.properties"):
-            (private/name).unlink(missing_ok=True)
+        if retire:
+            for name in ("password","client.cnf","jdbc.properties"):
+                (private/name).unlink(missing_ok=True)
         if log_path.exists():
             # All inputs are owned synthetic fixtures. Remove the sole fresh secret before publishing a bounded diagnostic tail.
             with log_path.open("rb") as source:

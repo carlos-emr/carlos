@@ -11,6 +11,9 @@ import unittest
 SPEC=importlib.util.spec_from_file_location('disk_faults',Path(__file__).with_name('run-cds-disk-failures.py'))
 GATE=importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GATE)
+CI_SPEC=importlib.util.spec_from_file_location('disk_fault_ci',Path(__file__).with_name('run-cds-performance-ci.py'))
+CI=importlib.util.module_from_spec(CI_SPEC)
+CI_SPEC.loader.exec_module(CI)
 
 
 class DiskFailureEvidenceTest(unittest.TestCase):
@@ -57,6 +60,17 @@ class DiskFailureEvidenceTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):GATE.retain_tmpfs(owned,retained)
         (owned/'redirect').symlink_to(self.root)
         with self.assertRaises(RuntimeError):GATE.retain_tmpfs(owned,self.root/'refused.tar.gz')
+
+    def test_runtime_retirement_requires_verified_archived_state_and_known_zero_registry_outcome(self):
+        good={'status':'PASSED','acceptedRuns':0,'afterLedger':dict.fromkeys(('cds_import_run','cds_import_patient',
+            'cds_import_unit','cds_import_checkpoint','cds_import_event','cds_import_lineage','maintenanceActive','reservedUploadBytes'),0)}
+        self.assertTrue(CI.disk_retirement_allowed(False,None,False))
+        self.assertTrue(CI.disk_retirement_allowed(True,good,True))
+        for receipt,verified in ((None,False),(None,True),(good,False),({'status':'FAILED',**{key:value for key,value in good.items() if key!='status'}},True),
+                                 ({**good,'acceptedRuns':1},True),({**good,'afterLedger':{'cds_import_checkpoint':1}},True),
+                                 ({**good,'afterLedger':None},True)):
+            with self.subTest(receipt=receipt,verified=verified):
+                self.assertFalse(CI.disk_retirement_allowed(True,receipt,verified))
 
 
 if __name__=='__main__':unittest.main()

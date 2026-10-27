@@ -128,7 +128,10 @@ incomplete. CLI snapshot copying precedes registry acceptance; these are
 preaccept refusals, not claims of rollback after an uncertain clinical commit.
 The complete synthetic tmpfs, including its partial snapshot, is archived and
 independently hash-verified into the job artifact before the owned environment
-retires. The gate never fills another filesystem, retries the failed source,
+retires. If submission may have started and archive verification or the
+zero-acceptance outcome proof is missing, the harness fails and leaves its owned
+runtime, database, network and protected prerequisites intact for reconciliation.
+The gate never fills another filesystem, retries the failed source,
 resets a namespace or changes policy after submission.
 
 These scripts are executable gates. Their existence is not an execution result.
