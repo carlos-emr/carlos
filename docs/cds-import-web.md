@@ -92,6 +92,7 @@ Use the repository's normal protected browser credential/environment setup, incl
 node scripts/cds-import-summary.test.js
 node scripts/appointment-text-bounds.test.js
 node scripts/demographic-cds-import-playwright-checks.js
+CDS_BROWSER_CORPUS=true node scripts/demographic-cds-import-playwright-checks.js
 node scripts/audit-log-demographic-import-playwright-checks.js
 ```
 

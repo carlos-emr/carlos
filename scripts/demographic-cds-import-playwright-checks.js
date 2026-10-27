@@ -15,6 +15,9 @@ const h = require('./lib/playwright-harness');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
+const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
+const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { signIn } = require('./lib/authz-read-probe');
 const { createHash, randomUUID } = require('node:crypto');
@@ -425,10 +428,15 @@ async function workflow(s) {
       {input:JSON.stringify([['new/patient.xml',other],['existing/patient.xml',xml],['associated/readme.txt','Synthetic ancillary bytes retained in manifest.']]),timeout:30000});
     const batch={name:`${s.marker}-batch.zip`,mimeType:'application/zip',buffer:zip};
     const run=await uploadAndAwaitRun(s,admin,frame,batch);
-    h.assert(run.summary.discoveryComplete === true && run.summary.expectedPatients === 2, 'ZIP did not account for both source patients');
+    h.assert(run.summary.cleanComplete === true && run.summary.clinicalComplete === true
+      && run.summary.discoveryComplete === true && run.summary.expectedPatients === 2 && run.summary.pendingUnits === 0,
+      'ZIP did not commit or verify both source patients completely');
     h.assert(importedIds().length === 2, 'ZIP omitted a new patient or duplicated the existing patient');
     const replay=await uploadAndAwaitRun(s,admin,frame,batch);
-    h.assert(replay.summary.operationTerminal === true && importedIds().length === 2, 'ZIP replay omitted terminal accounting or inserted duplicates');
+    h.assert(replay.summary.operationTerminal === true && replay.summary.cleanComplete === true
+      && replay.summary.clinicalComplete === true && replay.summary.expectedPatients === 2
+      && replay.summary.pendingUnits === 0 && replay.summary.unresolvedReviewItems === 0 && importedIds().length === 2,
+      'ZIP replay failed verification, omitted completeness accounting or inserted duplicates');
     h.assert(await frame.locator('#patientRows tr').count() <= 50 && await frame.locator('#diagnosticRows tr').count() <= 50
       && await frame.locator('#uploadRows tr').count() <= 50, 'Operator DOM exceeded bounded page sizes');
   });
@@ -440,6 +448,128 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('demographic-cds-import', workflow, {openPatient:false});
-module.exports = {workflow,buildCdsXml,fixtureValues,parseImportLogCounts,assertSchemaValid,
+/** Full pinned corpus exercises native storage and the clinician's category-local source UI. */
+async function nativeViewsWorkflow(s) {
+  const name = `${s.marker}-CORPUS`;
+  const sourceId = s.marker.slice(-20);
+  const note = `${s.marker} imported corpus note`;
+  const template = fs.readFileSync(path.join(__dirname, '../src/test/resources/demographic/cds-import-all-categories.xml'), 'utf8');
+  h.assert(template.includes('FAKE-CDS-CORPUS-202608') && template.includes('E-CDS-CORPUS-202608'), 'Corpus identity markers changed');
+  const xml = template.replaceAll('FAKE-CDS-CORPUS-202608', xmlText(name)).replaceAll('E-CDS-CORPUS-202608', xmlText(sourceId))
+    .replaceAll('FAKE-PW0000000000004241 imported fixture encounter note', xmlText(note));
+  assertSchemaValid(xml);
+  let frame, admin, run, id;
+  await s.step('Complete pinned corpus imports through the existing web menu with a clean durable receipt', async () => {
+    ({frame, admin} = await openImportFrame(s));
+    run = await uploadAndAwaitRun(s, admin, frame, {name:`${name}.xml`,mimeType:'text/xml',buffer:Buffer.from(xml)});
+    h.assert(run.summary.cleanComplete === true && run.summary.expectedPatients === 1
+      && run.summary.operationTerminal === true, 'Full corpus did not complete cleanly');
+    const ids = s.sql.rows(`SELECT demographic_no FROM demographic WHERE first_name='Import' AND last_name=${h.sqlString(name)}`).flat();
+    h.assert(ids.length === 1, 'Corpus native patient is missing or duplicated'); [id] = ids;
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM cds_import_patient WHERE target_demographic_no=${id} AND held=1`) === '0',
+      'Corpus remained held after claimed completion');
+  });
+  await s.step('Native demographics and notes retain exact source text and unknown observation precision', async () => {
+    h.assert(s.sql.value(`SELECT CONCAT_WS('|',spoken_lang,patient_status_date) FROM demographic WHERE demographic_no=${id}`)
+      === 'French|2025-01-02', 'Canonical language/status date were not mapped natively');
+    h.assert(s.sql.value(`SELECT content FROM demographiccust WHERE demographic_no=${id}`)
+      === '<unotes>Complete source patient note including literal </unotes> and café 😀</unotes>', 'Native patient note was clipped or encoded twice');
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${id} AND note=${h.sqlString(note)} AND observation_date IS NULL AND signed=0`) === '1',
+      'Date-only source note invented an exact timestamp or signature');
+    for (const table of ['drugs','allergies','preventions']) {
+      h.assert(Number(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE demographic_no=${id}`)) > 0, `${table} native projection is absent`);
+    }
+    h.assert(Number(s.sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${id}`)) >= 3,
+      'Contextual physicians/contact native associations are absent');
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM demographicPharmacy WHERE demographic_no=${id}`) === '1', 'Preferred pharmacy native association is absent');
+  });
+  await s.step('Default master/chart, allergy and prevention screens expose their real patient source links', async () => {
+    const {masterPage} = await openMasterRecord(s.context,s.schedule,s.recorder,
+      {searchTerm:name,preferredDemographicNo:id,timeout:20000});
+    let chart;
+    const follow = async (page, category) => {
+      const link = page.locator(`.cds-source-fields-link[href*="category=${category}"]`).first();
+      await link.waitFor({state:'visible'});
+      const {page:source} = await clickOpensPopupOrNavigates(page,link,
+        {context:s.context,recorder:s.recorder,label:`native-source-${category}`,timeout:20000});
+      await source.locator('#cdsSourceFields .cds-source-field').first().waitFor();
+      h.assert(new URL(source.url()).searchParams.get('demographicNo') === id, 'Native screen source link changed patients');
+      if(source !== page) await source.close();
+    };
+    try {
+      await follow(masterPage,'Demographics');
+      chart = await openChart(s.context,masterPage,s.recorder,20000); await waitForNavbars(chart,20000);
+      await chart.getByText(note,{exact:false}).first().waitFor({state:'visible',timeout:30000});
+      await follow(chart,'ClinicalNotes'); await follow(chart,'NewCategory');
+      const allergy = await s.popup(chart,chart.locator('a[onclick*="showAllergy"]').first(),'native-allergy-source');
+      await follow(allergy,'AllergiesAndAdverseReactions'); await allergy.close();
+      const prevention = await s.popup(chart,chart.locator('a[onclick*="ViewPreventionIndex"]').first(),'native-prevention-source');
+      await follow(prevention,'Immunizations'); await prevention.close();
+    } finally {
+      if(chart) { await releaseChartLocks(s.context,s.config.baseUrl,[chart]); await chart.close(); }
+      await masterPage.close();
+    }
+  });
+  const categories = ['Demographics','AllergiesAndAdverseReactions','MedicationsAndTreatments','Immunizations',
+    'LaboratoryResults','Reports','ClinicalNotes','Appointments','FamilyHistory','PastHealth','ProblemList',
+    'PersonalHistory','RiskFactors','AlertsAndSpecialNeeds','NewCategory','CareElements'];
+  await s.step('Every clinical category renders bounded protected logical source fields without physical paths', async () => {
+    const page = await s.context.newPage();
+    try {
+      for (const category of categories) {
+        const response = await page.goto(h.appUrl(s.config.baseUrl, '/demographic/cdsSourceFields?'
+          + new URLSearchParams({demographicNo:id,category})));
+        h.assert(response.status() === 200, `${category} source view was refused after completion`);
+        const root = page.locator('#cdsSourceFields'); await root.waitFor();
+        const count = await root.locator('.cds-source-field').count();
+        h.assert(count > 0 && count <= 50, `${category} source values are absent or unbounded`);
+        h.assert(!/(?:\/workspace\/|\/var\/lib\/carlos|protectedDetailLocation|reportLocation)/.test(await root.innerText()),
+          `${category} source view exposed a physical storage path`);
+        const download = root.locator('.cds-source-field a[href*="cdsSourceFieldContent"]').first();
+        const href = new URL(await download.getAttribute('href'), page.url());
+        h.assert(href.searchParams.get('demographicNo') === id && href.searchParams.get('category') === category
+          && href.searchParams.has('fieldId') && !href.searchParams.has('path'), 'Original download is not patient/category/opaque-field scoped');
+        if (category === 'Demographics') {
+          let noteField = root.locator('.cds-source-field').filter({has:page.locator('h2').filter({hasText:'/NoteAboutPatient[1]'})});
+          for (let pages = 0; await noteField.count() === 0 && pages < 10; pages++) {
+            const next = root.locator('a.btn-outline-primary[href*="after="]').first();
+            h.assert(await next.count() === 1, 'Patient note source value is missing from all bounded pages');
+            await page.goto(new URL(await next.getAttribute('href'),page.url()).href);
+            h.assert(await root.locator('.cds-source-field').count() <= 50, 'Source pagination exceeded50fields');
+            noteField = root.locator('.cds-source-field').filter({has:page.locator('h2').filter({hasText:'/NoteAboutPatient[1]'})});
+          }
+          h.assert(await noteField.count() === 1, 'Patient note source identity is not unique');
+          const download = page.waitForEvent('download'); await noteField.locator('a[href*="cdsSourceFieldContent"]').click();
+          const bytes = fs.readFileSync(await (await download).path());
+          const expected = Buffer.from('Complete source patient note including literal </unotes> and café 😀');
+          h.assert(createHash('sha256').update(bytes).digest('hex') === createHash('sha256').update(expected).digest('hex'),
+            'Original logical patient-note download changed bytes or truncated at a literal closing tag');
+        }
+
+      }
+    } finally { await page.close(); }
+  });
+  await s.step('Full corpus event/receipt reports reconcile all17 occurrence buckets and immutable manifest', async () => {
+    const event = await importApi(frame,'cdsImportReport',{runId:run.job.id,type:'event'});
+    // JSONL is intentionally not parsed as a single API object; use an authenticated download.
+    h.assert(event.status === 200, 'Corpus event report unavailable');
+    const download = admin.waitForEvent('download'); await frame.locator('#eventReport').click();
+    const contents = fs.readFileSync(await (await download).path(), 'utf8');
+    const rows = contents.trim().split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+    h.assert(rows.length === 1 && rows[0].patientId === sourceId && rows[0].inventoryComplete === true && rows[0].held === false,
+      'Corpus event receipt omits its patient/copy');
+    h.assert(Object.keys(rows[0].importedOccurrences).length === 17
+      && Object.values(rows[0].importedOccurrences).every(value => value > 0)
+      && Object.values(rows[0].notCommittedOccurrences).every(value => value === 0), 'Corpus occurrence accounting is incomplete');
+    const receipt = await importApi(frame,'cdsImportReport',{runId:run.job.id,type:'receipt'});
+    h.assert(receipt.body?.manifestDigest === run.job.manifestDigest && receipt.body?.cleanComplete === true,
+      'Corpus receipt hash/completeness proof differs from durable status');
+  });
+  // This complete synthetic chart and its immutable receipts are deliberately retained for native
+  // clinician-view/recovery inspection in the disposable reference DB; no clinic data is involved.
+}
+
+if (require.main === module) runWorkflow(process.env.CDS_BROWSER_CORPUS === 'true' ? 'demographic-cds-native-views' : 'demographic-cds-import',
+  process.env.CDS_BROWSER_CORPUS === 'true' ? nativeViewsWorkflow : workflow, {openPatient:false});
+module.exports = {workflow,nativeViewsWorkflow,buildCdsXml,fixtureValues,parseImportLogCounts,assertSchemaValid,
   openImportFrame,importApi,awaitRunReceipt,uploadAndAwaitRun,registerImportCleanup};

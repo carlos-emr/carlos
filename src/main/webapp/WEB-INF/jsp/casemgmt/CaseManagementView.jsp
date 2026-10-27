@@ -66,7 +66,8 @@
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/oscarClientManagement/profilePicture.js"></script>
 </head>
 <body>
-    <div>Clinical notes: <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="ClinicalNotes"/> — Additional clinical categories: <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="NewCategory"/></div>
+    <fmt:setBundle basename="cdsImportMessages" var="cdsSourceLabels"/>
+    <div><fmt:message key="sourceClinicalNotes" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="ClinicalNotes"/> — <fmt:message key="sourceAdditionalCategories" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="NewCategory"/></div>
     <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView" method="post">
         <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
         <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
