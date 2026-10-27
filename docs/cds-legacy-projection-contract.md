@@ -25,12 +25,15 @@ The finite core entry points covered are:
 | REST allergy and medication list consumers | 409 at the category authorization boundary |
 | SOAP allergy, prevention and care measurement reads/feeds | Explicit client fault, including empty native lists and unscoped feeds |
 | REST care measurements | 409 before native entity serialization |
+| Demographic REST `GET /demographics/{id}` optional allergies, measurements, medications and CPP notes | Existing patient/category authorization runs first; only requested imported categories are refused before their DAO reads/conversion |
 | FHIR patient/search and immunization list/single resource | Explicit unsupported FHIR response before resource construction |
 
 The existing authorized, category-local clinical source view remains available and applies its
 own chart, category, sensitive-laboratory, maintenance and hold checks. These boundaries do not
 implement a new exporter and do not turn a source-view privilege into disclosure authorization.
 They do not disable ordinary chart editing/viewing simply because source fields exist.
+
+The demographic optional-includes path applies the same category contract as the dedicated endpoints. CPP notes cover PersonalHistory, FamilyHistory, PastHealth, RiskFactors and AlertsAndSpecialNeeds; the pre-existing exclusion of ProblemList concerns and non-CPP ClinicalNotes remains intact. Unrequested categories, contacts and basic demographics keep their existing behavior. This closes the alternate native-only measurement/Date projection without introducing a new DTO or disclosure role.
 
 Installed portals, additional SOAP/third-party integrations, arbitrary custom reports, direct SQL, bulk
 extracts, alternate PDF renderers, and cached/indexed copies need runtime catalogue verification.

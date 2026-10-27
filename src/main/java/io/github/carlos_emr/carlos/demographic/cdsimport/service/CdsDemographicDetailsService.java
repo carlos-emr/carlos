@@ -271,6 +271,8 @@ public class CdsDemographicDetailsService {
         temporal =
                 io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal.shift(
                         temporal, command.timeshiftDays(), field);
+        try { temporal.dateStorageAnchor(); }
+        catch (CdsClinicalException invalid) { throw new CdsClinicalException(invalid.code(), field); }
         return LocalDate.parse(date(temporal, field));
     }
 

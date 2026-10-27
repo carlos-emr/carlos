@@ -127,9 +127,17 @@ public class CdsImportNativeService {
         CdsImportLedgerService.requireNoTransaction();
         fields.verifyRecord(record);
         switch (record.section()) {
-            case "MedicationsAndTreatments" -> normalization.medication(record, command);
-            case "AllergiesAndAdverseReactions" -> normalization.allergy(record, command);
-            case "Immunizations" -> normalization.immunization(record, command);
+            case "MedicationsAndTreatments" -> {
+                var value = normalization.medication(record, command);
+                validateNativeDate(value.written(), "PrescriptionWrittenDate");
+                validateNativeDate(value.start(), "StartDate");
+            }
+            case "AllergiesAndAdverseReactions" -> {
+                var value = normalization.allergy(record, command);
+                validateNativeDate(value.start(), "StartDate");
+                validateNativeDate(value.recorded(), "RecordedDate");
+            }
+            case "Immunizations" -> immunizations.validate(normalization.immunization(record, command));
             case "Demographics" -> demographics.validate(record, command);
             case "Appointments" -> appointments.validate(record, command);
             case "CareElements", "NewCategory" -> {
@@ -390,6 +398,20 @@ public class CdsImportNativeService {
             notice(run, epoch, unit, "WARNING", "CDS_PARTIAL_DATE_RETAINED", path);
         } else if (date.precision() == CdsTemporalDto.Precision.UNKNOWN) {
             notice(run, epoch, unit, "INFO", "CDS_DATE_NOT_SUPPLIED", path);
+        }
+        if ("Immunizations".equals(unit.category())) {
+            if (date.calendarAnchorAdjusted(java.time.ZoneId.systemDefault()))
+                notice(run, epoch, unit, "WARNING", "CDS_CALENDAR_STORAGE_ANCHOR_NORMALIZED", path);
+            if (date.offsetDateTime() != null && date.offsetDateTime().getNano() != 0
+                    || date.localDateTime() != null && date.localDateTime().getNano() != 0)
+                notice(run, epoch, unit, "WARNING", "CDS_IMMUNIZATION_SUBSECOND_PRECISION_RETAINED_IN_SOURCE", path);
+        }
+    }
+
+    private static void validateNativeDate(CdsTemporalDto value, String field) {
+        try { value.dateStorageAnchor(); }
+        catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException invalid) {
+            throw new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException(invalid.code(), field);
         }
     }
 

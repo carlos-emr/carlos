@@ -26,6 +26,9 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalExce
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.TimeZone;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -33,6 +36,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.*;
 
 @Tag("unit")
+@Isolated("Temporal storage tests temporarily select the actual legacy reader timezone")
 class CdsTemporalUnitTest {
     @Test
     void shouldPreserveLeapMonthInterval_whenMonthPrecisionIsSupplied() {
@@ -72,7 +76,7 @@ class CdsTemporalUnitTest {
     void shouldRefuseDstAmbiguity_whenLocalTimeHasNoOffset() {
         var value = CdsTemporal.parse(null, null, null, "2020-11-01T01:30:00", "Date");
         assertThatThrownBy(() -> value.timestampStorageAnchor(ZoneId.of("America/Toronto")))
-                .hasMessage("CDS_LOCAL_TIME_REQUIRES_REVIEW");
+                .isInstanceOf(CdsClinicalException.class).hasMessageContaining("CDS_LOCAL_TIME_REQUIRES_REVIEW");
     }
 
     @Test
@@ -99,5 +103,93 @@ class CdsTemporalUnitTest {
         assertThat(value.original()).isEqualTo("2020-12-31T24:00:00Z");
         assertThat(value.earliest()).isEqualTo(LocalDate.of(2021, 1, 1));
         assertThat(value.offsetDateTime().toInstant()).isEqualTo(java.time.Instant.parse("2021-01-01T00:00:00Z"));
+    }
+    @ParameterizedTest
+    @ValueSource(strings = {"0001-01-01", "0999-12-31", "1000-01-01", "1500-01-01", "1582-10-15", "1800-01-01", "2020-02-29", "9999-12-31"})
+    void calendarOnlyAnchorsKeepTheActualLegacyReaderDay_withoutInventingAnInstant(String source) {
+        inZone("America/Toronto", () -> {
+            var value = CdsTemporal.parse(null, null, source, null, "Date");
+            var anchor = value.timestampStorageAnchor(ZoneId.systemDefault());
+            assertThat(PreventionDateDTO.from(anchor, null).getOriginalValue()).isEqualTo(source);
+            assertThat(value.dateStorageAnchor()).isInstanceOf(java.sql.Date.class);
+            assertThat(((java.sql.Date) value.dateStorageAnchor()).toLocalDate()).isEqualTo(LocalDate.parse(source));
+            assertThat(value.original()).isEqualTo(source);
+            assertThat(value.precision()).isEqualTo(Precision.FULL_DATE);
+        });
+    }
+
+    @Test void earlyPartialDateAnchorsRetainIntervalsAndSourcePrecision() {
+        inZone("America/Toronto", () -> {
+            var year = CdsTemporal.parse("1500", null, null, null, "Date");
+            var month = CdsTemporal.parse(null, "1500-02", null, null, "Date");
+            var yearInfo = PreventionDateDTO.from(year.timestampStorageAnchor(ZoneId.systemDefault()), year.legacyPartialFormat());
+            var monthInfo = PreventionDateDTO.from(month.timestampStorageAnchor(ZoneId.systemDefault()), month.legacyPartialFormat());
+            assertThat(yearInfo.getOriginalValue()).isEqualTo("1500");
+            assertThat(yearInfo.getIntervalEnd()).isEqualTo("1500-12-31");
+            assertThat(monthInfo.getOriginalValue()).isEqualTo("1500-02");
+            assertThat(monthInfo.getIntervalEnd()).isEqualTo("1500-02-28");
+            assertThat(year.calendarAnchorAdjusted(ZoneId.systemDefault())).isTrue();
+            assertThat(month.calendarAnchorAdjusted(ZoneId.systemDefault())).isTrue();
+        });
+    }
+
+    @Test void anUnrepresentableCutoverDayRequiresReview_forBothDateAndTimestampStorage() {
+        inZone("America/Toronto", () -> {
+            var value = CdsTemporal.parse(null, null, "1582-10-10", null, "Date");
+            assertThat(catchThrowableOfType(value::dateStorageAnchor, CdsClinicalException.class).code())
+                    .isEqualTo("CDS_NATIVE_DATE_REQUIRES_REVIEW");
+            assertThat(catchThrowableOfType(() -> value.timestampStorageAnchor(ZoneId.systemDefault()), CdsClinicalException.class).code())
+                    .isEqualTo("CDS_NATIVE_DATE_REQUIRES_REVIEW");
+            assertThat(value.original()).isEqualTo("1582-10-10");
+        });
+    }
+
+    @Test void aCalendarDayWithAMidnightGapUsesItsFirstValidSameDayClock() {
+        inZone("America/Sao_Paulo", () -> {
+            var value = CdsTemporal.parse(null, null, "2018-11-04", null, "Date");
+            var anchor = value.timestampStorageAnchor(ZoneId.systemDefault());
+            assertThat(PreventionDateDTO.from(anchor, null).getOriginalValue()).isEqualTo("2018-11-04");
+            assertThat(value.calendarAnchorAdjusted(ZoneId.systemDefault())).isTrue();
+            var explicitClock = CdsTemporal.parse(null, null, null, "2018-11-04T00:00:00", "Date");
+            assertThat(catchThrowableOfType(() -> explicitClock.timestampStorageAnchor(ZoneId.systemDefault()), CdsClinicalException.class).code())
+                    .isEqualTo("CDS_LOCAL_TIME_REQUIRES_REVIEW");
+        });
+    }
+
+    @Test void aWhollySkippedCivilDayCannotBeNormalizedIntoTheFollowingDay() {
+        inZone("Pacific/Apia", () -> {
+            var value = CdsTemporal.parse(null, null, "2011-12-30", null, "Date");
+            assertThat(catchThrowableOfType(() -> value.timestampStorageAnchor(ZoneId.systemDefault()), CdsClinicalException.class).code())
+                    .isEqualTo("CDS_NATIVE_DATE_REQUIRES_REVIEW");
+            assertThat(value.original()).isEqualTo("2011-12-30");
+        });
+    }
+
+    @Test void anExplicitOffsetMustSurviveTheReverseLegacyDatetimeFold() {
+        inZone("America/Toronto", () -> {
+            var early = CdsTemporal.parse(null, null, null, "2020-11-01T01:30:00-04:00", "Date");
+            var late = CdsTemporal.parse(null, null, null, "2020-11-01T01:30:00-05:00", "Date");
+            assertThat(catchThrowableOfType(() -> early.timestampStorageAnchor(ZoneId.systemDefault()), CdsClinicalException.class).code())
+                    .isEqualTo("CDS_NATIVE_TIMESTAMP_REQUIRES_REVIEW");
+            assertThat(late.timestampStorageAnchor(ZoneId.systemDefault()).toInstant())
+                    .isEqualTo(java.time.Instant.parse("2020-11-01T06:30:00Z"));
+            assertThat(early.original()).isEqualTo("2020-11-01T01:30:00-04:00");
+            assertThat(early.offsetDateTime().toInstant()).isEqualTo(java.time.Instant.parse("2020-11-01T05:30:00Z"));
+        });
+    }
+
+    @Test void exactHistoricalTimestampsCannotBeRewrittenAsSyntheticCivilAnchors() {
+        inZone("America/Toronto", () -> {
+            var value = CdsTemporal.parse(null, null, null, "1500-01-01T00:00:00Z", "Date");
+            assertThat(catchThrowableOfType(() -> value.timestampStorageAnchor(ZoneId.systemDefault()), CdsClinicalException.class).code())
+                    .isEqualTo("CDS_NATIVE_TIMESTAMP_REQUIRES_REVIEW");
+            assertThat(value.offsetDateTime().toInstant()).isEqualTo(java.time.Instant.parse("1500-01-01T00:00:00Z"));
+        });
+    }
+
+    private static void inZone(String zone, Runnable work) {
+        TimeZone previous = TimeZone.getDefault();
+        try { TimeZone.setDefault(TimeZone.getTimeZone(zone)); work.run(); }
+        finally { TimeZone.setDefault(previous); }
     }
 }

@@ -215,6 +215,13 @@ public class CdsAppointmentPersister {
                     new CdsClinicalDiagnosticDto(
                             "CDS_APPOINTMENT_PURPOSE_SOURCE_VIEW", "AppointmentPurpose"));
         }
+        if (representable) {
+            try { io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.dateStorageAnchor(date); }
+            catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException unavailable) {
+                representable = false;
+                notice.accept(new CdsClinicalDiagnosticDto("CDS_APPOINTMENT_NATIVE_CALENDAR_SOURCE_ONLY", "AppointmentDate"));
+            }
+        }
         preparation.store(
                 run,
                 epoch,
@@ -255,7 +262,7 @@ public class CdsAppointmentPersister {
         if (!dto.representable()) return Map.of("demographic", Integer.toString(patient));
         Appointment appointment = new Appointment();
         appointment.setDemographicNo(patient);
-        appointment.setAppointmentDate(java.sql.Date.valueOf(dto.date()));
+        appointment.setAppointmentDate(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.dateStorageAnchor(LocalDate.parse(dto.date())));
         appointment.setStartTime(Time.valueOf(LocalTime.parse(dto.start())));
         appointment.setEndTime(Time.valueOf(LocalTime.parse(dto.end())));
         appointment.setProviderNo(dto.providerNo() == null ? "" : dto.providerNo());

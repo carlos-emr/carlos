@@ -118,6 +118,22 @@ class CdsCareContactUnitTest {
         assertTrue(result.sourceValueDigest().matches("[0-9a-f]{64}"));
         assertEquals("CDS_CARE_COMPLETE_VALUE_IN_SOURCE", result.diagnostics().getFirst().code());
     }
+    @Test void anUnrepresentableNativeCareDateIsRefusedDuringPreflight_withoutAnyDaoWork() throws Exception {
+        var record = CdsClinicalFixture.record(directory, "Weight", Map.of(
+                "Weight", "75", "WeightUnit", "kg", "Date", "1582-10-10"));
+        var value = care.normalize(record, command(0));
+        var measurements = mock(MeasurementDao.class);
+        var extensions = mock(MeasurementsExtDao.class);
+        var types = mock(MeasurementTypeDao.class);
+        var ledger = mock(CdsImportLedgerService.class);
+        var persister = new CdsCarePersister(measurements, extensions, types, ledger);
+        ReflectionTestUtils.setField(persister, "clinicalZone", "America/Toronto");
+        var error = assertThrows(CdsClinicalException.class, () -> persister.validate(value));
+        assertEquals("CDS_NATIVE_DATE_REQUIRES_REVIEW", error.code());
+        assertEquals("1582-10-10", value.date().original());
+        verifyNoInteractions(measurements, extensions, types, ledger);
+    }
+
     @Test void requiredDateAndCoreUnitsNeverDefaultOrGuess() throws Exception {
         var missing = CdsClinicalFixture.record(directory, "Weight", Map.of("Weight", "75", "WeightUnit", "kg"));
         assertThrows(CdsClinicalException.class, () -> care.normalize(missing, command(0)));

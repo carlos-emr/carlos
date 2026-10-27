@@ -340,7 +340,8 @@ public class CdsHistoryPersister {
         }
         try {
             java.time.Instant instant;
-            if (value.offsetDateTime() != null) instant = value.offsetDateTime().toInstant();
+            if (value.offsetDateTime() != null)
+                instant = CdsTemporalDto.timestampStorageInstant(value.offsetDateTime().toInstant(), ZoneId.systemDefault()).toInstant();
             else {
                 String zone = configuration.value("cds.import.clinicalZone", "");
                 if (zone.isEmpty()) {
@@ -364,8 +365,11 @@ public class CdsHistoryPersister {
             }
             return instant.toEpochMilli();
         } catch (IllegalArgumentException ambiguous) {
+            String code = ambiguous instanceof io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException clinical
+                    && clinical.code().startsWith("CDS_NATIVE_")
+                    ? "CDS_NOTE_NATIVE_TIMESTAMP_SOURCE_ONLY" : "CDS_NOTE_LOCAL_TIMESTAMP_SOURCE_ONLY";
             notice.accept(
-                    new CdsClinicalDiagnosticDto("CDS_NOTE_LOCAL_TIMESTAMP_SOURCE_ONLY", path));
+                    new CdsClinicalDiagnosticDto(code, path));
             return null;
         }
     }

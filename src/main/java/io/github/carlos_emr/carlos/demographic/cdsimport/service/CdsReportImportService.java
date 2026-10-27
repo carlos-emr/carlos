@@ -110,9 +110,11 @@ public class CdsReportImportService implements CdsCategoryImportService {
             String xmlRelative)
             throws IOException {
         representations(record, snapshot, xmlRelative);
-        timestamp(normalization.date(record, "EventDateTime", command));
-        timestamp(normalization.date(record, "ReceivedDateTime", command));
-        timestamp(normalization.date(record, "SentDateTime", command));
+        // Valid source timing remains authoritative even when an optional native clock
+        // cannot represent it. The writer records that source-only disposition visibly.
+        normalization.date(record, "EventDateTime", command);
+        normalization.date(record, "ReceivedDateTime", command);
+        normalization.date(record, "SentDateTime", command);
     }
 
     @Override
@@ -234,6 +236,10 @@ public class CdsReportImportService implements CdsCategoryImportService {
                     unit,
                     "CDS_REPORT_SOURCE_AUTHOR_NAME_FORMATTED",
                     "SourceAuthorPhysician/AuthorName");
+        Date contentTime = timestamp(prepared.event(), run, epoch, unit, "EventDateTime");
+        Date observationDay = calendarDate(prepared.event(), run, epoch, unit, "EventDateTime");
+        Date receivedDay = calendarDate(prepared.received(), run, epoch, unit, "ReceivedDateTime");
+        Date sentTime = timestamp(prepared.sent(), run, epoch, unit, "SentDateTime");
         Map<String, String> targets = new LinkedHashMap<>();
         int index = 0;
         for (CdsReportNativeDto.Variant variant : variants) {
@@ -284,16 +290,13 @@ public class CdsReportImportService implements CdsCategoryImportService {
                         "CDS_REPORT_AUTHOR_CATEGORY_RETAINED",
                         "SourceAuthorPhysician");
             CdsTemporalDto event = prepared.event();
-            CdsTemporalDto received = prepared.received();
             // Partial dates remain labelled logical values in the report module, without false
             // native days.
-            document.setContentdatetime(timestamp(event));
+            document.setContentdatetime(contentTime);
             document.setCdsContentPrecision(event.precision().name());
-            document.setObservationdate(
-                    event.exactCalendarDate() ? event.dateStorageAnchor() : null);
-            document.setReceivedDate(
-                    received.exactCalendarDate() ? received.dateStorageAnchor() : null);
-            document.setSentDateTime(timestamp(prepared.sent()));
+            document.setObservationdate(observationDay);
+            document.setReceivedDate(receivedDay);
+            document.setSentDateTime(sentTime);
             entityManager.persist(document);
             entityManager.flush();
             CtlDocument link = new CtlDocument();
@@ -435,20 +438,35 @@ public class CdsReportImportService implements CdsCategoryImportService {
         };
     }
 
-    private Date timestamp(CdsTemporalDto temporal) {
+    private Date timestamp(CdsTemporalDto temporal, String run, long epoch, String unit, String path) {
         if (!temporal.exactCalendarDate()
                 || temporal.precision() == CdsTemporalDto.Precision.FULL_DATE) return null;
+        try {
         if (temporal.offsetDateTime() != null)
-            return Date.from(
-                    temporal.offsetDateTime()
-                            .toInstant()
-                            .truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
+            return CdsTemporalDto.timestampStorageInstant(temporal.offsetDateTime().toInstant()
+                    .truncatedTo(java.time.temporal.ChronoUnit.SECONDS), ZoneId.systemDefault());
         String zone = configuration.value("cds.import.clinicalZone", "");
-        if (zone.isEmpty()) throw new CdsImportException("CLINICAL_TIME_ZONE_REQUIRED");
+        if (zone.isEmpty()) {
+            notice(run, epoch, unit, "CDS_REPORT_TIME_ZONE_SOURCE_ONLY", path);
+            return null;
+        }
         return Date.from(
                 temporal.timestampStorageAnchor(ZoneId.of(zone))
                         .toInstant()
                         .truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
+        } catch (IllegalArgumentException unavailable) {
+            notice(run, epoch, unit, "CDS_REPORT_NATIVE_TIMESTAMP_SOURCE_ONLY", path);
+            return null;
+        }
+    }
+
+    private Date calendarDate(CdsTemporalDto temporal, String run, long epoch, String unit, String path) {
+        if (!temporal.exactCalendarDate()) return null;
+        try { return temporal.dateStorageAnchor(); }
+        catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException unavailable) {
+            notice(run, epoch, unit, "CDS_REPORT_NATIVE_DATE_SOURCE_ONLY", path);
+            return null;
+        }
     }
 
     private void dateNotice(String run, long epoch, String unit, String path, CdsTemporalDto date) {

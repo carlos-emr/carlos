@@ -37,6 +37,7 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -51,6 +52,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Tag("unit")
+@Isolated("Report date projections exercise the actual default clinical timezone")
 class CdsReportMediaUnitTest {
     @TempDir Path temp;
     private final CdsReportMediaService media = new CdsReportMediaService();
@@ -429,6 +431,52 @@ class CdsReportMediaUnitTest {
                         anyString(),
                         isNull(),
                         eq(false));
+    }
+
+    @Test void unsupportedNativeReportTimingRetainsTheFullSource_andReportsItsDisposition() throws Exception {
+        TimeZone previous = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("America/Toronto"));
+            for (String[] choice : List.of(
+                    new String[] {"FullDateTime", "1500-01-01T00:00:00Z", "CDS_REPORT_NATIVE_TIMESTAMP_SOURCE_ONLY"},
+                    new String[] {"FullDateTime", "2020-11-01T01:30:00-04:00", "CDS_REPORT_NATIVE_TIMESTAMP_SOURCE_ONLY"},
+                    new String[] {"FullDate", "1582-10-10", "CDS_REPORT_NATIVE_DATE_SOURCE_ONLY"})) {
+                var fields = new CdsFieldParser();
+                var publication = mock(CdsDocumentPublicationService.class);
+                var configuration = new CdsImportConfigurationService(new Properties());
+                var preparation = mock(CdsNativePreparationService.class);
+                var ledger = mock(CdsImportLedgerService.class);
+                var service = new CdsReportImportService(fields, mock(CdsSnapshotService.class), publication,
+                        new CdsClinicalNormalizationService(fields), configuration, preparation, ledger, media);
+                var record = CdsClinicalFixture.record(temp, "Reports", Map.of("Format", "Text",
+                        "Content/TextContent", "Complete source report", "EventDateTime/" + choice[0], choice[1]));
+                var command = new CdsImportCommand(temp, "calendar-report", "999998", null, null,
+                        "test", "pcon-2024-02", false, false, false, 0, null, false);
+                service.validate(record, command, null, "source.xml");
+                service.prepare("run", 1, "unit", record, command, null, "source.xml");
+                var captured = ArgumentCaptor.forClass(CdsReportNativeDto.class);
+                verify(preparation).store(eq("run"), eq(1L), eq("unit"), eq(record.effectiveSha256()), eq(command), captured.capture());
+                var dto = captured.getValue();
+                when(preparation.load("run", 1, "unit", record.effectiveSha256(), command, CdsReportNativeDto.class)).thenReturn(dto);
+                when(publication.reference(anyString(), anyLong(), anyString(), anyString(), anyString(), anyString())).thenReturn("owned.txt");
+                CdsImportUnit unit = new CdsImportUnit();unit.setPatientKey("patient");when(ledger.unit("run", "unit")).thenReturn(unit);
+                EntityManager entity = mock(EntityManager.class);ReflectionTestUtils.setField(service, "entityManager", entity);
+                List<Document> documents = new ArrayList<>();
+                doAnswer(call -> { if (call.getArgument(0) instanceof Document document) { document.setDocumentNo(9);documents.add(document); } return null; }).when(entity).persist(any());
+                try (var fence = mockStatic(CdsImportUnitService.class)) {
+                    assertThat(service.write("run", 1, "unit", 42, record, command)).containsEntry("document#0", "9");
+                }
+                assertThat(documents).singleElement().satisfies(document -> {
+                    assertThat(document.getContentdatetime()).isNull();
+                    assertThat(document.getCdsContentPrecision()).isEqualTo(dto.event().precision().name());
+                    if (choice[0].equals("FullDate")) assertThat(document.getObservationdate()).isNull();
+                });
+                assertThat(dto.event().original()).isEqualTo(choice[1]);
+                assertThat(fields.firstToken(record, "EventDateTime/" + choice[0], 128)).isEqualTo(choice[1]);
+                verify(ledger, times(1)).diagnostic(eq("run"), eq(1L), eq("patient"), eq("unit"), eq("WARNING"),
+                        eq(choice[2]), eq("NORMALIZATION"), eq("EventDateTime"), anyString(), isNull(), eq(false));
+            }
+        } finally { TimeZone.setDefault(previous); }
     }
 
     @Test

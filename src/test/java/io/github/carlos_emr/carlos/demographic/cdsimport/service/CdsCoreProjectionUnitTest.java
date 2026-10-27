@@ -38,6 +38,7 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -50,6 +51,7 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Real pinned-schema/parser values prove bounded native projection decisions independently of synthetic mock descriptors. */
+@Isolated("Temporal projection cases exercise the actual default clinical timezone")
 class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     @TempDir Path temporary;
     private final AtomicInteger sequence = new AtomicInteger();
@@ -1082,6 +1084,45 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                                 java.security.MessageDigest.getInstance("SHA-256")
                                         .digest(document)),
                         "d".repeat(64)));
+    }
+
+    @Test void unrepresentableExactNoteTimingRemainsInItsSourceCategory_withoutAnInventedInstant() throws Exception {
+        java.util.TimeZone previous = java.util.TimeZone.getDefault();
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
+            String lexical = "1500-01-01T00:00:00Z";
+            var record = section("ClinicalNotes", "<MyClinicalNotesContent>Complete source note</MyClinicalNotesContent>"
+                    + "<EventDateTime><cdsd:FullDateTime>" + lexical + "</cdsd:FullDateTime></EventDateTime>");
+            histories.prepare("run", 1, "unit", record, command);
+            var dto = captured(CdsHistoryNativeDto.class);
+            assertThat(dto.observationMillis()).isNull();
+            assertThat(dto.content()).isEqualTo("Complete source note");
+            assertThat(dto.diagnostics()).extracting(CdsClinicalDiagnosticDto::code).contains("CDS_NOTE_NATIVE_TIMESTAMP_SOURCE_ONLY");
+            assertThat(fields.firstToken(record, "EventDateTime/FullDateTime", 128)).isEqualTo(lexical);
+        } finally { java.util.TimeZone.setDefault(previous); }
+    }
+
+    @Test void aCutoverGapAppointmentRetainsItsTypedSource_withoutAWrongNativeCalendarDay() throws Exception {
+        java.util.TimeZone previous = java.util.TimeZone.getDefault();
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
+            var record = appointment("10:00:00", "30", "<cdsd:FullDate>1582-10-10</cdsd:FullDate>", "<AppointmentNotes>Complete notes</AppointmentNotes>");
+            appointments.prepare("run", 1, "unit", record, command);
+            var dto = captured(CdsAppointmentNativeDto.class);
+            assertThat(dto.representable()).isFalse();
+            assertThat(dto.diagnostics()).extracting(CdsClinicalDiagnosticDto::code).contains("CDS_APPOINTMENT_NATIVE_CALENDAR_SOURCE_ONLY");
+            assertThat(fields.firstToken(record, "AppointmentDate/FullDate", 64)).isEqualTo("1582-10-10");
+        } finally { java.util.TimeZone.setDefault(previous); }
+    }
+
+    @Test void unrepresentableDemographicNativeDatesRequirePreflightReview_beforePreparingAnyWrite() throws Exception {
+        var record = parse("", "", "", "<PersonStatusDate>1582-10-10</PersonStatusDate>");
+        var error = catchThrowableOfType(() -> demographics.validate(record, command),
+                io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException.class);
+        assertThat(error.code()).isEqualTo("CDS_NATIVE_DATE_REQUIRES_REVIEW");
+        assertThat(error.field()).isEqualTo("PersonStatusDate");
+        verifyNoInteractions(preparation);
+        assertThat(fields.firstToken(record, "PersonStatusDate", 64)).isEqualTo("1582-10-10");
     }
 
     private <T> T captured(Class<T> type) throws Exception {

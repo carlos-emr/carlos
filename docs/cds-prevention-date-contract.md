@@ -6,6 +6,8 @@ existing clinical records as well as imported records. Neither January 1 nor the
 of a month establishes partial precision without metadata. A null native date means
 unknown timing; no `UNKNOWN` tag is written into the shared partial-date table.
 
+A CDS calendar-only full date also supplies no source clock: its native timestamp is a civil-day storage representation. Strict civil anchoring preserves dates before the legacy calendar cutover without inventing a proleptic instant. A midnight gap may use the first valid clock on that same day; an unrepresentable day requires visible preflight review, retaining the original. Exact local/offset timestamps must separately survive the reverse native Calendar/DATETIME round trip. They are never rewritten into synthetic civil anchors. Fractional immunization timestamps are explicitly floored to the native whole-second quantum with the original fraction retained and reported.
+
 `PreventionDateService` reads this metadata and returns `PreventionDateDTO`:
 
 | Precision | `originalValue` | Inclusive interval |

@@ -359,7 +359,7 @@ public class CdsDemographicPersister {
     }
 
     private static java.sql.Date nativeDate(String value) {
-        return value == null ? null : java.sql.Date.valueOf(LocalDate.parse(value));
+        return value == null ? null : io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.dateStorageAnchor(LocalDate.parse(value));
     }
 
     private void extension(

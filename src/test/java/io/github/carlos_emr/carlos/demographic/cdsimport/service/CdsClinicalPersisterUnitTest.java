@@ -33,6 +33,8 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.TimeZone;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -44,6 +46,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @Tag("unit")
+@Isolated("Clinical temporal projections use the actual default reader timezone")
 class CdsClinicalPersisterUnitTest {
     @TempDir Path directory;
     private final CdsClinicalNormalizationService normalization = new CdsClinicalNormalizationService(new CdsFieldParser());
@@ -274,6 +277,132 @@ class CdsClinicalPersisterUnitTest {
             assertThat(ext.getkeyval()).isEqualTo("manufacture");
             assertThat(ext.getVal()).isEqualTo("Synthetic manufacturer");
         });
+    }
+
+    @Test void completePreflightRefusesUnrepresentableNativeDates_beforeAnyClinicalDaoWrite() throws Exception {
+        withTemporalZone(() -> {
+            var parser = new CdsFieldParser();
+            var preventions = mock(PreventionDao.class);
+            var extensions = mock(PreventionExtDao.class);
+            var writer = new CdsImmunizationPersister(preventions, extensions, dates, normalization, "America/Toronto");
+            var service = new CdsImportNativeService(parser, normalization, medications,
+                    new CdsAllergyPersister(mock(AllergyDao.class), dates, normalization), writer,
+                    mock(CdsDemographicPersister.class), mock(CdsHistoryPersister.class),
+                    mock(CdsAppointmentPersister.class), mock(CdsNativePreparationService.class),
+                    mock(CdsProviderResolver.class), mock(CdsSourceFieldService.class),
+                    mock(CdsImportAccessService.class), mock(CdsImportLedgerService.class),
+                    mock(CdsTargetReceiptService.class), java.util.List.of());
+            for (String[] source : java.util.List.of(
+                    new String[] {"FullDate", "1582-10-10", "CDS_NATIVE_DATE_REQUIRES_REVIEW"},
+                    new String[] {"FullDateTime", "2020-11-01T01:30:00", "CDS_LOCAL_TIME_REQUIRES_REVIEW"},
+                    new String[] {"FullDateTime", "2020-11-01T01:30:00-04:00", "CDS_NATIVE_TIMESTAMP_REQUIRES_REVIEW"})) {
+                var record = CdsClinicalFixture.record(directory, "Immunizations", Map.of(
+                        "ImmunizationName", "Synthetic vaccine", "RefusedFlag/ynIndicatorsimple", "N",
+                        "Date/" + source[0], source[1]));
+                var error = catchThrowableOfType(() -> service.validate(record, null),
+                        io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException.class);
+                assertThat(error.code()).isEqualTo(source[2]);
+                assertThat(error.field()).isEqualTo("Date");
+                assertThat(normalization.immunization(record).date().original()).isEqualTo(source[1]);
+            }
+            var medication = medication(Map.of("PrescriptionWrittenDate/FullDate", "1582-10-10"));
+            var error = catchThrowableOfType(() -> service.validate(medication, null),
+                    io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException.class);
+            assertThat(error.code()).isEqualTo("CDS_NATIVE_DATE_REQUIRES_REVIEW");
+            assertThat(error.field()).isEqualTo("PrescriptionWrittenDate");
+            verifyNoInteractions(drugs, dates, preventions, extensions);
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+        });
+    }
+
+    @Test void calendarOnlyHistoricalImmunizationRemainsADateWithTheCompleteOriginal() throws Exception {
+        withTemporalZone(() -> {
+            var preventions = mock(PreventionDao.class);
+            var extensions = mock(PreventionExtDao.class);
+            var writer = new CdsImmunizationPersister(preventions, extensions, dates, normalization, "America/Toronto");
+            var source = normalization.immunization(CdsClinicalFixture.record(directory, "Immunizations",
+                    Map.of("ImmunizationName", "Synthetic vaccine", "RefusedFlag/ynIndicatorsimple", "N",
+                            "Date/FullDate", "1500-01-01")));
+            writer.validate(source);
+            var candidate = writer.candidate(42, "999998", source);
+            assertThat(io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                    .from(candidate.getPreventionDate(), null).getOriginalValue()).isEqualTo("1500-01-01");
+            assertThat(source.date().original()).isEqualTo("1500-01-01");
+            assertThat(source.date().precision()).isEqualTo(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.Precision.FULL_DATE);
+            verifyNoInteractions(drugs, dates, preventions, extensions);
+        });
+    }
+
+    @Test void immunizationDatetimeZeroProjectionFloorsFractions_withoutMovingTheClinicalDay() throws Exception {
+        withTemporalZone(() -> {
+            var preventions = mock(PreventionDao.class);
+            var extensions = mock(PreventionExtDao.class);
+            var writer = new CdsImmunizationPersister(preventions, extensions, dates, normalization, "America/Toronto");
+            String lexical = "2020-12-31T23:59:59.999999-05:00";
+            var source = normalization.immunization(CdsClinicalFixture.record(directory, "Immunizations",
+                    Map.of("ImmunizationName", "Synthetic vaccine", "RefusedFlag/ynIndicatorsimple", "N",
+                            "Date/FullDateTime", lexical)));
+            writer.validate(source);
+            var candidate = writer.candidate(42, "999998", source);
+            assertThat(candidate.getPreventionDate().toInstant()).isEqualTo(java.time.Instant.parse("2021-01-01T04:59:59Z"));
+            assertThat(io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                    .from(candidate.getPreventionDate(), null).getOriginalValue()).isEqualTo("2020-12-31");
+            assertThat(source.date().original()).isEqualTo(lexical);
+            assertThat(source.date().offsetDateTime().getNano()).isEqualTo(999999000);
+            verifyNoInteractions(drugs, dates, preventions, extensions);
+        });
+    }
+
+    @Test void theOwningUnitReportsAdjustedCalendarAnchorsAndProjectedSubseconds() throws Exception {
+        withTemporalZone(() -> {
+            for (String[] choice : java.util.List.of(
+                    new String[] {"FullDate", "1500-01-01", "CDS_CALENDAR_STORAGE_ANCHOR_NORMALIZED"},
+                    new String[] {"FullDateTime", "2020-12-31T23:59:59.999999-05:00", "CDS_IMMUNIZATION_SUBSECOND_PRECISION_RETAINED_IN_SOURCE"})) {
+                var parser = new CdsFieldParser();
+                var record = CdsClinicalFixture.record(directory, "Immunizations", Map.of(
+                        "ImmunizationName", "Synthetic vaccine", "RefusedFlag/ynIndicatorsimple", "N", "Date/" + choice[0], choice[1]));
+                var source = normalization.immunization(record);
+                var preventions = mock(PreventionDao.class);var extensions = mock(PreventionExtDao.class);
+                doAnswer(call -> { Prevention written = call.getArgument(0); ReflectionTestUtils.setField(written, "id", 73); return null; }).when(preventions).persist(any());
+                var writer = new CdsImmunizationPersister(preventions, extensions, dates, normalization, "America/Toronto");
+                var preparation = mock(CdsNativePreparationService.class);var ledger = mock(CdsImportLedgerService.class);
+                var receipts = mock(CdsTargetReceiptService.class);
+                var service = new CdsImportNativeService(parser, normalization, medications,
+                        new CdsAllergyPersister(mock(AllergyDao.class), dates, normalization), writer,
+                        mock(CdsDemographicPersister.class), mock(CdsHistoryPersister.class), mock(CdsAppointmentPersister.class),
+                        preparation, mock(CdsProviderResolver.class), mock(CdsSourceFieldService.class),
+                        mock(CdsImportAccessService.class), ledger, receipts, java.util.List.of());
+                var command = mock(io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand.class);
+                when(command.providerNo()).thenReturn("999998");
+                var unit = new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto(
+                        "patient", "unit", "Immunizations", 1, record.sha256(), "protected-spool", "EXPECTED", null, null);
+                when(preparation.load("run", 1, "unit", record.effectiveSha256(), command,
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImmunizationDto.class)).thenReturn(source);
+                var entity = mock(jakarta.persistence.EntityManager.class);
+                @SuppressWarnings("unchecked") jakarta.persistence.TypedQuery<Integer> query = mock(jakarta.persistence.TypedQuery.class, RETURNS_SELF);
+                when(entity.createQuery(anyString(), eq(Integer.class))).thenReturn(query);when(query.getSingleResult()).thenReturn(42);
+                ReflectionTestUtils.setField(service, "entityManager", entity);
+                var receipt = new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto("{\"preventions\":\"73\"}", "a".repeat(64), false);
+                when(receipts.capture(anyMap(), eq("run"), eq("unit"))).thenReturn(receipt);
+                TransactionSynchronizationManager.setActualTransactionActive(true);
+                try (var unitBoundary = mockStatic(CdsImportUnitService.class)) {
+                    assertThat(service.write("run", 1, unit, record, command, null, null, "source.xml")).isSameAs(receipt);
+                } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+                verify(ledger).diagnostic(eq("run"), eq(1L), eq("patient"), eq("unit"), eq("WARNING"),
+                        eq(choice[2]), eq("NORMALIZATION"), eq("Date"), anyString(), isNull(), eq(false));
+                var extra = ArgumentCaptor.forClass(PreventionExt.class);verify(extensions, atLeastOnce()).persist(extra.capture());
+                assertThat(extra.getAllValues()).anySatisfy(value -> {
+                    assertThat(value.getkeyval()).isEqualTo("cdsDateOriginal");assertThat(value.getVal()).isEqualTo(choice[1]);
+                });
+            }
+        });
+    }
+
+    @FunctionalInterface private interface TemporalCheck { void run() throws Exception; }
+    private static void withTemporalZone(TemporalCheck check) throws Exception {
+        TimeZone previous = TimeZone.getDefault();
+        try { TimeZone.setDefault(TimeZone.getTimeZone("America/Toronto")); check.run(); }
+        finally { TimeZone.setDefault(previous); }
     }
 
     private Drug candidate(Map<String, String> extra) throws Exception {

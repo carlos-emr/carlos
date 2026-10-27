@@ -96,15 +96,24 @@ public class CdsImmunizationPersister {
         prevention.setCreatorProviderNo(auditProviderNo);
         prevention.setPreventionType(source.name());
         prevention.setRefused(source.refused());
-        prevention.setPreventionDate(source.date().precision()
-                == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.Precision.UNKNOWN
-                ? null : source.date().timestampStorageAnchor(requireClinicZone(source)));
+        prevention.setPreventionDate(nativeDate(source));
         return prevention;
     }
 
+    /** The same pure storage check runs during complete preflight, before any native unit writes. */
+    public void validate(CdsImmunizationDto source) { nativeDate(source); }
+
+    private java.util.Date nativeDate(CdsImmunizationDto source) {
+        if (source.date().precision()
+                == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.Precision.UNKNOWN) return null;
+        java.util.Date value = source.date().timestampStorageAnchor(requireClinicZone(source));
+        // prevention_date is DATETIME(0); an adopted fractional-rounding mode may not move its day.
+        return java.util.Date.from(value.toInstant().truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
+    }
+
     private ZoneId requireClinicZone(CdsImmunizationDto source) {
-        if (source.date().offsetDateTime() != null) return ZoneId.of("UTC");
-        if (clinicZone == null) throw new IllegalStateException("CDS clinical zone must be configured for local dates");
+        if (source.date().offsetDateTime() != null) return ZoneId.systemDefault();
+        if (clinicZone == null) throw new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException("CDS_CLINICAL_ZONE_REQUIRED", "Date");
         return clinicZone;
     }
 

@@ -58,7 +58,7 @@ public class CdsCarePersister {
     }
 
     public void validate(CdsCareElementDto value) {
-        zone();
+        value.date().timestampStorageAnchor(zone());
         String requiredInstruction = RESERVED_INSTRUCTIONS.get(value.measurementType());
         if (value.measurementType().equals("WT")) requiredInstruction = "in kg";
         else if (value.measurementType().equals("HT")) requiredInstruction = "in cm";
@@ -94,6 +94,11 @@ public class CdsCarePersister {
             references.put("measurementsExt#" + index, metadata.get(index).getId().toString());
         }
         String patientKey = ledger.unit(run, unitKey).getPatientKey();
+        if (value.date().calendarAnchorAdjusted(zone()))
+            ledger.diagnostic(run, epoch, patientKey, unitKey, "WARNING", "CDS_CALENDAR_STORAGE_ANCHOR_NORMALIZED",
+                    "NORMALIZATION", record.sourceXPath() + "/Date",
+                    "A native calendar storage anchor preserves the source date and its separate precision; no source clock was asserted",
+                    null, false);
         for (var diagnostic : value.diagnostics()) {
             boolean blocking = diagnostic.code().equals("CDS_CARE_VALUE_NOT_QUANTIFIED");
             ledger.diagnostic(run, epoch, patientKey, unitKey, blocking ? "REVIEW" : "WARNING", diagnostic.code(),
