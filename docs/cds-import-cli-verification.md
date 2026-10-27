@@ -18,9 +18,11 @@ bounded database verification counts.
 
 Prepare a mode-0600 JDBC properties file with `jdbcUrl`, `jdbcUser` and
 `jdbcPassword`. Pass only that file's path. The helper verifies that the actual
-selected database is a test database before modifying it, requires the real
-active bootstrap provider/doctor role, and creates explicit synthetic course,
-student and alphanumeric provider rows. The fixed production properties must
+selected database is a test database before modifying it, requires the actual migrated doctor role and creates provider 999998 only when
+absent; any existing key must match the exact active synthetic baseline or it
+refuses. It creates a native-schema-safe synthetic facility only when none is
+active, then creates explicit synthetic course, student and alphanumeric provider
+rows. No private seed script or development snapshot is required. The fixed production properties must
 be absent: the gate refuses to replace any existing deployment configuration.
 The requested fixture root must also be absent. Use a new disposable runtime
 for each gate invocation; do not rename a source namespace to bypass a failed

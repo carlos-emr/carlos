@@ -227,10 +227,11 @@ def main() -> None:
     native = fixture("inspect", runs["all-categories"])
     for key, expected in {"nativeProfessionalContacts": 2, "nativeDemographicContacts": 3,
                           "nativeUnknownContactConsents": 3, "nativePreferredPharmacies": 1,
-                          "nativeLaboratoryResults": 1}.items():
+                          "nativeLaboratoryResults": 1, "nativeLaboratoryProjection": 1,
+                          "nativeLaboratoryPrivateNoteIsolated": 1}.items():
         if native.get(key) != expected:
             raise RuntimeError("full contract corpus native association/result counts did not match")
-    if native.get("nativeNotes") != 8:
+    if native.get("nativeNotes") != 7:
         raise RuntimeError("full contract corpus did not create the expected native clinical notes")
     alpha = submit("all-categories-alphanumeric", metadata["sources"]["allcategoryAlpha"],
                    selected_provider=str(metadata["alphanumericProvider"]))
@@ -241,6 +242,10 @@ def main() -> None:
     assert_complete(directory, 2)
     archive = submit("zip", metadata["sources"]["archive"])
     assert_complete(archive, 2)
+    archive_counts = fixture("inspect", runs["zip"])
+    if archive.get("committedUnits") != archive.get("expectedUnits") or archive_counts.get("nativeTargets") != 2 \
+            or archive_counts.get("checkpoints") != archive.get("expectedUnits"):
+        raise RuntimeError("initial ZIP import did not commit two new complete native patients")
     invoke("interrupted", ["--input", str(path_from(metadata["sources"]["cancel"])), *common, *contract],
            {130, 143, -signal.SIGTERM, 4}, interrupt=True)
     invoke("cancel", ["--cancel", runs["interrupted"], *common], {4})
