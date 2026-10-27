@@ -432,7 +432,9 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     /** Empty means the imported original prescriber is not a resolved local provider, never the importer. */
     public void setImportedPrescriberNo(String providerNo) {
-        if (providerNo != null && !providerNo.isEmpty() && !providerNo.matches("[0-9]{1,6}")) {
+        if (providerNo != null && !providerNo.isEmpty() && (providerNo.isBlank()
+                || providerNo.codePointCount(0, providerNo.length()) > 6
+                || providerNo.chars().anyMatch(c -> c < 32 || c == 127))) {
             throw new IllegalArgumentException("Invalid imported prescriber reference");
         }
         this.providerNo = providerNo == null ? "" : providerNo;

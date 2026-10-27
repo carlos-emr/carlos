@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsMedicationDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsMedicationDto.Currentness;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProviderMatchDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalTransactions;
@@ -62,8 +63,14 @@ public class CdsMedicationPersister {
     /** Normalize before entering the unit when the caller already has a validated candidate. */
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public Map<String, String> write(int demographicNo, String auditProviderNo, CdsMedicationDto source) {
+        return write(demographicNo, auditProviderNo, source, null);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public Map<String, String> write(int demographicNo, String auditProviderNo, CdsMedicationDto source,
+            CdsProviderMatchDto sourceProvider) {
         CdsClinicalTransactions.requireUnit();
-        Drug drug = candidate(demographicNo, source);
+        Drug drug = candidate(demographicNo, source, sourceProvider);
         // persist(), unlike legacy addNewDrug(), propagates failure to the transaction owner.
         drugs.persist(drug);
         drugs.flush();
@@ -73,11 +80,16 @@ public class CdsMedicationPersister {
     }
 
     Drug candidate(int demographicNo, CdsMedicationDto source) {
+        return candidate(demographicNo, source, null);
+    }
+
+    Drug candidate(int demographicNo, CdsMedicationDto source, CdsProviderMatchDto sourceProvider) {
         if (demographicNo < 1) throw new IllegalArgumentException("Invalid target patient");
         Drug drug = new Drug();
         drug.setDemographicId(demographicNo);
         // The importing actor is audited by the unit; it is not evidence of original authorship.
-        drug.setImportedPrescriberNo(null);
+        drug.setImportedPrescriberNo(sourceProvider != null && sourceProvider.matched()
+                ? sourceProvider.localProviderNo() : null);
         drug.setOutsideProviderName(source.prescriberName());
         drug.setOutsideProviderOhip(source.prescriberOhip());
         if (source.din() == null) drug.setCustomName(source.name());

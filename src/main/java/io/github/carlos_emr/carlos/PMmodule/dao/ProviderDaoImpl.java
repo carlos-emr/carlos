@@ -27,6 +27,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: add exact bounded source-provider lookups.
  */
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
@@ -580,6 +581,32 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         List<Provider> providers = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, team);
 
         return providers;
+    }
+
+    @Override
+    @NativeSql({"provider"})
+    public List<String> findCdsProviderNosByOhip(String ohipNo) {
+        return entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                + "and BINARY(ohip_no) = BINARY(:value) order by provider_no", String.class)
+                .setParameter("value", ohipNo).setMaxResults(2).getResultList();
+    }
+
+    @Override
+    @NativeSql({"provider"})
+    public List<String> findCdsProviderNosByCpso(String cpsoNo) {
+        return entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                + "and BINARY(practitionerNoType) = BINARY('CPSO') "
+                + "and BINARY(practitionerNo) = BINARY(:value) order by provider_no", String.class)
+                .setParameter("value", cpsoNo).setMaxResults(2).getResultList();
+    }
+
+    @Override
+    @NativeSql({"provider"})
+    public List<String> findCdsProviderNosByExactName(String firstName, String lastName) {
+        return entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                + "and BINARY(first_name) = BINARY(:first) and BINARY(last_name) = BINARY(:last) "
+                + "order by provider_no", String.class)
+                .setParameter("first", firstName).setParameter("last", lastName).setMaxResults(2).getResultList();
     }
 
     @Override

@@ -100,7 +100,7 @@ public class CdsClinicalNormalizationService {
                 directIndicator(text(record, "SubstitutionNotAllowed", 1), "SubstitutionNotAllowed"),
                 directIndicator(text(record, "NonAuthoritativeIndicator", 1), "NonAuthoritativeIndicator"),
                 treatment, status, currentness, prescriber,
-                text(record, "PrescribedBy/OHIPPhysicianId", 20), text(record, "Notes", 32768),
+                text(record, "PrescribedBy/OHIPPhysicianId", 20), first, last, text(record, "Notes", 32768),
                 text(record, "PrescriptionInstructions", 32768), text(record, "DispenseInterval", 10),
                 text(record, "ProtocolIdentifier", 20),
                 text(record, "PriorPrescriptionReferenceIdentifier", 20),

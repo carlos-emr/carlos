@@ -151,6 +151,22 @@ class CdsClinicalPersisterUnitTest {
     }
 
     @Test
+    void shouldUseOnlyAnExplicitResolvedSourceAuthorWithoutChangingSourceIdentityOrAuthority() throws Exception {
+        var source = normalization.medication(medication(Map.of("PrescribedBy/Name/FirstName", "Source",
+                "PrescribedBy/Name/LastName", "Author", "PrescribedBy/OHIPPhysicianId", "001234")));
+        var match = new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProviderMatchDto("T002",
+                io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProviderMatchDto.Outcome.MATCHED_IDENTIFIERS);
+        Drug drug = medications.candidate(42, source, match);
+        assertThat(drug.getProviderNo()).isEqualTo("T002");
+        assertThat(drug.getOutsideProviderName()).isEqualTo("Source Author");
+        assertThat(drug.getOutsideProviderOhip()).isEqualTo("001234");
+        assertThat(drug.getNonAuthoritative()).isNull();
+        assertThat(drug.getScriptNo()).isNull();
+        assertThat(source.prescriberFirstName()).isEqualTo("Source");
+        verifyNoInteractions(drugs, dates);
+    }
+
+    @Test
     void shouldRefuseWritesOutsideUnit_whenCalledWithoutSpringProxy() throws Exception {
         var source = normalization.medication(medication(Map.of()));
         assertThatThrownBy(() -> medications.write(42, "999998", source))

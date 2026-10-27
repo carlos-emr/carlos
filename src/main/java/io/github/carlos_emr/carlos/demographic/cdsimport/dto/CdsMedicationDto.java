@@ -30,7 +30,8 @@ public record CdsMedicationDto(String name, String din, String description, Stri
         Integer refillQuantity, Integer repeats, Boolean longTerm, Boolean past,
         Boolean compliance, Boolean substitutionNotAllowed, Boolean nonAuthoritative,
         String treatmentType, String prescriptionStatus, Currentness currentness,
-        String prescriberName, String prescriberOhip, String providerNotes,
+        String prescriberName, String prescriberOhip, String prescriberFirstName, String prescriberLastName,
+        String providerNotes,
         String pharmacyInstructions, String dispenseInterval, String protocol,
         String priorPrescription, String prescriptionIdentifier, CdsTemporalDto written,
         CdsTemporalDto start, List<CdsClinicalDiagnosticDto> diagnostics) {
