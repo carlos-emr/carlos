@@ -42,7 +42,7 @@ public class CdsAllergyPersister {
     private final PartialDateDao dates;
     private final CdsClinicalNormalizationService normalization;
 
-    public CdsAllergyPersister(AllergyDao allergies, PartialDateDao dates,
+    public CdsAllergyPersister(@org.springframework.beans.factory.annotation.Qualifier("allergyDao") AllergyDao allergies, PartialDateDao dates,
             CdsClinicalNormalizationService normalization) {
         this.allergies = allergies;
         this.dates = dates;
