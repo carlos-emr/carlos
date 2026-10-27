@@ -744,10 +744,11 @@ public class CdsImportLedgerService {
             value.put("discoveredFiles", fileInventory?run.getDiscoveredFiles():null);
             value.put("patientXmlFiles", fileInventory?run.getPatientXmlFiles():null);
             value.put("sourceBytes", fileInventory?run.getSourceBytes():null);
-            value.put("sourcePatientsIdentified", patients.sourcePatients(runId));
-            value.put("sourcePatients", run.isDiscoveryComplete()?patients.sourcePatients(runId):null);
-            value.put("targetCopiesPlanned", patients.count(runId)); value.put("inventoryState", sealed?"SEALED":"UNSEALED");
-            value.put("identifiedPatients", patients.count(runId));
+            long sourceCount=patients.sourcePatients(runId), copyCount=patients.count(runId);
+            value.put("sourcePatientsIdentified", sourceCount);
+            value.put("sourcePatients", run.isDiscoveryComplete()?sourceCount:null);
+            value.put("targetCopiesPlanned", copyCount); value.put("inventoryState", sealed?"SEALED":"UNSEALED");
+            value.put("identifiedPatients", copyCount);
             value.put("expectedPatients", sealed?run.getExpectedPatients():null);
             value.put("plannedUnits", units.count(runId, null));
             value.put("expectedUnits", sealed?run.getExpectedUnits():null);
