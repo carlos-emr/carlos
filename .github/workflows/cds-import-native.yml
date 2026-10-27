@@ -16,6 +16,7 @@ on:
       - 'database/mysql/migration/**'
       - 'scripts/ci/*cds*'
       - 'scripts/ci/CdsImportMariaDbBootstrap.java'
+      - 'scripts/ci/CdsSyntheticSessionExpiry*.java'
       - 'scripts/ci/requirements.txt'
       - 'scripts/ci/test_run_cds_native_tier.py'
       - 'pom.xml'
@@ -46,6 +47,12 @@ jobs:
           maven-cache: restore
       - name: Compile actual application and tests
         run: docker exec carlos-tomcat-dev mvn -B -DskipTests test-compile
+      - name: Compile the standalone native session drill with Java 25
+        run: >-
+          docker exec carlos-tomcat-dev sh -c
+          'mkdir -p target/cds-session-helper &&
+          javac --release 25 --add-modules jdk.attach -d target/cds-session-helper
+          scripts/ci/CdsSyntheticSessionExpiry.java scripts/ci/CdsSyntheticSessionExpiryAgent.java'
       - name: Verify bounded XML imports in fresh 64 MiB JVMs
         run: >-
           docker exec carlos-tomcat-dev mvn -B
