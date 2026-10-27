@@ -636,7 +636,7 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
                                 .isInstanceOf(RuntimeException.class).hasRootCauseInstanceOf(SQLException.class)
                                 .rootCause().isInstanceOfSatisfying(SQLException.class, refusal -> {
                                     assertThat(refusal.getSQLState()).isEqualTo("45000");
-                                    assertThat(refusal).hasMessage("CDS maintenance is entering or active; clinical work requires retry after reopening");
+                                    assertThat(refusal.getMessage()).isEqualTo("CDS maintenance is entering or active; clinical work requires retry after reopening");
                                 });
                         try (var query=control.prepareStatement("SELECT CHARACTER_SET_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='provider' AND COLUMN_NAME='first_name'")) {
                             query.setString(1,schema);try(var result=query.executeQuery()){assertThat(result.next()).isTrue();assertThat(result.getString(1)).isEqualTo(charset);}
