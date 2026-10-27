@@ -56,6 +56,29 @@ class CdsNativePreparationServiceUnitTest {
         assertThat(rows.values().iterator().next().getPayload()).contains("x".repeat(100000));
     }
 
+    @Test void shouldRegenerateOnlyIdenticalUncommittedCache_whenStoredPayloadIsCorrupt() throws Exception {
+        var dao = mock(CdsImportPreparationDao.class);
+        var ledger = mock(CdsImportLedgerService.class);
+        var unit = new io.github.carlos_emr.carlos.commn.model.CdsImportUnit(); unit.setPatientKey("patient");
+        when(ledger.unit("run", "a".repeat(64))).thenReturn(unit);
+        Map<String, CdsImportPreparation> rows = new HashMap<>();
+        when(dao.get(anyString())).thenAnswer(call -> rows.get(call.getArgument(0)));
+        doAnswer(call -> { CdsImportPreparation row = call.getArgument(0); rows.put(row.getId(), row); return null; }).when(dao).persist(any());
+        var service = service(dao, ledger);
+        var source = new Source("complete Unicode 😀", Map.of());
+        service.store("run", 1, "a".repeat(64), "b".repeat(64), command(), source);
+        var row = rows.values().iterator().next(); String expected = row.getPayload(); row.setPayload("corrupt");
+        service.store("run", 1, "a".repeat(64), "b".repeat(64), command(), source);
+        assertThat(row.getPayload()).isEqualTo(expected);
+        verify(ledger).requireExpectedCheckpointFree("run", 1, "a".repeat(64));
+        verify(ledger).diagnostic(eq("run"), eq(1L), eq("patient"), eq("a".repeat(64)), eq("INFO"),
+                eq("NATIVE_PREPARATION_CACHE_REGENERATED"), eq("RECOVERY"), isNull(), anyString(), isNull(), eq(false));
+        row.setOptionsDigest("c".repeat(64)); row.setPayload("corrupt again");
+        assertThatThrownBy(() -> service.store("run", 1, "a".repeat(64), "b".repeat(64), command(), source))
+                .isInstanceOf(CdsImportException.class).hasMessageContaining("NATIVE_PREPARATION_CONFLICT");
+        assertThat(row.getPayload()).isEqualTo("corrupt again");
+    }
+
     @Test void shouldRefuseOversizedPreparation_beforeOpeningMetadataTransaction() {
         var dao = mock(CdsImportPreparationDao.class);
         var service = service(dao);
@@ -66,9 +89,12 @@ class CdsNativePreparationServiceUnitTest {
     }
 
     private static CdsNativePreparationService service(CdsImportPreparationDao dao) {
+        return service(dao, mock(CdsImportLedgerService.class));
+    }
+    private static CdsNativePreparationService service(CdsImportPreparationDao dao, CdsImportLedgerService ledger) {
         var manager = mock(PlatformTransactionManager.class);
         when(manager.getTransaction(any())).thenReturn(new SimpleTransactionStatus(true));
-        return new CdsNativePreparationService(mock(CdsImportLedgerService.class), dao, manager,
+        return new CdsNativePreparationService(ledger, dao, manager,
                 new CdsImportConfigurationService(new Properties()));
     }
     private static CdsImportCommand command() {

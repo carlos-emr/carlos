@@ -86,7 +86,23 @@ public class CdsNativePreparationService {
             ledger.lockOwned(run, epoch); ledger.unit(run, unit);
             CdsImportPreparation existing=preparations.get(id);
             if (existing!=null) {
-                if (!existing.getDigest().equals(digest)) throw new CdsImportException("NATIVE_PREPARATION_CONFLICT");
+                if (!Objects.equals(existing.getRunId(), run) || !Objects.equals(existing.getUnitKey(), unit)
+                        || !Objects.equals(existing.getSourceDigest(), sourceDigest)
+                        || !Objects.equals(existing.getOptionsDigest(), options)
+                        || !Objects.equals(existing.getRulesetDigest(), ruleset)
+                        || !Objects.equals(existing.getPayloadType(), type)
+                        || !Objects.equals(existing.getDigest(), digest)) {
+                    throw new CdsImportException("NATIVE_PREPARATION_CONFLICT");
+                }
+                if (!Objects.equals(existing.getPayload(), payload)) {
+                    // This is a derived cache, regenerated from the same immutable source
+                    // and identical decision digest. Never alter a checkpointed/native unit.
+                    ledger.requireExpectedCheckpointFree(run, epoch, unit);
+                    existing.setPayload(payload);
+                    ledger.diagnostic(run, epoch, ledger.unit(run, unit).getPatientKey(), unit, "INFO",
+                            "NATIVE_PREPARATION_CACHE_REGENERATED", "RECOVERY", null,
+                            "An uncommitted derived preparation was regenerated from its identical immutable decision", null, false);
+                }
                 return;
             }
             CdsImportPreparation prepared=new CdsImportPreparation(); prepared.setId(id);

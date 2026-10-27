@@ -58,5 +58,20 @@ class CdsImportPolicyUnitTest {
         assertThat(config(other).normalizationPolicyDigest(command)).isNotEqualTo(accepted);
     }
 
+    @Test void shouldRefuseMismatchedNativeCalendar_withoutChangingSharedJvmDefaults() {
+        var previous = java.time.ZoneId.systemDefault();
+        Properties properties = new Properties(); properties.setProperty("cds.import.enabled", "true");
+        String different = previous.getRules().equals(java.time.ZoneId.of("UTC").getRules()) ? "America/Toronto" : "UTC";
+        properties.setProperty("cds.import.clinicalZone", different);
+        assertThatThrownBy(() -> config(properties).requireEnabled())
+                .isInstanceOf(CdsImportException.class).hasMessageContaining("IMPORT_RUNTIME_ZONE_MISMATCH");
+        assertThat(java.time.ZoneId.systemDefault()).isEqualTo(previous);
+        properties.setProperty("cds.import.clinicalZone", previous.getId());
+        assertThatCode(() -> config(properties).requireEnabled()).doesNotThrowAnyException();
+        properties.setProperty("cds.import.clinicalZone", "Invalid/ConfiguredZone");
+        assertThatThrownBy(() -> config(properties).requireEnabled())
+                .isInstanceOf(CdsImportException.class).hasMessageContaining("IMPORT_CLINICAL_ZONE_INVALID");
+    }
+
     private static CdsImportConfigurationService config(Properties properties) { return new CdsImportConfigurationService(properties); }
 }
