@@ -148,3 +148,15 @@ Pure protocol checks, without Docker or clinical workflows:
 python3 -m unittest discover -s scripts/ci -p test_cds_container_recovery.py
 python3 -m py_compile scripts/ci/run-cds-container-recovery.py
 ```
+
+After this run has completed and released maintenance, the same constrained
+runtime can independently import a fresh copy of the versioned all-categories
+corpus through `scripts/ci/run-cds-container-engine.py --expect-all-categories`.
+Prepare that distinct synthetic source before freezing the source mount. This
+second gate verifies the exact category occurrence set, native projections for
+all seven notes, medication, allergy, partial prevention, appointments,
+measurements, both documents, physician/referrer/contact/pharmacy associations
+and the private-note-safe laboratory mirror with its original timestamp offset.
+It compares all sixteen native table counts against the pre-import baseline and
+checks actual cgroup peak and zero OOM events. Its new acceptance is independent
+of the replacement drill; it never resubmits the interrupted source.

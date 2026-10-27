@@ -1,5 +1,25 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+#
+# This software is published under the GPL GNU General Public License.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+# CARLOS EMR Project
+# https://github.com/carlos-emr/carlos
+#/
 """Opt-in real CDS container launcher gate on a confined synthetic database.
 
 Run inside the prepared UID10001 runtime, with root-issued delegation and
@@ -28,6 +48,8 @@ def main() -> None:
     parser.add_argument("--source-namespace", required=True)
     parser.add_argument("--source-profile", required=True)
     parser.add_argument("--provider", required=True)
+    parser.add_argument("--expect-all-categories", action="store_true",
+                        help="verify the complete versioned synthetic contract corpus instead of the one-note fixture")
     parser.add_argument("--jdbc-properties", type=Path, required=True)
     parser.add_argument("--classpath", required=True, help="confined fixture helper plus actual candidate dependencies")
     parser.add_argument("--evidence", type=Path, required=True)
@@ -163,18 +185,54 @@ def main() -> None:
     if status.get("runId") != run or recovered.get("runId") != run:
         raise RuntimeError("container status did not recover the original accepted run")
     counts = inspect_native("native-counts", run)
-    if counts.get("nativeTargets") != 1 or counts.get("nativeNotes") != 1 \
+    expected_notes = 7 if args.expect_all_categories else 1
+    if counts.get("nativeTargets") != 1 or counts.get("nativeNotes") != expected_notes \
             or counts.get("holds") != 0 or counts.get("checkpoints") != result.get("expectedUnits") \
             or result.get("committedUnits") != result.get("expectedUnits"):
         raise RuntimeError("container native writes did not match the independent completion receipt")
+    if args.expect_all_categories:
+        category_counts = dict.fromkeys(("Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList",
+            "RiskFactors", "AllergiesAndAdverseReactions", "MedicationsAndTreatments", "Immunizations",
+            "LaboratoryResults", "Appointments", "ClinicalNotes", "CareElements", "AlertsAndSpecialNeeds", "NewCategory"), 1)
+        category_counts["Reports"] = 2
+        rows = result.get("categories", [])
+        categories = {value["category"]: value for value in rows}
+        if len(categories) != len(rows) or set(categories) != set(category_counts):
+            raise RuntimeError("container corpus category inventory differed from the complete source contract")
+        for category, expected_count in category_counts.items():
+            item = categories[category]
+            if item.get("expected") != expected_count or item.get("committed") != expected_count \
+                    or item.get("alreadyComplete") != 0 or item.get("pending") != 0:
+                raise RuntimeError("container corpus category occurrence counts did not reconcile")
+        for key, expected_count in {"nativeProfessionalContacts": 2, "nativeDemographicContacts": 3,
+                "nativeUnknownContactConsents": 3, "nativePreferredPharmacies": 1, "nativeLaboratoryResults": 1,
+                "nativeLaboratoryProjection": 1, "nativeLaboratoryPrivateNoteIsolated": 1, "nativeDrugs": 1,
+                "nativeAllergies": 1, "nativePreventions": 1, "nativeYearPreventions": 1, "nativeAppointments": 1,
+                "nativeMeasurements": 2, "nativeDocuments": 2, "nativeUnclockedReports": 2, "nativeMonthReports": 1,
+                "nativeUnknownReports": 1, "nativeFamilyPhysicians": 1, "nativeReferringPhysicians": 1,
+                "nativeUnknownActivePharmacyConsents": 1, "nativeNotesWithoutObservationClock": 7,
+                "nativeUnsignedAuthorFreeNotes": 7}.items():
+            if counts.get(key) != expected_count:
+                raise RuntimeError("container corpus native projections did not match the source contract")
     after = inspect_native("native-after", "fixture")
     expected = dict(before)
-    for key in ("totalNativePatients", "totalNativeNotes"):
-        expected[key] += 1
+    changes = {"totalNativePatients": 1, "totalNativeNotes": expected_notes}
+    if args.expect_all_categories:
+        changes.update({"totalNativeDrugs": 1, "totalNativeAllergies": 1, "totalNativePreventions": 1,
+            "totalNativeAppointments": 1, "totalNativeMeasurements": 2, "totalNativeDocuments": 2,
+            "totalNativeContacts": 3, "totalNativeContactLinks": 3, "totalNativePharmacyLinks": 1,
+            "totalNativeLaboratoryResults": 1, "totalNativeHL7Messages": 1, "totalNativeHL7Info": 1,
+            "totalNativeLabRouting": 1})
+    for key, amount in changes.items():
+        expected[key] += amount
     if after != expected:
-        raise RuntimeError("container native delta differed from one new patient and one note")
+        raise RuntimeError("container native delta differed from the independently expected synthetic projections")
+    events = dict(line.split() for line in Path("/sys/fs/cgroup/memory.events").read_text(encoding="ascii").splitlines())
+    if events.get("oom") != "0" or events.get("oom_kill") != "0":
+        raise RuntimeError("container cgroup recorded an out-of-memory event")
     print(json.dumps({"containerEngine": "PASS", "runId": run, "clinicalComplete": True,
-                      "nativePatients": 1, "nativeNotes": 1, "heapMiB": heap,
+                      "nativePatients": 1, "nativeNotes": expected_notes, "allCategories": args.expect_all_categories,
+                      "heapMiB": heap, "memoryPeakBytes": int(Path("/sys/fs/cgroup/memory.peak").read_text(encoding="ascii")),
                       "memoryLimitMiB": heap + 256, "cpuLimit": 1}))
 
 
