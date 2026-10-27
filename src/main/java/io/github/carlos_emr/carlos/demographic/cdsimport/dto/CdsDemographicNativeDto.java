@@ -44,6 +44,8 @@ public record CdsDemographicNativeDto(
         CdsDemographicDetailsDto details,
         CdsDemographicRelationsDto relations,
         List<CdsClinicalDiagnosticDto> diagnostics) {
+    public static final String MIDDLE_NAMES_SCALAR = "Names/LegalName/OtherName/GIV";
+
     public CdsDemographicNativeDto {
         scalars = Map.copyOf(scalars);
         diagnostics = List.copyOf(diagnostics);
@@ -58,6 +60,7 @@ public record CdsDemographicNativeDto(
         bounded(gender, 1);
         bounded(status, 50);
         bounded(primaryProvider, 6);
+        bounded(scalars.get(MIDDLE_NAMES_SCALAR), 100);
         var birth = java.time.LocalDate.parse(birthDate);
         if (birth.getYear() < 1 || birth.getYear() > 9999)
             throw new IllegalArgumentException("DEMOGRAPHIC_PREPARED_DATE_INVALID");

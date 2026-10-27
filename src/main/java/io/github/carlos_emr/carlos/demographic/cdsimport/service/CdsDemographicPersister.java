@@ -132,11 +132,17 @@ public class CdsDemographicPersister {
                 work = new Candidate<>(),
                 cell = new Candidate<>();
         Projection[] current = {null};
+        MiddleNames middleNames = new MiddleNames();
         try {
             fields.forEachField(
                     record,
                     field -> {
                         String path = field.path();
+                        try {
+                            middleNames.accept(record, field);
+                        } catch (IOException failure) {
+                            throw new UncheckedIOException(failure);
+                        }
                         if (known(field)) {
                             String scalarPath = path.replaceAll("\\[[0-9]+\\]", "");
                             Integer maximum = scalarLimits.get(scalarPath);
@@ -180,6 +186,8 @@ public class CdsDemographicPersister {
                     });
             if (current[0] != null)
                 finish(current[0], mailing, residential, home, work, cell, notice);
+            String middle = middleNames.value(notice);
+            if (middle != null) scalars.put(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, middle);
         } catch (UncheckedIOException failure) {
             throw failure.getCause();
         }
@@ -270,6 +278,7 @@ public class CdsDemographicPersister {
         patient.setPrefName("");
         patient.setFirstName(dto.firstName());
         patient.setLastName(dto.lastName());
+        patient.setMiddleNames(dto.scalars().get(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR));
         LocalDate birth = LocalDate.parse(dto.birthDate());
         patient.setYearOfBirth(String.format(java.util.Locale.ROOT, "%04d", birth.getYear()));
         patient.setMonthOfBirth(
@@ -392,6 +401,92 @@ public class CdsDemographicPersister {
         return f.namespace().equals("cds")
                 || f.namespace().equals("cds_dt")
                 || f.kind().equals("ATTRIBUTE") && f.namespace().isEmpty();
+    }
+
+    /** One occurrence and at most 100 native code points; original parts remain in source fields. */
+    private final class MiddleNames {
+        private static final String PREFIX = "Names[1]/LegalName[1]/OtherName[";
+        private String group;
+        private String part;
+        private String type;
+        private boolean partSeen;
+        private boolean typeSeen;
+        private boolean occurrenceInvalid;
+        private boolean sourceOnly;
+        private boolean joined;
+        private int codePoints;
+        private final StringBuilder nativeValue = new StringBuilder();
+
+        void accept(CdsRecordDto record, CdsFieldDto field) throws IOException {
+            if (sourceOnly || !known(field) || !"TEXT".equals(field.kind())) return;
+            String path = field.path();
+            if (!path.startsWith(PREFIX)) return;
+            int end = path.indexOf(']', PREFIX.length());
+            if (end < 0) return;
+            String nextGroup = path.substring(0, end + 1);
+            String leaf = path.substring(end + 1);
+            if (!"/Part[1]".equals(leaf) && !"/PartType[1]".equals(leaf)) return;
+            if (!nextGroup.equals(group)) {
+                finishOccurrence();
+                if (sourceOnly) return;
+                group = nextGroup;
+                part = null;
+                type = null;
+                partSeen = false;
+                typeSeen = false;
+                occurrenceInvalid = false;
+            }
+            try {
+                if ("/Part[1]".equals(leaf)) {
+                    occurrenceInvalid |= partSeen;
+                    partSeen = true;
+                    // personNamePart derives from xs:token: use the actual schema whitespace facet.
+                    part = fields.readLogicalText(record, field, 50);
+                } else {
+                    occurrenceInvalid |= typeSeen;
+                    typeSeen = true;
+                    type = fields.readLogicalText(record, field, 4);
+                }
+            } catch (CdsInputException capacity) {
+                if (!"CDS_TARGET_TEXT_CAPACITY_EXCEEDED".equals(capacity.code())) throw capacity;
+                occurrenceInvalid = true;
+            }
+        }
+
+        private void finishOccurrence() {
+            if (group == null || sourceOnly) return;
+            if ("FAMC".equals(type)) return;
+            if (occurrenceInvalid || !"GIV".equals(type) || part == null || part.isEmpty()) {
+                sourceOnly = true;
+                nativeValue.setLength(0);
+                return;
+            }
+            int separator = nativeValue.isEmpty() ? 0 : 1;
+            int count = part.codePointCount(0, part.length());
+            if (codePoints + separator + count > Demographic.MIDDLE_NAMES_MAX_LENGTH) {
+                sourceOnly = true;
+                nativeValue.setLength(0);
+                return;
+            }
+            if (separator != 0) {
+                nativeValue.append(' ');
+                joined = true;
+            }
+            nativeValue.append(part);
+            codePoints += separator + count;
+        }
+
+        String value(Consumer<CdsClinicalDiagnosticDto> notice) {
+            finishOccurrence();
+            if (sourceOnly) {
+                notice.accept(new CdsClinicalDiagnosticDto(
+                        "CDS_MIDDLE_NAMES_SOURCE_ONLY", "Names/LegalName/OtherName"));
+                return null;
+            }
+            if (joined) notice.accept(new CdsClinicalDiagnosticDto(
+                    "CDS_MIDDLE_NAMES_JOINED_IN_SOURCE_ORDER", "Names/LegalName/OtherName"));
+            return nativeValue.isEmpty() ? null : nativeValue.toString();
+        }
     }
 
     private static <T> void offer(

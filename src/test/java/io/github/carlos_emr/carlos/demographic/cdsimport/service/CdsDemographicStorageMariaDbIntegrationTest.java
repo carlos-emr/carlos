@@ -107,6 +107,7 @@ class CdsDemographicStorageMariaDbIntegrationTest {
                                     false);
                     String marker = "FAKE-CDS-ORM-" + UUID.randomUUID();
                     String patientNote = "Literal </unotes> & café 🩺";
+                    String middleNames = "É".repeat(50) + " " + "𐐀".repeat(49);
                     var details =
                             new CdsDemographicDetailsDto(
                                     "English",
@@ -127,7 +128,7 @@ class CdsDemographicStorageMariaDbIntegrationTest {
                                     null,
                                     "F",
                                     "AC",
-                                    Map.of(),
+                                    Map.of(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, middleNames),
                                     null,
                                     null,
                                     null,
@@ -178,6 +179,7 @@ class CdsDemographicStorageMariaDbIntegrationTest {
                                             session.find(Demographic.class, id), "prefName"))
                             .isEqualTo("");
                     var stored = session.find(Demographic.class, id);
+                    assertThat(stored.getMiddleNames()).isEqualTo(middleNames);
                     assertThat(stored.getSpokenLanguage()).isEqualTo("English");
                     assertThat(stored.getPatientStatusDate().toString()).startsWith("2024-03-04");
                     assertThat(stored.getHcRenewDate().toString()).startsWith("2028-01-31");
@@ -192,13 +194,14 @@ class CdsDemographicStorageMariaDbIntegrationTest {
                             connection -> {
                                 try (var query =
                                         connection.prepareStatement(
-                                                "SELECT pref_name,last_name FROM demographic WHERE"
+                                                "SELECT pref_name,last_name,middleNames FROM demographic WHERE"
                                                         + " demographic_no=?")) {
                                     query.setInt(1, id);
                                     try (var rows = query.executeQuery()) {
                                         assertThat(rows.next()).isTrue();
                                         assertThat(rows.getString(1)).isEmpty();
                                         assertThat(rows.getString(2)).isEqualTo(marker);
+                                        assertThat(rows.getString(3)).isEqualTo(middleNames);
                                     }
                                 }
                             });

@@ -120,6 +120,119 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldProjectOrderedLegalGivenParts_includingDuplicatesAndAllSiblingOrders()
+            throws Exception {
+        var source = parseWithNames(
+                otherName("Anne", "GIV", false)
+                        + otherName("Family", "FAMC", true)
+                        + otherName("Anne", "GIV", true)
+                        + otherName("Éloïse", "GIV", false),
+                "<cdsd:OtherNames namePurpose='AL'>"
+                        + otherName("Alias", "GIV", false) + "</cdsd:OtherNames>");
+        demographics.prepare("run", 1, "unit", source, command);
+        var dto = captured(CdsDemographicNativeDto.class);
+        assertThat(dto.scalars()).containsEntry(
+                CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, "Anne Anne Éloïse");
+        assertThat(dto.diagnostics()).extracting(CdsClinicalDiagnosticDto::code)
+                .contains("CDS_MIDDLE_NAMES_JOINED_IN_SOURCE_ORDER");
+        assertThat(sourceMiddlePart(source, 2))
+                .isEqualTo("Family");
+    }
+
+    @Test
+    void shouldUseOnlyThePinnedTokenWhitespaceNormalization_forMiddleNames() throws Exception {
+        var source = parseWithNames(otherName("  Anne\t  Marie\n", "GIV", true), "");
+        demographics.prepare("run", 1, "unit", source, command);
+        assertThat(captured(CdsDemographicNativeDto.class).scalars())
+                .containsEntry(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, "Anne Marie");
+    }
+
+    @Test
+    void shouldFitExactly100MiddleNameCodePoints_includingInsertedSeparatorsAndUnicode()
+            throws Exception {
+        String first = "𐐀".repeat(50), second = "É".repeat(49);
+        var source = parseWithNames(
+                otherName(first, "GIV", false) + otherName(second, "GIV", true), "");
+        demographics.prepare("run", 1, "unit", source, command);
+        assertThat(captured(CdsDemographicNativeDto.class).scalars())
+                .containsEntry(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, first + " " + second);
+    }
+
+    @Test
+    void shouldKeepAllMiddleNamePartsInSource_whenJoinedNativeCapacityIsExceeded()
+            throws Exception {
+        String first = "A".repeat(50), second = "B".repeat(50);
+        var source = parseWithNames(
+                otherName(first, "GIV", false) + otherName(second, "GIV", true), "");
+        demographics.prepare("run", 1, "unit", source, command);
+        var dto = captured(CdsDemographicNativeDto.class);
+        assertThat(dto.scalars()).doesNotContainKey(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR);
+        assertThat(dto.diagnostics()).extracting(CdsClinicalDiagnosticDto::code)
+                .contains("CDS_MIDDLE_NAMES_SOURCE_ONLY")
+                .doesNotContain("CDS_MIDDLE_NAMES_JOINED_IN_SOURCE_ORDER");
+        assertThat(sourceMiddlePart(source, 2))
+                .isEqualTo(second);
+    }
+
+    @Test
+    void shouldNotProjectAPartialMiddleName_whenAnyGivenPartIsEmpty() throws Exception {
+        var source = parseWithNames(
+                otherName("Anne", "GIV", false) + otherName(" \t ", "GIV", true), "");
+        demographics.prepare("run", 1, "unit", source, command);
+        var dto = captured(CdsDemographicNativeDto.class);
+        assertThat(dto.scalars()).doesNotContainKey(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR);
+        assertThat(dto.diagnostics()).extracting(CdsClinicalDiagnosticDto::code)
+                .contains("CDS_MIDDLE_NAMES_SOURCE_ONLY");
+    }
+
+    @Test
+    void shouldLeaveAbsentOrFamilyOnlyMiddleNamesUnset_withoutGuessingFromAliases()
+            throws Exception {
+        var source = parseWithNames(otherName("Family", "FAMC", true),
+                "<cdsd:OtherNames namePurpose='AL'>"
+                        + otherName("Alias", "GIV", false) + "</cdsd:OtherNames>");
+        demographics.prepare("run", 1, "unit", source, command);
+        var dto = captured(CdsDemographicNativeDto.class);
+        assertThat(dto.scalars()).doesNotContainKey(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR);
+        assertThat(dto.diagnostics()).extracting(CdsClinicalDiagnosticDto::code)
+                .doesNotContain("CDS_MIDDLE_NAMES_SOURCE_ONLY");
+    }
+
+    @Test
+    void shouldRetainAllSourcePartsAfterEarlyMiddleNameOverflow_withoutGrowingNativeProjection()
+            throws Exception {
+        var source = parseWithNames(otherName("Name", "GIV", false).repeat(300), "");
+        demographics.prepare("run", 1, "unit", source, command);
+        var dto = captured(CdsDemographicNativeDto.class);
+        assertThat(dto.scalars()).doesNotContainKey(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR);
+        assertThat(sourceMiddlePart(source, 300))
+                .isEqualTo("Name");
+        assertThat(dto.diagnostics()).filteredOn(n -> "CDS_MIDDLE_NAMES_SOURCE_ONLY".equals(n.code()))
+                .hasSize(1);
+    }
+
+    @Test
+    void shouldRejectSchemaIncompleteMiddleNames_beforeNativePreparation() {
+        for (String missing : List.of("<cdsd:Part>Anne</cdsd:Part>",
+                "<cdsd:PartType>GIV</cdsd:PartType>")) {
+            assertThatThrownBy(() -> parseWithNames(
+                    "<cdsd:OtherName>" + missing + "</cdsd:OtherName>", ""))
+                    .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException.class);
+        }
+        verifyNoInteractions(preparation);
+    }
+
+    @Test
+    void shouldRejectOversizedPreparedMiddleNames_beforeAnyNativeWrite() {
+        assertThatThrownBy(() -> new CdsDemographicNativeDto(
+                "source", "Import", "Fixture", "1971-03-04", null, null, "F", "AC",
+                java.util.Map.of(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, "x".repeat(101)),
+                null, null, null, null, null, null, List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("DEMOGRAPHIC_PREPARED_TEXT_INVALID");
+    }
+
+    @Test
     void shouldMapEachUniqueAddressType_andKeepCanonicalProvinceWithoutSelectingFirstOccurrence()
             throws Exception {
         var record =
@@ -1010,11 +1123,45 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     private CdsRecordDto parse(
             String extra, String demographicExtra, String healthCard, String statusDate)
             throws Exception {
+        return parse(extra, demographicExtra, healthCard, statusDate, "", "");
+    }
+
+    private CdsRecordDto parseWithNames(String legalOtherNames, String aliases) throws Exception {
+        return parse("", "", "", "", legalOtherNames, aliases);
+    }
+
+    private String sourceMiddlePart(CdsRecordDto source, int occurrence) throws Exception {
+        var value = new java.util.concurrent.atomic.AtomicReference<String>();
+        fields.forEachField(source, field -> {
+            if (!field.path().equals("Names[1]/LegalName[1]/OtherName[" + occurrence + "]/Part[1]"))
+                return;
+            try {
+                value.set(fields.readLogicalText(source, field, 50));
+            } catch (java.io.IOException failure) {
+                throw new java.io.UncheckedIOException(failure);
+            }
+        });
+        return value.get();
+    }
+
+    private static String otherName(String part, String type, boolean typeFirst) {
+        String value = "<cdsd:Part>" + part + "</cdsd:Part>";
+        String kind = "<cdsd:PartType>" + type + "</cdsd:PartType>";
+        return "<cdsd:OtherName>" + (typeFirst ? kind + value : value + kind)
+                + "</cdsd:OtherName>";
+    }
+
+    private CdsRecordDto parse(
+            String extra, String demographicExtra, String healthCard, String statusDate,
+            String legalOtherNames, String aliases)
+            throws Exception {
         int number = sequence.incrementAndGet();
         Path source = temporary.resolve("source-" + number + ".xml");
         String demographic =
                 "<Demographics><Names><cdsd:LegalName"
-                    + " namePurpose='L'><cdsd:FirstName><cdsd:Part>Import</cdsd:Part><cdsd:PartType>GIV</cdsd:PartType></cdsd:FirstName><cdsd:LastName><cdsd:Part>Fixture</cdsd:Part><cdsd:PartType>FAMC</cdsd:PartType></cdsd:LastName></cdsd:LegalName></Names><DateOfBirth>1971-03-04</DateOfBirth>"
+                    + " namePurpose='L'><cdsd:FirstName><cdsd:Part>Import</cdsd:Part><cdsd:PartType>GIV</cdsd:PartType></cdsd:FirstName><cdsd:LastName><cdsd:Part>Fixture</cdsd:Part><cdsd:PartType>FAMC</cdsd:PartType></cdsd:LastName>"
+                        + legalOtherNames + "</cdsd:LegalName>" + aliases
+                        + "</Names><DateOfBirth>1971-03-04</DateOfBirth>"
                         + healthCard
                         + "<Gender>F</Gender><UniqueVendorIdSequence>owned</UniqueVendorIdSequence>"
                         + demographicExtra
