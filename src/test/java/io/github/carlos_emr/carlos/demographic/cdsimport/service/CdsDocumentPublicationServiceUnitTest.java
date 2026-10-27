@@ -155,6 +155,55 @@ class CdsDocumentPublicationServiceUnitTest {
         }
     }
 
+    @Test void shouldPreserveCopyFailure_whenRetiringItsPrivateOperationAlsoFails() throws Exception {
+        byte[] content = "synthetic report".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var files = mock(CdsImportFileService.class);
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(directory.toFile());
+            Throwable failure = catchThrowable(() -> service(files).publish("run", 1, unit, "embedded", "txt",
+                    sha(content), content.length, () -> {
+                        addUnexpectedPrivateEntry();
+                        return new ByteArrayInputStream(content) {
+                            @Override public void close() throws java.io.IOException {
+                                throw new java.io.IOException("COPY_CLOSE_FAILED");
+                            }
+                        };
+                    }));
+            assertThat(failure).isInstanceOf(java.io.IOException.class).hasMessage("COPY_CLOSE_FAILED");
+            assertThat(failure.getSuppressed()).hasSize(1);
+            assertThat(failure.getSuppressed()[0]).isInstanceOf(CdsImportException.class)
+                    .hasMessage("DOCUMENT_PUBLICATION_CLEANUP_FAILED");
+            verifyNoInteractions(files);
+            try (var tree = Files.walk(directory)) {
+                assertThat(tree.filter(Files::isRegularFile).map(path -> path.getFileName().toString()).toList())
+                        .containsExactly("unexpected-owned-fixture");
+            }
+        }
+    }
+
+    @Test void shouldReportRetirementFailure_whenPublicationRegistrationWasAcknowledged() throws Exception {
+        byte[] content = "synthetic report".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var files = mock(CdsImportFileService.class);
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(directory.toFile());
+            assertThatThrownBy(() -> service(files).publish("run", 1, unit, "embedded", "txt",
+                    sha(content), content.length, () -> {
+                        addUnexpectedPrivateEntry();
+                        return new ByteArrayInputStream(content);
+                    })).isInstanceOf(CdsImportException.class).hasMessage("DOCUMENT_PUBLICATION_CLEANUP_FAILED");
+            Path destination = directory.resolve("cds-" + unit + "-embedded-" + sha(content) + ".txt");
+            assertThat(Files.readAllBytes(destination)).isEqualTo(content);
+            verify(files).publishedVerified("run", 1, destination.toString(), sha(content), content.length);
+        }
+    }
+
+    private void addUnexpectedPrivateEntry() throws java.io.IOException {
+        try (var operations = Files.list(directory.resolve(".cds-pending/run"))) {
+            Path operation = operations.findFirst().orElseThrow();
+            Files.writeString(operation.resolve("unexpected-owned-fixture"), "fixture");
+        }
+    }
+
     private static String sha(byte[] content) { return CdsPaths.hex(CdsPaths.sha256().digest(content)); }
     private static CdsDocumentPublicationService service(CdsImportFileService files) {
         return service(files,new CdsFieldParser());

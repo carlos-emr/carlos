@@ -82,9 +82,7 @@ public class CdsDocumentPublicationService {
             }
             CdsPaths.forceFile(journal); CdsPaths.forceDirectory(operation); CdsPaths.forceDirectory(runRoot);
             Path pending = CdsPaths.within(operation.resolve("payload.partial"), operation);
-            boolean registered = false;
-            Throwable primary = null;
-            try {
+            try (PendingPublication publication = new PendingPublication(operation, journal, pending, destination, runRoot)) {
                 long count = 0;
                 long nextDiskCheck = 0;
                 MessageDigest digest = CdsPaths.sha256();
@@ -117,26 +115,7 @@ public class CdsDocumentPublicationService {
                 // Registration is acknowledged before private ownership evidence is retired. A crash
                 // after linking or a lost DB acknowledgement leaves the exact source inode and journal.
                 files.publishedVerified(run, epoch, destination.toString(), expectedDigest, expectedLength);
-                registered = true;
-            } catch (IOException | RuntimeException | Error failure) {
-                primary = failure;
-                throw failure;
-            } finally {
-                try {
-                    boolean linked = false;
-                    boolean uncertain = false;
-                    try {
-                        linked = Files.isRegularFile(pending, LinkOption.NOFOLLOW_LINKS)
-                                && Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS) && Files.isSameFile(pending, destination);
-                    } catch (IOException unavailable) { uncertain = true; }
-                    if (registered || !linked && !uncertain) {
-                        Files.deleteIfExists(pending); Files.deleteIfExists(journal); CdsPaths.forceDirectory(operation);
-                        Files.delete(operation); CdsPaths.forceDirectory(runRoot);
-                    }
-                } catch (IOException | RuntimeException | Error cleanupFailure) {
-                    if (primary != null) primary.addSuppressed(cleanupFailure);
-                    else throw new CdsImportException("DOCUMENT_PUBLICATION_CLEANUP_FAILED", false, cleanupFailure);
-                }
+                publication.registered = true;
             }
         }
         return new Publication(filename, destination.toString(), expectedDigest, expectedLength);
@@ -171,6 +150,46 @@ public class CdsDocumentPublicationService {
             throw new CdsImportException("DOCUMENT_PUBLICATION_PRIVATE_STORAGE_INSECURE");
         }
         return directory;
+    }
+
+    /** Java resource suppression retains the primary copy/registration failure when retirement also fails. */
+    private static final class PendingPublication implements AutoCloseable {
+        private final Path operation;
+        private final Path journal;
+        private final Path pending;
+        private final Path destination;
+        private final Path runRoot;
+        private boolean registered;
+
+        PendingPublication(Path operation, Path journal, Path pending, Path destination, Path runRoot) {
+            this.operation = operation; this.journal = journal; this.pending = pending;
+            this.destination = destination; this.runRoot = runRoot;
+        }
+
+        @Override public void close() {
+            try {
+                boolean linked = false;
+                boolean uncertain = false;
+                try {
+                    linked = regularIfPresent(pending) && regularIfPresent(destination) && Files.isSameFile(pending, destination);
+                } catch (IOException unavailable) { uncertain = true; }
+                if (registered || !linked && !uncertain) {
+                    Files.deleteIfExists(pending); Files.deleteIfExists(journal); CdsPaths.forceDirectory(operation);
+                    Files.delete(operation); CdsPaths.forceDirectory(runRoot);
+                }
+            } catch (IOException | RuntimeException | Error cleanupFailure) {
+                throw new CdsImportException("DOCUMENT_PUBLICATION_CLEANUP_FAILED", false, cleanupFailure);
+            }
+        }
+
+        private static boolean regularIfPresent(Path path) throws IOException {
+            try {
+                return Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class,
+                        LinkOption.NOFOLLOW_LINKS).isRegularFile();
+            } catch (java.nio.file.NoSuchFileException absent) {
+                return false;
+            }
+        }
     }
 
     private void verify(Path path, String expected, long length) throws IOException {

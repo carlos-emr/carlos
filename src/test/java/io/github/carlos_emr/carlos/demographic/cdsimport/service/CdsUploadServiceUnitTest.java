@@ -98,7 +98,9 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
         assertThat(done.receivedBytes()).isEqualTo(CHUNK + 7);
         assertThat(service.finish(OWNER, receipt.id()).state()).isEqualTo("COMPLETE");
         assertThat(service.chunks(OWNER, receipt.id(), 0, 100)).hasSize(2);
-        assertThat(service.chunks(OWNER, receipt.id(), 1, 100).get(0).sha256()).isEqualTo(hash(last));
+        var finalPage = service.chunks(OWNER, receipt.id(), 1, 100);
+        assertThat(finalPage).hasSize(1);
+        assertThat(finalPage.getFirst().sha256()).isEqualTo(hash(last));
         Path directory = temporary.resolve("uploads").resolve(receipt.id());
         assertThat(Files.readAllBytes(directory.resolve("source.xml"))).hasSize(CHUNK + 7);
         try (var files = Files.list(directory)) {

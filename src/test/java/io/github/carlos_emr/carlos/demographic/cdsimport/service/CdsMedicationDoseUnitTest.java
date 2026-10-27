@@ -45,7 +45,7 @@ class CdsMedicationDoseUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"1/2", "1–2", "1 tablet", "2-1", "0.1", "99999999999999999999999999999999999999999999999"})
+    @ValueSource(strings = {"1/2", "1–2", "1 tablet", "2-1", "0.1", "0.10000000149011612", "99999999999999999999999999999999999999999999999"})
     void shouldRequireTextAwareConsumer_whenLegacyFloatCannotRepresentSourceExactly(String text) {
         assertThat(CdsMedicationDose.parse(text)).isEmpty();
     }

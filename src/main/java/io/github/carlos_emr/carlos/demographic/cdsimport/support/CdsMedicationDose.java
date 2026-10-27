@@ -29,6 +29,8 @@ public final class CdsMedicationDose {
     private CdsMedicationDose() { }
     public record Range(float minimum, float maximum) { }
 
+    // Exact binary-float equality is intentional: valueOf uses a rounded decimal spelling.
+    @SuppressWarnings("java:S2111")
     public static Optional<Range> parse(String source) {
         if (source == null || !source.matches("[0-9]++(?:\\.[0-9]++)?(?:-[0-9]++(?:\\.[0-9]++)?)?")) {
             return Optional.empty();

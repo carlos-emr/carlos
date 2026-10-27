@@ -94,7 +94,7 @@ public class CdsTargetReceiptService {
                 if (separator >= 0) table = table.substring(0, separator);
                 add(connection, found, table, entry.getValue(), reader);
                 if (table.equals("preventions")) {
-                    children(connection, found, "preventionsExt", "prevention_id", entry.getValue(), reader);
+                    preventionExtensions(connection, found, entry.getValue(), reader);
                     dates(connection, found, PartialDate.PREVENTION, entry.getValue(), reader);
                 } else if (table.equals("drugs")) dates(connection, found, PartialDate.DRUGS, entry.getValue(), reader);
                 else if (table.equals("allergies")) dates(connection, found, PartialDate.ALLERGIES, entry.getValue(), reader);
@@ -175,19 +175,16 @@ public class CdsTargetReceiptService {
         }
     }
 
-    private static void children(Connection connection, List<Reference> references, String table, String foreignKey, String id, ReceiptReader reader)
+    private static void preventionExtensions(Connection connection, List<Reference> references, String id, ReceiptReader reader)
             throws java.sql.SQLException {
-        // Table and foreign-key arguments originate only from the fixed call sites above.
         try (PreparedStatement statement = connection.prepareStatement(
-                "select id from `" + table + "` where `" + foreignKey + "`=? order by id")) {
+                "select id from preventionsExt where prevention_id=? order by id")) {
             statement.setString(1, id); statement.setMaxRows(65);
-            // SQL identifiers are fixed call-site literals; the source row ID is a bound parameter.
-            // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
             try (ResultSet rows = statement.executeQuery()) {
                 int count = 0;
                 while (rows.next()) {
                     if (++count > 64) throw new CdsImportException("TARGET_DEPENDENCY_COUNT_REQUIRES_REVIEW");
-                    add(connection, references, table, rows.getString(1), reader);
+                    add(connection, references, "preventionsExt", rows.getString(1), reader);
                 }
             }
         }
@@ -214,7 +211,13 @@ public class CdsTargetReceiptService {
         private final Map<String, List<Column>> columns = new HashMap<>();
         private ReceiptReader(Connection connection) { this.connection = connection; }
 
+        // Only native receipt-catalogue names reach this identifier-only metadata query.
+        @SuppressWarnings("java:S2077")
         private List<Column> columns(String table) throws java.sql.SQLException {
+            if (table == null || !PRIMARY_KEYS.containsKey(table)
+                    && !"ctl_document".equals(table) && !"casemgmt_issue_notes".equals(table)) {
+                throw new CdsImportException("TARGET_REFERENCE_INVALID");
+            }
             List<Column> existing = columns.get(table);
             if (existing != null) return existing;
             List<Column> found = new ArrayList<>();

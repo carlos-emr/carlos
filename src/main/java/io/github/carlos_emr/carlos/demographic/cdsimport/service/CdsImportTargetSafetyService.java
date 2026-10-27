@@ -76,6 +76,9 @@ public class CdsImportTargetSafetyService {
     public void verify(CdsImportMaintenanceService.Owner owner) { owner.verifyTargets(this); }
 
     /** Only the maintenance owner can supply its private physical connection. */
+    // Identifiers come from the resolved native catalogue and quote() escapes every backtick.
+    // This SELECT pins metadata only; no source value or patient SQL is interpolated.
+    @SuppressWarnings("java:S2077")
     void verifyAndPin(Connection connection) {
         try {
             connection.setAutoCommit(false);
