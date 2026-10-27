@@ -186,6 +186,61 @@ public class CdsImportJobService {
 
     public Path root(String runId) throws IOException { return load(runId).jobRoot(); }
 
+    /**
+     * Verifies an already published historical source for the current review's provenance archive.
+     * Historical cancellation remains authoritative for execution, but does not prevent an authorized
+     * later review from reading its immutable evidence. This path never claims or acknowledges uploads.
+     */
+    public CdsSnapshotDto historicalSnapshot(String reviewRunId, long reviewEpoch, String historicalRunId,
+            CdsImportJobDocumentDto document, java.util.function.BooleanSupplier reviewCancelled) throws IOException {
+        CdsImportLedgerService.requireNoTransaction();
+        if (reviewRunId.equals(historicalRunId)) throw new CdsImportException("HISTORICAL_PROVENANCE_RUN_INVALID");
+        long started = System.nanoTime(); long[] nextPoll = {0};
+        long duration = configuration.limits().maxDurationMillis();
+        java.util.function.BooleanSupplier control = () -> {
+            if (Thread.currentThread().isInterrupted() || reviewCancelled.getAsBoolean()) return true;
+            long now = System.nanoTime();
+            if ((now - started) / 1_000_000 > duration) throw new CdsImportException("CDS_INPUT_DEADLINE");
+            if (now >= nextPoll[0]) {
+                nextPoll[0] = now + 250_000_000L;
+                var current = ledger.status(reviewRunId);
+                if (current.ownerEpoch() != reviewEpoch) throw new CdsImportException("OWNER_FENCED");
+                if (current.cancelRequested()) return true;
+            }
+            return false;
+        };
+        checkSourceControl(control);
+        // Re-read the hash-named acceptance instead of trusting an arbitrary historical descriptor.
+        if (!load(historicalRunId).equals(document)) throw new CdsImportException("HISTORICAL_ACCEPTANCE_CHANGED");
+        var historical = ledger.status(historicalRunId);
+        Path published = document.snapshot() == null ? document.jobRoot().resolve("snapshot") : document.snapshot().root();
+        published = CdsPaths.within(published, document.jobRoot());
+        if (!Files.isRegularFile(published.resolve("snapshot.seal"), LinkOption.NOFOLLOW_LINKS)) {
+            throw new CdsImportException("HISTORICAL_SNAPSHOT_NOT_PUBLISHED");
+        }
+        CdsSnapshotDto snapshot = snapshots.load(published, true, control);
+        if (document.uploadId() == null) {
+            if (document.snapshot() == null || !historical.sourceDigest().equals(snapshot.sha256())
+                    || !document.snapshot().equals(snapshot)) throw new CdsImportException("ACCEPTED_SOURCE_CHANGED");
+        } else {
+            if (document.snapshot() != null) throw new CdsImportException("HISTORICAL_ACCEPTANCE_CHANGED");
+            CdsUploadDto upload = uploads.status(document.actor().operator(), document.uploadId());
+            requireUploadSubmission(upload, document.command());
+            String recorded = document.command().dryRun() ? upload.dryRunId() : upload.runId();
+            if (!document.uploadId().equals(upload.id()) || !historicalRunId.equals(recorded)
+                    || !Objects.equals(historical.sourceDigest(), upload.manifestSha256())
+                    || upload.expectedBytes() < 1 || upload.receivedBytes() != upload.expectedBytes()
+                    || upload.committedChunks() < 1
+                    || !Set.of("SUBMITTING", "SUBMITTED_DRY_RUN", "SUBMITTED", "SNAPSHOT_PUBLISHED", "RETIRED").contains(upload.state())) {
+                throw new CdsImportException("UPLOAD_RUN_ASSOCIATION_INVALID");
+            }
+            // Upload receipts and the snapshot manifest deliberately use different digest domains.
+            verifyUpload(historicalRunId, document, upload, snapshot, control);
+        }
+        nextPoll[0] = 0; checkSourceControl(control);
+        return snapshot;
+    }
+
     /** Called by the fenced planning owner; source lock excludes competing/revived IO workers. */
     public CdsSnapshotDto snapshot(String runId, CdsImportJobDocumentDto document) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
@@ -247,10 +302,12 @@ public class CdsImportJobService {
 
     private void verifyUpload(String runId, CdsImportJobDocumentDto document, CdsUploadDto upload,
             CdsSnapshotDto snapshot, java.util.function.BooleanSupplier cancelled) throws IOException {
+        checkSourceControl(cancelled);
         Path source = snapshot.root().resolve("source-archive.bin");
         if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) {
             CdsSnapshotFileDto[] selected = new CdsSnapshotFileDto[1];
             snapshots.forEachFile(snapshot, file -> {
+                checkSourceControl(cancelled);
                 if (file.relativeName().equals(document.command().input().getFileName().toString())) selected[0] = file;
             });
             if (selected[0] == null) throw new CdsImportException("UPLOADED_SOURCE_NOT_SNAPSHOTTED");
@@ -263,9 +320,11 @@ public class CdsImportJobService {
                 var page = uploads.chunks(document.actor().operator(), document.uploadId(), index, 100);
                 if (page.isEmpty()) throw new CdsImportException("UPLOAD_RECEIPT_INCOMPLETE");
                 for (var chunk : page) {
+                    checkSourceControl(cancelled);
                     if (chunk.index() != index || chunk.offset() != offset || chunk.bytes() < 1) throw new CdsImportException("UPLOAD_RECEIPT_CONFLICT");
                     MessageDigest value = CdsPaths.sha256(); int remaining = chunk.bytes();
                     while (remaining > 0) {
+                        checkSourceControl(cancelled);
                         int n = input.read(buffer, 0, Math.min(buffer.length, remaining));
                         if (n < 0) throw new CdsImportException("UPLOADED_SOURCE_TRUNCATED");
                         value.update(buffer, 0, n); remaining -= n;
@@ -274,12 +333,16 @@ public class CdsImportJobService {
                     ByteBuffer row = ByteBuffer.allocate(52).putLong(index).putLong(offset).putInt(chunk.bytes())
                             .put(HexFormat.of().parseHex(chunk.sha256()));
                     manifest.update(row.array()); offset = Math.addExact(offset, chunk.bytes()); index++;
-                    if (Thread.currentThread().isInterrupted() || cancelled.getAsBoolean()) throw new CdsImportException("IMPORT_CANCELLED");
                 }
             }
+            checkSourceControl(cancelled);
             if (offset != upload.expectedBytes() || input.read() != -1
                     || !upload.manifestSha256().equals(CdsPaths.hex(manifest.digest()))) throw new CdsImportException("UPLOAD_MANIFEST_CHANGED");
         }
+    }
+
+    private static void checkSourceControl(java.util.function.BooleanSupplier cancelled) {
+        if (Thread.currentThread().isInterrupted() || cancelled.getAsBoolean()) throw new CdsImportException("IMPORT_CANCELLED");
     }
 
     public static String optionsDigest(CdsImportCommand command) {

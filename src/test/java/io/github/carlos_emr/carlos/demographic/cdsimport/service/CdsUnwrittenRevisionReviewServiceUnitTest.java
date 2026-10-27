@@ -81,7 +81,8 @@ class CdsUnwrittenRevisionReviewServiceUnitTest {
         when(ledger.unwrittenRevisionPriorRuns(RUN,7,vendor[0],"clinical","",100)).thenReturn(List.of(PRIOR));
         when(ledger.unwrittenRevisionPriorRuns(RUN,7,vendor[0],"clinical",PRIOR,100)).thenReturn(List.of());
         var old=new CdsImportJobDocumentDto(command,actor,snapshot,null,root.resolve("old-job"),"2".repeat(64));
-        when(jobs.load(PRIOR)).thenReturn(old);when(jobs.snapshot(PRIOR,old)).thenReturn(snapshot);
+        when(jobs.load(PRIOR)).thenReturn(old);
+        when(jobs.historicalSnapshot(eq(RUN),eq(7L),eq(PRIOR),eq(old),any())).thenReturn(snapshot);
         when(ledger.status(PRIOR)).thenReturn(status(PRIOR,snapshot.sha256(),options,"2".repeat(64)));
         var json=new ObjectMapper();byte[] bytes=json.writeValueAsBytes(Map.of("version",1,"sourceMember",source.relativeName(),"sourceXmlSha256",source.sha256(),
                 "recordXPath","/OmdCds[1]/PatientRecord[1]/Demographics[1]","parseResultFile",result.toString(),"patientKey",PATIENT,"newPatientSourceDigest",SOURCE,"revision",proof));
@@ -95,8 +96,24 @@ class CdsUnwrittenRevisionReviewServiceUnitTest {
         var prepared=service.prepare(RUN,7,PATIENT,context.toString(),document,snapshot,attempt,()->false);
         assertThat(prepared.revision()).isEqualTo(proof);assertThat(prepared.artifacts()).containsOnlyKeys("revision-context.json","lineage-approval.json","prior-run-provenance.jsonl");
         assertThat(Files.readString(attempt.resolve("prior-run-provenance.jsonl"))).contains(PRIOR,"sourceManifestSha256","FOOTER");
+        verify(jobs).historicalSnapshot(eq(RUN),eq(7L),eq(PRIOR),any(),any());
+        verify(jobs,never()).snapshot(anyString(),any());
         assertThat(Files.readAllBytes(original)).isEqualTo(before);
         verify(ledger,never()).approveUnwrittenRevision(anyString(),anyLong(),anyLong(),anyString(),anyString(),anyString(),anyString(),anyString(),anyString());
+    }
+
+    @Test
+    void shouldArchiveBothDigestDomains_whenAHistoricalWebUploadManifestDiffersFromItsSnapshot() throws Exception {
+        var accepted=jobs.load(PRIOR);
+        var web=new CdsImportJobDocumentDto(accepted.command(),accepted.actor(),null,"11111111-1111-4111-8111-111111111111",
+                accepted.jobRoot(),accepted.acceptedRulesetDigest());
+        String uploadManifest="e".repeat(64);
+        when(jobs.load(PRIOR)).thenReturn(web);
+        when(jobs.historicalSnapshot(eq(RUN),eq(7L),eq(PRIOR),eq(web),any())).thenReturn(snapshot);
+        when(ledger.status(PRIOR)).thenReturn(status(PRIOR,uploadManifest,CdsImportJobService.optionsDigest(web.command()),web.acceptedRulesetDigest()));
+        service.prepare(RUN,7,PATIENT,context.toString(),document,snapshot,attempt,()->false);
+        String archive=Files.readString(attempt.resolve("prior-run-provenance.jsonl"));
+        assertThat(archive).contains("UPLOAD_CHUNK_RECEIPTS_V1",uploadManifest,"snapshotDigest",snapshot.sha256());
     }
 
     @Test

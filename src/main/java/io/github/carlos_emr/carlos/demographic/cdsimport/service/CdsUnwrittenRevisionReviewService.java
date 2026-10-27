@@ -111,11 +111,14 @@ public class CdsUnwrittenRevisionReviewService {
                 if (page.isEmpty()) break;
                 for (String previous:page) {
                     if (previous.compareTo(cursor)<=0) throw failure("REVISION_PROVENANCE_PAGE_INVALID");
-                    check(cancelled); var old=ledger.status(previous); var accepted=jobs.load(previous); var oldSnapshot=jobs.snapshot(previous, accepted);
-                    if (!old.sourceDigest().equals(oldSnapshot.sha256()) || !old.optionsDigest().equals(CdsImportJobService.optionsDigest(accepted.command()))
+                    check(cancelled); var old=ledger.status(previous); var accepted=jobs.load(previous);
+                    var oldSnapshot=jobs.historicalSnapshot(run, epoch, previous, accepted, cancelled);
+                    if (!old.optionsDigest().equals(CdsImportJobService.optionsDigest(accepted.command()))
                             || accepted.acceptedRulesetDigest()==null || !old.rulesetDigest().equals(accepted.acceptedRulesetDigest())) throw failure("REVISION_PRIOR_SOURCE_PROOF_CHANGED");
                     Map<String, Object> row=new LinkedHashMap<>(); row.put("type", "PRIOR_RUN"); row.put("runId", previous);
                     row.put("sourceDigest", old.sourceDigest()); row.put("optionsDigest", old.optionsDigest()); row.put("rulesetDigest", old.rulesetDigest());
+                    row.put("sourceDigestDomain", accepted.uploadId()==null?"SNAPSHOT_MANIFEST_V2":"UPLOAD_CHUNK_RECEIPTS_V1");
+                    row.put("snapshotDigest", oldSnapshot.sha256());
                     row.put("state", old.state()); row.put("acceptance", accepted); row.put("snapshot", oldSnapshot);
                     row.put("sourceManifestBytes", Files.size(oldSnapshot.filesManifestFile())); row.put("sourceManifestSha256", hash(oldSnapshot.filesManifestFile(), cancelled));
                     line(output, row); count++; cursor=previous;
