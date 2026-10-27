@@ -1409,6 +1409,8 @@ public class PatientInformationImpl extends XmlComplexContentImpl implements Pat
      * <p>Handles Canadian province/territory codes (e.g., BC, ON, AB) used for
      * jurisdictional healthcare billing and regulations.</p>
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class ProvinceImpl extends LegacyXmlStringEnumerationHolder implements Province
     {
         private static final long serialVersionUID = 1L;
@@ -1525,6 +1527,8 @@ public class PatientInformationImpl extends XmlComplexContentImpl implements Pat
      *
      * <p>Handles language preference codes for patient communication.</p>
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class LanguageImpl extends LegacyXmlStringEnumerationHolder implements Language
     {
         private static final long serialVersionUID = 1L;
@@ -1739,6 +1743,8 @@ public class PatientInformationImpl extends XmlComplexContentImpl implements Pat
         /**
          * XMLBeans implementation for occupation Value enumeration.
          */
+        // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+        @SuppressWarnings("java:S110")
         public static class ValueImpl extends LegacyXmlStringEnumerationHolder implements Value
         {
             private static final long serialVersionUID = 1L;
@@ -1769,6 +1775,8 @@ public class PatientInformationImpl extends XmlComplexContentImpl implements Pat
      *
      * <p>Represents educational attainment levels (e.g., high school, college, university).</p>
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class LevelOfEducationImpl extends LegacyXmlStringEnumerationHolder implements LevelOfEducation
     {
         private static final long serialVersionUID = 1L;
@@ -1917,6 +1925,8 @@ public class PatientInformationImpl extends XmlComplexContentImpl implements Pat
         /**
          * XMLBeans implementation for HIN Type enumeration.
          */
+        // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+        @SuppressWarnings("java:S110")
         public static class TypeImpl extends LegacyXmlStringEnumerationHolder implements Type
         {
             private static final long serialVersionUID = 1L;
@@ -2050,6 +2060,8 @@ public class PatientInformationImpl extends XmlComplexContentImpl implements Pat
         /**
          * XMLBeans implementation for ethnic background Value with parent attribute support.
          */
+        // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+        @SuppressWarnings("java:S110")
         public static class ValueImpl extends LegacyXmlStringEnumerationHolder implements Value
         {
             private static final long serialVersionUID = 1L;
@@ -2129,6 +2141,8 @@ public class PatientInformationImpl extends XmlComplexContentImpl implements Pat
             /**
              * XMLBeans implementation for ethnic background Parent enumeration.
              */
+            // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+            @SuppressWarnings("java:S110")
             public static class ParentImpl extends LegacyXmlStringEnumerationHolder implements Parent
             {
                 private static final long serialVersionUID = 1L;
@@ -2160,6 +2174,8 @@ public class PatientInformationImpl extends XmlComplexContentImpl implements Pat
      *
      * <p>Represents marital status values (e.g., single, married, divorced, widowed).</p>
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class MaritalStatusImpl extends LegacyXmlStringEnumerationHolder implements MaritalStatus
     {
         private static final long serialVersionUID = 1L;
@@ -2478,6 +2494,8 @@ public class PatientInformationImpl extends XmlComplexContentImpl implements Pat
         /**
          * XMLBeans implementation for medication Value enumeration.
          */
+        // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+        @SuppressWarnings("java:S110")
         public static class ValueImpl extends LegacyXmlStringEnumerationHolder implements Value
         {
             private static final long serialVersionUID = 1L;

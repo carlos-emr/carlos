@@ -745,6 +745,8 @@ public class ObstetricalHistoryItemListImpl extends XmlComplexContentImpl implem
      * @see io.github.carlos_emr.carlos.ar2005.ObstetricalHistoryItemList.Sex
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class SexImpl extends LegacyXmlStringEnumerationHolder implements Sex
     {
         private static final long serialVersionUID = 1L;
@@ -779,6 +781,8 @@ public class ObstetricalHistoryItemListImpl extends XmlComplexContentImpl implem
      * @see io.github.carlos_emr.carlos.ar2005.ObstetricalHistoryItemList.TypeOfDelivery
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class TypeOfDeliveryImpl extends LegacyXmlStringEnumerationHolder implements TypeOfDelivery
     {
         private static final long serialVersionUID = 1L;

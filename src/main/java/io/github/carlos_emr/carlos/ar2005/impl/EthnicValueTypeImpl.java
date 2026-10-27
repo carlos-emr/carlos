@@ -26,6 +26,8 @@ import io.github.carlos_emr.carlos.utility.LegacyXmlStringEnumerationHolder;
  * @see io.github.carlos_emr.carlos.ar2005.PatientInformation
  * @since 2026-01-23
  */
+// Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+@SuppressWarnings("java:S110")
 public class EthnicValueTypeImpl extends LegacyXmlStringEnumerationHolder implements EthnicValueType
 {
     private static final long serialVersionUID = 1L;

@@ -338,7 +338,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             "msp", DiagnosticCodeDao.class
     );
 
-    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     Integer exportNo = 0;
     ArrayList<String> exportError = null;

@@ -72,15 +72,16 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * and are restricted to the configured document directory.
  */
 public class RourkeExport2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Spring services belong to this request-scoped action, not its serializable form.
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private ClinicDAO clinicDAO = SpringUtils.getBean(ClinicDAO.class);
-    private DataExportDao dataExportDAO = SpringUtils.getBean(DataExportDao.class);
-    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    private Rourke2009DAO frmRourke2009DAO = SpringUtils.getBean(Rourke2009DAO.class);
+    private transient ClinicDAO clinicDAO = SpringUtils.getBean(ClinicDAO.class);
+    private transient DataExportDao dataExportDAO = SpringUtils.getBean(DataExportDao.class);
+    private transient DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+    private transient Rourke2009DAO frmRourke2009DAO = SpringUtils.getBean(Rourke2009DAO.class);
 
     private Logger log = MiscUtils.getLogger();
 

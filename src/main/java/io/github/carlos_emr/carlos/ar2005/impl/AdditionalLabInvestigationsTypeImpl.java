@@ -718,6 +718,8 @@ public class AdditionalLabInvestigationsTypeImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class BloodGroupImpl extends LegacyXmlStringEnumerationHolder implements BloodGroup
     {
         private static final long serialVersionUID = 1L;
@@ -749,6 +751,8 @@ public class AdditionalLabInvestigationsTypeImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class RhImpl extends LegacyXmlStringEnumerationHolder implements Rh
     {
         private static final long serialVersionUID = 1L;
@@ -780,6 +784,8 @@ public class AdditionalLabInvestigationsTypeImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class GBSImpl extends LegacyXmlStringEnumerationHolder implements GBS
     {
         private static final long serialVersionUID = 1L;

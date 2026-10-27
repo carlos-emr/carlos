@@ -625,6 +625,8 @@ public class CurrentPregnancyTypeImpl extends XmlComplexContentImpl implements C
      * @see CigsPerDay
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class CigsPerDayImpl extends LegacyXmlStringEnumerationHolder implements CigsPerDay
     {
         private static final long serialVersionUID = 1L;

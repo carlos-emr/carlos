@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.HashMap;
 
 import io.github.carlos_emr.OscarDocumentCreator;
@@ -48,7 +49,7 @@ class SpreadsheetRuntimeIntegrationTest {
 
     @Test
     void shouldPreserveDatesNumbersAndFormulas_whenXlsxIsWrittenAndRead() throws Exception {
-        var date = LocalDateTime.of(2026, 8, 31, 23, 45, 0);
+        var date = LocalDateTime.of(2026, Month.AUGUST, 31, 23, 45, 0);
         var output = new ByteArrayOutputStream();
         try (var workbook = new XSSFWorkbook()) {
             var row = workbook.createSheet("Values").createRow(0);

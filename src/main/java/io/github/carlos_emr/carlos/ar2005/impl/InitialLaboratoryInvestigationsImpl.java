@@ -1551,6 +1551,8 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class HivResultImpl extends LegacyXmlStringEnumerationHolder implements HivResult
     {
         private static final long serialVersionUID = 1L;
@@ -1615,6 +1617,8 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class AboResultImpl extends LegacyXmlStringEnumerationHolder implements AboResult
     {
         private static final long serialVersionUID = 1L;
@@ -1647,6 +1651,8 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class RhResultImpl extends LegacyXmlStringEnumerationHolder implements RhResult
     {
         private static final long serialVersionUID = 1L;
@@ -1679,6 +1685,8 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class GcResultGonorrheaImpl extends LegacyXmlStringEnumerationHolder implements GcResultGonorrhea
     {
         private static final long serialVersionUID = 1L;
@@ -1711,6 +1719,8 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class GcResultChlamydiaImpl extends LegacyXmlStringEnumerationHolder implements GcResultChlamydia
     {
         private static final long serialVersionUID = 1L;
@@ -1743,6 +1753,8 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class HbsAgResultImpl extends LegacyXmlStringEnumerationHolder implements HbsAgResult
     {
         private static final long serialVersionUID = 1L;
@@ -1775,6 +1787,8 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class VdrlResultImpl extends LegacyXmlStringEnumerationHolder implements VdrlResult
     {
         private static final long serialVersionUID = 1L;
@@ -1807,6 +1821,8 @@ public class InitialLaboratoryInvestigationsImpl extends XmlComplexContentImpl i
      *
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class SickleCellResultImpl extends LegacyXmlStringEnumerationHolder implements SickleCellResult
     {
         private static final long serialVersionUID = 1L;

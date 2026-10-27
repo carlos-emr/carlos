@@ -618,6 +618,8 @@ public class PartnerInformationImpl extends XmlComplexContentImpl implements Par
          * @see io.github.carlos_emr.carlos.ar2005.PartnerInformation.Occupation.Value
          * @since 2026-01-24
          */
+        // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+        @SuppressWarnings("java:S110")
         public static class ValueImpl extends LegacyXmlStringEnumerationHolder implements Value
         {
             private static final long serialVersionUID = 1L;
@@ -655,6 +657,8 @@ public class PartnerInformationImpl extends XmlComplexContentImpl implements Par
      * @see io.github.carlos_emr.carlos.ar2005.PartnerInformation.EducationLevel
      * @since 2026-01-24
      */
+    // Generated XMLBeans value hierarchy plus the shared legacy enum-alias adapter.
+    @SuppressWarnings("java:S110")
     public static class EducationLevelImpl extends LegacyXmlStringEnumerationHolder implements EducationLevel
     {
         private static final long serialVersionUID = 1L;
