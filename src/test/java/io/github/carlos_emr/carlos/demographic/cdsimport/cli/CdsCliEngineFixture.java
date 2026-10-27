@@ -152,7 +152,11 @@ public final class CdsCliEngineFixture {
         sources.put("directory", batch.toString());
         Path archive = source.resolve("patients.zip");
         try (var output = new ZipOutputStream(Files.newOutputStream(archive, StandardOpenOption.CREATE_NEW))) {
-            for (Path path : batchFiles) { output.putNextEntry(new ZipEntry(path.getFileName().toString())); Files.copy(path, output); output.closeEntry(); }
+            for (int i = 0; i < batchFiles.size(); i++) {
+                output.putNextEntry(new ZipEntry(batchFiles.get(i).getFileName().toString()));
+                output.write(distinct(minimal, token, "archive" + (i + 1)).getBytes(StandardCharsets.UTF_8));
+                output.closeEntry();
+            }
         }
         rootReadable(archive, false); sources.put("archive", archive.toString());
         Path metadataFile = root.resolve("fixture.json");
