@@ -23,17 +23,30 @@ async function observed(body, options = {}) {
     location:{href:'http://localhost/carlos/form/importUpload'},document:{getElementById:()=>({dataset:{owner:'web-1'}})},
     fetch:async(input,init)=>{tag=init.headers.get(config.header);tags.push(tag);const address=new URL(typeof input==='string'?input:input.url||input.href,'http://localhost');const chosen=options.dynamicBodies?.[address.searchParams.get('runId')]||body;const bytes=typeof chosen==='string'?new TextEncoder().encode(chosen):chosen;return {status:options.status || 200,redirected:!!options.redirected,headers:new Headers({'content-type':options.type || 'application/json'}),
       body:new LocalReadable({start(controller){controller.enqueue(bytes);if(options.streamError)setTimeout(()=>controller.error(Error('synthetic truncated transport')),2);else controller.close();}})};}});
-  vm.runInContext('('+browserObserver.toString()+')('+JSON.stringify(config)+','+strictObject.toString()+')',sandbox);
+  sandbox.fixtureConfig=config;
+  vm.runInContext('('+browserObserver.toString()+')(fixtureConfig,'+strictObject.toString()+')',sandbox);
   const controller=new AbortController();sandbox.controller=controller;
   const requestPath='/carlos/form/cdsImportStatus?runId=run-1'+(options.section?'&section='+options.section+'&afterKey=&afterId=0&limit=50':'');
-  const requestExpression=options.request?'new Request('+JSON.stringify('http://localhost'+requestPath)+',{signal:controller.signal})':JSON.stringify(requestPath);
+  sandbox.fixtureOptions=options;sandbox.fixturePath=requestPath;sandbox.fixtureUrl='http://localhost'+requestPath;
   let failure;
   try {
-    await vm.runInContext(`(async()=>{const response=await fetch(${requestExpression},${options.nullSignal ? '{signal:null}' : '{}'});const decoder=new TextDecoder('utf-8',{fatal:${options.fatal !== false}});let bytes=0,text='';await response.body.pipeTo(new WritableStream({write(chunk){bytes+=chunk.byteLength;if(bytes>${options.productLimit || config.maxBytes})throw Error('capacity');text+=decoder.decode(chunk,{stream:true});${options.unrelatedDecoder ? "new TextDecoder('utf-8',{fatal:true}).decode(new Uint8Array([120]),{stream:true});" : ''}}}));text+=decoder.decode();${options.unrelatedParse ? "JSON.parse('{\"ok\":true,\"job\":{\"id\":\"run-1\"}}');" : ''}return JSON.parse(text);})()`,sandbox);
+    await vm.runInContext(`(async()=>{
+      const input=fixtureOptions.request?new Request(fixtureUrl,{signal:controller.signal}):fixturePath;
+      const response=await fetch(input,fixtureOptions.nullSignal?{signal:null}:{});
+      const decoder=new TextDecoder('utf-8',{fatal:fixtureOptions.fatal!==false});let bytes=0,text='';
+      await response.body.pipeTo(new WritableStream({write(chunk){
+        bytes+=chunk.byteLength;if(bytes>(fixtureOptions.productLimit||fixtureConfig.maxBytes))throw Error('capacity');
+        text+=decoder.decode(chunk,{stream:true});
+        if(fixtureOptions.unrelatedDecoder)new TextDecoder('utf-8',{fatal:true}).decode(new Uint8Array([120]),{stream:true});
+      }}));text+=decoder.decode();
+      if(fixtureOptions.unrelatedParse)JSON.parse('{"ok":true,"job":{"id":"run-1"}}');
+      return JSON.parse(text);
+    })()`,sandbox);
   } catch (e) {failure=e;}
   await Promise.resolve();
   if(options.abortAfterEof)controller.abort();
-  const trace=vm.runInContext(`globalThis.__trace.take(${JSON.stringify(tag)})`,sandbox);
+  sandbox.fixtureTag=tag;
+  const trace=vm.runInContext('globalThis.__trace.take(fixtureTag)',sandbox);
   return {trace,failure,sandbox,config,tags};
 }
 function proof(trace, overrides={}) {return {kind:'read-only',owner:'web-1',uiVerified:true,independentVerified:true,runId:'run-1',...overrides};}

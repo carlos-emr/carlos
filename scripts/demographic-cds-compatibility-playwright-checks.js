@@ -148,6 +148,9 @@ function safeResult(result) {return {status:result.status,code:result.value?.cod
 function qualifyContractRefusal(recorder,expected,code) {
   h.assert(expected.request && ((expected.status===409&&code==='IMPORT_CLIENT_REFRESH_REQUIRED')
     ||(expected.status===400&&code==='IMPORT_PARAMETERS_INVALID')),'Only exact finite contract refusals can be qualified');
+  const consoleRefusal = expected.status===409
+    ? /^Failed to load resource: the server responded with a status of 409\b/
+    : /^Failed to load resource: the server responded with a status of 400\b/;
   const removed=[];
   let consoles=0,bad=0;
   for(const key of ['badResponses','consoleIssues','requestFailures']) {
@@ -158,7 +161,7 @@ function qualifyContractRefusal(recorder,expected,code) {
       const identity=row.requestRef?.deref()===expected.request;
       const qualified=key==='badResponses'?same&&identity&&row.status===expected.status
         :key==='consoleIssues'?same&&row.type==='error'
-          &&new RegExp('^Failed to load resource: the server responded with a status of '+expected.status+'\\b').test(row.text)
+          &&consoleRefusal.test(row.text)
           :same&&identity&&row.errorText==='net::ERR_ABORTED'&&expected.status===400&&code==='IMPORT_PARAMETERS_INVALID';
       if(qualified){if(key==='consoleIssues')h.assert(++consoles<=1,'Ambiguous same-route console failures cannot be qualified');
         if(key==='badResponses')h.assert(++bad===1,'Ambiguous same-request responses cannot be qualified');

@@ -154,11 +154,11 @@ function serverSample(pid, expectedBase, priorIdentity) {
   const stat = fs.readFileSync(root+'/stat','utf8').split(') ').at(-1).split(' ');
   const identity = pid+':'+stat[19];
   h.assert(!priorIdentity || priorIdentity === identity,'Tomcat restarted during the ingress measurement');
-  const status = fs.readFileSync(root+'/status','utf8'); const value = key => {
-    const match = status.match(new RegExp('^'+key+':\\s+(\\d+) kB$', 'm'));
+  const status = fs.readFileSync(root+'/status','utf8'); const value = pattern => {
+    const match = status.match(pattern);
     h.assert(match,'Required resident-memory metric is unavailable'); return Number(match[1])*1024;
   };
-  return {identity,rssBytes:value('VmRSS'),highWaterBytes:value('VmHWM')};
+  return {identity,rssBytes:value(/^VmRSS:\s+(\d+) kB$/m),highWaterBytes:value(/^VmHWM:\s+(\d+) kB$/m)};
 }
 
 async function run(env = process.env) {
