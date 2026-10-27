@@ -99,7 +99,15 @@ def main():
     parser.add_argument('--container-workspace', default='/workspace')
     parser.add_argument('--maven', default='mvn')
     parser.add_argument('--maven-repository')
+    parser.add_argument('--classpath-file', type=Path,
+                        help='Reuse an existing dependency classpath for this same build container without invoking Maven')
+    parser.add_argument('--schema-only', action='store_true',
+                        help='Regenerate/check only fresh ON/BC schema contracts; never report native tests as run')
+    parser.add_argument('--refresh-schema-contracts', action='store_true',
+                        help='Regenerate ON/BC physical contracts from this newly owned full-chain reference server')
     args = parser.parse_args()
+    if args.schema_only and not args.refresh_schema_contracts:
+        parser.error('--schema-only requires --refresh-schema-contracts')
     repository = Path(__file__).resolve().parents[2]
     nonce = uuid.uuid4().hex
     name = 'cds-native-' + nonce
@@ -141,7 +149,10 @@ def main():
                           '-e', 'MARIADB_ROOT_PASSWORD_FILE=/run/cds-test/password', '-e', 'MARIADB_ROOT_HOST=%',
                           IMAGE, '--innodb-page-size=32768', '--innodb-snapshot-isolation=ON',
                           '--character-set-server=utf8mb4', '--collation-server=utf8mb4_general_ci',
-                          '--innodb-buffer-pool-size=128M'], log)
+                          # Match the repository config for very wide legacy form DDL. SQL
+                          # strict mode stays enabled, including all native storage tests.
+                          '--innodb-strict-mode=OFF', '--innodb-default-row-format=dynamic',
+                          '--max-allowed-packet=64M', '--innodb-buffer-pool-size=128M'], log)
             created_database = True
             mounts = run(docker + ['exec', name, 'cat', '/proc/mounts'], log, capture=True).stdout
             if not any(len(parts) > 2 and parts[1] == '/var/lib/mysql' and parts[2] == 'tmpfs'
@@ -155,23 +166,47 @@ def main():
                 if time.monotonic() > deadline:
                     raise RuntimeError('Disposable MariaDB did not become ready')
                 time.sleep(1)
-            run(client + ['-e', 'CREATE DATABASE carlos_cds_test CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; '
-                         'CREATE DATABASE cds_ledger_test CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci'], log)
-            for database, filename in [('carlos_cds_test', 'jdbc.properties'), ('cds_ledger_test', 'ledger.properties')]:
+            profiles = [('carlos_cds_test', 'jdbc.properties', 'on')]
+            if not args.schema_only:
+                profiles.append(('cds_ledger_test', 'ledger.properties', 'on'))
+            if args.refresh_schema_contracts:
+                profiles.append(('cds_full_test', 'bc.properties', 'bc'))
+            run(client + ['-e', '; '.join('CREATE DATABASE ' + database + ' CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci'
+                                         for database, _, _ in profiles)], log)
+            for database, filename, _ in profiles:
                 properties = private / filename
                 properties.write_text('jdbcUrl=jdbc:mysql://' + name + ':3306/' + database
                                       + '?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci'
                                       + '&allowPublicKeyRetrieval=true&useSSL=false\njdbcUser=root\njdbcPassword=' + password + '\n')
                 properties.chmod(0o600)
-            build(maven + ['dependency:build-classpath', '-Dmdep.outputFile=' + container_output + '/classpath'], log)
-            dependencies = (output / 'classpath').read_text().strip()
+            if args.classpath_file:
+                if args.classpath_file.is_symlink() or not args.classpath_file.is_file() or args.classpath_file.stat().st_size > (1 << 20):
+                    raise RuntimeError('Existing dependency classpath is not a bounded regular file')
+                dependencies = args.classpath_file.read_text().strip()
+                if not dependencies or '\n' in dependencies or '\r' in dependencies:
+                    raise RuntimeError('Existing dependency classpath is invalid')
+            else:
+                build(maven + ['dependency:build-classpath', '-Dmdep.outputFile=' + container_output + '/classpath'], log)
+                dependencies = (output / 'classpath').read_text().strip()
             classpath = args.container_workspace + '/target/classes' + os.pathsep + dependencies
             build(['javac', '-cp', classpath, '-d', container_output + '/classes',
                    'scripts/ci/CdsImportMariaDbBootstrap.java'], log)
-            for filename in ['jdbc.properties', 'ledger.properties']:
+            for _, filename, province in profiles:
                 build(['java', '-cp', container_output + '/classes' + os.pathsep + classpath,
                        'CdsImportMariaDbBootstrap', container_private + '/' + filename,
-                       'database/mysql/migration', 'on'], log)
+                       'database/mysql/migration', province], log)
+            if args.refresh_schema_contracts:
+                for database, province in [('carlos_cds_test', 'on'), ('cds_full_test', 'bc')]:
+                    command = ['python3', 'scripts/schema-contract.py', '--database', database, '--province', province,
+                               '--client-arg=--defaults-extra-file=' + container_private + '/client.cnf',
+                               '--client-arg=-h', '--client-arg=' + name]
+                    build(command, log)
+                    build(command + ['--check'], log)
+                build(['python3', 'scripts/schema-contract.py', '--verify-files'], log)
+                print('Fresh full-chain ON/BC physical schema contracts regenerated and checked.', flush=True)
+                if args.schema_only:
+                    print('Schema-only operation complete; native contract tests were not run.', flush=True)
+                    return 0
             # Explicit selectors and post-run XML checks prevent a missing property/tag from
             # quietly skipping the required physical-database contracts.
             original_reports = repository / 'target' / 'surefire-reports'

@@ -224,10 +224,50 @@ require recreating only a disposable database, never repairing checksums.
 The `CDS import native contracts` workflow compiles the actual application and test classes, then
 runs `scripts/ci/run-cds-native-tier.py`. The harness creates a uniquely owned internal-network
 MariaDB server with checked tmpfs storage and bootstraps two empty schemas through the complete
-common/Ontario Flyway chain. Its nine required suites include demographic and document ORM
+common/Ontario Flyway chain. A separate workflow step runs four fresh 64MiB parser probes.
+The nine required native suites include demographic and document ORM
 callbacks alongside maintenance, identity, clinical capacity, appointments, history visibility,
 ledger recovery and target receipts. Missing reports, zero tests, skips, inconsistent counters,
 failures, errors and flaky reruns fail the gate. The host parser uses hash-pinned `defusedxml`;
 only reports with captured configuration/output removed become CI artifacts. Cleanup removes
 only the harness's own container, network and generated credentials. This physical gate does not
 replace schema/parser, browser, installed CLI or application-wide regression checks.
+
+### Physical schema contract review
+
+The fresh ON and BC contracts add the same 17 tables: 16 for import provenance, source fields and
+control, and one for typed laboratory results. Together they add 231 new columns, 128 index-definition rows, 59 key-column rows, 14 foreign-key rows and
+one check constraint. No tables, columns, index definitions, keys or foreign keys are removed.
+Database defaults remain unchanged. Both provinces have the following 45 existing-column changes,
+each matched to an explicit `MODIFY COLUMN` in the listed forward migration:
+
+| Existing table | Changed columns | Migration suffix after `V1.0.59.` |
+| --- | --- | --- |
+| `drugs` | 17 capacity/nullability changes; outside provider name (1) | `8`; `16` |
+| `demographic` | first/last name, city/residential city, status, chart number (6) | `8` |
+| `demographicArchive` | matching six archive capacities | `15` |
+| `Contact` | combined name and two telephone capacities (3) | `11` |
+| `allergies`, `preventionsExt` | description and source comments (2) | `8` |
+| `measurements` | source measurement value capacity (1) | `11` |
+| `hl7TextInfo` | first/last name (2); health identifier (1) | `10`; `14` |
+| `appointment`, `appointmentArchive` | imported status and notes (4) | `10`; `15` |
+| `casemgmt_note` | unknown observation date permits `NULL` and removes its zero-date default (1) | `21` |
+| `preventions` | creator becomes an ASCII provider identifier, preserving alphanumeric attribution (1) | `22` |
+
+Existing column character sets/collations remain unchanged apart from that explicit numeric-to-ASCII
+creator conversion; no ordinal positions or generated expressions drift. The large default Git
+diff reflects alignment of repeated JSON arrays. `git diff --diff-algorithm=histogram --
+database/mysql/schema-contract/` gives a more compact view of the canonical generator output.
+
+For an authorized schema update, `--refresh-schema-contracts` also builds a fresh BC reference and
+runs the existing schema generator, its seed/collation validation, physical `--check`, and
+`--verify-files` for both provinces. The optional `--schema-only` mode requires that flag and
+explicitly reports that native tests were not run; the required CI gate uses the full test mode.
+
+The reviewed fresh reference run passed all 45 native cases across nine required suites with zero
+failures, errors or skips. Both ON fixtures applied and validated all 66 migrations (450 tables);
+the BC reference applied and validated all 63 migrations (483 tables). Both generated contracts
+passed physical re-export comparison and migration/policy binding checks. The six document ORM
+cases compare exact timestamp milliseconds, so JDBC's `Timestamp` subclass does not make equal
+stored clocks fail a Java object-type equality check. These results cover the tested compiled
+candidate; whole-build, browser and installed CLI verification remain separate gates.

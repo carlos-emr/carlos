@@ -110,7 +110,8 @@ class CdsReportStorageMariaDbIntegrationTest {
                     Document value=document(precision,CLOCK); session.persist(value); session.flush(); int id=value.getId(); session.clear();
                     Document read=session.find(Document.class,id);
                     assertThat(read.getCdsContentPrecision()).isEqualTo(precision);
-                    assertThat(read.getContentdatetime()).isEqualTo(CLOCK);
+                    assertThat(read.getContentdatetime()).isNotNull();
+                    assertThat(read.getContentdatetime().getTime()).isEqualTo(CLOCK.getTime());
                 }
             } finally { transaction.rollback(); }
         }
