@@ -124,18 +124,20 @@ import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 public class DemographicService extends AbstractServiceImpl {
 
     private enum IncludeType {
-        ALLERGIES("allergies", Set.of("AllergiesAndAdverseReactions")),
-        MEASUREMENTS("measurements", Set.of("CareElements")),
+        ALLERGIES("allergies", "_allergy", Set.of("AllergiesAndAdverseReactions")),
+        MEASUREMENTS("measurements", "_measurement", Set.of("CareElements")),
         // This route returns CPP histories and explicitly excludes Concerns below.
-        NOTES("notes", Set.of("PersonalHistory", "FamilyHistory", "PastHealth", "RiskFactors", "AlertsAndSpecialNeeds")),
-        MEDICATIONS("medications", Set.of("MedicationsAndTreatments")),
-        CONTACTS("contacts", Set.of());
+        NOTES("notes", "_casemgmt.notes", Set.of("PersonalHistory", "FamilyHistory", "PastHealth", "RiskFactors", "AlertsAndSpecialNeeds")),
+        MEDICATIONS("medications", "_rx", Set.of("MedicationsAndTreatments")),
+        CONTACTS("contacts", null, Set.of());
 
         private final String value;
+        private final String securityObject;
         private final Set<String> sourceCategories;
 
-        IncludeType(String value, Set<String> sourceCategories) {
+        IncludeType(String value, String securityObject, Set<String> sourceCategories) {
             this.value = value;
+            this.securityObject = securityObject;
             this.sourceCategories = sourceCategories;
         }
 
@@ -277,25 +279,28 @@ public class DemographicService extends AbstractServiceImpl {
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 getDemographicData(@PathParam("dataId") Integer id, @QueryParam("includes[]") List<String> include) throws PatientDirectiveException {
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("r", id);
+        Set<String> categories = authorizeIncludedClinicalCategories(loggedInInfo, id, include);
         Demographic demo = demographicManager.getDemographic(loggedInInfo, id);
         if (demo == null) {
             throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).entity("Demographic record not found: " + id).build());
         }
-        requireSupportedIncludes(loggedInInfo, id, include);
+        if (!categories.isEmpty()) projections.requireRestSupported(id, categories);
         return buildDemographicTo1(loggedInInfo, demo, id, include);
     }
 
-    /** Native-only optional projections must pass the same category boundary as their standalone REST routes. */
-    private void requireSupportedIncludes(LoggedInInfo loggedInInfo, Integer demographicNo, List<String> includes) {
+    /** Authorize every requested clinical category before any patient or provenance read. */
+    private Set<String> authorizeIncludedClinicalCategories(LoggedInInfo loggedInInfo, Integer demographicNo, List<String> includes) {
         Set<String> categories = new LinkedHashSet<>();
-        // Preserve the AllergyManager's existing patient permission check before consulting provenance.
-        if (includes.contains(IncludeType.ALLERGIES.value)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", demographicNo.toString()))
-            throw new SecurityException("missing required sec object (_allergy)");
         for (IncludeType type : IncludeType.values()) {
-            if (includes.contains(type.value)) categories.addAll(type.sourceCategories);
+            if (includes.contains(type.value) && !type.sourceCategories.isEmpty()) {
+                if (!securityInfoManager.hasPrivilege(loggedInInfo, type.securityObject, "r", demographicNo.toString()))
+                    throw new SecurityException("missing required sec object (" + type.securityObject + ")");
+                categories.addAll(type.sourceCategories);
+            }
         }
-        if (!categories.isEmpty()) projections.requireRestSupported(demographicNo, Set.copyOf(categories));
+        if (!categories.isEmpty() && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo))
+            throw new SecurityException("Access Denied");
+        return Set.copyOf(categories);
     }
 
     private DemographicTo1 buildDemographicTo1(LoggedInInfo loggedInInfo, Demographic demo, Integer id, List<String> include) {

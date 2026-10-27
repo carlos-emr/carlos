@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjec
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
+import io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper;
 
 import java.util.Collections;
 import java.util.Date;
@@ -227,7 +228,22 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
             when(demographics.getDemographic(loggedInInfo, 42)).thenReturn(patient);
         }
 
+        private void authorizeCategories(String... includes) {
+            for (String include : includes) {
+                String securityObject = switch (include) {
+                    case "allergies" -> "_allergy";
+                    case "measurements" -> "_measurement";
+                    case "medications" -> "_rx";
+                    case "notes" -> "_casemgmt.notes";
+                    default -> throw new IllegalArgumentException("Not a clinical include");
+                };
+                when(securityInfoManager.hasPrivilege(loggedInInfo, securityObject, "r", "42")).thenReturn(true);
+            }
+            when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 42)).thenReturn(true);
+        }
+
         private void assertConflictBeforeClinicalRead(List<String> includes, Set<String> expectedCategories) {
+            authorizeCategories(includes.toArray(String[]::new));
             when(records.hasSourceFields(42, expectedCategories)).thenReturn(true);
             assertThrowsWithStatus(() -> service.getDemographicData(42, includes), Response.Status.CONFLICT);
             verify(records).hasSourceFields(42, expectedCategories);
@@ -253,17 +269,18 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @Test
         void missingPatientRetainsNotFoundBeforeImportProvenance() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
+            authorizeCategories("measurements");
             assertThrowsWithStatus(() -> service.getDemographicData(42, List.of("measurements")), Response.Status.NOT_FOUND);
             verifyNoInteractions(records, measurements);
         }
 
         @Test
         void existingAllergyPermissionDenialStillPrecedesImportProvenance() {
-            authorizeRecord();
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
             assertThatThrownBy(() -> service.getDemographicData(42, List.of("allergies")))
                     .isInstanceOf(SecurityException.class).hasMessageContaining("_allergy");
             verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", "r", "42");
-            verifyNoInteractions(records, allergies, measurements, notes, medications);
+            verifyNoInteractions(records, demographics, allergies, measurements, notes, medications);
         }
 
         @Test
@@ -275,7 +292,6 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @Test
         void importedAllergiesCannotEscapeThroughTheDemographicIncludeRoute() {
             authorizeRecord();
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", "42")).thenReturn(true);
             assertConflictBeforeClinicalRead(List.of("allergies"), Set.of("AllergiesAndAdverseReactions"));
         }
 
@@ -288,6 +304,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @Test
         void everySelectedCppSourceCategoryRequiresTheSameCompleteProjection() {
             authorizeRecord();
+            authorizeCategories("notes");
             for (String importedCategory : cppSourceCategories) {
                 when(records.hasSourceFields(42, cppSourceCategories))
                         .thenAnswer(call -> call.<Set<String>>getArgument(1).contains(importedCategory));
@@ -301,6 +318,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @Test
         void anUnrequestedImportedCategoryDoesNotBlockCppHistories() throws Exception {
             authorizeRecord();
+            authorizeCategories("notes");
             Set<String> otherImportedCategories = Set.of("CareElements", "ClinicalNotes", "ProblemList");
             when(records.hasSourceFields(eq(42), any()))
                     .thenAnswer(call -> !Collections.disjoint(call.getArgument(1), otherImportedCategories));
@@ -314,7 +332,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @Test
         void ordinaryNativeIncludesRetainTheirValuesAndNumericDateWire() throws Exception {
             authorizeRecord();
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", "42")).thenReturn(true);
+            authorizeCategories("allergies", "measurements", "notes", "medications");
             var observed = new Date(946684800000L);
             var measurement = new Measurement();
             measurement.setDemographicId(42); measurement.setType("wt");
@@ -333,8 +351,88 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
             assertThat(wire.path("dateObserved").longValue()).isEqualTo(observed.getTime());
             Set<String> requested = new java.util.HashSet<>(cppSourceCategories);
             requested.addAll(Set.of("AllergiesAndAdverseReactions", "CareElements", "MedicationsAndTreatments"));
-            verify(records).hasSourceFields(42, requested);
+            var order = inOrder(securityInfoManager, demographics, records);
+            order.verify(securityInfoManager).hasPrivilege(loggedInInfo, "_demographic", "r", 42);
+            for (String object : List.of("_allergy", "_measurement", "_casemgmt.notes", "_rx"))
+                order.verify(securityInfoManager).hasPrivilege(loggedInInfo, object, "r", "42");
+            order.verify(securityInfoManager).isAllowedAccessToPatientRecord(loggedInInfo, 42);
+            order.verify(demographics).getDemographic(loggedInInfo, 42);
+            order.verify(records).hasSourceFields(42, requested);
             verifyNoMoreInteractions(records);
+        }
+
+        private void configureUnqueriedProvenance(boolean imported) {
+            // A real disclosure service would distinguish these patients if it were reached.
+            records = mock(CdsLegacyProjectionDao.class, invocation ->
+                    "hasSourceFields".equals(invocation.getMethod().getName())
+                            ? imported : RETURNS_DEFAULTS.answer(invocation));
+            injectDependency(service, "projections", new CdsLegacyProjectionService(records));
+        }
+
+        private void assertClinicalAuthorizationDenied(List<String> includes) {
+            assertThatThrownBy(() -> service.getDemographicData(42, includes))
+                    .isInstanceOf(SecurityException.class)
+                    .satisfies(failure -> {
+                        try (Response response = new SecurityExceptionMapper().toResponse((SecurityException) failure)) {
+                            assertThat(response.getStatus()).isEqualTo(403);
+                            assertThat(response.hasEntity()).isFalse();
+                        }
+                    });
+            verifyNoInteractions(records, demographics, measurements, allergies, notes, medications);
+        }
+
+        @Test
+        void deniedMeasurementPermissionIsIndistinguishableForNativeAndImportedPatients() {
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
+            for (boolean imported : List.of(false, true)) {
+                configureUnqueriedProvenance(imported);
+                assertClinicalAuthorizationDenied(List.of("measurements"));
+            }
+            verify(securityInfoManager, times(2)).hasPrivilege(loggedInInfo, "_measurement", "r", "42");
+        }
+
+        @Test
+        void deniedMedicationPermissionIsIndistinguishableForNativeAndImportedPatients() {
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
+            for (boolean imported : List.of(false, true)) {
+                configureUnqueriedProvenance(imported);
+                assertClinicalAuthorizationDenied(List.of("medications"));
+            }
+            verify(securityInfoManager, times(2)).hasPrivilege(loggedInInfo, "_rx", "r", "42");
+        }
+
+        @Test
+        void deniedCppPermissionIsIndistinguishableForNativeAndImportedPatients() {
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
+            for (boolean imported : List.of(false, true)) {
+                configureUnqueriedProvenance(imported);
+                assertClinicalAuthorizationDenied(List.of("notes"));
+            }
+            verify(securityInfoManager, times(2)).hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", "42");
+        }
+
+        @Test
+        void patientRecordRestrictionPrecedesNativeAndImportedCategoryReads() {
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", "42")).thenReturn(true);
+            for (boolean imported : List.of(false, true)) {
+                configureUnqueriedProvenance(imported);
+                assertClinicalAuthorizationDenied(List.of("measurements"));
+            }
+            verify(securityInfoManager, times(2)).isAllowedAccessToPatientRecord(loggedInInfo, 42);
+        }
+
+        @Test
+        void everyRequestedCategoryMustBeAuthorizedBeforeAnyCombinedProvenanceRead() {
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", "42")).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", "42")).thenReturn(true);
+            for (boolean imported : List.of(false, true)) {
+                configureUnqueriedProvenance(imported);
+                assertClinicalAuthorizationDenied(List.of("allergies", "measurements", "medications"));
+            }
+            verify(securityInfoManager, times(2)).hasPrivilege(loggedInInfo, "_rx", "r", "42");
+            verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), any());
         }
 
         @Test

@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -43,6 +44,7 @@ import org.mockito.Mock;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
+import io.github.carlos_emr.carlos.commn.dao.CdsLegacyProjectionDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
@@ -55,9 +57,11 @@ import io.github.carlos_emr.carlos.managers.MeasurementManager;
 import io.github.carlos_emr.carlos.managers.NoteManager;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
+import io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper;
 
 /**
  * CXF local-transport endpoint tests for {@link DemographicService} using CXF local transport.
@@ -98,6 +102,8 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
     private ProfessionalSpecialistDao mockSpecialistDao;
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
+    @Mock
+    private CdsLegacyProjectionDao mockProjectionRecords;
 
     @Test
     void shouldPreserveXml_whenDemographicListClientRequestsIt() throws Exception {
@@ -129,7 +135,13 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         injectDependency(service, "secUserRoleDao", mockSecUserRoleDao);
         injectDependency(service, "specialistDao", mockSpecialistDao);
         injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
+        injectDependency(service, "projections", new CdsLegacyProjectionService(mockProjectionRecords));
         return service;
+    }
+
+    @Override
+    protected List<Object> additionalServerProviders() {
+        return List.of(new SecurityExceptionMapper());
     }
 
     @BeforeEach
@@ -137,6 +149,8 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
             .thenReturn(true);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq(42)))
+            .thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42)))
             .thenReturn(true);
     }
 
@@ -238,6 +252,30 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
     @Nested
     @DisplayName("GET /demographics/{dataId}")
     class GetDemographicById {
+
+        private void assertDeniedIncludes(String include, String object, boolean imported) {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq(object), eq("r"), eq("42")))
+                    .thenReturn(false);
+            if (imported) {
+                when(mockProjectionRecords.hasSourceFields(eq(42), any())).thenReturn(true);
+            }
+            try (Response response = request().path("/demographics/42").query("includes[]", include).get()) {
+                assertThat(response.getStatus()).isEqualTo(403);
+                assertThat(response.hasEntity()).isFalse();
+            }
+            verifyNoInteractions(mockProjectionRecords, mockDemographicManager, mockAllergyManager,
+                    mockMeasurementManager, mockNoteManager, mockRxManager);
+        }
+
+        @Test
+        void shouldDenyUnauthorizedNativeClinicalIncludesBeforePatientReads() {
+            assertDeniedIncludes("measurements", "_measurement", false);
+        }
+
+        @Test
+        void shouldDenyUnauthorizedImportedClinicalIncludesWithoutDisclosingImportState() {
+            assertDeniedIncludes("medications", "_rx", true);
+        }
 
         @Test
         @DisplayName("should return 200 with demographic data when valid ID provided")

@@ -33,7 +33,7 @@ own chart, category, sensitive-laboratory, maintenance and hold checks. These bo
 implement a new exporter and do not turn a source-view privilege into disclosure authorization.
 They do not disable ordinary chart editing/viewing simply because source fields exist.
 
-The demographic optional-includes path applies the same category contract as the dedicated endpoints. CPP notes cover PersonalHistory, FamilyHistory, PastHealth, RiskFactors and AlertsAndSpecialNeeds; the pre-existing exclusion of ProblemList concerns and non-CPP ClinicalNotes remains intact. Unrequested categories, contacts and basic demographics keep their existing behavior. This closes the alternate native-only measurement/Date projection without introducing a new DTO or disclosure role.
+The demographic optional-includes path applies the same category contract as the dedicated endpoints. Before any patient or provenance read, every requested clinical category requires its patient-scoped read permission: `_allergy`, `_measurement`, `_rx`, or `_casemgmt.notes` for CPP notes, followed by the patient-record restriction check. A denial returns the same empty HTTP 403 for native and imported records. CPP notes cover PersonalHistory, FamilyHistory, PastHealth, RiskFactors and AlertsAndSpecialNeeds; the pre-existing exclusion of ProblemList concerns and non-CPP ClinicalNotes remains intact. Unrequested categories, contacts and basic demographics keep their existing behavior. This closes the alternate native-only measurement/Date projection without introducing a new DTO or disclosure role.
 
 Installed portals, additional SOAP/third-party integrations, arbitrary custom reports, direct SQL, bulk
 extracts, alternate PDF renderers, and cached/indexed copies need runtime catalogue verification.
