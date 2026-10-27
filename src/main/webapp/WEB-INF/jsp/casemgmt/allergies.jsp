@@ -57,8 +57,7 @@
     </tr>
     <c:forEach var="allergy" items="${Allergies}">
         <tr>
-            <td bgcolor="white"><fmt:formatDate pattern="MM/dd/yy"
-                                                value="${allergy.entry_date}"/></td>
+            <td bgcolor="white"><c:out value="${AllergyRecordedLabels[allergy.id]}"/></td>
             <td bgcolor="white">${carlos:forHtml(allergy.description)}</td>
             <td bgcolor="white">${carlos:forHtml(allergy.reaction)}</td>
         </tr>

@@ -25,9 +25,14 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: refuse unsupported native date precision.
  */
 
 package io.github.carlos_emr.carlos.webserv.transfer_objects;
+
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -37,6 +42,13 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 
 public final class AllergyTransfer {
+    private String reactionType;
+    private Boolean nonDrug;
+    public String getReactionType() { return reactionType; }
+    public void setReactionType(String value) { reactionType = value; }
+    public Boolean getNonDrug() { return nonDrug; }
+    public void setNonDrug(Boolean value) { nonDrug = value; }
+
 
     private Integer Id;
     private Integer demographicNo;
@@ -204,7 +216,14 @@ public final class AllergyTransfer {
     public static AllergyTransfer toTransfer(Allergy allergy) {
         if (allergy == null) return (null);
 
+        if (allergy.getStartDate() != null || allergy.getEntryDate() != null) {
+            var dates = SpringUtils.getBean(CdsTemporalReadService.class);
+            dates.allergyStart(allergy).requireDateOnlySafe();
+            dates.allergyRecorded(allergy).requireDateOnlySafe();
+        }
         AllergyTransfer allergyTransfer = new AllergyTransfer();
+        allergyTransfer.setReactionType(allergy.getReactionType());
+        allergyTransfer.setNonDrug(allergy.isNonDrug());
 
         allergyTransfer.setId(allergy.getId());
         allergyTransfer.setDemographicNo(allergy.getDemographicNo());

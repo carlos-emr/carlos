@@ -28,6 +28,9 @@
 
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
+import io.github.carlos_emr.carlos.commn.model.PartialDate;
+
 import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
 
 
@@ -372,7 +375,10 @@ public class CaseManagementPrintPdf {
                 p = new Paragraph();
                 p.setAlignment(Paragraph.ALIGN_LEFT);
                 phrase = PdfFonts.phrase(LEADING, "Start Date: ", curFont);
-                PdfFonts.addText(phrase, formatter.format(allergy.getStartDate()), phrase.getFont());
+                String dateLabel = SpringUtils.getBean(CdsTemporalReadService.class).display(
+                        allergy.getStartDate(), PartialDate.ALLERGIES, allergy.getId(),
+                        PartialDate.ALLERGIES_STARTDATE, formatter);
+                PdfFonts.addText(phrase, dateLabel, phrase.getFont());
                 p.add(phrase);
                 document.add(p);
             }
@@ -483,7 +489,10 @@ public class CaseManagementPrintPdf {
             if (drug.isCurrent() && !drug.isArchived()) {
                 curFont = normal;
                 phrase = PdfFonts.phrase(LEADING, "", curFont);
-                PdfFonts.addText(phrase, formatter.format(drug.getRxDate()) + " - ", phrase.getFont());
+                String dateLabel = SpringUtils.getBean(CdsTemporalReadService.class).display(
+                        drug.getRxDate(), PartialDate.DRUGS, drug.getDrugId(),
+                        PartialDate.DRUGS_STARTDATE, formatter);
+                PdfFonts.addText(phrase, dateLabel + " - ", phrase.getFont());
                 PdfFonts.addText(phrase, drug.getFullOutLine().replaceAll(";", " "), phrase.getFont());
                 p.add(phrase);
                 document.add(p);

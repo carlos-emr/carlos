@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.casemgmt.print;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
+
 import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
 
 import java.io.IOException;
@@ -75,6 +77,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
@@ -736,7 +739,11 @@ public class OscarChartPrinter implements java.io.Closeable {
             if (drug.isCurrent() && !drug.isArchived()) {
                 curFont = normal;
                 phrase = PdfFonts.phrase(LEADING, "", curFont);
-                PdfFonts.addText(phrase, formatter.format(drug.getRxDate()) + " - ", phrase.getFont());
+                String startLabel = SpringUtils.getBean(
+                        CdsTemporalReadService.class)
+                        .display(drug.getRxDate(), PartialDate.DRUGS, drug.getDrugId(),
+                                PartialDate.DRUGS_STARTDATE, formatter);
+                PdfFonts.addText(phrase, startLabel + " - ", phrase.getFont());
                 PdfFonts.addText(phrase, drug.getFullOutLine().replace(';', ' '), phrase.getFont());
                 p.add(phrase);
                 document.add(p);

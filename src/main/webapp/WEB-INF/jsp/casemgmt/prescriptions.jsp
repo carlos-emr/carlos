@@ -62,7 +62,7 @@ Prescriptions
                 <c:if test="${prescription.expired}">
                     *
                 </c:if>
-                <fmt:formatDate pattern="MM/dd/yy" value="${prescription.rxDate}"/>
+                <c:out value="${PrescriptionDateLabels[prescription.id]}"/>
             </td>
 
             <%String styleColor = ""; %>
