@@ -46,9 +46,11 @@ public class CdsDocumentPublicationService {
             long createdEpochMillis) { }
     private final CdsImportFileService files;
     private final CdsImportConfigurationService configuration;
+    private final CdsFieldParser fields;
 
-    public CdsDocumentPublicationService(CdsImportFileService files, CdsImportConfigurationService configuration) {
-        this.files = files; this.configuration = configuration;
+    public CdsDocumentPublicationService(CdsImportFileService files, CdsImportConfigurationService configuration,
+            CdsFieldParser fields) {
+        this.files = files; this.configuration = configuration; this.fields = fields;
     }
 
     /** No replacement, no global content deduplication, and no patient/source text in the native filename. */
@@ -90,6 +92,7 @@ public class CdsDocumentPublicationService {
                     byte[] buffer = new byte[65536];
                     int read;
                     while ((read = input.read(buffer)) != -1) {
+                        fields.checkpoint();
                         if (Thread.currentThread().isInterrupted()) throw new CdsImportException("DOCUMENT_PUBLICATION_CANCELLED");
                         count = Math.addExact(count, read);
                         if (count > expectedLength) throw new CdsImportException("DOCUMENT_PUBLICATION_LENGTH_MISMATCH");
@@ -170,19 +173,30 @@ public class CdsDocumentPublicationService {
         return directory;
     }
 
-    private static void verify(Path path, String expected, long length) throws IOException {
-        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.size(path) != length) {
+    private void verify(Path path, String expected, long length) throws IOException {
+        var before = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (!before.isRegularFile() || before.size() != length) {
             throw new CdsImportException("DOCUMENT_PUBLICATION_CONFLICT");
         }
         MessageDigest digest = CdsPaths.sha256();
+        long bytes = 0;
+        fields.checkpoint();
         try (InputStream input = Files.newInputStream(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
             byte[] buffer = new byte[65536];
             int count;
             while ((count = input.read(buffer)) != -1) {
+                fields.checkpoint();
                 if (Thread.currentThread().isInterrupted()) throw new CdsImportException("DOCUMENT_PUBLICATION_CANCELLED");
+                bytes = Math.addExact(bytes, count);
+                if (bytes > length) throw new CdsImportException("DOCUMENT_PUBLICATION_CONFLICT");
                 digest.update(buffer, 0, count);
             }
         }
-        if (!CdsPaths.hex(digest.digest()).equals(expected)) throw new CdsImportException("DOCUMENT_PUBLICATION_CONFLICT");
+        fields.checkpoint();
+        var after = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (bytes != length || !after.isRegularFile() || after.size() != length
+                || !java.util.Objects.equals(before.fileKey(), after.fileKey())
+                || !before.lastModifiedTime().equals(after.lastModifiedTime())
+                || !CdsPaths.hex(digest.digest()).equals(expected)) throw new CdsImportException("DOCUMENT_PUBLICATION_CONFLICT");
     }
 }

@@ -54,6 +54,44 @@ class CdsDocumentPublicationServiceUnitTest {
         }
     }
 
+    @Test void shouldStopPublicationAndExistingVerification_whenScopedOwnerIsLost() throws Exception {
+        byte[] content="synthetic report".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var files=mock(CdsImportFileService.class); var fields=mock(CdsFieldParser.class);
+        var service=service(files,fields);
+        try (MockedStatic<PathValidationUtils> paths=mockStatic(PathValidationUtils.class,CALLS_REAL_METHODS)) {
+            paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(directory.toFile());
+            doThrow(new CdsImportException("OWNER_FENCED")).when(fields).checkpoint();
+            assertThatThrownBy(()->service.publish("run",1,unit,"embedded","txt",sha(content),content.length,
+                    ()->new ByteArrayInputStream(content))).isInstanceOf(CdsImportException.class).hasMessageContaining("OWNER_FENCED");
+            verifyNoInteractions(files);
+            reset(fields);
+            var published=service.publish("run",1,unit,"embedded","txt",sha(content),content.length,
+                    ()->new ByteArrayInputStream(content));
+            doThrow(new CdsImportException("OWNER_FENCED")).when(fields).checkpoint();
+            assertThatThrownBy(()->service.publish("run",1,unit,"embedded","txt",sha(content),content.length,
+                    ()->new ByteArrayInputStream(content))).isInstanceOf(CdsImportException.class).hasMessageContaining("OWNER_FENCED");
+            assertThat(Files.readAllBytes(Path.of(published.location()))).isEqualTo(content);
+            verify(files,times(1)).publishedVerified("run",1,published.location(),sha(content),content.length);
+        }
+    }
+
+    @Test void shouldBoundExistingFileVerification_whenFileGrowsAfterItsInitialLengthCheck() throws Exception {
+        byte[] content="synthetic report".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var files=mock(CdsImportFileService.class); var fields=mock(CdsFieldParser.class);
+        Path existing=directory.resolve("cds-"+unit+"-embedded-"+sha(content)+".txt"); Files.write(existing,content);
+        doAnswer(invocation->{
+            Files.write(existing,new byte[65536],java.nio.file.StandardOpenOption.APPEND);
+            return null;
+        }).when(fields).checkpoint();
+        try (MockedStatic<PathValidationUtils> paths=mockStatic(PathValidationUtils.class,CALLS_REAL_METHODS)) {
+            paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(directory.toFile());
+            assertThatThrownBy(()->service(files,fields).publish("run",1,unit,"embedded","txt",sha(content),content.length,
+                    ()->new ByteArrayInputStream(content))).isInstanceOf(CdsImportException.class).hasMessageContaining("DOCUMENT_PUBLICATION_CONFLICT");
+            verifyNoInteractions(files);
+            verify(fields,times(2)).checkpoint();
+        }
+    }
+
     @Test void shouldRefuseAndPreserveExistingBytes_whenSameLocationHasAnotherGeneration() throws Exception {
         byte[] content="expected".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         Path existing=directory.resolve("cds-"+unit+"-embedded-"+sha(content)+".txt"); Files.writeString(existing,"foreign!");
@@ -119,7 +157,10 @@ class CdsDocumentPublicationServiceUnitTest {
 
     private static String sha(byte[] content) { return CdsPaths.hex(CdsPaths.sha256().digest(content)); }
     private static CdsDocumentPublicationService service(CdsImportFileService files) {
+        return service(files,new CdsFieldParser());
+    }
+    private static CdsDocumentPublicationService service(CdsImportFileService files,CdsFieldParser fields) {
         Properties properties=new Properties(); properties.setProperty("cds.import.minimumFreeDiskBytes","1");
-        return new CdsDocumentPublicationService(files,new CdsImportConfigurationService(properties));
+        return new CdsDocumentPublicationService(files,new CdsImportConfigurationService(properties),fields);
     }
 }
