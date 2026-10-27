@@ -136,6 +136,16 @@ def main() -> None:
             raise RuntimeError("container engine did not prove complete clinical/report/cleanup outcomes")
         return nonce, result
 
+    def inspect_native(label: str, run: str) -> dict:
+        code, values = execute(label, [args.java, "-Xmx128m", "-cp", args.classpath, MAIN,
+                                       "inspect", str(args.jdbc_properties), run])
+        if code or len(values) != 1:
+            raise RuntimeError("bounded native verification failed")
+        return values[0]
+
+    before = inspect_native("native-before", "fixture")
+    if len(before) != 16 or any(type(value) is not int or value < 0 for value in before.values()):
+        raise RuntimeError("native baseline was incomplete")
     submission, result = operation("import", ["--operation", "import", "--provider", args.provider,
         "--input", str(args.input), "--source-namespace", args.source_namespace,
         "--source-profile", args.source_profile, "--no-match-providers"])
@@ -145,12 +155,17 @@ def main() -> None:
                                                   "--submission-key", submission])
     if status.get("runId") != run or recovered.get("runId") != run:
         raise RuntimeError("container status did not recover the original accepted run")
-    code, counts = execute("native-counts", [args.java, "-Xmx128m", "-cp", args.classpath, MAIN,
-                                           "inspect", str(args.jdbc_properties), run])
-    if code or len(counts) != 1 or counts[0].get("nativeTargets") != 1 or counts[0].get("nativeNotes") != 1 \
-            or counts[0].get("holds") != 0 or counts[0].get("checkpoints") != result.get("expectedUnits") \
+    counts = inspect_native("native-counts", run)
+    if counts.get("nativeTargets") != 1 or counts.get("nativeNotes") != 1 \
+            or counts.get("holds") != 0 or counts.get("checkpoints") != result.get("expectedUnits") \
             or result.get("committedUnits") != result.get("expectedUnits"):
         raise RuntimeError("container native writes did not match the independent completion receipt")
+    after = inspect_native("native-after", "fixture")
+    expected = dict(before)
+    for key in ("totalNativePatients", "totalNativeNotes"):
+        expected[key] += 1
+    if after != expected:
+        raise RuntimeError("container native delta differed from one new patient and one note")
     print(json.dumps({"containerEngine": "PASS", "runId": run, "clinicalComplete": True,
                       "nativePatients": 1, "nativeNotes": 1, "heapMiB": heap}))
 
