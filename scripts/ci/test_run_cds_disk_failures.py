@@ -64,6 +64,22 @@ class DiskFailureEvidenceTest(unittest.TestCase):
         (owned/'redirect').symlink_to(self.root)
         with self.assertRaises(RuntimeError):GATE.retain_tmpfs(owned,self.root/'refused.tar.gz')
 
+    def test_journal_source_uri_matches_only_the_same_local_file_or_directory(self):
+        file=self.root/'original space-\u00e9.xml';file.write_bytes(b'original')
+        directory=self.root/'source folder';directory.mkdir()
+        self.assertTrue(GATE.matches_local_source_uri(file.as_uri(),file))
+        self.assertTrue(GATE.matches_local_source_uri(directory.as_uri()+'/',directory))
+        self.assertTrue(GATE.matches_local_source_uri(directory.as_uri(),directory))
+        for value in (str(file),file.as_uri()+'/',file.as_uri()+'?request=other',file.as_uri()+'#other',
+                      file.as_uri().replace('file:///','file://localhost/'),
+                      file.as_uri().replace('file:///','file://foreign.example/'),
+                      file.as_uri().replace('file:///','file://user:secret@foreign.example/'),
+                      file.as_uri().replace('file:','https:'),file.as_uri()+'%GG',file.as_uri()+'%FF',
+                      (self.root/'other.xml').as_uri(),None):
+            with self.subTest(value=value):
+                self.assertFalse(GATE.matches_local_source_uri(value,file))
+        self.assertFalse(GATE.matches_local_source_uri('file:///relative.xml',Path('relative.xml')))
+
     def test_runtime_retirement_requires_verified_archived_state_and_known_zero_registry_outcome(self):
         good={'status':'PASSED','acceptedRuns':0,'afterLedger':dict.fromkeys(('cds_import_run','cds_import_patient',
             'cds_import_unit','cds_import_checkpoint','cds_import_event','cds_import_lineage','maintenanceActive','reservedUploadBytes'),0)}

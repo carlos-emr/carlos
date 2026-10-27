@@ -171,7 +171,7 @@ def main() -> int:
                     execute(runtime_exec+["python3","-c",
                         "import pathlib;p=pathlib.Path('/etc/carlos-emr/carlos.properties');s=p.read_text();"
                         "assert 'cds.import.minimumFreeDiskBytes' not in s;"
-                        "p.open('a').write('\\ncds.import.minimumFreeDiskBytes=0\\n')"])
+                        "p.open('a').write('\\ncds.import.minimumFreeDiskBytes=1\\n')"])
                 execute(runtime_exec+["python3","-m","unittest","discover","-s","scripts/ci","-p","test_run_cds_disk_failures.py","-v"])
                 disk_attempted=True
                 executed=execute(runtime_exec+["python3","scripts/ci/run-cds-disk-failures.py","--disposable",

@@ -20,7 +20,7 @@ import sys
 import tarfile
 import time
 import uuid
-from urllib.parse import urlsplit
+from urllib.parse import unquote_to_bytes,urlsplit
 
 SPEC=importlib.util.spec_from_file_location('cds_resources',Path(__file__).with_name('run-cds-performance.py'))
 RESOURCE=importlib.util.module_from_spec(SPEC)
@@ -119,6 +119,19 @@ def private_json(path: Path, maximum: int=65536, *, owner: int=0) -> dict:
     return json.loads(path.read_text())
 
 
+def matches_local_source_uri(value: object, source: Path) -> bool:
+    """Jackson's Path wire value is a local file URI, not a platform path string."""
+    if not isinstance(value,str) or not source.is_absolute():return False
+    try:
+        parsed=urlsplit(value)
+        if parsed.scheme!='file' or parsed.netloc or parsed.query or parsed.fragment \
+                or re.search(r'%(?![0-9a-fA-F]{2})',parsed.path):return False
+        decoded=unquote_to_bytes(parsed.path).decode('utf-8',errors='strict')
+        expected=source.as_posix()
+        return decoded==expected or source.is_dir() and decoded==expected+'/'
+    except (ValueError,UnicodeError):return False
+
+
 def retain_tmpfs(root: Path, destination: Path) -> dict:
     """Retain this entire synthetic failed fixture before its owned CI runtime retires."""
     require(not destination.exists(),'DISK_FAULT_ARCHIVE_ALREADY_EXISTS')
@@ -208,10 +221,10 @@ def main() -> None:
                     'DISK_FAULT_LEDGER_ABSENCE_PROOF_UNAVAILABLE')
             return dict(zip(names,map(int,fields)))
         floor=int(properties.get('cds.import.minimumFreeDiskBytes',str(512*MIB)))
-        require(floor==(0 if args.scenario=='enospc' else 512*MIB),'DISK_FAULT_FROZEN_RESERVE_POLICY')
+        require(floor==(1 if args.scenario=='enospc' else 512*MIB),'DISK_FAULT_FROZEN_RESERVE_POLICY')
         frozen_config=RESOURCE.digest(CONFIG)
         result.update(configurationSha256=frozen_config,tmpfsCapacityBytes=64*MIB,minimumFreeDiskBytes=floor,
-                      faultPolicy='reserve disabled BEFORE submission only to force kernel ENOSPC' if floor==0 else 'unchanged production reserve')
+                      faultPolicy='minimum valid one-byte reserve frozen BEFORE submission only to force kernel ENOSPC' if floor==1 else 'unchanged production reserve')
         helper=['java','-Xmx128m','-cp',args.classpath,
                 'io.github.carlos_emr.carlos.demographic.cdsimport.cli.CdsCliEngineFixture']
         def fixture(operation,value):
@@ -316,7 +329,7 @@ def main() -> None:
         journal=private_json(document,owner=service_uid)
         require(journal['operator']=='root' and journal['submissionKey']==operator['submissionKey']
                 and journal['originalSourceModifiedByImporter'] is False
-                and journal['request']['command']['input']==str(source)
+                and matches_local_source_uri(journal['request']['command']['input'],source)
                 and not (jobs[0]/'accepting.seal').exists() and not (jobs[0]/'accepted.seal').exists(),
                 'DISK_FAULT_PREACCEPT_OWNERSHIP_CHANGED')
         require((jobs[0]/'snapshot.pending').is_dir(),'DISK_FAULT_PARTIAL_SNAPSHOT_NOT_RETAINED')

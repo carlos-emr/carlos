@@ -155,7 +155,7 @@ UID/GID, then proves private creation, writing, locking and file/directory fsync
 with a tiny owned probe that it retires. An inaccessible ancestor fails fixture
 admission before it can be mistaken for the intended storage fault. Existing
 accepted paths are never chmodded to make the test pass.
-`disk-enospc` freezes a zero reserve before the first submission solely to inject
+`disk-enospc` freezes the minimum valid one-byte reserve before the first submission solely to inject
 the storage failure. A valid48MiB external PDF and XML fit as originals, while
 their physical snapshot cannot also fit. Raw-register-only failed-write tracing
 must prove actual kernel `ENOSPC` from the identified non-root service JVM,
