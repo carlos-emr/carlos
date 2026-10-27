@@ -32,6 +32,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Calendar;
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -80,6 +82,7 @@ import io.github.carlos_emr.carlos.managers.MeasurementManager;
 import io.github.carlos_emr.carlos.managers.NoteManager;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.webserv.rest.conversion.AllergyConverter;
@@ -121,16 +124,19 @@ import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 public class DemographicService extends AbstractServiceImpl {
 
     private enum IncludeType {
-        ALLERGIES("allergies"),
-        MEASUREMENTS("measurements"),
-        NOTES("notes"),
-        MEDICATIONS("medications"),
-        CONTACTS("contacts");
+        ALLERGIES("allergies", Set.of("AllergiesAndAdverseReactions")),
+        MEASUREMENTS("measurements", Set.of("CareElements")),
+        // This route returns CPP histories and explicitly excludes Concerns below.
+        NOTES("notes", Set.of("PersonalHistory", "FamilyHistory", "PastHealth", "RiskFactors", "AlertsAndSpecialNeeds")),
+        MEDICATIONS("medications", Set.of("MedicationsAndTreatments")),
+        CONTACTS("contacts", Set.of());
 
         private final String value;
+        private final Set<String> sourceCategories;
 
-        IncludeType(String value) {
+        IncludeType(String value, Set<String> sourceCategories) {
             this.value = value;
+            this.sourceCategories = sourceCategories;
         }
 
     public String getValue() {
@@ -189,6 +195,9 @@ public class DemographicService extends AbstractServiceImpl {
 
     @Autowired
     private SecurityInfoManager securityInfoManager;
+
+    @Autowired
+    private CdsLegacyProjectionService projections;
 
 
     private DemographicConverter demoConverter = new DemographicConverter();
@@ -272,7 +281,21 @@ public class DemographicService extends AbstractServiceImpl {
         if (demo == null) {
             throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).entity("Demographic record not found: " + id).build());
         }
+        requireSupportedIncludes(loggedInInfo, id, include);
         return buildDemographicTo1(loggedInInfo, demo, id, include);
+    }
+
+    /** Native-only optional projections must pass the same category boundary as their standalone REST routes. */
+    private void requireSupportedIncludes(LoggedInInfo loggedInInfo, Integer demographicNo, List<String> includes) {
+        Set<String> categories = new LinkedHashSet<>();
+        // Preserve the AllergyManager's existing patient permission check before consulting provenance.
+        if (includes.contains(IncludeType.ALLERGIES.value)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", demographicNo.toString()))
+            throw new SecurityException("missing required sec object (_allergy)");
+        for (IncludeType type : IncludeType.values()) {
+            if (includes.contains(type.value)) categories.addAll(type.sourceCategories);
+        }
+        if (!categories.isEmpty()) projections.requireRestSupported(demographicNo, Set.copyOf(categories));
     }
 
     private DemographicTo1 buildDemographicTo1(LoggedInInfo loggedInInfo, Demographic demo, Integer id, List<String> include) {
