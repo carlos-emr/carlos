@@ -47,7 +47,7 @@ public final class CdsImportCli {
                 CdsCliConfiguration config = CdsCliConfiguration.load(environment);
                 if (Runtime.version().feature() != 25) throw new IOException("CDS_JAVA25_REQUIRED");
                 out.println("{\"protocol\":1,\"java\":25,\"cliHeapMiB\":" + config.heapMiB()
-                        + ",\"operations\":[\"import\",\"status\",\"resume\",\"cancel\",\"report\"]}");
+                        + ",\"submissionLookup\":true,\"operations\":[\"import\",\"status\",\"resume\",\"cancel\",\"report\"]}");
                 return out.checkError() ? 2 : 0;
             } catch (IOException | RuntimeException failure) {
                 err.println("CDS_CONFIGURATION: a trusted production configuration and Java25 runtime are required");
@@ -87,13 +87,15 @@ public final class CdsImportCli {
             runtime = factory.open(config, arguments, delegation);
             outcome = operate(runtime, arguments, delegation, out, err);
         } catch (CdsCliBootstrapException bootstrap) {
-            err.println("CDS_BOOTSTRAP: production runtime initialization failed; no import was accepted");
+            err.println("CDS_BOOTSTRAP: production runtime initialization failed; original submission outcome remains in durable state");
             err.println(bootstrap.diagnostic()==null ? "CDS_DIAGNOSTIC: protected startup evidence could not be delivered"
                     : "CDS_DIAGNOSTIC: protected startup evidence="+bootstrap.diagnostic()); outcome=2;
         } catch (SecurityException denied) {
             err.println("CDS_AUTHORIZATION: operator/provider/source access denied"); outcome = 3;
         } catch (CdsImportException | CdsInputException refused) {
-            err.println("CDS_INCOMPLETE: import was refused, failed or requires reconciliation; inspect the durable run"); outcome = 4;
+            err.println(arguments.submissionKey() == null
+                    ? "CDS_INCOMPLETE: import was refused, failed or requires reconciliation; inspect the durable run"
+                    : "CDS_INCOMPLETE: submission outcome is not yet known; retain original source and submission evidence before retrying"); outcome = 4;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt(); err.println("CDS_INTERRUPTED: inspect the durable run before resuming"); outcome = 130;
         } catch (Exception failure) {
@@ -116,7 +118,7 @@ public final class CdsImportCli {
 
     private static int operate(CdsCliRuntime runtime, CdsCliArguments arguments,
             CdsDelegationVerifier.Delegation delegation, PrintStream out, PrintStream err) throws Exception {
-            String run = arguments.runId();
+            String run = runtime.resolveRunId(arguments.runId());
             if ("import".equals(arguments.operation())) {
                 line(out, Map.of("event", "SUBMISSION", "submissionKey", delegation.nonce()));
                 run = runtime.accept();

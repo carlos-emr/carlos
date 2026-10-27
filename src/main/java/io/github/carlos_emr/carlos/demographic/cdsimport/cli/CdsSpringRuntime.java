@@ -26,6 +26,8 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportJobService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportSubmissionService;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -45,6 +47,7 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
     private final CdsImportService service;
     private final CdsImportActorDto actor;
     private final CdsImportCommand command;
+    private final String resolvedRunId;
     private final CdsDelegationVerifier.Delegation delegation;
     private final java.util.TimeZone previousTimeZone;
 
@@ -84,22 +87,31 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
             SpringUtils.setBeanFactory(context);
             service = context.getBean(CdsImportService.class);
             CdsImportAccessService access = context.getBean(CdsImportAccessService.class);
-            if ("import".equals(arguments.operation())) command = arguments.command(delegation.nonce());
-            else {
-                command = context.getBean(CdsImportJobService.class).load(arguments.runId()).command();
-                if (!command.providerNo().equals(arguments.provider())) throw new SecurityException("CDS_PROVIDER_BINDING_DENIED");
+            if (arguments.submissionKey() != null) {
+                var resolved = context.getBean(CdsImportSubmissionService.class)
+                        .resolve(delegation.operator(), arguments.provider(), arguments.submissionKey());
+                command = resolved.command(); actor = resolved.actor(); resolvedRunId = resolved.runId();
+            } else {
+                resolvedRunId = arguments.runId();
+                if ("import".equals(arguments.operation())) command = arguments.command(delegation.nonce());
+                else {
+                    command = context.getBean(CdsImportJobService.class).load(arguments.runId()).command();
+                    if (!command.providerNo().equals(arguments.provider())) throw new SecurityException("CDS_PROVIDER_BINDING_DENIED");
+                }
+                actor = access.delegatedActor(delegation.operator(), command);
             }
-            actor = access.delegatedActor(delegation.operator(), command);
         } catch (Throwable failure) {
             try { context.close(); }
             catch (RuntimeException cleanupFailure) { failure.addSuppressed(cleanupFailure); }
             finally { java.util.TimeZone.setDefault(previousTimeZone); }
             if (failure instanceof Error fatal) throw fatal;
             if (failure instanceof SecurityException denied) throw denied;
+            if (failure instanceof CdsImportException incomplete) throw incomplete;
             throw new CdsCliBootstrapException(CdsCliLogging.bootstrapFailure(effective, failure));
         }
     }
 
+    @Override public String resolveRunId(String requested) { return resolvedRunId; }
     @Override public String accept() throws Exception { return service.accept(actor, command).id(); }
     @Override public void observe(String runId, String operation) throws Exception {
         service.observe(actor, runId, operation, delegation.operatorUid(), delegation.nonce());

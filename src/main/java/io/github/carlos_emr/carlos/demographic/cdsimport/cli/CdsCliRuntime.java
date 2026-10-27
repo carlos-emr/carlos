@@ -26,6 +26,7 @@ import java.util.Map;
 /** Injectable process adapter boundary, implemented by the real shared-engine Spring runtime. */
 public interface CdsCliRuntime extends AutoCloseable {
     String accept() throws Exception;
+    default String resolveRunId(String requested) { return requested; }
     void observe(String runId, String operation) throws Exception;
     void execute(String runId, boolean resume) throws Exception;
     void cancel(String runId) throws Exception;

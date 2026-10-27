@@ -116,6 +116,70 @@ class CdsCliProtocolUnitTest {
     }
 
     @Test
+    void shouldAllowOnlyStatusLookup_whenRecoveringSubmissionWithoutRunHandle() {
+        String[] args = {"--operation", "status", "--provider", "T099", "--submission-key", NONCE};
+        var parsed = CdsCliArguments.parse(args);
+        assertThat(parsed.runId()).isNull(); assertThat(parsed.submissionKey()).isEqualTo(NONCE);
+        assertThatThrownBy(() -> CdsCliArguments.parse(concat(args, "--run", NONCE)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--submission-key", NONCE)))
+                .isInstanceOf(IllegalArgumentException.class);
+        for (String operation : List.of("resume", "cancel", "report")) {
+            assertThatThrownBy(() -> CdsCliArguments.parse(new String[]{"--operation", operation,
+                    "--provider", "T099", "--submission-key", NONCE})).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void shouldReadResolvedHandleWithoutAcceptingOrExecuting_whenSubmissionLookupSucceeds() {
+        FakeRuntime runtime = new FakeRuntime(); runtime.resolvedRun = "recovered-run"; runtime.clean = false;
+        String[] args = {"--operation", "status", "--provider", "999998", "--submission-key", NONCE};
+        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                CdsCliArguments.parse(args), new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                out, err, (config, selected, delegation) -> runtime);
+        assertThat(code).isZero();
+        assertThat(runtime.calls).containsExactly("observe:status", "summary", "close");
+        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("recovered-run", "\"cleanComplete\":false")
+                .doesNotContain("ACCEPTED", "SUBMISSION");
+    }
+
+    @Test
+    void shouldRetainPrintedSubmissionKey_whenAcceptanceAcknowledgementIsLost() {
+        FakeRuntime runtime = new FakeRuntime(); runtime.acceptFailure = true;
+        assertThat(invoke("import", runtime)).isEqualTo(2);
+        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("SUBMISSION", NONCE).doesNotContain("ACCEPTED");
+        assertThat(runtime.calls).containsExactly("accept", "close");
+        assertThat(stderr.toString(StandardCharsets.UTF_8)).doesNotContain("sensitive-path");
+    }
+
+    @Test
+    void shouldPreserveRecoverableSubmissionWithoutExecuting_whenAcceptedConsoleWriteBreaks() {
+        PrintStream broken = new PrintStream(stdout, true, StandardCharsets.UTF_8) {
+            @Override public void println(String value) {
+                if (value.contains("ACCEPTED")) setError(); else super.println(value);
+            }
+        };
+        FakeRuntime runtime = new FakeRuntime();
+        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                CdsCliArguments.parse(IMPORT), new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                broken, err, (config, selected, delegation) -> runtime);
+        assertThat(code).isEqualTo(2);
+        assertThat(runtime.calls).containsExactly("accept", "close");
+        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("SUBMISSION", NONCE).doesNotContain("ACCEPTED");
+    }
+
+    @Test
+    void shouldRemainUncertainWithoutClaimingNonAcceptance_whenSubmissionLookupCannotResolve() {
+        String[] args = {"--operation", "status", "--provider", "999998", "--submission-key", NONCE};
+        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                CdsCliArguments.parse(args), new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                out, err, (config, selected, delegation) -> { throw new CdsImportException("SUBMISSION_OUTCOME_NOT_YET_KNOWN"); });
+        assertThat(code).isEqualTo(4);
+        assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("outcome is not yet known", "retain original source")
+                .doesNotContain("no import was accepted");
+    }
+
+    @Test
     void shouldUseActualPropertiesSyntax_whenDerivingAuthoritativeHeap() throws Exception {
         var config = CdsCliConfiguration.parse(Path.of("/unused"),
                 "cds.import.cliHeapMiB:7\\\n  68\n".getBytes(StandardCharsets.ISO_8859_1));
@@ -254,9 +318,13 @@ class CdsCliProtocolUnitTest {
 
     private final class FakeRuntime implements CdsCliRuntime {
         private final List<String> calls = new ArrayList<>();
-        private boolean clean = true, closeFailure, executionFailure, expectAcceptedHandle = true;
+        private boolean clean = true, closeFailure, executionFailure, acceptFailure, expectAcceptedHandle = true;
+        private String resolvedRun;
         private Runnable onExecution=() -> { };
-        @Override public String accept() { calls.add("accept"); return NONCE; }
+        @Override public String resolveRunId(String requested) { return resolvedRun == null ? requested : resolvedRun; }
+        @Override public String accept() throws IOException {
+            calls.add("accept"); if (acceptFailure) throw new IOException("sensitive-path"); return NONCE;
+        }
         @Override public void observe(String run, String operation) { calls.add("observe:" + operation); }
         @Override public void execute(String run, boolean resume) {
             calls.add("execute:" + resume);

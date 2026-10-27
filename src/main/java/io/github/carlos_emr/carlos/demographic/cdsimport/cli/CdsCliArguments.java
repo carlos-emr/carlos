@@ -31,7 +31,7 @@ import java.util.Set;
 public record CdsCliArguments(String operation, String provider, String runId, Map<String, String> values) {
     public static final Set<String> OPERATIONS = Set.of("import", "status", "resume", "cancel", "report");
     private static final Set<String> FLAGS = Set.of("--merge-existing", "--dry-run", "--no-match-providers", "--synthetic");
-    private static final Set<String> OPTIONS = Set.of("--operation", "--provider", "--run", "--input", "--program",
+    private static final Set<String> OPTIONS = Set.of("--operation", "--provider", "--run", "--submission-key", "--input", "--program",
             "--facility", "--source-namespace", "--source-profile", "--timeshift", "--course");
 
     public CdsCliArguments {
@@ -55,17 +55,21 @@ public record CdsCliArguments(String operation, String provider, String runId, M
         if (!OPERATIONS.contains(operation == null ? "" : operation)
                 || provider == null || !provider.matches("[A-Za-z0-9_-]{1,16}")) throw invalid();
         if ("import".equals(operation)) {
-            if (values.containsKey("--run") || !values.containsKey("--input")) throw invalid();
+            if (values.containsKey("--run") || values.containsKey("--submission-key") || !values.containsKey("--input")) throw invalid();
             token(values.get("--source-namespace"), 128);
             token(values.get("--source-profile"), 32);
             // Construction also rejects invalid synthetic/course/merge combinations.
             new CdsCliArguments(operation, provider, null, values).command("validation");
         } else {
-            if (!values.keySet().equals(Set.of("--operation", "--provider", "--run"))) throw invalid();
-            token(values.get("--run"), 128);
+            boolean submission = "status".equals(operation) && values.containsKey("--submission-key");
+            String handle = submission ? "--submission-key" : "--run";
+            if (!values.keySet().equals(Set.of("--operation", "--provider", handle))) throw invalid();
+            token(values.get(handle), 128);
         }
         return new CdsCliArguments(operation, provider, values.get("--run"), values);
     }
+
+    public String submissionKey() { return values.get("--submission-key"); }
 
     public CdsImportCommand command(String submissionKey) {
         if (!"import".equals(operation)) throw invalid();

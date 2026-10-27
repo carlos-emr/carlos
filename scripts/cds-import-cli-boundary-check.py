@@ -109,7 +109,7 @@ def main() -> None:
         os.chown(ticket, 0, account.pw_gid)
         os.chmod(ticket, 0o640)
         caps = json.loads(invoke(["--capabilities"], 0))
-        if caps != {"protocol": 1, "java": 25, "cliHeapMiB": 768,
+        if caps != {"protocol": 1, "java": 25, "cliHeapMiB": 768, "submissionLookup": True,
                     "operations": ["import", "status", "resume", "cancel", "report"]}:
             raise RuntimeError("actual Java capability contract did not match")
         invoke(source_arguments, 3)
