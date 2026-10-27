@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
+import io.github.carlos_emr.carlos.demographic.cdsimport.validator.CdsSourceFieldCapacityValidator;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -278,6 +279,10 @@ public class CdsImportPlanningService {
                         long[] page = {0};
                         fields.forEachPage(record, CdsSourceFieldService.PAGE_SIZE, slice -> {
                             try {
+                                fields.forEachField(slice, field -> {
+                                    try { CdsSourceFieldCapacityValidator.validate(slice, field); }
+                                    catch (IOException invalid) { throw new UncheckedIOException(invalid); }
+                                });
                                 String key = unitKey(patient.lineageKey(), record, "FIELDS", ++page[0]);
                                 state.unit(patientKey, key, record.section() + "_FIELDS", record.ordinal(),
                                         new CdsImportWorkDto(slice, state.snapshot, xml.relativeName(), xml.sha256(), parseResult, actor, command));
