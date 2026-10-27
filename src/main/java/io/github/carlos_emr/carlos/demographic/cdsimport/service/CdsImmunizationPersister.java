@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalTran
 import java.io.IOException;
 import java.time.ZoneId;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -106,7 +107,9 @@ public class CdsImmunizationPersister {
     private java.util.Date nativeDate(CdsImmunizationDto source) {
         if (source.date().precision()
                 == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.Precision.UNKNOWN) return null;
-        java.util.Date value = source.date().timestampStorageAnchor(requireClinicZone(source));
+        java.util.Date value = Objects.requireNonNull(
+                source.date().timestampStorageAnchor(requireClinicZone(source)),
+                "Known immunization date requires a native storage anchor");
         // prevention_date is DATETIME(0); an adopted fractional-rounding mode may not move its day.
         return java.util.Date.from(value.toInstant().truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
     }
