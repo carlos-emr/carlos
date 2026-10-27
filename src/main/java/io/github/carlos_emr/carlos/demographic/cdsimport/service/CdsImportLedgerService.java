@@ -763,6 +763,11 @@ public class CdsImportLedgerService {
         });
     }
 
+    /** Bounded operational lookup; dispatch never aggregates a large import just to inspect report state. */
+    public boolean hasPendingReport(String runId) {
+        return write(() -> "PENDING".equals(requiredRun(runId, false).getReportState()));
+    }
+
     public CdsImportJobDto findSubmission(String operator, String submissionKey) {
         return write(() -> { CdsImportRun run=runs.findSubmission(operator, submissionKey); return run==null?null:dto(run); });
     }

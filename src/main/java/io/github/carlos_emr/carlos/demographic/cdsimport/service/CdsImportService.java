@@ -171,8 +171,27 @@ public class CdsImportService {
 
     private void schedule(String run, boolean resume) {
         if (!scheduled.add(run)) return;
-        try { worker.execute(() -> { try { if (fatalRun.get()!=null || fatalReview.get()!=null || supervisorAlert!=null || reviews.hasPending(run)) return; execution.execute(run, "RESUME_REQUESTED".equals(ledger.status(run).state())); } catch (RuntimeException failure) { LOG.error("CDS worker stopped for run {} with code {}", run, failure instanceof CdsImportException known?known.getCode():"IMPORT_SUPERVISION_FAILURE"); } catch (Error fatal) { fatalRun.compareAndSet(null, run); LOG.error("CDS worker terminated for run {}: WORKER_FATAL", run); throw fatal; } finally { scheduled.remove(run); } }); }
-        catch (RejectedExecutionException full) { scheduled.remove(run); /* Durable acceptance remains discoverable by the bounded dispatcher. */ }
+        try {
+            worker.execute(() -> {
+                try {
+                    if (fatalRun.get()!=null || fatalReview.get()!=null || supervisorAlert!=null) return;
+                    CdsImportJobDto job=ledger.status(run);
+                    boolean stoppedReport=Set.of("REVIEW_REQUIRED", "RECONCILIATION_REQUIRED").contains(job.state())
+                            && ledger.hasPendingReport(run);
+                    if (reviews.hasPending(run) && !stoppedReport) return;
+                    execution.execute(run, stoppedReport?false:"RESUME_REQUESTED".equals(job.state()));
+                } catch (RuntimeException failure) {
+                    LOG.error("CDS worker stopped for run {} with code {}", run,
+                            failure instanceof CdsImportException known?known.getCode():"IMPORT_SUPERVISION_FAILURE");
+                } catch (Error fatal) {
+                    fatalRun.compareAndSet(null, run);
+                    LOG.error("CDS worker terminated for run {}: WORKER_FATAL", run);
+                    throw fatal;
+                } finally { scheduled.remove(run); }
+            });
+        } catch (RejectedExecutionException full) {
+            scheduled.remove(run); // Durable acceptance remains discoverable by the bounded dispatcher.
+        }
     }
     private void scheduleReview(String reviewId) {
         String key="review:"+reviewId;

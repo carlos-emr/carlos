@@ -172,6 +172,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    verifyCurrentInitiatorControlAudit();
    verifyUnwrittenRevisionApproval();
    verifyMaintenanceReleaseOutcome(job);
+   verifyStoppedReportsRediscoveredWithoutClinicalResume();
   } finally {ctx.close();}
  }
  static void verifyOwnerRowLock() throws Exception {
@@ -272,6 +273,44 @@ class CdsImportLedgerMariaDbIntegrationTest {
   check(sql.queryForObject("select count(*) from cds_import_event where run_id=? and event_type='CANCEL_REQUESTED'",Long.class,id)==0,"no applied control audit after failed atomic transition");
   ledger.control(id,current,"CANCEL_REQUESTED",()->ledger.cancelParticipating(id));
   check(ledger.status(id).cancelRequested(),"successful current-initiator cancellation commits");
+ }
+ static void verifyStoppedReportsRediscoveredWithoutClinicalResume() throws Exception {
+  long nativeBefore=countNative();
+  for (String stopped:List.of("RECONCILIATION_REQUIRED", "REVIEW_REQUIRED")) {
+   String run=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(), "fixture", "999998", "fixture", "omd-5.2", A, B, C, "/opaque/stopped-report")).id();
+   sql.update("update cds_import_run set state=?,report_state='PENDING' where id=?", stopped, run);
+   check(ledger.hasPendingReport(run), "pending report intent is durable for "+stopped);
+   check(ledger.pending("", 200).stream().anyMatch(value -> run.equals(value.id())), "restart dispatcher discovers pending report for "+stopped);
+   var reportWriter=org.mockito.Mockito.mock(CdsImportResultService.class);
+   var clinicalUnits=org.mockito.Mockito.mock(CdsImportUnitService.class);
+   var nativeRecords=org.mockito.Mockito.mock(CdsImportNativeService.class);
+   var maintenance=org.mockito.Mockito.mock(CdsImportMaintenanceService.class);
+   var planner=org.mockito.Mockito.mock(CdsImportPlanningService.class);
+   var fileVerifier=org.mockito.Mockito.mock(CdsImportFileVerificationService.class);
+   var jobs=org.mockito.Mockito.mock(CdsImportJobService.class);
+   var document=org.mockito.Mockito.mock(CdsImportJobDocumentDto.class);
+   var command=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand.class);
+   var actor=new CdsImportActorDto("fixture", "999998", "999998", null, null, null);
+   org.mockito.Mockito.when(jobs.load(run)).thenReturn(document);
+   org.mockito.Mockito.when(document.command()).thenReturn(command);
+   org.mockito.Mockito.when(document.actor()).thenReturn(actor);
+   var coordinator=org.mockito.Mockito.mock(CdsImportCoordinatorService.class);
+   org.mockito.Mockito.when(coordinator.acquire()).thenReturn(org.mockito.Mockito.mock(CdsImportCoordinatorService.Owner.class));
+   var engine=new CdsImportExecutionService(ledger, clinicalUnits, jobs, planner, nativeRecords,
+     org.mockito.Mockito.mock(CdsImportAccessService.class), org.mockito.Mockito.mock(CdsImportConfigurationService.class),
+     maintenance, reportWriter, coordinator, fileVerifier, org.mockito.Mockito.mock(CdsImportTargetSafetyService.class),
+     org.mockito.Mockito.mock(CdsImportFailureEvidenceService.class), org.mockito.Mockito.mock(CdsFieldParser.class));
+   // Exercise real ledger discovery and default execution routing; every native phase is forbidden.
+   var result=engine.execute(run);
+   check(stopped.equals(result.state()), "report restart preserves explicit clinical recovery requirement for "+stopped);
+   org.mockito.Mockito.verify(reportWriter).generate(run, result.ownerEpoch());
+   org.mockito.Mockito.verifyNoInteractions(clinicalUnits, nativeRecords, maintenance, planner, fileVerifier);
+   check(countNative()==nativeBefore, "report restart performs zero clinical writes for "+stopped);
+   check(!ledger.isSealed(run), "report restart never fabricates an execution seal for "+stopped);
+   sql.update("update cds_import_run set report_state='FAILED' where id=?", run);
+   check(!ledger.hasPendingReport(run), "non-pending report marker is observed without aggregate import scans for "+stopped);
+   check(ledger.pending("", 200).stream().noneMatch(value -> run.equals(value.id())), "non-pending stopped report is not redispatched for "+stopped);
+  }
  }
  static void verifyMaintenanceReleaseOutcome(Job complete) {
   ledger.maintenanceReleaseDeferred(complete.id,complete.epoch,"GLOBAL_HOLDS_REMAIN");

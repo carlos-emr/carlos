@@ -31,6 +31,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
@@ -38,12 +40,15 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class CdsImportSupervisionServiceUnitTest {
     private CdsImportReviewService reviews;
+    private CdsImportLedgerService ledger;
+    private CdsImportExecutionService execution;
     private CdsImportService service;
     private ThreadPoolExecutor worker;
 
     @BeforeEach void setUp() throws Exception {
         reviews=mock(CdsImportReviewService.class);
-        var ledger=mock(CdsImportLedgerService.class);
+        ledger=mock(CdsImportLedgerService.class);
+        execution=mock(CdsImportExecutionService.class);
         var configuration=mock(CdsImportConfigurationService.class);
         var cleanup=mock(CdsImportCleanupService.class);
         when(configuration.enabled()).thenReturn(true);
@@ -51,7 +56,7 @@ class CdsImportSupervisionServiceUnitTest {
         when(ledger.pending("", 16)).thenReturn(List.of());
         when(ledger.summary("run")).thenReturn(Map.of());
         when(reviews.summary("run")).thenReturn(Map.of());
-        service=new CdsImportService(ledger, mock(CdsImportJobService.class), mock(CdsImportExecutionService.class),
+        service=new CdsImportService(ledger, mock(CdsImportJobService.class), execution,
                 mock(CdsImportResultService.class), mock(CdsImportAccessService.class), configuration, cleanup,
                 reviews, mock(CdsImportFailureEvidenceService.class));
         var field=CdsImportService.class.getDeclaredField("worker");field.setAccessible(true);
@@ -88,6 +93,30 @@ class CdsImportSupervisionServiceUnitTest {
         verify(reviews, times(1)).superviseFatal("failed");
         var summary=(Map<?, ?>)call("operatorSummary", new Class<?>[]{String.class}, "run");
         assertThat(summary.get("workerAlert")).isEqualTo("IMPORT_SUPERVISOR_FATAL");
+    }
+    @ParameterizedTest
+    @ValueSource(strings={"REVIEW_REQUIRED", "RECONCILIATION_REQUIRED"})
+    void pendingReviewAllowsOnlyStoppedPendingReportDelivery(String state) throws Exception {
+        var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+        when(job.state()).thenReturn(state); when(ledger.hasPendingReport("run")).thenReturn(true);
+        when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
+        call("schedule", new Class<?>[]{String.class, boolean.class}, "run", true); barrier();
+        verify(execution).execute("run", false);
+        verify(execution, never()).execute("run", true);
+    }
+    @Test void pendingReviewContinuesBlockingClinicalResume() throws Exception {
+        var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+        when(job.state()).thenReturn("RESUME_REQUESTED"); when(ledger.hasPendingReport("run")).thenReturn(true);
+        when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
+        call("schedule", new Class<?>[]{String.class, boolean.class}, "run", true); barrier();
+        verifyNoInteractions(execution);
+    }
+    @Test void pendingReviewDoesNotRedispatchAnAlreadyStoppedReport() throws Exception {
+        var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+        when(job.state()).thenReturn("REVIEW_REQUIRED"); when(ledger.hasPendingReport("run")).thenReturn(false);
+        when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
+        call("schedule", new Class<?>[]{String.class, boolean.class}, "run", true); barrier();
+        verifyNoInteractions(execution);
     }
     private void barrier() throws Exception {worker.submit(()->{}).get(5, TimeUnit.SECONDS);}
     private Object call(String name, Class<?>[] parameterTypes, Object... arguments) throws Exception {
