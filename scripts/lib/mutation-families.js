@@ -244,17 +244,33 @@ function demographicAdd(s) {
   };
 }
 
+/** Delete replay-created support rows only while the workflow still owns its patient. */
+function cleanupReplayPatientSupport(s, tables) {
+  assertId(s.patient, 'The replay patient');
+  const owner = `demographic_no=${s.patient} AND last_name=${q(s.marker)} AND first_name='Workflow'`;
+  // The table/column pairs are literals supplied by the two mutation families below.
+  for (const [table, column] of tables) {
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE ${owner}`) === '1',
+      'Replay patient ownership changed; retain support rows');
+    s.sql.execute(`DELETE FROM ${table} WHERE ${column}=${s.patient}
+      AND EXISTS (SELECT 1 FROM demographic WHERE ${owner})`);
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${column}=${s.patient}`) === '0',
+      `Owned replay support rows remain in ${table}`);
+  }
+}
+
 function demographicUpdate(s) {
   const prefix = `${s.marker}-DU-`;
   return {
     key: 'demographic-update', label: 'demographic update (demographic/DemographicUpdate)', route: /\/demographic\/DemographicUpdate$/, kind: 'update',
     table: 'demographic', where: (tag) => `demographic_no=${s.patient} AND city=${q(prefix + tag)}`,
     cleanup() {
-      // runWorkflow removes the owned patient's demographicExt and demographicArchive rows; the
-      // update also archives the extension rows it replaces.
-      s.sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${s.patient}`);
-      h.assert(s.sql.value(`SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${s.patient}`) === '0',
-        'Owned demographicExtArchive rows were not removed');
+      // These rows are created by this family's native update, not by every
+      // workflow. Keep their guarded cleanup local to the replay fixture.
+      cleanupReplayPatientSupport(s, [
+        ['demographicExtArchive', 'demographic_no'], ['demographiccustArchive', 'demographic_no'],
+        ['demographiccust', 'demographic_no'],
+      ]);
     },
     async perform(tag) {
       const master = s.master;
@@ -418,6 +434,7 @@ function chartNoteSave(s) {
     key: 'note-save', label: 'chart note save (CaseManagementEntry)', route: /\/CaseManagementEntry$/, kind: 'create',
     table: 'casemgmt_note', where: (tag) => `demographic_no=${s.patient} AND note LIKE ${q(`%${prefix}${tag}%`)}`,
     cleanup() {
+      cleanupReplayPatientSupport(s, [['eChart', 'demographicNo']]);
       const ids = noteIds();
       ids.forEach(id => assertId(id, 'An owned note'));
       if (ids.length) {

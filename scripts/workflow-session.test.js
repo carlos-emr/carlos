@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-// Modifications by CARLOS Contributors, 2026.
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const fs = require('node:fs');
@@ -22,8 +21,7 @@ function fixture({ owned = true, removed = true, childrenRemoved = true } = {}) 
         if (query.startsWith('DELETE FROM demographic WHERE')) {
           events.push('delete patient');
         } else {
-          for (const table of ['casemgmt_note_lock', 'casemgmt_tmpsave', 'measurementsDeleted',
-            'demographiccust', 'demographiccustArchive', 'eChart']) {
+          for (const table of ['casemgmt_note_lock', 'casemgmt_tmpsave', 'measurementsDeleted']) {
             assert.ok(query.includes(`DELETE FROM ${table} WHERE`), `Missing owned ${table} cleanup`);
           }
           assert.ok(!query.includes('DELETE FROM demographic WHERE'), 'Parent deletion must follow child verification');

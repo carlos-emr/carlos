@@ -1,5 +1,4 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
-// Modifications by CARLOS Contributors, 2026.
 const { randomBytes } = require('node:crypto');
 const h = require('./playwright-harness');
 const ui = require('./playwright-ui');
@@ -135,8 +134,6 @@ async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups, p
             ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'],
             ['measurementsDeleted', 'demographicNo'], ['demographicExt', 'demographic_no'],
             ['demographicArchive', 'demographic_no'],
-            ['demographiccust', 'demographic_no'], ['demographiccustArchive', 'demographic_no'],
-            ['eChart', 'demographicNo'],
           ];
           sql.execute(supportRows.map(([table, column]) =>
             `DELETE FROM ${table} WHERE ${column}=${patient}`).join(';'));
