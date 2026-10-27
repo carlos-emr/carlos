@@ -3,12 +3,14 @@
 """Failure proof must reject accepted work, decoded payload traces and missing retained state."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tarfile
 import tempfile
 import unittest
 import subprocess
 import sys
+import threading
 
 SPEC=importlib.util.spec_from_file_location('disk_faults',Path(__file__).with_name('run-cds-disk-failures.py'))
 GATE=importlib.util.module_from_spec(SPEC)
@@ -41,12 +43,72 @@ class DiskFailureEvidenceTest(unittest.TestCase):
         trace=self.root/'trace'
         trace.write_text('write(0x3, 0x7f4000, 0x10000) = -1 ENOSPC (No space left on device)\n')
         self.assertEqual(GATE.raw_enospc(trace),1)
+        trace.write_text('--- SIGSEGV {si_signo=SIGSEGV, si_code=SEGV_MAPERR, si_addr=NULL} ---\n'
+                         'write(0x4, 0x7fd5cc083ce0, 0x10000)     = -1 ENOSPC (No space left on device)\n')
+        self.assertEqual(GATE.raw_enospc(trace),1)
         trace.write_text('write(0x3, 0x7f4000, 0x10000) = -1 EPIPE (Broken pipe)\n')
         self.assertEqual(GATE.raw_enospc(trace),0)
         for value in ('write(3, "source or private credentials", 24) = -1 ENOSPC (No space left on device)\n',
                       'some unrelated ENOSPC message\n','write(0x3, 0x7f4000, 0x10000) = 65536\n'):
             trace.write_text(value)
             with self.assertRaises(RuntimeError):GATE.raw_enospc(trace)
+
+    def test_live_native_tasks_are_bound_to_the_verified_jvm_thread_group_and_uid(self):
+        ready=threading.Event();release=threading.Event();tid=[]
+        def live_task():
+            tid.append(threading.get_native_id());ready.set();release.wait(10)
+        task=threading.Thread(target=live_task)
+        task.start()
+        try:
+            self.assertTrue(ready.wait(5))
+            observed={}
+            GATE.observe_worker_threads(Path('/proc'),os.getpid(),os.getuid(),observed)
+            self.assertIn(os.getpid(),observed)
+            self.assertIn(tid[0],observed)
+            self.assertNotEqual(os.getpid(),tid[0])
+            self.assertTrue(all(value.isdecimal() for value in observed.values()))
+        finally:
+            release.set();task.join(5)
+        self.assertFalse(task.is_alive())
+
+    def test_task_observer_rejects_foreign_uid_group_and_reused_thread_identity(self):
+        proc=self.root/'proc';task=proc/'100'/'task'/'101';task.mkdir(parents=True)
+        status='Tgid:\t100\nUid:\t999\t999\t999\t999\n'
+        (task/'status').write_text(status)
+        def stat(start):return '101 (java) S '+'0 '*18+str(start)+'\n'
+        (task/'stat').write_text(stat(123))
+        observed={};GATE.observe_worker_threads(proc,100,999,observed)
+        self.assertEqual(observed,{101:'123'})
+        for invalid in (status.replace('100','200'),status.replace('999','998',1)):
+            (task/'status').write_text(invalid)
+            with self.assertRaises(RuntimeError):GATE.observe_worker_threads(proc,100,999,{})
+        (task/'status').write_text(status);(task/'stat').write_text(stat(124))
+        with self.assertRaises(RuntimeError):GATE.observe_worker_threads(proc,100,999,observed)
+
+    def test_errno_proof_aggregates_only_attributed_jvm_threads_including_nonleader_main(self):
+        prefix=self.root/'failed';(self.root/'failed.100').write_text('')
+        actual='write(0x3, 0x7f4000, 0x10000) = -1 ENOSPC (No space left on device)\n'
+        (self.root/'failed.101').write_text(actual)
+        (self.root/'failed.999').write_text('write(3, "unrelated private body", 22) = -1 ENOSPC (No space left on device)\n')
+        target=self.root/'safe.log'
+        count,proof=GATE.collect_worker_traces(prefix,{100:'10',101:'11'},100,target)
+        self.assertEqual(count,1)
+        self.assertEqual(target.read_text(),actual)
+        self.assertEqual(proof['sha256'],GATE.RESOURCE.digest(target))
+        self.assertEqual([row['tid'] for row in proof['threads']],[100,101])
+        self.assertEqual(proof['threads'][1]['offsetBytes'],0)
+        self.assertEqual(proof['threads'][1]['kernelEnospcFailedWrites'],1)
+        self.assertEqual(target.stat().st_mode&0o777,0o600)
+
+    def test_owned_task_trace_is_never_silently_missing_or_decoded(self):
+        prefix=self.root/'failed';(self.root/'failed.100').write_text('')
+        for threads in ({101:'11'},{100:'10',101:'11'}):
+            with self.assertRaises(RuntimeError):
+                GATE.collect_worker_traces(prefix,threads,100,self.root/'safe.log')
+        (self.root/'failed.101').write_text('write(3, "private body", 12) = -1 ENOSPC (No space left on device)\n')
+        with self.assertRaises(RuntimeError):
+            GATE.collect_worker_traces(prefix,{100:'10',101:'11'},100,self.root/'safe.log')
+        self.assertFalse((self.root/'safe.log').exists())
 
     def test_retention_contains_the_actual_original_and_partial_copy_without_following_links(self):
         owned=self.root/'owned';owned.mkdir()

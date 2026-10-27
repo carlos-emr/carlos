@@ -14,7 +14,6 @@ from pathlib import Path
 import pwd
 import re
 import signal
-import shutil
 import subprocess
 import sys
 import tarfile
@@ -104,13 +103,59 @@ def raw_enospc(path: Path) -> int:
         for line in stream:
             require(len(line)<=1024,'DISK_FAULT_TRACE_CAPACITY')
             if re.search(r'\b(?:write|writev|pwrite64)\(',line):
-                require(re.fullmatch(r'(?:write|writev|pwrite64)\((?:0|0x[0-9a-f]+), (?:0|0x[0-9a-f]+), (?:0|0x[0-9a-f]+)(?:, (?:0|0x[0-9a-f]+))?\) = -1 [A-Z0-9_]+ \([^\r\n]{1,128}\)\n',line)
+                require(re.fullmatch(r'(?:write|writev|pwrite64)\((?:0|0x[0-9a-f]+), (?:0|0x[0-9a-f]+), (?:0|0x[0-9a-f]+)(?:, (?:0|0x[0-9a-f]+))?\) += -1 [A-Z0-9_]+ \([^\r\n]{1,128}\)\n',line)
                         is not None,'DISK_FAULT_TRACE_NOT_RAW_REGISTERS')
                 if ' = -1 ENOSPC (No space left on device)' in line:
                     count+=1
             else:
                 require(line.startswith(('+++ ','--- ')),'DISK_FAULT_UNEXPECTED_TRACE_RECORD')
     return count
+
+
+def observe_worker_threads(proc: Path, pid: int, uid: int, observed: dict[int,str]) -> None:
+    """Attribute traced native tasks to the already verified service JVM, not its launcher."""
+    tasks=proc/str(pid)/'task'
+    try:
+        selected=list(tasks.iterdir())
+    except FileNotFoundError:
+        return
+    require(len(selected)<=512,'DISK_FAULT_JVM_THREAD_CAPACITY')
+    for task in selected:
+        if not task.name.isdecimal():continue
+        try:
+            status=(task/'status').read_text()
+            stat=(task/'stat').read_text()
+        except FileNotFoundError:
+            continue  # A completed task has no usable live attribution; never guess its trace ownership.
+        require(len(status)<=65536 and len(stat)<=4096,'DISK_FAULT_JVM_THREAD_IDENTITY_CAPACITY')
+        group=re.search(r'^Tgid:\s+([0-9]+)$',status,re.M)
+        identities=re.search(r'^Uid:\s+([0-9]+)\s+([0-9]+)\s+([0-9]+)\s+([0-9]+)$',status,re.M)
+        require(group is not None and int(group[1])==pid and identities is not None
+                and all(int(value)==uid for value in identities.groups()),'DISK_FAULT_JVM_THREAD_IDENTITY_CHANGED')
+        fields=stat[stat.rfind(')')+2:].split()
+        require(stat.split('(',1)[0].strip()==task.name and len(fields)>19 and fields[19].isdecimal(),
+                'DISK_FAULT_JVM_THREAD_START_UNAVAILABLE')
+        tid=int(task.name)
+        require(tid not in observed or observed[tid]==fields[19],'DISK_FAULT_JVM_THREAD_REUSED')
+        observed[tid]=fields[19]
+        require(len(observed)<=512,'DISK_FAULT_JVM_THREAD_CAPACITY')
+
+
+def collect_worker_traces(prefix: Path, threads: dict[int,str], leader: int, destination: Path) -> tuple[int,dict]:
+    """Validate each observed JVM task's raw trace before publishing bounded combined evidence."""
+    require(leader in threads and 0<len(threads)<=512 and not destination.exists(),'DISK_FAULT_TRACE_OWNERSHIP_MISSING')
+    rows=[];parts=[];total=failures=0
+    for tid,started in sorted(threads.items()):
+        trace=Path(str(prefix)+'.'+str(tid))
+        count=raw_enospc(trace)
+        raw=trace.read_bytes()
+        require(total+len(raw)<=MIB,'DISK_FAULT_COMBINED_TRACE_CAPACITY')
+        rows.append({'tid':tid,'startTimeTicks':started,'offsetBytes':total,'bytes':len(raw),
+                     'sha256':RESOURCE.digest(trace),'kernelEnospcFailedWrites':count})
+        parts.append(raw);total+=len(raw);failures+=count
+    with os.fdopen(os.open(destination,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'wb') as output:
+        for part in parts:output.write(part)
+    return failures,{'bytes':total,'sha256':RESOURCE.digest(destination),'threads':rows}
 
 
 def private_json(path: Path, maximum: int=65536, *, owner: int=0) -> dict:
@@ -273,6 +318,7 @@ def main() -> None:
                  '--source-profile',metadata['profile'],'--no-match-providers']
         started=time.monotonic()
         worker=None
+        worker_threads={}
         with os.fdopen(os.open(log,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'wb') as output:
             process=subprocess.Popen(command,env=env,stdout=output,stderr=subprocess.STDOUT,start_new_session=True)
             while process.poll() is None:
@@ -298,6 +344,7 @@ def main() -> None:
                             worker=identity
                             result['serviceJvm']={'pid':worker[0],'startTimeTicks':worker[1],'uid':account.pw_uid}
                             save()
+                        observe_worker_threads(Path('/proc'),worker[0],sample['uid'],worker_threads)
                     except FileNotFoundError:
                         continue
                 time.sleep(0.1)
@@ -311,14 +358,12 @@ def main() -> None:
                                       'outcomeUnknown':False},'DISK_FAULT_WRONG_OPERATOR_REASON')
         result.update(operator=operator,operatorExitCode=process.returncode)
         save()
-        trace_file=Path(str(trace)+'.'+str(worker[0]))
-        failures=raw_enospc(trace_file)
-        result['kernelEnospcFailedWrites']=failures
-        require((failures>0)==(args.scenario=='enospc'),'DISK_FAULT_KERNEL_ERRNO_PROOF_MISMATCH')
         safe_trace=args.evidence/'service-failed-syscalls.log'
-        shutil.copyfile(trace_file,safe_trace)
-        safe_trace.chmod(0o600)
-        result['rawRegisterOnlySyscallTrace']={'bytes':safe_trace.stat().st_size,'sha256':RESOURCE.digest(safe_trace)}
+        failures,trace_proof=collect_worker_traces(trace,worker_threads,worker[0],safe_trace)
+        result['kernelEnospcFailedWrites']=failures
+        result['rawRegisterOnlySyscallTrace']=trace_proof
+        save()  # A failed errno assertion must still retain its validated physical trace evidence.
+        require((failures>0)==(args.scenario=='enospc'),'DISK_FAULT_KERNEL_ERRNO_PROOF_MISMATCH')
         jobs=list(staged.glob('job-*'))
         require(len(jobs)==1 and jobs[0].is_dir() and not jobs[0].is_symlink(),'DISK_FAULT_PREACCEPT_STATE_MISSING')
         service_uid=pwd.getpwnam('carlos').pw_uid
@@ -354,7 +399,7 @@ def main() -> None:
         result.update(status='PASSED',afterNative=after,acceptedRuns=0,
                       originalSourceUnchanged=True,configurationUnchanged=True,partialPreacceptRetained=True,
                       freeAfterBytes=os.statvfs(root).f_bavail*usage.f_frsize,
-                      traceSha256=RESOURCE.digest(trace_file),preacceptJournalSha256=seal['intentSha256'],
+                      traceSha256=trace_proof['sha256'],preacceptJournalSha256=seal['intentSha256'],
                       submissionLookupExitCode=found.returncode,submissionLookupReason=lookup_reason,afterLedger=final_ledger,
                       acceptanceProof='source snapshot precedes registry acceptance; no accepting seal; registry absence verified; not a clinical rollback claim')
         save()
