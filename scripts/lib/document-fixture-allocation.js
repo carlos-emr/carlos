@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Modifications by CARLOS Contributors, 2026.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -38,7 +39,10 @@ function documentReferenceColumns(sql) {
     assert(Array.isArray(row) && row.length === 3 && ['0', '1'].includes(row[2]), 'Document reference provenance is unavailable');
     identifier(row[0]); identifier(row[1]);
   }
-  return references;
+  // RemoteDataLog.documentId identifies remote resources (server:type:id), not
+  // document.document_no; retain declared FKs even if their name matches.
+  return references.filter(([table, column, declared]) => !(declared === '0'
+    && table.toLowerCase() === 'remotedatalog' && column.toLowerCase() === 'documentid'));
 }
 
 /** Read-only allocation plan. Even preexisting dangling references keep their identities. */
@@ -63,7 +67,7 @@ function planDocumentFixtureId(sql) {
     // MySQL's lossy numeric coercion of values such as '22-other'.
     const invalid = sql.value(`SELECT COUNT(*) FROM ${from} WHERE (${where}) AND ${target} IS NOT NULL
       AND CAST(${target} AS CHAR) NOT REGEXP '^[0-9]+$'`);
-    assert.equal(invalid, '0', 'Unfamiliar document reference value');
+    assert.equal(invalid, '0', `Unfamiliar document reference value in ${table}.${column} (${where}); ${invalid} invalid row(s); no fixture allocated`);
     const maximum = integer(sql.value(`SELECT COALESCE(MAX(CAST(${target} AS UNSIGNED)),0) FROM ${from} WHERE ${where}`),
       'document reference maximum', true);
     maximumReference = Math.max(maximumReference, maximum);

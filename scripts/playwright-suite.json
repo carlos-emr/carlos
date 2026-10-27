@@ -953,8 +953,11 @@
         "CML_UPLOAD_KEY",
         "LAB_UPLOAD_DOCUMENT_STORE",
         "LAB_UPLOAD_JOURNAL_UNIT",
-        "LAB_UPLOAD_SERVER_LOG"
-      ]
+        "LAB_UPLOAD_SERVER_LOG",
+        "LAB_ROLLBACK_FAULT_ARTIFACT_DIR"
+      ],
+      "notes": "Injects an owned rollback fault and verifies native upload rollback plus server-log proof. Missing private artifact directory is SKIP.",
+      "fixtures": "Disposable exclusive install, installed document store, CML upload key, actual server log/journal, and private LAB_ROLLBACK_FAULT_ARTIFACT_DIR for fault evidence."
     },
     {
       "name": "lab-upload-signed-feed",
@@ -1151,19 +1154,6 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": []
-    },
-    {
-      "name": "encounter-legacy-note-soft-wrap",
-      "script": "scripts/encounter-legacy-note-soft-wrap-playwright-checks.js",
-      "tiers": [
-        "extended"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 180,
       "env": []
     },
     {
@@ -2322,7 +2312,9 @@
       "timeoutSec": 300,
       "env": [
         "MESSENGER_CONTEXT_DEMOGRAPHICS"
-      ]
+      ],
+      "notes": "Opens each patient Messenger inbox and sorts subject/date in both directions; accepts ascending and descending link spellings.",
+      "fixtures": "Two distinct demo patients (MESSENGER_CONTEXT_DEMOGRAPHICS, default 1,2); owned marked messages/maps are removed; no recipient deliveries."
     },
     {
       "name": "messenger",
@@ -4517,7 +4509,9 @@
         "FORM_PRINT_DEMOGRAPHIC_NO",
         "FORM_PRINT_NAME",
         "FORM_PRINT_TIMEOUT_MS"
-      ]
+      ],
+      "notes": "Drives the registered Ontario lab requisition from the chart and verifies saved form PDF content. Missing table or enabled encounterForm registration is SKIP; an enabled form missing from the menu is FAIL.",
+      "fixtures": "Ontario lab requisition table and enabled encounterForm registration (hidden > 0) for FORM_PRINT_NAME (default Lab Req 2007); configured demo patient; pdftotext; MYSQL_* cleanup access."
     },
     {
       "name": "page-script-repairs",

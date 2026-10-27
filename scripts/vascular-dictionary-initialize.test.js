@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+// Modifications by CARLOS Contributors, 2026.
 // Unit tests for scripts/vascular-dictionary-initialize.js: no browser or database is started.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -8,8 +9,10 @@ function session({ status = 200, missing = [] } = {}) {
   const visits = [];
   const queries = [];
   let closed = 0;
+  let charts = 0;
   return {
-    visits, queries, closed: () => closed,
+    visits, queries, closed: () => closed, charts: () => charts,
+    async chart() { charts += 1; },
     config: { baseUrl: new URL('https://127.0.0.1/carlos') },
     patient: '42',
     context: {
@@ -31,6 +34,7 @@ function session({ status = 200, missing = [] } = {}) {
 test('opens the shipped Vascular Tracker route for its own patient, then requires the dictionary', async () => {
   const s = session();
   await workflow(s);
+  assert.equal(s.charts(), 1, 'initialize shared chart definitions before taking any suite baseline');
   assert.deepEqual(s.visits, ['https://127.0.0.1/carlos/form/SetupForm?formName=VTForm&demographic_no=42']);
   assert.equal(s.closed(), 1);
   assert.equal(s.queries.length, 1, 'one read-only existence query after the visit');

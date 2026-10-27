@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
+ * Modifications by CARLOS Contributors, 2026.
+ *
  * CARLOS EMR - Encounter Page JavaScript
  *
  * Consolidates inline scripts from the legacy Index2.jsp encounter page.
@@ -411,11 +414,14 @@ function listDisplay(Id, threshold) {
     var expand;
 
     for (var idx = threshold; idx < items.length; ++idx) {
-        if (items[idx].style.display == 'block') {
+        // LeftNavBarDisplay renders flex rows; a visible row is not always block.
+        if (items[idx].style.display != 'none') {
+            items[idx].carlosExpandedDisplay = items[idx].style.display;
             items[idx].style.display = 'none';
             expand = true;
         } else {
-            items[idx].style.display = 'block';
+            items[idx].style.display = items[idx].carlosExpandedDisplay !== undefined
+                ? items[idx].carlosExpandedDisplay : 'flex';
             expand = false;
         }
     }

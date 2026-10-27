@@ -2,6 +2,7 @@
 
 
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+    Modifications by CARLOS Contributors, 2026.
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -268,11 +269,13 @@
         var transparentPath = ctx + "/images/clear.gif";
 
         for (var idx = threshold; idx < items.length; ++idx) {
-            if (items[idx].style.display == 'block') {
+            if (items[idx].style.display != 'none') {
+                items[idx].carlosExpandedDisplay = items[idx].style.display;
                 items[idx].style.display = 'none';
                 expand = true;
             } else {
-                items[idx].style.display = 'block';
+                items[idx].style.display = items[idx].carlosExpandedDisplay !== undefined
+                    ? items[idx].carlosExpandedDisplay : 'flex';
                 expand = false;
             }
         }

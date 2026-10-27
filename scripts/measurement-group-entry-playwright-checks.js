@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+// Modifications by CARLOS Contributors, 2026.
 // Coverage plan §2.5 measurement-group-entry: entering a measurement group from the E-Chart.
 //
 // User path: Schedule ▸ Master Record ▸ E-Chart ▸ Measurements "+" ▸ Input Groups ▸ Vitals (popup)
@@ -144,11 +145,13 @@ async function workflow(s) {
     await link.click();
     const frame = admin.frameLocator('#dynamic-content iframe').first();
     const types = await s.popup(admin, frame.getByRole('link', { name: 'View All Measurement Types' }), 'measurement-types');
-    const row = types.locator('tr.data').filter({ has: types.locator('a[href*="ViewExportMeasurement"]', { hasText: /^\s*BP\s*$/ }) });
+    // Several BP definitions can share the same export target. Click the named
+    // type link directly so nested/legacy table rows cannot widen the locator.
+    const typeLink = types.locator('a[href*="ViewExportMeasurement"]', { hasText: /^\s*BP\s*$/ }).first();
     const exported = s.context.waitForEvent('response', { timeout: 20000,
       predicate: r => new URL(r.url()).pathname.endsWith('/encounter/oscarMeasurements/ViewExportMeasurement') });
     exported.catch(() => {});
-    const exportPage = await s.popup(types, row.locator('a[href*="ViewExportMeasurement"]'), 'measurement-export');
+    const exportPage = await s.popup(types, typeLink, 'measurement-export');
     const response = await exported;
     h.assert(response.status() === 200 && /^text\/xml/.test(response.headers()['content-type'] || ''),
       'The type export did not answer with an XML document');
