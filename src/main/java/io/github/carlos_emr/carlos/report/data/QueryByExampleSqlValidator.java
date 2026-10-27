@@ -18,6 +18,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.report.data;
 
@@ -124,6 +125,11 @@ public final class QueryByExampleSqlValidator {
             "ntile", "percent_rank", "rank", "row_number");
 
     private QueryByExampleSqlValidator() {
+    }
+
+    /** Shared recognition of side-effect-free built-ins; does not change reporting SQL policy. */
+    public static boolean isKnownReadOnlyBuiltin(String name) {
+        return name != null && ALLOWED_FUNCTIONS.contains(name.toLowerCase(Locale.ROOT));
     }
 
     /**

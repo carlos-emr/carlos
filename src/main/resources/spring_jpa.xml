@@ -69,6 +69,13 @@
 	</bean>
 
 	<!-- JPA -->
+    <bean id="cdsJdbcAdmissionInitializer"
+          class="io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionInitializer"
+          depends-on="flywaySchemaValidator" init-method="initialize">
+        <constructor-arg ref="dataSource"/>
+        <constructor-arg value="${cds.import.maintenanceGuardEnabled:false}"/>
+        <constructor-arg value="${carlos.flyway.onBoot:off}"/>
+    </bean>
 	<!-- primary="true" was originally needed to resolve autowiring ambiguity with a
 	     legacy Hibernate {@code sessionFactory} bean defined in
 	     {@code spring_hibernate.xml}. That legacy bean has since been retired, but
@@ -78,7 +85,7 @@
 	<!-- depends-on makes the Flyway boot gate's ordering contractual: the schema is
 	     validated/migrated BEFORE Hibernate ever touches the database. XML definition
 	     order alone is not a guarantee of singleton initialization order. -->
-	<bean id="entityManagerFactory" primary="true" depends-on="flywaySchemaValidator"
+	<bean id="entityManagerFactory" primary="true" depends-on="flywaySchemaValidator,cdsJdbcAdmissionInitializer"
 	      class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
 		<property name="dataSource" ref="dataSource" />
 		<!-- Hibernate 7 requires the EMF to know about all @Entity types referenced

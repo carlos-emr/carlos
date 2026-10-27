@@ -23,6 +23,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.utility;
 
@@ -62,6 +63,29 @@ import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.logging.log4j.Logger;
 
 public class OscarTrackingBasicDataSource extends BasicDataSource {
+    private volatile io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState cdsAdmissionState;
+
+    /** Installed after the schema boot gate and before the EntityManagerFactory starts. */
+    public void installCdsAdmissionState(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState state) {
+        if (cdsAdmissionState != null) throw new IllegalStateException("CDS admission is already initialized");
+        cdsAdmissionState = java.util.Objects.requireNonNull(state);
+        if (getNumActive() != 0) throw new IllegalStateException("CDS admission initialization requires a drained connection pool");
+    }
+
+    public io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState getCdsAdmissionState() {
+        return cdsAdmissionState;
+    }
+
+    /** Uses the configured driver/credentials directly, never an abandoned-reclaimable pool lease. */
+    public Connection openUnpooledCdsMaintenanceConnection() throws SQLException {
+        return createConnectionFactory().createConnection();
+    }
+
+    private Connection cdsAdmission(Connection connection) {
+        var state = cdsAdmissionState;
+        return state == null ? connection
+                : io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.wrap(connection, state);
+    }
 
     private String configuredUrl;
     private Boolean defaultUseInformationSchema;
@@ -193,7 +217,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     public Connection getConnection() throws SQLException {
         try {
-            return trackConnection(super.getConnection());
+            return trackConnection(cdsAdmission(super.getConnection()));
         } catch (RuntimeException e) {
             logger.error("Error:", e);
             logDebugMapToError();
@@ -203,7 +227,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     public Connection getConnection(String username, String password) throws SQLException {
         try {
-            return trackConnection(super.getConnection(username, password));
+            return trackConnection(cdsAdmission(super.getConnection(username, password)));
         } catch (RuntimeException e) {
             logger.error("Error:", e);
             logDebugMapToError();
