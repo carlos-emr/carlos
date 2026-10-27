@@ -138,7 +138,7 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
     @Test void malformedNativeBooleanFailsClosed() throws Exception {
         try(var owner=coordinator.acquire();var scope=scope(owner)) {
             update("UPDATE cds_import_run SET cancel_requested=2 WHERE id=?",run);
-            assertThatThrownBy(()->scope.check(true)).hasMessage("IMPORT_COORDINATOR_LOST");
+            assertThatThrownBy(()->scope.check(true)).hasMessage("IMPORT_CONTROL_UNAVAILABLE");
             update("UPDATE cds_import_run SET cancel_requested=0 WHERE id=?",run);
         }
     }

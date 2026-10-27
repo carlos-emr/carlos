@@ -116,6 +116,7 @@ public class CdsImportCoordinatorDao {
         @NativeSql
         public boolean physicalOwned() throws SQLException {
             requireOpen();
+            if (connection.isClosed()) return false;
             if (physical == null) {
                 physical = connection.prepareStatement("SELECT IS_USED_LOCK(?)=CONNECTION_ID()");
                 physical.setQueryTimeout(3);

@@ -82,8 +82,27 @@ public class CdsImportCoordinatorService {
             try {
                 return lease.control(runId);
             } catch (SQLException failure) {
-                throw new CdsImportException("IMPORT_COORDINATOR_LOST", false, failure);
+                // A malformed/unavailable control observation on a healthy
+                // physical owner is an operational failure that needs a report.
+                // A genuinely lost owner retains the fenced handoff semantics.
+                String code=connectionLost(failure) ? "IMPORT_COORDINATOR_LOST" : "IMPORT_CONTROL_UNAVAILABLE";
+                try { code=lease.physicalOwned() ? "IMPORT_CONTROL_UNAVAILABLE" : "IMPORT_COORDINATOR_LOST"; }
+                catch (SQLException secondary) {
+                    if (secondary != failure) failure.addSuppressed(secondary);
+                    if (connectionLost(secondary)) code="IMPORT_COORDINATOR_LOST";
+                } catch (RuntimeException secondary) {
+                    failure.addSuppressed(secondary);
+                } catch (Error fatal) {
+                    fatal.addSuppressed(failure);
+                    throw fatal;
+                }
+                throw new CdsImportException(code, false, failure);
             }
+        }
+
+        private static boolean connectionLost(SQLException failure) {
+            String state=failure.getSQLState();
+            return state != null && state.startsWith("08");
         }
 
         private void requireOpen() {

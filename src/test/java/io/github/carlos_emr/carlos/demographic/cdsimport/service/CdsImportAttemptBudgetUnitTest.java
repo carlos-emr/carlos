@@ -86,6 +86,41 @@ class CdsImportAttemptBudgetUnitTest {
         verify(f.window,never()).allowReopen();
     }
 
+    @Test void malformedControlAndAmbiguousSecondaryProbeProduceReportedNoncleanOutcomesWithProtectedCause(
+            @org.junit.jupiter.api.io.TempDir Path root) throws Exception {
+        for(int scenario=0;scenario<3;scenario++) {
+            boolean ambiguous=scenario==1;
+            String primaryState=scenario==2?"08S01":"HY000";
+            Path evidenceRoot=java.nio.file.Files.createDirectory(root.resolve("scenario-"+scenario));
+            Fixture f=new Fixture(evidenceRoot);
+            var dao=mock(io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao.class);
+            var lease=mock(io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao.Lease.class);
+            when(dao.acquire()).thenReturn(lease);
+            var secondary=new java.sql.SQLException("another-private-detail","HYT00",72);
+            if(ambiguous)when(lease.physicalOwned()).thenReturn(true).thenThrow(secondary);
+            else when(lease.physicalOwned()).thenReturn(true);
+            var sqlFailure=new java.sql.SQLException("synthetic-secret-or-source-must-not-escape",primaryState,71);
+            when(lease.control("run")).thenThrow(sqlFailure);
+            var owner=new CdsImportCoordinatorService(dao).acquire();
+            when(f.coordinator.acquire()).thenReturn(owner);
+            try(var keys=f.keys()){f.engine.execute("run");}
+            assertEquals("INCOMPLETE",f.state.get());assertEquals(0,f.committed());
+            assertTrue(f.codes.contains("IMPORT_CONTROL_UNAVAILABLE"));
+            verify(f.ledger).operational("run",1L,null,null,"IMPORT_CONTROL_UNAVAILABLE");
+            verify(f.reports).generate("run",1L);verify(f.window,never()).allowReopen();
+            verify(f.records,never()).write(anyString(),anyLong(),any(),any(),any(),any(),any(),any());
+            List<Path> evidence;
+            try(var files=java.nio.file.Files.list(evidenceRoot.resolve("diagnostics"))){evidence=files.toList();}
+            assertEquals(1,evidence.size());
+            var text=java.nio.file.Files.readString(evidence.getFirst());
+            assertTrue(text.contains("java.sql.SQLException") && text.contains(primaryState));
+            assertFalse(text.contains(sqlFailure.getMessage()) || text.contains(secondary.getMessage()));
+            assertEquals(0,((int)java.nio.file.Files.getAttribute(evidence.getFirst(),"unix:mode"))&0077);
+            if(ambiguous)assertArrayEquals(new Throwable[]{secondary},sqlFailure.getSuppressed());
+            verify(lease,times(1)).control("run");verify(lease,times(2)).physicalOwned();
+        }
+    }
+
     private static final class Fixture {
         final AtomicLong clock=new AtomicLong();
         final AtomicReference<String> state=new AtomicReference<>("READY"),patientState=new AtomicReference<>("PLANNED");
@@ -99,16 +134,18 @@ class CdsImportAttemptBudgetUnitTest {
         final CdsImportMaintenanceService.Owner window=mock(CdsImportMaintenanceService.Owner.class);
         final CdsImportFileVerificationService verification=mock(CdsImportFileVerificationService.class);
         final CdsFieldParser fields=new CdsFieldParser();
+        final CdsImportCoordinatorService coordinator=mock(CdsImportCoordinatorService.class);
+        final CdsImportResultService reports=mock(CdsImportResultService.class);
         final CdsImportCommand command=new CdsImportCommand(Path.of("/opaque/source.xml"),"submission","1",null,null,"source","omd-5.2",false,false,false,0,null,false);
         final CdsImportJobDocumentDto document=new CdsImportJobDocumentDto(command,mock(CdsImportActorDto.class),null,null,Path.of("/opaque"));
         final CdsImportExecutionService engine;
-        Fixture() throws Exception {
+        Fixture() throws Exception { this(null); }
+        Fixture(Path evidenceRoot) throws Exception {
             var configuration=mock(CdsImportConfigurationService.class);var limits=mock(CdsInputLimitsDto.class);
             when(configuration.limits()).thenReturn(limits);when(limits.maxDurationMillis()).thenReturn(100L);
             var job=mock(CdsImportJobDto.class);when(ledger.status("run")).thenReturn(job);
             when(job.state()).thenAnswer(call->state.get());when(job.ownerEpoch()).thenReturn(1L);when(job.rulesetDigest()).thenReturn("rules");when(job.optionsDigest()).thenReturn("options");
             when(jobs.load("run")).thenReturn(document);when(ledger.isSealed("run")).thenReturn(true);when(ledger.ownsAdmission("run",1L)).thenReturn(true);
-            var coordinator=mock(CdsImportCoordinatorService.class);
             var coordinatorOwner=mock(CdsImportCoordinatorService.Owner.class);
             when(coordinatorOwner.control("run")).thenReturn(new CdsImportControlDto(true,true,1L,false,true));
             when(coordinator.acquire()).thenReturn(coordinatorOwner);
@@ -139,7 +176,12 @@ class CdsImportAttemptBudgetUnitTest {
             doAnswer(call->{patientState.set("COMPLETE");return null;}).when(ledger).finalizePatient(anyString(),anyLong(),anyString(),any());
             when(ledger.finish("run",1L)).thenAnswer(call->{state.set(patientState.get().equals("COMPLETE")?"COMPLETE":"INCOMPLETE");return job;});
             when(ledger.heldPatients("run")).thenAnswer(call->patientState.get().equals("COMPLETE")?0L:1L);
-            engine=new CdsImportExecutionService(ledger,unitService,jobs,planning,records,mock(CdsImportAccessService.class),configuration,maintenance,mock(CdsImportResultService.class),coordinator,verification,mock(CdsImportTargetSafetyService.class),mock(CdsImportFailureEvidenceService.class),fields,clock::get);
+            CdsImportFailureEvidenceService evidence=mock(CdsImportFailureEvidenceService.class);
+            if(evidenceRoot!=null) {
+                when(jobs.root("run")).thenReturn(evidenceRoot);
+                evidence=new CdsImportFailureEvidenceService(jobs,mock(CdsImportFileService.class));
+            }
+            engine=new CdsImportExecutionService(ledger,unitService,jobs,planning,records,mock(CdsImportAccessService.class),configuration,maintenance,reports,coordinator,verification,mock(CdsImportTargetSafetyService.class),evidence,fields,clock::get);
         }
         int committed(){return (int)unitStates.stream().filter(s->s.get().equals("COMMITTED")).count();}
         MockedStatic<CdsImportJobService> keys(){var keys=mockStatic(CdsImportJobService.class);keys.when(()->CdsImportJobService.rulesetDigest(eq(command),any())).thenReturn("rules");keys.when(()->CdsImportJobService.optionsDigest(command)).thenReturn("options");return keys;}
