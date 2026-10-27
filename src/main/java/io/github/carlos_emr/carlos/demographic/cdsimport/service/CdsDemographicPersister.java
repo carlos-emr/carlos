@@ -226,6 +226,9 @@ public class CdsDemographicPersister {
         if (decision.outcome() != Outcome.NO_MATCH)
             throw new CdsImportException("IDENTITY_" + decision.outcome());
         Demographic patient = new Demographic();
+        // Hibernate binds this field directly; the nullable getter fallback does not apply.
+        // Empty represents an absent preference without inventing an alternate clinical name.
+        patient.setPrefName("");
         patient.setFirstName(dto.firstName());
         patient.setLastName(dto.lastName());
         LocalDate birth = LocalDate.parse(dto.birthDate());

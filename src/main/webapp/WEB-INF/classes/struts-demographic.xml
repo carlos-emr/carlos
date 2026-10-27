@@ -89,6 +89,9 @@
         <action name="form/cdsImportReport" class="cdsImportReport2Action">
             <result name="input" type="httpheader"><param name="status">400</param></result>
         </action>
+        <action name="form/cdsImportDiagnostic" class="cdsImportDiagnostic2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
         <action name="form/importLogDownload" class="legacyCdsImportLog2Action">
             <result name="input" type="httpheader"><param name="status">400</param></result>
         </action>

@@ -610,6 +610,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         assertThat(patients.getValue().getPhone()).isEqualTo("613-555-0101");
         assertThat(patients.getValue().getMonthOfBirth()).isEqualTo("03");
         assertThat(patients.getValue().getDateOfBirth()).isEqualTo("04");
+        assertThat(ReflectionTestUtils.getField(patients.getValue(), "prefName")).isEqualTo("");
         var extensions = ArgumentCaptor.forClass(DemographicExt.class);
         verify(em, times(3)).persist(extensions.capture());
         assertThat(extensions.getAllValues())

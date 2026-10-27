@@ -136,6 +136,7 @@
             transfer: 'Transfert', state: 'État durable', unavailable: 'État indisponible ou périmé; reconnecter après réauthentification.',
             queued: 'fichier(s) accepté(s). Vérifier les reçus durables de chaque tâche.', resume: 'Sélectionner pour reprise',
             open: 'Ouvrir la tâche', abandon: 'Abandonner le transfert non soumis', review: 'Réviser',
+            evidence: 'Preuve technique',
             reviewVersion: 'Aucune version de révision sûre n’est disponible. Recharger l’état ou consulter le rapport.',
             reviewPath: 'Indiquer le XPath indexé exact d’une valeur scalaire, pas un patient ou une section.',
             reviewPatient: 'Le diagnostic ne désigne aucune copie de patient vérifiable. Le refus est indisponible; consulter le rapport protégé ou corriger la source.',
@@ -153,6 +154,7 @@
             transfer: 'Transfer', state: 'Durable state', unavailable: 'Status unavailable or stale; reconnect after reauthentication.',
             queued: 'file(s) accepted. Check each durable run receipt.', resume: 'Select for resume',
             open: 'Open run', abandon: 'Abandon unsubmitted upload', review: 'Review',
+            evidence: 'Technical evidence',
             reviewVersion: 'No safe review version is available. Reload status or inspect the protected report.',
             reviewPath: 'Enter the exact indexed XPath of a scalar value, rather than a patient or section.',
             reviewPatient: 'This diagnostic has no verifiable patient copy. Decline is unavailable; inspect the protected report or correct the source.',
@@ -400,6 +402,7 @@
             latestSummary = {}; byId('runState').textContent = text.unavailable; byId('runState').className = 'text-body';
             byId('runSummary').textContent = ''; byId('patientRows').replaceChildren(); byId('diagnosticRows').replaceChildren();
             byId('cdsReviewForm').hidden = true; byId('cancelRun').disabled = true; byId('resumeRun').disabled = true;
+            byId('diagnosticEvidencePanel').hidden = true; byId('diagnosticEvidence').textContent = '';
             for (const name of ['eventReport', 'errorReport', 'receiptReport']) byId(name).hidden = true;
             patientCursor = ''; diagnosticCursor = 0;
             patientPageStart = ''; diagnosticPageStart = 0; lastRunUpdated = '';
@@ -430,6 +433,14 @@
                 const row = document.createElement('tr'); cell(row, item.id); cell(row, item.code + ' / ' + item.stage);
                 cell(row, item.summary + (item.sourceXPath ? ' — ' + item.sourceXPath : ''));
                 const actions = cell(row, item.resolved ? 'RESOLVED' : item.severity);
+                if (item.hasEvidence === true) actions.append(button(text.evidence, async () => {
+                    const evidence = await request('cdsImportDiagnostic', {runId: run, diagnosticId: item.id});
+                    if (run !== activeRun) return;
+                    const rendered = JSON.stringify(evidence.evidence, null, 2);
+                    if (rendered.length > 131072) throw new Error('IMPORT_EVIDENCE_CAPACITY_EXCEEDED');
+                    byId('diagnosticEvidence').textContent = rendered;
+                    byId('diagnosticEvidencePanel').hidden = false; byId('diagnosticEvidencePanel').open = true;
+                }));
                 if (item.blocking && !item.resolved) actions.append(button(text.review, () => {
                     if (!Number.isSafeInteger(latestSummary.reviewVersion) || latestSummary.reviewVersion < 0) throw new Error(text.reviewVersion);
                     const eligibility = reviewEligibility(item, latestSummary);

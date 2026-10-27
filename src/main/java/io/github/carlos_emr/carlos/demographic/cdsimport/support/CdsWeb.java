@@ -89,7 +89,7 @@ public final class CdsWeb {
     }
 
     public static Map<String, Object> job(CdsImportJobDto row) {
-        Map<String,Object> result = new LinkedHashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>();
         result.put("id", row.id()); result.put("state", row.state()); result.put("sourceNamespace", row.sourceNamespace());
         result.put("profile", row.profile()); result.put("expectedPatients", row.expectedPatients());
         result.put("expectedUnits", row.expectedUnits()); result.put("ownerEpoch", row.ownerEpoch());
@@ -102,7 +102,7 @@ public final class CdsWeb {
     }
 
     public static Map<String, Object> patient(CdsImportPatientDto row) {
-        Map<String,Object> result = new LinkedHashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>();
         result.put("patientKey", row.patientKey()); result.put("sourcePatientId", row.sourcePatientId());
         result.put("copyKey", row.copyKey()); result.put("targetDemographicNo", row.targetDemographicNo());
         result.put("state", row.state()); result.put("held", row.held()); result.put("expectedUnits", row.expectedUnits());
@@ -110,11 +110,14 @@ public final class CdsWeb {
     }
 
     public static Map<String, Object> diagnostic(CdsImportDiagnosticDto row) {
-        Map<String,Object> result = new LinkedHashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>();
         result.put("id", row.id()); result.put("patientKey", row.patientKey()); result.put("unitKey", row.unitKey());
         result.put("severity", row.severity()); result.put("code", row.code()); result.put("stage", row.stage());
         result.put("sourceXPath", row.sourcePath()); result.put("summary", row.safeSummary());
         result.put("blocking", row.blocking()); result.put("resolved", row.resolved());
+        String detail = row.protectedDetailLocation();
+        result.put("hasEvidence", detail != null && detail.replace('\\', '/')
+                .matches(".*/diagnostics/failure-[0-9]+-[0-9a-f-]{36}\\.json"));
         result.put("createdAt", String.valueOf(row.createdAt()));
         return result;
     }
@@ -130,9 +133,9 @@ public final class CdsWeb {
             if (string.length() > 2048) throw new CdsUploadException("IMPORT_SUMMARY_INVALID", 503);
             return string;
         }
-        if (value instanceof Map<?,?> map) {
+        if (value instanceof Map<?, ?> map) {
             if (map.size() > 200) throw new CdsUploadException("IMPORT_SUMMARY_INVALID", 503);
-            Map<String,Object> result = new LinkedHashMap<>();
+            Map<String, Object> result = new LinkedHashMap<>();
             for (var entry : map.entrySet()) {
                 if (!(entry.getKey() instanceof String key) || key.length() > 128
                         || key.toLowerCase(java.util.Locale.ROOT).matches(".*(location|directory|password|secret|path).*")) {

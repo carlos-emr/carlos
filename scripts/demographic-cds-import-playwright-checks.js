@@ -15,6 +15,8 @@ const h = require('./lib/playwright-harness');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
+const { authzReadFixture } = require('./lib/authz-read-fixture');
+const { signIn } = require('./lib/authz-read-probe');
 const { createHash, randomUUID } = require('node:crypto');
 
 const xmlText = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -181,19 +183,27 @@ async function openImportFrame(s, label = 'cds-import-admin') {
 
 /** Browser-authenticated API probes use the same CSRF guard and bounded DTO routes as the UI. */
 async function importApi(frame, route, params = {}, method = 'GET') {
-  return frame.evaluate(async ({route, params, method}) => {
+  const binding = await frame.evaluate(({route}) => {
     const root = document.getElementById('cdsImport');
     const token = document.querySelector('input[name="CSRF-TOKEN"]')?.value;
     if (!token) throw new Error('IMPORT_CSRF_TOKEN_UNAVAILABLE');
     const url = new URL(root.dataset.context + '/form/' + route, location.origin);
-    const options = {method, credentials: 'same-origin', cache: 'no-store',
-      headers: {'CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest'}};
-    if (method === 'GET') for (const [key, value] of Object.entries(params)) url.searchParams.set(key, String(value));
-    else options.body = new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)]));
-    const response = await fetch(url, options); const text = await response.text();
-    let body; try { body = JSON.parse(text); } catch (_) { body = null; }
-    return {status: response.status, body, type: response.headers.get('content-type'), redirected: response.redirected};
-  }, {route, params, method});
+    return {url: url.href, token};
+  }, {route});
+  // Protocol/refusal probes use the real signed-in cookie jar and injected token. This follows
+  // the existing authz probe pattern: intentional405/409 responses must not become page JS errors.
+  // Upload, acceptance, polling and recovery still run through the actual UI event handlers.
+  const url = new URL(binding.url);
+  const options = {method, maxRedirects: 0, failOnStatusCode: false,
+    headers: {'CSRF-TOKEN': binding.token, 'X-Requested-With': 'XMLHttpRequest'}};
+  if (method === 'GET') for (const [key, value] of Object.entries(params)) url.searchParams.set(key, String(value));
+  else options.form = Object.fromEntries(Object.entries(params).map(([key, value]) => [key, String(value)]));
+  const response = await frame.page().context().request.fetch(url.href, options);
+  const text = await response.text();
+  h.assert(Buffer.byteLength(text, 'utf8') <= 2 * 1024 * 1024, 'Protocol metadata exceeded its bounded receipt budget');
+  let body; try { body = JSON.parse(text); } catch (_) { body = null; }
+  return {status: response.status(), body, type: response.headers()['content-type'],
+    redirected: response.status() >= 300 && response.status() < 400};
 }
 
 async function awaitRunReceipt(frame, id, timeout = 180000) {
@@ -316,6 +326,36 @@ async function workflow(s) {
       AND (signing_provider_no IS NULL OR signing_provider_no='') AND signed=0`) === '1',
     'Source encounter note was omitted, duplicated or falsely signed');
     for (const table of ['drugs','allergies']) h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE demographic_no=${id}`) === '1', `${table} not exactly once`);
+  });
+  await s.step('An ordinary doctor cannot administer imports but retains authorized patient source-field access', async () => {
+    const fixture = authzReadFixture({sql:s.sql,marker:s.marker,provider:s.provider,testUser:s.config.testUser});
+    s.cleanup(() => fixture.cleanup());
+    const login = fixture.addLogin('doctor'); fixture.joinTestLoginPrograms(login);
+    s.sql.execute(`INSERT INTO provider_facility(provider_no,facility_id)
+      SELECT ${h.sqlString(login.providerNo)},facility_id FROM provider_facility WHERE provider_no=${h.sqlString(s.provider)}`);
+    const doctor = await signIn(s, login);
+    try {
+      const count = s.sql.value('SELECT COUNT(*) FROM cds_import_upload');
+      const token = await doctor.page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+      const headers = {'CSRF-TOKEN':token,'X-Requested-With':'XMLHttpRequest'};
+      for (const route of ['/form/importUpload', `/form/cdsImportStatus?runId=${actual.job.id}`]) {
+        const denied = await doctor.context.request.get(h.appUrl(s.config.baseUrl,route), {maxRedirects:0,headers});
+        const json = (denied.headers()['content-type'] || '').includes('application/json');
+        h.assert(denied.status() === 403 && denied.headers()['x-permitted-cross-domain-policies'] !== undefined
+          && (json ? (await denied.json()).code === 'IMPORT_ACCESS_DENIED' : route === '/form/importUpload'),
+          'An ordinary doctor acquired import-administration or run access');
+      }
+      const denied = await doctor.context.request.post(h.appUrl(s.config.baseUrl,'/form/cdsUpload'),
+        {maxRedirects:0,headers,
+          form:{operation:'begin',fileName:'denied.xml',expectedBytes:'1'}});
+      h.assert(denied.status() === 403 && (await denied.json()).code === 'IMPORT_ACCESS_DENIED',
+        'An ordinary doctor reserved upload bytes');
+      h.assert(s.sql.value('SELECT COUNT(*) FROM cds_import_upload') === count, 'Denied import administration changed durable uploads');
+      const readable = await doctor.context.request.get(h.appUrl(s.config.baseUrl,
+        `/demographic/cdsSourceFields?demographicNo=${id}&category=Demographics`), {maxRedirects:0,headers});
+      h.assert(readable.status() === 200 && /CDS source fields/.test(await readable.text()),
+        'Patient source reads incorrectly require import administration');
+    } finally { await doctor.context.close(); }
   });
   await s.step('Run-scoped protected downloads deliver durable event, error and reconciliation evidence', async () => {
     for (const [selector, type] of [['eventReport','event'],['errorReport','error'],['receiptReport','receipt']]) {

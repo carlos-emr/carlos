@@ -18,6 +18,8 @@ Import administration requires a current active account/provider with live `_adm
 
 An administrative upload-cleanup failure and a terminated import worker appear as separate visible alerts. Their safe error codes can be provided to an administrator without copying patient values into an ordinary log.
 
+Where a diagnostic carries verified technical failure evidence, **Technical evidence** displays a bounded run/diagnostic projection after fresh operator authorization. Exception types, SQL state/vendor codes and code locations can identify the failing layer. Source values, exception messages, SQL text, filenames and physical storage paths are excluded; evidence bytes must match the protected registry's size and SHA256. This secondary evidence does not alter clinical outcomes or replace the event/error/completeness reports.
+
 Corrections that fail complete XML validation remain inactive drafts. Their count and diagnostics remain visible; add the remaining required corrections and revalidate before resuming. An inactive or unknown draft count cannot be displayed as clean completion.
 
 For revised raw source, options or rules, submit the corrected file normally with the same registered source identity. Review the **new** accepted run's `SOURCE_REVISION_REVIEW_REQUIRED` finding. `APPROVE_UNWRITTEN_REVISION` is available only when durable eligibility is affirmative; the backend locks and proves that both attempts have no clinical commits, holds or uncertainty before authorizing replacement. The version and reason are audited. It accepts neither an arbitrary server path nor a namespace change as a way around existing clinical data.

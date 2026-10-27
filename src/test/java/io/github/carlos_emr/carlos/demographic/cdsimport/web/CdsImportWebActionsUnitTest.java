@@ -32,6 +32,7 @@ import static org.mockito.Mockito.when;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.demographic.cdsimport.assembler.CdsImportViewModelAssembler;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportConfigurationService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadService;
@@ -120,5 +121,36 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
         var report = new CdsImportReport2Action(access, imports); report.setRunId("11111111-1111-4111-8111-111111111111"); report.setType("event");
         report.execute(); assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(imports);
         assertThat(response.getContentAsString()).doesNotContain("/private");
+    }
+
+    @Test void shouldDeliverOnlyAuthorizedSafeEvidence_byRunAndDiagnosticIdentity() throws Exception {
+        String run="11111111-1111-4111-8111-111111111111";
+        when(imports.diagnosticEvidence(actor,run,7L)).thenReturn(Map.of("version",1,"ownerEpoch",2,
+                "causes",java.util.List.of(Map.of("type","java.sql.SQLException","sqlState","45000","frames",java.util.List.of("Known#method:12")))));
+        var action=new CdsImportDiagnostic2Action(access,imports);action.setRunId(run);action.setDiagnosticId(7L);
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("45000","Known#method:12").doesNotContain("protectedDetailLocation","/private");
+        org.mockito.Mockito.verify(access).requireOperatorSession(actor);
+        org.mockito.Mockito.verify(imports).diagnosticEvidence(actor,run,7L);
+    }
+
+    @Test void shouldRefuseEvidencePathInjection_andUnsafeMethodBeforeEvidenceReads() throws Exception {
+        request.addParameter("path","/private/secret");
+        var action=new CdsImportDiagnostic2Action(access,imports);action.setRunId("11111111-1111-4111-8111-111111111111");action.setDiagnosticId(7L);
+        action.execute();assertThat(response.getStatus()).isEqualTo(400);verifyNoInteractions(imports);
+        request.setMethod("POST");response=new MockHttpServletResponse();ActionContext.getContext().withServletResponse(response);
+        action.execute();assertThat(response.getStatus()).isEqualTo(405);verifyNoInteractions(imports);
+    }
+
+    @Test void shouldAdvertiseSafeFailureEvidence_withoutLeakingItsPrivateLocation() {
+        var row=new CdsImportDiagnosticDto(7,null,null,"ERROR","NATIVE_FAILURE","EXECUTION",null,"Safe summary",
+                "/private/job/diagnostics/failure-2-11111111-1111-4111-8111-111111111111.json",true,false,Instant.now());
+        assertThat(CdsWeb.diagnostic(row)).containsEntry("hasEvidence",true)
+                .doesNotContainKeys("protectedDetailLocation","location");
+        assertThat(CdsWeb.diagnostic(row).toString()).doesNotContain("/private");
+        var source=new CdsImportDiagnosticDto(8,null,null,"ERROR","XML_INVALID","PREFLIGHT",null,"Safe summary",
+                "/private/job/source.xml",true,false,Instant.now());
+        assertThat(CdsWeb.diagnostic(source)).containsEntry("hasEvidence",false);
     }
 }

@@ -156,6 +156,11 @@
         </tr></thead><tbody id="diagnosticRows"></tbody></table></div>
         <button id="nextDiagnostics" type="button" class="btn btn-outline-secondary"><fmt:message key="nextPage" bundle="${cds}"/></button>
         <p class="form-text"><fmt:message key="pagesHelp" bundle="${cds}"/></p>
+        <details id="diagnosticEvidencePanel" class="border rounded p-3 mt-2" hidden>
+            <summary><fmt:message key="failureEvidence" bundle="${cds}"/></summary>
+            <p class="form-text"><fmt:message key="failureEvidenceHelp" bundle="${cds}"/></p>
+            <pre id="diagnosticEvidence" class="text-wrap text-break"></pre>
+        </details>
     </section>
     <form id="cdsReviewForm" method="POST" action="${pageContext.request.contextPath}/form/cdsImportControl" class="border rounded p-3" hidden>
         <h2 class="h5"><fmt:message key="review" bundle="${cds}"/></h2>
