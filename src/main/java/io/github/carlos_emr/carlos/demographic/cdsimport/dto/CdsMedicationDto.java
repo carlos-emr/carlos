@@ -34,7 +34,13 @@ public record CdsMedicationDto(String name, String din, String description, Stri
         String providerNotes,
         String pharmacyInstructions, String dispenseInterval, String protocol,
         String priorPrescription, String prescriptionIdentifier, CdsTemporalDto written,
-        CdsTemporalDto start, List<CdsClinicalDiagnosticDto> diagnostics) {
+        CdsTemporalDto start, boolean strengthSourceOnly, boolean sourceRequiresReconciliation,
+        List<CdsClinicalDiagnosticDto> diagnostics) {
     public enum Currentness { CURRENT, HISTORICAL, SUSPENDED, NEW, UNKNOWN }
-    public CdsMedicationDto { diagnostics = List.copyOf(diagnostics); }
+    public CdsMedicationDto {
+        if (strengthSourceOnly && !sourceRequiresReconciliation) {
+            throw new IllegalArgumentException("A source-only medication strength requires clinical reconciliation");
+        }
+        diagnostics = List.copyOf(diagnostics);
+    }
 }

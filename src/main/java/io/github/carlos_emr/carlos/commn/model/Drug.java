@@ -165,6 +165,10 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     /** Exact imported dose text, including fractions/ranges that cannot be represented by float. */
     @Column(name = "cds_dose_text", length = 120)
     private String cdsDoseText;
+
+    /** NULL identifies untouched native records; imported incomplete projections require clinical reconciliation. */
+    @Column(name = "cds_projection_incomplete")
+    private Boolean cdsProjectionIncomplete;
     @Column(name = "hide_cpp")
     @Convert(converter = LegacyFalseFlagConverter.class)
     private boolean hideFromCpp;
@@ -241,6 +245,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.special_instruction = drug.getSpecialInstruction();
         this.cdsCurrentness = drug.getCdsCurrentness();
         this.cdsDoseText = drug.getCdsDoseText();
+        this.cdsProjectionIncomplete = drug.getCdsProjectionIncomplete();
         this.archived = drug.isArchived();
         this.archivedReason = drug.getLastArchReason();
         this.archivedDate = drug.getArchivedDate();
@@ -364,6 +369,10 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public String getCdsDoseText() { return cdsDoseText; }
+
+    public Boolean getCdsProjectionIncomplete() { return cdsProjectionIncomplete; }
+
+    public void setCdsProjectionIncomplete(Boolean value) { this.cdsProjectionIncomplete = value; }
 
     public void setCdsDoseText(String value) {
         if (value != null && value.codePointCount(0, value.length()) > 120) throw new IllegalArgumentException("Imported dose exceeds target capacity");

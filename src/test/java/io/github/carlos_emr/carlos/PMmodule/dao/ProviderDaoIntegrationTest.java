@@ -2048,5 +2048,16 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             entityManager.flush();
             assertThat(providerDao.findCdsProviderNosByOhip("009902")).containsExactly("T001", "T002");
         }
+        @Test void shouldCompareUnicodeNamesExactlyWithoutTrimmingOrAccentFolding() {
+            Provider source = providerDao.getProvider("T001");
+            source.setFirstName("Élodie"); source.setLastName("Müller"); entityManager.flush();
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller")).containsExactly("T001");
+            assertThat(providerDao.findCdsProviderNosByExactName("élodie", "Müller")).isEmpty();
+            assertThat(providerDao.findCdsProviderNosByExactName("Elodie", "Müller")).isEmpty();
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie ", "Müller")).isEmpty();
+            source.setFirstName("Élodie "); entityManager.flush();
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie ", "Müller")).containsExactly("T001");
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller")).isEmpty();
+        }
     }
 }

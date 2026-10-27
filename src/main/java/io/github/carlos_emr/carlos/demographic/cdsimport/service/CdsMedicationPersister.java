@@ -127,6 +127,7 @@ public class CdsMedicationPersister {
         drug.setETreatmentType(source.treatmentType());
         drug.setRxStatus(source.prescriptionStatus());
         drug.setCdsCurrentness(source.currentness().name());
+        drug.setCdsProjectionIncomplete(source.sourceRequiresReconciliation());
         drug.setPrn(source.treatmentType() != null && source.treatmentType().startsWith("PRN ")
                 || "PRN".equals(source.frequency()));
         drug.setArchived(source.currentness() == Currentness.HISTORICAL);
@@ -154,17 +155,17 @@ public class CdsMedicationPersister {
     }
 
     private static String strength(CdsMedicationDto source) {
+        if (source.strengthSourceOnly()) return "[Source strength: see imported medication details]";
         if (source.strengthAmount() == null) return null;
-        String combined = source.strengthAmount() + (source.strengthUnit() == null ? "" : " " + source.strengthUnit());
-        if (combined.codePointCount(0, combined.length()) > 32768) {
-            throw new CdsClinicalException("CDS_TARGET_TEXT_CAPACITY_EXCEEDED", "Strength");
-        }
-        return combined;
+        return source.strengthAmount() + (source.strengthUnit() == null ? "" : " " + source.strengthUnit());
     }
 
     /** Preserves fractional/range dose literally instead of extracting a leading number. */
     private static String instructions(CdsMedicationDto source) {
         StringBuilder display = new StringBuilder();
+        append(display, source.name() == null || source.name().isBlank() ? "Source DIN " + source.din() : source.name());
+        append(display, strength(source));
+        display.append('\n');
         append(display, source.dose());
         append(display, source.doseUnit());
         append(display, source.route());

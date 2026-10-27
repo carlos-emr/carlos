@@ -79,6 +79,7 @@ public class StaticScriptBean {
         public String cdsCurrentness;
         public Boolean cdsNonAuthoritative;
         public Boolean cdsSubstitutionNotAllowed;
+        public Boolean cdsProjectionIncomplete;
         public String pickupDate = null;
         public String pickupTime = null;
         public String eTreatmentType = null;
@@ -134,6 +135,7 @@ public class StaticScriptBean {
         drugDisplayData.cdsCurrentness = drug.getCdsCurrentness();
         drugDisplayData.cdsNonAuthoritative = drug.getNonAuthoritative();
         drugDisplayData.cdsSubstitutionNotAllowed = drug.getNoSubs();
+        drugDisplayData.cdsProjectionIncomplete = drug.getCdsProjectionIncomplete();
         if (drug.getCdsCurrentness() != null) {
             if (drug.getRxDate() == null) drugDisplayData.startDate = "Unknown";
             if (drug.getWrittenDate() == null) drugDisplayData.writtenDate = "Unknown";

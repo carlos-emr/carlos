@@ -216,6 +216,7 @@ public class RxPrescriptionData {
         prescription.setRxStatus(drug.getRxStatus());
         prescription.setCdsCurrentness(drug.getCdsCurrentness());
         prescription.setCdsDoseText(drug.getCdsDoseText());
+        prescription.setCdsProjectionIncomplete(drug.getCdsProjectionIncomplete());
         prescription.setCdsSubstitutionNotAllowed(drug.getNoSubs());
         prescription.setCdsNonAuthoritative(drug.getNonAuthoritative());
         if (drug.getDispenseInterval() != null) prescription.setDispenseInterval(drug.getDispenseInterval());
@@ -436,6 +437,7 @@ public class RxPrescriptionData {
         p.setRxStatus(drug.getRxStatus());
         p.setCdsCurrentness(drug.getCdsCurrentness());
         p.setCdsDoseText(drug.getCdsDoseText());
+        p.setCdsProjectionIncomplete(drug.getCdsProjectionIncomplete());
         p.setCdsSubstitutionNotAllowed(drug.getNoSubs());
         p.setCdsNonAuthoritative(drug.getNonAuthoritative());
         if (drug.getDispenseInterval() != null) p.setDispenseInterval(drug.getDispenseInterval());
@@ -719,6 +721,7 @@ public class RxPrescriptionData {
         String rxDateFormat = null;
         private String cdsCurrentness;
         private String cdsDoseText;
+        private Boolean cdsProjectionIncomplete;
         private Boolean cdsSubstitutionNotAllowed;
         private Boolean cdsNonAuthoritative;
         java.util.Date printDate = null;
@@ -1611,6 +1614,10 @@ public class RxPrescriptionData {
 
         public void setCdsDoseText(String value) { this.cdsDoseText = value; }
 
+        public Boolean getCdsProjectionIncomplete() { return cdsProjectionIncomplete; }
+
+        public void setCdsProjectionIncomplete(Boolean value) { this.cdsProjectionIncomplete = value; }
+
         public Boolean getCdsSubstitutionNotAllowed() { return cdsSubstitutionNotAllowed; }
 
         public void setCdsSubstitutionNotAllowed(Boolean value) { this.cdsSubstitutionNotAllowed = value; }
@@ -1622,6 +1629,7 @@ public class RxPrescriptionData {
         /** Imported history cannot silently resolve unknown currentness, substitution or authority. */
         public void requireSafeImportedRenewal() {
             if (cdsCurrentness != null && (!"CURRENT".equals(cdsCurrentness)
+                    || !Boolean.FALSE.equals(cdsProjectionIncomplete)
                     || cdsSubstitutionNotAllowed == null || cdsNonAuthoritative == null
                     || Boolean.TRUE.equals(cdsNonAuthoritative)
                     || io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationDose.parse(cdsDoseText).isEmpty())) {
@@ -1870,6 +1878,7 @@ public class RxPrescriptionData {
             drug.setRxStatus(getRxStatus());
             drug.setCdsCurrentness(getCdsCurrentness());
             drug.setCdsDoseText(getCdsDoseText());
+            drug.setCdsProjectionIncomplete(getCdsProjectionIncomplete());
             drug.setDispenseInterval(getDispenseInterval());
             drug.setRefillQuantity(getRefillQuantity());
             drug.setRefillDuration(getRefillDuration());

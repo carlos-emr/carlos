@@ -103,6 +103,44 @@ class CdsClinicalPersisterUnitTest {
         Drug roundTrip = new Drug(prescription);
         assertThat(roundTrip.getNoSubs()).isNull();
         assertThat(roundTrip.getNonAuthoritative()).isNull();
+        assertThat(roundTrip.getCdsProjectionIncomplete()).isTrue();
+    }
+
+    @Test
+    void shouldRetainOversizedStrengthAsAnExplicitSourceReferenceAndBlockRenewal() throws Exception {
+        Drug drug = candidate(Map.of("Strength/Amount", "X".repeat(100000), "Strength/UnitOfMeasure", "mg",
+                "Dosage", "1", "PrescriptionStatus", "Active", "SubstitutionNotAllowed", "N", "NonAuthoritativeIndicator", "N"));
+        assertThat(drug.getCdsProjectionIncomplete()).isTrue();
+        assertThat(drug.getDosage()).isEqualTo("[Source strength: see imported medication details]");
+        assertThat(drug.getSpecial()).contains("Source strength: see imported medication details").doesNotContain("XXXXXXXXXX");
+        drug.setId(73);
+        var bridge = new RxPrescriptionData().toPrescription(drug, 42);
+        assertThat(bridge.getCdsProjectionIncomplete()).isTrue();
+        assertThatThrownBy(bridge::requireSafeImportedRenewal).hasMessageContaining("CDS_MEDICATION_RECONCILIATION_REQUIRED");
+        assertThat(new Drug(bridge).getCdsProjectionIncomplete()).isTrue();
+    }
+
+    @Test
+    void shouldAllowRenewalOnlyForAnExplicitlyCompleteProjection() throws Exception {
+        LinkedHashMap<String, String> source = new LinkedHashMap<>();
+        source.put("Strength/Amount", "10"); source.put("Strength/UnitOfMeasure", "mg");
+        source.put("Dosage", "1"); source.put("DosageUnitOfMeasure", "tablet"); source.put("Route", "oral");
+        source.put("Frequency", "OD"); source.put("Quantity", "30"); source.put("NumberOfRefills", "0");
+        source.put("PrescriptionStatus", "Active"); source.put("SubstitutionNotAllowed", "N"); source.put("NonAuthoritativeIndicator", "N");
+        Drug drug = candidate(source); drug.setId(74);
+        assertThat(drug.getCdsProjectionIncomplete()).isFalse();
+        var bridge = new RxPrescriptionData().toPrescription(drug, 42);
+        assertThatCode(bridge::requireSafeImportedRenewal).doesNotThrowAnyException();
+        bridge.setCdsProjectionIncomplete(null);
+        assertThatThrownBy(bridge::requireSafeImportedRenewal).hasMessageContaining("CDS_MEDICATION_RECONCILIATION_REQUIRED");
+        bridge.setCdsCurrentness(null);
+        assertThatCode(bridge::requireSafeImportedRenewal).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldProjectTwoRepresentableStrengthPartsWithoutAnArbitraryCombinedLimit() throws Exception {
+        Drug drug = candidate(Map.of("Strength/Amount", "A".repeat(32768), "Strength/UnitOfMeasure", "U".repeat(32768)));
+        assertThat(drug.getDosage()).hasSize(65537);
     }
 
     @Test
@@ -127,9 +165,11 @@ class CdsClinicalPersisterUnitTest {
 
     @Test
     void shouldRetainSafeStructuredDoseThroughRenewal_whenSourceDecisionsAreKnown() throws Exception {
-        Drug drug = candidate(Map.of("PrescriptionStatus", "Active", "Dosage", "1.25",
-                "SubstitutionNotAllowed", "N", "NonAuthoritativeIndicator", "N",
-                "Notes", "PRIVATE-OLD-HISTORY"));
+        Drug drug = candidate(Map.ofEntries(Map.entry("PrescriptionStatus", "Active"), Map.entry("Dosage", "1.25"),
+                Map.entry("SubstitutionNotAllowed", "N"), Map.entry("NonAuthoritativeIndicator", "N"),
+                Map.entry("Notes", "PRIVATE-OLD-HISTORY"), Map.entry("Strength/Amount", "10"),
+                Map.entry("Strength/UnitOfMeasure", "mg"), Map.entry("DosageUnitOfMeasure", "tablet"),
+                Map.entry("Route", "oral"), Map.entry("Frequency", "OD"), Map.entry("Quantity", "30"), Map.entry("NumberOfRefills", "0")));
         drug.setId(75);
         var data = new RxPrescriptionData();
         var old = data.toPrescription(drug, 42);
@@ -164,6 +204,13 @@ class CdsClinicalPersisterUnitTest {
         assertThat(drug.getScriptNo()).isNull();
         assertThat(source.prescriberFirstName()).isEqualTo("Source");
         verifyNoInteractions(drugs, dates);
+    }
+
+    @Test
+    void shouldRetainBothMaximumSourceNamePartsAndTheirSeparator() throws Exception {
+        Drug source = candidate(Map.of("PrescribedBy/Name/FirstName", "F".repeat(50),
+                "PrescribedBy/Name/LastName", "L".repeat(50)));
+        assertThat(source.getOutsideProviderName()).hasSize(101);
     }
 
     @Test

@@ -343,6 +343,9 @@
                                         <br/>Imported medication state: <carlos:encode value='<%= drug.cdsCurrentness %>' context="html"/>
                                         <br/>Source non-authoritative indicator: <carlos:encode value='<%= drug.cdsNonAuthoritative == null ? "Unknown" : drug.cdsNonAuthoritative.toString() %>' context="html"/>
                                         <br/>Source substitution not allowed: <carlos:encode value='<%= drug.cdsSubstitutionNotAllowed == null ? "Unknown" : drug.cdsSubstitutionNotAllowed.toString() %>' context="html"/>
+                                        <% if (!Boolean.FALSE.equals(drug.cdsProjectionIncomplete)) { %>
+                                        <br/>Clinical reconciliation required before renewal; review complete imported medication details.
+                                        <% } %>
                                         <% } else if (drug.nonAuthoritative) { %>
                                         &nbsp;
                                         <fmt:message key="WriteScript.msgNonAuthoritative"/>

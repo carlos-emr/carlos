@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationDose;
 import java.io.IOException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -85,16 +86,32 @@ public class CdsClinicalNormalizationService {
         String last = text(record, "PrescribedBy/Name/LastName", 50);
         String prescriber = first == null && last == null ? null
                 : String.join(" ", first == null ? "" : first, last == null ? "" : last).strip();
-        if (prescriber != null && prescriber.codePointCount(0, prescriber.length()) > 100) {
+        if (prescriber != null && prescriber.codePointCount(0, prescriber.length()) > 101) {
             throw new CdsClinicalException("CDS_TARGET_TEXT_CAPACITY_EXCEEDED", "PrescribedBy/Name");
         }
+        String strengthAmount = null, strengthUnit = null;
+        boolean strengthSourceOnly = false;
+        try {
+            strengthAmount = text(record, "Strength/Amount", 32768);
+            strengthUnit = text(record, "Strength/UnitOfMeasure", 32768);
+        } catch (CdsInputException exceedsNativeBudget) {
+            if (!"CDS_TARGET_TEXT_CAPACITY_EXCEEDED".equals(exceedsNativeBudget.code())) throw exceedsNativeBudget;
+            strengthSourceOnly = true;
+            strengthAmount = null; strengthUnit = null;
+            diagnostics.add(new CdsClinicalDiagnosticDto("CDS_RX_STRENGTH_COMPLETE_VALUE_IN_SOURCE", "Strength"));
+        }
+        String doseUnit = text(record, "DosageUnitOfMeasure", 50);
+        String form = text(record, "Form", 120), route = text(record, "Route", 120), frequency = text(record, "Frequency", 120);
+        Integer repeats = integer(text(record, "NumberOfRefills", 100), "NumberOfRefills");
+        boolean requiresReconciliation = strengthSourceOnly || blank(name) || blank(strengthAmount)
+                || blank(strengthUnit) || blank(dose) || blank(doseUnit) || blank(route) || blank(frequency)
+                || blank(quantity) || repeats == null;
+        if (requiresReconciliation) diagnostics.add(new CdsClinicalDiagnosticDto("CDS_RX_RECONCILIATION_REQUIRED", "MedicationsAndTreatments"));
         return new CdsMedicationDto(name, din, text(record, "DrugDescription", 2000),
-                text(record, "Strength/Amount", 32768), text(record, "Strength/UnitOfMeasure", 32768),
-                dose, text(record, "DosageUnitOfMeasure", 50),
-                text(record, "Form", 120), text(record, "Route", 120), text(record, "Frequency", 120),
+                strengthAmount, strengthUnit, dose, doseUnit, form, route, frequency,
                 duration, integer(text(record, "RefillDuration", 1024), "RefillDuration"), quantity,
                 integer(text(record, "RefillQuantity", 1024), "RefillQuantity"),
-                integer(text(record, "NumberOfRefills", 100), "NumberOfRefills"),
+                repeats,
                 indicator(record, "LongTermMedication", false), past,
                 indicator(record, "PatientCompliance", false),
                 directIndicator(text(record, "SubstitutionNotAllowed", 1), "SubstitutionNotAllowed"),
@@ -105,8 +122,9 @@ public class CdsClinicalNormalizationService {
                 text(record, "ProtocolIdentifier", 20),
                 text(record, "PriorPrescriptionReferenceIdentifier", 20),
                 text(record, "PrescriptionIdentifier", 50), date(record, "PrescriptionWrittenDate", command),
-                date(record, "StartDate", command), diagnostics);
+                date(record, "StartDate", command), strengthSourceOnly, requiresReconciliation, diagnostics);
     }
+    private static boolean blank(String value) { return value == null || value.isBlank(); }
 
     public CdsAllergyDto allergy(CdsRecordDto record) throws IOException {
         return allergy(record, null);
