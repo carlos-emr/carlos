@@ -41,6 +41,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.Logger;
 import org.hibernate.dialect.H2Dialect;
@@ -648,14 +649,15 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
     }
 
     private record CdsNameCharsets(String first, String last) { }
-    private volatile CdsNameCharsets cdsNameCharsets;
+    private final AtomicReference<CdsNameCharsets> cdsNameCharsets = new AtomicReference<>();
 
     /** Deployment schema metadata is bounded and immutable for the lifetime of this DAO. */
     private CdsNameCharsets cdsNameCharsets() {
-        CdsNameCharsets result = cdsNameCharsets;
+        CdsNameCharsets result = cdsNameCharsets.get();
         if (result != null) return result;
         synchronized (this) {
-            if (cdsNameCharsets != null) return cdsNameCharsets;
+            result = cdsNameCharsets.get();
+            if (result != null) return result;
             List<?> metadata = entityManager().createNativeQuery("select COLUMN_NAME,CHARACTER_SET_NAME "
                     + "from information_schema.COLUMNS where TABLE_SCHEMA=DATABASE() and TABLE_NAME='provider' "
                     + "and COLUMN_NAME in ('first_name','last_name')").setMaxResults(3).getResultList();
@@ -670,7 +672,8 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
                 else throw new IllegalStateException("Ambiguous provider name column metadata");
             }
             if (metadata.size() != 2 || first == null || last == null) throw new IllegalStateException("Missing provider name column metadata");
-            cdsNameCharsets = result = new CdsNameCharsets(first, last);
+            result = new CdsNameCharsets(first, last);
+            cdsNameCharsets.set(result);
             return result;
         }
     }

@@ -360,8 +360,11 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                                         "io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl$CdsNameCharsets")
                                 .getDeclaredConstructor(String.class, String.class);
                 cache.setAccessible(true);
-                ReflectionTestUtils.setField(
-                        dao, "cdsNameCharsets", cache.newInstance("latin1", "latin1"));
+                @SuppressWarnings("unchecked")
+                var reference = (java.util.concurrent.atomic.AtomicReference<Object>)
+                        ReflectionTestUtils.getField(dao, "cdsNameCharsets");
+                assertThat(reference).isNotNull();
+                reference.set(cache.newInstance("latin1", "latin1"));
                 assertThat(dao.findCdsProviderNosByExactName("Élodie", "Müller"))
                         .containsExactly("T001");
                 assertThat(dao.findCdsProviderNosByExactName("élodie", "Müller")).isEmpty();
