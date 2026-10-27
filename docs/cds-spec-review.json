@@ -2237,7 +2237,7 @@
       "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
     },
     "demographic-status": {
-      "destination": "Demographic.patientStatus (enum A/I/D→AC/IN/DE; plain source text retained literally within widened native capacity).",
+      "destination": "Demographic.patientStatus (enum A/I/D\u2192AC/IN/DE; plain source text retained literally within widened native capacity).",
       "disposition": "native-and-source",
       "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
       "implementation": [
@@ -3704,7 +3704,8 @@
     }
   },
   "reviewNotes": [
-    "The exact-path review exposed the guide3.1 legal-middle-name native mapping omission. Signed implementation60ef650da1 adds bounded ordered GIV projection, diagnostic/fallback and prepared capacity guard; crosswalk keeps PartQualifier and other name-purpose data source-only."
+    "The exact-path review exposed the guide3.1 legal-middle-name native mapping omission. Signed implementation60ef650da1 adds bounded ordered GIV projection, diagnostic/fallback and prepared capacity guard; crosswalk keeps PartQualifier and other name-purpose data source-only.",
+    "Independent API2 review of25073dbf66: ViewCdsSourceFields2Action retains authenticated GET/HEAD and the same read-only assembler. Its explicit readOnlyParameters path preserves durable versionless HTML links while rejecting an incorrect supplied version or duplicate/unknown parameters. No destination, normalization, original-retention or clinical transaction mapping changed; refreshed only this reviewed reader hash."
   ],
   "reviewedImplementationSha256": {
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNote.java": "e4b8bf7231599353d70d6b27cebc8ecc116e4fd22f0a7244e81ca651aa156eaa",
@@ -3743,7 +3744,7 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaService.java": "e257f7169be1ae8df0b691f6e402fa208a68924a77b25fe68e973232e79bb2d6",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java": "c56429119fd7f7073725851ec11d36e19f5432567eb3a2dabbd0757d8c21c32f",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalReadService.java": "be58c4b611a92dc2b53400009c87ecfde7d0c6c59752ccb2aa4fe676c43a4b37",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java": "7fed2ce8d8e0bfb9c7f835e8e56f9d96c1bb45ecf8784a135888fb088411a279",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java": "603cc2535c2c90598930e5581cbcfbb3b7a60dbce254b50bdee6c6413db2667b",
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/MeasurementInfo.java": "d8259a67f5fe21a6fc418e6209d063888b20e23bbaf4db6eca1b9fa8e474d413",
     "src/main/java/io/github/carlos_emr/carlos/managers/AllergyManagerImpl.java": "6d2103aa328451900b4cbacd04c37e74686e2af6d33e6c78198259afd4102bbf",
     "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionDateService.java": "18b51f8d5979549d64bb99860bb7de63abb38026f94ee0ddd9a753332bbe92c5",
