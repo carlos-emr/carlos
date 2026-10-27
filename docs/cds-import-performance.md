@@ -117,6 +117,12 @@ Two additional installed profiles cover preaccept storage failure. Each owns a
 fresh database and runtime with a dedicated64MiB tmpfs for its entire synthetic
 fixture. `disk-reserve` keeps the default512MiB reserve and must produce the
 finite operator reason `CDS_INPUT_DISK_RESERVE`; it does not claim ENOSPC.
+The mount's initial root identity/mode is explicit. Before any submission, the
+real service UID/GID records every ancestor's ownership/mode and its filesystem
+UID/GID, then proves private creation, writing, locking and file/directory fsync
+with a tiny owned probe that it retires. An inaccessible ancestor fails fixture
+admission before it can be mistaken for the intended storage fault. Existing
+accepted paths are never chmodded to make the test pass.
 `disk-enospc` freezes a zero reserve before the first submission solely to inject
 the storage failure. A valid48MiB external PDF and XML fit as originals, while
 their physical snapshot cannot also fit. Raw-register-only failed-write tracing

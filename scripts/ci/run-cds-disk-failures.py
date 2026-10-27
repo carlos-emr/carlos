@@ -27,6 +27,47 @@ RESOURCE=importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RESOURCE)
 MIB=1<<20
 CONFIG=Path('/etc/carlos-emr/carlos.properties')
+FS_PROBE=r'''
+import fcntl,json,os,pathlib,stat,sys,uuid
+root=pathlib.Path(sys.argv[1]);chain=list(reversed(root.parents))+[root]
+result={'uid':list(os.getresuid()),'gid':list(os.getresgid()),'groups':os.getgroups(),'components':[],'ok':False}
+for key in ('Uid','Gid'):
+    line=next(line for line in pathlib.Path('/proc/self/status').read_text().splitlines() if line.startswith(key+':'))
+    result[key.lower()+'IncludingFs']=list(map(int,line.split()[1:]))
+for index,path in enumerate(chain):
+    try:
+        info=path.lstat()
+        result['components'].append({'index':index,'uid':info.st_uid,'gid':info.st_gid,'mode':oct(stat.S_IMODE(info.st_mode)),
+            'directory':stat.S_ISDIR(info.st_mode),'symlink':stat.S_ISLNK(info.st_mode),'traversable':os.access(path,os.X_OK,effective_ids=True)})
+    except OSError as failure:
+        result.update(stage='ancestor-stat',failedComponent=index,errno=failure.errno);break
+else:
+    if any(row['symlink'] for row in result['components']):
+        result['stage']='symlink-refused'
+    else:
+        probe=root/('.f15-readiness-'+uuid.uuid4().hex)
+        created=False
+        try:
+            result['stage']='create-private-probe';probe.mkdir(mode=0o700);created=True
+            result['stage']='write-force-lock-private-file'
+            fd=os.open(probe/'owned',os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+            try:
+                os.write(fd,b'owned-synthetic-readiness');os.fsync(fd);fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            finally:os.close(fd)
+            result['stage']='force-private-directory'
+            fd=os.open(probe,os.O_RDONLY|os.O_DIRECTORY)
+            try:os.fsync(fd)
+            finally:os.close(fd)
+            (probe/'owned').unlink();probe.rmdir();created=False
+            result.update(ok=True,stage='verified-and-retired-own-unaccepted-probe')
+        except OSError as failure:result['errno']=failure.errno
+        finally:
+            if created:
+                try:
+                    (probe/'owned').unlink(missing_ok=True);probe.rmdir()
+                except OSError as failure:result['probeRetirementErrno']=failure.errno
+print(json.dumps(result,sort_keys=True))
+'''
 
 
 def require(condition: bool, code: str) -> None:
@@ -176,6 +217,14 @@ def main() -> None:
             return json.loads(done.stdout)
         require(fixture('verify-prepared',root)==metadata,'DISK_FAULT_PREPARED_BINDING')
         owned_root=root
+        account=pwd.getpwnam('carlos')
+        staged=Path(properties['cds.import.stagingRoot'])
+        ready=subprocess.run([sys.executable,'-c',FS_PROBE,str(staged)],env=env,user=account.pw_uid,group=account.pw_gid,
+                             extra_groups=[],capture_output=True,text=True,timeout=15)
+        require(ready.returncode==0 and len(ready.stdout)<=16384,'DISK_FAULT_SERVICE_FS_PROBE_UNAVAILABLE')
+        result['initialServiceFilesystemReadiness']=json.loads(ready.stdout)
+        save()
+        require(result['initialServiceFilesystemReadiness'].get('ok') is True,'DISK_FAULT_INITIAL_SERVICE_FILESYSTEM_NOT_READY')
         before=fixture('inspect','fixture')
         initial_ledger=ledger_counts()
         require(all(value==0 for value in [*before.values(),*initial_ledger.values()]),'DISK_FAULT_NONEMPTY_CLINICAL_DATABASE')
@@ -254,7 +303,6 @@ def main() -> None:
         shutil.copyfile(trace_file,safe_trace)
         safe_trace.chmod(0o600)
         result['rawRegisterOnlySyscallTrace']={'bytes':safe_trace.stat().st_size,'sha256':RESOURCE.digest(safe_trace)}
-        staged=Path(properties['cds.import.stagingRoot'])
         jobs=list(staged.glob('job-*'))
         require(len(jobs)==1 and jobs[0].is_dir() and not jobs[0].is_symlink(),'DISK_FAULT_PREACCEPT_STATE_MISSING')
         service_uid=pwd.getpwnam('carlos').pw_uid

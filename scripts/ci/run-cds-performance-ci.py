@@ -145,7 +145,7 @@ def main() -> int:
             build(["java", "-cp", helper+":"+cp, "CdsImportMariaDbBootstrap", credentials, "database/mysql/migration", "on"])
             # Publicly traversable fixture mount ancestors; private credentials remain0700/0600.
             base.chmod(0o755)
-            state_mount = ["--tmpfs","/var/lib/carlos-emr:rw,nosuid,nodev,noexec,size=64m"] if disk_fault else [
+            state_mount = ["--tmpfs","/var/lib/carlos-emr:rw,nosuid,nodev,noexec,size=64m,mode=0755,uid=0,gid=0"] if disk_fault else [
                 "--mount", "type=bind,src="+str(state)+",dst=/var/lib/carlos-emr"]
             execute(docker+["run", "-d", "--name", runtime, "--network", network, "--memory", "1536m", "--cpus", "2",
                 "--mount", "type=bind,src="+str(repository)+",dst=/workspace,readonly",

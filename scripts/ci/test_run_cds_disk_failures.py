@@ -7,6 +7,8 @@ from pathlib import Path
 import tarfile
 import tempfile
 import unittest
+import subprocess
+import sys
 
 SPEC=importlib.util.spec_from_file_location('disk_faults',Path(__file__).with_name('run-cds-disk-failures.py'))
 GATE=importlib.util.module_from_spec(SPEC)
@@ -71,6 +73,24 @@ class DiskFailureEvidenceTest(unittest.TestCase):
                                  ({**good,'afterLedger':None},True)):
             with self.subTest(receipt=receipt,verified=verified):
                 self.assertFalse(CI.disk_retirement_allowed(True,receipt,verified))
+
+    def test_service_readiness_proves_real_private_create_write_lock_and_force_before_submission(self):
+        done=subprocess.run([sys.executable,'-c',GATE.FS_PROBE,str(self.root)],capture_output=True,text=True,check=True,timeout=15)
+        value=json.loads(done.stdout)
+        self.assertTrue(value['ok'])
+        self.assertEqual(value['stage'],'verified-and-retired-own-unaccepted-probe')
+        self.assertTrue(all(row['directory'] and not row['symlink'] for row in value['components']))
+        self.assertEqual(len(list(self.root.iterdir())),0)
+        self.assertEqual(len(value['uidIncludingFs']),4)
+
+    def test_service_readiness_refuses_redirected_or_non_directory_storage_without_a_submission(self):
+        plain=self.root/'file';plain.write_bytes(b'unchanged')
+        link=self.root/'link';link.symlink_to(self.root,target_is_directory=True)
+        for selected in (plain,link):
+            done=subprocess.run([sys.executable,'-c',GATE.FS_PROBE,str(selected)],capture_output=True,text=True,check=True,timeout=15)
+            value=json.loads(done.stdout)
+            self.assertFalse(value['ok'])
+        self.assertEqual(plain.read_bytes(),b'unchanged')
 
 
 if __name__=='__main__':unittest.main()
