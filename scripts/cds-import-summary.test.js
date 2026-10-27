@@ -258,3 +258,28 @@ test('clean imports still surface preserved patient warnings without inventing a
   const view=client.jobPresentation({id,state:'COMPLETE'},{...dashboardSummary(),outcomes:{COMPLETE_WITH_NONLOSSY_WARNINGS:1}});
   assert.equal(view.clean,true);assert.match(view.stage,/review warnings/);assert.equal(view.reviews,'0');
 });
+
+
+test('known acceptance remains counted once when its first status read fails, with no replacement submission', async () => {
+  const requests=[];let acceptedCount=0;let remembered;let bookmark;
+  const post=async()=>{requests.push({method:'POST',kind:'accept'});return{accepted:true,job:{id}};};
+  const response=await post();
+  const accepted=await client.monitorAcceptedRun(response,async handle=>{
+    remembered=handle;bookmark=client.jobStatusUrl('/carlos',handle);
+    requests.push({method:'GET',kind:'status',handle});throw Error('HTTP503');
+  });
+  acceptedCount++;
+  assert.equal(acceptedCount,1);assert.equal(accepted.id,id);assert.equal(accepted.statusAvailable,false);
+  assert.equal(remembered,id);assert.equal(bookmark,'/carlos/form/importUpload?runId='+id);
+  assert.deepEqual(requests,[{method:'POST',kind:'accept'},{method:'GET',kind:'status',handle:id}]);
+  const recovered=await client.monitorAcceptedRun(response,async handle=>{assert.equal(handle,id);});
+  assert.equal(recovered.statusAvailable,true);assert.equal(recovered.id,id);
+});
+test('an ambiguous POST failure or unconfirmed receipt cannot manufacture acceptance', async () => {
+  let monitored=0,acceptedCount=0;
+  const submit=async()=>{throw Error('POST outcome unknown');};
+  await assert.rejects(async()=>{await client.monitorAcceptedRun(await submit(),async()=>{monitored++;});acceptedCount++;},/POST outcome unknown/);
+  for(const receipt of [undefined,{}, {accepted:false,job:{id}},{accepted:true,job:{id:'unknown'}}])
+    await assert.rejects(client.monitorAcceptedRun(receipt,async()=>{monitored++;}),/IMPORT_ACCEPTANCE_UNAVAILABLE/);
+  assert.equal(monitored,0);assert.equal(acceptedCount,0);
+});

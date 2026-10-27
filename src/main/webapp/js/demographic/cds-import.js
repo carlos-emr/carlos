@@ -136,6 +136,14 @@
             cleanup: cleanupFailed ? (french ? 'Échec — intervention requise' : 'Failed — attention needed') : summary.cleanupComplete === true ? (french ? 'Terminée' : 'Complete') : (french ? 'Pas encore confirmée' : 'Not yet confirmed')};
     }
 
+    async function monitorAcceptedRun(receipt, monitor) {
+        if (receipt?.accepted !== true || !UUID.test(receipt.job?.id || ''))
+            throw new Error('IMPORT_ACCEPTANCE_UNAVAILABLE');
+        const id = receipt.job.id;
+        try { await monitor(id); return {id, statusAvailable: true}; }
+        catch (_) { return {id, statusAvailable: false}; }
+    }
+
     function boundedIds(values, maximum = 20) {
         return [...new Set(values.filter(value => typeof value === 'string' && UUID.test(value)))].slice(-maximum);
     }
@@ -260,7 +268,7 @@
         return offset;
     }
 
-    const api = {API_VERSION, API_VERSION_HEADER, jobStatusUrl, friendlyState, uploadPresentation, jobPresentation, statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
+    const api = {API_VERSION, API_VERSION_HEADER, jobStatusUrl, friendlyState, uploadPresentation, jobPresentation, monitorAcceptedRun, statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
         effectiveOptions, sha256, boundedJson, apiResponse, verifyPrefix};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CarlosCdsImport = api;
@@ -436,10 +444,15 @@
 
         async function submitUpload(id, options) {
             const response = await request('cdsImportSubmit', {...options, uploadId: id}, {method: 'POST'});
-            if (!response.accepted || !response.job || !UUID.test(response.job.id || '')) throw new Error('IMPORT_ACCEPTANCE_UNAVAILABLE');
-            rememberRun(response.job.id); notice(text.accepted + ' ' + response.job.id);
-            await openRun(response.job.id);
-            return response.job.id;
+            const accepted = await monitorAcceptedRun(response, async id => {
+                rememberRun(id); notice(text.accepted + ' ' + id);
+                await openRun(id);
+            });
+            if (!accepted.statusAvailable) {
+                statusUnknown();
+                notice(text.accepted + ' ' + accepted.id + ' ' + text.unavailable, true);
+            }
+            return accepted.id;
         }
 
         async function transfer(file, resumeId) {
