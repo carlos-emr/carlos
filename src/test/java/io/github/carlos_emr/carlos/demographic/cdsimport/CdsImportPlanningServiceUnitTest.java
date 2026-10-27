@@ -101,6 +101,10 @@ class CdsImportPlanningServiceUnitTest {
         Fixture fixture=fixture(false,false);
         when(fixture.ledger.planPatient(anyString(),anyLong(),anyString(),anyString(),anyString(),anyString()))
                 .thenThrow(new CdsImportException("SOURCE_REVISION_REVIEW_REQUIRED"));
+        when(fixture.ledger.recordRevisionConflictPatient(anyString(),anyLong(),anyString(),anyString(),anyString())).thenAnswer(call -> {
+            String patient=CdsImportKeys.hash("test-source","source-id","clinical");
+            return new CdsImportPatientDto(patient,"source-id","clinical",patient,null,"NOT_STARTED",false,0);
+        });
         when(fixture.ledger.unwrittenRevision(anyString(),anyLong(),anyString(),anyString(),anyString())).thenAnswer(call -> {
             String patient=CdsImportKeys.hash("test-source","source-id","clinical");
             return new CdsImportRevisionDto("run",patient,patient,"test-source","source-id","clinical",
@@ -108,6 +112,7 @@ class CdsImportPlanningServiceUnitTest {
                     null,0,true,java.util.List.of("prior-run"),1,false);
         });
         fixture.planner.plan("run",1,fixture.document,fixture.snapshot);
+        verify(fixture.ledger).recordRevisionConflictPatient(eq("run"),eq(1L),eq("source-id"),eq("clinical"),matches("[0-9a-f]{64}"));
         var detail=org.mockito.ArgumentCaptor.forClass(String.class);
         String patient=CdsImportKeys.hash("test-source","source-id","clinical");
         verify(fixture.ledger).diagnostic(eq("run"),eq(1L),eq(patient),isNull(),eq("ERROR"),eq("SOURCE_REVISION_REVIEW_REQUIRED"),

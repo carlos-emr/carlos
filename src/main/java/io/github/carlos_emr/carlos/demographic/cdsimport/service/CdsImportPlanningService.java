@@ -237,6 +237,9 @@ public class CdsImportPlanningService {
                 } catch (CdsImportException conflict) {
                     if (!conflict.getCode().equals("SOURCE_REVISION_REVIEW_REQUIRED")) throw conflict;
                     Path proof=revisionConflict(state, xml, demographic[0], parseResult, patientKey, source.sourceId(), copy.copyKey(), sourceDigest);
+                    if (preflightIdentity.register(state.runId, state.epoch, patientKey, copy.copyKey(), source, false)) {
+                        accountPatient(state, patientKey, sourceDigest);
+                    }
                     state.blocked=true;
                     diagnostic(state, patientKey, conflict.getCode(), demographic[0].sourceXPath(), proof.toString());
                     return;
@@ -247,9 +250,7 @@ public class CdsImportPlanningService {
                             "PREFLIGHT", demographic[0].sourceXPath(), "Repeated identical source patient was accounted for once", parseResult.toString(), false);
                     return;
                 }
-                if (state.patients>=configuration.limits().maxEntries()) throw new CdsImportException("PLANNED_PATIENT_RESOURCE_LIMIT");
-                state.patients++;
-                CdsImportKeys.add(state.manifest, "PATIENT"); CdsImportKeys.add(state.manifest, patientKey); CdsImportKeys.add(state.manifest, sourceDigest);
+                accountPatient(state, patientKey, sourceDigest);
                 if (declined) {
                     ledger.refusePlannedPatient(state.runId, state.epoch, patientKey, "REFUSED");
                     ledger.diagnostic(state.runId, state.epoch, patientKey, null, "WARNING", "PATIENT_EXPLICITLY_DECLINED", "PREFLIGHT",
@@ -314,12 +315,20 @@ public class CdsImportPlanningService {
         if (!valid[0] && !boundTyped[0] && state.blocked) emitTyped(state, typed.path, null);
     }
 
+    private void accountPatient(State state, String patientKey, String sourceDigest) {
+        if (state.patients>=configuration.limits().maxEntries()) throw new CdsImportException("PLANNED_PATIENT_RESOURCE_LIMIT");
+        state.patients++;
+        CdsImportKeys.add(state.manifest, "PATIENT"); CdsImportKeys.add(state.manifest, patientKey); CdsImportKeys.add(state.manifest, sourceDigest);
+    }
+
     /** Immutable private evidence for an explicit review; canonical revision never happens during discovery. */
     private Path revisionConflict(State state, CdsSnapshotFileDto xml, CdsRecordDto demographic, Path parseResult,
             String patientKey, String sourcePatientId, String copyKey, String sourceDigest) throws IOException {
         var revision=ledger.unwrittenRevision(state.runId, state.epoch, sourcePatientId, copyKey, sourceDigest);
         if (!state.runId.equals(revision.runId()) || !patientKey.equals(revision.patientKey())
                 || !sourceDigest.equals(revision.newSourceDigest())) throw new CdsImportException("REVISION_PROOF_IDENTITY_MISMATCH");
+        var identified=ledger.recordRevisionConflictPatient(state.runId, state.epoch, sourcePatientId, copyKey, sourceDigest);
+        if (!patientKey.equals(identified.patientKey())) throw new CdsImportException("REVISION_PROOF_IDENTITY_MISMATCH");
         var root=JSON.createObjectNode().put("version", 1).put("sourceMember", xml.relativeName())
                 .put("sourceXmlSha256", xml.sha256()).put("recordXPath", demographic.sourceXPath())
                 .put("parseResultFile", parseResult.toString()).put("patientKey", patientKey)
