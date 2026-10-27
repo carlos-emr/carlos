@@ -500,6 +500,9 @@ async function nativeViewsWorkflow(s) {
       await follow(masterPage,'Demographics');
       chart = await openChart(s.context,masterPage,s.recorder,20000); await waitForNavbars(chart,20000);
       await chart.getByText(note,{exact:false}).first().waitFor({state:'visible',timeout:30000});
+      const timing = chart.locator('.cds-note-source-timing'); await timing.waitFor({state:'visible'});
+      h.assert(/CDS/.test(await timing.innerText()) && /CARLOS/.test(await timing.innerText()),
+        'Source-created versus native revision timing help is missing from the default chart');
       await follow(chart,'ClinicalNotes'); await follow(chart,'NewCategory');
       const allergy = await s.popup(chart,chart.locator('a[onclick*="showAllergy"]').first(),'native-allergy-source');
       await follow(allergy,'AllergiesAndAdverseReactions'); await allergy.close();
