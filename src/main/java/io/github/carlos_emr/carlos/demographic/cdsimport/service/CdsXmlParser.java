@@ -103,7 +103,16 @@ public class CdsXmlParser {
     /** Reviewed scalar changes affect validation only; all captured lexical bytes stay original. */
     public CdsParseResultDto parse(Path sourceXml, Path privateSpoolDirectory, CdsInputLimitsDto limits,
             BooleanSupplier cancelled, Consumer<CdsRecordDto> records, CdsCorrectionSetDto corrections) throws IOException {
-        try { return parseInternal(sourceXml, privateSpoolDirectory, limits, cancelled, records, corrections); }
+        return parse(sourceXml, privateSpoolDirectory, limits, cancelled, records, corrections, () -> {});
+    }
+
+    /** Local budgets run at every read; the caller alone coalesces durable ownership polling. */
+    CdsParseResultDto parse(Path sourceXml, Path privateSpoolDirectory, CdsInputLimitsDto limits,
+            BooleanSupplier cancelled, Consumer<CdsRecordDto> records, CdsCorrectionSetDto corrections,
+            Runnable checkpoint) throws IOException {
+        if (checkpoint==null) throw new IllegalArgumentException("Missing CDS parser checkpoint");
+        checkpoint.run();
+        try { return parseInternal(sourceXml, privateSpoolDirectory, limits, cancelled, records, corrections, checkpoint); }
         catch (CdsInputException safe) { throw safe; }
         catch (IOException failed) {
             String protectedDetail = failed.getMessage();
@@ -113,7 +122,7 @@ public class CdsXmlParser {
     }
 
     private CdsParseResultDto parseInternal(Path sourceXml, Path privateSpoolDirectory, CdsInputLimitsDto limits,
-            BooleanSupplier cancelled, Consumer<CdsRecordDto> records, CdsCorrectionSetDto corrections) throws IOException {
+            BooleanSupplier cancelled, Consumer<CdsRecordDto> records, CdsCorrectionSetDto corrections, Runnable checkpoint) throws IOException {
         if (limits == null || cancelled == null || records == null) throw new IllegalArgumentException("Missing CDS parser context");
         Path parent = privateSpoolDirectory.toAbsolutePath().getParent();
         Path spool = CdsPaths.privateDirectory(privateSpoolDirectory, parent);
@@ -140,7 +149,7 @@ public class CdsXmlParser {
                 BufferedOutputStream diagnosticBuffer = new BufferedOutputStream(diagnosticFile, 65536);
                 CountedOutput diagnosticOutput = new CountedOutput(diagnosticBuffer)) {
             Pipeline pipeline = new Pipeline(spool, fields, values, manifest, diagnostics, limits, cancelled,
-                    records, staged, fieldOutput, valueOutput, valueWriter, manifestOutput, diagnosticOutput);
+                    records, staged, checkpoint, fieldOutput, valueOutput, valueWriter, manifestOutput, diagnosticOutput);
             try (CountingInput counted = new CountingInput(raw, limits.maxSourceBytes(), pipeline);
                     DigestInputStream hashed = new DigestInputStream(counted, sourceHash);
                     Reader text = CdsXmlText.reader(hashed, limits.maxBoundedScalarCharacters())) {
@@ -201,6 +210,7 @@ public class CdsXmlParser {
         private final Path diagnosticsPath;
         private final CdsInputLimitsDto limits;
         private final BooleanSupplier cancelled;
+        private final Runnable checkpoint;
         private final Consumer<CdsRecordDto> consumer;
         private final ValidatorHandler validator;
         private final TypeInfoProvider types;
@@ -243,12 +253,12 @@ public class CdsXmlParser {
 
         Pipeline(Path spool, Path fields, Path values, Path manifest, Path diagnostics,
                 CdsInputLimitsDto limits, BooleanSupplier cancelled, Consumer<CdsRecordDto> consumer,
-                CdsCorrectionSetDto corrections, CountedOutput fieldOutput, ValueOutput valueOutput,
+                CdsCorrectionSetDto corrections, Runnable checkpoint, CountedOutput fieldOutput, ValueOutput valueOutput,
                 Writer valueWriter, CountedOutput manifestOutput, CountedOutput diagnosticOutput)
                 throws IOException {
             this.spool = spool; fieldsPath = fields; valuesPath = values; manifestPath = manifest;
             diagnosticsPath = diagnostics; this.limits = limits; this.cancelled = cancelled; this.consumer = consumer;
-            this.corrections=corrections;
+            this.corrections=corrections; this.checkpoint=checkpoint;
             if (corrections!=null) for (JsonNode entry:correctionParser.correctionEntries(corrections, corrections.manifestFile())) {
                 String path=entry.path("sourceXPath").asText();
                 if (path.isEmpty() || reviewed.put(path, entry)!=null) throw CdsPaths.failure("CDS_CORRECTION_TARGET_AMBIGUOUS");
@@ -475,6 +485,7 @@ public class CdsXmlParser {
         }
 
         private void check() throws IOException {
+            checkpoint.run();
             long now = System.nanoTime();
             if (Thread.currentThread().isInterrupted()) fail("CDS_INPUT_CANCELLED");
             if (now >= nextCancellationCheck) {

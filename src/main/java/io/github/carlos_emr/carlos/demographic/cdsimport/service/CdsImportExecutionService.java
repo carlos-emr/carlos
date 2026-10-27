@@ -71,12 +71,13 @@ public class CdsImportExecutionService {
 
     /** Explicit resume never reapplies a published patient; it reconciles its own known atomic ledger. */
     public CdsImportJobDto execute(String runId, boolean resume) {
-        return execute(runId, resume, false);
+        // This legacy queue hint cannot replace the durable, audited resume event.
+        return executeCoordinated(runId, false);
     }
     /** A pending review may deliver stopped reports without consuming any clinical recovery intent. */
-    public CdsImportJobDto reportOnly(String runId) { return execute(runId, false, true); }
-    private CdsImportJobDto execute(String runId, boolean resume, boolean reportOnly) {
-        try (var coordinator=coordinators.acquire()) { return executeOwned(runId, resume, reportOnly, coordinator); }
+    public CdsImportJobDto reportOnly(String runId) { return executeCoordinated(runId, true); }
+    private CdsImportJobDto executeCoordinated(String runId, boolean reportOnly) {
+        try (var coordinator=coordinators.acquire()) { return executeOwned(runId, reportOnly, coordinator); }
         catch (CdsImportException busy) {
             if (Set.of("IMPORT_COORDINATOR_BUSY", "IMPORT_BUSY", "MAINTENANCE_OWNER_BUSY").contains(busy.getCode())) return ledger.status(runId);
             throw busy;
@@ -93,7 +94,7 @@ public class CdsImportExecutionService {
         }
     }
 
-    private CdsImportJobDto executeOwned(String runId, boolean resume, boolean reportOnly, CdsImportCoordinatorService.Owner coordinator) {
+    private CdsImportJobDto executeOwned(String runId, boolean reportOnly, CdsImportCoordinatorService.Owner coordinator) {
         CdsImportJobDto job=ledger.status(runId);
         long resumeEvent=reportOnly?0:ledger.pendingResumeEvent(runId);
         ResumeAttempt attempt=new ResumeAttempt(runId, resumeEvent);
@@ -106,7 +107,7 @@ public class CdsImportExecutionService {
             access.context(document.actor(), document.command(), null);
             if (reportOnly && !Set.of("COMPLETE", "DRY_RUN_COMPLETE", "INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "DRY_RUN_INCOMPLETE", "REVIEW_REQUIRED").contains(job.state())) return ledger.status(runId);
             // The durable current control is authoritative; a stale queue boolean is never new consent.
-            resume=!reportOnly && resumeEvent>0;
+            boolean resume=!reportOnly && resumeEvent>0;
             if (Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(job.state())
                     || reportOnly || !resume && Set.of("INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "DRY_RUN_INCOMPLETE", "REVIEW_REQUIRED").contains(job.state())) {
                 boolean releasePending=ledger.maintenanceReleasePending(runId);
@@ -135,11 +136,13 @@ public class CdsImportExecutionService {
                 epoch=ledger.claimPlanning(runId, coordinator, owner);
                 ledger.resolveReauthorizedAccess(runId, epoch);
                 if (preflightRecovery) ledger.preparePreflightResume(runId, epoch);
-                var snapshot=jobs.snapshot(runId, document, attemptBudget);
-                attemptBudget.run();
-                ledger.inventoryDiscovered(runId, epoch, snapshot.files(), snapshot.patientXmlFiles(), snapshot.totalBytes());
                 final long planningEpoch=epoch;
-                owner.readIo(() -> {planning.plan(runId, planningEpoch, document, snapshot, attemptBudget); return null; });
+                try (var control=ioControl(runId, planningEpoch, coordinator, "CDS_INPUT_DEADLINE", attemptBudget)) {
+                    var snapshot=jobs.snapshot(runId, planningEpoch, document, control);
+                    attemptBudget.run();
+                    ledger.inventoryDiscovered(runId, epoch, snapshot.files(), snapshot.patientXmlFiles(), snapshot.totalBytes());
+                    owner.readIo(() -> {planning.plan(runId, planningEpoch, document, snapshot, control); return null; });
+                }
                 attemptBudget.run();
                 job=ledger.status(runId);
                 if ("REVIEW_REQUIRED".equals(job.state())) {
@@ -198,7 +201,7 @@ public class CdsImportExecutionService {
                         owner.read(() -> access.context(work.actor(), work.command(), ledger.patientStatus(runId, unit.patientKey()).targetDemographicNo()));
                         final long preparationEpoch=epoch;
                         try (var control=ioControl(runId, preparationEpoch, coordinator, "IMPORT_PREPARATION_TIMEOUT", attemptBudget)) {
-                            planning.publishValues(runId, preparationEpoch, work);
+                            planning.publishValues(runId, preparationEpoch, work, control);
                             owner.readIo(() -> {nativeRecords.prepare(runId, preparationEpoch, unit, work.record(), work.command(), work.snapshot(), work.xmlRelative()); return null; });
                         }
                         attemptBudget.run();

@@ -260,14 +260,28 @@ public class CdsImportJobService {
         return snapshot(runId, document, () -> {});
     }
     public CdsSnapshotDto snapshot(String runId, CdsImportJobDocumentDto document, Runnable attemptProbe) throws IOException {
+        return snapshotOwned(runId, 0, document, attemptProbe, null);
+    }
+
+    CdsSnapshotDto snapshot(String runId, long epoch, CdsImportJobDocumentDto document,
+            CdsImportExecutionControl shared) throws IOException {
+        Objects.requireNonNull(shared).requireBinding(runId, epoch);
+        return snapshotOwned(runId, epoch, document, () -> shared.check(false), shared);
+    }
+
+    private CdsSnapshotDto snapshotOwned(String runId, long epoch, CdsImportJobDocumentDto document, Runnable attemptProbe,
+            CdsImportExecutionControl shared) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
         attemptProbe.run();
         var current = ledger.status(runId);
+        if (shared!=null && current.ownerEpoch()!=epoch) throw new CdsImportException("OWNER_FENCED");
+        Runnable checkpoint=shared==null ? () -> {} : attemptProbe;
         long started=System.nanoTime(); long[] nextPoll={0};
         java.util.function.BooleanSupplier cancelled=()-> {
             attemptProbe.run();
             long now=System.nanoTime();
             if ((now-started)/1_000_000>configuration.limits().maxDurationMillis()) throw new CdsImportException("CDS_INPUT_DEADLINE");
+            if (shared!=null) return false; // attemptProbe already checked the same physical owner and epoch.
             if (now<nextPoll[0]) return false;
             nextPoll[0]=now+250_000_000L;
             var owner=ledger.status(runId);
@@ -276,8 +290,9 @@ public class CdsImportJobService {
         };
         try (FileChannel channel = lockChannel(document.jobRoot().resolve("source.lock")); FileLock ignored = lock(channel)) {
             if (document.snapshot() != null) {
-                CdsSnapshotDto value = snapshots.load(document.snapshot().root(), true, cancelled);
+                CdsSnapshotDto value = snapshots.load(document.snapshot().root(), true, cancelled, checkpoint);
                 attemptProbe.run();
+                if (shared!=null) shared.check(true);
                 if (!value.sha256().equals(current.sourceDigest())) throw new CdsImportException("ACCEPTED_SOURCE_CHANGED");
                 return value;
             }
@@ -291,15 +306,16 @@ public class CdsImportJobService {
             uploads.submitted(document.actor().operator(), document.uploadId(), runId, document.command().dryRun());
             CdsSnapshotDto copied;
             if (Files.exists(document.jobRoot().resolve("snapshot"), LinkOption.NOFOLLOW_LINKS)) {
-                copied = snapshots.load(document.jobRoot().resolve("snapshot"), true, cancelled);
+                copied = snapshots.load(document.jobRoot().resolve("snapshot"), true, cancelled, checkpoint);
             } else {
                 Path source = uploads.sourceForAcceptedRun(document.actor().operator(), document.uploadId(), runId,
                         document.command().submissionKey(), document.command().dryRun());
                 copied = sourceSnapshot(source, configuration.uploadRoot(), document.jobRoot(),
-                        cancelled);
+                        cancelled, checkpoint);
             }
             verifyUpload(runId, document, upload, copied, cancelled);
             attemptProbe.run();
+            if (shared!=null) shared.check(true);
             if (!document.command().dryRun()) {
                 uploads.snapshotPublished(document.actor().operator(), document.uploadId(), runId, copied.sha256());
             }
@@ -309,8 +325,13 @@ public class CdsImportJobService {
 
     private CdsSnapshotDto sourceSnapshot(Path source, Path sourceRoot, Path jobRoot,
             java.util.function.BooleanSupplier cancelled) throws IOException {
+        return sourceSnapshot(source, sourceRoot, jobRoot, cancelled, () -> {});
+    }
+
+    private CdsSnapshotDto sourceSnapshot(Path source, Path sourceRoot, Path jobRoot,
+            java.util.function.BooleanSupplier cancelled, Runnable checkpoint) throws IOException {
         Path published = jobRoot.resolve("snapshot");
-        if (Files.exists(published, LinkOption.NOFOLLOW_LINKS)) return snapshots.load(published, true, cancelled);
+        if (Files.exists(published, LinkOption.NOFOLLOW_LINKS)) return snapshots.load(published, true, cancelled, checkpoint);
         Path partial = jobRoot.resolve("snapshot.pending");
         if (Files.exists(partial, LinkOption.NOFOLLOW_LINKS)) {
             // Caller owns source.lock (or accept.lock before any run exists). Never remove a
@@ -318,7 +339,7 @@ public class CdsImportJobService {
             Files.move(partial, jobRoot.resolve("snapshot-abandoned-" + UUID.randomUUID()), StandardCopyOption.ATOMIC_MOVE);
             CdsPaths.forceDirectory(jobRoot);
         }
-        return snapshots.snapshot(source, sourceRoot, jobRoot, "snapshot", configuration.limits(), cancelled);
+        return snapshots.snapshot(source, sourceRoot, jobRoot, "snapshot", configuration.limits(), cancelled, checkpoint);
     }
 
     private void verifyUpload(String runId, CdsImportJobDocumentDto document, CdsUploadDto upload,

@@ -110,6 +110,18 @@ public class CdsImportPlanningService {
     }
     public void plan(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot, Runnable attemptProbe)
             throws IOException {
+        plan(runId, epoch, document, snapshot, attemptProbe, null);
+    }
+
+    /** The executor supplies the same run/epoch-bound control used while loading its snapshot. */
+    void plan(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot,
+            CdsImportExecutionControl shared) throws IOException {
+        java.util.Objects.requireNonNull(shared).requireBinding(runId, epoch);
+        plan(runId, epoch, document, snapshot, () -> shared.check(false), shared);
+    }
+
+    private void plan(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot,
+            Runnable attemptProbe, CdsImportExecutionControl shared) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
         attemptProbe.run();
         var status = ledger.status(runId);
@@ -129,19 +141,19 @@ public class CdsImportPlanningService {
                 Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS),
                 PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
                 FileLock ignored = planningLock(lockChannel)) {
-            planOwned(runId, epoch, document, snapshot, attemptProbe);
+            planOwned(runId, epoch, document, snapshot, attemptProbe, shared);
         }
     }
 
-    private void planOwned(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot, Runnable attemptProbe)
+    private void planOwned(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot, Runnable attemptProbe, CdsImportExecutionControl shared)
             throws IOException {
         ledger.stage(runId, epoch, "PREFLIGHTING");
         preflightIdentity.verifySchema();
         preflightIdentity.beginScan(runId, epoch);
         Path parsedRoot = directory(document.jobRoot().resolve("parsed"), document.jobRoot());
         Path workFile = document.jobRoot().resolve("work.jsonl");
-        State state = new State(runId, epoch, document, snapshot, workFile, attemptProbe);
-        try (state; var control=fields.control(state::cancelled)) {
+        State state = new State(runId, epoch, document, snapshot, workFile, attemptProbe, shared);
+        try (state; var control=shared==null ? fields.control(state::cancelled) : fields.controlEveryCheckpoint(state::cancelled)) {
             long reviewVersion=corrections==null ? 0 : corrections.version(runId);
             state.reviewVersion=reviewVersion;
             Path copies = freezeCopies(document);
@@ -198,7 +210,7 @@ public class CdsImportPlanningService {
                 try {
                     state.cancelled();
                     if (record.corrections()!=null && !correctionEvidence[0]) {
-                        fields.forEachCorrectionFile(record, false, (path, digest, bytes)-> verifyArtifact(state.runId, state.epoch, path, digest, bytes));
+                        fields.forEachCorrectionFile(record, false, (path, digest, bytes)-> verifyArtifact(state.runId, state.epoch, path, digest, bytes, state.shared));
                         fields.acceptVerifiedCorrections(record); correctionEvidence[0]=true;
                     }
                     if (record.section().equals("Demographics")) demographic[0] = record;
@@ -452,7 +464,8 @@ public class CdsImportPlanningService {
         state.currentParseFolder=folder;
         selectAttempt(baseFolder, folder);
         result=folder.resolve("parse-result.json");
-        CdsParseResultDto parsed=parser.parse(xml.path(), folder, configuration.limits(), state::cancellationRequested, record-> { }, correction);
+        CdsParseResultDto parsed=parser.parse(xml.path(), folder, configuration.limits(), state::cancellationRequested,
+                record-> { }, correction, state.shared==null ? () -> {} : state::cancelled);
         if (!parsed.sourceSha256().equals(xml.sha256())) throw new CdsImportException("SNAPSHOT_XML_CHANGED");
         try (OutputStream output=CdsPaths.newPrivateFile(result, folder)) { output.write(JSON.writeValueAsBytes(parsed)); }
         CdsPaths.forceFile(result); CdsPaths.forceDirectory(folder);
@@ -547,7 +560,17 @@ public class CdsImportPlanningService {
 
     /** Whole value-file digest was computed once while parsing; publication never hashes per field page. */
     public void publishValues(String runId, long epoch, CdsImportWorkDto work) throws IOException {
+        publishValuesOwned(runId, epoch, work, null);
+    }
+
+    void publishValues(String runId, long epoch, CdsImportWorkDto work, CdsImportExecutionControl shared) throws IOException {
+        java.util.Objects.requireNonNull(shared).requireBinding(runId, epoch);
+        publishValuesOwned(runId, epoch, work, shared);
+    }
+
+    private void publishValuesOwned(String runId, long epoch, CdsImportWorkDto work, CdsImportExecutionControl shared) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
+        if (shared!=null) shared.check(false);
         Path metadata = CdsPaths.within(work.parseResultFile().getParent().resolve("values-meta.json"), jobs.root(runId));
         JsonNode value = JSON.readTree(CdsImportJobService.boundedFile(metadata, 65536));
         JsonNode sealed=JSON.readTree(CdsImportJobService.boundedFile(metadata.getParent().resolve("parse.seal"), 65536));
@@ -558,7 +581,7 @@ public class CdsImportPlanningService {
             throw new CdsImportException("VALUE_SPOOL_PUBLICATION_CONFLICT");
         }
         String expected=value.path("sha256").asText(); long length=value.path("length").asLong();
-        publishArtifact(runId, epoch, location, expected, length);
+        publishArtifact(runId, epoch, location, expected, length, shared);
         var corrections=work.record().corrections();
         if (corrections!=null) {
             Path manifest=corrections.manifestFile(); long manifestBytes=Files.size(manifest);
@@ -566,9 +589,9 @@ public class CdsImportPlanningService {
             if (!files.verifiedFor(runId, epoch, manifest.toString(), corrections.sha256(), manifestBytes)) {
                 // Publish the manifest's epoch proof LAST: it is the bounded group-completion
                 // marker for all of this XML's reviewed values, including other record sections.
-                verifyArtifact(runId, epoch, manifest, corrections.sha256(), manifestBytes);
+                verifyArtifact(runId, epoch, manifest, corrections.sha256(), manifestBytes, shared);
                 fields.forEachCorrectionFile(work.record(), false, (path, digest, bytes)-> {
-                    if (!path.equals(manifest)) publishArtifact(runId, epoch, path, digest, bytes);
+                    if (!path.equals(manifest)) publishArtifact(runId, epoch, path, digest, bytes, shared);
                 });
                 files.publishedVerified(runId, epoch, manifest.toString(), corrections.sha256(), manifestBytes);
             }
@@ -576,13 +599,14 @@ public class CdsImportPlanningService {
         }
     }
 
-    private void publishArtifact(String runId, long epoch, Path location, String expected, long length) throws IOException {
+    private void publishArtifact(String runId, long epoch, Path location, String expected, long length, CdsImportExecutionControl shared) throws IOException {
         if (files.verifiedFor(runId, epoch, location.toString(), expected, length)) return;
-        verifyArtifact(runId, epoch, location, expected, length);
+        verifyArtifact(runId, epoch, location, expected, length, shared);
         files.publishedVerified(runId, epoch, location.toString(), expected, length);
     }
 
-    private void verifyArtifact(String runId, long epoch, Path location, String expected, long length) throws IOException {
+    private void verifyArtifact(String runId, long epoch, Path location, String expected, long length, CdsImportExecutionControl shared) throws IOException {
+        if (shared!=null) shared.requireBinding(runId, epoch);
         if (Files.size(location)!=length) throw new CdsImportException("VALUE_SPOOL_HASH_MISMATCH");
         MessageDigest digest=CdsPaths.sha256(); long bytes=0, nextCancellation=0;
         long started=System.nanoTime(), deadline=configuration.limits().maxDurationMillis();
@@ -593,7 +617,8 @@ public class CdsImportPlanningService {
                 if (Thread.currentThread().isInterrupted()) throw new CdsImportException("IMPORT_CANCELLED");
                 long now=System.nanoTime();
                 if ((now-started)/1_000_000>deadline) throw new CdsImportException("CDS_INPUT_DEADLINE");
-                if (now>=nextCancellation) {
+                if (shared!=null) shared.check(false);
+                else if (now>=nextCancellation) {
                     var status=ledger.status(runId);
                     if (status.ownerEpoch()!=epoch) throw new CdsImportException("OWNER_FENCED");
                     if (status.cancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
@@ -703,7 +728,8 @@ public class CdsImportPlanningService {
                 || code.endsWith("_PATH_LIMIT") || code.endsWith("_CHILD_NAME_LIMIT")
                 || Set.of("CDS_INPUT_CANCELLED", "CDS_INPUT_DEADLINE", "CDS_INPUT_DISK_RESERVE", "CDS_DIAGNOSTIC_WRITE_FAILED",
                         "CDS_SECURE_XML_PARSER_UNAVAILABLE", "CDS_SPOOL_CLOSE_FAILED", "CDS_SPOOL_IO_FAILED", "CDS_XML_READ_FAILED",
-                        "OWNER_FENCED", "IMPORT_CANCELLED", "IMPORT_ATTEMPT_TIMEOUT").contains(code);
+                        "OWNER_FENCED", "IMPORT_CANCELLED", "IMPORT_ATTEMPT_TIMEOUT",
+                        "IMPORT_COORDINATOR_LOST", "IMPORT_CONTROL_UNAVAILABLE").contains(code);
     }
 
     private static String failurePath(Exception failure, String fallback) {
@@ -760,10 +786,12 @@ public class CdsImportPlanningService {
         Path currentParseFolder;
         final long started=System.nanoTime();
         final Runnable attemptProbe;
+        final CdsImportExecutionControl shared;
         long nextCancellationPoll;
-        State(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot, Path workFile, Runnable attemptProbe) throws IOException {
+        State(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot, Path workFile,
+                Runnable attemptProbe, CdsImportExecutionControl shared) throws IOException {
             this.runId = runId; this.epoch = epoch; this.document = document; this.snapshot = snapshot; this.workFile = workFile;
-            this.attemptProbe=attemptProbe;
+            this.attemptProbe=attemptProbe; this.shared=shared;
             channel = FileChannel.open(CdsPaths.within(workFile, document.jobRoot()),
                     Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS),
                     PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
@@ -776,6 +804,7 @@ public class CdsImportPlanningService {
             attemptProbe.run();
             long now=System.nanoTime();
             if ((now-started)/1_000_000>configuration.limits().maxDurationMillis()) throw new CdsImportException("CDS_INPUT_DEADLINE");
+            if (shared!=null) return false; // The bound attemptProbe already checked cancellation and fencing.
             if (now<nextCancellationPoll) return false; nextCancellationPoll=now+250_000_000L;
             var status=ledger.status(runId);
             if (status.ownerEpoch()!=epoch) throw new CdsImportException("OWNER_FENCED");

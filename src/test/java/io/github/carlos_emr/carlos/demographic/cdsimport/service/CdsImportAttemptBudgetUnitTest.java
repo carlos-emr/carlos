@@ -67,9 +67,9 @@ class CdsImportAttemptBudgetUnitTest {
 
     @Test void snapshotAndPlanningShareTheSameAttemptBudget() throws Exception {
         Fixture f=new Fixture();when(f.ledger.isSealed("run")).thenReturn(false);
-        when(f.jobs.snapshot(eq("run"),eq(f.document),any())).thenAnswer(call->{f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(60));call.<Runnable>getArgument(2).run();return mock(CdsSnapshotDto.class);});
-        doAnswer(call->{f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(50));call.<Runnable>getArgument(4).run();return null;})
-                .when(f.planning).plan(eq("run"),eq(1L),eq(f.document),any(),any());
+        when(f.jobs.snapshot(eq("run"),eq(1L),eq(f.document),any(CdsImportExecutionControl.class))).thenAnswer(call->{f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(60));call.<CdsImportExecutionControl>getArgument(3).check(false);return mock(CdsSnapshotDto.class);});
+        doAnswer(call->{f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(50));call.<CdsImportExecutionControl>getArgument(4).check(false);return null;})
+                .when(f.planning).plan(eq("run"),eq(1L),eq(f.document),any(),any(CdsImportExecutionControl.class));
         try(var keys=f.keys()){f.engine.execute("run");}
         verify(f.ledger).endPreflight(eq("run"),eq(1L),eq("FAILED_BEFORE_WRITE"),eq("IMPORT_ATTEMPT_TIMEOUT"),any());
         assertEquals(0,f.committed());verify(f.window,never()).allowReopen();

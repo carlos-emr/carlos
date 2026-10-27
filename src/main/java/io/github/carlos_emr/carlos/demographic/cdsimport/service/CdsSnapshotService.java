@@ -83,7 +83,14 @@ public class CdsSnapshotService {
      */
     public CdsSnapshotDto snapshot(Path input, Path allowedSourceRoot, Path durableRoot,
             String snapshotId, CdsInputLimitsDto limits, BooleanSupplier cancelled) throws IOException {
-        try { return snapshotInternal(input, allowedSourceRoot, durableRoot, snapshotId, limits, cancelled); }
+        return snapshot(input, allowedSourceRoot, durableRoot, snapshotId, limits, cancelled, () -> {});
+    }
+
+    CdsSnapshotDto snapshot(Path input, Path allowedSourceRoot, Path durableRoot, String snapshotId,
+            CdsInputLimitsDto limits, BooleanSupplier cancelled, Runnable checkpoint) throws IOException {
+        if (checkpoint==null) throw new IllegalArgumentException("Missing CDS snapshot checkpoint");
+        checkpoint.run();
+        try { return snapshotInternal(input, allowedSourceRoot, durableRoot, snapshotId, limits, cancelled, checkpoint); }
         catch (CdsInputException safe) { throw safe; }
         catch (IOException failed) {
             String detail = failed.getMessage();
@@ -95,7 +102,7 @@ public class CdsSnapshotService {
     }
 
     private CdsSnapshotDto snapshotInternal(Path input, Path allowedSourceRoot, Path durableRoot,
-            String snapshotId, CdsInputLimitsDto limits, BooleanSupplier cancelled) throws IOException {
+            String snapshotId, CdsInputLimitsDto limits, BooleanSupplier cancelled, Runnable checkpoint) throws IOException {
         if (snapshotId == null || !snapshotId.matches("[A-Za-z0-9_-]{1,80}")) {
             throw new IllegalArgumentException("Invalid opaque snapshot ID");
         }
@@ -108,7 +115,7 @@ public class CdsSnapshotService {
         Path members = CdsPaths.privateDirectory(pending.resolve("members"), pending);
         Path index = CdsPaths.privateDirectory(pending.resolve("names"), pending);
         Path manifest = pending.resolve("files.jsonl");
-        Inventory inventory = new Inventory(pending, members, index, manifest, limits, cancelled);
+        Inventory inventory = new Inventory(pending, members, index, manifest, limits, cancelled, checkpoint);
         try (inventory) {
             if (Files.isDirectory(source, LinkOption.NOFOLLOW_LINKS)) {
                 copyDirectory(source, inventory);
@@ -170,8 +177,15 @@ public class CdsSnapshotService {
     }
 
     public CdsSnapshotDto load(Path published, boolean verifyContent, BooleanSupplier cancelled) throws IOException {
+        return load(published, verifyContent, cancelled, () -> {});
+    }
+
+    CdsSnapshotDto load(Path published, boolean verifyContent, BooleanSupplier cancelled, Runnable checkpoint) throws IOException {
+        if (checkpoint==null) throw new IllegalArgumentException("Missing CDS snapshot checkpoint");
+        checkpoint.run();
         long[] next={0};
         BooleanSupplier checked=()-> {
+            checkpoint.run();
             if (Thread.currentThread().isInterrupted()) return true;
             long now=System.nanoTime();
             if (now>=next[0]) {next[0]=now+250_000_000L; return cancelled.getAsBoolean(); }
@@ -599,6 +613,7 @@ public class CdsSnapshotService {
         private final OutputStream output;
         private final CdsInputLimitsDto limits;
         private final BooleanSupplier cancelled;
+        private final Runnable checkpoint;
         private final long started = System.nanoTime();
         // One snapshot invocation owns this Inventory and all synchronous copy callbacks.
         @SuppressWarnings("java:S9428")
@@ -616,13 +631,14 @@ public class CdsSnapshotService {
         private CountingSource archiveInput;
 
         Inventory(Path pending, Path members, Path index, Path manifest, CdsInputLimitsDto limits,
-                BooleanSupplier cancelled) throws IOException {
+                BooleanSupplier cancelled, Runnable checkpoint) throws IOException {
             this.pending = pending; this.members = members; this.index = index; this.manifest = manifest;
-            this.limits = limits; this.cancelled = cancelled;
+            this.limits = limits; this.cancelled = cancelled; this.checkpoint=checkpoint;
             output = new BufferedOutputStream(CdsPaths.newPrivateFile(manifest, pending), BUFFER);
         }
 
         void check() throws IOException {
+            checkpoint.run();
             long now=System.nanoTime();
             if (Thread.currentThread().isInterrupted()) throw CdsPaths.failure("CDS_INPUT_CANCELLED");
             if (now>=nextResourceCheck) {
