@@ -66,7 +66,7 @@ privilege checks, safe rendering and POST/CSRF protections are retained.
 ## Import implementation
 
 The matching CLI implementation is [carlos-ctl PR #16](https://github.com/carlos-emr/carlos-ctl/pull/16).
-The application pins its commit for CI; include it in the coordinated 1.2.0
+The application pins its commit for CI; include it in the coordinated 1.2.1
 CLI release before shipping these manifests.
 
 `ServiceAccessToken` is a copy-class table. Preserve its original ID, client ID,
@@ -82,7 +82,12 @@ source snapshot are not reconstructed from older archives.
 
 Access tokens participate in the existing `carry-credentials` acknowledgement.
 Reports contain counts, not credential values. Preflight refuses identifiers
-ambiguous under the target collation and reports malformed grants. The manifest
+ambiguous under the target collation and grants without their original client
+or provider, including a missing parent table. Credential acknowledgement cannot
+override those checks. A newly allocated migration administrator can reuse an
+orphaned grant's provider number; refusing that grant prevents it from acquiring
+a different identity on the target. Missing issuance/expiry metadata is reported
+without inventing replacement values. The manifest
 version changes so a partially completed import cannot resume under different
 classification rules. Generate all manifests and the standalone preflight from
 one matched source set; do not hand-edit generated data.
@@ -141,10 +146,11 @@ and disposable-database tests are not a substitute for that deployment check.
 - JDK 25: 270 targeted OAuth, administration, consent, REST date and demographic
   endpoint tests passed, without failures, errors or skips.
 - Generator/integrity suite: 259 passed; regeneration with `--check` passed.
-- CLI suite with application manifests: 1,722 tests, no failures/errors, 79 skips
-  for optional environment-dependent checks. Standalone snapshots: 1,722 tests,
-  no failures/errors, 127 optional/checkout-dependent skips.
-- Real MariaDB 11.8.8: 27 copy/resume/OAuth tests passed without skips.
+- CLI suite with application manifests: 1,727 tests, no failures/errors, 81 skips
+  for optional environment-dependent checks. Standalone snapshots: 1,727 tests,
+  no failures/errors, 129 optional/checkout-dependent skips.
+- Real MariaDB 11.8.8: 29 copy/resume/OAuth tests passed without skips, including
+  orphaned-owner reuse and NULL issuance/expiry diagnostics.
 - OAuth signer Appendix A regression and 11 packaging/pin checks passed.
 - The revised lifetime tests first failed against the original PR (17 assertion
   failures). The missing-column and credential-acknowledgement importer cases

@@ -1058,5 +1058,7 @@ clinic's sign-off.
   a ledger that describes the run just discarded.
 
 OAuth access tokens retain their original credentials and expiry, including O19
-non-expiring grants. Review the [OAuth continuity and cutover checks](oauth-o19-compatibility.md)
+non-expiring grants. Preflight blocks grants without their original client or
+provider; credential acknowledgement cannot override that ownership check.
+Review the [OAuth continuity and cutover checks](oauth-o19-compatibility.md)
 before go-live; token preservation does not require displaying tokens in the UI.
