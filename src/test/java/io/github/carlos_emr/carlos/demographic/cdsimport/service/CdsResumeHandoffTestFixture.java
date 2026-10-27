@@ -109,7 +109,7 @@ final class CdsResumeHandoffTestFixture {
         var reports = mock(CdsImportResultService.class);
         var snapshot = new CdsSnapshotDto(Path.of("/opaque/snapshot"), Path.of("/opaque/snapshot/files.jsonl"), A, 1, 1, 1);
         var document = new CdsImportJobDocumentDto(command, actor, snapshot, null, Path.of("/opaque"), rules);
-        when(jobs.load(id)).thenReturn(document); when(jobs.snapshot(id, document)).thenReturn(snapshot);
+        when(jobs.load(id)).thenReturn(document); when(jobs.snapshot(eq(id), eq(document), any())).thenReturn(snapshot);
         var interruptedLedger = spy(ledger);
         AssertionError processLoss = new AssertionError("Synthetic process loss after committed PLANNING");
         doAnswer(call -> {
@@ -130,7 +130,7 @@ final class CdsResumeHandoffTestFixture {
         check(Boolean.FALSE.equals(ledger.summary(id).get("discoveryComplete"))
                 && "NOT_STARTED".equals(ledger.patientStatus(id, "patient").state()), "crash precedes source discovery and preflight restoration");
         check(ledger.pending("", 200).stream().anyMatch(value -> id.equals(value.id())), "PLANNING remains discoverable after the intent bit is consumed");
-        verify(jobs, never()).snapshot(anyString(), any()); verifyNoInteractions(planner, nativeRecords);
+        verify(jobs, never()).snapshot(anyString(), any(), any()); verifyNoInteractions(planner, nativeRecords);
 
         AtomicInteger plans = new AtomicInteger();
         doAnswer(call -> {
@@ -144,7 +144,7 @@ final class CdsResumeHandoffTestFixture {
             ledger.resolveRevalidatedPreflightStops(id, epoch, C);
             ledger.seal(id, epoch, C, 1, 1);
             return null;
-        }).when(planner).plan(eq(id), anyLong(), eq(document), eq(snapshot));
+        }).when(planner).plan(eq(id), anyLong(), eq(document), eq(snapshot), any());
         var restarted = engine(environment, ledger, jobs, planner, nativeRecords, reports);
         if (laterCancel) {
             ledger.control(id, actor, "CANCEL_REQUESTED", () -> ledger.cancelParticipating(id));
@@ -153,7 +153,7 @@ final class CdsResumeHandoffTestFixture {
             check(ledger.status(id).cancelRequested() && ledger.status(id).ownerEpoch() == cancelledEpoch,
                     "later cancellation wins without advancing the old phase epoch");
             check(plans.get() == 0 && ledger.pendingResumeEvent(id) == 0, "default restart cannot create new planning consent after Cancel");
-            verify(jobs, never()).snapshot(anyString(), any());
+            verify(jobs, never()).snapshot(anyString(), any(), any());
         } else {
             var result = restarted.execute(id);
             check("DRY_RUN_COMPLETE".equals(result.state()) && plans.get() == 1, "fresh default engine restages and finishes dry-run without another Resume");

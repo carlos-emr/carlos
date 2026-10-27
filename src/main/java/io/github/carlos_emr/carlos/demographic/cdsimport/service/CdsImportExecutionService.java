@@ -27,6 +27,8 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
+import java.util.function.LongSupplier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /** HTTP-independent supervised execution; no transaction spans source work, preparation or reports. */
@@ -47,14 +49,21 @@ public class CdsImportExecutionService {
     private final CdsImportTargetSafetyService safety;
     private final CdsImportFailureEvidenceService failureEvidence;
     private final CdsFieldParser fields;
+    private final LongSupplier nanoTime;
     private final java.util.concurrent.atomic.AtomicReference<ResumeAttempt> fatalResume=new java.util.concurrent.atomic.AtomicReference<>();
 
+    @Autowired
     public CdsImportExecutionService(CdsImportLedgerService ledger, CdsImportUnitService units, CdsImportJobService jobs,
             CdsImportPlanningService planning, CdsImportNativeService nativeRecords, CdsImportAccessService access,
             CdsImportConfigurationService configuration, CdsImportMaintenanceService maintenance, CdsImportResultService results, CdsImportCoordinatorService coordinators, CdsImportFileVerificationService fileVerification, CdsImportTargetSafetyService safety, CdsImportFailureEvidenceService failureEvidence, CdsFieldParser fields) {
+        this(ledger, units, jobs, planning, nativeRecords, access, configuration, maintenance, results, coordinators, fileVerification, safety, failureEvidence, fields, System::nanoTime);
+    }
+    CdsImportExecutionService(CdsImportLedgerService ledger, CdsImportUnitService units, CdsImportJobService jobs,
+            CdsImportPlanningService planning, CdsImportNativeService nativeRecords, CdsImportAccessService access,
+            CdsImportConfigurationService configuration, CdsImportMaintenanceService maintenance, CdsImportResultService results, CdsImportCoordinatorService coordinators, CdsImportFileVerificationService fileVerification, CdsImportTargetSafetyService safety, CdsImportFailureEvidenceService failureEvidence, CdsFieldParser fields, LongSupplier nanoTime) {
         this.ledger=ledger; this.units=units; this.jobs=jobs; this.planning=planning; this.nativeRecords=nativeRecords;
         this.access=access; this.configuration=configuration; this.maintenance=maintenance; this.results=results; this.coordinators=coordinators; this.fileVerification=fileVerification; this.safety=safety;
-        this.failureEvidence=failureEvidence; this.fields=fields;
+        this.failureEvidence=failureEvidence; this.fields=fields; this.nanoTime=nanoTime;
     }
 
     public CdsImportJobDto execute(String runId) { return execute(runId, false); }
@@ -112,21 +121,25 @@ public class CdsImportExecutionService {
                 if (retryRelease || !Boolean.TRUE.equals(ledger.summary(runId).get("reportsDelivered")) || !Boolean.TRUE.equals(ledger.summary(runId).get("cleanupComplete"))) { epoch=ledger.claimReporting(runId); deliver(runId, epoch); }
                 return ledger.status(runId);
             }
-            coordinator.check(); configuration.requireEnabled();
+            Runnable attemptBudget=attemptBudget();
+            attemptBudget.run(); coordinator.check(); configuration.requireEnabled();
             if (!job.rulesetDigest().equals(CdsImportJobService.rulesetDigest(document.command(), configuration))
                     || !job.optionsDigest().equals(CdsImportJobService.optionsDigest(document.command()))) throw new CdsImportException("IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE");
             try (var owner=maintenance.acquire()) {
                 safety.verify(owner);
+                attemptBudget.run();
                 boolean preflightRecovery=resume || job.ownerEpoch()>0;
                 epoch=ledger.claimPreparation(runId, coordinator, owner, resume);
             if (!ledger.isSealed(runId)) {
                 epoch=ledger.claimPlanning(runId, coordinator, owner);
                 ledger.resolveReauthorizedAccess(runId, epoch);
                 if (preflightRecovery) ledger.preparePreflightResume(runId, epoch);
-                var snapshot=jobs.snapshot(runId, document);
+                var snapshot=jobs.snapshot(runId, document, attemptBudget);
+                attemptBudget.run();
                 ledger.inventoryDiscovered(runId, epoch, snapshot.files(), snapshot.patientXmlFiles(), snapshot.totalBytes());
                 final long planningEpoch=epoch;
-                owner.readIo(() -> {planning.plan(runId, planningEpoch, document, snapshot); return null; });
+                owner.readIo(() -> {planning.plan(runId, planningEpoch, document, snapshot, attemptBudget); return null; });
+                attemptBudget.run();
                 job=ledger.status(runId);
                 if ("REVIEW_REQUIRED".equals(job.state())) {
                     ledger.release(runId, epoch); deliver(runId, epoch); return ledger.status(runId);
@@ -134,6 +147,7 @@ public class CdsImportExecutionService {
             }
             job=ledger.status(runId);
             if (document.command().dryRun()) {
+                attemptBudget.run();
                 ledger.completeDryRun(runId, epoch);
                 if ("DRY_RUN_COMPLETE".equals(ledger.status(runId).state()) && ledger.heldPatients(runId)==0) {
                     owner.allowReopen(); owner.close(); settleRelease(runId, epoch, owner);
@@ -142,20 +156,23 @@ public class CdsImportExecutionService {
             }
             boolean recovery=resume || Set.of("RUNNING", "FINALIZING", "RECONCILING").contains(job.state());
                 epoch=ledger.claimExecution(runId, coordinator, owner);
-                try (var control=ioControl(runId, epoch, coordinator, "IMPORT_FILE_VERIFICATION_TIMEOUT")) {
+                try (var control=ioControl(runId, epoch, coordinator, "IMPORT_FILE_VERIFICATION_TIMEOUT", attemptBudget)) {
                     fileVerification.verify(runId, epoch);
                 }
+                attemptBudget.run();
                 // Verify current-run receipts before new writes. Completed patients retain their existing publication.
                 String patientAfter="";
                 while (true) {
                     List<CdsImportPatientDto> patientPage=ledger.patients(runId, patientAfter, 100); if (patientPage.isEmpty()) break;
                     for (CdsImportPatientDto patient:patientPage) {
+                        attemptBudget.run();
                         if (!COMPLETE.contains(patient.state())) {
                             if (recovery) ledger.preparePatientResume(runId, epoch, patient.patientKey());
                             String after="";
                             while (true) {
                                 List<CdsImportUnitDto> page=ledger.units(runId, patient.patientKey(), after, 100); if (page.isEmpty()) break;
                                 for (CdsImportUnitDto unit:page) {
+                                    attemptBudget.run();
                                     if (Set.of("COMMITTED", "ALREADY_COMPLETE").contains(unit.state())) {
                                         currentPatient=unit.patientKey(); currentUnit=unit.unitKey();
                                         units.execute(runId, epoch, unit.unitKey(), () -> { throw new CdsImportException("COMMITTED_UNIT_REPLAY_REFUSED"); }, nativeRecords::verify);
@@ -168,34 +185,39 @@ public class CdsImportExecutionService {
                     }
                 }
                 while (true) {
+                    attemptBudget.run();
                     configuration.requireEnabled(); coordinator.check();
                     if (ledger.status(runId).cancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
                     List<CdsImportUnitDto> ready=ledger.readyUnits(runId, 100);
                     if (ready.isEmpty()) break;
                     for (CdsImportUnitDto unit:ready) {
+                        attemptBudget.run();
                         currentPatient=unit.patientKey(); currentUnit=unit.unitKey();
                         var work=planning.work(runId, unit);
                         owner.read(() -> access.context(work.actor(), work.command(), ledger.patientStatus(runId, unit.patientKey()).targetDemographicNo()));
-                        planning.publishValues(runId, epoch, work);
                         final long preparationEpoch=epoch;
-                        try (var control=ioControl(runId, preparationEpoch, coordinator, "IMPORT_PREPARATION_TIMEOUT")) {
+                        try (var control=ioControl(runId, preparationEpoch, coordinator, "IMPORT_PREPARATION_TIMEOUT", attemptBudget)) {
+                            planning.publishValues(runId, preparationEpoch, work);
                             owner.readIo(() -> {nativeRecords.prepare(runId, preparationEpoch, unit, work.record(), work.command(), work.snapshot(), work.xmlRelative()); return null; });
                         }
+                        attemptBudget.run();
                         final long unitEpoch=epoch;
                         units.execute(runId, epoch, unit.unitKey(), () -> nativeRecords.write(runId, unitEpoch, unit, work.record(), work.command(), work.actor(), work.snapshot(), work.xmlRelative()), nativeRecords::verify);
+                        attemptBudget.run();
                     }
                 }
                 currentPatient=null; currentUnit=null;
-                try (var control=ioControl(runId, epoch, coordinator, "IMPORT_FILE_VERIFICATION_TIMEOUT")) {
+                try (var control=ioControl(runId, epoch, coordinator, "IMPORT_FILE_VERIFICATION_TIMEOUT", attemptBudget)) {
                     fileVerification.verify(runId, epoch);
                 }
+                attemptBudget.run();
                 if (recovery) ledger.resolveRecoveredExecution(runId, epoch);
                 String after="";
                 while (true) {
                     List<CdsImportPatientDto> page=ledger.patients(runId, after, 100); if (page.isEmpty()) break;
                     for (CdsImportPatientDto patient:page) {
                         currentPatient=patient.patientKey(); currentUnit=null;
-                        if (!CdsImportLedgerService.FINAL_PATIENT.contains(patient.state())) { final long finalEpoch=epoch; owner.read(() -> { ledger.finalizePatient(runId, finalEpoch, patient.patientKey(), nativeRecords::verify); return null; }); }
+                        if (!CdsImportLedgerService.FINAL_PATIENT.contains(patient.state())) { attemptBudget.run(); final long finalEpoch=epoch; owner.read(() -> { ledger.finalizePatient(runId, finalEpoch, patient.patientKey(), nativeRecords::verify); return null; }); }
                         after=patient.patientKey();
                     }
                 }
@@ -281,19 +303,27 @@ public class CdsImportExecutionService {
     }
     /** One bounded control scope ends before any clinical unit transaction begins. */
     private CdsFieldParser.ControlScope ioControl(String run, long epoch,
-            CdsImportCoordinatorService.Owner coordinator, String timeoutCode) {
-        long started = System.nanoTime();
+            CdsImportCoordinatorService.Owner coordinator, String timeoutCode, Runnable attemptBudget) {
+        long started = nanoTime.getAsLong();
         long maximumMillis = configuration.limits().maxDurationMillis();
         return fields.control(() -> {
+            attemptBudget.run();
             coordinator.check();
             var current = ledger.status(run);
             if (Thread.currentThread().isInterrupted() || current.cancelRequested())
                 throw new CdsImportException("IMPORT_CANCELLED");
             if (current.ownerEpoch() != epoch || !ledger.ownsAdmission(run, epoch))
                 throw new CdsImportException("OWNER_FENCED");
-            if (java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) >= maximumMillis)
+            if (java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(nanoTime.getAsLong() - started) >= maximumMillis)
                 throw new CdsImportException(timeoutCode);
         });
+    }
+    private Runnable attemptBudget() {
+        long started=nanoTime.getAsLong(), maximumMillis=configuration.limits().maxDurationMillis();
+        return () -> {
+            if (java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(nanoTime.getAsLong()-started)>=maximumMillis)
+                throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");
+        };
     }
     private record ResumeAttempt(String run, long event) { }
 

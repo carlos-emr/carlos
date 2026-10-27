@@ -257,10 +257,15 @@ public class CdsImportJobService {
 
     /** Called by the fenced planning owner; source lock excludes competing/revived IO workers. */
     public CdsSnapshotDto snapshot(String runId, CdsImportJobDocumentDto document) throws IOException {
+        return snapshot(runId, document, () -> {});
+    }
+    public CdsSnapshotDto snapshot(String runId, CdsImportJobDocumentDto document, Runnable attemptProbe) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
+        attemptProbe.run();
         var current = ledger.status(runId);
         long started=System.nanoTime(); long[] nextPoll={0};
         java.util.function.BooleanSupplier cancelled=()-> {
+            attemptProbe.run();
             long now=System.nanoTime();
             if ((now-started)/1_000_000>configuration.limits().maxDurationMillis()) throw new CdsImportException("CDS_INPUT_DEADLINE");
             if (now<nextPoll[0]) return false;
@@ -272,6 +277,7 @@ public class CdsImportJobService {
         try (FileChannel channel = lockChannel(document.jobRoot().resolve("source.lock")); FileLock ignored = lock(channel)) {
             if (document.snapshot() != null) {
                 CdsSnapshotDto value = snapshots.load(document.snapshot().root(), true, cancelled);
+                attemptProbe.run();
                 if (!value.sha256().equals(current.sourceDigest())) throw new CdsImportException("ACCEPTED_SOURCE_CHANGED");
                 return value;
             }
@@ -293,6 +299,7 @@ public class CdsImportJobService {
                         cancelled);
             }
             verifyUpload(runId, document, upload, copied, cancelled);
+            attemptProbe.run();
             if (!document.command().dryRun()) {
                 uploads.snapshotPublished(document.actor().operator(), document.uploadId(), runId, copied.sha256());
             }

@@ -43,6 +43,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.LongSupplier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /** Projects one durable ledger into bounded operator receipts and the required complete protected files. */
@@ -57,17 +59,33 @@ public class CdsImportResultService {
     private final CdsImportPlanningService planning;
     private final CdsFieldParser fields;
     private final CdsImportCleanupService cleanup;
+    private final LongSupplier nanoTime;
 
+    @Autowired
     public CdsImportResultService(CdsImportLedgerService ledger, CdsImportReportService selection,
             CdsImportConfigurationService configuration, CdsImportPlanningService planning, CdsFieldParser fields, CdsImportCleanupService cleanup) {
+        this(ledger, selection, configuration, planning, fields, cleanup, System::nanoTime);
+    }
+    CdsImportResultService(CdsImportLedgerService ledger, CdsImportReportService selection,
+            CdsImportConfigurationService configuration, CdsImportPlanningService planning, CdsFieldParser fields, CdsImportCleanupService cleanup, LongSupplier nanoTime) {
         this.ledger=ledger; this.selection=selection; this.configuration=configuration; this.planning=planning; this.fields=fields; this.cleanup=cleanup;
+        this.nanoTime=nanoTime;
     }
 
     /** No clinical transaction spans report I/O. Only a fully durable immutable set may become authoritative. */
     public void generate(String runId, long epoch) throws IOException {
-        boolean reportSelected=false;
+        boolean reportSelected=false, priorDelivered=false;
         try {
-        checkGeneration(runId, epoch);
+        long started=nanoTime.getAsLong(), maximumMillis=configuration.limits().maxDurationMillis();
+        Map<String, Object> entrySummary=ledger.summary(runId);
+        priorDelivered=Boolean.TRUE.equals(entrySummary.get("reportsDelivered"));
+        Runnable reportBudget=() -> {
+            if (java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(nanoTime.getAsLong()-started)>=maximumMillis)
+                throw new CdsImportException("IMPORT_REPORT_GENERATION_TIMEOUT");
+        };
+        Runnable reportProbe=() -> {reportBudget.run(); checkGeneration(runId, epoch); reportBudget.run(); };
+        reportProbe.run();
+        try (var control=fields.control(reportProbe)) {
         CdsImportJobDto before=ledger.status(runId);
         Path job=jobRoot(runId);
         Path directory=CdsPaths.privateDirectory(job.resolve("reports-"+epoch+"-"+UUID.randomUUID()), job);
@@ -79,22 +97,24 @@ public class CdsImportResultService {
         manifest.put("createdAt", Instant.now().toString()); manifest.put("sourceDigest", before.sourceDigest());
         manifest.put("manifestDigest", before.manifestDigest());
         Map<String, Object> files=new LinkedHashMap<>();
-        boolean inventoryComplete=Boolean.TRUE.equals(ledger.summary(runId).get("discoveryComplete"));
+        boolean inventoryComplete=Boolean.TRUE.equals(entrySummary.get("discoveryComplete"));
         boolean preview=Boolean.TRUE.equals(ledger.summary(runId).get("dryRun"));
         io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportCleanupDto cleanupResult;
             Path event=directory.resolve("ImportEventLog.jsonl"), error=directory.resolve("ImportErrorLog.jsonl"), unitsFile=directory.resolve("units.jsonl");
             try (OutputStream events=output(event, directory); OutputStream errors=output(error, directory); OutputStream unitRows=output(unitsFile, directory)) {
                 String after="";
                 while (true) {
-                    checkGeneration(runId, epoch);
+                    reportProbe.run();
                     List<CdsImportPatientDto> page=ledger.patients(runId, after, 100); if (page.isEmpty()) break;
                     for (CdsImportPatientDto patient:page) {
+                        reportBudget.run();
                         Map<String, Long> imported=emptyCounts(), prior=emptyCounts(), pending=emptyCounts();
                         String unitAfter="";
                         while (true) {
-                            checkGeneration(runId, epoch);
+                            reportProbe.run();
                             List<CdsImportUnitDto> unitPage=ledger.units(runId, patient.patientKey(), unitAfter, 100); if (unitPage.isEmpty()) break;
                             for (CdsImportUnitDto unit:unitPage) {
+                                reportBudget.run();
                                 Map<String, Object> row=new LinkedHashMap<>(); row.put("patientId", patient.sourcePatientId());
                                 row.put("patientKey", patient.patientKey()); row.put("copyKey", patient.copyKey()); row.put("unitKey", unit.unitKey());
                                 row.put("category", CdsImportLedgerService.clinicalCategory(unit.category())); row.put("unitCategory", unit.category());
@@ -128,11 +148,12 @@ public class CdsImportResultService {
                 }
                 long diagnosticAfter=0;
                 while (true) {
-                    checkGeneration(runId, epoch);
+                    reportProbe.run();
                     List<CdsImportDiagnosticDto> page=ledger.diagnostics(runId, diagnosticAfter, 100); if (page.isEmpty()) break;
                     Set<String> keys=page.stream().map(CdsImportDiagnosticDto::patientKey).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
                     Map<String, String> sourceIds=ledger.sourcePatientIds(runId, keys);
                     for (CdsImportDiagnosticDto diagnostic:page) {
+                        reportBudget.run();
                         Map<String, Object> row=new LinkedHashMap<>(); row.put("diagnosticId", diagnostic.id()); row.put("patientKey", diagnostic.patientKey()); row.put("patientId", diagnostic.patientKey()==null?null:sourceIds.get(diagnostic.patientKey()));
                         row.put("unitKey", diagnostic.unitKey()); row.put("severity", diagnostic.severity()); row.put("code", diagnostic.code());
                         row.put("stage", diagnostic.stage()); row.put("sourceXPath", diagnostic.sourcePath()); row.put("summary", diagnostic.safeSummary());
@@ -142,14 +163,18 @@ public class CdsImportResultService {
                 }
                 final long[] validationRows={0};
                 planning.forEachValidationDiagnostic(runId, row -> {
-                    if (++validationRows[0]%100==0) checkGeneration(runId, epoch);
+                    reportBudget.run();
+                    if (++validationRows[0]%100==0) reportProbe.run();
                     try { line(errors, row); } catch (IOException failure) { throw new java.io.UncheckedIOException(failure); }
-                });
-                cleanupResult=cleanup.reconcile(runId, epoch, directory);
+                }, reportProbe);
+                reportProbe.run();
+                cleanupResult=cleanup.reconcile(runId, epoch, directory, reportBudget);
+                reportProbe.run();
                 for (String code:cleanupResult.safeCodes()) line(errors, Map.of("severity", "WARNING", "code", code, "stage", "CLEANUP", "summary", "Owned artifacts require reconciliation; uncertain artifacts were retained"));
             }
-            ledger.operational(runId, epoch, null, cleanupResult.state(), cleanupResult.safeCodes().isEmpty()?null:"IMPORT_CLEANUP_RECONCILIATION_REQUIRED");
-            for (Path path:List.of(event, error, unitsFile)) CdsPaths.forceFile(path);
+            // An older delivery acknowledgement cannot certify this still-unselected attempt.
+            ledger.operational(runId, epoch, null, priorDelivered && "COMPLETE".equals(cleanupResult.state())?"PENDING":cleanupResult.state(), cleanupResult.safeCodes().isEmpty()?null:"IMPORT_CLEANUP_RECONCILIATION_REQUIRED");
+            for (Path path:List.of(event, error, unitsFile)) {reportProbe.run(); CdsPaths.forceFile(path); }
             Map<String, Object> completion=new LinkedHashMap<>(ledger.summary(runId));
             completion.put("sourceDigest", before.sourceDigest()); completion.put("sourceNamespace", before.sourceNamespace());
             completion.put("sourceProfile", before.profile()); completion.put("rulesetDigest", before.rulesetDigest());
@@ -167,13 +192,14 @@ public class CdsImportResultService {
             try (OutputStream output=output(receipt, directory)) { line(output, completion); }
             CdsPaths.forceFile(receipt);
             for (Map.Entry<String, Path> entry:Map.of("event", event, "error", error, "units", unitsFile, "completion", receipt).entrySet()) {
-                files.put(entry.getKey(), Map.of("name", entry.getValue().getFileName().toString(), "sha256", hash(entry.getValue(), () -> checkGeneration(runId, epoch)), "bytes", Files.size(entry.getValue())));
+                files.put(entry.getKey(), Map.of("name", entry.getValue().getFileName().toString(), "sha256", hash(entry.getValue(), reportProbe, reportBudget), "bytes", Files.size(entry.getValue())));
             }
             manifest.put("files", files);
             Path selected=directory.resolve("report-set.json");
             try (OutputStream output=output(selected, directory)) { line(output, manifest); }
             CdsPaths.forceFile(selected); CdsPaths.forceDirectory(directory); CdsPaths.forceDirectory(job);
-            String digest=hash(selected, () -> checkGeneration(runId, epoch));
+            String digest=hash(selected, reportProbe, reportBudget);
+            reportProbe.run();
             try {
                 selection.select(runId, epoch, before.reportGeneration(), before.manifestDigest()==null?before.sourceDigest():before.manifestDigest(), selected.toString(), digest);
             } catch (RuntimeException unknownSelection) {
@@ -182,9 +208,16 @@ public class CdsImportResultService {
             }
             reportSelected=true;
             ledger.operational(runId, epoch, null, cleanupResult.state(), null);
+        }
         } catch (IOException | RuntimeException failure) {
-            try { ledger.operational(runId, epoch, reportSelected?null:"FAILED", "FAILED", reportSelected?"IMPORT_CLEANUP_FAILED":"IMPORT_REPORT_DELIVERY_FAILED"); }
+            boolean timedOut=failure instanceof CdsImportException known && "IMPORT_REPORT_GENERATION_TIMEOUT".equals(known.getCode());
+            try { ledger.operational(runId, epoch, reportSelected || timedOut && priorDelivered?null:"FAILED", "FAILED", reportSelected?"IMPORT_CLEANUP_FAILED":"IMPORT_REPORT_DELIVERY_FAILED"); }
             catch (RuntimeException unavailable) { failure.addSuppressed(unavailable); }
+            if (timedOut) {
+                try { ledger.diagnostic(runId, epoch, null, null, "WARNING", "IMPORT_REPORT_GENERATION_TIMEOUT", "REPORTING", null,
+                        "Protected report generation exceeded its active attempt budget; clinical receipts and source were retained", null, false); }
+                catch (RuntimeException unavailable) {failure.addSuppressed(unavailable); }
+            }
             throw failure;
         }
     }
@@ -235,13 +268,14 @@ public class CdsImportResultService {
         if (Thread.currentThread().isInterrupted()) throw new CdsImportException("REPORT_CANCELLED");
         if (ledger.status(runId).ownerEpoch()!=epoch) throw new CdsImportException("OWNER_FENCED");
     }
-    private static String hash(Path path) throws IOException { return hash(path, () -> {}); }
-    private static String hash(Path path, Runnable probe) throws IOException {
+    private static String hash(Path path) throws IOException { return hash(path, () -> {}, () -> {}); }
+    private static String hash(Path path, Runnable probe, Runnable budget) throws IOException {
         probe.run(); long bytes=0, nextCheck=16L<<20;
         MessageDigest digest=CdsPaths.sha256();
         try (InputStream input=new BufferedInputStream(Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS), 65536)) {
             byte[] buffer=new byte[65536]; int count;
             while ((count=input.read(buffer))!=-1) {
+                budget.run();
                 if (Thread.currentThread().isInterrupted()) throw new CdsImportException("REPORT_CANCELLED");
                 digest.update(buffer, 0, count); bytes=Math.addExact(bytes, count);
                 if (bytes>=nextCheck) { probe.run(); nextCheck=Math.addExact(bytes, 16L<<20); }

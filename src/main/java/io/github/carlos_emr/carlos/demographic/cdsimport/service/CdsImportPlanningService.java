@@ -106,7 +106,12 @@ public class CdsImportPlanningService {
 
     public void plan(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot)
             throws IOException {
+        plan(runId, epoch, document, snapshot, () -> {});
+    }
+    public void plan(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot, Runnable attemptProbe)
+            throws IOException {
         CdsImportLedgerService.requireNoTransaction();
+        attemptProbe.run();
         var status = ledger.status(runId);
         if (!status.rulesetDigest().equals(CdsImportJobService.rulesetDigest(document.command(), configuration))
                 || !status.optionsDigest().equals(CdsImportJobService.optionsDigest(document.command()))) {
@@ -124,18 +129,18 @@ public class CdsImportPlanningService {
                 Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS),
                 PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
                 FileLock ignored = planningLock(lockChannel)) {
-            planOwned(runId, epoch, document, snapshot);
+            planOwned(runId, epoch, document, snapshot, attemptProbe);
         }
     }
 
-    private void planOwned(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot)
+    private void planOwned(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot, Runnable attemptProbe)
             throws IOException {
         ledger.stage(runId, epoch, "PREFLIGHTING");
         preflightIdentity.verifySchema();
         preflightIdentity.beginScan(runId, epoch);
         Path parsedRoot = directory(document.jobRoot().resolve("parsed"), document.jobRoot());
         Path workFile = document.jobRoot().resolve("work.jsonl");
-        State state = new State(runId, epoch, document, snapshot, workFile);
+        State state = new State(runId, epoch, document, snapshot, workFile, attemptProbe);
         try (state; var control=fields.control(state::cancelled)) {
             long reviewVersion=corrections==null ? 0 : corrections.version(runId);
             state.reviewVersion=reviewVersion;
@@ -151,6 +156,7 @@ public class CdsImportPlanningService {
             if (state.discoveredXmls != snapshot.patientXmlFiles()) throw new CdsImportException("SOURCE_DISCOVERY_ACCOUNTING_MISMATCH");
             if (!state.parseFailure) ledger.discovery(runId, epoch, snapshot.files(), snapshot.patientXmlFiles(), snapshot.totalBytes());
             if (state.blocked) { ledger.stage(runId, epoch, "REVIEW_REQUIRED"); return; }
+            attemptProbe.run();
             if (state.patients == 0) throw new CdsImportException("NO_IDENTIFIED_PATIENTS");
             state.output.flush(); state.channel.force(true); CdsPaths.forceDirectory(document.jobRoot());
             String manifest=CdsPaths.hex(state.manifest.digest());
@@ -504,13 +510,18 @@ public class CdsImportPlanningService {
 
     /** Streams protected, precise schema evidence into an already authorized operator report. */
     public void forEachValidationDiagnostic(String runId, Consumer<Map<String, Object>> consumer) throws IOException {
+        forEachValidationDiagnostic(runId, consumer, () -> {});
+    }
+    public void forEachValidationDiagnostic(String runId, Consumer<Map<String, Object>> consumer, Runnable reportProbe) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
+        reportProbe.run();
         CdsImportJobDocumentDto document=jobs.load(runId);
         Path published=document.jobRoot().resolve("snapshot");
         if (!Files.isDirectory(published, LinkOption.NOFOLLOW_LINKS)) return;
-        CdsSnapshotDto snapshot=snapshots.load(published, false);
+        CdsSnapshotDto snapshot=snapshots.load(published, false, () -> {reportProbe.run(); return false; });
         try {
             snapshots.forEachXml(snapshot, xml -> {
+                reportProbe.run();
                 Path folder;
                 try { folder=currentAttempt(CdsPaths.within(document.jobRoot().resolve("parsed").resolve(CdsImportKeys.hash(xml.relativeName(), xml.sha256())), document.jobRoot())); }
                 catch (IOException failed) { throw new UncheckedIOException(failed); }
@@ -519,6 +530,7 @@ public class CdsImportPlanningService {
                 try (InputStream input=new BufferedInputStream(Files.newInputStream(diagnostics, LinkOption.NOFOLLOW_LINKS), 65536)) {
                     byte[] line;
                     while ((line=CdsFieldParser.readMetadataLine(input))!=null) {
+                        reportProbe.run();
                         if (Thread.currentThread().isInterrupted()) throw new CdsImportException("IMPORT_CANCELLED");
                         JsonNode value=JSON.readTree(line); Map<String, Object> row=new LinkedHashMap<>();
                         row.put("diagnosticKind", "source-schema"); row.put("severity", value.path("severity").asText("ERROR")); row.put("blocking", value.path("blocking").asBoolean(true));
@@ -577,6 +589,7 @@ public class CdsImportPlanningService {
         try (InputStream input=Files.newInputStream(location, LinkOption.NOFOLLOW_LINKS)) {
             byte[] buffer=new byte[65536]; int n;
             while ((n=input.read(buffer))>=0) {
+                fields.checkpoint();
                 if (Thread.currentThread().isInterrupted()) throw new CdsImportException("IMPORT_CANCELLED");
                 long now=System.nanoTime();
                 if ((now-started)/1_000_000>deadline) throw new CdsImportException("CDS_INPUT_DEADLINE");
@@ -690,7 +703,7 @@ public class CdsImportPlanningService {
                 || code.endsWith("_PATH_LIMIT") || code.endsWith("_CHILD_NAME_LIMIT")
                 || Set.of("CDS_INPUT_CANCELLED", "CDS_INPUT_DEADLINE", "CDS_INPUT_DISK_RESERVE", "CDS_DIAGNOSTIC_WRITE_FAILED",
                         "CDS_SECURE_XML_PARSER_UNAVAILABLE", "CDS_SPOOL_CLOSE_FAILED", "CDS_SPOOL_IO_FAILED", "CDS_XML_READ_FAILED",
-                        "OWNER_FENCED", "IMPORT_CANCELLED").contains(code);
+                        "OWNER_FENCED", "IMPORT_CANCELLED", "IMPORT_ATTEMPT_TIMEOUT").contains(code);
     }
 
     private static String failurePath(Exception failure, String fallback) {
@@ -746,9 +759,11 @@ public class CdsImportPlanningService {
         long nextDiskCheck;
         Path currentParseFolder;
         final long started=System.nanoTime();
+        final Runnable attemptProbe;
         long nextCancellationPoll;
-        State(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot, Path workFile) throws IOException {
+        State(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot, Path workFile, Runnable attemptProbe) throws IOException {
             this.runId = runId; this.epoch = epoch; this.document = document; this.snapshot = snapshot; this.workFile = workFile;
+            this.attemptProbe=attemptProbe;
             channel = FileChannel.open(CdsPaths.within(workFile, document.jobRoot()),
                     Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS),
                     PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
@@ -758,6 +773,7 @@ public class CdsImportPlanningService {
             if (Thread.currentThread().isInterrupted() || cancellationRequested()) throw new CdsImportException("IMPORT_CANCELLED");
         }
         boolean cancellationRequested() {
+            attemptProbe.run();
             long now=System.nanoTime();
             if ((now-started)/1_000_000>configuration.limits().maxDurationMillis()) throw new CdsImportException("CDS_INPUT_DEADLINE");
             if (now<nextCancellationPoll) return false; nextCancellationPoll=now+250_000_000L;

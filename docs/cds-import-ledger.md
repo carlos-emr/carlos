@@ -179,6 +179,26 @@ expansion, private storage and retention limits remain admission requirements.
 
 ## Operator outcomes and protected evidence
 
+Each active execution attempt has one monotonic elapsed budget using `cds.import.maxDurationMillis`
+(the existing default is 24 hours). It spans snapshot verification, planning, preparation and all
+clinical units rather than restarting at each unit. The budget is checked by existing cooperative
+I/O controls and between atomic units. A committed unit remains committed if the next check expires;
+the stopped outcome retains its source, receipts and holds for an authorized resume of the same run.
+A resume starts a fresh bounded active attempt; time spent stopped or awaiting review is excluded.
+No elapsed heartbeat authorizes takeover or changes an uncertain commit into a rollback.
+
+Protected report generation has a separate fresh budget under the same policy. Its streaming,
+validation, hashing and cleanup loops check that budget before a new immutable report set is
+selected. Timeout records delivery failure without rewriting clinical outcomes, selecting an
+incomplete report set or replaying clinical writes. A stopped `FAILED` delivery requires the
+existing explicit recovery route, rather than an automatic retry loop. An already selected immutable
+`DELIVERED` generation keeps its acknowledgement, pointer and hashes
+when a later report attempt times out; failed cleanup makes the current operation non-clean until
+explicit recovery selects a fresh complete generation. The historical timeout remains a nonblocking
+operational warning in subsequent reports. The controls are cooperative: they cannot impose an
+absolute deadline on a kernel-blocked filesystem open/read/write/fsync or
+replace the independent bounded JDBC/network policies and process supervision.
+
 Run state, per-patient outcome, clinical completeness, report delivery and cleanup are separate.
 `COMPLETE` alone does not mean that the operator's files were delivered. `cleanComplete` requires
 clinical completion (or an explicitly valid dry run), selected durable reports and completed cleanup.

@@ -138,6 +138,21 @@ class CdsImportCleanupServiceUnitTest {
         }
     }
 
+    @Test void reportBudgetExpiryRetainsPrivateRecoveryEvidence_beforeAnyDeletion() throws Exception {
+        byte[] content={3,4,5};String hash=hash(content);Path operation=operation(content,hash,run),destination=document.resolve(filename(hash));
+        var elapsed=new java.util.concurrent.atomic.AtomicLong();
+        when(files.findLocation(destination.toString())).thenAnswer(call->{elapsed.set(100);return null;});
+        Runnable budget=()->{if(elapsed.get()>=100)throw new CdsImportException("IMPORT_REPORT_GENERATION_TIMEOUT");};
+        try(MockedStatic<PathValidationUtils> paths=mockStatic(PathValidationUtils.class,CALLS_REAL_METHODS)) {
+            paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(document.toFile());
+            assertThatThrownBy(()->cleanup.reconcile(run,epoch,current,budget)).hasMessage("IMPORT_REPORT_GENERATION_TIMEOUT");
+            assertThat(Files.readAllBytes(operation.resolve("payload.partial"))).isEqualTo(content);
+            assertThat(Files.exists(operation.resolve("owner.json"))).isTrue();
+            assertThat(Files.readString(job.resolve("accepted-source.xml"))).isEqualTo("accepted immutable source");
+            verify(files,never()).reconcilePublication(anyString(),anyLong(),anyString(),anyString(),anyLong());
+        }
+    }
+
     private Path operation(byte[] content,String hash,String ownerRun) throws Exception {
         Path pending=directory(document.resolve(".cds-pending")),runRoot=directory(pending.resolve(run));String id=UUID.randomUUID().toString();Path operation=directory(runRoot.resolve(id));
         var owner=new CdsDocumentPublicationService.PendingOwner(1,ownerRun,epoch,unit,"text","txt",hash,content.length,filename(hash),id,System.currentTimeMillis());

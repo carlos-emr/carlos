@@ -86,18 +86,22 @@ public class CdsImportCleanupService {
 
     /** Caller retains the coordinator; no database transaction spans filesystem work. */
     public CdsImportCleanupDto reconcile(String run, long epoch, Path currentReportDirectory) throws IOException {
-        CdsImportLedgerService.requireNoTransaction(); check(run, epoch);
+        return reconcile(run, epoch, currentReportDirectory, () -> {});
+    }
+    public CdsImportCleanupDto reconcile(String run, long epoch, Path currentReportDirectory, Runnable probe) throws IOException {
+        CdsImportLedgerService.requireNoTransaction(); check(run, epoch, probe);
         Path job=CdsPaths.within(Path.of(ledger.snapshotLocation(run)), configuration.stagingRoot()).getParent();
         Path current=CdsPaths.within(currentReportDirectory, job);
         if (!reportOwned(current, run, epoch, true)) throw new CdsImportException("CLEANUP_REPORT_OWNER_PROOF_REQUIRED");
-        Catalogue catalogue=new Catalogue();
+        Catalogue catalogue=new Catalogue(probe);
         Path document=PathValidationUtils.getRequiredDocumentDirectory().toPath().toAbsolutePath().normalize();
         pending(run, epoch, document, catalogue);
         catalogue(run, epoch, job, current, catalogue);
         String after="";
         while (true) {
-            check(run, epoch); var page=files.ownedFiles(run, after, 200); if (page.isEmpty()) break;
+            check(run, epoch, probe); var page=files.ownedFiles(run, after, 200); if (page.isEmpty()) break;
             for (var item:page) {
+                probe.run();
                 CdsImportFileDto file=item.file(); after=file.id();
                 Path path=Path.of(file.location()).toAbsolutePath().normalize();
                 if (path.startsWith(job)) {
@@ -130,7 +134,7 @@ public class CdsImportCleanupService {
                 }
             }
         }
-        check(run, epoch);
+        check(run, epoch, probe);
         return catalogue.result();
     }
 
@@ -140,7 +144,8 @@ public class CdsImportCleanupService {
             private Path reportDirectory;
             private String reportReason;
             @Override public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) throws IOException {
-                if (++visited%100==0) check(run, epoch);
+                catalogue.probe.run();
+                if (++visited%100==0) check(run, epoch, catalogue.probe);
                 if (directory.equals(current)) return FileVisitResult.SKIP_SUBTREE;
                 if (directory.getParent()!=null && directory.getParent().equals(job) && directory.getFileName().toString().startsWith("reports-")) {
                     reportDirectory=directory;
@@ -151,7 +156,8 @@ public class CdsImportCleanupService {
                 return FileVisitResult.CONTINUE;
             }
             @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
-                if (++visited%100==0) check(run, epoch);
+                catalogue.probe.run();
+                if (++visited%100==0) check(run, epoch, catalogue.probe);
                 if (!attributes.isRegularFile() || attributes.isSymbolicLink()) { catalogue.retain("UNKNOWN_ACCEPTED_ARTIFACT", -1); catalogue.problem("CLEANUP_UNKNOWN_ARTIFACT_RETAINED"); return FileVisitResult.CONTINUE; }
                 Path relative=job.relativize(file); String first=relative.getName(0).toString();
                 String reason=first.equals("reviews") || first.equals("corrections")?"REVIEW_EVIDENCE":
@@ -162,6 +168,7 @@ public class CdsImportCleanupService {
                 catalogue.retain(reason, attributes.size()); return FileVisitResult.CONTINUE;
             }
             @Override public FileVisitResult visitFileFailed(Path file, IOException failure) {
+                catalogue.probe.run();
                 catalogue.retain("UNREADABLE_ACCEPTED_ARTIFACT", -1); catalogue.problem("CLEANUP_ARTIFACT_UNREADABLE"); return FileVisitResult.CONTINUE;
             }
         });
@@ -173,11 +180,11 @@ public class CdsImportCleanupService {
         requirePrivate(root.getParent()); requirePrivate(root);
         try (DirectoryStream<Path> operations=Files.newDirectoryStream(root)) {
             for (Path operation:operations) {
-                check(run, epoch);
+                check(run, epoch, catalogue.probe);
                 if (!operation.getFileName().toString().matches("[a-f0-9-]{36}")) { catalogue.problem("CLEANUP_UNKNOWN_PRIVATE_OPERATION"); continue; }
                 try { operation(run, epoch, document, root, operation, catalogue); }
                 catch (CdsImportException | IOException invalid) {
-                    if (invalid instanceof CdsImportException known && "OWNER_FENCED".equals(known.getCode())) throw known;
+                    if (invalid instanceof CdsImportException known && Set.of("OWNER_FENCED", "IMPORT_REPORT_GENERATION_TIMEOUT").contains(known.getCode())) throw known;
                     catalogue.problem("CLEANUP_PRIVATE_OPERATION_REQUIRES_REVIEW");
                     catalogue.retain("UNCERTAIN_PRIVATE_OPERATION", -1);
                 }
@@ -188,7 +195,7 @@ public class CdsImportCleanupService {
     private void operation(String run, long epoch, Path document, Path runRoot, Path operation, Catalogue catalogue) throws IOException {
         requirePrivate(operation); Path journal=operation.resolve("owner.json"), payload=operation.resolve("payload.partial");
         try (DirectoryStream<Path> content=Files.newDirectoryStream(operation)) {
-            if (!content.iterator().hasNext()) { check(run, epoch); Files.delete(operation); CdsPaths.forceDirectory(runRoot); catalogue.directoryRemoved(); return; }
+            if (!content.iterator().hasNext()) { check(run, epoch, catalogue.probe); Files.delete(operation); CdsPaths.forceDirectory(runRoot); catalogue.directoryRemoved(); return; }
         }
         if (!Files.isRegularFile(journal, LinkOption.NOFOLLOW_LINKS) || Files.size(journal)>65536) throw new CdsImportException("CLEANUP_OWNER_PROOF_MISSING");
         CdsDocumentPublicationService.PendingOwner owner;
@@ -213,13 +220,13 @@ public class CdsImportCleanupService {
         boolean linked=exists(destination);
         if (!linked && files.findLocation(destination.toString())!=null) throw new CdsImportException("CLEANUP_REGISTERED_PUBLICATION_MISSING");
         if (linked) {
-            verifyBytes(run, epoch, destination, owner.digest(), owner.byteLength());
+            verifyBytes(run, epoch, destination, owner.digest(), owner.byteLength(), catalogue.probe);
             files.reconcilePublication(run, epoch, destination.toString(), owner.digest(), owner.byteLength());
             // The subsequent owned-file page accounts for the retained final generation once.
         }
         // No final path means this exact owned private payload never became a native reference.
         // A published/unknown final path is retained; only the private alias/journal are retired here.
-        check(run, epoch);
+        check(run, epoch, catalogue.probe);
         boolean hadPayload=exists(payload);
         long payloadBytes=hadPayload?Files.size(payload):0;
         long journalBytes=Files.size(journal);
@@ -230,17 +237,19 @@ public class CdsImportCleanupService {
         catalogue.remove("PRIVATE_OWNERSHIP_JOURNAL", journalBytes);
     }
 
-    private void verifyBytes(String run, long epoch, Path path, String expected, long length) throws IOException {
+    private void verifyBytes(String run, long epoch, Path path, String expected, long length, Runnable probe) throws IOException {
         BasicFileAttributes before=Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (!before.isRegularFile() || before.size()!=length) throw new CdsImportException("CLEANUP_FINAL_PUBLICATION_CHANGED");
         MessageDigest digest=CdsPaths.sha256(); long total=0, next=16L<<20;
         try (InputStream input=Files.newInputStream(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
             byte[] buffer=new byte[65536]; int count;
             while ((count=input.read(buffer))!=-1) {
+                probe.run();
                 total=Math.addExact(total, count); if (total>length) throw new CdsImportException("CLEANUP_FINAL_PUBLICATION_CHANGED"); digest.update(buffer, 0, count);
-                if (total>=next){check(run, epoch); next=Math.addExact(total, 16L<<20); }
+                if (total>=next){check(run, epoch, probe); next=Math.addExact(total, 16L<<20); }
             }
         }
+        probe.run();
         BasicFileAttributes after=Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (total!=length || !java.util.Objects.equals(before.fileKey(), after.fileKey()) || before.size()!=after.size()
                 || !before.lastModifiedTime().equals(after.lastModifiedTime()) || !CdsPaths.hex(digest.digest()).equals(expected)) throw new CdsImportException("CLEANUP_FINAL_PUBLICATION_CHANGED");
@@ -270,11 +279,15 @@ public class CdsImportCleanupService {
         if (!Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(path)
                 || Files.getPosixFilePermissions(path, LinkOption.NOFOLLOW_LINKS).stream().anyMatch(permission -> permission.name().startsWith("GROUP_") || permission.name().startsWith("OTHERS_"))) throw new CdsImportException("CLEANUP_PRIVATE_OWNER_REQUIRED");
     }
-    private void check(String run, long epoch) {
+    private void check(String run, long epoch, Runnable probe) {
+        probe.run();
         if (Thread.currentThread().isInterrupted()) throw new CdsImportException("CLEANUP_INTERRUPTED");
         if (ledger.status(run).ownerEpoch()!=epoch) throw new CdsImportException("OWNER_FENCED");
+        probe.run();
     }
     private static final class Catalogue {
+        private final Runnable probe;
+        Catalogue(Runnable probe) {this.probe=probe; }
         private final Map<String, CdsImportCleanupDto.Count> retained=new LinkedHashMap<>(), removed=new LinkedHashMap<>();
         private final Set<String> codes=new LinkedHashSet<>();
         private long removedDirectories;
