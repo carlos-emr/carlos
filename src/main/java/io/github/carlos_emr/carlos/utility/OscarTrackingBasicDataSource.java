@@ -74,7 +74,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         boundedCdsConnections=enabled;
     }
 
-    public boolean isBoundedCdsConnections() { return boundedCdsConnections; }
+    public synchronized boolean isBoundedCdsConnections() { return boundedCdsConnections; }
 
     @Override protected org.apache.commons.dbcp2.ConnectionFactory createConnectionFactory() throws SQLException {
         var configured=super.createConnectionFactory();
