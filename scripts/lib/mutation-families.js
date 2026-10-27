@@ -247,14 +247,15 @@ function demographicAdd(s) {
 /** Delete replay-created support rows only while the workflow still owns its patient. */
 function cleanupReplayPatientSupport(s, tables) {
   assertId(s.patient, 'The replay patient');
-  const owner = `demographic_no=${s.patient} AND last_name=${q(s.marker)} AND first_name='Workflow'`;
+  const owner = 'demographic_no=? AND last_name=? AND first_name=?';
+  const ownerValues = [s.patient, s.marker, 'Workflow'];
   // The table/column pairs are literals supplied by the two mutation families below.
   for (const [table, column] of tables) {
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE ${owner}`) === '1',
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE ${owner}`, ownerValues) === '1',
       'Replay patient ownership changed; retain support rows');
-    s.sql.execute(`DELETE FROM ${table} WHERE ${column}=${s.patient}
-      AND EXISTS (SELECT 1 FROM demographic WHERE ${owner})`);
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${column}=${s.patient}`) === '0',
+    s.sql.execute(`DELETE FROM ${table} WHERE ${column}=?
+      AND EXISTS (SELECT 1 FROM demographic WHERE ${owner})`, [s.patient, ...ownerValues]);
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${column}=?`, [s.patient]) === '0',
       `Owned replay support rows remain in ${table}`);
   }
 }

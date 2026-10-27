@@ -25,7 +25,7 @@ const assert = require('node:assert/strict');
 const {DatabaseSync} = require('node:sqlite');
 const {demographicUpdate, chartNoteSave} = require('./lib/mutation-families');
 
-const marker = 'FAKE-PW0123456789abcdef';
+const marker = "FAKE-PW0123456789abcdef'quoted";
 const families = [
   [demographicUpdate, [['demographicExtArchive', 'demographic_no'], ['demographiccustArchive', 'demographic_no'], ['demographiccust', 'demographic_no']]],
   [chartNoteSave, [['eChart', 'demographicNo']]],
@@ -44,9 +44,13 @@ function fixture(t, factory, support) {
   const writes = [];
   const state = {beforeWrite: null};
   const sql = {
-    value: query => String(Object.values(db.prepare(query).get())[0]),
-    rows: query => db.prepare(query).all().map(row => Object.values(row).map(String)),
-    execute(query) { if (state.beforeWrite) state.beforeWrite(); writes.push(query); db.exec(query); },
+    value: (query, parameters = []) => String(Object.values(db.prepare(query).get(...parameters))[0]),
+    rows: (query, parameters = []) => db.prepare(query).all(...parameters).map(row => Object.values(row).map(String)),
+    execute(query, parameters) {
+      if (state.beforeWrite) state.beforeWrite();
+      writes.push(query);
+      if (parameters) db.prepare(query).run(...parameters); else db.exec(query);
+    },
   };
   const family = factory({sql, patient: '42', marker});
   return {db, family, writes, state, count(table, column, patient) {

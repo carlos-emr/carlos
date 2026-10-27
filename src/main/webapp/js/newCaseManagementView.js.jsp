@@ -274,7 +274,8 @@
                 items[idx].style.display = 'none';
                 expand = true;
             } else {
-                items[idx].style.display = items[idx].carlosExpandedDisplay || 'flex';
+                items[idx].style.display = items[idx].carlosExpandedDisplay !== undefined
+                    ? items[idx].carlosExpandedDisplay : 'flex';
                 expand = false;
             }
         }

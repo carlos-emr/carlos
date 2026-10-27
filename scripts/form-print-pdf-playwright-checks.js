@@ -298,7 +298,7 @@ async function main() {
   }
 
   // Despite its name, hidden is the display order: zero means disabled.
-  const registered = sql.value(`SELECT COUNT(*) FROM encounterForm WHERE form_name = '${formName}' AND hidden > 0`);
+  const registered = sql.value('SELECT COUNT(*) FROM encounterForm WHERE form_name = ? AND hidden > 0', [formName]);
   if (registered === '0') throw new SkipCheck(`Enable/register ${formName} in encounterForm (hidden > 0) before running form-print-pdf`);
 
   const recorder = createRecorder();
