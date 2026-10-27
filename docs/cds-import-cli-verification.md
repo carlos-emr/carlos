@@ -54,8 +54,11 @@ The gate requires all of these outcomes:
 - Submission-key status recovers the exact accepted run without resubmission;
   an unknown key remains explicitly uncertain.
 - SIGTERM occurs only after a native clinical note and checkpoint exist with
-  outstanding work. Durable cancellation and resume reconcile the same run to
-  exactly 256 notes and one patient, with no duplicate/checkpoint gaps or holds.
+  outstanding work. Durable cancellation is followed by a resume and an additional native commit.
+  A pidfd then sends SIGKILL only to the exact service JVM after verifying its
+  executable, parent chain, start time, selected run and immutable delegation
+  ticket; the root supervisor remains alive for ticket cleanup. A final resume
+  reconciles that same run to exactly 256 notes and one patient, with no duplicate/checkpoint gaps or holds.
 - Synthetic course mode produces exactly two independent student copies.
   Missing/inactive personal programs, inactive students and inactive courses
   are refused without an ordinary-chart fallback or new committed units.

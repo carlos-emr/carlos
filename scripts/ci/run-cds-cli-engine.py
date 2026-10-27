@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import os
+import pwd
 import resource
 import re
 import shutil
@@ -134,7 +135,79 @@ def main() -> None:
                 process.wait(timeout=30)
                 raise RuntimeError("forced CLI termination requires durable reconciliation; gate stopped")
 
-    def invoke(label: str, options: list[str], expected: set[int], *, interrupt: bool = False) -> list[dict]:
+    def hard_crash_engine(process: subprocess.Popen, run: str, observed: dict, label: str) -> None:
+        # runuser and Java have their own session. Killing the outer CLI group
+        # would strand a live engine; target only the exact verified service JVM.
+        children = Path(f"/proc/{process.pid}/task/{process.pid}/children").read_text().split()
+        if len(children) != 1:
+            raise RuntimeError("hard-crash target has an ambiguous supervisor child")
+        runuser = int(children[0])
+        if Path(f"/proc/{runuser}/comm").read_text().strip() != "runuser" \
+                or Path(f"/proc/{runuser}/exe").resolve(strict=True) != Path("/usr/sbin/runuser").resolve(strict=True):
+            raise RuntimeError("hard-crash target is not the expected runuser supervisor")
+        descendants = Path(f"/proc/{runuser}/task/{runuser}/children").read_text().split()
+        if len(descendants) != 1:
+            raise RuntimeError("hard-crash target has ambiguous service descendants")
+        service = pwd.getpwnam("carlos")
+        script = r"""
+import hashlib,json,os,signal,stat,struct,sys,time
+from pathlib import Path
+pid,parent,wrapper,uid=map(int,sys.argv[1:5]); exe,run,provider=sys.argv[5:8]
+def start(number):
+    return Path(f'/proc/{number}/stat').read_text().rsplit(')',1)[1].split()[19]
+expected_start=start(pid); parent_start=start(parent)
+with os.fdopen(os.open(f'/proc/{pid}/status',os.O_RDONLY)) as source: status=source.read(65537)
+assert len(status)<=65536
+fields=dict(line.split(':',1) for line in status.splitlines() if ':' in line)
+assert int(fields['PPid'])==parent and set(map(int,fields['Uid'].split()))=={uid}
+assert Path(f'/proc/{pid}/exe').resolve(strict=True)==Path(exe).resolve(strict=True)
+assert Path(f'/proc/{parent}/stat').read_text().rsplit(')',1)[1].split()[1]==str(wrapper)
+argv=Path(f'/proc/{pid}/cmdline').read_bytes(); assert len(argv)<=65536
+argv=[value.decode('utf-8') for value in argv.rstrip(b'\0').split(b'\0')]
+main='io.github.carlos_emr.carlos.demographic.cdsimport.CdsImport'
+assert argv.count(main)==1
+arguments=argv[argv.index(main)+1:]
+assert arguments==['--operation','resume','--provider',provider,'--run',run]
+env=Path(f'/proc/{pid}/environ').read_bytes(); assert len(env)<=65536
+values=[value for value in env.split(b'\0') if value.startswith(b'CARLOS_CDS_DELEGATION_TICKET=')]
+assert len(values)==1
+ticket=Path(values[0].split(b'=',1)[1].decode('utf-8'))
+assert ticket.parent==Path('/run/carlos-cds-delegations') and ticket.resolve(strict=True)==ticket
+for path in (Path('/run'),ticket.parent):
+    entry=path.lstat(); assert stat.S_ISDIR(entry.st_mode) and entry.st_uid==0 and not entry.st_mode&0o022
+entry=ticket.lstat(); assert stat.S_ISREG(entry.st_mode) and entry.st_uid==0 and entry.st_gid==os.getgid() and stat.S_IMODE(entry.st_mode)==0o640
+payload=ticket.read_bytes(); assert len(payload)<=65536
+proof=json.loads(payload); digest=hashlib.sha256()
+for argument in arguments:
+    encoded=argument.encode('utf-8'); digest.update(struct.pack('>I',len(encoded))); digest.update(encoded)
+assert proof['protocol']==1 and proof['operation']=='resume' and proof['provider']==provider and proof['operator']=='root' and proof['operatorUid']==0
+assert proof['argvSha256']==digest.hexdigest() and ticket.name==proof['nonce']+'.json'
+assert 0<proof['expiresEpochSeconds']-proof['issuedEpochSeconds']<=300 and proof['issuedEpochSeconds']<=int(time.time())
+fd=os.pidfd_open(pid)
+try:
+    assert start(pid)==expected_start and start(parent)==parent_start
+    signal.pidfd_send_signal(fd,signal.SIGKILL)
+finally: os.close(fd)
+print(json.dumps({'signal':'SIGKILL','verifiedServiceUid':uid,'javaPid':pid,'processStart':expected_start,'nonce':proof['nonce'],'ticket':str(ticket)}))
+"""
+        command = ["setpriv", "--reuid=" + str(service.pw_uid), "--regid=" + str(service.pw_gid), "--clear-groups",
+                   "--bounding-set=-all", "--inh-caps=-all", "--ambient-caps=-all", "--no-new-privs", "python3", "-c", script,
+                   descendants[0], str(runuser), str(process.pid), str(service.pw_uid), args.java, run, str(metadata["provider"])]
+        killed = subprocess.run(command, env=environment, capture_output=True, timeout=30, check=False)
+        if killed.returncode or len(killed.stdout) > 4096:
+            raise RuntimeError("exact service JVM hard-crash proof failed; no alternate process was targeted")
+        proof = json.loads(killed.stdout)
+        if process.wait(timeout=30) != 137 or Path(proof["ticket"]).exists():
+            raise RuntimeError("hard-crashed JVM supervisor did not report SIGKILL and retire only its ticket")
+        proof.update({"runId": run, "checkpointsBeforeCrash": observed["checkpoints"],
+                      "nativeNotesBeforeCrash": observed["nativeNotes"], "expectedUnits": observed["expectedUnits"]})
+        descriptor = os.open(logs / (label + "-proof.json"), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as evidence:
+            json.dump(proof, evidence, separators=(",", ":"))
+
+    def invoke(label: str, options: list[str], expected: set[int], *, interrupt: bool = False,
+               resume_run: str | None = None, minimum_checkpoints: int = 0, minimum_notes: int = 0,
+               hard_crash: bool = False) -> list[dict]:
         log = logs / (label + ".log")
         descriptor = os.open(log, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         process = None
@@ -148,13 +221,18 @@ def main() -> None:
                         accepted = [row for row in rows(log) if row.get("event") == "ACCEPTED"]
                         if accepted:
                             runs[label] = accepted[-1]["runId"]
-                            observed = fixture("inspect", runs[label])
+                        target = runs.get(label) or resume_run
+                        if target is not None:
+                            observed = fixture("inspect", target)
                             committed = observed.get("checkpoints", 0)
                             expected_units = observed.get("expectedUnits", 0)
-                            if observed.get("nativeNotes", 0) > 0 and 0 < committed < expected_units:
-                                # A real clinical note and checkpoint must exist,
-                                # with outstanding work, before interrupting.
-                                stop(process)
+                            if observed.get("nativeNotes", 0) > minimum_notes and minimum_checkpoints < committed < expected_units:
+                                # Require new actual clinical work and outstanding
+                                # units before either graceful stop or hard crash.
+                                if hard_crash:
+                                    hard_crash_engine(process, target, observed, label)
+                                else:
+                                    stop(process)
                                 break
                         if process.poll() is not None:
                             raise RuntimeError("cancel fixture completed before a partial clinical import could be interrupted")
@@ -332,6 +410,15 @@ def main() -> None:
     invoke("cancel", ["--cancel", runs["interrupted"], *common], {4})
     if fixture("inspect", runs["interrupted"]).get("cancelRequested") is not True:
         raise RuntimeError("cancellation was not durably recorded on the partially committed import")
+    before_crash = fixture("inspect", runs["interrupted"])
+    crashed = invoke("interrupted-hard-resume", ["--resume", runs["interrupted"], *common], {137}, interrupt=True,
+                     resume_run=runs["interrupted"], minimum_checkpoints=before_crash["checkpoints"],
+                     minimum_notes=before_crash["nativeNotes"], hard_crash=True)
+    if any(row.get("event") == "RESULT" for row in crashed):
+        raise RuntimeError("hard-crashed engine falsely delivered a terminal success")
+    after_crash = fixture("inspect", runs["interrupted"])
+    if after_crash.get("cancelRequested") is not False or not 0 < after_crash.get("checkpoints", 0) < after_crash.get("expectedUnits", 0):
+        raise RuntimeError("hard crash did not preserve an uncancelled incomplete original run")
     recovered = result(invoke("interrupted-resume", ["--resume", runs["interrupted"], *common], {0}))
     assert_complete(recovered)
     recovered_counts = fixture("inspect", runs["interrupted"])
