@@ -104,7 +104,8 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
         Path directory = temporary.resolve("uploads").resolve(receipt.id());
         assertThat(Files.readAllBytes(directory.resolve("source.xml"))).hasSize(CHUNK + 7);
         try (var files = Files.list(directory)) {
-            assertThat(files.map(path -> path.getFileName().toString()).toList()).doesNotContain(receipt.fileName());
+            List<String> fileNames = files.map(path -> path.getFileName().toString()).toList();
+            assertThat(fileNames).isNotEmpty().doesNotContain(receipt.fileName());
         }
         assertThat(receipt.toString()).doesNotContain("Synthetic Name", "1971");
     }
