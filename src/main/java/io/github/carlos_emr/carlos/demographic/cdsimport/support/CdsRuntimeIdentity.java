@@ -39,63 +39,72 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.TreeSet;
 
-/** Actual semantic dependency/runtime bytes; no build paths, timestamps, patient files, or credentials. */
+/** Actual semantic dependency/runtime bytes; no filesystem locations, patient files, or credentials enter the digest. */
 final class CdsRuntimeIdentity {
     private static final long JAR_LIMIT = 128L << 20;
     private static final long MODULE_LIMIT = 512L << 20;
-    private static final String[] DEPENDENCIES = {
-        "org/apache/xerces/jaxp/SAXParserFactoryImpl.class",
-        "org/apache/xerces/jaxp/validation/XMLSchemaFactory.class",
-        "com/fasterxml/jackson/core/JsonFactory.class",
-        "com/fasterxml/jackson/databind/ObjectMapper.class",
-        "com/fasterxml/jackson/annotation/JsonCreator.class",
-        "com/fasterxml/jackson/datatype/jsr310/JavaTimeModule.class",
-        "ca/uhn/hl7v2/parser/PipeParser.class",
-        "ca/uhn/hl7v2/model/v23/message/ORU_R01.class",
-        "org/hibernate/Session.class",
-        "jakarta/persistence/EntityManager.class",
-        "org/springframework/transaction/support/TransactionTemplate.class",
-        "org/springframework/orm/jpa/JpaTransactionManager.class",
-        "org/springframework/context/annotation/AnnotationConfigApplicationContext.class",
-        "org/springframework/beans/factory/support/DefaultListableBeanFactory.class",
-        "org/springframework/core/ResolvableType.class",
-        "org/springframework/aop/framework/ProxyFactory.class",
-        "org/springframework/expression/spel/standard/SpelExpressionParser.class",
-        "com/mysql/cj/jdbc/Driver.class",
-        "org/apache/commons/lang3/StringUtils.class",
-        "org/apache/commons/io/FilenameUtils.class"
-    };
 
     private CdsRuntimeIdentity() {}
 
-    static void addTo(MessageDigest result, ClassLoader loader, byte[] buffer) throws IOException {
+    /** Literal compile-time dependencies only: no source-controlled reflection or class instantiation. */
+    private static Class<?>[] dependencies() {
+        return new Class<?>[] {
+            org.apache.xerces.jaxp.SAXParserFactoryImpl.class,
+            org.apache.xerces.jaxp.validation.XMLSchemaFactory.class,
+            com.fasterxml.jackson.core.JsonFactory.class,
+            com.fasterxml.jackson.databind.ObjectMapper.class,
+            com.fasterxml.jackson.annotation.JsonCreator.class,
+            com.fasterxml.jackson.datatype.jsr310.JavaTimeModule.class,
+            ca.uhn.hl7v2.parser.PipeParser.class,
+            ca.uhn.hl7v2.model.v23.message.ORU_R01.class,
+            org.hibernate.Session.class,
+            jakarta.persistence.EntityManager.class,
+            org.springframework.transaction.support.TransactionTemplate.class,
+            org.springframework.orm.jpa.JpaTransactionManager.class,
+            org.springframework.context.annotation.AnnotationConfigApplicationContext.class,
+            org.springframework.beans.factory.support.DefaultListableBeanFactory.class,
+            org.springframework.core.ResolvableType.class,
+            org.springframework.aop.framework.ProxyFactory.class,
+            org.springframework.expression.spel.standard.SpelExpressionParser.class,
+            org.springframework.jdbc.datasource.DataSourceUtils.class,
+            net.sf.jsqlparser.parser.CCJSqlParserUtil.class,
+            org.apache.commons.dbcp2.BasicDataSource.class,
+            org.apache.commons.pool2.impl.GenericObjectPool.class,
+            com.mysql.cj.jdbc.Driver.class,
+            org.apache.commons.lang3.StringUtils.class,
+            org.apache.commons.io.FilenameUtils.class
+        };
+    }
+
+    static FrozenRuntime addTo(MessageDigest result, ClassLoader loader, byte[] buffer)
+            throws IOException {
         if (buffer.length != 65536)
             throw new IllegalArgumentException("A single 64KiB fingerprint buffer is required");
         CdsImportKeys.add(result, "carlos-cds-runtime-v1");
         Map<Path, String> artifacts = new HashMap<>();
-        for (String resource : DEPENDENCIES) {
-            URL artifact;
-            try {
-                Class<?> type = Class.forName(resource.substring(0, resource.length() - 6).replace('/', '.'), false, loader);
+        try {
+            for (Class<?> type : dependencies()) {
+                String resource = type.getName().replace('.', '/') + ".class";
+                if (loader.getResource(resource) == null) throw unavailable();
                 var source = type.getProtectionDomain().getCodeSource();
-                artifact = source == null ? null : source.getLocation();
-            } catch (ClassNotFoundException | LinkageError | SecurityException unavailable) {
-                throw unavailable();
+                URL artifact = source == null ? null : source.getLocation();
+                if (artifact == null || !artifact.getProtocol().equals("file")) throw unavailable();
+                Path path;
+                try {
+                    path = Path.of(artifact.toURI()).toRealPath();
+                } catch (java.net.URISyntaxException invalid) {
+                    throw unavailable();
+                }
+                String hash = artifacts.get(path);
+                if (hash == null) {
+                    hash = artifactHash(path, JAR_LIMIT, buffer);
+                    artifacts.put(path, hash);
+                }
+                CdsImportKeys.add(result, resource);
+                CdsImportKeys.add(result, hash);
             }
-            if (artifact == null || !artifact.getProtocol().equals("file")) throw unavailable();
-            Path path;
-            try {
-                path = Path.of(artifact.toURI()).toRealPath();
-            } catch (java.net.URISyntaxException invalid) {
-                throw unavailable();
-            }
-            String hash = artifacts.get(path);
-            if (hash == null) {
-                hash = artifactHash(path, JAR_LIMIT, buffer);
-                artifacts.put(path, hash);
-            }
-            CdsImportKeys.add(result, resource);
-            CdsImportKeys.add(result, hash);
+        } catch (LinkageError | SecurityException missingImplementation) {
+            throw unavailable();
         }
         CdsImportKeys.add(result, "java.runtime");
         CdsImportKeys.add(result, Runtime.version().toString());
@@ -115,17 +124,25 @@ final class CdsRuntimeIdentity {
                         Path.of(javaHome).resolve("lib/modules").toRealPath(),
                         MODULE_LIMIT,
                         buffer));
+        FrozenRuntime frozen = snapshot();
         CdsImportKeys.add(result, "java.default-locale");
-        CdsImportKeys.add(result, Locale.getDefault().toLanguageTag());
+        CdsImportKeys.add(result, frozen.locale.toLanguageTag());
+        CdsImportKeys.add(result, "java.format-locale");
+        CdsImportKeys.add(result, frozen.formatLocale.toLanguageTag());
+        CdsImportKeys.add(result, "java.display-locale");
+        CdsImportKeys.add(result, frozen.displayLocale.toLanguageTag());
         CdsImportKeys.add(result, "java.default-zone");
-        CdsImportKeys.add(result, TimeZone.getDefault().getID());
+        CdsImportKeys.add(result, frozen.zone.getID());
         CdsImportKeys.add(result, "java.zone-rules");
-        CdsImportKeys.add(result, zoneRulesHash());
+        CdsImportKeys.add(result, frozen.rulesHash);
+        frozen.verify();
+        return frozen;
     }
 
     static String artifactHash(Path path, long maximum, byte[] buffer) throws IOException {
-        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.size(path) > maximum)
-            throw unavailable();
+        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) throw unavailable();
+        long expected = Files.size(path);
+        if (expected > maximum) throw unavailable();
         MessageDigest digest = CdsImportKeys.digest();
         long bytes = 0;
         int read;
@@ -136,12 +153,71 @@ final class CdsRuntimeIdentity {
                 digest.update(buffer, 0, read);
             }
         }
+        if (bytes != expected || Files.size(path) != expected) throw unavailable();
         return java.util.HexFormat.of().formatHex(digest.digest());
     }
 
+    static FrozenRuntime snapshot() throws IOException {
+        Locale locale = Locale.getDefault();
+        TimeZone zone = TimeZone.getDefault();
+        Locale formatLocale = Locale.getDefault(Locale.Category.FORMAT);
+        Locale displayLocale = Locale.getDefault(Locale.Category.DISPLAY);
+        FrozenRuntime result =
+                new FrozenRuntime(locale, formatLocale, displayLocale, zone, zoneRulesHash());
+        result.verifyDefaults();
+        return result;
+    }
+
+    static final class FrozenRuntime {
+        private final Locale locale;
+        private final Locale formatLocale;
+        private final Locale displayLocale;
+        private final TimeZone zone;
+        private final String rulesHash;
+        private volatile long nextProbe = System.nanoTime() + 1_000_000_000L;
+
+        FrozenRuntime(
+                Locale locale,
+                Locale formatLocale,
+                Locale displayLocale,
+                TimeZone zone,
+                String rulesHash) {
+            this.locale = locale;
+            this.formatLocale = formatLocale;
+            this.displayLocale = displayLocale;
+            this.zone = zone;
+            this.rulesHash = rulesHash;
+        }
+
+        void verifyDefaults() {
+            if (!locale.equals(Locale.getDefault())
+                    || !formatLocale.equals(Locale.getDefault(Locale.Category.FORMAT))
+                    || !displayLocale.equals(Locale.getDefault(Locale.Category.DISPLAY))
+                    || !zone.equals(TimeZone.getDefault()))
+                throw new CdsImportException("IMPORT_FROZEN_RUNTIME_CHANGED");
+        }
+
+        void verify() {
+            verifyDefaults();
+            long now = System.nanoTime();
+            if (now < nextProbe) return;
+            synchronized (this) {
+                if (System.nanoTime() < nextProbe) return;
+                try {
+                    if (!rulesHash.equals(zoneRulesHash()))
+                        throw new CdsImportException("IMPORT_FROZEN_RUNTIME_CHANGED");
+                } catch (IOException unavailable) {
+                    throw unavailable();
+                }
+                nextProbe = System.nanoTime() + 1_000_000_000L;
+            }
+        }
+    }
+
     static String zoneRulesHash() throws IOException {
-        TreeSet<String> zones = new TreeSet<>(ZoneRulesProvider.getAvailableZoneIds());
-        if (zones.isEmpty() || zones.size() > 4096) throw unavailable();
+        var available = ZoneRulesProvider.getAvailableZoneIds();
+        if (available.isEmpty() || available.size() > 4096) throw unavailable();
+        TreeSet<String> zones = new TreeSet<>(available);
         MessageDigest digest = CdsImportKeys.digest();
         var output = new BoundedRuleOutput(digest);
         try (var serialized = new ObjectOutputStream(output)) {
@@ -157,7 +233,7 @@ final class CdsRuntimeIdentity {
                     serialized.writeObject(version.getValue());
                     serialized.flush();
                     serialized.reset();
-                    serialized.flush(); // Do not retain all zone object graphs.
+                    serialized.flush();
                 }
             }
         }

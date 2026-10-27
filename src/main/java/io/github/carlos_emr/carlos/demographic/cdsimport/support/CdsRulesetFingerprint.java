@@ -53,6 +53,19 @@ public record CdsRulesetFingerprint(String sha256) {
         "commn/model/MeasurementType",
         "commn/model/MeasurementsExt",
         "commn/model/Contact",
+        "commn/model/DemographicCust",
+        "commn/model/PharmacyInfo",
+        "commn/model/DemographicPharmacy",
+        "commn/model/ProfessionalContact",
+        "commn/dao/ProfessionalContactDao",
+        "commn/dao/ProfessionalContactDaoImpl",
+        "demographic/pageUtil/SpokenLangProperties",
+        "commn/dao/DemographicCustDao",
+        "commn/dao/DemographicCustDaoImpl",
+        "commn/dao/PharmacyInfoDao",
+        "commn/dao/PharmacyInfoDaoImpl",
+        "commn/dao/DemographicPharmacyDao",
+        "commn/dao/DemographicPharmacyDaoImpl",
         "commn/model/PreventionExt",
         "commn/model/DemographicContact",
         "commn/model/DemographicExt",
@@ -92,18 +105,37 @@ public record CdsRulesetFingerprint(String sha256) {
         "commn/dao/DemographicContactDaoImpl",
         "commn/dao/MeasurementDaoImpl",
         "commn/dao/MeasurementsExtDaoImpl",
+        "report/data/QueryByExampleSqlValidator",
+        "commn/model/Provider",
         "utility/OscarTrackingBasicDataSource"
     };
 
+    private record Cached(
+            CdsRulesetFingerprint fingerprint, CdsRuntimeIdentity.FrozenRuntime runtime) {}
+
+    private static final SuccessfulCache<Cached> CACHE = new SuccessfulCache<>();
+
     public static CdsRulesetFingerprint current() {
-        return Holder.VALUE;
+        Cached value = CACHE.get(CdsRulesetFingerprint::calculate);
+        value.runtime().verify();
+        return value.fingerprint();
     }
 
-    private static final class Holder {
-        private static final CdsRulesetFingerprint VALUE = calculate();
+    /** Cache only a complete success; an operational failure never poisons class initialization. */
+    static final class SuccessfulCache<T> {
+        private volatile T value;
+
+        T get(java.util.function.Supplier<T> calculate) {
+            T existing = value;
+            if (existing != null) return existing;
+            synchronized (this) {
+                if (value == null) value = java.util.Objects.requireNonNull(calculate.get());
+                return value;
+            }
+        }
     }
 
-    private static CdsRulesetFingerprint calculate() {
+    private static Cached calculate() {
         try {
             ClassLoader loader = CdsImportJobService.class.getClassLoader();
             URL anchor = loader.getResource(ANCHOR);
@@ -146,11 +178,22 @@ public record CdsRulesetFingerprint(String sha256) {
                 try (InputStream input = nativeClass.openStream()) {
                     add(classes, BASE + name + ".class", input, buffer);
                 }
+                Resource[] nested = resolver.getResources("classpath*:" + BASE + name + "$*.class");
+                if (nested.length > 256) throw unavailable();
+                for (Resource resource : nested) {
+                    String url = resource.getURL().toExternalForm();
+                    if (!url.startsWith(origin + BASE)) continue;
+                    try (InputStream input = resource.getInputStream()) {
+                        add(classes, url.substring(origin.length()), input, buffer);
+                    }
+                }
+                if (classes.size() > 8192) throw unavailable();
             }
             for (String name :
                     new String[] {
                         "cds-import/schema/EMR_Data_Migration_Schema.xsd",
                         "cds-import/schema/EMR_Data_Migration_Schema_DT.xsd",
+                        "spoken_languages_codes.properties",
                         BASE + "lab/ca/all/parsers/message_config.xml"
                     }) {
                 URL resource = loader.getResource(name);
@@ -166,8 +209,10 @@ public record CdsRulesetFingerprint(String sha256) {
                 CdsImportKeys.add(digest, entry.getKey());
                 CdsImportKeys.add(digest, entry.getValue());
             }
-            CdsRuntimeIdentity.addTo(digest, loader, buffer);
-            return new CdsRulesetFingerprint(java.util.HexFormat.of().formatHex(digest.digest()));
+            var runtime = CdsRuntimeIdentity.addTo(digest, loader, buffer);
+            return new Cached(
+                    new CdsRulesetFingerprint(java.util.HexFormat.of().formatHex(digest.digest())),
+                    runtime);
         } catch (IOException failure) {
             throw unavailable();
         }

@@ -270,6 +270,8 @@ public class CdsReportImportService implements CdsCategoryImportService {
             document.setProgramId(command.programId());
             document.setRestrictToProgram(command.programId() != null);
             document.setUpdatedatetime(new Date());
+            // Operational page-count cache: 0 means not yet counted, not a clinical page claim.
+            document.setNumberofpages(0);
             document.setSourceFacility(values.get("SourceFacility"));
             String source = values.get("NativeSourceAuthor");
             if (source != null && source.codePointCount(0, source.length()) <= 60)
@@ -286,6 +288,7 @@ public class CdsReportImportService implements CdsCategoryImportService {
             // Partial dates remain labelled logical values in the report module, without false
             // native days.
             document.setContentdatetime(timestamp(event));
+            document.setCdsContentPrecision(event.precision().name());
             document.setObservationdate(
                     event.exactCalendarDate() ? event.dateStorageAnchor() : null);
             document.setReceivedDate(
@@ -377,12 +380,14 @@ public class CdsReportImportService implements CdsCategoryImportService {
             } else {
                 var inspected =
                         text
-                                ? mediaInspection.xmlText(logicalLength)
+                                ? mediaInspection.xmlText(logicalLength, declaredType)
                                 : mediaInspection.inspect(
                                         declaredType,
                                         logicalLength,
                                         "Content/Media",
                                         logicalSource);
+                if (!text && "Text".equals(format))
+                    inspected = mediaInspection.binaryUnderTextDeclaration(inspected);
                 result.add(
                         representation(
                                 "embedded",
@@ -398,16 +403,36 @@ public class CdsReportImportService implements CdsCategoryImportService {
                 throw new CdsImportException("REPORT_SNAPSHOT_CONTEXT_MISSING");
             CdsSnapshotFileDto file = snapshots.resolveReference(snapshot, xmlRelative, external);
             CdsDocumentPublicationService.Source externalSource =
-                    () -> Files.newInputStream(file.path(), LinkOption.NOFOLLOW_LINKS);
+                    () -> controlledExternal(file.path());
             var inspected =
                     mediaInspection.inspect(
                             declaredType, file.length(), "FilePath", externalSource);
+            if ("Text".equals(format) && !inspected.mime().startsWith("text/plain"))
+                inspected = mediaInspection.binaryUnderTextDeclaration(inspected);
             result.add(
                     representation(
                             "referenced", file.sha256(), file.length(), externalSource, inspected));
         }
         if (result.isEmpty()) throw new CdsImportException("REPORT_REPRESENTATION_MISSING");
         return result;
+    }
+
+    private java.io.InputStream controlledExternal(java.nio.file.Path path) throws IOException {
+        fields.checkpoint();
+        return new java.io.FilterInputStream(
+                Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
+            @Override
+            public int read() throws IOException {
+                fields.checkpoint();
+                return in.read();
+            }
+
+            @Override
+            public int read(byte[] bytes, int offset, int length) throws IOException {
+                fields.checkpoint();
+                return in.read(bytes, offset, length);
+            }
+        };
     }
 
     private Date timestamp(CdsTemporalDto temporal) {
@@ -483,31 +508,41 @@ public class CdsReportImportService implements CdsCategoryImportService {
         return switch (code) {
             case "CDS_REPORT_MEDIA_DECLARATION_MISMATCH" ->
                     "The report bytes do not match the declared media header; complete bytes remain"
-                        + " an opaque document requiring source media review";
+                            + " an opaque document requiring source media review";
             case "CDS_REPORT_TEXT_ENCODING_REQUIRES_REVIEW" ->
                     "The external or decoded text encoding is not established as UTF8; original"
-                        + " bytes remain an opaque document requiring encoding review";
+                            + " bytes remain an opaque document requiring encoding review";
+            case "CDS_REPORT_TEXT_ENCODING_INFERRED_UTF8" ->
+                    "The report bytes validate as UTF8 but source encoding was unspecified; native"
+                            + " text interpretation requires review and original bytes remain"
+                            + " unchanged";
+            case "CDS_REPORT_TEXT_MEDIA_DECLARATION_RETAINED" ->
+                    "The source media declaration differs from exported XML text; both remain"
+                            + " available for review";
+            case "CDS_REPORT_BINARY_FORMAT_DECLARATION_RETAINED" ->
+                    "The source marks decoded binary content as Text; complete bytes and that"
+                            + " declaration remain available for review";
             case "CDS_REPORT_MEDIA_UNRECOGNIZED_SOURCE_RETAINED" ->
                     "The report media type is unsupported or unrecognized; complete original bytes"
-                        + " remain an opaque document requiring source media review";
+                            + " remain an opaque document requiring source media review";
             case "CDS_REPORT_MEDIA_FROM_BOUNDED_HEADER" ->
                     "Native media type follows a bounded recognized file header; the original"
-                        + " versioned or unsupported declaration remains in report details";
+                            + " versioned or unsupported declaration remains in report details";
             case "CDS_REPORT_EMPTY_REPRESENTATION" ->
                     "The source report representation contains no bytes and requires review; its"
-                        + " presence and metadata remain accounted for";
+                            + " presence and metadata remain accounted for";
             case "CDS_REPORT_SUBSECOND_PRECISION_RETAINED_IN_SOURCE" ->
                     "The native timestamp is explicitly reduced to whole seconds; complete source"
-                        + " subsecond precision remains in report details";
+                            + " subsecond precision remains in report details";
             case "CDS_REPORT_RECEIVED_TIME_RETAINED_IN_SOURCE" ->
                     "The native received-date destination stores a calendar date; complete received"
-                        + " time remains in report details";
+                            + " time remains in report details";
             case "CDS_REPORT_SENT_DATE_ONLY_RETAINED_IN_SOURCE" ->
                     "The source supplies a sent date without a clock; it remains in report details"
-                        + " without an invented native timestamp";
+                            + " without an invented native timestamp";
             default ->
                     "Source meaning retained in the report category with original values and"
-                        + " explicit precision";
+                            + " explicit precision";
         };
     }
 }

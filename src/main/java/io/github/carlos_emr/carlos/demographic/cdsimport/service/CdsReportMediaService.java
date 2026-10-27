@@ -58,10 +58,30 @@ public class CdsReportMediaService {
 
     /** XML parser/corrected logical strings already establish this representation's UTF8 encoding. */
     public Result xmlText(long length) {
+        return xmlText(length, null);
+    }
+
+    public Result xmlText(long length, String declaration) {
         List<CdsClinicalDiagnosticDto> diagnostics = new ArrayList<>(1);
         if (length == 0)
             notice(diagnostics, "CDS_REPORT_EMPTY_REPRESENTATION", "Content/TextContent");
-        return result(TEXT, length == 0, diagnostics);
+        Media source = declared(declaration);
+        boolean inconsistent =
+                declaration != null
+                        && !declaration.isBlank()
+                        && (source == null || !source.extension().equals("txt"));
+        if (inconsistent)
+            notice(
+                    diagnostics,
+                    "CDS_REPORT_TEXT_MEDIA_DECLARATION_RETAINED",
+                    "FileExtensionAndVersion");
+        return result(TEXT, length == 0 || inconsistent, diagnostics);
+    }
+
+    public Result binaryUnderTextDeclaration(Result inspected) {
+        List<CdsClinicalDiagnosticDto> diagnostics = new ArrayList<>(inspected.diagnostics());
+        notice(diagnostics, "CDS_REPORT_BINARY_FORMAT_DECLARATION_RETAINED", "Format");
+        return new Result(inspected.extension(), inspected.mime(), true, diagnostics);
     }
 
     public Result inspect(
@@ -98,7 +118,10 @@ public class CdsReportMediaService {
                     notice(diagnostics, "CDS_REPORT_TEXT_ENCODING_REQUIRES_REVIEW", sourcePath);
                     return result(OPAQUE, true, diagnostics);
                 }
-                return result(TEXT, length == 0, diagnostics);
+                boolean specified = hasUtf8Bom(prefix) || explicitlyUtf8(declaration);
+                if (!specified)
+                    notice(diagnostics, "CDS_REPORT_TEXT_ENCODING_INFERRED_UTF8", sourcePath);
+                return result(TEXT, length == 0 || !specified, diagnostics);
             }
             if (declared != null) {
                 if (!declared.equals(actual)) {
@@ -136,7 +159,12 @@ public class CdsReportMediaService {
         String value = source == null ? "" : source.trim().toLowerCase(Locale.ROOT);
         return switch (value) {
             case "pdf", ".pdf", "application/pdf" -> new Media("pdf", "application/pdf");
-            case "txt", ".txt", "text/plain" -> TEXT;
+            case "txt",
+                    ".txt",
+                    "text/plain",
+                    "text/plain;charset=utf-8",
+                    "text/plain; charset=utf-8" ->
+                    TEXT;
             case "jpg", "jpeg", ".jpg", ".jpeg", "image/jpeg" -> new Media("jpg", "image/jpeg");
             case "png", ".png", "image/png" -> new Media("png", "image/png");
             case "tif", "tiff", ".tif", ".tiff", "image/tiff" -> new Media("tif", "image/tiff");
@@ -191,6 +219,19 @@ public class CdsReportMediaService {
 
     private static int u(byte value) {
         return value & 255;
+    }
+
+    private static boolean hasUtf8Bom(byte[] bytes) {
+        return bytes.length >= 3
+                && u(bytes[0]) == 0xEF
+                && u(bytes[1]) == 0xBB
+                && u(bytes[2]) == 0xBF;
+    }
+
+    private static boolean explicitlyUtf8(String declaration) {
+        String value = declaration == null ? "" : declaration.trim().toLowerCase(Locale.ROOT);
+        return value.equals("text/plain;charset=utf-8")
+                || value.equals("text/plain; charset=utf-8");
     }
 
     private static void cancelled() {

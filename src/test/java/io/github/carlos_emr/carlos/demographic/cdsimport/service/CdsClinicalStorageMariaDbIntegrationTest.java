@@ -388,7 +388,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                 for (String precision : java.util.List.of("UNKNOWN", "YEAR", "FULL_DATE")) {
                     Map<String, String> source = new LinkedHashMap<>();
                     source.put("ImmunizationName", "Synthetic vaccine");
-                    source.put("RefusedFlag", precision.equals("YEAR") ? "Y" : "N");
+                    source.put("RefusedFlag/ynIndicatorsimple", precision.equals("YEAR") ? "Y" : "N");
                     if (precision.equals("YEAR")) source.put("Date/YearOnly", "2019");
                     if (precision.equals("FULL_DATE")) source.put("Date/FullDate", "2019-01-01");
                     var normalized =
