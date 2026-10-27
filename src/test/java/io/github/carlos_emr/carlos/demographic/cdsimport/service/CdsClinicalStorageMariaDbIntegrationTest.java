@@ -37,6 +37,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -46,6 +47,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TimeZone;
 
 /** Real native ORM storage and rollback proof against an explicitly selected synthetic schema. */
 @Tag("integration")
@@ -450,6 +452,173 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                 transaction.rollback();
             }
         }
+    }
+
+    @Test
+    @ResourceLock("java.util.TimeZone")
+    void earlyCivilDatesAndTheirRecordedPrecisionSurviveTheNativeImmunizationWriter()
+            throws Exception {
+        withImmunizationTransaction((session, writer, dates, extensions) -> {
+            for (String[] choice : java.util.List.of(
+                    new String[] {"YearOnly", "0001", "YEAR"},
+                    new String[] {"YearMonth", "1500-02", "MONTH"},
+                    new String[] {"FullDate", "0001-01-01", "FULL_DATE"},
+                    new String[] {"FullDate", "0999-12-31", "FULL_DATE"},
+                    new String[] {"FullDate", "1000-01-01", "FULL_DATE"},
+                    new String[] {"FullDate", "1500-01-01", "FULL_DATE"},
+                    new String[] {"FullDate", "1582-10-15", "FULL_DATE"},
+                    new String[] {"FullDate", "9999-12-31", "FULL_DATE"})) {
+                var source = immunizationDate(choice[0], choice[1]);
+                writer.validate(source);
+                var receipt = writer.write(42, "T099", source);
+                session.flush();
+                session.clear();
+                int id = Integer.parseInt(receipt.get("preventions"));
+                Prevention stored = session.find(Prevention.class, id);
+                assertThat(stored.getCreatorProviderNo()).isEqualTo("T099");
+                assertThat(nativePreventionDate(session, id))
+                        .as("stored civil date for %s", choice[1])
+                        .isEqualTo(source.date().earliest().toString());
+                var read = new CdsTemporalReadService(dates).date(stored.getPreventionDate(),
+                        PartialDate.PREVENTION, id, PartialDate.PREVENTION_PREVENTIONDATE);
+                assertThat(read.getPrecision()).isEqualTo(choice[2]);
+                assertThat(read.getValue()).isEqualTo(choice[1]);
+                var preventionRead =
+                        io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO.from(
+                                stored.getPreventionDate(),
+                                dates.getFormat(PartialDate.PREVENTION, id,
+                                        PartialDate.PREVENTION_PREVENTIONDATE));
+                assertThat(preventionRead.getOriginalValue()).isEqualTo(choice[1]);
+                assertThat(extensions.getPreventionExt(id))
+                        .containsEntry("cdsDateOriginal", choice[1])
+                        .containsEntry("cdsDatePrecision", choice[2]);
+            }
+        });
+    }
+
+    @Test
+    @ResourceLock("java.util.TimeZone")
+    void unrepresentableCalendarDaysAndTimestampFoldsRefuseBeforeNativeWriting()
+            throws Exception {
+        withImmunizationTransaction((session, writer, dates, extensions) -> {
+            Map<String, Long> before = nativeTemporalRowCounts(session);
+            for (String[] choice : java.util.List.of(
+                    new String[] {"FullDate", "1582-10-10", "CDS_NATIVE_DATE_REQUIRES_REVIEW"},
+                    new String[] {"FullDateTime", "2020-11-01T01:30:00-04:00",
+                            "CDS_NATIVE_TIMESTAMP_REQUIRES_REVIEW"},
+                    new String[] {"FullDateTime", "2020-11-01T01:30:00",
+                            "CDS_LOCAL_TIME_REQUIRES_REVIEW"},
+                    new String[] {"FullDateTime", "2020-03-08T02:30:00",
+                            "CDS_LOCAL_TIME_REQUIRES_REVIEW"})) {
+                var source = immunizationDate(choice[0], choice[1]);
+                assertThatThrownBy(() -> writer.validate(source))
+                        .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException.class)
+                        .hasMessage(choice[2] + " (Date)");
+                assertThatThrownBy(() -> writer.write(42, "T099", source))
+                        .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException.class)
+                        .hasMessage(choice[2] + " (Date)");
+                assertThat(source.date().original()).isEqualTo(choice[1]);
+                session.flush();
+                assertThat(nativeTemporalRowCounts(session)).isEqualTo(before);
+            }
+        });
+    }
+
+    @Test
+    @ResourceLock("java.util.TimeZone")
+    void timestampPrecisionIsFlooredBeforeDatetimeZeroRoundingAndLaterFoldKeepsItsInstant()
+            throws Exception {
+        withImmunizationTransaction((session, writer, dates, extensions) -> {
+            for (String[] choice : java.util.List.of(
+                    new String[] {"2020-12-31T23:59:59.999999-05:00",
+                            "2021-01-01T04:59:59Z", "2020-12-31"},
+                    new String[] {"2020-11-01T01:30:00-05:00",
+                            "2020-11-01T06:30:00Z", "2020-11-01"})) {
+                var source = immunizationDate("FullDateTime", choice[0]);
+                writer.validate(source);
+                var receipt = writer.write(42, "T099", source);
+                session.flush();
+                session.clear();
+                int id = Integer.parseInt(receipt.get("preventions"));
+                Prevention stored = session.find(Prevention.class, id);
+                assertThat(stored.getPreventionDate().toInstant()).isEqualTo(Instant.parse(choice[1]));
+                assertThat(nativePreventionDate(session, id)).isEqualTo(choice[2]);
+                assertThat(io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                                .from(stored.getPreventionDate(), null).getOriginalValue())
+                        .isEqualTo(choice[2]);
+                assertThat(extensions.getPreventionExt(id))
+                        .containsEntry("cdsDateOriginal", choice[0])
+                        .containsEntry("cdsDatePrecision", "OFFSET_DATE_TIME");
+            }
+        });
+    }
+
+    private io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImmunizationDto
+            immunizationDate(String choice, String value) throws Exception {
+        return normalization.immunization(CdsClinicalFixture.record(directory, "Immunizations",
+                Map.of("ImmunizationName", "Synthetic calendar vaccine",
+                        "RefusedFlag/ynIndicatorsimple", "N", "Date/" + choice, value)));
+    }
+
+    private static String nativePreventionDate(Session session, int id) {
+        return session.createNativeQuery(
+                        "SELECT DATE_FORMAT(prevention_date,'%Y-%m-%d') FROM preventions WHERE id=:id",
+                        String.class)
+                .setParameter("id", id).getSingleResult();
+    }
+
+    private static Map<String, Long> nativeTemporalRowCounts(Session session) {
+        Map<String, Long> result = new LinkedHashMap<>();
+        for (String model : java.util.List.of("Prevention", "PreventionExt", "PartialDate"))
+            result.put(model, session.createQuery("select count(p) from " + model + " p", Long.class)
+                    .getSingleResult());
+        return result;
+    }
+
+    private void withImmunizationTransaction(ImmunizationStorageCheck check) throws Exception {
+        TimeZone previousZone = TimeZone.getDefault();
+        TimeZone clinicZone = TimeZone.getTimeZone("America/Toronto");
+        try {
+            TimeZone.setDefault(clinicZone);
+            // The original fixture deliberately fixes JDBC to UTC. These cases exercise the
+            // clinic Calendar used by the actual application and its unqualified DATETIME column.
+            try (Session session = factory.withOptions().jdbcTimeZone(clinicZone).openSession()) {
+                var transaction = session.beginTransaction();
+                boolean previousActive = org.springframework.transaction.support.TransactionSynchronizationManager
+                        .isActualTransactionActive();
+                Map<String, Long> before;
+                try {
+                    before = nativeTemporalRowCounts(session);
+                    session.createNativeMutationQuery(
+                                    "SET SESSION sql_mode='STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION,TIME_ROUND_FRACTIONAL'")
+                            .executeUpdate();
+                    var preventions = new PreventionMergedDemographicDaoImpl();
+                    var extensions = new PreventionExtDaoImpl();
+                    var dates = new PartialDateDaoImpl();
+                    for (Object dao : new Object[] {preventions, extensions, dates})
+                        ReflectionTestUtils.setField(dao, "entityManager", session);
+                    var writer = new CdsImmunizationPersister(
+                            preventions, extensions, dates, normalization, "America/Toronto");
+                    org.springframework.transaction.support.TransactionSynchronizationManager
+                            .setActualTransactionActive(true);
+                    check.run(session, writer, dates, extensions);
+                } finally {
+                    org.springframework.transaction.support.TransactionSynchronizationManager
+                            .setActualTransactionActive(previousActive);
+                    transaction.rollback();
+                }
+                session.clear();
+                assertThat(nativeTemporalRowCounts(session)).isEqualTo(before);
+            }
+        } finally {
+            TimeZone.setDefault(previousZone);
+        }
+    }
+
+    @FunctionalInterface
+    private interface ImmunizationStorageCheck {
+        void run(Session session, CdsImmunizationPersister writer, PartialDateDao dates,
+                PreventionExtDao extensions) throws Exception;
     }
 
     private static void strict(Session session) {
