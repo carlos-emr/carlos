@@ -112,6 +112,12 @@ def main() -> None:
             or not all(isinstance(value, str) for value in operations) \
             or set(operations) != {"import", "status", "resume", "cancel", "report"}:
         raise RuntimeError("actual container engine protocol did not match")
+    memory_limit = Path("/sys/fs/cgroup/memory.max").read_text(encoding="ascii").strip()
+    cpu_limit = Path("/sys/fs/cgroup/cpu.max").read_text(encoding="ascii").split()
+    if not memory_limit.isdecimal() or int(memory_limit) != (heap + 256) * 1024 * 1024 \
+            or len(cpu_limit) != 2 or not all(value.isdecimal() for value in cpu_limit) \
+            or int(cpu_limit[0]) <= 0 or int(cpu_limit[0]) != int(cpu_limit[1]):
+        raise RuntimeError("container cgroup limits did not match the actual launcher's heap-plus-headroom and one CPU")
     environment["CARLOS_CDS_HEAP_MIB"] = str(heap)
 
     def operation(label: str, argv: list[str]) -> tuple[str, dict]:
@@ -167,7 +173,8 @@ def main() -> None:
     if after != expected:
         raise RuntimeError("container native delta differed from one new patient and one note")
     print(json.dumps({"containerEngine": "PASS", "runId": run, "clinicalComplete": True,
-                      "nativePatients": 1, "nativeNotes": 1, "heapMiB": heap}))
+                      "nativePatients": 1, "nativeNotes": 1, "heapMiB": heap,
+                      "memoryLimitMiB": heap + 256, "cpuLimit": 1}))
 
 
 if __name__ == "__main__":
