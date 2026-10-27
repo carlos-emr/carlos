@@ -49,8 +49,11 @@ The gate requires all of these outcomes:
 - The full pinned contract corpus accounts for all schema categories, including
   an independently authorized alphanumeric provider and its native prevention
   creator value. Directory and ZIP inputs each account for two patients.
-- SIGTERM after a durable accepted handle is observed, explicit cancellation,
-  and resume reconcile the original run through clinical completion.
+- Submission-key status recovers the exact accepted run without resubmission;
+  an unknown key remains explicitly uncertain.
+- SIGTERM occurs only after a native clinical note and checkpoint exist with
+  outstanding work. Durable cancellation and resume reconcile the same run to
+  exactly 256 notes and one patient, with no duplicate/checkpoint gaps or holds.
 - Synthetic course mode produces exactly two independent student copies.
   Missing/inactive personal programs, inactive students and inactive courses
   are refused without an ordinary-chart fallback or new committed units.

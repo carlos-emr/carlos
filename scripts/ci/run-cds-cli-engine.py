@@ -126,10 +126,16 @@ def main() -> None:
                         accepted = [row for row in rows(log) if row.get("event") == "ACCEPTED"]
                         if accepted:
                             runs[label] = accepted[-1]["runId"]
-                            stop(process)
-                            break
+                            observed = fixture("inspect", runs[label])
+                            committed = observed.get("checkpoints", 0)
+                            expected_units = observed.get("expectedUnits", 0)
+                            if observed.get("nativeNotes", 0) > 0 and 0 < committed < expected_units:
+                                # A real clinical note and checkpoint must exist,
+                                # with outstanding work, before interrupting.
+                                stop(process)
+                                break
                         if process.poll() is not None:
-                            raise RuntimeError("cancel fixture completed before an accepted handle could be interrupted")
+                            raise RuntimeError("cancel fixture completed before a partial clinical import could be interrupted")
                         time.sleep(0.05)
                     else:
                         raise RuntimeError("accepted handle was not delivered within the gate deadline")
@@ -186,10 +192,13 @@ def main() -> None:
     counts = fixture("inspect", runs["ordinary"])
     if counts.get("nativeTargets") != 1 or counts.get("holds") != 0 or counts.get("checkpoints") != ordinary["expectedUnits"]:
         raise RuntimeError("native/checkpoint/hold evidence did not match the completion receipt")
+    before_noop = fixture("inspect", "fixture")
     noop = submit("no-op", metadata["sources"]["ordinary"])
     assert_complete(noop)
     if noop.get("committedUnits") != 0 or noop.get("alreadyCompleteUnits") != noop.get("expectedUnits"):
         raise RuntimeError("unchanged reimport did not reconcile as an explicit no-op")
+    if fixture("inspect", "fixture") != before_noop or fixture("inspect", runs["ordinary"]) != counts:
+        raise RuntimeError("unchanged no-op modified native counts or the original completion evidence")
     resumed = result(invoke("completed-resume", ["--resume", runs["ordinary"], *common], {0}))
     assert_complete(resumed)
     for operation in ("status", "report"):
@@ -228,7 +237,13 @@ def main() -> None:
     for key, expected in {"nativeProfessionalContacts": 2, "nativeDemographicContacts": 3,
                           "nativeUnknownContactConsents": 3, "nativePreferredPharmacies": 1,
                           "nativeLaboratoryResults": 1, "nativeLaboratoryProjection": 1,
-                          "nativeLaboratoryPrivateNoteIsolated": 1}.items():
+                          "nativeLaboratoryPrivateNoteIsolated": 1, "nativeDrugs": 1,
+                          "nativeAllergies": 1, "nativePreventions": 1, "nativeYearPreventions": 1,
+                          "nativeAppointments": 1, "nativeMeasurements": 2, "nativeDocuments": 2,
+                          "nativeUnclockedReports": 2, "nativeMonthReports": 1, "nativeUnknownReports": 1,
+                          "nativeFamilyPhysicians": 1, "nativeReferringPhysicians": 1,
+                          "nativeUnknownActivePharmacyConsents": 1, "nativeNotesWithoutObservationClock": 7,
+                          "nativeUnsignedAuthorFreeNotes": 7}.items():
         if native.get(key) != expected:
             raise RuntimeError("full contract corpus native association/result counts did not match")
     if native.get("nativeNotes") != 7:
@@ -249,8 +264,14 @@ def main() -> None:
     invoke("interrupted", ["--input", str(path_from(metadata["sources"]["cancel"])), *common, *contract],
            {130, 143, -signal.SIGTERM, 4}, interrupt=True)
     invoke("cancel", ["--cancel", runs["interrupted"], *common], {4})
+    if fixture("inspect", runs["interrupted"]).get("cancelRequested") is not True:
+        raise RuntimeError("cancellation was not durably recorded on the partially committed import")
     recovered = result(invoke("interrupted-resume", ["--resume", runs["interrupted"], *common], {0}))
     assert_complete(recovered)
+    recovered_counts = fixture("inspect", runs["interrupted"])
+    if recovered_counts.get("nativeTargets") != 1 or recovered_counts.get("nativeNotes") != 256 \
+            or recovered_counts.get("checkpoints") != recovered.get("expectedUnits") or recovered_counts.get("holds") != 0:
+        raise RuntimeError("partial-import resume duplicated or omitted native units/patient or retained a hold")
     course_options = ["--synthetic", "--course", str(metadata["courseId"]), "--timeshift", "7"]
     if metadata.get("facilityId") is not None:
         course_options += ["--facility", str(metadata["facilityId"])]
