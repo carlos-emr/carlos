@@ -333,7 +333,7 @@ async function workflow(s) {
   let admin, frame, dry, actual, id;
   await s.step('Existing menu and bookmark route render the secured durable import UI', async () => {
     ({admin, frame} = await openImportFrame(s));
-    h.assert(await frame.locator('#cancelRun,#resumeRun,#eventReport,#errorReport,#receiptReport').count() === 5,
+    h.assert(await frame.locator('#cancelRun,#resumeRun,#eventReport,#errorReport,#receiptReport,#unitsReport').count() === 6,
       'Operator controls or protected reports are missing');
   });
   await s.step('Empty input visibly refuses acceptance and leaves the database unchanged', async () => {
@@ -426,7 +426,7 @@ async function workflow(s) {
     } finally { await doctor.context.close(); }
   });
   await s.step('Run-scoped protected downloads deliver durable event, error and reconciliation evidence', async () => {
-    for (const [selector, type] of [['eventReport','event'],['errorReport','error'],['receiptReport','receipt']]) {
+    for (const [selector, type] of [['eventReport','event'],['errorReport','error'],['receiptReport','receipt'],['unitsReport','units']]) {
       const link = frame.locator('#' + selector); await link.waitFor({state: 'visible'});
       const href = await link.getAttribute('href'); const url = new URL(href, frame.url());
       h.assert(url.searchParams.get('runId') === actual.job.id && url.searchParams.get('type') === type
@@ -448,6 +448,14 @@ async function workflow(s) {
         h.assert(receipt.runId === actual.job.id && receipt.clinicalComplete === true && receipt.reportsDelivered === true
           && receipt.cleanupComplete === true && receipt.manifestDigest === actual.job.manifestDigest,
         'Completion file does not reconcile its run, immutable manifest, clinical outcome and delivery');
+      } else if (type === 'units') {
+        const units=contents.trim().split(/\r?\n/).filter(Boolean).map(row=>JSON.parse(row));
+        h.assert(units.length === actual.summary.expectedUnits
+          && new Set(units.map(row=>row.unitKey)).size === actual.summary.expectedUnits
+          && units.every(row=>row.patientId === v.lastName.slice(-20)
+            && ['COMMITTED','ALREADY_COMPLETE'].includes(row.state)
+            && /^[0-9a-f]{64}$/.test(row.sourceDigest) && /^[0-9a-f]{64}$/.test(row.targetDigest)),
+        'Complete item log omitted or duplicated a clinical/helper unit or its verified source/target receipt');
       } else {
         const errors=contents.trim().split(/\r?\n/).filter(Boolean).map(row=>JSON.parse(row));
         h.assert(errors.every(row => !(row.blocking === true && row.resolved === false)
@@ -632,6 +640,26 @@ async function nativeViewsWorkflow(s) {
     const receipt = await importApi(frame,'cdsImportReport',{runId:run.job.id,type:'receipt'});
     h.assert(receipt.body?.manifestDigest === run.job.manifestDigest && receipt.body?.cleanComplete === true,
       'Corpus receipt hash/completeness proof differs from durable status');
+    for (const [selector,type] of [['errorReport','error'],['receiptReport','receipt'],['unitsReport','units']]) {
+      const transfer=admin.waitForEvent('download'); await frame.locator('#'+selector).click();
+      const saved=await transfer; h.assert(await saved.failure() === null,'Corpus protected report transfer failed');
+      const body=fs.readFileSync(await saved.path(),'utf8');
+      h.assert(!/<html/i.test(body),'Corpus report was an HTML error or login page');
+      if(type==='units') {
+        const units=body.trim().split(/\r?\n/).filter(Boolean).map(line=>JSON.parse(line));
+        h.assert(units.length===run.summary.expectedUnits && new Set(units.map(row=>row.unitKey)).size===units.length
+          && units.every(row=>row.patientId===sourceId && ['COMMITTED','ALREADY_COMPLETE'].includes(row.state)),
+        'Corpus item log does not reconcile every expected clinical/helper unit exactly once');
+      } else if(type==='receipt') {
+        const completion=JSON.parse(body);
+        h.assert(completion.manifestDigest===run.job.manifestDigest && completion.cleanComplete===true,
+          'Downloaded corpus completion receipt differs from its durable selected manifest');
+      } else {
+        const errors=body.trim().split(/\r?\n/).filter(Boolean).map(line=>JSON.parse(line));
+        h.assert(errors.every(row=>!(row.blocking===true && row.resolved===false)
+          && row.code!=='SOURCE_UNIT_NOT_COMMITTED'),'Corpus completion retained an unresolved blocking/uncommitted unit');
+      }
+    }
   });
   // This complete synthetic chart and its immutable receipts are deliberately retained for native
   // clinician-view/recovery inspection in the disposable reference DB; no clinic data is involved.

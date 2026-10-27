@@ -645,7 +645,7 @@ async function run(env = process.env) {
       + ' AND submission_key=(SELECT submission_key FROM cds_import_upload WHERE id=' + q(state.uploadId) + ')') === '1',
       'A lost ACK or reconnect created another accepted run');
     const reports = protectedEvidence(sql,state,env);
-    for (const [selector,key] of [['eventReport','event'],['errorReport','error'],['receiptReport','completion']]) {
+    for (const [selector,key] of [['eventReport','event'],['errorReport','error'],['receiptReport','completion'],['unitsReport','units']]) {
       const transfer = current.page.waitForEvent('download',{timeout:30000});
       await current.page.locator('#' + selector).click();
       const download = await transfer;

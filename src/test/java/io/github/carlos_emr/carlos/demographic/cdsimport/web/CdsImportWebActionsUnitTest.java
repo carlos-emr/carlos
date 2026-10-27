@@ -41,18 +41,23 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccess
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.time.Instant;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import org.apache.struts2.ActionContext;
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
+    @TempDir Path directory;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private CdsImportAccessService access;
@@ -122,6 +127,42 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
         var report = new CdsImportReport2Action(access, imports); report.setRunId("11111111-1111-4111-8111-111111111111"); report.setType("event");
         report.execute(); assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(imports);
         assertThat(response.getContentAsString()).doesNotContain("/private");
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"GET", "HEAD"})
+    void shouldStreamTheCompleteItemLog_throughVersionlessAuthorizedReportReads(String method) throws Exception {
+        String run="11111111-1111-4111-8111-111111111111";
+        byte[] bytes=("{\"unitKey\":\"synthetic-unit\",\"state\":\"COMMITTED\"}\n".repeat(4096)).getBytes(StandardCharsets.UTF_8);
+        Path file=directory.resolve("protected-units.jsonl"); Files.write(file,bytes);
+        request.setMethod(method); request.removeParameter(CdsWeb.API_VERSION_PARAMETER);
+        request.addParameter("runId",run); request.addParameter("type","units");
+        when(imports.report(actor,run,"units")).thenReturn(file);
+        var report=new CdsImportReport2Action(access,imports); report.setRunId(run); report.setType("units");
+        report.execute();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).isEqualTo("application/octet-stream");
+        assertThat(response.getHeader("Content-Length")).isEqualTo(Integer.toString(bytes.length));
+        assertThat(response.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"cds-import-"+run+"-units.log\"");
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        assertThat(response.getHeader("Content-Security-Policy")).isEqualTo("sandbox");
+        assertThat(response.getContentAsByteArray()).isEqualTo("HEAD".equals(method)?new byte[0]:bytes);
+        org.mockito.Mockito.verify(access).requireOperatorSession(actor);
+        org.mockito.Mockito.verify(imports).report(actor,run,"units");
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"anonymous", "nonoperator", "nonowner"})
+    void shouldNeverDeliverTheItemLog_whenFreshAuthorizationOrOwnershipIsRefused(String principal) throws Exception {
+        String run="11111111-1111-4111-8111-111111111111";
+        if ("anonymous".equals(principal)) {request.getSession().invalidate();request.setSession(null);}
+        else if ("nonoperator".equals(principal)) org.mockito.Mockito.doThrow(new SecurityException("private access detail"))
+                .when(access).requireOperatorSession(actor);
+        else when(imports.report(actor,run,"units")).thenThrow(new SecurityException("private ownership detail"));
+        var report=new CdsImportReport2Action(access,imports);report.setRunId(run);report.setType("units");report.execute();
+        assertThat(response.getStatus()).isEqualTo("anonymous".equals(principal)?401:403);
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+        assertThat(response.getContentAsString()).doesNotContain("private", "unitKey", "Exception");
+        if (!"nonowner".equals(principal)) verifyNoInteractions(imports);
     }
 
     @Test void shouldDeliverOnlyAuthorizedSafeEvidence_byRunAndDiagnosticIdentity() throws Exception {

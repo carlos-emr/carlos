@@ -144,6 +144,7 @@
             <a id="eventReport" class="btn btn-outline-secondary" hidden><fmt:message key="eventLog" bundle="${cds}"/></a>
             <a id="errorReport" class="btn btn-outline-secondary" hidden><fmt:message key="errorLog" bundle="${cds}"/></a>
             <a id="receiptReport" class="btn btn-outline-secondary" hidden><fmt:message key="receipt" bundle="${cds}"/></a>
+            <a id="unitsReport" class="btn btn-outline-secondary" hidden><fmt:message key="unitLog" bundle="${cds}"/></a>
         </div>
         <h3 class="h6"><fmt:message key="patients" bundle="${cds}"/></h3>
         <div class="table-responsive"><table class="table table-sm"><thead><tr>

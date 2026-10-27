@@ -434,8 +434,10 @@
             byId('resumeRun').disabled = recoveryControls(latestSummary).resumeDisabled;
             const summary = JSON.stringify({job: data.job, summary: latestSummary}, null, 2);
             byId('runSummary').textContent = summary.length > 32000 ? summary.slice(0, 32000) + '\n' + text.page : summary;
-            for (const [element, type] of [['eventReport', 'event'], ['errorReport', 'error'], ['receiptReport', 'receipt']]) {
+            for (const [element, type] of [['eventReport', 'event'], ['errorReport', 'error'], ['receiptReport', 'receipt'], ['unitsReport', 'units']]) {
                 const link = byId(element);
+                // Older templates have the original three reports; this additive link must not break them.
+                if (element === 'unitsReport' && !link) continue;
                 link.hidden = !data.job.reportsAvailable;
                 link.href = root.dataset.context + '/form/cdsImportReport?' + new URLSearchParams({runId: id, type});
             }
@@ -460,7 +462,11 @@
             byId('runSummary').textContent = ''; byId('patientRows').replaceChildren(); byId('diagnosticRows').replaceChildren();
             byId('cdsReviewForm').hidden = true; byId('cancelRun').disabled = true; byId('resumeRun').disabled = true;
             byId('diagnosticEvidencePanel').hidden = true; byId('diagnosticEvidence').textContent = '';
-            for (const name of ['eventReport', 'errorReport', 'receiptReport']) byId(name).hidden = true;
+            for (const name of ['eventReport', 'errorReport', 'receiptReport', 'unitsReport']) {
+                const link = byId(name);
+                if (name === 'unitsReport' && !link) continue;
+                link.hidden = true;
+            }
             patientCursor = ''; diagnosticCursor = 0;
             patientPageStart = ''; diagnosticPageStart = 0; lastRunUpdated = '';
             await updateStatus(id);
