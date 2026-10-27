@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copyright (c) 2026 CARLOS Contributors.
+ * Modifications by CARLOS Contributors, 2026.
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * This software is published under the GPL GNU General Public License.
@@ -292,6 +293,9 @@ async function main() {
     throw new SkipCheck(`this deployment has no ${table}; the lab requisitions are Ontario forms, `
       + 'so there is nothing here to print');
   }
+
+  const registered = sql.value(`SELECT COUNT(*) FROM encounterForm WHERE form_name = '${formName}'`);
+  if (registered === '0') throw new SkipCheck(`Register ${formName} in encounterForm before running form-print-pdf`);
 
   const recorder = createRecorder();
   let browser;

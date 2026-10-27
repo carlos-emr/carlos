@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+// Modifications by CARLOS Contributors, 2026.
 'use strict';
 /*
  * The mutation families of authz-write-role-matrix and csrf-negative-matrix: for each, how the
@@ -575,7 +576,7 @@ function allergyAdd(s) {
     aim(captured, tag) {
       const field = ['reactionDescription', 'reaction'].find(name => captured.body.has(name));
       h.assert(field, 'The captured allergy add carries no reaction field');
-      return { overrides: { [field]: prefix + tag } };
+      return { overrides: { [field]: prefix + tag, saveToken: null } };
     },
   };
 }
@@ -813,7 +814,10 @@ function preventionAdd(s) {
       for (const page of [editor, list]) if (!page.isClosed()) await page.close().catch(() => {});
       return captured;
     },
-    aim: (captured, tag) => ({ overrides: { comments: prefix + tag } }),
+    // AddPrevention2Action only enters PreventionSubmissionGuard when this optional
+    // parameter is present. Omit it for independent replays (the legacy Rh path);
+    // the replay builder still adds/removes the session's separate CSRF token.
+    aim: (captured, tag) => ({ overrides: { comments: prefix + tag, carlosPreventionSubmission: null } }),
   };
 }
 

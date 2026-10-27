@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Modifications by CARLOS Contributors, 2026.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -130,7 +131,17 @@ test('schema read errors propagate without a fallback allocator', () => {
   assert.throws(() => documentReferenceColumns({rows() {throw error;}}), error);
 });
 
-test('exhausted allocation refuses the real fixture before creating a document file or INSERT', () => {
+test('remote resource log keys do not allocate local document IDs; declared FKs still count', () => {
+  const inventory = [['RemoteDataLog', 'documentId', '0'], ['document', 'document_no', '0']];
+  const {sql} = database({inventory, values: {'RemoteDataLog.documentId': ['server:message:1234']}});
+  assert.equal(planDocumentFixtureId(sql).sourceId, '22');
+  assert.equal(planDocumentFixtureId(database({inventory: [['RemoteDataLog', 'documentId', '1']],
+    values: {'RemoteDataLog.documentId': ['6000']}}).sql).sourceId, '6001');
+  assert.throws(() => planDocumentFixtureId(database({inventory: [['other', 'documentId', '0']],
+    values: {'other.documentId': ['server:message:1234']}}).sql), /other.documentId/);
+});
+
+test('exhausted allocation refuses the real fixture before creating a document file or INSERT', async () => {
   const store = fs.mkdtempSync(path.join(os.tmpdir(), 'document-allocation-refusal-'));
   const saved = Object.fromEntries(['DOCUMENT_DIR', 'RX_FAX_DOCUMENT_DIR'].map(key => [key, process.env[key]]));
   process.env.DOCUMENT_DIR = store; delete process.env.RX_FAX_DOCUMENT_DIR;
@@ -146,6 +157,7 @@ test('exhausted allocation refuses the real fixture before creating a document f
     assert.throws(() => createStoredDocumentFixture({sql: modeled.sql, patient: '123', provider: '999998',
       marker: 'FAKE-PW1234567890abcdef', cleanup(callback) {callbacks.push(callback);}}, '10'), /No safe document identity range/);
     assert.equal(callbacks.length, 1, 'Durable cleanup registration still precedes setup');
+    await callbacks[0](); // No writes means no journal/browser-drain recovery is needed.
     assert.deepEqual(fs.readdirSync(store), []);
   } finally {
     for (const [key, value] of Object.entries(saved)) {if (value === undefined) delete process.env[key]; else process.env[key] = value;}
