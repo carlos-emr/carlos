@@ -33,6 +33,7 @@ import java.net.URL;
 import java.security.MessageDigest;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Identifies the actual deployed import implementation, independently of a manually bumped version label. */
 public record CdsRulesetFingerprint(String sha256) {
@@ -123,14 +124,18 @@ public record CdsRulesetFingerprint(String sha256) {
 
     /** Cache only a complete success; an operational failure never poisons class initialization. */
     static final class SuccessfulCache<T> {
-        private volatile T value;
+        private final AtomicReference<T> value = new AtomicReference<>();
 
         T get(java.util.function.Supplier<T> calculate) {
-            T existing = value;
+            T existing = value.get();
             if (existing != null) return existing;
             synchronized (this) {
-                if (value == null) value = java.util.Objects.requireNonNull(calculate.get());
-                return value;
+                existing = value.get();
+                if (existing == null) {
+                    existing = java.util.Objects.requireNonNull(calculate.get());
+                    value.set(existing);
+                }
+                return existing;
             }
         }
     }

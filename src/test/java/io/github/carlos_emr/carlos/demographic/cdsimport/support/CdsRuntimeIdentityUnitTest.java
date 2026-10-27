@@ -35,6 +35,9 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Tag("unit")
@@ -116,6 +119,36 @@ class CdsRuntimeIdentityUnitTest {
                                 }))
                 .isEqualTo("complete");
         assertThat(attempts).hasValue(2);
+    }
+
+    @Test
+    void shouldPublishOneCompleteValue_whenFingerprintRequestsRace() throws Exception {
+        var cache = new CdsRulesetFingerprint.SuccessfulCache<java.util.List<String>>();
+        var attempts = new AtomicInteger();
+        var start = new CountDownLatch(1);
+        try (var workers = Executors.newFixedThreadPool(8)) {
+            var futures =
+                    new java.util.ArrayList<java.util.concurrent.Future<java.util.List<String>>>();
+            for (int i = 0; i < 16; i++) {
+                futures.add(
+                        workers.submit(
+                                () -> {
+                                    if (!start.await(5, TimeUnit.SECONDS))
+                                        throw new AssertionError("cache start timed out");
+                                    return cache.get(
+                                            () -> {
+                                                attempts.incrementAndGet();
+                                                return java.util.List.of(
+                                                        "implementation", "runtime");
+                                            });
+                                }));
+            }
+            start.countDown();
+            var first = futures.getFirst().get(5, TimeUnit.SECONDS);
+            assertThat(first).containsExactly("implementation", "runtime");
+            for (var future : futures) assertThat(future.get(5, TimeUnit.SECONDS)).isSameAs(first);
+        }
+        assertThat(attempts).hasValue(1);
     }
 
     @Test
