@@ -1615,3 +1615,40 @@ div.locked-note {
 	padding:3px;
 	justify-content: space-between;
 }
+
+/* Documents filed in folders by type (provider eChart preference; LeftNavBarDisplay.jsp
+   displayFolders). The leftBox list rule above sets display:flex, which would override the
+   hidden attribute of a closed folder, so the closed state is restated here. */
+div.leftBox ul.nav-folder-items {
+    padding-left: 14px;
+}
+
+div.leftBox ul.nav-folder-items[hidden] {
+    display: none;
+}
+
+div.leftBox button.nav-folder-toggle {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 0 2px;
+    margin: 0;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+div.leftBox button.nav-folder-toggle::before {
+    content: '\25B8';
+    display: inline-block;
+    width: 1em;
+}
+
+div.leftBox button.nav-folder-toggle[aria-expanded="true"]::before {
+    content: '\25BE';
+}
