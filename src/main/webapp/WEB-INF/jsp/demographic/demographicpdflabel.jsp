@@ -148,7 +148,7 @@
             nurse = demographicCust.getNurse();
             alert = demographicCust.getAlert();
             midwife = demographicCust.getMidwife();
-            notes = SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes");
+            notes = io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(demographicCust.getNotes());
             notes = notes == null ? "" : notes;
         }
 

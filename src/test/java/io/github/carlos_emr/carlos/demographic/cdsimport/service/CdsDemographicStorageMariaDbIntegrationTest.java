@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
@@ -72,6 +73,7 @@ class CdsDemographicStorageMariaDbIntegrationTest {
             Configuration configuration =
                     new Configuration()
                             .addAnnotatedClass(Demographic.class)
+                            .addAnnotatedClass(DemographicCust.class)
                             .addAnnotatedClass(Provider.class);
             configuration.getProperties().put("hibernate.connection.datasource", dataSource);
             configuration.setProperty("hibernate.dialect", "org.hibernate.dialect.MariaDBDialect");
@@ -104,6 +106,17 @@ class CdsDemographicStorageMariaDbIntegrationTest {
                                     null,
                                     false);
                     String marker = "FAKE-CDS-ORM-" + UUID.randomUUID();
+                    String patientNote = "Literal </unotes> & café 🩺";
+                    var details =
+                            new CdsDemographicDetailsDto(
+                                    "English",
+                                    "2024-03-04",
+                                    "2028-01-31",
+                                    patientNote,
+                                    new CdsDemographicDetailsDto.Enrollment(
+                                            "RO", "2020-05-06", null, null, "999998"),
+                                    1,
+                                    List.of());
                     var prepared =
                             new CdsDemographicNativeDto(
                                     "strict-source",
@@ -121,6 +134,8 @@ class CdsDemographicStorageMariaDbIntegrationTest {
                                     null,
                                     null,
                                     "999998",
+                                    details,
+                                    CdsDemographicRelationsDto.empty(),
                                     List.of());
                     var source = mock(CdsRecordDto.class);
                     when(source.effectiveSha256()).thenReturn("a".repeat(64));
@@ -143,7 +158,9 @@ class CdsDemographicStorageMariaDbIntegrationTest {
                                     mock(CdsFieldParser.class),
                                     identity,
                                     mock(CdsProviderResolver.class),
-                                    preparation);
+                                    preparation,
+                                    mock(CdsDemographicDetailsService.class),
+                                    mock(CdsDemographicRelationsService.class));
                     ReflectionTestUtils.setField(writer, "entityManager", session);
                     var targets =
                             writer.write(
@@ -160,12 +177,23 @@ class CdsDemographicStorageMariaDbIntegrationTest {
                                     ReflectionTestUtils.getField(
                                             session.find(Demographic.class, id), "prefName"))
                             .isEqualTo("");
+                    var stored = session.find(Demographic.class, id);
+                    assertThat(stored.getSpokenLanguage()).isEqualTo("English");
+                    assertThat(stored.getPatientStatusDate().toString()).startsWith("2024-03-04");
+                    assertThat(stored.getHcRenewDate().toString()).startsWith("2028-01-31");
+                    assertThat(stored.getRosterStatus()).isEqualTo("RO");
+                    assertThat(stored.getRosterEnrolledTo()).isEqualTo("999998");
+                    assertThat(targets).containsEntry("demographiccust", Integer.toString(id));
+                    assertThat(
+                                    DemographicCust.patientNotesText(
+                                            session.find(DemographicCust.class, id).getNotes()))
+                            .isEqualTo(patientNote);
                     session.doWork(
                             connection -> {
                                 try (var query =
                                         connection.prepareStatement(
                                                 "SELECT pref_name,last_name FROM demographic WHERE"
-                                                    + " demographic_no=?")) {
+                                                        + " demographic_no=?")) {
                                     query.setInt(1, id);
                                     try (var rows = query.executeQuery()) {
                                         assertThat(rows.next()).isTrue();

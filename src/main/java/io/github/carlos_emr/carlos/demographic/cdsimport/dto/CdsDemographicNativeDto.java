@@ -41,10 +41,14 @@ public record CdsDemographicNativeDto(
         Phone work,
         Phone cell,
         String primaryProvider,
+        CdsDemographicDetailsDto details,
+        CdsDemographicRelationsDto relations,
         List<CdsClinicalDiagnosticDto> diagnostics) {
     public CdsDemographicNativeDto {
         scalars = Map.copyOf(scalars);
         diagnostics = List.copyOf(diagnostics);
+        details = details == null ? CdsDemographicDetailsDto.empty() : details;
+        relations = relations == null ? CdsDemographicRelationsDto.empty() : relations;
         if (firstName == null || lastName == null || birthDate == null || gender == null)
             throw new IllegalArgumentException("DEMOGRAPHIC_PREPARED_REQUIRED_VALUE_MISSING");
         bounded(firstName, 50);
@@ -57,6 +61,45 @@ public record CdsDemographicNativeDto(
         var birth = java.time.LocalDate.parse(birthDate);
         if (birth.getYear() < 1 || birth.getYear() > 9999)
             throw new IllegalArgumentException("DEMOGRAPHIC_PREPARED_DATE_INVALID");
+    }
+
+    /** Explicit source-less compatibility for existing native writer fixtures; actual preparation supplies details. */
+    public CdsDemographicNativeDto(
+            String sourceId,
+            String firstName,
+            String lastName,
+            String birthDate,
+            String healthNumber,
+            String issuer,
+            String gender,
+            String status,
+            Map<String, String> scalars,
+            Address mailing,
+            Address residential,
+            Phone home,
+            Phone work,
+            Phone cell,
+            String primaryProvider,
+            List<CdsClinicalDiagnosticDto> diagnostics) {
+        this(
+                sourceId,
+                firstName,
+                lastName,
+                birthDate,
+                healthNumber,
+                issuer,
+                gender,
+                status,
+                scalars,
+                mailing,
+                residential,
+                home,
+                work,
+                cell,
+                primaryProvider,
+                CdsDemographicDetailsDto.empty(),
+                CdsDemographicRelationsDto.empty(),
+                diagnostics);
     }
 
     private static void bounded(String value, int maximum) {

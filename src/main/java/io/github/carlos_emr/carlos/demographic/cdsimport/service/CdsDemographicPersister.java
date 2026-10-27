@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsClinicalDiagnosticDto;
@@ -63,6 +64,8 @@ public class CdsDemographicPersister {
     private final CdsPatientIdentityResolver identity;
     private final CdsProviderResolver providers;
     private final CdsNativePreparationService preparation;
+    private final CdsDemographicDetailsService details;
+    private final CdsDemographicRelationsService relations;
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -71,11 +74,15 @@ public class CdsDemographicPersister {
             CdsFieldParser fields,
             CdsPatientIdentityResolver identity,
             CdsProviderResolver providers,
-            CdsNativePreparationService preparation) {
+            CdsNativePreparationService preparation,
+            CdsDemographicDetailsService details,
+            CdsDemographicRelationsService relations) {
         this.fields = fields;
         this.identity = identity;
         this.providers = providers;
         this.preparation = preparation;
+        this.details = details;
+        this.relations = relations;
     }
 
     public void validate(CdsRecordDto record, CdsImportCommand command) throws IOException {
@@ -85,6 +92,8 @@ public class CdsDemographicPersister {
                 || source.gender() == null
                 || source.birthDate() == null)
             throw new CdsImportException("DEMOGRAPHIC_REQUIRED_VALUE_MISSING");
+        details.validate(record, command);
+        relations.prepare(record, command);
     }
 
     public void prepare(
@@ -95,24 +104,29 @@ public class CdsDemographicPersister {
         Consumer<CdsClinicalDiagnosticDto> notice =
                 n -> warnings.putIfAbsent(n.code() + "/" + n.field(), n);
         Map<String, String> scalars = new LinkedHashMap<>();
-        for (var item :
+        Map<String, Integer> scalarLimits =
                 Map.of(
-                                "HealthCard/Version",
-                                3,
-                                "ChartNumber",
-                                Demographic.CHART_NO_MAX_LENGTH,
-                                "Email",
-                                Demographic.EMAIL_MAX_LENGTH,
-                                "Names/NamePrefix",
-                                20,
-                                "PreferredOfficialLanguage",
-                                3,
-                                "SIN",
-                                Demographic.SIN_MAX_LENGTH)
-                        .entrySet()) {
-            String value = scalar(record, item.getKey(), item.getValue(), notice);
-            if (value != null) scalars.put(item.getKey(), value);
-        }
+                        "HealthCard/Version",
+                        3,
+                        "ChartNumber",
+                        Demographic.CHART_NO_MAX_LENGTH,
+                        "Email",
+                        Demographic.EMAIL_MAX_LENGTH,
+                        "Names/NamePrefix",
+                        20,
+                        "PreferredOfficialLanguage",
+                        3,
+                        "SIN",
+                        Demographic.SIN_MAX_LENGTH,
+                        "PrimaryPhysician/Name/FirstName",
+                        250,
+                        "PrimaryPhysician/Name/LastName",
+                        250,
+                        "PrimaryPhysician/OHIPPhysicianId",
+                        20,
+                        "PrimaryPhysician/PrimaryPhysicianCPSO",
+                        20);
+        java.util.Set<String> seenScalars = new java.util.HashSet<>();
         Candidate<Address> mailing = new Candidate<>(), residential = new Candidate<>();
         Candidate<Phone> home = new Candidate<>(),
                 work = new Candidate<>(),
@@ -123,6 +137,25 @@ public class CdsDemographicPersister {
                     record,
                     field -> {
                         String path = field.path();
+                        if (known(field)) {
+                            String scalarPath = path.replaceAll("\\[[0-9]+\\]", "");
+                            Integer maximum = scalarLimits.get(scalarPath);
+                            if (maximum != null && seenScalars.add(scalarPath)) {
+                                try {
+                                    String value = fields.readLogicalText(record, field, maximum);
+                                    if (value != null) scalars.put(scalarPath, value);
+                                } catch (CdsInputException capacity) {
+                                    if (!"CDS_TARGET_TEXT_CAPACITY_EXCEEDED"
+                                            .equals(capacity.code()))
+                                        throw new UncheckedIOException(capacity);
+                                    notice.accept(
+                                            new CdsClinicalDiagnosticDto(
+                                                    "CDS_NATIVE_SCALAR_SOURCE_ONLY", scalarPath));
+                                } catch (IOException failure) {
+                                    throw new UncheckedIOException(failure);
+                                }
+                            }
+                        }
                         boolean address = path.startsWith("Address[");
                         boolean phone = path.startsWith("PhoneNumber[");
                         if (!known(field) || (!address && !phone)) return;
@@ -150,12 +183,12 @@ public class CdsDemographicPersister {
         } catch (UncheckedIOException failure) {
             throw failure.getCause();
         }
-        String first = scalar(record, "PrimaryPhysician/Name/FirstName", 250, notice),
-                last = scalar(record, "PrimaryPhysician/Name/LastName", 250, notice);
+        String first = scalars.get("PrimaryPhysician/Name/FirstName"),
+                last = scalars.get("PrimaryPhysician/Name/LastName");
         var provider =
                 providers.resolve(
-                        scalar(record, "PrimaryPhysician/OHIPPhysicianId", 20, notice),
-                        scalar(record, "PrimaryPhysician/PrimaryPhysicianCPSO", 20, notice),
+                        scalars.get("PrimaryPhysician/OHIPPhysicianId"),
+                        scalars.get("PrimaryPhysician/PrimaryPhysicianCPSO"),
                         first,
                         last,
                         command.matchProviderNames());
@@ -167,6 +200,10 @@ public class CdsDemographicPersister {
                     new CdsClinicalDiagnosticDto(
                             "CDS_PRIMARY_PROVIDER_" + provider.outcome(), "PrimaryPhysician"));
         }
+        var detail = details.prepare(record, command);
+        var related = relations.prepare(record, command);
+        detail.diagnostics().forEach(notice);
+        related.diagnostics().forEach(notice);
         var dto =
                 new CdsDemographicNativeDto(
                         source.sourceId(),
@@ -184,6 +221,8 @@ public class CdsDemographicPersister {
                         work.value(),
                         cell.value(),
                         provider.localProviderNo(),
+                        detail,
+                        related,
                         List.copyOf(warnings.values()));
         preparation.store(run, epoch, unit, record.effectiveSha256(), command, dto);
     }
@@ -252,6 +291,17 @@ public class CdsDemographicPersister {
         String language = dto.scalars().get("PreferredOfficialLanguage");
         patient.setOfficialLanguage(
                 "ENG".equals(language) ? "English" : "FRE".equals(language) ? "French" : language);
+        patient.setSpokenLanguage(dto.details().spokenLanguage());
+        patient.setPatientStatusDate(nativeDate(dto.details().statusDate()));
+        patient.setHcRenewDate(nativeDate(dto.details().healthCardExpiry()));
+        var roster = dto.details().roster();
+        if (roster != null) {
+            patient.setRosterStatus(roster.status());
+            patient.setRosterDate(nativeDate(roster.date()));
+            patient.setRosterTerminationDate(nativeDate(roster.terminationDate()));
+            patient.setRosterTerminationReason(roster.terminationReason());
+            patient.setRosterEnrolledTo(roster.enrolledProvider());
+        }
         applyAddress(patient, dto.mailing(), false);
         applyAddress(patient, dto.residential(), true);
         if (dto.home() != null) patient.setPhone(dto.home().number());
@@ -260,6 +310,20 @@ public class CdsDemographicPersister {
         entityManager.flush();
         Map<String, String> result = new LinkedHashMap<>();
         result.put("demographic", patient.getDemographicNo().toString());
+        if (dto.details().patientNote() != null) {
+            var custom = new DemographicCust();
+            custom.setId(patient.getDemographicNo());
+            custom.setNotes(DemographicCust.wrapPatientNotes(dto.details().patientNote()));
+            entityManager.persist(custom);
+            entityManager.flush();
+            result.put("demographiccust", patient.getDemographicNo().toString());
+        }
+        if (dto.relations().familyPhysician() != null
+                || dto.relations().referringPhysician() != null
+                || dto.relations().preferredPharmacy() != null)
+            result.putAll(
+                    relations.write(
+                            patient.getDemographicNo(), command.providerNo(), dto.relations()));
         if (dto.home() != null)
             extension(patient, command, "hPhoneExt", dto.home().extension(), result);
         if (dto.work() != null)
@@ -283,6 +347,10 @@ public class CdsDemographicPersister {
             result.put("admission", admission.getId().toString());
         }
         return result;
+    }
+
+    private static java.sql.Date nativeDate(String value) {
+        return value == null ? null : java.sql.Date.valueOf(LocalDate.parse(value));
     }
 
     private void extension(
@@ -315,21 +383,6 @@ public class CdsDemographicPersister {
             patient.setCity(address.city());
             patient.setProvince(address.province());
             patient.setPostal(address.postal());
-        }
-    }
-
-    private String scalar(
-            CdsRecordDto record,
-            String path,
-            int maximum,
-            Consumer<CdsClinicalDiagnosticDto> notice)
-            throws IOException {
-        try {
-            return fields.firstText(record, path, maximum);
-        } catch (CdsInputException capacity) {
-            if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
-            notice.accept(new CdsClinicalDiagnosticDto("CDS_NATIVE_SCALAR_SOURCE_ONLY", path));
-            return null;
         }
     }
 

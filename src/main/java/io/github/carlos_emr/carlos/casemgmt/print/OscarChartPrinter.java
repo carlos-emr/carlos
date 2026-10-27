@@ -454,7 +454,7 @@ public class OscarChartPrinter implements java.io.Closeable {
         if (demographicCust != null) {
             PdfFonts.addText(phrase, "Alerts: " + demographicCust.getAlert() + "\n", phrase.getFont());
             if (demographicCust.getNotes().length() > 0) {
-                PdfFonts.addText(phrase, "Notes: " + SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes") + "\n", phrase.getFont());
+                PdfFonts.addText(phrase, "Notes: " + io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(demographicCust.getNotes()) + "\n", phrase.getFont());
             }
         }
         PdfFonts.addText(phrase, "\n", phrase.getFont());

@@ -34,6 +34,15 @@
         return summary?.operationTerminal === true;
     }
 
+    function recoveryControls(summary = {}) {
+        const fatalReview = summary.reviewErrorCode === 'REVIEW_WORKER_FATAL'
+            || summary.workerAlert === 'REVIEW_WORKER_FATAL';
+        const pendingReview = Number.isSafeInteger(summary.pendingReviewCount) && summary.pendingReviewCount > 0;
+        const inactiveDraft = Number.isSafeInteger(summary.inactiveDraftCount) && summary.inactiveDraftCount > 0;
+        return {fatalReview, resumeDisabled: Boolean(summary.supervisorAlert)
+            || (!fatalReview && (pendingReview || inactiveDraft))};
+    }
+
     function indexedSourceValuePath(value) {
         if (typeof value !== 'string' || value.length > 2048) return false;
         // This only validates the indexed address shape. The backend must locate an exact scalar leaf.
@@ -43,6 +52,7 @@
     function reviewEligibility(diagnostic, summary = {}) {
         return {canDecline: /^[0-9a-f]{64}$/.test(diagnostic?.patientKey || ''),
             canApproveRevision: diagnostic?.code === 'SOURCE_REVISION_REVIEW_REQUIRED'
+                && /^[0-9a-f]{64}$/.test(diagnostic?.patientKey || '')
                 && summary.unwrittenRevisionApprovalAllowed === true,
             initialXPath: indexedSourceValuePath(diagnostic?.sourceXPath) ? diagnostic.sourceXPath : ''};
     }
@@ -118,7 +128,7 @@
         return offset;
     }
 
-    const api = {statusPresentation, boundedIds, mayStopPolling, indexedSourceValuePath, reviewEligibility,
+    const api = {statusPresentation, boundedIds, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
         effectiveOptions, sha256, boundedJson, verifyPrefix};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CarlosCdsImport = api;
@@ -142,6 +152,9 @@
             reviewPatient: 'Le diagnostic ne désigne aucune copie de patient vérifiable. Le refus est indisponible; consulter le rapport protégé ou corriger la source.',
             revisionUnavailable: 'L’approbation de remplacement exige un conflit source identifié et la preuve que les deux tâches n’ont aucune donnée validée, aucun blocage ni aucune incertitude. Réconcilier les tâches précédentes; ne pas changer l’espace de noms pour contourner ce contrôle.',
             inactiveDrafts: 'Corrections provisoires inactives : compléter les corrections de validation XML avant de reprendre. Nombre : ',
+            release: 'La libération du mode maintenance reste incomplète. Les validations cliniques restent enregistrées. Réconcilier les blocages, puis utiliser Reprendre pour réessayer la libération et les rapports, sans rejouer les unités cliniques. État : ',
+            reviewFatal: 'Le traitement de révision s’est arrêté; Reprendre réessaie cette révision avec ses preuves conservées avant toute importation.',
+            supervisor: 'Le superviseur d’importation nécessite une réparation et un redémarrage du service par un administrateur. Reprendre ne répare pas le superviseur.',
             page: 'Cette page est limitée; les rapports complets restent disponibles.', current: 'Courant',
             selectOne: 'Resélectionner exactement un fichier pour reprendre un transfert.',
             housekeeping: 'Le nettoyage des transferts nécessite une intervention administrative. Vérifier les transferts en attente et les réservations du disque.',
@@ -160,6 +173,9 @@
             reviewPatient: 'This diagnostic has no verifiable patient copy. Decline is unavailable; inspect the protected report or correct the source.',
             revisionUnavailable: 'Replacement approval requires an identified source conflict and proof that both attempts have no committed data, holds or uncertainty. Reconcile prior work; do not change namespaces to bypass this check.',
             inactiveDrafts: 'Inactive correction drafts need further XML validation corrections before resume. Count: ',
+            release: 'Maintenance release is incomplete. Clinical commits remain recorded. Reconcile held runs, then use Resume to retry release and reports without replaying clinical units. State: ',
+            reviewFatal: 'The review worker stopped; Resume retries that preserved review before any import execution.',
+            supervisor: 'The import supervisor needs administrator repair and service restart. Resume cannot repair the supervisor.',
             page: 'This is a bounded page; complete protected reports remain available.', current: 'Current',
             selectOne: 'Reselect exactly one file to resume an upload.',
             housekeeping: 'Upload cleanup needs administrator attention. Check pending uploads and disk reservations.',
@@ -371,10 +387,19 @@
             const draftAlert = byId('cdsDraftAlert');
             draftAlert.hidden = !(Number.isSafeInteger(latestSummary.inactiveDraftCount) && latestSummary.inactiveDraftCount > 0);
             draftAlert.textContent = draftAlert.hidden ? '' : text.inactiveDrafts + latestSummary.inactiveDraftCount;
+            const operational = [];
+            if (latestSummary.maintenanceReleasePending === true) operational.push(text.release
+                + String(latestSummary.maintenanceReleaseState || 'UNKNOWN').slice(0, 96));
+            if (recoveryControls(latestSummary).fatalReview) operational.push(text.reviewFatal);
+            if (latestSummary.supervisorAlert) operational.push(text.supervisor
+                + ' ' + String(latestSummary.supervisorAlert).slice(0, 96));
+            byId('cdsOperationalAlert').hidden = operational.length === 0;
+            byId('cdsOperationalAlert').textContent = operational.join(' ');
             const presentation = statusPresentation(data.job, latestSummary);
             byId('runState').textContent = text.state + ': ' + presentation.state + ' — ' + id + ' — ' + (data.job.updatedAt || '');
             byId('runState').className = presentation.clean ? 'text-success' : 'text-body';
             byId('cancelRun').disabled = false; byId('resumeRun').disabled = false;
+            byId('resumeRun').disabled = recoveryControls(latestSummary).resumeDisabled;
             const summary = JSON.stringify({job: data.job, summary: latestSummary}, null, 2);
             byId('runSummary').textContent = summary.length > 32000 ? summary.slice(0, 32000) + '\n' + text.page : summary;
             for (const [element, type] of [['eventReport', 'event'], ['errorReport', 'error'], ['receiptReport', 'receipt']]) {
@@ -446,6 +471,7 @@
                     const eligibility = reviewEligibility(item, latestSummary);
                     byId('reviewDiagnosticId').value = item.id; byId('reviewPatientKey').value = item.patientKey || '';
                     byId('reviewDiagnosticCode').value = item.code || '';
+                    byId('reviewSourceContext').value = item.sourceXPath || '';
                     byId('reviewUnitKey').value = item.unitKey || ''; byId('reviewVersion').value = latestSummary.reviewVersion;
                     byId('reviewKind').value = eligibility.canApproveRevision ? 'APPROVE_UNWRITTEN_REVISION' : 'CORRECT_VALUE';
                     byId('reviewDeclineOption').disabled = !eligibility.canDecline;
@@ -487,13 +513,16 @@
                 if (byId('reviewKind').value === 'CORRECT_VALUE'
                         && !indexedSourceValuePath(byId('reviewXPath').value)) throw new Error(text.reviewPath);
                 if (byId('reviewKind').value === 'APPROVE_UNWRITTEN_REVISION'
-                        && !reviewEligibility({code: byId('reviewDiagnosticCode').value}, latestSummary).canApproveRevision) {
+                        && !reviewEligibility({code: byId('reviewDiagnosticCode').value,
+                            patientKey: byId('reviewPatientKey').value}, latestSummary).canApproveRevision) {
                     throw new Error(text.revisionUnavailable);
                 }
+                const correction = byId('reviewKind').value === 'CORRECT_VALUE';
                 await request('cdsImportControl', {operation: 'review', runId: activeRun, kind: byId('reviewKind').value,
                     diagnosticId: byId('reviewDiagnosticId').value, patientKey: byId('reviewPatientKey').value,
                     unitKey: byId('reviewUnitKey').value, expectedVersion: byId('reviewVersion').value,
-                    sourceXPath: byId('reviewXPath').value, replacementValue: byId('reviewValue').value,
+                    sourceXPath: correction ? byId('reviewXPath').value : byId('reviewSourceContext').value,
+                    replacementValue: correction ? byId('reviewValue').value : '',
                     reason: byId('reviewReason').value}, {method: 'POST'});
                 byId('cdsReviewForm').hidden = true; await openRun(activeRun);
             })();

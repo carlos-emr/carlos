@@ -96,3 +96,12 @@ node scripts/audit-log-demographic-import-playwright-checks.js
 ```
 
 The versioned browser assertions enter through the existing Administration menu and require a real durable receipt, source/category occurrence reconciliation and protected report round trips. The scripts retain incomplete held fixtures for recovery and remove only verified owned completed clinical rows. Complete import ledgers and audit evidence remain available for investigation.
+
+
+## Native demographic details and recovery
+
+New patients receive the canonical CARLOS spoken-language label for a recognized source ISO language code, exact person-status and health-card-expiry dates, and the complete fitting patient note in the existing demographic patient-notes field. A note exceeding that field's UTF-8 capacity receives an explicit visible source-view notice; its complete original and normalized values remain available under the patient's Demographics CDS source fields. Literal tag text and Unicode are preserved in native patient notes and the existing editor, schedule tooltip and chart printer.
+
+Current enrolment is projected only from an unambiguous latest dated transition: source status `1` becomes native `RO`, and ended enrolment `0` becomes native `TE` with its exact start and termination dates. The OntarioMD guide requires those dates and prohibits status `0` for never-enrolled patients. Missing required dates or contradictory active/termination state stop preflight. Conflicting latest transitions retain the complete structured history with an explicit source-only warning and no guessed current roster. Historical events remain structured category-local source values; the importer does not invent whole-chart historical snapshots. Source contextual family/referring physicians and preferred pharmacy use new native associations, without guessing existing professional/catalogue matches or asserting undocumented consent.
+
+The dashboard keeps completed clinical work distinct from maintenance release and report delivery. Resume can retry an incomplete release and reports without replaying committed clinical units. A fatal review worker exposes its safe error code and permits explicit Resume of that preserved review; ordinary pending reviews and inactive correction drafts block execution. A failed supervisor requires administrator repair and service restart. A changed zero-write source revision is approved only on the new normally submitted run's identified conflict, using fresh server-side eligibility proof; the UI never treats a pending request as approval.

@@ -53,11 +53,12 @@ test('review declines require an identifiable patient copy and record paths are 
   assert.equal(client.indexedSourceValuePath('/OmdCds[1]/PatientRecord[1]/Medications[2]/Dose[1]/@unit'), true);
 });
 test('unwritten revision approval needs the exact source conflict and affirmative durable eligibility', () => {
-  const diagnostic = {code: 'SOURCE_REVISION_REVIEW_REQUIRED'};
+  const diagnostic = {code: 'SOURCE_REVISION_REVIEW_REQUIRED', patientKey: 'a'.repeat(64)};
   for (const summary of [{}, {unwrittenRevisionApprovalAllowed: false}, {unwrittenRevisionApprovalAllowed: 'true'}]) {
     assert.equal(client.reviewEligibility(diagnostic, summary).canApproveRevision, false);
   }
   assert.equal(client.reviewEligibility(diagnostic, {unwrittenRevisionApprovalAllowed: true}).canApproveRevision, true);
+  assert.equal(client.reviewEligibility({code:diagnostic.code}, {unwrittenRevisionApprovalAllowed: true}).canApproveRevision, false);
   assert.equal(client.reviewEligibility({code: 'NATIVE_WRITE_FAILED'}, {unwrittenRevisionApprovalAllowed: true}).canApproveRevision, false);
 });
 test('history stores bounded opaque IDs, deduplicated, without source filenames', () => {
@@ -133,4 +134,14 @@ test('resume refuses changed bytes, missing receipts, gaps and mismatched source
   await assert.rejects(client.verifyPrefix(file, receipt, async () => []), /MISSING/);
   await assert.rejects(client.verifyPrefix(file, receipt, async () => [{...good, offset: 1}]), /CONFLICT/);
   await assert.rejects(client.verifyPrefix(file, {...receipt, fileName: 'other.xml'}, async () => [good]), /MISMATCH/);
+});
+
+test('recovery controls retry a fatal review but block normal pending validation and unresolved drafts', () => {
+  assert.equal(client.recoveryControls({pendingReviewCount: 1}).resumeDisabled, true);
+  assert.equal(client.recoveryControls({inactiveDraftCount: 1}).resumeDisabled, true);
+  assert.deepEqual(client.recoveryControls({pendingReviewCount: 1, reviewErrorCode: 'REVIEW_WORKER_FATAL'}),
+    {fatalReview: true, resumeDisabled: false});
+  assert.equal(client.recoveryControls({workerAlert: 'REVIEW_WORKER_FATAL'}).fatalReview, true);
+  assert.equal(client.recoveryControls({reviewErrorCode: 'REVIEW_WORKER_FATAL', supervisorAlert: 'IMPORT_SUPERVISOR_FATAL'}).resumeDisabled, true);
+  assert.equal(client.recoveryControls({maintenanceReleasePending: true, maintenanceReleaseState: 'RELEASE_DEFERRED'}).resumeDisabled, false);
 });

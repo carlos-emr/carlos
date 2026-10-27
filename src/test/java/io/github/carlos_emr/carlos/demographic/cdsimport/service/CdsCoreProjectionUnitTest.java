@@ -88,7 +88,14 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         properties.setProperty("cds.import.native.maxNoteBytes", "262144");
         var configuration = new CdsImportConfigurationService(properties);
         var normalization = new CdsClinicalNormalizationService(fields);
-        demographics = new CdsDemographicPersister(fields, identity, providers, preparation);
+        demographics =
+                new CdsDemographicPersister(
+                        fields,
+                        identity,
+                        providers,
+                        preparation,
+                        new CdsDemographicDetailsService(fields, providers),
+                        new CdsDemographicRelationsService(fields));
         histories =
                 new CdsHistoryPersister(
                         fields, normalization, configuration, providers, preparation);
@@ -652,6 +659,166 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         assertThat(note.getValue().getObservation_date()).isNull();
     }
 
+    @Test
+    void shouldPrepareDiscreteLanguageStatusExpiryAndFullPatientNote_withoutEncodingOrClipping()
+            throws Exception {
+        var source =
+                parse(
+                        "",
+                        "<PreferredSpokenLanguage>eng</PreferredSpokenLanguage><NoteAboutPatient>Literal"
+                            + " &lt;/unotes&gt; &amp; café 🩺</NoteAboutPatient>",
+                        "<HealthCard><cdsd:Number>1234567890</cdsd:Number><cdsd:ProvinceCode>CA-ON</cdsd:ProvinceCode><cdsd:Expirydate>2028-01-31</cdsd:Expirydate></HealthCard>",
+                        "<PersonStatusDate>2023-04-05</PersonStatusDate>");
+        demographics.prepare("run", 1, "unit", source, command);
+        var details = captured(CdsDemographicNativeDto.class).details();
+        assertThat(details.spokenLanguage()).isEqualTo("English");
+        assertThat(details.statusDate()).isEqualTo("2023-04-05");
+        assertThat(details.healthCardExpiry()).isEqualTo("2028-01-31");
+        assertThat(details.patientNote()).isEqualTo("Literal </unotes> & café 🩺");
+        assertThat(details.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains("CDS_SPOKEN_LANGUAGE_NORMALIZED");
+    }
+
+    @Test
+    void
+            shouldRetainUnknownLanguageAndOversizedPatientNoteInCompleteSource_withExplicitNativeNotice()
+                    throws Exception {
+        String narrative = "🩺".repeat(16380);
+        var source =
+                parse(
+                        "",
+                        "<PreferredSpokenLanguage>ZZZ</PreferredSpokenLanguage>"
+                                + "<NoteAboutPatient>"
+                                + narrative
+                                + "</NoteAboutPatient>");
+        demographics.prepare("run", 1, "unit", source, command);
+        var details = captured(CdsDemographicNativeDto.class).details();
+        assertThat(details.spokenLanguage()).isNull();
+        assertThat(details.patientNote()).contains("complete original").doesNotContain("🩺");
+        assertThat(fields.firstText(source, "NoteAboutPatient", 40000)).isEqualTo(narrative);
+        assertThat(details.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains(
+                        "CDS_SPOKEN_LANGUAGE_SOURCE_ONLY",
+                        "CDS_PATIENT_NOTE_COMPLETE_TEXT_SOURCE_VIEW");
+    }
+
+    @Test
+    void shouldChooseUnambiguousLatestRosterTransition_notFirstOrArbitraryHistoricalChartSnapshot()
+            throws Exception {
+        var source =
+                parse(
+                        "",
+                        "<Enrolment>"
+                                + enrollment("1", "2000-01-01", null)
+                                + enrollment("0", "2000-01-01", "2001-02-03")
+                                + enrollment("1", "2005-06-07", null)
+                                + "</Enrolment>");
+        demographics.prepare("run", 1, "unit", source, command);
+        var details = captured(CdsDemographicNativeDto.class).details();
+        assertThat(details.enrollmentHistoryCount()).isEqualTo(3);
+        assertThat(details.roster().status()).isEqualTo("RO");
+        assertThat(details.roster().date()).isEqualTo("2005-06-07");
+        assertThat(details.roster().terminationDate()).isNull();
+        assertThat(details.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains("CDS_ENROLMENT_HISTORY_STRUCTURED_SOURCE_ONLY");
+    }
+
+    @Test
+    void shouldMapAnEndedEnrolmentToNativeTerminatedState_withExactDates() throws Exception {
+        demographics.prepare(
+                "run",
+                1,
+                "unit",
+                parse(
+                        "",
+                        "<Enrolment>"
+                                + enrollment("0", "2000-01-01", "2001-02-03")
+                                + "</Enrolment>"),
+                command);
+        var roster = captured(CdsDemographicNativeDto.class).details().roster();
+        assertThat(roster.status()).isEqualTo("TE");
+        assertThat(roster.date()).isEqualTo("2000-01-01");
+        assertThat(roster.terminationDate()).isEqualTo("2001-02-03");
+    }
+
+    @Test
+    void shouldRefuseToSelectAnAmbiguousLatestRoster_butAllowALaterUnambiguousTransition()
+            throws Exception {
+        String conflict =
+                enrollment("1", "2000-01-01", null) + enrollment("0", "1999-01-01", "2000-01-01");
+        demographics.prepare(
+                "run", 1, "unit", parse("", "<Enrolment>" + conflict + "</Enrolment>"), command);
+        var details = captured(CdsDemographicNativeDto.class).details();
+        assertThat(details.roster()).isNull();
+        assertThat(details.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains("CDS_ENROLMENT_CURRENT_REQUIRES_REVIEW");
+        clearInvocations(preparation);
+        demographics.prepare(
+                "run",
+                1,
+                "unit",
+                parse(
+                        "",
+                        "<Enrolment>"
+                                + conflict
+                                + enrollment("1", "2002-02-03", null)
+                                + "</Enrolment>"),
+                command);
+        assertThat(captured(CdsDemographicNativeDto.class).details().roster().date())
+                .isEqualTo("2002-02-03");
+    }
+
+    @Test
+    void
+            shouldRejectIncompleteOrConflictingRosterDatesDuringPreflight_insteadOfGuessingCurrentFacts()
+                    throws Exception {
+        for (String content :
+                List.of(
+                        "<Enrolment/>",
+                        "<Enrolment>" + enrollment("0", "2000-01-01", null) + "</Enrolment>",
+                        "<Enrolment>"
+                                + enrollment("1", "2000-01-01", "2001-01-01")
+                                + "</Enrolment>")) {
+            var source = parse("", content);
+            assertThatThrownBy(() -> demographics.prepare("run", 1, "unit", source, command))
+                    .isInstanceOf(
+                            io.github.carlos_emr.carlos.demographic.cdsimport.support
+                                    .CdsClinicalException.class);
+        }
+        verifyNoInteractions(preparation);
+    }
+
+    @Test
+    void shouldPreserveLiteralPatientNoteFramingAndLegacyRawText() {
+        String text = "Literal </unotes> & <tag> café 🩺";
+        assertThat(
+                        io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(
+                                io.github.carlos_emr.carlos.commn.model.DemographicCust
+                                        .wrapPatientNotes(text)))
+                .isEqualTo(text);
+        assertThat(
+                        io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(
+                                "legacy raw <text>"))
+                .isEqualTo("legacy raw <text>");
+        assertThat(io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(null))
+                .isEmpty();
+    }
+
+    private static String enrollment(String status, String start, String end) {
+        return "<EnrolmentHistory><EnrollmentStatus>"
+                + status
+                + "</EnrollmentStatus>"
+                + (start == null ? "" : "<EnrollmentDate>" + start + "</EnrollmentDate>")
+                + (end == null
+                        ? ""
+                        : "<EnrollmentTerminationDate>" + end + "</EnrollmentTerminationDate>")
+                + "</EnrolmentHistory>";
+    }
+
     private CdsRecordDto corrected(CdsRecordDto raw, CdsFieldDto field, String replacement)
             throws Exception {
         Path value = raw.fieldsFile().getParent().resolve("replacement.utf8");
@@ -736,13 +903,23 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     }
 
     private CdsRecordDto parse(String extra, String demographicExtra) throws Exception {
+        return parse(extra, demographicExtra, "", "");
+    }
+
+    private CdsRecordDto parse(
+            String extra, String demographicExtra, String healthCard, String statusDate)
+            throws Exception {
         int number = sequence.incrementAndGet();
         Path source = temporary.resolve("source-" + number + ".xml");
         String demographic =
                 "<Demographics><Names><cdsd:LegalName"
-                    + " namePurpose='L'><cdsd:FirstName><cdsd:Part>Import</cdsd:Part><cdsd:PartType>GIV</cdsd:PartType></cdsd:FirstName><cdsd:LastName><cdsd:Part>Fixture</cdsd:Part><cdsd:PartType>FAMC</cdsd:PartType></cdsd:LastName></cdsd:LegalName></Names><DateOfBirth>1971-03-04</DateOfBirth><Gender>F</Gender><UniqueVendorIdSequence>owned</UniqueVendorIdSequence>"
+                    + " namePurpose='L'><cdsd:FirstName><cdsd:Part>Import</cdsd:Part><cdsd:PartType>GIV</cdsd:PartType></cdsd:FirstName><cdsd:LastName><cdsd:Part>Fixture</cdsd:Part><cdsd:PartType>FAMC</cdsd:PartType></cdsd:LastName></cdsd:LegalName></Names><DateOfBirth>1971-03-04</DateOfBirth>"
+                        + healthCard
+                        + "<Gender>F</Gender><UniqueVendorIdSequence>owned</UniqueVendorIdSequence>"
                         + demographicExtra
-                        + "<PersonStatusCode><PersonStatusAsEnum>A</PersonStatusAsEnum></PersonStatusCode></Demographics>";
+                        + "<PersonStatusCode><PersonStatusAsEnum>A</PersonStatusAsEnum></PersonStatusCode>"
+                        + statusDate
+                        + "</Demographics>";
         Files.writeString(
                 source,
                 "<OmdCds xmlns='cds' xmlns:cdsd='cds_dt'><PatientRecord>"

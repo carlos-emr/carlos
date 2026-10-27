@@ -63,6 +63,7 @@
     <div id="cdsAdministrativeAlert" class="alert alert-warning" role="alert" hidden></div>
     <div id="cdsWorkerAlert" class="alert alert-danger" role="alert" hidden></div>
     <div id="cdsDraftAlert" class="alert alert-warning" role="alert" hidden></div>
+    <div id="cdsOperationalAlert" class="alert alert-warning" role="alert" hidden></div>
     <form id="cdsImportForm" name="ImportDemographicDataForm" method="POST"
           action="${pageContext.request.contextPath}/form/cdsImportSubmit">
         <fieldset id="cdsOptions" <c:if test="${not model.enabled or empty model.sources}">disabled</c:if>>
@@ -168,6 +169,7 @@
         <p class="form-text"><fmt:message key="revisionHelp" bundle="${cds}"/></p>
         <input id="reviewDiagnosticId" type="hidden"><input id="reviewPatientKey" type="hidden">
         <input id="reviewDiagnosticCode" type="hidden">
+        <input id="reviewSourceContext" type="hidden">
         <input id="reviewUnitKey" type="hidden"><input id="reviewVersion" type="hidden">
         <label for="reviewKind" class="form-label"><fmt:message key="reviewKind" bundle="${cds}"/></label>
         <select id="reviewKind" class="form-select"><option value="CORRECT_VALUE"><fmt:message key="correctValue" bundle="${cds}"/></option>
