@@ -141,16 +141,17 @@ async function networkFixture(options={}) {
       take:tag=>{const trace=traces.get(tag);traces.delete(tag);return trace?structuredClone(trace):null;}
     })});
   };
-  const observer=await installCdsMetadataTransportObserver(page,recorder,{baseUrl:'http://localhost/carlos',maxTraces:options.maxTraces||4});
+  const observer=await installCdsMetadataTransportObserver(page,recorder,{baseUrl:'http://localhost/carlos',maxTraces:options.maxTraces||4,
+    finishTimeoutMillis:options.finishTimeoutMillis});
   function emit(number,changes={}) {
     const tag=page.config.prefix+'-'+(changes.documentIdentity||documentIdentity)+'-'+number;
     traces.set(tag,{...structuredClone(initial.trace),tag,...changes.trace});
     const request={headers:()=>({'x-cds-metadata-trace':tag}),frame:()=>frame,url:()=> 'http://localhost/carlos/form/cdsImportStatus?runId=run-1',method:()=> 'GET',resourceType:()=> 'fetch',failure:()=>({errorText:changes.error||'net::ERR_ABORTED'}),redirectedFrom:()=>changes.redirected?{}:null};
-    const response={request:()=>request,status:()=>200,headers:()=>({'content-type':'application/json'}),finished:async()=>Error('net::ERR_ABORTED')};
+    const response={request:()=>request,status:()=>200,headers:()=>({'content-type':'application/json'}),finished:changes.finished||(async()=>Error('net::ERR_ABORTED'))};
     page.emit('request',request);page.emit('response',response);
     const entry={url:request.url(),resourceType:'fetch',errorText:request.failure().errorText};
     Object.defineProperty(entry,'requestRef',{value:new WeakRef(request)});
-    page.emit('requestfailed',request);recorder.requestFailures.push(entry);
+    if(changes.failed!==false){page.emit('requestfailed',request);recorder.requestFailures.push(entry);}
     return {tag,request,response,entry};
   }
   return {page,frame,recorder,observer,traces,emit,
@@ -166,6 +167,62 @@ test('qualifies only the exact correlated raw request and preserves its original
   assert.equal(isQualifiedCdsMetadataFailure(b.entry),false);assert.equal(f.recorder.requestFailures.length,2);
   assert.equal(a.entry.errorText,'net::ERR_ABORTED');
   assert.equal(isQualifiedCdsMetadataFailure({...a.entry}),false);
+});
+
+test('bounds a missing terminal signal without inventing a request failure or qualification',async()=>{
+  const f=await networkFixture({finishTimeoutMillis:10});let proved=0;
+  const a=f.emit(1,{failed:false,finished:()=>new Promise(()=>{})});
+  await assert.rejects(f.observer.qualifyResponse(a.response,()=>{proved++;return proof(null);}),/CDS_TRANSPORT_FINISH_TIMEOUT/);
+  assert.equal(proved,0);assert.equal(f.recorder.requestFailures.length,0);
+  assert.deepEqual(await f.observer.qualifyPending(()=>{proved++;return proof(null);}),[]);
+  assert.equal(proved,0);assert.equal(isQualifiedCdsMetadataFailure(a.entry),false);
+});
+
+test('uses an exact existing raw terminal failure with the unchanged strict evidence path',async()=>{
+  const f=await networkFixture({finishTimeoutMillis:10});let finishedCalls=0;
+  const a=f.emit(1,{finished:()=>{finishedCalls++;return new Promise(()=>{});}});await Promise.resolve();
+  const result=await f.observer.qualifyResponse(a.response,()=>proof(null));
+  assert.equal(result.qualified,true);assert.equal(finishedCalls,0);
+  assert.equal(f.recorder.requestFailures.length,1);assert.equal(a.entry.errorText,'net::ERR_ABORTED');
+  assert.equal(isQualifiedCdsMetadataFailure(a.entry),true);
+});
+
+test('a terminal error object without an actual raw requestfailed event cannot qualify',async()=>{
+  const f=await networkFixture({finishTimeoutMillis:10});let proved=0;
+  const a=f.emit(1,{failed:false});
+  await assert.rejects(f.observer.qualifyResponse(a.response,()=>{proved++;return proof(null);}),/QUALIFIABLE/);
+  assert.equal(proved,0);assert.equal(f.recorder.requestFailures.length,0);
+  assert.equal(isQualifiedCdsMetadataFailure(a.entry),false);
+});
+
+test('an ordinarily finished successful response needs no failure qualification',async()=>{
+  const f=await networkFixture({finishTimeoutMillis:10});let proved=0;
+  const a=f.emit(1,{failed:false,finished:async()=>null});
+  assert.deepEqual(await f.observer.qualifyResponse(a.response,()=>{proved++;return proof(null);}),{qualified:false,finished:true});
+  assert.equal(proved,0);assert.equal(f.recorder.requestFailures.length,0);
+});
+
+test('the terminal wait cannot be configured without a finite ten-second bound',async()=>{
+  for(const finishTimeoutMillis of [0,-1,10001,1.5,Infinity])
+    await assert.rejects(networkFixture({finishTimeoutMillis}),/CDS_TRANSPORT_LIMIT_INVALID/);
+});
+
+test('eviction while the terminal response is pending cannot publish a held record',async()=>{
+  const f=await networkFixture({maxTraces:1,finishTimeoutMillis:1000});let finish,proved=0;
+  const a=f.emit(1,{failed:false,finished:()=>new Promise(resolve=>{finish=resolve;})});
+  const pending=f.observer.qualifyResponse(a.response,()=>{proved++;return proof(null);});
+  f.page.emit('requestfailed',a.request);f.recorder.requestFailures.push(a.entry);
+  f.emit(2);finish(Error('net::ERR_ABORTED'));
+  await assert.rejects(pending,/CDS_TRANSPORT_RECORD_EVICTED/);
+  assert.equal(proved,0);assert.equal(isQualifiedCdsMetadataFailure(a.entry),false);
+});
+
+test('eviction during independent proof cannot publish a held record',async()=>{
+  const f=await networkFixture({maxTraces:1}),a=f.emit(1);await Promise.resolve();let proved=0;
+  await assert.rejects(f.observer.qualifyResponse(a.response,()=>{
+    proved++;f.emit(2);return proof(null);
+  }),/CDS_TRANSPORT_RECORD_EVICTED/);
+  assert.equal(proved,1);assert.equal(isQualifiedCdsMetadataFailure(a.entry),false);
 });
 
 test('rejects navigation during proof, including a reload of the same address',async()=>{

@@ -227,8 +227,10 @@ async function installObserver(page, recorder, options = {}) {
   const config = {key, prefix: crypto.randomBytes(12).toString('hex'), origin: base.origin,
     form: base.pathname.replace(/\/$/, '') + '/form', header: HEADER,
     maxBytes: options.maxBytes || MAX_BYTES, maxTraces: options.maxTraces || 128};
+  const finishTimeoutMillis = options.finishTimeoutMillis ?? 10000;
   if (!Number.isSafeInteger(config.maxBytes) || config.maxBytes < 1 || config.maxBytes > MAX_BYTES
-      || !Number.isSafeInteger(config.maxTraces) || config.maxTraces < 1 || config.maxTraces > 256) throw Error('CDS_TRANSPORT_LIMIT_INVALID');
+      || !Number.isSafeInteger(config.maxTraces) || config.maxTraces < 1 || config.maxTraces > 256
+      || !Number.isSafeInteger(finishTimeoutMillis) || finishTimeoutMillis < 1 || finishTimeoutMillis > 10000) throw Error('CDS_TRANSPORT_LIMIT_INVALID');
   const records = new Map();
   page.on('request', request => {
     const tag = request.headers()[HEADER];
@@ -255,6 +257,7 @@ async function installObserver(page, recorder, options = {}) {
   for (const frame of page.frames()) await frame.evaluate(content);
   async function qualifyRecord(record, prover) {
     if (record.audit) return record.audit;
+    if (records.get(record.tag) !== record) throw Error('CDS_TRANSPORT_RECORD_EVICTED');
     if (record.error !== 'net::ERR_ABORTED' || record.resourceType !== 'fetch' || record.navigated || record.ambiguous || !record.documentIdentity || page.isClosed() || record.frame.isDetached() || record.redirected || !record.json || ![200,202].includes(record.status)) throw Error('CDS_TRANSPORT_FAILURE_NOT_QUALIFIABLE');
     await record.frame.waitForFunction(({key, tag, documentIdentity}) => {
       const observer=globalThis[key];
@@ -286,16 +289,30 @@ async function installObserver(page, recorder, options = {}) {
     const finalTrace=finalObserved.trace;
     if(!finalTrace || finalTrace.tag!==trace.tag || finalTrace.method!==trace.method || finalTrace.route!==trace.route || finalTrace.status!==trace.status || finalTrace.bytes!==trace.bytes)throw Error('CDS_TRANSPORT_TRACE_CHANGED');
     const audit = validateProof(finalTrace, proof);
+    if (records.get(record.tag) !== record) throw Error('CDS_TRANSPORT_RECORD_EVICTED');
     record.audit = Object.freeze(audit);
     for (const reference of record.entries) { const entry=reference.deref(); if(entry && boundFailures.get(entry)===record) qualified.set(entry, record.audit); }
     return record.audit;
   }
   return {
     async qualifyResponse(response, prover) {
-      const error = await response.finished();
-      if (!error) return {qualified: false, finished: true};
       const request = response.request(), record = records.get(request.headers()[HEADER]);
-      if (!record || record.requestRef.deref() !== request || ![200, 202].includes(response.status())) throw Error('CDS_TRANSPORT_RESPONSE_UNPROVEN');
+      const correlated = record && record.requestRef.deref() === request && [200, 202].includes(response.status());
+      // The exact raw requestfailed event is already a terminal observation.
+      // Its existing strict EOF/domain proof does not depend on CDP finished().
+      if (correlated && record.error === 'net::ERR_ABORTED') {
+        await Promise.resolve();
+        return {qualified: true, evidence: await qualifyRecord(record, prover)};
+      }
+      let timeout;
+      let error;
+      try {
+        error = await Promise.race([response.finished(), new Promise((resolve, reject) => {
+          timeout = setTimeout(() => reject(Error('CDS_TRANSPORT_FINISH_TIMEOUT')), finishTimeoutMillis);
+        })]);
+      } finally { clearTimeout(timeout); }
+      if (!error) return {qualified: false, finished: true};
+      if (!correlated) throw Error('CDS_TRANSPORT_RESPONSE_UNPROVEN');
       await Promise.resolve();
       return {qualified: true, evidence: await qualifyRecord(record, prover)};
     },

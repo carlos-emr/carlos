@@ -394,6 +394,11 @@ async function workflow(s) {
     const acceptedRun = await frame.locator('#runId').inputValue();
     const owned = await importApi(frame,'cdsImportStatus',{section:'upload',uploadId:dry.uploadId});
     h.assert(owned.body?.upload?.runId === acceptedRun, 'Execute is not bound to the same durable immutable upload');
+    console.log('CDS_NORMAL_EXECUTE_RUN_ID',acceptedRun);
+    // Prove the consumed current-document receipts before deliberately replacing that document.
+    // Mid-processing disconnect/recovery is exercised separately by the lifecycle gate.
+    await awaitRunReceipt(frame,acceptedRun);
+    await qualifyCdsMetadata(s);
     const bookmark = new URL(frame.url()); bookmark.searchParams.set('runId', acceptedRun);
     await frame.goto(bookmark.href); await frame.locator('#cdsImport').waitFor();
     actual = await awaitRunReceipt(frame, acceptedRun);
