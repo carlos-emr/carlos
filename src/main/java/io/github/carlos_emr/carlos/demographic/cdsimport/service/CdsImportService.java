@@ -146,7 +146,35 @@ public class CdsImportService {
         requireActor(actor, run); ledger.observe(run, actor.operator(), actor.providerNo(), operation, osUid, verifiedNonce);
     }
     public void resolveReview(LoggedInInfo viewer, String run, CdsImportReviewCommand command) throws IOException {
-        status(viewer, run); String review=reviews.accept(viewer, run, command); scheduleReview(review);
+        var accepted=status(viewer, run);
+        final String review;
+        try {
+            review=reviews.accept(viewer, run, command);
+        } catch (org.springframework.dao.DataAccessException | org.springframework.transaction.TransactionException
+                | jakarta.persistence.PersistenceException failure) {
+            // The owning acceptance transaction has ended. A lost commit acknowledgement
+            // may leave an accepted review; observation must never infer rollback or resubmit.
+            reviewAcceptanceUnconfirmed(run, accepted.ownerEpoch(), failure);
+            throw failure;
+        }
+        scheduleReview(review);
+    }
+
+    private void reviewAcceptanceUnconfirmed(String run, long epoch, RuntimeException primary) {
+        String detail=null;
+        try {
+            detail=failureEvidence.write(run, epoch, primary);
+        } catch (RuntimeException | Error secondary) {
+            if (secondary!=primary) primary.addSuppressed(secondary);
+        }
+        if (detail==null) LOG.error("CDS review acceptance: REVIEW_ACCEPTANCE_EVIDENCE_UNAVAILABLE");
+        try {
+            ledger.diagnostic(run, null, null, "ERROR", "REVIEW_ACCEPTANCE_OUTCOME_UNCONFIRMED", "REVIEW_ACCEPTANCE",
+                    null, "The review request outcome could not be confirmed. Refresh this run's review status before retrying.", detail, false);
+        } catch (RuntimeException | Error secondary) {
+            if (secondary!=primary) primary.addSuppressed(secondary);
+            LOG.error("CDS review acceptance: REVIEW_ACCEPTANCE_DIAGNOSTIC_UNAVAILABLE");
+        }
     }
 
     private CdsImportActorDto controlActor(LoggedInInfo viewer) {

@@ -50,6 +50,7 @@ CLASSES = (
     'CdsHistoryVisibilityMariaDbIntegrationTest', 'CdsDemographicStorageMariaDbIntegrationTest',
     'CdsReportStorageMariaDbIntegrationTest',
     'CdsHrmRepairAdmissionMariaDbIntegrationTest',
+    'CdsReviewAcceptanceMariaDbIntegrationTest',
     'CdsImportLedgerMariaDbIntegrationTest', 'CdsTargetReceiptMariaDbIntegrationTest',
 )
 
