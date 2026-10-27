@@ -1199,23 +1199,23 @@ Ontario, Canada
                     <%-- Left column: Date, Time, Duration, Patient, Reason, Location, Creator --%>
                     <div class="col-md-6">
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDate"/>&nbsp;<span style="color:brown;">(<%=dateString1%>)</span>:</label>
+                            <label class="col-sm-4 col-form-label" for="appointment_date"><fmt:message key="Appointment.formDate"/>&nbsp;<span style="color:brown;">(<%=dateString1%>)</span>:</label>
                             <div class="col-sm-8">
-                                <input type="date" class="form-control form-control-sm" name="appointment_date"
+                                <input type="date" class="form-control form-control-sm" name="appointment_date" id="appointment_date"
                                        value="<%=dateString2%>"
                                        onChange="checkDateTypeIn(this);checkPageLock()">
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStartTime"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="start_time"><fmt:message key="Appointment.formStartTime"/>:</label>
                             <div class="col-sm-8">
-                                <input type="time" name="start_time" class="form-control form-control-sm"
+                                <input type="time" name="start_time" id="start_time" class="form-control form-control-sm"
                                        value='<carlos:encode value='<%= request.getParameter("start_time") == null ? "" : request.getParameter("start_time") %>' context="htmlAttribute"/>'<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                                        onChange="checkTimeTypeIn(this);checkPageLock();updateTime()">
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDuration"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="duration"><fmt:message key="Appointment.formDuration"/>:</label>
                             <div class="col-sm-8">
                                 <input type="number" name="duration" id="duration" class="form-control form-control-sm"
                                        value="<carlos:encode value='<%= duration %>' context="htmlAttribute"/>" onChange="checkPageLock()" onblur="calculateEndTime();">
@@ -1300,6 +1300,7 @@ Ontario, Canada
                                     </c:choose>
                                 </select>
                                 <fmt:message key="Appointment.formReason" var="formReasonMsg"/>
+                                <label for="reason" class="visually-hidden"><fmt:message key="Appointment.formReason"/></label>
                                 <textarea id="reason" name="reason" class="form-control form-control-sm mt-1" tabindex="2" rows="2"
                                           style="resize:none;"
                                           placeholder="${carlos:forHtmlAttribute(formReasonMsg)}"
@@ -1318,7 +1319,7 @@ Ontario, Canada
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
                         %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formLocation"/>:</label>
+                            <span class="col-sm-4 col-form-label"><fmt:message key="Appointment.formLocation"/>:</span>
                             <div class="col-sm-8">
                                 <% if (bMultisites) { %>
                                 <%
@@ -1326,7 +1327,8 @@ Ontario, Canada
                                     java.util.regex.Pattern cssColorPattern = java.util.regex.Pattern.compile("^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$|^[a-zA-Z]+$");
                                     String safeColoAttr = (colo != null && cssColorPattern.matcher(colo).matches()) ? SafeEncode.forHtmlAttribute(colo) : "";
                                 %>
-                                <select tabindex="4" class="form-select form-select-sm" name="location"
+                                <label for="location" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
+                                <select tabindex="4" class="form-select form-select-sm" name="location" id="location"
                                         style="background-color: <%=safeColoAttr%>"
                                         onchange='locale()'>
                                     <% for (Site s : sites) {
@@ -1339,7 +1341,8 @@ Ontario, Canada
                                     <% } %>
                                 </select>
                                 <% } else if (locationEnabled) { %>
-                                <select name="location" class="form-select form-select-sm">
+                                <label for="locationProgram" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
+                                <select name="location" id="locationProgram" class="form-select form-select-sm">
                                     <%
                                         String sessionLocation = "";
                                         ProgramProvider programProvider = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
@@ -1357,23 +1360,24 @@ Ontario, Canada
                                     %>
                                 </select>
                                 <% } else { %>
-                                <input type="text" name="location" tabindex="4" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
+                                <label for="locationText" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
+                                <input type="text" name="location" id="locationText" tabindex="4" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
                                 <% } %>
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formCreator"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="user_id"><fmt:message key="Appointment.formCreator"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" name="user_id" class="form-control form-control-sm"
+                                <input type="text" name="user_id" id="user_id" class="form-control form-control-sm"
                                        value='<%=bFirstDisp?(SafeEncode.forHtmlAttribute(userlastname)+", "+SafeEncode.forHtmlAttribute(userfirstname)):(request.getParameter("user_id") == null || "".equals(request.getParameter("user_id")))?"Unknown":SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("user_id")))%>'
                                        readonly="readonly">
                             </div>
                         </div>
                         <% if (pros.isPropertyActive("mc_number")) { %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formMC"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="appt_mc_number"><fmt:message key="Appointment.formMC"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" name="appt_mc_number" tabindex="5" class="form-control form-control-sm"/>
+                                <input type="text" name="appt_mc_number" id="appt_mc_number" tabindex="5" class="form-control form-control-sm"/>
                             </div>
                         </div>
                         <% } %>
@@ -1382,10 +1386,11 @@ Ontario, Canada
                     <%-- Right column: Status, Type, Doctor, Notes, Resources, DateTime, Critical, Email --%>
                     <div class="col-md-6">
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStatus"/>:</label>
+                            <span class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStatus"/>:</span>
                             <div class="col-sm-8">
                                 <% if (statusEditable) { %>
-                                <select class="form-select form-select-sm" name="status" style="background-color:<carlos:encode value='<%= (allStatus.get(0)).getColor() %>' context="htmlAttribute"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+                                <label for="statusSelect" class="visually-hidden"><fmt:message key="Appointment.formStatus"/></label>
+                                <select class="form-select form-select-sm" name="status" id="statusSelect" style="background-color:<carlos:encode value='<%= (allStatus.get(0)).getColor() %>' context="htmlAttribute"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                     <% for (int i = 0; i < allStatus.size(); i++) { %>
                                     <option class="<carlos:encode value='<%= (allStatus.get(i)).getStatus() %>' context="htmlAttribute"/>"
                                             style="background-color:<carlos:encode value='<%= (allStatus.get(i)).getColor() %>' context="htmlAttribute"/>"
@@ -1395,13 +1400,14 @@ Ontario, Canada
                                     <% } %>
                                 </select>
                                 <% } else { %>
-                                <input type="text" name="status" class="form-control form-control-sm"
+                                <label for="statusText" class="visually-hidden"><fmt:message key="Appointment.formStatus"/></label>
+                                <input type="text" name="status" id="statusText" class="form-control form-control-sm"
                                        value='<carlos:encode value='<%= bFirstDisp ? "t" : (request.getParameter("status") == null ? "" : request.getParameter("status")) %>' context="htmlAttribute"/>'>
                                 <% } %>
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formType"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="type"><fmt:message key="Appointment.formType"/>:</label>
                             <div class="col-sm-8">
                                 <select class="form-select form-select-sm" name="type" id="type"
                                         title="<fmt:message key="billing.billingCorrection.msgSelectVisitType"/>">
@@ -1429,24 +1435,24 @@ Ontario, Canada
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formNotes"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="notes"><fmt:message key="Appointment.formNotes"/>:</label>
                             <div class="col-sm-8">
                                 <fmt:message key="Appointment.formNotes" var="formNotesMsg"/>
-                                <textarea class="form-control form-control-sm" name="notes" tabindex="3" rows="2" style="resize:none;"
+                                <textarea class="form-control form-control-sm" name="notes" id="notes" tabindex="3" rows="2" style="resize:none;"
                                           placeholder="${carlos:forHtmlAttribute(formNotesMsg)}"
                                           maxlength="65536" data-max-codepoints="32768"><%=bFirstDisp ? "" : SafeEncode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formResources"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="resources"><fmt:message key="Appointment.formResources"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" name="resources" class="form-control form-control-sm"
+                                <input type="text" name="resources" id="resources" class="form-control form-control-sm"
                                        tabindex="6"
                                        value='<%=bFirstDisp?"":"".equals(request.getParameter("resources"))?"": SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("resources")))%>'>
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDateTime"/>:</label>
+                            <span class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDateTime"/>:</span>
                             <div class="col-sm-8">
                                 <%
                                     GregorianCalendar now = new GregorianCalendar();
@@ -1483,10 +1489,10 @@ Ontario, Canada
                         <% String emailReminder = pros.getProperty("emailApptReminder");
                             if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formEmailReminder"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="emailPt"><fmt:message key="Appointment.formEmailReminder"/>:</label>
                             <div class="col-sm-8">
                                 <div class="form-check mt-1">
-                                    <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
+                                    <input type="checkbox" class="form-check-input" name="emailPt" id="emailPt" value="email reminder">
                                 </div>
                             </div>
                         </div>

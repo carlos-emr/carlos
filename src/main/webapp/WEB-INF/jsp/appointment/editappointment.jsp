@@ -1129,6 +1129,7 @@
                 </tr>
                 <tr>
             <td></td><td>
+				<label for="reason" class="visually-hidden"><fmt:message key="Appointment.formReason"/></label>
 				<textarea id="reason" class="form-control" name="reason" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getReason()) %>' context="htmlAttribute"/>" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
 
                     </td>
@@ -1137,7 +1138,7 @@
                     <td>
                         <%-- Only one of the three location controls below is rendered. Each has its own id and
                              hidden label so the ids stay unique in this source too; the caption is shared. --%>
-                        <label><fmt:message key="Appointment.formLocation"/>:</label>
+                        <span><fmt:message key="Appointment.formLocation"/>:</span>
                     </td>
                     <td>
                         <%

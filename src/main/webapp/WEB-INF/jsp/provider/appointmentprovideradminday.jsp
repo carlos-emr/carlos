@@ -1740,7 +1740,8 @@
                                                    onClick="goSearchView('<%=curProvider_no[nProvider]%>')"
                                                    title="<fmt:message key="provider.appointmentProviderAdminDay.searchView"/>"
                                                    style="color:black" class="noprint">
-                                            <input type='radio' name='flipview' class="noprint"
+                                            <label for="flipview<%=nProvider%>" class="visually-hidden"><fmt:message key="schedule.scheduleflipview.title"/> — <carlos:encode value='<%= curProviderName[nProvider] %>' context="html"/></label>
+                                            <input type='radio' name='flipview' id="flipview<%=nProvider%>" class="noprint"
                                                    onClick="goFilpView('<%=curProvider_no[nProvider]%>')"
                                                    title="<fmt:message key="schedule.scheduleflipview.title"/>">
                                             <a href=#

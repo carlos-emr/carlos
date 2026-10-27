@@ -355,8 +355,8 @@
                 </tr>
                 <tr>
                     <td class="label">Form:</td>
-                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getDrugForm())) %> &nbsp; (<a href="javascript:void()"
-                                                                                      onClick="updateForm();return false;">Update</a>)
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getDrugForm())) %> &nbsp; (<button type="button"
+                                                                                      onClick="updateForm();return false;"><fmt:message key="global.update"/></button>)
                     </td>
                 </tr>
                 <tr>
