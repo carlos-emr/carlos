@@ -19,8 +19,10 @@ bounded database verification counts.
 Prepare a mode-0600 JDBC properties file with `jdbcUrl`, `jdbcUser` and
 `jdbcPassword`. Pass only that file's path. The helper verifies that the actual
 selected database is a test database before modifying it, requires the actual migrated doctor role and creates provider 999998 only when
-absent; any existing key must match the exact active synthetic baseline or it
-refuses. It creates a native-schema-safe synthetic facility only when none is
+absent; an existing key must match either the exact active canonical Ontario
+bootstrap identity (`carlosdoc`/`doctor`) or the helper's own synthetic marker,
+with the actual doctor role, or it refuses. Existing provider rows are never
+rewritten. It creates a native-schema-safe synthetic facility only when none is
 active, then creates explicit synthetic course, student and alphanumeric provider
 rows. No private seed script or development snapshot is required. The fixed production properties must
 be absent: the gate refuses to replace any existing deployment configuration.
