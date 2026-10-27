@@ -131,9 +131,10 @@ public class CdsCorrectionLookupService {
                 requireVersion(runId, epoch, expectedVersion);
                 var rows=reviews.throughVersion(runId, expectedVersion, cursor, 100);
                 for (var row:rows) {
-                    if (Set.of("OVERLAY_READY", "REVALIDATED", "DECLINE_READY").contains(row.getState())) {
+                    if (Set.of("OVERLAY_READY", "REVALIDATED", "DECLINE_READY", "REVISION_READY", "REVISION_REVALIDATED").contains(row.getState())) {
                         row.setRevalidationSha256(prospectiveManifestDigest);
                         if ("OVERLAY_READY".equals(row.getState())) row.setState("REVALIDATED");
+                        else if ("REVISION_READY".equals(row.getState())) row.setState("REVISION_REVALIDATED");
                     }
                 }
                 return rows.stream().map(row -> row.getReviewVersion()).toList();

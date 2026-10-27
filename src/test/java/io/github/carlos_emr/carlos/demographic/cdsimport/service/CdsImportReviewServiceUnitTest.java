@@ -66,6 +66,7 @@ class CdsImportReviewServiceUnitTest {
     private final CdsSnapshotService snapshots=mock(CdsSnapshotService.class);
     private final CdsCorrectionLookupService corrections=mock(CdsCorrectionLookupService.class);
     private final CdsImportCoordinatorService coordinator=mock(CdsImportCoordinatorService.class);
+    private final CdsUnwrittenRevisionReviewService revisions=mock(CdsUnwrittenRevisionReviewService.class);
     private final EntityManager entityManager=mock(EntityManager.class);
     private final TypedQuery<Long> count=mock(TypedQuery.class);
     private final AtomicReference<CdsImportReview> stored=new AtomicReference<>();
@@ -85,7 +86,7 @@ class CdsImportReviewServiceUnitTest {
         var manager=mock(PlatformTransactionManager.class);
         when(manager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
         var config=mock(CdsImportConfigurationService.class);when(config.limits()).thenReturn(CdsInputLimitsDto.defaults());
-        service=new CdsImportReviewService(ledger,jobs,config,access,reviews,runs,diagnostics,snapshots,parser,fields,corrections,coordinator,manager);
+        service=new CdsImportReviewService(ledger,jobs,config,access,reviews,runs,diagnostics,snapshots,parser,fields,corrections,coordinator,revisions,manager);
         var field=CdsImportReviewService.class.getDeclaredField("entityManager");field.setAccessible(true);field.set(service,entityManager);
         when(entityManager.createQuery(anyString(),eq(Long.class))).thenReturn(count);
         when(count.setParameter(anyString(),any())).thenReturn(count);when(count.getSingleResult()).thenReturn(0L);
@@ -240,6 +241,40 @@ class CdsImportReviewServiceUnitTest {
         assertThatThrownBy(() -> service.process(id)).hasMessage("REVIEW_PLAN_ARCHIVE_INCOMPLETE");
         assertThat(stored.get().getState()).isEqualTo("REJECTED");
         verify(ledger,never()).resetUnsealedPlan(anyString(),anyLong(),anyLong());
+    }
+
+    @Test
+    void shouldPublishExplicitUnwrittenRevisionOnlyAfterProof_whenAnAlreadyAcceptedRunConflictsWithCanonicalHistory() throws Exception {
+        source("F");String id=revision();assertThat(service.process(id)).isEqualTo(RUN);
+        assertThat(stored.get().getState()).isEqualTo("REVISION_READY");
+        assertThat(stored.get().getPatientKey()).isEqualTo("a".repeat(64));
+        verify(revisions).approve(eq(RUN),eq(5L),eq(1L),any());verify(ledger).resetUnsealedPlan(RUN,5L,1L);
+        assertThat(diagnostic.isResolved()).isFalse();
+    }
+
+    @Test
+    void shouldRefuseChangedRevisionSidecarProof_whenPublishedAdministrativeResetIsRecovered() throws Exception {
+        source("F");String id=revision();service.process(id);stored.get().setState("REVISION_PUBLISHED");
+        Files.writeString(Path.of(stored.get().getManifestLocation()),"tampered");clearInvocations(ledger);
+        assertThatThrownBy(() -> service.process(id)).hasMessage("REVIEW_PLAN_PROOF_CHANGED");
+        assertThat(stored.get().getState()).isEqualTo("REVISION_PUBLISHED");
+        verify(ledger,never()).resetUnsealedPlan(anyString(),anyLong(),anyLong());
+    }
+
+    private String revision() throws Exception {
+        String patient="a".repeat(64);diagnostic.setPatientKey(patient);diagnostic.setCode("SOURCE_REVISION_REVIEW_REQUIRED");
+        when(revisions.prepare(eq(RUN),eq(5L),eq(patient),anyString(),eq(document),any(),any(),any())).thenAnswer(call -> {
+            Path attempt=call.getArgument(6);Map<String,Map<String,Object>> artifacts=new LinkedHashMap<>();
+            for(String name:List.of("revision-context.json","lineage-approval.json","prior-run-provenance.jsonl")) {
+                Path file=Files.writeString(attempt.resolve(name),"immutable-proof");
+                artifacts.put(name,Map.of("sha256",CdsPaths.hex(CdsPaths.sha256().digest(Files.readAllBytes(file))),"bytes",Files.size(file)));
+            }
+            var proof=new CdsImportRevisionDto(RUN,patient,patient,"source","source-patient","ordinary","0".repeat(64),"1".repeat(64),"2".repeat(64),
+                    "3".repeat(64),"4".repeat(64),"5".repeat(64),null,0,true,List.of(),0,false);
+            var xml=new CdsSnapshotFileDto("source.xml",root.resolve("source.xml"),"6".repeat(64),Files.size(root.resolve("source.xml")),true);
+            return new CdsUnwrittenRevisionReviewService.Prepared(proof,xml,RECORD,artifacts);
+        });
+        return service.accept(viewer,RUN,new CdsImportReviewCommand("APPROVE_UNWRITTEN_REVISION",1L,patient,null,0,null,null,"Verified explicit zero-write source revision"));
     }
 
     @Test

@@ -26,7 +26,7 @@ public record CdsImportReviewCommand(String kind, Long diagnosticId, String pati
         String unitKey, long expectedVersion, String sourceXPath, String replacementValue,
         String reason) {
     public CdsImportReviewCommand {
-        if (!("CORRECT_VALUE".equals(kind) || "DECLINE_PATIENT".equals(kind))
+        if (!("CORRECT_VALUE".equals(kind) || "DECLINE_PATIENT".equals(kind) || "APPROVE_UNWRITTEN_REVISION".equals(kind))
                 || diagnosticId == null || diagnosticId < 1 || expectedVersion < 0
                 || reason == null || reason.isBlank() || reason.length() > 4000
                 || patientKey == null || patientKey.length() > 128

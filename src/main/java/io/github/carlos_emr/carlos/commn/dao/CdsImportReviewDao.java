@@ -45,10 +45,10 @@ public class CdsImportReviewDao extends AbstractDaoImpl<CdsImportReview> {
     public CdsImportReview get(String id){return entityManager.find(CdsImportReview.class, id); }
     public CdsImportReview lock(String id){var row=entityManager.find(CdsImportReview.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE); if (row!=null) entityManager.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE); return row; }
     public List<CdsImportReview> pending(int limit) {
-        return entityManager.createQuery("select r from CdsImportReview r where r.state in ('REQUESTED','VALIDATING','OVERLAY_PUBLISHED','PATIENT_DECLINED') order by r.createdAt,r.id", CdsImportReview.class).setMaxResults(limit).getResultList();
+        return entityManager.createQuery("select r from CdsImportReview r where r.state in ('REQUESTED','VALIDATING','OVERLAY_PUBLISHED','PATIENT_DECLINED','REVISION_PUBLISHED') order by r.createdAt,r.id", CdsImportReview.class).setMaxResults(limit).getResultList();
     }
     public List<CdsImportReview> pendingRun(String run, int limit) {
-        return entityManager.createQuery("select r from CdsImportReview r where r.runId=:run and r.state in ('REQUESTED','VALIDATING','OVERLAY_PUBLISHED','PATIENT_DECLINED') order by r.reviewVersion", CdsImportReview.class).setParameter("run", run).setMaxResults(limit).getResultList();
+        return entityManager.createQuery("select r from CdsImportReview r where r.runId=:run and r.state in ('REQUESTED','VALIDATING','OVERLAY_PUBLISHED','PATIENT_DECLINED','REVISION_PUBLISHED') order by r.reviewVersion", CdsImportReview.class).setParameter("run", run).setMaxResults(limit).getResultList();
     }
     public CdsImportReview latest(String run) {
         var rows=entityManager.createQuery("select r from CdsImportReview r where r.runId=:run order by r.reviewVersion desc", CdsImportReview.class).setParameter("run", run).setMaxResults(1).getResultList(); return rows.isEmpty()?null:rows.get(0);
@@ -65,7 +65,7 @@ public class CdsImportReviewDao extends AbstractDaoImpl<CdsImportReview> {
         return entityManager.createQuery("select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewOriginDto(r.id,r.operator,r.securityNo,r.sourceKey,r.reviewedSourceXPath,r.state,r.reviewVersion) from CdsImportReview r where r.runId=:run and r.id in :ids", io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewOriginDto.class).setParameter("run", run).setParameter("ids", ids).getResultList();
     }
     public List<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewProvenanceDto> provenance(int demographic, String category, String after, int limit) {
-        return entityManager.createQuery("select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewProvenanceDto(r.id,r.operator,r.appliedAt,r.kind,r.state,r.reviewReason,r.reviewVersion,r.reviewedSourceXPath) from CdsImportReview r where r.id>:after and r.state in ('OVERLAY_READY','DECLINE_READY','REVALIDATED') and (r.category=:category or r.kind='DECLINE_PATIENT') and exists(select p.id from CdsImportPatient p where p.targetDemographicNo=:target and p.runId=r.runId and p.sourcePatientId=r.sourcePatientId and (r.patientKey is null or r.patientKey=p.patientKey)) order by r.id", io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewProvenanceDto.class)
+        return entityManager.createQuery("select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewProvenanceDto(r.id,r.operator,r.appliedAt,r.kind,r.state,r.reviewReason,r.reviewVersion,r.reviewedSourceXPath) from CdsImportReview r where r.id>:after and r.state in ('OVERLAY_READY','DECLINE_READY','REVALIDATED','REVISION_READY','REVISION_REVALIDATED') and (r.category=:category or r.kind in ('DECLINE_PATIENT','APPROVE_UNWRITTEN_REVISION')) and exists(select p.id from CdsImportPatient p where p.targetDemographicNo=:target and p.runId=r.runId and p.sourcePatientId=r.sourcePatientId and (r.patientKey is null or r.patientKey=p.patientKey)) order by r.id", io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewProvenanceDto.class)
                 .setParameter("after", after).setParameter("category", category).setParameter("target", demographic).setMaxResults(limit).getResultList();
     }
 }

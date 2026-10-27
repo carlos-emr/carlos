@@ -60,6 +60,7 @@ def main() -> None:
         raise RuntimeError("existing delegation directory does not satisfy the production contract")
     nonce = str(uuid.uuid4())
     ticket = delegation_root / (nonce + ".json")
+    owned_files: dict[Path, tuple[int, int]] = {}
     source_arguments = ["--operation", "import", "--provider", "999998", "--input", "/synthetic/é.xml",
                         "--source-namespace", "synthetic-source", "--source-profile", "pcon-2024-02"]
     issued = int(time.time())
@@ -92,6 +93,8 @@ def main() -> None:
 
     try:
         descriptor = os.open(properties, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640)
+        metadata = os.fstat(descriptor)
+        owned_files[properties] = (metadata.st_dev, metadata.st_ino)
         with os.fdopen(descriptor, "w") as stream:
             stream.write("cds.import.cliHeapMiB:7\\\n  68\ncds.import.enabled=false\n"
                          "cds.import.operator.root.providers=999998\n"
@@ -99,6 +102,8 @@ def main() -> None:
         os.chown(properties, 0, account.pw_gid)
         os.chmod(properties, 0o640)
         descriptor = os.open(ticket, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640)
+        metadata = os.fstat(descriptor)
+        owned_files[ticket] = (metadata.st_dev, metadata.st_ino)
         with os.fdopen(descriptor, "w") as stream:
             json.dump(proof, stream, separators=(",", ":"))
         os.chown(ticket, 0, account.pw_gid)
@@ -126,9 +131,14 @@ def main() -> None:
         print("Actual CARLOS Java CLI boundary verified: protocol1, Java25, Properties semantics, "
               "no-DB capabilities, root-owned service-readable delegation, UID/mode/expiry/digest refusal")
     finally:
-        # These paths were absent before this explicit disposable-only test.
-        ticket.unlink(missing_ok=True)
-        properties.unlink(missing_ok=True)
+        # Cleanup only the exact inodes exclusively created by this invocation.
+        # A concurrent replacement or failed O_EXCL never authorizes deletion.
+        for path, identity in owned_files.items():
+            if path.exists() or path.is_symlink():
+                current = path.lstat()
+                if (current.st_dev, current.st_ino) != identity:
+                    raise RuntimeError("boundary cleanup ownership changed; replacement left untouched")
+                path.unlink()
         if delegation_created:
             delegation_root.rmdir()
         if parent_created:
