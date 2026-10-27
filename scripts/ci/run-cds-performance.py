@@ -989,6 +989,10 @@ def main() -> None:
         private_json(proof, result)
         raise RuntimeError("CDS performance gate failed; inspect protected evidence; never reset or resubmit accepted work") from None
     finally:
+        if 'initialCgroupCounters' in result:
+            capture_evidence(result,'finalCgroupCounters',cgroup_counters)
+            capture_evidence(result,'cgroupMemoryPeakIncludingFileCache',lambda:Path('/sys/fs/cgroup/memory.peak').read_text().strip())
+            private_json(proof,result)
         client.unlink(missing_ok=True)
 
 
