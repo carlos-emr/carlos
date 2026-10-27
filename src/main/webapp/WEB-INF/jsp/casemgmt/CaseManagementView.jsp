@@ -68,6 +68,7 @@
 <body>
     <fmt:setBundle basename="cdsImportMessages" var="cdsSourceLabels"/>
     <div><fmt:message key="sourceClinicalNotes" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="ClinicalNotes"/> — <fmt:message key="sourceAdditionalCategories" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="NewCategory"/></div>
+    <p class="cds-note-source-timing"><fmt:message key="sourceClinicalNotesTimingHelp" bundle="${cdsSourceLabels}"/></p>
     <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView" method="post">
         <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
         <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>

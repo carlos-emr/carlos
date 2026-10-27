@@ -75,6 +75,8 @@
     — <fmt:message key="sourceAdditionalCategories" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${not empty requestScope.demographicNo ? requestScope.demographicNo : param.demographicNo}" category="NewCategory"/>
 </div>
 
+<p class="cds-note-source-timing"><fmt:message key="sourceClinicalNotesTimingHelp" bundle="${cdsSourceLabels}"/></p>
+
 <div id="cppBoxes">
     <div id="divR1">
         <!-- social history -->
