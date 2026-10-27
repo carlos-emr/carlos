@@ -87,7 +87,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
         org.mockito.Mockito.doThrow(new org.apache.cxf.binding.soap.SoapFault("Structured projection requires review",
                 org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT))
                 .when(projections).requireSoapSupported(123,java.util.Set.of("Immunizations"));
-        org.assertj.core.api.Assertions.assertThatThrownBy(()->createClient(PreventionWs.class).getPreventionsByDemographicIdAfter(java.util.Calendar.getInstance(),123))
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->createClient(PreventionPort.class).getPreventionsByDemographicIdAfter(java.util.Calendar.getInstance(),123))
                 .hasMessageContaining("Structured projection requires review");
     }
 
@@ -109,7 +109,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
         record.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
         when(partialDateDao.getFormat(4, 41, 7)).thenReturn("YYYY");
         when(preventionManager.getPrevention(any(LoggedInInfo.class), eq(41))).thenReturn(record);
-        assertThatThrownBy(() -> createClient(PreventionWs.class).getPrevention(41))
+        assertThatThrownBy(() -> createClient(PreventionPort.class).getPrevention(41))
                 .hasMessageContaining("precision-aware");
     }
 
@@ -117,7 +117,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
     void shouldRefuseListOperation_whenHistoryContainsUndatedRecords() {
         when(preventionManager.getUpdatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
                 .thenReturn(List.of(new Prevention()));
-        assertThatThrownBy(() -> createClient(PreventionWs.class).getPreventionsUpdatedAfterDate(new Date(), 10))
+        assertThatThrownBy(() -> createClient(PreventionPort.class).getPreventionsUpdatedAfterDate(new Date(), 10))
                 .hasMessageContaining("precision-aware");
     }
 
@@ -137,7 +137,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
             when(preventionManager.getPreventionExtByPrevention(any(LoggedInInfo.class), eq(7)))
                 .thenReturn(Collections.emptyList());
 
-            PreventionWs proxy = createClient(PreventionWs.class);
+            PreventionPort proxy = createClient(PreventionPort.class);
             PreventionTransfer result = proxy.getPrevention(7);
 
             assertThat(result).isNotNull();
@@ -149,7 +149,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
         void shouldReturnNull_whenPreventionNotFound() {
             when(preventionManager.getPrevention(any(LoggedInInfo.class), eq(999))).thenReturn(null);
 
-            PreventionWs proxy = createClient(PreventionWs.class);
+            PreventionPort proxy = createClient(PreventionPort.class);
             PreventionTransfer result = proxy.getPrevention(999);
 
             assertThat(result).isNull();
@@ -174,7 +174,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
             when(preventionManager.getUpdatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
                 .thenReturn(preventions);
 
-            PreventionWs proxy = createClient(PreventionWs.class);
+            PreventionPort proxy = createClient(PreventionPort.class);
             PreventionTransfer[] result = proxy.getPreventionsUpdatedAfterDate(new Date(), 10);
 
             assertThat(result).hasSize(1);
@@ -188,7 +188,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
             when(preventionManager.getUpdatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
                 .thenReturn(new ArrayList<>());
 
-            PreventionWs proxy = createClient(PreventionWs.class);
+            PreventionPort proxy = createClient(PreventionPort.class);
             PreventionTransfer[] result = proxy.getPreventionsUpdatedAfterDate(new Date(), 10);
 
             // SOAP omits an empty return array, which JAXB may deserialize as null.
@@ -214,12 +214,23 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
             when(preventionManager.getByDemographicIdUpdatedAfterDate(any(LoggedInInfo.class), eq(200), any(Date.class)))
                 .thenReturn(preventions);
 
-            PreventionWs proxy = createClient(PreventionWs.class);
+            PreventionPort proxy = createClient(PreventionPort.class);
             Calendar cal = Calendar.getInstance();
             PreventionTransfer[] result = proxy.getPreventionsByDemographicIdAfter(cal, 200);
 
             assertThat(result).hasSize(1);
             assertThat(result[0].getPreventionType()).isEqualTo("Flu");
         }
+    }
+    /** JAX-WS clients use a service interface; constructing a concrete CGLIB proxy would
+     * require a fake no-argument constructor on the constructor-injected production service. */
+    @jakarta.jws.WebService(name="PreventionWs",targetNamespace="http://ws.oscarehr.org/")
+    public interface PreventionPort {
+        PreventionTransfer getPrevention(Integer arg0);
+        PreventionTransfer[] getPreventionsUpdatedAfterDate(Date arg0,int arg1);
+        PreventionTransfer[] getPreventionsByProgramProviderDemographicDate(Integer arg0,String arg1,Integer arg2,java.util.Calendar arg3,int arg4);
+        PreventionTransfer[] getPreventionsByDemographicIdAfter(
+                @jakarta.jws.WebParam(name="lastUpdate") java.util.Calendar lastUpdate,
+                @jakarta.jws.WebParam(name="demographicId") Integer demographicId);
     }
 }

@@ -25,7 +25,7 @@ The finite core entry points covered are:
 | REST allergy and medication list consumers | 409 at the category authorization boundary |
 | SOAP allergy, prevention and care measurement reads/feeds | Explicit client fault, including empty native lists and unscoped feeds |
 | REST care measurements | 409 before native entity serialization |
-| FHIR immunization list/single resource | Explicit unsupported FHIR response before resource construction |
+| FHIR patient/search and immunization list/single resource | Explicit unsupported FHIR response before resource construction |
 
 The existing authorized, category-local clinical source view remains available and applies its
 own chart, category, sensitive-laboratory, maintenance and hold checks. These boundaries do not

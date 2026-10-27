@@ -74,6 +74,8 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
 
     @Test
     void shouldReturnConflictInsteadOfEmptySubset_whenStructuredCareCannotBeProjected() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class),eq("_measurement"),eq("r"),eq("123"))).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class),eq(123))).thenReturn(true);
         org.mockito.Mockito.doThrow(new jakarta.ws.rs.WebApplicationException(Response.status(409)
                 .type("text/plain").entity("Structured projection requires review").build()))
                 .when(projections).requireRestSupported(123,java.util.Set.of("CareElements"));
