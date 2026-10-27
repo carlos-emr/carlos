@@ -60,6 +60,9 @@ public class AllergyService extends AbstractServiceImpl {
     @Autowired
     private CdsTemporalReadService dates;
 
+    @Autowired
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService legacyProjection;
+
     @GET
     @Path("/active")
     @Produces("application/json")
@@ -75,7 +78,9 @@ public class AllergyService extends AbstractServiceImpl {
     }
 
     private AllergyResponse active(Integer demographicNo, boolean precisionAware) {
+        if (demographicNo == null || demographicNo < 1) throw new jakarta.ws.rs.BadRequestException("demographicNo is required");
         List<Allergy> allergies = allergyManager.getActiveAllergies(getLoggedInInfo(), demographicNo);
+        legacyProjection.requireRestSupported(demographicNo, java.util.Set.of("AllergiesAndAdverseReactions"));
         List<AllergyTo1> allergiesT = new AllergyConverter(dates, precisionAware)
                 .getAllAsTransferObjects(getLoggedInInfo(), allergies);
 

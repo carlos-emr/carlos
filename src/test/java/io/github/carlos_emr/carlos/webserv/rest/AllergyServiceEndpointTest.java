@@ -64,6 +64,8 @@ class AllergyServiceEndpointTest extends CarlosRestTestBase {
     @Override
     protected Object getServiceBean() {
         AllergyService service = new AllergyService();
+        injectDependency(service, "legacyProjection", org.mockito.Mockito.mock(
+                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class));
         injectDependency(service, "allergyManager", mockAllergyManager);
         return service;
     }

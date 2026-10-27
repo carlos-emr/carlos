@@ -191,6 +191,8 @@ class RxWebServiceRegressionTest {
     private static class TestableRxWebService extends RxWebService {
 
         TestableRxWebService() {
+            this.legacyProjection = org.mockito.Mockito.mock(
+                    io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
             rxManager = new MockRxManager();
             drugConverter = new MockDrugConverter();
             prescriptionConverter = new PrescriptionConverterImpl();

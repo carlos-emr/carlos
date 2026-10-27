@@ -93,6 +93,7 @@ class CdsTemporalReadServiceUnitTest {
             @Override protected LoggedInInfo getLoggedInInfo() { return info; }
         };
         ReflectionTestUtils.setField(service, "allergyManager", manager);
+        ReflectionTestUtils.setField(service, "legacyProjection", mock(CdsLegacyProjectionService.class));
         ReflectionTestUtils.setField(service, "dates", new CdsTemporalReadService(dao));
         AllergyResponse result = service.getCurrentAllergiesWithPrecision(1);
         assertEquals(2, result.getAllergies().size());

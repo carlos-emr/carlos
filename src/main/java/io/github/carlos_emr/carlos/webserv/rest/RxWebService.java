@@ -97,6 +97,9 @@ public class RxWebService extends AbstractServiceImpl {
     protected SecurityInfoManager securityInfoManager;
 
     @Autowired
+    protected io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService legacyProjection;
+
+    @Autowired
     protected RxManager rxManager;
 
     @Autowired
@@ -240,6 +243,7 @@ public class RxWebService extends AbstractServiceImpl {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_rx", "r", demographicNo)) {
             throw new AccessDeniedException("_rx", "r", demographicNo);
         }
+        legacyProjection.requireRestSupported(demographicNo, java.util.Set.of("MedicationsAndTreatments"));
     }
 
     /**
