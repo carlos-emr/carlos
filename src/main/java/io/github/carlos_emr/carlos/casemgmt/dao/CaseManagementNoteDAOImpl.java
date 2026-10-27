@@ -27,6 +27,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.casemgmt.dao;
@@ -37,12 +38,13 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.Objects;
 import java.util.UUID;
 
 import java.util.Arrays;
@@ -78,11 +80,26 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), "FROM CaseManagementNote");
     }
 
+    /**
+     * Returns the distinct providers who edited this note's revision group.
+     * A missing or blank revision UUID limits the lookup to the recorded
+     * provider; if that provider is absent, the result is empty.
+     *
+     * @param note the non-null note whose recorded author or revision UUID identifies its editors
+     * @return a {@code List<Provider>} of matching editors, possibly empty
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<Provider> getEditors(CaseManagementNote note) {
         String uuid = note.getUuid();
-        if (uuid == null) return Collections.emptyList();
+        if (uuid == null || uuid.isBlank()) {
+            // Older OSCAR notes may have no revision UUID. Their recorded
+            // author still applies; an empty UUID must not join other notes.
+            String providerNo = note.getProviderNo();
+            if (providerNo == null || providerNo.isBlank()) return Collections.emptyList();
+            return (List<Provider>) JpqlQueryHelper.find(entityManager(),
+                    "select p from Provider p where p.providerNo = ?1", providerNo);
+        }
         String hql = "select distinct p from Provider p, CaseManagementNote cmn where p.providerNo = cmn.providerNo and cmn.uuid = ?1";
         return (List<Provider>) JpqlQueryHelper.find(entityManager(), hql, uuid);
     }
@@ -95,11 +112,19 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         return (List<Provider>) JpqlQueryHelper.find(entityManager(), hql, demographicNo);
     }
 
+    /**
+     * Returns notes sharing the revision UUID, ordered by update date and ID.
+     * A missing or blank UUID yields no history, so unrelated legacy notes
+     * never become a shared revision group.
+     *
+     * @param note the non-null note whose revision UUID identifies its history
+     * @return a {@code List<CaseManagementNote>} in revision order, or empty when no UUID is recorded
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getHistory(CaseManagementNote note) {
         String uuid = note.getUuid();
-        if (uuid == null) return Collections.emptyList();
+        if (uuid == null || uuid.isBlank()) return Collections.emptyList();
         return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(),
                 "from CaseManagementNote cmn where cmn.uuid = ?1 order by cmn.update_date asc, cmn.id asc", uuid);
     }
@@ -421,21 +446,26 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
                 }
             }
 
-        // make unique for uuid
+        // Keep the newest revision per UUID; database timestamp precision can leave tied updates.
         HashMap<String, CaseManagementNote> uniqueForUuid = new HashMap<String, CaseManagementNote>();
         for (CaseManagementNote note : notes) {
             CaseManagementNote existingNote = uniqueForUuid.get(note.getUuid());
-            if (existingNote == null || note.getUpdate_date().after(existingNote.getUpdate_date()))
+            if (existingNote == null || note.getUpdate_date().after(existingNote.getUpdate_date())
+                    || (note.getUpdate_date().compareTo(existingNote.getUpdate_date()) == 0
+                        && note.getId() > existingNote.getId()))
                 uniqueForUuid.put(note.getUuid(), note);
         }
 
-        // sort by observationdate
-        TreeMap<Date, CaseManagementNote> sortedResults = new TreeMap<Date, CaseManagementNote>();
+        // Observation dates are sort keys, not note identities: distinct UUIDs can share one date.
+        List<CaseManagementNote> sortedResults = new ArrayList<>(uniqueForUuid.size());
         for (CaseManagementNote note : uniqueForUuid.values()) {
-            sortedResults.put(note.getObservation_date(), note);
+            Objects.requireNonNull(note.getObservation_date(), "Missing note observation date");
+            sortedResults.add(note);
         }
+        sortedResults.sort(Comparator.comparing(CaseManagementNote::getObservation_date)
+                .thenComparing(CaseManagementNote::getId));
 
-        return (sortedResults.values());
+        return sortedResults;
     }
 
 

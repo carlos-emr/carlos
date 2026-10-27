@@ -2,7 +2,7 @@
  "format": 1,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-4+9e7bc615",
+ "SCHEMA_MAP_VERSION": "o19map-5+9e7bc615",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -22950,7 +22950,7 @@
   "ctl_frequency": 20,
   "ctl_specialinstructions": 26,
   "default_role_access": 982,
-  "encounterForm": 99,
+  "encounterForm": 98,
   "encountertemplate": 186,
   "frm_labreq_preset": 193,
   "groups_tbl": 1,
@@ -24651,16 +24651,11 @@
   ],
   "program": [
    "alcohol",
-   "allowBatchAdmission",
-   "allowBatchDischarge",
    "firstNation",
-   "hic",
-   "holdingTank",
    "housing",
    "mentalHealth",
    "physicalHealth",
-   "transgender",
-   "userDefined"
+   "transgender"
   ],
   "program_access": [
    "all_roles"
@@ -24764,7 +24759,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-4+3ef1edf2",
+   "SCHEMA_MAP_VERSION": "o19map-5+ccf44f43",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -41953,7 +41948,11 @@
      ]
     },
     "wcb_bp_code": {
-     "class": "copy",
+     "class": "merge",
+     "merge_keys": [
+      "code"
+     ],
+     "surrogate_pk": "wcb_bp_code_no",
      "cols": [
       "wcb_bp_code_no",
       "level1",
@@ -41964,7 +41963,11 @@
      ]
     },
     "wcb_noi_code": {
-     "class": "copy",
+     "class": "merge",
+     "merge_keys": [
+      "code"
+     ],
+     "surrogate_pk": "wcb_noi_code_no",
      "cols": [
       "wcb_noi_code_no",
       "level1",
@@ -41975,7 +41978,10 @@
      ]
     },
     "wcb_side": {
-     "class": "copy",
+     "class": "merge",
+     "merge_keys": [
+      "sidetype"
+     ],
      "cols": [
       "sidetype",
       "sidedesc",
@@ -57347,7 +57353,7 @@
     "ctl_frequency": 20,
     "ctl_specialinstructions": 26,
     "default_role_access": 982,
-    "encounterForm": 55,
+    "encounterForm": 54,
     "encountertemplate": 186,
     "groups_tbl": 1,
     "issue": 71,
@@ -58882,16 +58888,11 @@
     ],
     "program": [
      "alcohol",
-     "allowBatchAdmission",
-     "allowBatchDischarge",
      "firstNation",
-     "hic",
-     "holdingTank",
      "housing",
      "mentalHealth",
      "physicalHealth",
-     "transgender",
-     "userDefined"
+     "transgender"
     ],
     "program_access": [
      "all_roles"

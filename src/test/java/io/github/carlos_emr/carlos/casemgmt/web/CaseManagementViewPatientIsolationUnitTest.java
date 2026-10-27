@@ -21,8 +21,10 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -31,10 +33,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+import java.util.List;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -47,6 +53,7 @@ import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -73,6 +80,7 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
     private CaseManagementManager manager;
     private SecurityInfoManager security;
     private LoggedInInfo user;
+    private ClientImageManager images;
 
     @BeforeEach
     void prepare() {
@@ -90,6 +98,8 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(session, user);
         manager = mock(CaseManagementManager.class);
         action.caseManagementMgr = manager;
+        images = mock(ClientImageManager.class);
+        action.clientImageMgr = images;
         security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), nullable(String.class)))
                 .thenReturn(true);
@@ -110,6 +120,185 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(action::addToDx).isInstanceOf(SecurityException.class);
         verify(security).hasPrivilege(user, "_dxresearch", SecurityInfoManager.WRITE, "101");
         verifyNoInteractions(manager);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"GET,save", "HEAD,save", "GET,saveAndExit",
+            "HEAD,saveAndExit", "GET,patientCPPSave", "HEAD,patientCPPSave"})
+    void shouldRefuseAllCppWrites_whenRequestUsesGetOrHead(String method, String operation) throws Exception {
+        request.setMethod(method);
+        request.setParameter("demographicNo", "101");
+        String result = switch (operation) {
+            case "save" -> action.save();
+            case "saveAndExit" -> action.saveAndExit();
+            default -> action.patientCPPSave();
+        };
+        assertThat(result).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(manager);
+    }
+
+    @Test
+    void shouldRefuseCppWrite_whenPatientRecordAccessIsDenied() {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", "101");
+        when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
+        assertThatThrownBy(action::save).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(action::patientCPPSave).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(manager);
+    }
+
+    @Test
+    void shouldBindCppIdentityFromStorage_whenSubmittedIdentityNamesAnotherPatient() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", "101");
+        var existing = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP();
+        existing.setId(11L);
+        existing.setDemographic_no("101");
+        when(manager.getCPP("101")).thenReturn(existing);
+        var submitted = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP();
+        submitted.setId(22L);
+        submitted.setDemographic_no("202");
+        doReturn(submitted).when(action).getCpp();
+        action.save();
+        assertThat(submitted.getId()).isEqualTo(11L);
+        assertThat(submitted.getDemographic_no()).isEqualTo("101");
+        verify(manager).saveCPP(submitted, "4249");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1000000000", "2147483647", "0100000000"})
+    void shouldReachChartDomainValidation_whenPatientFitsTheDatabaseIntegerRange(String patient) throws Exception {
+        request.setParameter("demographicNo", patient);
+        String canonical = Integer.toString(Integer.parseInt(patient));
+
+        assertThat(action.view()).isEqualTo("domain-error");
+
+        verify(manager).isClientInProgramDomain("4249", canonical);
+        verify(manager).isClientReferredInProgramDomain("4249", canonical);
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void shouldRefuseNoteReads_whenPatientPrivilegeIsDenied() {
+        request.setParameter("demographicNo", "101");
+        when(security.hasPrivilege(user, "_eChart", "r", "101")).thenReturn(false);
+        assertThatThrownBy(action::listNotes).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(action::viewNotesOpt).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(manager);
+    }
+
+    static Stream<Arguments> refusedChartReadPermissions() {
+        return Stream.of("view", "viewNotes").flatMap(operation ->
+                Stream.of("_eChart", "_casemgmt.notes", "record lock")
+                        .map(denial -> Arguments.of(operation, denial)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("refusedChartReadPermissions")
+    void shouldRefuseBeforeDomainOrClinicalReads_whenChartReadPermissionIsDenied(String operation, String denial) {
+        request.setParameter("demographicNo", "00101");
+        action.setDemographicNo("202");
+        if ("record lock".equals(denial)) {
+            when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
+        } else {
+            when(security.hasPrivilege(user, denial, "r", "101")).thenReturn(false);
+        }
+
+        assertThatThrownBy(() -> readChart(operation)).isInstanceOf(SecurityException.class);
+
+        verifyNoInteractions(manager, images);
+        verify(action, never()).getDemoName(anyString());
+        assertThat(request.getAttribute("casemgmt_demoName")).isNull();
+        assertThat(request.getAttribute("notesToDisplay")).isNull();
+        assertThat(request.getAttribute("cpp")).isNull();
+        assertThat(session.getAttribute("casemgmt_DemoNo")).isEqualTo("202");
+    }
+
+    static Stream<Arguments> invalidChartReadPatients() {
+        return Stream.of("view", "viewNotes").flatMap(operation ->
+                Stream.of(null, "", "0", "202abc", "2147483648")
+                        .map(patient -> Arguments.of(operation, patient)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidChartReadPatients")
+    void shouldRefuseBeforeAuthorizationOrDataReads_whenTheChartPatientIsInvalid(String operation, String patient) throws Exception {
+        if (patient != null) request.setParameter("demographicNo", patient);
+        action.setDemographicNo("202");
+
+        assertThat(readChart(operation)).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(security, manager, images);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"view", "viewNotes"})
+    void shouldRefuseBeforeAuthorizationOrDataReads_whenChartPatientAliasesConflict(String operation) throws Exception {
+        request.setParameter("demographicNo", "101");
+        request.setParameter("demographic_no", "202");
+
+        assertThat(readChart(operation)).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(security, manager, images);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"view", "viewNotes"})
+    void shouldRefuseBeforeDomainOrClinicalReads_whenTheChartLoginIsMissing(String operation) {
+        request.setParameter("demographicNo", "101");
+        LoggedInInfo.setLoggedInInfoIntoSession(session, null);
+
+        assertThatThrownBy(() -> readChart(operation)).isInstanceOf(SecurityException.class);
+
+        verifyNoInteractions(manager, images);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"view", "viewNotes"})
+    void shouldReadOnlyTheCanonicalRequestPatient_whenChartAndRecordReadAccessAreGranted(String operation) throws Exception {
+        request.setParameter("demographicNo", "00101");
+        request.setParameter("demographic_no", "101");
+        action.setDemographicNo("202");
+        request.setParameter("tab", "Client History");
+        request.setParameter("offset", "1");
+        request.setParameter("numToReturn", "5");
+        when(manager.isClientInProgramDomain("4249", "101")).thenReturn(true);
+        when(manager.getNotesWithLimit("101", 1, 5)).thenReturn(List.of());
+        doReturn("Authorized patient").when(action).getDemoName("101");
+        doReturn("46").when(action).getDemoAge("101");
+        doReturn("1980-01-02").when(action).getDemoDOB("101");
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getProperty(anyString(), anyString())).thenAnswer(call -> call.getArgument(1));
+
+        try (var config = mockStatic(CarlosProperties.class)) {
+            config.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(readChart(operation)).isEqualTo("viewNotes".equals(operation) ? "ajaxDisplayNotes" : "page.casemgmt.view");
+        }
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(security).hasPrivilege(user, "_eChart", "r", "101");
+        verify(security).hasPrivilege(user, "_casemgmt.notes", "r", "101");
+        verify(manager).isClientInProgramDomain("4249", "101");
+        verify(manager, never()).isClientInProgramDomain(anyString(), eq("202"));
+        if ("viewNotes".equals(operation)) {
+            verify(manager).getNotesWithLimit("101", 1, 5);
+            assertThat(request.getAttribute("notesToDisplay")).isEqualTo(List.of());
+            verifyNoInteractions(images);
+        } else {
+            verify(manager).getCPP("101");
+            verify(manager).getAllergies("101");
+            verify(images).getClientImage(101);
+            assertThat(request.getAttribute("casemgmt_demoName")).isEqualTo("Authorized patient");
+        }
+        assertThat(session.getAttribute("casemgmt_DemoNo")).isEqualTo("202");
+    }
+
+    private String readChart(String operation) throws Exception {
+        return "viewNotes".equals(operation) ? action.viewNotes() : action.view();
     }
 
     @Test

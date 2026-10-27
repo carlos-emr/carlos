@@ -16,9 +16,9 @@
  * in its associated diagnosis; the MSP list's search finds the owned code and its Edit saves a new fee (stored, and the
  * row returns to view); the association's Edit shows its service code and diagnosis; saving another diagnosis
  * replaces the association's diagnosis (and the fee-code search then fills that one); Remove deletes it. A last step
- * collects three known defects so one run reports each: Manage Billing Codes ▸ Add Code has no text box for the
- * service code (#4842), Create New Association links back to the list (#4439 D14), and the editor saves a duplicate
- * association it reports as an error (#4439 D13).
+ * covers three former defects so one run reports each: Manage Billing Codes ▸ Add Code takes a typed service code
+ * (#4842), Create New Association opens an empty editor in create mode (#4439 D14; it linked back to the list), and
+ * that editor refuses a code already associated (#4439 D13).
  *
  * Fixtures: one MSP fee code (billingservice 9xxxx with an end date, so its fee row's save does not depend on #4842),
  * two diagnostic codes (diagnosticcode Zxxxx), all described by the run marker, and one association of the fee code
@@ -31,8 +31,8 @@
  * #4778 (issue #4767) merges. With #4778 and #4844 (issue #4842) the MSP steps pass, and the association's Edit fails
  * on #4941: the editor opens with every box empty and a service-code box that cannot be typed in, so its Save stores
  * the diagnosis with no service code. With #4943 (its fix) and #4892 (the editor's stylesheet address) the Edit, Save
- * and Remove steps pass too, and the last step stays red on D14; D13 (fixed by #4943) is reached only through
- * Create New, so it is checked once D14 is fixed.
+ * and Remove steps pass too, and the last step stayed red on D14 until #4439's fix; D13 (fixed by #4943) is reached
+ * only through Create New, so that fix is what lets it be checked.
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');

@@ -67,6 +67,12 @@ import net.sf.jasperreports.renderers.SimpleDataRenderer;
 public final class Rourke2020PdfReport {
     private static final String RESOURCE_PATH = "/oscar/form/rourke2020/";
     private static final String FONT_NAME = "DejaVu Sans";
+    /**
+     * Smallest size a field may shrink to. Fields that would otherwise overprint the form's own
+     * text use {@code textAdjust="ScaleFont"}, which Jasper shrinks without limit; 8pt matches the
+     * form's own footnotes, and longer text is refused like any other overflow.
+     */
+    private static final float MIN_FONT_SIZE = 8f;
     private static final JasperReportsContext REPORT_CONTEXT = reportContext();
     private static final List<String> NOTE_FIELDS = List.of("p2_development2m", "p2_development4m",
             "p2_development6m", "p2_physical2m", "p2_physical4m", "p2_physical6m", "p2_immunization6m");
@@ -193,7 +199,7 @@ public final class Rourke2020PdfReport {
                 throw new RenderingException(RenderingException.Reason.UNSUPPORTED_CHARACTER);
             }
             Integer cut = text.getTextTruncateIndex();
-            if (cut != null && !original.substring(cut).isBlank()) {
+            if ((cut != null && !original.substring(cut).isBlank()) || text.getFontSize() < MIN_FONT_SIZE) {
                 throw new RenderingException(RenderingException.Reason.TEXT_OVERFLOW);
             }
         }

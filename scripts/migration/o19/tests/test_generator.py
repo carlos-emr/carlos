@@ -9,6 +9,8 @@ Run (from the repository root):
 """
 
 import importlib.util
+import contextlib
+import io
 import os
 import re
 import runpy
@@ -30,6 +32,21 @@ def load_generator():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+class TestExplicitSourceCommit(unittest.TestCase):
+    def test_empty_or_malformed_source_commit_is_refused_before_generation(self):
+        generator = load_generator()
+        for commit in ("", "abc", "A" * 40):
+            with self.subTest(commit=commit):
+                errors = io.StringIO()
+                with mock.patch.object(sys, "argv", [str(GEN), "--oscar-src", "unused", "--oscar-commit", commit]), \
+                        mock.patch.object(generator, "build_profile") as build, \
+                        contextlib.redirect_stderr(errors), self.assertRaises(SystemExit) as refusal:
+                    generator.main()
+                self.assertEqual(refusal.exception.code, 2)
+                self.assertIn("--oscar-commit must be a full lowercase commit SHA", errors.getvalue())
+                build.assert_not_called()
 
 
 #: the parsed CARLOS schema, kept because the parse is the expensive

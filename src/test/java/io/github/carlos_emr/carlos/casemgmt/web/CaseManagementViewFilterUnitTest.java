@@ -1,6 +1,8 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
 import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.service.NoteSelectionCriteria;
@@ -44,6 +46,10 @@ class CaseManagementViewFilterUnitTest extends CarlosUnitTestBase {
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         action.request = request;
+        SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+        action.securityInfoManager = security;
         action.response = response;
         request.setParameter("demographicNo", "101");
         request.getSession().setAttribute("userrole", "doctor");
@@ -112,6 +118,35 @@ class CaseManagementViewFilterUnitTest extends CarlosUnitTestBase {
         assertThat(applied.getRoles()).containsExactly("7");
         assertThat(applied.getProviders()).containsExactly("200");
         assertThat(applied.getIssues()).containsExactly("73");
+        assertUnfiltered(loadNotes());
+    }
+
+    @Test
+    void shouldPreferFormProviderSelection_whenLegacyProviderHandoffsArePending() {
+        seedSessionFilters();
+        request.getSession().setAttribute(ChartSessionKeys.noteFilterHandoff("filter_providers", "101"),
+                new String[]{"202"});
+        request.setParameter("filter_providers", "203", "204");
+        request.setParameter("filter_provider", "205");
+
+        assertThat(loadNotes().getProviders()).containsExactly("203", "204");
+        assertThat(request.getSession().getAttribute(ChartSessionKeys.noteFilterHandoff("filter_providers", "101")))
+                .isNull();
+        assertThat(request.getSession().getAttribute(ChartSessionKeys.noteFilterHandoff("filter_provider", "101")))
+                .isNull();
+        request.removeParameter("filter_providers");
+        request.removeParameter("filter_provider");
+        assertUnfiltered(loadNotes());
+    }
+
+    @Test
+    void shouldClearLegacyProviderHandoff_whenFormExplicitlySelectsNoProviders() {
+        request.getSession().setAttribute(ChartSessionKeys.noteFilterHandoff("filter_provider", "101"),
+                new String[]{"200"});
+        request.setParameter("filter_providers", new String[0]);
+
+        assertThat(loadNotes().getProviders()).isEmpty();
+        request.removeParameter("filter_providers");
         assertUnfiltered(loadNotes());
     }
 

@@ -1929,6 +1929,8 @@
                                                               String name = ".";
                                                               if (demographic_no != 0) {
                                                                   demographic = demographicManager.getDemographic(loggedInInfo1, demographic_no);
+                                                              }
+                                                              if (demographic != null) {
                                                                   StringBuilder nameBuilder = new StringBuilder();
 																  nameBuilder.append(UtilMisc.toUpperLowerCase(demographic.getLastName()))
 																  .append(", ")

@@ -205,6 +205,7 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         data.verifyNoInteractions();
         verifyNoInteractions(manager);
     }
+
     @Test void shouldRejectMissingInteractiveDate_withoutWriting() throws Exception {
         mockRequest.removeParameter("prevDate");
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");

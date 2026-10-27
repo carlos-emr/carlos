@@ -65,10 +65,13 @@
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/oscarClientManagement/profilePicture.js"></script>
 </head>
 <body>
-    <form action="${pageContext.request.contextPath}/CaseManagementView" method="get">
-        <input type="hidden" name="demographicNo" id="demographicNo"/>
-        <input type="hidden" name="providerNo" id="providerNo"/>
-        <input type="hidden" name="tab" id="tab"/>
+    <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView" method="post">
+        <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+        <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+        <% } %>
+        <input type="hidden" name="demographicNo" id="demographicNo" value="${carlos:forHtmlAttribute(requestScope.demographicNo)}"/>
+        <input type="hidden" name="providerNo" id="providerNo" value="${carlos:forHtmlAttribute(sessionScope.user)}"/>
+        <input type="hidden" name="tab" id="tab" value="${carlos:forHtmlAttribute(param.tab)}"/>
         <input type="hidden" name="id" id="id"/>
         <input type="hidden" name="hideActiveIssue" id="hideActiveIssue"/>
         <input type="hidden" name="issue_code" value=""/>
@@ -136,8 +139,17 @@
                 document.caseManagementViewForm.submit();
             }
 
+            function chartPopupUrl(url) {
+                var token = '<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+                if (!token) return url;
+                var target = new URL(url, document.baseURI);
+                if (target.origin !== window.location.origin) return url;
+                target.searchParams.set('chartContext', token);
+                return target.href;
+            }
+
             function popupNotePage(varpage) {
-                var page = "" + varpage;
+                var page = chartPopupUrl("" + varpage);
                 windowprops = "height=800,width=800,location=no,"
                     + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
                 var popup = window.open(page, "editNote", windowprops);
@@ -150,7 +162,7 @@
             }
 
             function popupHistoryPage(varpage) {
-                var page = "" + varpage;
+                var page = chartPopupUrl("" + varpage);
                 windowprops = "location=no,"
                     + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=0,left=0";
                 window.open(page, "", windowprops);
@@ -187,7 +199,7 @@
                     reminders = cpp.getReminders().length() > 0;
                 }
                 //get programId
-                String pId = (String) session.getAttribute("case_program_id");
+                String pId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
                 if (pId == null) pId = "";
             %>
             <table>

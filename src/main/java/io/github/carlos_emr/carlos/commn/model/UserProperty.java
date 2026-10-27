@@ -105,6 +105,8 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String VIEW_DOCUMENT_AS = "view_document_as";
     public static final String INCOMING_DOCUMENT_DEFAULT_QUEUE = "incoming_document_default_queue";
     public static final String INCOMING_DOCUMENT_ENTRY_MODE = "incoming_document_entry_mode";
+    /** Opt-in document-type folders in the eChart Documents panel; absent means a flat list. */
+    public static final String ECHART_GROUP_DOCUMENTS_BY_TYPE = "echart_show_group_document_by_type";
     public static final String DISPLAY_DOCUMENT_AS = "display_document_as";
     public static final String PDF = "PDF";
     public static final String IMAGE = "Image";

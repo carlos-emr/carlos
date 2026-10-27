@@ -92,20 +92,69 @@ async function workflow(s) {
   let card;
 
   await s.step('a DrugRef product found by search stages a card and its instructions parse through rx/UpdateScript', async () => {
-    card = await stageFromSearch(rx, DRUG_TERM, DRUG_NAME);
-    const instructions = rx.locator(`#instructions_${card}`);
-    await instructions.fill(INSTRUCTIONS);
-    const [parsed] = await Promise.all([
-      rx.waitForResponse(isPost('/rx/UpdateScript')),
-      // Leave for the indication label so parsing does not also trigger Qty/price updates.
-      rx.locator(`label[for="jsonDxSearch_${card}"]`).click(),
-    ]);
-    h.assert(parsed.status() === 200, `rx/UpdateScript answered HTTP ${parsed.status()}`);
-    const body = await parsed.json();
-    h.assert(String(body.takeMin) === '1' && String(body.takeMax) === '1' && body.frequency === 'BID'
-      && String(body.duration) === '14' && body.durationUnit === 'D', `The instructions parsed to ${JSON.stringify(body)}`);
-    h.assert((await rx.locator(`#frequency_${card}`).innerText()).trim() === 'BID'
-      && (await rx.locator(`#duration_${card}`).innerText()).trim() === '14', 'The staged card does not show the parsed frequency and duration');
+    // Let the staging quantity request reach the server, but deliver its response after the
+    // clinician edits Directions. A slow response used to erase the parsed card values (#5183).
+    const quantityRoute = /\/rx\/WriteScript(?:\?|$)/;
+    let releaseQuantity;
+    const held = new Promise(resolve => { releaseQuantity = resolve; });
+    let capturedResolve, capturedReject;
+    const captured = new Promise((resolve, reject) => { capturedResolve = resolve; capturedReject = reject; });
+    captured.catch(() => {});
+    let routingError;
+    const delayQuantity = async route => {
+      const request = route.request();
+      const params = new URLSearchParams(request.postData() || '');
+      if (request.method() !== 'POST' || params.get('action') !== 'updateQty') return route.continue();
+      try {
+        const response = await route.fetch({ timeout: 20000 });
+        h.assert(response.ok(), `The staging quantity calculation answered HTTP ${response.status()}`);
+        capturedResolve({ request, body: await response.json() });
+        await held;
+        await route.fulfill({ response });
+      } catch (error) {
+        routingError = error;
+        capturedReject(error);
+        await route.abort().catch(() => {});
+      }
+    };
+    await rx.route(quantityRoute, delayQuantity);
+    const captureTimeout = setTimeout(() => capturedReject(new Error('The staging quantity request was not captured')), 20000);
+    try {
+      card = await stageFromSearch(rx, DRUG_TERM, DRUG_NAME);
+      const initialQuantity = await captured;
+      h.assert(new URLSearchParams(initialQuantity.request.postData()).get('randomId') === card,
+        'The delayed quantity response belongs to another card');
+      h.assert(initialQuantity.body.frequency !== 'BID' && String(initialQuantity.body.duration) !== '14',
+        'The delayed staging calculation already has directions');
+      const instructions = rx.locator(`#instructions_${card}`);
+      await instructions.fill(INSTRUCTIONS);
+      const [parsed] = await Promise.all([
+        rx.waitForResponse(isPost('/rx/UpdateScript')),
+        // Leave for the indication label so parsing does not also trigger Qty/price updates.
+        rx.locator(`label[for="jsonDxSearch_${card}"]`).click(),
+      ]);
+      h.assert(parsed.status() === 200, `rx/UpdateScript answered HTTP ${parsed.status()}`);
+      const body = await parsed.json();
+      h.assert(String(body.takeMin) === '1' && String(body.takeMax) === '1' && body.frequency === 'BID'
+        && String(body.duration) === '14' && body.durationUnit === 'D', `The instructions parsed to ${JSON.stringify(body)}`);
+      h.assert((await rx.locator(`#frequency_${card}`).innerText()).trim() === 'BID'
+        && (await rx.locator(`#duration_${card}`).innerText()).trim() === '14', 'The staged card does not show the parsed frequency and duration');
+      const delivered = rx.waitForResponse(r => r.request() === initialQuantity.request);
+      releaseQuantity();
+      await (await delivered).finished();
+      await rx.waitForLoadState('networkidle');
+      h.assert(!routingError, `The delayed quantity response could not be delivered: ${routingError}`);
+      h.assert((await rx.locator(`#frequency_${card}`).innerText()).trim() === 'BID'
+        && (await rx.locator(`#duration_${card}`).innerText()).trim() === '14'
+        && (await rx.locator(`#durationUnit_${card}`).innerText()).trim() === 'D'
+        && await rx.locator(`#quantity_${card}`).inputValue() === '28'
+        && (await rx.locator(`#quantityStr_${card}`).innerText()).trim() === '28',
+      'The delayed staging quantity response overwrote the parsed frequency, duration or quantity');
+    } finally {
+      clearTimeout(captureTimeout);
+      releaseQuantity();
+      await rx.unroute(quantityRoute, delayQuantity);
+    }
   });
 
   let drug;

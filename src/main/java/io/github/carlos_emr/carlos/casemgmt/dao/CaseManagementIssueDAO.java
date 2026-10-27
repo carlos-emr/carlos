@@ -51,6 +51,14 @@ public interface CaseManagementIssueDAO {
 
     public CaseManagementIssue getIssuebyId(String demo, String id);
 
+    /**
+     * Loads the exact patient issue row without conflating duplicate catalog entries.
+     *
+     * @param id Long primary key of the patient issue row
+     * @return CaseManagementIssue the matching row, or null if the identifier is absent
+     */
+    public CaseManagementIssue findById(Long id);
+
     public CaseManagementIssue getIssuebyIssueCode(String demo, String issueCode);
 
     public void deleteIssueById(CaseManagementIssue issue);

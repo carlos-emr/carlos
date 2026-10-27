@@ -1,6 +1,14 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.ObjectStreamClass;
+import java.io.ObjectStreamField;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -121,6 +129,112 @@ class EncounterPatientContextUnitTest {
     }
 
     @Test
+    void shouldRetainSourceAndIndependentTemplates_whenEntryAndRestoredListsChange() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EctSessionBean first = metadata("101", "A", "9001");
+        first.source = "messenger";
+        first.templateNames = new java.util.ArrayList<>(java.util.List.of("A template", "Shared template"));
+        EctSessionBean second = metadata("202", "B", "9002");
+        second.source = "encounter";
+        second.templateNames = new java.util.ArrayList<>(java.util.List.of("B template"));
+        EncounterPatientContext.rememberEncounter(request, first);
+        EncounterPatientContext.rememberEncounter(request, second);
+
+        first.source = "encounter";
+        first.templateNames.clear();
+        second.templateNames.add("Later template");
+        EctSessionBean restored = EncounterPatientContext.findEncounter(request, "101");
+        assertThat(restored.source).isEqualTo("messenger");
+        assertThat(restored.templateNames).containsExactly("A template", "Shared template");
+        restored.source = "changed";
+        restored.templateNames.add("Request-only template");
+
+        EctSessionBean next = EncounterPatientContext.findEncounter(request, "101");
+        assertThat(next.source).isEqualTo("messenger");
+        assertThat(next.templateNames).containsExactly("A template", "Shared template");
+        EctSessionBean otherPatient = EncounterPatientContext.findEncounter(request, "202");
+        assertThat(otherPatient.source).isEqualTo("encounter");
+        assertThat(otherPatient.templateNames).containsExactly("B template");
+    }
+
+    @Test
+    void shouldRestoreMutableEmptyTemplates_whenEntryHasNoTemplateList() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EctSessionBean entry = metadata("101", "A", "9001");
+        entry.source = null;
+        entry.templateNames = null;
+        EncounterPatientContext.rememberEncounter(request, entry);
+
+        EctSessionBean restored = EncounterPatientContext.findEncounter(request, "101");
+        assertThat(restored.source).isNull();
+        assertThat(restored.templateNames).isEmpty();
+        restored.templateNames.add("Request-only template");
+        assertThat(EncounterPatientContext.findEncounter(request, "101").templateNames).isEmpty();
+    }
+
+    @Test
+    void shouldRestoreLegacySerializedEncounter_whenTemplateComponentWasNotPresent() throws Exception {
+        // Generated with the exact twelve-String SavedEncounter record at 53ba0564a62^.
+        // Unlike a current round trip, these bytes contain neither source nor templateNames.
+        Object restored;
+        try (InputStream fixture = getClass().getResourceAsStream("/encounter/saved-encounter-before-templates.ser")) {
+            assertThat(fixture).as("pre-upgrade encounter session fixture").isNotNull();
+            try (ObjectInputStream input = new ObjectInputStream(fixture) {
+                @Override
+                protected ObjectStreamClass readClassDescriptor() throws IOException, ClassNotFoundException {
+                    ObjectStreamClass descriptor = super.readClassDescriptor();
+                    if (descriptor.getName().endsWith("EncounterPatientContext$SavedEncounter")) {
+                        assertThat(descriptor.getFields()).extracting(ObjectStreamField::getName)
+                                .hasSize(12).doesNotContain("source", "templateNames");
+                    }
+                    return descriptor;
+                }
+            }) {
+                restored = input.readObject();
+            }
+        }
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.getSession().setAttribute(EncounterPatientContext.class.getName() + ".101", restored);
+
+        EctSessionBean first = EncounterPatientContext.findEncounter(request, "101");
+        assertMetadata(first, "101", "A", "9001");
+        assertThat(first.source).isNull();
+        assertThat(first.templateNames).isEmpty();
+        first.templateNames.add("Request-only template");
+        EctSessionBean next = EncounterPatientContext.findEncounter(request, "101");
+        assertMetadata(next, "101", "A", "9001");
+        assertThat(next.templateNames).isEmpty();
+        assertThat(next.templateNames).isNotSameAs(first.templateNames);
+    }
+
+    @Test
+    void shouldKeepIndependentTemplateCopies_afterCurrentSessionSnapshotSerialization() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EctSessionBean entry = metadata("101", "A", "9001");
+        entry.source = "messenger";
+        entry.templateNames = new java.util.ArrayList<>(java.util.List.of("A template", "Shared template"));
+        EncounterPatientContext.rememberEncounter(request, entry);
+        String key = EncounterPatientContext.class.getName() + ".101";
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+            output.writeObject(request.getSession().getAttribute(key));
+        }
+        try (ObjectInputStream input = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            request.getSession().setAttribute(key, input.readObject());
+        }
+        entry.templateNames.clear();
+        EctSessionBean first = EncounterPatientContext.findEncounter(request, "101");
+        assertMetadata(first, "101", "A", "9001");
+        assertThat(first.source).isEqualTo("messenger");
+        assertThat(first.templateNames).containsExactly("A template", "Shared template");
+        first.templateNames.clear();
+
+        EctSessionBean next = EncounterPatientContext.findEncounter(request, "101");
+        assertThat(next.templateNames).containsExactly("A template", "Shared template")
+                .isNotSameAs(first.templateNames);
+    }
+
+    @Test
     void shouldRefreshOnlyTheRememberedPatientWithoutChangingPriorRequestCopies() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         EncounterPatientContext.rememberEncounter(request, metadata("00101", "A", "9001"));
@@ -141,6 +255,38 @@ class EncounterPatientContextUnitTest {
         request.getSession().setAttribute("eChartID", "202");
         assertThat(EncounterPatientContext.findEncounter(request, "101")).isNull();
         assertMetadata(EncounterPatientContext.findEncounter(request, "202"), "202", "B", "9002");
+    }
+
+    @Test
+    void shouldFallBackToLoggedInIdentity_whenEncounterMetadataWasEvicted() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EctSessionBean original = metadata("101", "A", "9001");
+        EncounterPatientContext.rememberEncounter(request, original);
+        EctSessionBean requestCopy = EncounterPatientContext.findEncounter(request, "101");
+        // Clinical editor state has a separate lifetime from disposable encounter metadata.
+        Object unsavedEditor = new Object();
+        request.getSession().setAttribute("caseManagementEntryForm101", unsavedEditor);
+        int cacheEntries = io.github.carlos_emr.carlos.utility.BoundedSessionAttributes.MAX_ENTRIES;
+        for (int patient = 1000; patient < 1000 + cacheEntries; patient++) {
+            EncounterPatientContext.rememberEncounter(request,
+                    metadata(Integer.toString(patient), "Other", "9999"));
+        }
+
+        EctSessionBean restored = EncounterPatientContext.entryOrLoggedIn(request, loggedIn("999998"), "101");
+
+        assertThat(EncounterPatientContext.findEncounter(request, "101")).isNull();
+        assertThat(EncounterPatientContext.entryProvider(request, loggedIn("999998"), "101"))
+                .isEqualTo("999998");
+        assertThat(restored.demographicNo).isEqualTo("101");
+        assertThat(restored.providerNo).isEqualTo("999998");
+        assertThat(restored.curProviderNo).isEqualTo("999998");
+        assertThat(restored.appointmentNo).isNull();
+        assertThat(restored.reason).isNull();
+        assertThat(restored.templateNames).isNullOrEmpty();
+        assertMetadata(requestCopy, "101", "A", "9001");
+        String latestPatient = Integer.toString(1000 + cacheEntries - 1);
+        assertMetadata(EncounterPatientContext.findEncounter(request, latestPatient), latestPatient, "Other", "9999");
+        assertThat(request.getSession().getAttribute("caseManagementEntryForm101")).isSameAs(unsavedEditor);
     }
 
     @Test

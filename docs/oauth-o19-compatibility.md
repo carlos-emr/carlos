@@ -140,11 +140,11 @@ and disposable-database tests are not a substitute for that deployment check.
 
 - JDK 25: 270 targeted OAuth, administration, consent, REST date and demographic
   endpoint tests passed, without failures, errors or skips.
-- Generator/integrity suite: 253 passed; regeneration with `--check` passed.
-- CLI suite with application manifests: 1,606 tests, no failures/errors, 37 skips
-  for optional environment-dependent checks. Standalone snapshots: 1,606 tests,
-  no failures/errors, 84 optional/checkout-dependent skips.
-- Real MariaDB 11.8.8: 13 copy/resume/OAuth tests passed without skips.
+- Generator/integrity suite: 259 passed; regeneration with `--check` passed.
+- CLI suite with application manifests: 1,722 tests, no failures/errors, 79 skips
+  for optional environment-dependent checks. Standalone snapshots: 1,722 tests,
+  no failures/errors, 127 optional/checkout-dependent skips.
+- Real MariaDB 11.8.8: 27 copy/resume/OAuth tests passed without skips.
 - OAuth signer Appendix A regression and 11 packaging/pin checks passed.
 - The revised lifetime tests first failed against the original PR (17 assertion
   failures). The missing-column and credential-acknowledgement importer cases

@@ -22,8 +22,8 @@
  *      that does not exist ▸ Continue ▸ Go Back ▸ Continue ▸ Another Bill ▸ Continue ▸ Save Bill: the
  *      refused Continue, Go Back and Another Bill each return to this window's own bill form, and
  *      both claims are saved for A on A's appointment.
- *   3. A private bill of two service lines for A ▸ Save & Print Receipt ▸ a private bill for B in
- *      the other window ▸ Save & Print Receipt ▸ Update Invoice on A's receipt: the receipt shown
+ *   3. A private bill of two service lines for A ▸ Save and Print Receipt ▸ a private bill for B in
+ *      the other window ▸ Save and Print Receipt ▸ Update Invoice on A's receipt: the receipt shown
  *      again is A's, with both lines.
  *   4. Schedule ▸ B on A's fifth appointment ▸ Bill WCB (the list of A's WCB forms) ▸ A's WCB form ▸
  *      B's bill form opened in the other window ▸ Continue in A's window with a service code that
@@ -41,10 +41,10 @@
  * Fixtures: the workflow's FAKE patient (A, first name PatientAlpha) and a second FAKE patient (B,
  * PatientBravo, the same marker last name), both with a synthetic BC PHN; five appointments today
  * for A and three for B; one WCB form for each (the patient's details and the injury, as the WCB
- * form page saves them); an owned billing physician created through Administration ▸ Add Provider
- * (so the application's provider caches see it) and deactivated through Update Provider at the
+ * form page saves them); two owned billing physicians created through Administration ▸ Add Provider
+ * (so the application's provider caches see them) and deactivated through Update Provider at the
  * end. Cleanup removes every claim, note, history and recipient row of the two patients, their
- * WCB forms, their appointments, B and the physician, and asserts them gone. BC installs only
+ * WCB forms, their appointments, B and the physicians, and asserts them gone. BC installs only
  * (billregion=BC).
  */
 const { randomInt } = require('node:crypto');
@@ -180,10 +180,12 @@ function ownBillingPhysician(s, admin) {
   const owned = `last_name=${q(marker)} AND first_name=${q(firstName)}`;
   s.cleanup(() => {
     const ownedNo = `provider_no IN (SELECT provider_no FROM provider WHERE ${owned})`;
-    const memberships = ['program_provider', 'provider_facility', 'secUserRole', 'providersite'];
-    sql.execute(memberships.map(table => `DELETE FROM ${table} WHERE ${ownedNo}`).join(';'));
-    h.assert(sql.value(`SELECT ${memberships.map(table => `(SELECT COUNT(*) FROM ${table} WHERE ${ownedNo})`).join(' + ')}`)
-      === '0', 'The owned billing physician\'s program, facility, role or site rows were not removed');
+    // Add and Update Provider also write the provider's bill centre, archive copies and official-name properties.
+    const memberships = ['program_provider', 'provider_facility', 'secUserRole', 'providersite', 'providerbillcenter', 'property'];
+    sql.execute([...memberships.map(table => `DELETE FROM ${table} WHERE ${ownedNo}`),
+      `DELETE FROM providerArchive WHERE ${ownedNo} AND last_name=${q(marker)}`].join(';'));
+    h.assert(sql.value(`SELECT ${[...memberships, 'providerArchive'].map(table => `(SELECT COUNT(*) FROM ${table} WHERE ${ownedNo})`).join(' + ')}`)
+      === '0', 'The owned billing physician\'s program, facility, role, site, bill centre, archive or property rows were not removed');
     sql.execute(`DELETE FROM provider WHERE ${owned}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE ${owned}`) === '0', 'The owned billing physician was not removed');
   });
@@ -221,6 +223,14 @@ function ownBillingPhysician(s, admin) {
     ]);
     const providerNo = sql.value(`SELECT provider_no FROM provider WHERE ${owned} AND ohip_no=${q(ohipNo)} AND status='1'`);
     h.assert(providerNo, 'Add Provider did not create the owned billing physician');
+    // A fresh BC package need not have a clinic-wide default_view. This physician owns the
+    // preference; changing physicians must not replace the staged bill's form with null.
+    const billForm = sql.value(`SELECT servicetype FROM ctl_billingservice
+      WHERE servicetype IS NOT NULL AND servicetype<>'' AND servicetype<>'PRI'
+      ORDER BY (servicetype='GP') DESC, servicetype LIMIT 1`);
+    h.assert(billForm, 'The BC install has no non-private billing form for the owned physician');
+    sql.execute(`INSERT INTO property (name, value, provider_no)
+      VALUES ('default_billing_form', ${q(billForm)}, ${q(providerNo)})`);
     return providerNo;
   }
   return { create, deactivate };
@@ -305,8 +315,8 @@ function names(text, own, other) {
 }
 
 /**
- * Save Bill (or Save & Print Receipt) on a bill review. Save Bill's answer closes the bill window and
- * refreshes the day sheet that opened it; Save & Print Receipt turns the window into the receipt.
+ * Save Bill (or Save and Print Receipt) on a bill review. Save Bill's answer closes the bill window and
+ * refreshes the day sheet that opened it; Save and Print Receipt turns the window into the receipt.
  */
 async function save(page, label, button, daySheet = null) {
   const closed = button === 'Save Bill' ? page.waitForEvent('close', { timeout: TIMEOUT }) : null;
@@ -314,9 +324,15 @@ async function save(page, label, button, daySheet = null) {
   const [posted] = await Promise.all([
     page.waitForResponse(r => r.request().method() === 'POST'
       && new URL(r.url()).pathname.endsWith('/billing/CA/BC/SaveBilling'), { timeout: TIMEOUT }),
-    page.locator(`input[type="submit"][name="submit"][value="${button}"]`).click(),
+    page.getByRole('button', { name: button, exact: true }).click(),
   ]);
   h.assert(posted.status() < 400, `${label}'s ${button} answered HTTP ${posted.status()}`);
+  if (button === 'Save and Print Receipt') {
+    const fields = new URLSearchParams(posted.request().postData());
+    h.assert(fields.get('submit') === 'saveAndPrintReceipt',
+      'Save & Print Receipt posted its display label instead of the WAF-safe action value (#5181)');
+    h.assert(fields.get('CSRF-TOKEN'), 'Save & Print Receipt posted without its CSRF token');
+  }
   if (closed) {
     await closed;
     if (refreshed) {
@@ -345,7 +361,11 @@ async function workflow(s) {
   // cleanup removes it; every failure, the scenario's and the teardown's, is reported.
   await withProviderCleanup(async () => {
     const physician = { providerNo: await owner.create() };
-    await billInTwoWindows(s, A, B, physician);
+    const otherOwner = ownBillingPhysician(s, admin);
+    await withProviderCleanup(async () => {
+      physician.otherProviderNo = await otherOwner.create();
+      await billInTwoWindows(s, A, B, physician);
+    }, otherOwner.deactivate, async () => {});
   }, owner.deactivate, () => admin.close());
 }
 
@@ -436,10 +456,9 @@ async function billInTwoWindows(s, A, B, physician) {
   await s.step('one bill window keeps its own bill through in-place reloads, a refused Continue, Go Back and Another Bill', async () => {
     const form = await openBillForm(sheets[0], 'A2');
     const billKey = await form.locator('#bcBillingForm input[name="billKey"]').inputValue();
-    // Each physician change reloads the patient bar and the code table in place. The list holds the
-    // owned physician and nobody else on a bare install, so "Select Provider" is the other choice.
-    const otherPhysician = (await form.locator('#xml_provider option').evaluateAll(options => options.map(o => o.value)))
-      .find(value => value && value !== physician.providerNo) || '';
+    // Both choices are owned physicians with a default form, including on a bare BC install.
+    // Each physician change reloads the patient bar and the code table in place.
+    const otherPhysician = physician.otherProviderNo;
     for (const choice of [physician.providerNo, otherPhysician, physician.providerNo, otherPhysician, physician.providerNo]) {
       await changeAndAwaitReloads(form, '#xml_provider', choice, 2, 'changing the billing physician');
     }
@@ -488,7 +507,7 @@ async function billInTwoWindows(s, A, B, physician) {
       // Private turns the billing form to the private one, reloading the code table in place.
       await changeAndAwaitReloads(form, '#xml_billtype', 'Pri', 1, 'choosing a private bill');
       await continueToReview(form, label, { physician: physician.providerNo, codes, dx: '780' });
-      await save(form, label, 'Save & Print Receipt');
+      await save(form, label, 'Save and Print Receipt');
       await form.waitForURL(url => url.pathname.endsWith('/billing/CA/BC/billingView'), { timeout: TIMEOUT });
       await settle(form, `${label}'s receipt`);
       return form;
@@ -497,7 +516,7 @@ async function billInTwoWindows(s, A, B, physician) {
     const billsA = sql.rows(`SELECT billing_no FROM billing WHERE appointment_no=${appointment.A3} ORDER BY billing_no`).map(([id]) => id);
     h.assert(billsA.length === 2, `A's private bill of two lines was saved as ${billsA.length} claims`);
     h.assert(new URL(receiptA.url()).searchParams.getAll('billing_no').join(',') === billsA.join(','),
-      'Save & Print Receipt did not open the receipt of both lines');
+      'Save and Print Receipt did not open the receipt of both lines');
     const receiptB = await privateReceipt(sheets[1], 'B3', ['00100']);
     await receiptB.close();
 

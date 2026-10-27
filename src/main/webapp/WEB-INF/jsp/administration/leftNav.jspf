@@ -143,9 +143,9 @@ Properties oscarVariables = CarlosProperties.getInstance();
 					</oscar:oscarPropertiesCheck>
 					<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="yes">
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/GenerateTeleplanFile"><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/GenerateTeleplanFile"><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/SimulateTeleplanFile"><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/SimulateTeleplanFile"><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
 						<li><a href='javascript:void(0);'
 							class="xlink" rel="${ctx}/billing/CA/BC/ManageTeleplan"><fmt:message key="admin.admin.manageTeleplan"/></a></li>
 					</oscar:oscarPropertiesCheck>
@@ -265,8 +265,13 @@ Properties oscarVariables = CarlosProperties.getInstance();
 			<ul>
 				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/ViewInsideLabUpload" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
 				<oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes" defaultVal="false">
-					<li><a href="${ctx}/lab/labUpload" class="contentLink"><fmt:message key="admin.admin.oldLabUpload"/></a></li>
+					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/lab/labUpload"><fmt:message key="admin.admin.oldLabUpload"/></a></li>
 				</oscar:oscarPropertiesCheck>
+                <oscar:oscarPropertiesCheck property="PATHNET_LABS" value="yes" defaultVal="false">
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=false%>">
+                        <li><a href="javascript:void(0);" class="xlink" rel="${ctx}/lab/CA/BC/ViewIndex">PathNet Patient Linking</a></li>
+                    </security:oscarSec>
+                </oscar:oscarPropertiesCheck>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=false%>">
 				<li><a href="${ctx}/admin/labForwardingRules" class="contentLink"><fmt:message key="admin.admin.labFwdRules"/></a></li>
 				</security:oscarSec>

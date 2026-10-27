@@ -9,6 +9,7 @@
 // beside P or I read F and the list said Final. The controls (the mixed report is listed, with its
 // lab-display link and its ordering provider) are in the step before them.
 const { randomInt } = require('node:crypto');
+const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 
@@ -75,6 +76,15 @@ async function workflow(s) {
       INSERT INTO providerLabRouting(lab_no,lab_type,provider_no,status)
         VALUES(${id},'BCP',${h.sqlString(provider)},'U')`);
   }
+  // Optional installed-service regression for #5189. A cursor scopes the check to
+  // these requests, without accepting earlier errors or exposing HL7 log content.
+  const journalUnit = process.env.PATHNET_JOURNAL_UNIT;
+  const journal = args => execFileSync('journalctl', ['-u', journalUnit, ...args], {encoding: 'utf8', timeout: 30000, maxBuffer: 64 * 1024 * 1024});
+  let journalCursor;
+  if (journalUnit) {
+    journalCursor = journal(['-n', '0', '--show-cursor', '--no-pager']).match(/^-- cursor: (.+)$/m)?.[1];
+    h.assert(journalCursor, 'PathNet parser audit requires a readable service journal cursor');
+  }
   const page = await s.context.newPage();
   await s.step('patient lab listing retains final and preliminary PathNet reports', async () => {
     await h.gotoApp(page, s.config.baseUrl, `/lab/ViewDemographicLab?demographicNo=${patient}`);
@@ -123,6 +133,13 @@ async function workflow(s) {
     const shown = (await row.locator('td').nth(4).innerText()).trim();
     h.assert(shown === 'Partial', `The PathNet report with a final and an in-process result is listed as ${shown}, expected Partial`);
   });
+  if (journalUnit) {
+    await s.step('PathNet listing logs no HL7 factory warnings or errors', async () => {
+      const output = journal([`--after-cursor=${journalCursor}`, '--no-pager', '-o', 'cat']);
+      h.assert(!/\b(?:ERROR|WARN)\b[^\n]*\bparsers\.Factory\b/.test(output),
+        'PathNet listing logged an HL7 factory warning or error; inspect the local service journal');
+    });
+  }
 }
 
 if (require.main === module) runWorkflow('pathnet-status', workflow, {preflight});
