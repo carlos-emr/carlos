@@ -431,7 +431,7 @@ with the same severity.
 | B8d | **No enabled `Facility`, or no `clinic` row** | CARLOS cannot log anyone in without an enabled facility, and letterheads and requisitions dereference the clinic row; refused before the first write; no `--accept` flag |
 | B8e | **A check could not be completed** | A count failed (privilege, corrupt table): an unreadable table is never treated as empty; no `--accept` flag |
 | B8 | **Unrepairable text encoding** | Charset sampling (§4.4) finds mixed/double-encoded text the standard repair can't normalize deterministically |
-| B9 | **Live credentials carried** | rows in `ServiceClient` / `oscarKeys` / `publicKeys` (OAuth consumer secrets, signing keys) are copied verbatim and keep working → blocker cleared by `--accept carry-credentials`; rotate or verify before go-live |
+| B9 | **Live credentials carried** | rows in `ServiceClient` / `ServiceAccessToken` / `oscarKeys` / `publicKeys` (OAuth client/token credentials, signing keys) are copied verbatim and keep working → blocker cleared by `--accept carry-credentials`; verify integration continuity before go-live |
 
 **ADVISORY — reported prominently, does not stop the import:**
 
@@ -703,12 +703,12 @@ checks, UI smoke — before clinical use.
   `SCHEMA_MAP_VERSION` is a plain `o19map-N` token, deliberately not
   CalVer-shaped). `test_manifest_integrity.py` (stdlib unittest, in
   `scripts/migration/o19/tests/`) refuses any unclassified table.
-- Current classification (580 O19 tables at commit `a7900d5`): 337 copy /
-  34 merge / 25 reference / 156 archive (patient-data subset flagged for the
-  B1 blocker; includes the three shared OAuth/session token tables, which
-  are archived rather than restored live) / 28 drop / 0 unknown. Three
-  copy-class credential tables (`ServiceClient`, `oscarKeys`, `publicKeys`)
-  are named in the ETL report under a rotate/verify advisory.
+- Current classification (580 O19 tables at commit `a7900d5`): 338 copy /
+  36 merge / 23 reference / 155 archive (patient-data subset flagged for the
+  B1 blocker; includes security/session tokens and unfinished OAuth handshakes, which
+  remain archived; established OAuth access tokens are copied live) / 28 drop / 0 unknown. Four
+  copy-class credential tables (`ServiceClient`, `ServiceAccessToken`, `oscarKeys`, `publicKeys`)
+  are named in the ETL credential-preservation report for integration verification.
 - **Analysis corrections found during generation:**
   - `demographic.preferred_lang` is NOT a dropped column: O19's own
     `update-2009-02-23` renamed it to `official_lang`, which is shared and
@@ -968,9 +968,9 @@ was fixed and pinned by tests. What changed in behaviour:
   unconfirmed window; `provider_no` width is checked; `encounterForm`
   merges on its PK `form_value`, `app_lookuptable` on `tableid`; the
   generator refuses stale B3/`VALUE_EXPRS` entries and non-PK merge keys
-  on surrogate-less tables. The OSCAR 19 OAuth/session token tables are
-  archived instead of copied; `ServiceClient`/`oscarKeys`/`publicKeys` are
-  flagged for rotation.
+  on surrogate-less tables. Established OSCAR 19 OAuth access tokens are copied with their original
+  credentials and lifetimes; sessions and unfinished handshakes stay archived.
+  See [OAuth continuity](oauth-o19-compatibility.md) for the contract and cutover checks.
 - **Lifecycle:** `--cleanup` is allowed after verification or before the
   copy started (never on a mid-import workspace; `--dry-run` grants
   nothing) and retires `state.json`; a dry run's `--accept` flags are not

@@ -532,10 +532,10 @@ creator's complete derivation options — `--skip-documents` with `--accept no-d
 `--accept unverified-bundle` to open a bundle whose SHA-256 was never
 conveyed (a recorded sign-off, never a default), `--accept
 carry-credentials` when the dump holds live OAuth consumer secrets or
-signing keys (`ServiceClient`, `oscarKeys`, `publicKeys` rows are copied
+signing keys (`ServiceClient`, `ServiceAccessToken`, `oscarKeys`, `publicKeys` rows are copied
 verbatim and keep working against the migrated system — the preflight
 reports it as blocker B9 and the ETL pre-checks refuse without the
-sign-off; rotate or verify them before go-live), and
+sign-off; verify integration continuity before go-live), and
 `--statement-timeout SECONDS` to bound every SQL statement of the import,
 the staged restore's own client included (MariaDB `max_statement_time`; a
 sparse or crafted dump cannot then hold one statement forever; 0, the
@@ -910,7 +910,7 @@ clinic's sign-off.
   (its verdict was recorded before the first write).
 - *the dump carries live credentials* — `ServiceClient` / `oscarKeys` /
   `publicKeys` rows; acknowledge with `--accept carry-credentials` (the
-  preflight lists it as B9) and rotate or verify them before go-live.
+  preflight lists it as B9) and verify the integrations before go-live.
 - *non-numeric value(s) in a column CARLOS stores as a number* — the copy
   would store 0 for them under the import's `sql_mode=''`; curate a
   `value_exprs` entry or fix the values in the source.
@@ -1014,3 +1014,7 @@ clinic's sign-off.
   `state.json` from before the staging restore; the next invocation says so
   and names the `mv` above, rather than starting the import over on top of
   a ledger that describes the run just discarded.
+
+OAuth access tokens retain their original credentials and expiry, including O19
+non-expiring grants. Review the [OAuth continuity and cutover checks](oauth-o19-compatibility.md)
+before go-live; token preservation does not require displaying tokens in the UI.

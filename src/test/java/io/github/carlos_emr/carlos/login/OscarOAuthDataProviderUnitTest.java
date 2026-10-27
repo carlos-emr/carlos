@@ -12,12 +12,10 @@ import io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.commn.model.ServiceClient;
 import io.github.carlos_emr.carlos.commn.model.ServiceOAuthNonce;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.ServiceRequestToken;
 import io.github.carlos_emr.carlos.webserv.oauth.AccessToken;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Permission;
-import io.github.carlos_emr.carlos.webserv.oauth.OAuthAccessTokenLifetime;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
@@ -391,49 +389,44 @@ class OscarOAuthDataProviderUnitTest {
         assertThat(captor.getValue().getTokenId()).isEmpty();
     }
 
-    @Test
-    @DisplayName("should issue the token with the client's configured lifetime in memory and in storage")
-    void shouldIssueTokenWithClientLifetime_whenClientConfiguredLifetime() {
-        withMaxLifetime("43200", () -> {
-            IssuedToken issued = issueAccessToken(28800);
-
-            assertThat(issued.token().getLifetime()).isEqualTo(28800L);
-            assertThat(issued.persisted().getLifetime()).isEqualTo(28800L);
-        });
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {-1, 0, 1, 59, 900, 28800, 86400})
+    @DisplayName("should issue the exact O19 client lifetime in memory and storage")
+    void shouldIssueTokenWithClientLifetime_whenClientConfiguredLifetime(int seconds) {
+        IssuedToken issued = issueAccessToken(seconds);
+        assertThat(issued.token().getLifetime()).isEqualTo((long) seconds);
+        assertThat(issued.persisted().getLifetime()).isEqualTo((long) seconds);
     }
 
     @Test
     @DisplayName("should consume the request token before looking up the client")
     void shouldConsumeRequestTokenBeforeClientLookup_whenIssuingAccessToken() {
-        withMaxLifetime("43200", () -> {
-            IssuedToken issued = issueAccessToken(28800);
-
-            InOrder inOrder = inOrder(issued.requestTokenDao(), issued.clientDao());
-            inOrder.verify(issued.requestTokenDao()).deleteByTokenId(LIFETIME_TOKEN_KEY);
-            inOrder.verify(issued.clientDao()).findByKey(LIFETIME_CONSUMER_KEY);
-        });
+        IssuedToken issued = issueAccessToken(28800);
+        InOrder inOrder = inOrder(issued.requestTokenDao(), issued.clientDao());
+        inOrder.verify(issued.requestTokenDao()).deleteByTokenId(LIFETIME_TOKEN_KEY);
+        inOrder.verify(issued.clientDao()).findByKey(LIFETIME_CONSUMER_KEY);
     }
 
     @Test
-    @DisplayName("should issue the default lifetime when the client lifetime is zero")
-    void shouldIssueDefaultLifetime_whenClientLifetimeZero() {
-        withMaxLifetime("43200", () -> {
-            IssuedToken issued = issueAccessToken(0);
-
-            assertThat(issued.token().getLifetime()).isEqualTo(3600L);
-            assertThat(issued.persisted().getLifetime()).isEqualTo(3600L);
-        });
+    @DisplayName("should reject a missing setting rather than silently issue a one-hour token")
+    void shouldRejectIssuance_whenLifetimeMissing() {
+        assertThatThrownBy(() -> issueAccessToken(null))
+                .isInstanceOf(OAuth1Exception.class).hasMessage("invalid_token_lifetime");
     }
 
     @Test
-    @DisplayName("should issue the default lifetime when the client lifetime is null")
-    void shouldIssueDefaultLifetime_whenClientLifetimeNull() {
-        withMaxLifetime("43200", () -> {
-            IssuedToken issued = issueAccessToken(null);
-
-            assertThat(issued.token().getLifetime()).isEqualTo(3600L);
-            assertThat(issued.persisted().getLifetime()).isEqualTo(3600L);
-        });
+    @DisplayName("should retain an imported non-expiring O19 token without renewing or deleting it")
+    void shouldPreserveImportedToken_whenLifetimeIsMinusOne() {
+        ServiceAccessTokenDao dao = mock(ServiceAccessTokenDao.class);
+        ServiceAccessToken token = accessToken("imported-token", "original-secret", "999998", 1550000000L, -1);
+        when(dao.findByTokenId("imported-token")).thenReturn(token);
+        OscarOAuthDataProvider provider = provider(dao);
+        assertThat(provider.getAccessTokenSecret("imported-token")).isEqualTo("original-secret");
+        assertThat(provider.getProviderNoByAccessToken("imported-token")).isEqualTo("999998");
+        assertThat(provider.findUnexpiredAccessToken("imported-token")).isSameAs(token);
+        assertThat(token.getIssued()).isEqualTo(1550000000L);
+        assertThat(token.getLifetime()).isEqualTo(-1L);
+        verify(dao, never()).remove(token);
     }
 
     private static final String LIFETIME_TOKEN_KEY = "FAKE-request-token";
@@ -441,21 +434,6 @@ class OscarOAuthDataProviderUnitTest {
 
     private record IssuedToken(AccessToken token, ServiceAccessToken persisted,
                                ServiceRequestTokenDao requestTokenDao, ServiceClientDao clientDao) {
-    }
-
-    /** Pins the maximum-lifetime property for the test so it never depends on the environment. */
-    private static void withMaxLifetime(String max, Runnable body) {
-        String previous = CarlosProperties.getInstance().getProperty(OAuthAccessTokenLifetime.MAX_LIFETIME_PROPERTY, null);
-        CarlosProperties.getInstance().setProperty(OAuthAccessTokenLifetime.MAX_LIFETIME_PROPERTY, max);
-        try {
-            body.run();
-        } finally {
-            if (previous == null) {
-                CarlosProperties.getInstance().remove(OAuthAccessTokenLifetime.MAX_LIFETIME_PROPERTY);
-            } else {
-                CarlosProperties.getInstance().setProperty(OAuthAccessTokenLifetime.MAX_LIFETIME_PROPERTY, previous);
-            }
-        }
     }
 
     /** Runs createAccessToken for a client stored with {@code clientLifetime}, with all three DAOs mocked. */

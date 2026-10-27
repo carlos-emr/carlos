@@ -249,6 +249,16 @@ public class OscarOAuthDataProvider {
         return sat != null ? sat.getTokenSecret() : null;
     }
 
+    /** Only the client to which this grant was issued may use its signing secret. */
+    public String getAccessTokenSecret(String accessTokenId, String consumerKey) {
+        ServiceAccessToken token = findUnexpiredAccessToken(accessTokenId);
+        if (token == null || token.getClientId() == null || consumerKey == null) {
+            return null;
+        }
+        ServiceClient client = serviceClientDao.find(token.getClientId());
+        return client != null && consumerKey.equals(client.getKey()) ? token.getTokenSecret() : null;
+    }
+
     public String getProviderNoByAccessToken(String accessTokenId) {
         ServiceAccessToken sat = findUnexpiredAccessToken(accessTokenId);
         return sat != null ? sat.getProviderNo() : null;
@@ -376,16 +386,8 @@ public class OscarOAuthDataProvider {
     }
 
     private boolean isAccessTokenExpired(ServiceAccessToken token) {
-        if (token.getLifetime() <= 0 || token.getIssued() <= 0) {
-            return true;
-        }
-        long expiresAt;
-        try {
-            expiresAt = Math.addExact(token.getIssued(), token.getLifetime());
-        } catch (ArithmeticException e) {
-            return true;
-        }
-        return System.currentTimeMillis() / 1000 >= expiresAt;
+        return OAuthAccessTokenLifetime.isExpired(token.getIssued(), token.getLifetime(),
+                System.currentTimeMillis() / 1000);
     }
 
     private static void validateCallbackAllowed(RequestTokenRegistration reg) {

@@ -107,6 +107,18 @@ class TestSchemaManifest(unittest.TestCase):
         cls.schema_map_version = data["SCHEMA_MAP_VERSION"]
         cls.stock_role_names = data["STOCK_ROLE_NAMES"]
 
+    def test_oauth_access_tokens_remain_live_with_their_original_credentials(self):
+        entry = self.tables["ServiceAccessToken"]
+        self.assertEqual(entry["class"], "copy")
+        for name in ("id", "clientId", "tokenId", "tokenSecret", "issued", "lifetime", "providerNo", "scopes"):
+            self.assertIn(name, entry["cols"])
+        self.assertNotIn("value_exprs", entry)
+        self.assertNotIn("charset_scan", entry)
+        self.assertIn("ServiceAccessToken", o19map_schema.CREDENTIAL_TABLES)
+        self.assertIn("lifetime", self.tables["ServiceClient"]["cols"])
+        for name in ("SecurityToken", "ServiceRequestToken"):
+            self.assertEqual(self.tables[name]["class"], "archive")
+
     def test_every_table_classified_once_with_valid_class(self):
         for table, entry in self.tables.items():
             self.assertIn(entry["class"], VALID_CLASSES,
