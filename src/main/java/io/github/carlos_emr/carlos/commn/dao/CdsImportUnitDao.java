@@ -38,8 +38,11 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit> {
                 .setParameter("run", runId).setParameter("key", unitKey).setMaxResults(1).getResultList().stream().findFirst().orElse(null);
     }
     public List<CdsImportUnit> page(String runId, String patientKey, String afterKey, int limit) {
-        String jpql="select u from CdsImportUnit u where u.runId=:run and u.unitKey>:after"+(patientKey==null?"":" and u.patientKey=:patient")+" order by u.unitKey";
-        var query=entityManager.createQuery(jpql, CdsImportUnit.class).setParameter("run", runId).setParameter("after", afterKey).setMaxResults(limit);
+        var query=patientKey==null
+                ? entityManager.createQuery("select u from CdsImportUnit u where u.runId=:run and u.unitKey>:after order by u.unitKey", CdsImportUnit.class)
+                : entityManager.createQuery("select u from CdsImportUnit u where u.runId=:run and u.unitKey>:after "
+                        + "and u.patientKey=:patient order by u.unitKey", CdsImportUnit.class);
+        query.setParameter("run", runId).setParameter("after", afterKey).setMaxResults(limit);
         if (patientKey!=null) query.setParameter("patient", patientKey);
         return query.getResultList();
     }
@@ -47,14 +50,18 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit> {
         return entityManager.createQuery("select u from CdsImportUnit u where u.runId=:run and u.state='EXPECTED' and not exists(select p.id from CdsImportPatient p where p.runId=u.runId and p.patientKey=u.patientKey and p.state in ('REFUSED','FAILED_BEFORE_WRITE','CANCELLED_BEFORE_WRITE','NOT_STARTED')) and not exists(select d.id from CdsImportDependency d where d.runId=u.runId and d.unitKey=u.unitKey and not exists(select done.id from CdsImportUnit done where done.runId=d.runId and done.unitKey=d.dependsOnUnitKey and done.state in ('COMMITTED','ALREADY_COMPLETE'))) order by u.unitKey", CdsImportUnit.class).setParameter("run", runId).setMaxResults(limit).getResultList();
     }
     public long count(String runId, String patientKey) {
-        String jpql="select count(u) from CdsImportUnit u where u.runId=:run"+(patientKey==null?"":" and u.patientKey=:patient");
-        var query=entityManager.createQuery(jpql, Long.class).setParameter("run", runId);
+        var query=patientKey==null
+                ? entityManager.createQuery("select count(u) from CdsImportUnit u where u.runId=:run", Long.class)
+                : entityManager.createQuery("select count(u) from CdsImportUnit u where u.runId=:run and u.patientKey=:patient", Long.class);
+        query.setParameter("run", runId);
         if (patientKey!=null) query.setParameter("patient", patientKey);
         return query.getSingleResult();
     }
     public long countState(String runId, String patientKey, String state) {
-        String jpql="select count(u) from CdsImportUnit u where u.runId=:run and u.state=:state"+(patientKey==null?"":" and u.patientKey=:patient");
-        var query=entityManager.createQuery(jpql, Long.class).setParameter("run", runId).setParameter("state", state);
+        var query=patientKey==null
+                ? entityManager.createQuery("select count(u) from CdsImportUnit u where u.runId=:run and u.state=:state", Long.class)
+                : entityManager.createQuery("select count(u) from CdsImportUnit u where u.runId=:run and u.state=:state and u.patientKey=:patient", Long.class);
+        query.setParameter("run", runId).setParameter("state", state);
         if (patientKey!=null) query.setParameter("patient", patientKey);
         return query.getSingleResult();
     }

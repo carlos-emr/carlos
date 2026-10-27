@@ -77,9 +77,11 @@ public class MeasurementTypeDaoIntegrationTest extends CarlosTestBase {
         MeasurementType type = createType("CDS_CARE_VALUE", "Source care value", "Uninterpreted source care value");
         type.setValidation(rule.getId().toString()); measurementTypeDao.merge(type); measurementTypeDao.flush();
         assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", "Uninterpreted source care value")).isTrue();
+        assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", null)).isTrue();
         assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", "Different clinical interpretation")).isFalse();
         rule.setNumeric(Boolean.TRUE); validationsDao.merge(rule); validationsDao.flush();
         assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", "Uninterpreted source care value")).isFalse();
+        assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", null)).isFalse();
     }
 
     @Test
@@ -87,6 +89,7 @@ public class MeasurementTypeDaoIntegrationTest extends CarlosTestBase {
         String unique = "T" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         createType(unique, "Synthetic measurement", "in kg");
         assertThat(measurementTypeDao.hasCdsImportType(unique, "in kg")).isTrue();
+        assertThat(measurementTypeDao.hasCdsImportType(unique, null)).isTrue();
         assertThat(measurementTypeDao.hasCdsImportType(unique, "in cm")).isFalse();
     }
 

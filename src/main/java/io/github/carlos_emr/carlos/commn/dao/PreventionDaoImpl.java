@@ -42,6 +42,16 @@ import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionExcepti
 
 public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements PreventionDao {
 
+    private enum DateScope { TYPE, PATIENT, ALL }
+    private static final String UNCERTAIN_DATE_CONDITION = """
+            AND (p.preventionDate IS NULL OR EXISTS (
+                SELECT pd.id FROM PartialDate pd
+                WHERE pd.tableName = 4 AND pd.fieldName = 7 AND pd.tableId = p.id
+                AND pd.id = (SELECT MAX(latest.id) FROM PartialDate latest
+                             WHERE latest.tableName = 4 AND latest.fieldName = 7 AND latest.tableId = p.id)
+                AND pd.format IS NOT NULL AND TRIM(pd.format) <> ''))
+            """;
+
     public PreventionDaoImpl() {
         super(Prevention.class);
     }
@@ -177,7 +187,7 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
     public List<Prevention> findByTypeAndDate(String preventionType, Date startDate, Date endDate) {
         // This legacy query cannot account for unknown membership in a date interval.
         // Check the full type scope before filtering; otherwise undated records disappear.
-        requireExactDates("p.preventionType = ?1 AND p.deleted = '0' AND p.refused = '0'", preventionType);
+        requireExactDates(DateScope.TYPE, preventionType);
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where preventionType=?1 and preventionDate>=?2 and preventionDate<=?3 and deleted='0' and refused='0' order by preventionDate";
 
         Query query = entityManager.createQuery(sqlCommand);
@@ -218,7 +228,7 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
     @Override
     public List<Prevention> findUniqueByDemographicId(Integer demographicId) {
         // Selecting one row by storage anchors would invent a latest event when intervals overlap.
-        requireExactDates("p.demographicId = ?1 AND p.deleted = '0'", demographicId);
+        requireExactDates(DateScope.PATIENT, demographicId);
         Query query = entityManager.createNativeQuery("SELECT p1.* FROM preventions p1 left join preventions as p2 on p1.prevention_type = p2.prevention_type and p1.demographic_no = p2.demographic_no and p2.deleted='0' and (p1.prevention_date < p2.prevention_date OR (p1.prevention_date = p2.prevention_date and p1.id < p2.id)) where p1.demographic_no = ?1 AND p1.deleted='0' AND p2.id is null ORDER BY p1.prevention_date DESC", Prevention.class);
         query.setParameter(1, demographicId);
 
@@ -227,28 +237,24 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
         return results;
     }
 
-    private void requireExactDates(String scope, Object value) {
+    private void requireExactDates(DateScope scope, Object value) {
         if (hasUncertainDates(scope, value)) throw new PreventionDatePrecisionException();
     }
 
     @Override
     public boolean hasUncertainPreventionDates(Integer demographicId) {
-        return hasUncertainDates(demographicId == null ? "p.deleted = '0'"
-                : "p.demographicId = ?1 AND p.deleted = '0'", demographicId);
+        return hasUncertainDates(demographicId == null ? DateScope.ALL : DateScope.PATIENT, demographicId);
     }
 
-    private boolean hasUncertainDates(String scope, Object value) {
-        Query uncertain = entityManager.createQuery("""
-                SELECT p.id FROM Prevention p WHERE
-                """ + scope + " " + """
-                AND (p.preventionDate IS NULL OR EXISTS (
-                    SELECT pd.id FROM PartialDate pd
-                    WHERE pd.tableName = 4 AND pd.fieldName = 7 AND pd.tableId = p.id
-                    AND pd.id = (SELECT MAX(latest.id) FROM PartialDate latest
-                                 WHERE latest.tableName = 4 AND latest.fieldName = 7 AND latest.tableId = p.id)
-                    AND pd.format IS NOT NULL AND TRIM(pd.format) <> ''))
-                """);
-        if (scope.contains("?1")) uncertain.setParameter(1, value);
+    private boolean hasUncertainDates(DateScope scope, Object value) {
+        Query uncertain = switch (scope) {
+            case TYPE -> entityManager.createQuery("SELECT p.id FROM Prevention p "
+                    + "WHERE p.preventionType = ?1 AND p.deleted = '0' AND p.refused = '0' " + UNCERTAIN_DATE_CONDITION);
+            case PATIENT -> entityManager.createQuery("SELECT p.id FROM Prevention p "
+                    + "WHERE p.demographicId = ?1 AND p.deleted = '0' " + UNCERTAIN_DATE_CONDITION);
+            case ALL -> entityManager.createQuery("SELECT p.id FROM Prevention p WHERE p.deleted = '0' " + UNCERTAIN_DATE_CONDITION);
+        };
+        if (scope != DateScope.ALL) uncertain.setParameter(1, value);
         uncertain.setMaxResults(1);
         return !uncertain.getResultList().isEmpty();
     }

@@ -107,6 +107,24 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     }
 
     @Test
+    void missingRepresentationAfterTheRecordedReleaseMigrationRefusesProjection() {
+        try (Session session = factory.openSession()) {
+            var transaction = session.beginTransaction();
+            try {
+                var dao = new io.github.carlos_emr.carlos.commn.dao.CdsLegacyProjectionDao();
+                ReflectionTestUtils.setField(dao, "entityManager", session);
+                // The test table does not exist; the two real shipped Flyway versions do.
+                // No existing table is renamed or dropped to exercise this recovery contract.
+                for (String version : java.util.List.of("1.0.59.8", "1.0.59.10")) {
+                    assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(dao, "representationTableAvailable",
+                            "cds_absent_projection_contract_test", version))
+                            .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException.class);
+                }
+            } finally { transaction.rollback(); }
+        }
+    }
+
+    @Test
     void completeMedicationStrengthAndSourceAuthorRoundTripWithoutTruncationOrInventedDates()
             throws Exception {
         Map<String, String> source = new LinkedHashMap<>();

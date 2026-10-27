@@ -646,7 +646,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @Override
     public List<Drug> findLongTermDrugsByDemographic(Integer demographicId) {
         String sqlCommand = "select x from Drug x where x.demographicId=?1 and x.archived = false and x.longTerm = true"
-                + currentImportClause("x", false);
+                + " and (x.cdsCurrentness is null or x.cdsCurrentness = 'CURRENT')";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);

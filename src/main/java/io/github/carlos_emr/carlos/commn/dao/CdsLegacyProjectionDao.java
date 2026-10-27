@@ -30,20 +30,21 @@ import org.springframework.stereotype.Repository;
 public class CdsLegacyProjectionDao extends AbstractDaoImpl<CdsImportField> {
     public CdsLegacyProjectionDao() { super(CdsImportField.class); }
     public boolean hasSourceFields(int patient, Set<String> categories) {
-        if (!representationTableAvailable("cds_import_field", "1.0.60")) return false;
-        String filter=categories.isEmpty() ? "" : " and f.category in :categories";
-        var query=entityManager.createQuery("select f.id from CdsImportField f where f.demographicNo=:patient"+filter, String.class)
-                .setParameter("patient", patient).setMaxResults(1);
+        if (!representationTableAvailable("cds_import_field", "1.0.59.8")) return false;
+        var query=categories.isEmpty()
+                ? entityManager.createQuery("select f.id from CdsImportField f where f.demographicNo=:patient", String.class)
+                : entityManager.createQuery("select f.id from CdsImportField f where f.demographicNo=:patient and f.category in :categories", String.class);
+        query.setParameter("patient", patient).setMaxResults(1);
         if (!categories.isEmpty()) query.setParameter("categories", categories);
         return !query.getResultList().isEmpty();
     }
     public boolean hasTypedLaboratoryResults(int patient) {
-        if (!representationTableAvailable("cds_laboratory_result", "1.0.62")) return false;
+        if (!representationTableAvailable("cds_laboratory_result", "1.0.59.10")) return false;
         return !entityManager.createQuery("select l.id from CdsLaboratoryResult l where l.demographicNo=:patient", String.class)
                 .setParameter("patient", patient).setMaxResults(1).getResultList().isEmpty();
     }
     public boolean hasAnySourceFields(Set<String> categories) {
-        if (!representationTableAvailable("cds_import_field", "1.0.60")) return false;
+        if (!representationTableAvailable("cds_import_field", "1.0.59.8")) return false;
         return !entityManager.createQuery("select f.id from CdsImportField f where f.category in :categories", String.class)
                 .setParameter("categories", categories).setMaxResults(1).getResultList().isEmpty();
     }

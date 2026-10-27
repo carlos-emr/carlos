@@ -617,6 +617,8 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
     @Override
     @NativeSql({"provider"})
     @SuppressFBWarnings(value = "SQL_INJECTION_JPA", justification = "Only server-owned charset identifiers validated by cdsNameCharsets enter SQL structure; source names remain bound parameters")
+    // Charset identifiers come only from bounded schema metadata validated as [A-Za-z0-9_]{1,64}; names are bound values.
+    @SuppressWarnings("java:S2077")
     public List<String> findCdsProviderNosByExactName(String firstName, String lastName) {
         if (!cdsUsesMysqlTextSemantics()) {
             // H2 stores Unicode strings directly; UTF8 bytes retain case, accents and trailing spaces.

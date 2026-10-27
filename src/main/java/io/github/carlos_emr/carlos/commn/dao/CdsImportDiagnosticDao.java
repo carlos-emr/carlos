@@ -38,8 +38,11 @@ public class CdsImportDiagnosticDao extends AbstractDaoImpl<CdsImportDiagnostic>
                 .setParameter("run", runId).setParameter("after", afterId).setMaxResults(limit).getResultList();
     }
     public long unresolved(String runId, String patientKey) {
-        String jpql="select count(d) from CdsImportDiagnostic d where d.runId=:run and d.blocking=true and d.resolved=false"+(patientKey==null?"":" and (d.patientKey=:patient or d.patientKey is null)");
-        var query=entityManager.createQuery(jpql, Long.class).setParameter("run", runId);
+        var query=patientKey==null
+                ? entityManager.createQuery("select count(d) from CdsImportDiagnostic d where d.runId=:run and d.blocking=true and d.resolved=false", Long.class)
+                : entityManager.createQuery("select count(d) from CdsImportDiagnostic d where d.runId=:run and d.blocking=true "
+                        + "and d.resolved=false and (d.patientKey=:patient or d.patientKey is null)", Long.class);
+        query.setParameter("run", runId);
         if (patientKey!=null) query.setParameter("patient", patientKey);
         return query.getSingleResult();
     }
