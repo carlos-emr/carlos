@@ -12,6 +12,7 @@ const boundFailures = new WeakMap();
 const installed = new WeakMap();
 const HEADER = 'x-cds-metadata-trace';
 const MAX_BYTES = 2 * 1024 * 1024;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function strictObject(text, value, parse = JSON.parse) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || value.ok !== true) throw Error('METADATA_NOT_SUCCESS_OBJECT');
@@ -294,6 +295,33 @@ async function installObserver(page, recorder, options = {}) {
     for (const reference of record.entries) { const entry=reference.deref(); if(entry && boundFailures.get(entry)===record) qualified.set(entry, record.audit); }
     return record.audit;
   }
+  function expectedHttpFaultRequest(fault) {
+    if (fault == null) return null;
+    const request=fault.request,response=fault.response;
+    const fail=()=>{throw Error('CDS_TRANSPORT_EXPECTED_HTTP_FAULT_UNPROVEN');};
+    if(fault.kind!=='nginx' || fault.accepted!==true || fault.proxyVerified!==true || fault.status!==504
+        || !UUID.test(fault.runId || '') || !UUID.test(fault.uploadId || '')
+        || !/^[A-Za-z][A-Za-z0-9-]{0,127}$/.test(fault.proxyHeader || '')
+        || !/^[a-f0-9]{32}$/.test(fault.proxyToken || '') || !request || !response)fail();
+    const url=new URL(request.url());
+    if(url.origin!==config.origin || url.pathname!==config.form+'/cdsImportSubmit'
+        || url.username || url.password || url.search || url.hash
+        || request.method()!=='POST' || request.resourceType()!=='fetch'
+        || page.isClosed() || request.frame().isDetached() || request.frame().page()!==page
+        || response.request()!==request || response.status()!==504
+        || response.headers()[fault.proxyHeader.toLowerCase()]!==fault.proxyToken || request.redirectedFrom())fail();
+    const body=request.postData();
+    if(typeof body!=='string' || body.length>16384 || Buffer.byteLength(body)>16384)fail();
+    const params=new URLSearchParams(body);
+    if(params.getAll('apiVersion').length!==1 || params.get('apiVersion')!=='2'
+        || params.getAll('uploadId').length!==1 || params.get('uploadId')!==fault.uploadId)fail();
+    const raw=fault.badResponse;
+    if(!raw || !Array.isArray(recorder.badResponses) || recorder.badResponses.filter(entry=>entry===raw).length!==1
+        || raw.status!==504 || raw.method!=='POST' || raw.resourceType!=='fetch' || raw.url!==request.url())fail();
+    const failures=recorder.requestFailures.filter(entry=>entry.requestRef?.deref()===request);
+    if(failures.length>1 || failures.some(entry=>entry.errorText!=='net::ERR_ABORTED'))fail();
+    return request;
+  }
   return {
     async qualifyResponse(response, prover) {
       const request = response.request(), record = records.get(request.headers()[HEADER]);
@@ -316,9 +344,23 @@ async function installObserver(page, recorder, options = {}) {
       await Promise.resolve();
       return {qualified: true, evidence: await qualifyRecord(record, prover)};
     },
-    async qualifyPending(prover) {
+    async qualifyPending(prover, {expectedHttpFault} = {}) {
+      const expected=expectedHttpFaultRequest(expectedHttpFault);
       const audits = [];
-      for (const record of records.values()) if (record.error === 'net::ERR_ABORTED' && !record.audit) audits.push(await qualifyRecord(record, prover));
+      for (const record of records.values()) if (record.error === 'net::ERR_ABORTED' && !record.audit) {
+        if(expected && record.requestRef.deref()===expected) {
+          const raw=recorder.requestFailures.filter(entry=>entry.requestRef?.deref()===expected);
+          if(record.status!==504 || record.json || record.redirected || record.navigated || record.ambiguous || !record.documentIdentity
+              || record.route!==config.form+'/cdsImportSubmit' || record.frame!==expected.frame()
+              || record.method!=='POST' || record.resourceType!=='fetch' || raw.length!==1
+              || raw[0].errorText!=='net::ERR_ABORTED' || boundFailures.get(raw[0])!==record)
+            throw Error('CDS_TRANSPORT_EXPECTED_HTTP_FAULT_UNPROVEN');
+          // This already verified HTTP fault remains raw for the caller's strict fault audit.
+          // It is never a successful metadata EOF and is not cached as a qualification.
+          continue;
+        }
+        audits.push(await qualifyRecord(record, prover));
+      }
       return audits;
     }
   };

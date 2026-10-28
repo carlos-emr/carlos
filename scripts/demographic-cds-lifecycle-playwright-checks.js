@@ -310,6 +310,118 @@ async function boundedLifecycleAction(action, milliseconds, message) {
   } finally { clearTimeout(timer); }
 }
 
+function createLifecyclePageCloser(page,recorder,{baseUrl,auxiliaryLogin=false,retainedLoginClosed=false}) {
+  const base=new URL(String(baseUrl)),form=base.pathname.replace(/\/$/,'')+'/form';
+  const inflight=new Set(),captured=new Set(),terminal=new Set();
+  let closing=false,closed=false,started=false,overflow=false,cursor=0,selectedRun,fault;
+  const eligible=request=>{
+    try {
+      const url=new URL(request.url());
+      if(request.method()!=='GET' || !['fetch','xhr'].includes(request.resourceType())
+        || request.frame()!==page.mainFrame() || request.frame().page()!==page || url.origin!==base.origin
+        || url.username || url.password || url.hash)return false;
+      if(auxiliaryLogin)return url.pathname===base.pathname.replace(/\/$/,'')+'/status/SessionHeartbeat' && !url.search;
+      return [form+'/cdsImportStatus',form+'/cdsImportInspect'].includes(url.pathname)
+        && url.searchParams.getAll('apiVersion').length===1 && url.searchParams.get('apiVersion')==='2'
+        && url.searchParams.getAll('runId').length===1 && url.searchParams.get('runId')===selectedRun;
+    } catch(_){return false;}
+  };
+  const capture=request=>{if(eligible(request)){if(captured.size>=128)overflow=true;else captured.add(request);}};
+  const onRequest=request=>{
+    if(inflight.size>=256)overflow=true;else inflight.add(request);
+    if(closing)capture(request);
+  };
+  const onTerminal=request=>{inflight.delete(request);if(captured.has(request))terminal.add(request);};
+  const onClosed=()=>{closing=false;closed=true;};
+  page.on('request',onRequest);page.on('requestfinished',onTerminal);page.on('requestfailed',onTerminal);page.on('close',onClosed);
+  const dispose=()=>{page.off('request',onRequest);page.off('requestfinished',onTerminal);page.off('requestfailed',onTerminal);page.off('close',onClosed);inflight.clear();};
+  return {dispose,async close({runId,expectedFault,timeoutMillis=30000}={}) {
+    h.assert(!started && !page.isClosed() && (auxiliaryLogin || UUID.test(runId || '')),'Intentional close requires one exact owned page/run');
+    started=true;selectedRun=runId;fault=expectedFault;
+    const audit=()=>{
+      h.assert(closed && page.isClosed() && !overflow,'Intentional close did not prove bounded actual closure');
+      const cancellations=new Set();
+      const failures=recorder.requestFailures.filter((entry,index)=>{
+        const request=entry.requestRef?.deref();
+        if(index<cursor || entry.errorText!=='net::ERR_ABORTED' || !captured.has(request))return true;
+        h.assert(!cancellations.has(request),'Intentional close emitted duplicate cancellations');cancellations.add(request);return false;
+      });
+      const view={...recorder,requestFailures:failures};
+      if(auxiliaryLogin)assertRetainedLogin(view,baseUrl,retainedLoginClosed);else assertScopedFault(view,fault);
+      const observed=new Set([...terminal,...cancellations]),retired=[...captured].filter(request=>!observed.has(request));
+      const evidence={classification:'CONTROLLED_PAGE_CLOSED',requests:captured.size,cancellations:cancellations.size,
+        observedRequestTerminals:observed.size,retiredByObservedPageClosure:retired.length};
+      // Chromium may retire the closed target without any per-request terminal callback.
+      // Those exact requests remain interrupted/unobserved, never HTTP/EOF successes.
+      Object.defineProperty(evidence,'retiredRequestRefs',{value:retired.map(request=>new WeakRef(request))});
+      return evidence;
+    };
+    try {
+      h.assert(!overflow,'Intentional close request inventory exceeded its fixed capacity');
+      for(const request of inflight)capture(request);
+      cursor=recorder.requestFailures.length;closing=true;
+      const close=page.close(); // Capture, cursor and actual close share one Node turn.
+      await boundedLifecycleAction(()=>close,timeoutMillis,
+        'Owned lifecycle page close deadline elapsed; closure is unknown and accepted state retained');
+      await new Promise(resolve=>setImmediate(resolve));
+      const evidence=audit();return {audit,evidence};
+    } finally {closing=false;dispose();}
+  }};
+}
+
+async function completedLifecycleDownload(download,timeoutMillis=30000) {
+  return boundedLifecycleAction(async()=>{
+    h.assert(await download.failure()===null,'A protected report download did not finish');
+    const file=await download.path();h.assert(typeof file==='string' && path.isAbsolute(file),'Protected report download has no completed private path');
+    return file;
+  },timeoutMillis,'Protected report download completion deadline elapsed; accepted state and reports retained');
+}
+
+async function assertExpiredSessionDenial(response,baseUrl) {
+  const base=new URL(String(baseUrl)),headers=response.headers();
+  if(response.status()===302){
+    const target=new URL(headers.location || '',base);
+    h.assert(headers.location && target.origin===base.origin && target.pathname===base.pathname.replace(/\/$/,'')+'/logoutPage'
+      && !target.search && !target.hash && !target.username && !target.password,'Expired-session redirect did not match the exact native logout route');
+    return {classification:'EXPIRED_SESSION_NATIVE_REDIRECT'};
+  }
+  h.assert(response.status()===401,'The expired native session retained protected import access');
+  if(headers['content-length'])h.assert(/^\d+$/.test(headers['content-length']) && Number(headers['content-length'])<=4096,
+    'Expired-session denial exceeded its bounded response contract');
+  const bytes=await boundedLifecycleAction(()=>response.body(),10000,'Expired-session denial body deadline elapsed; accepted state retained');
+  h.assert(Buffer.isBuffer(bytes) && bytes.length<=4096,'Expired-session denial exceeded its bounded response contract');
+  const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes),type=headers['content-type'] || '';
+  let json;try {json=JSON.parse(text);} catch(_){}
+  h.assert((/^text\/plain(?:;|$)/i.test(type) && text==='Unauthorized')
+    || (/^application\/json(?:;|$)/i.test(type) && json?.error==='unauthorized' && Object.keys(json).length===1),
+    'Expired-session401 did not match the native unauthorized response');
+  return {classification:'EXPIRED_SESSION_NATIVE_UNAUTHORIZED'};
+}
+
+function assertNativeNoteHashes(sql,state,source,copies) {
+  h.assert(UUID.test(state.runId) && /^[A-Za-z0-9]{1,20}$/.test(state.sourceId) && [1,256].includes(source.notes)
+    && Number.isInteger(copies) && copies>=1 && copies<=8 && Number.isSafeInteger(state.notePadding)
+    && state.notePadding>=0 && state.notePadding<=49152,'Native note oracle requires bounded immutable fixture identity');
+  const expected=new Map(),padding='X'.repeat(state.notePadding);
+  for(let index=1;index<=source.notes;index++){
+    const digest=hash(Buffer.from('FAKE-CDS-LIFE-'+state.sourceId+' note '+index+padding));expected.set(digest,(expected.get(digest)||0)+1);
+  }
+  const maximum=source.notes*copies;
+  const rows=sql.rows('SELECT p.copy_key,SHA2(n.note,256) FROM cds_import_patient p JOIN casemgmt_note n'
+    +' ON n.demographic_no=p.target_demographic_no WHERE p.run_id='+q(state.runId)+' ORDER BY p.copy_key LIMIT '+(maximum+1));
+  h.assert(rows.length===maximum,'Native note hash inventory differs from the bounded source/copy count');
+  const actual=new Map();
+  for(const row of rows){
+    h.assert(row.length===2 && typeof row[0]==='string' && row[0].length>0 && row[0].length<=256 && SHA.test(row[1]),
+      'Native note hash inventory has an invalid copy/hash');
+    const copy=actual.get(row[0]) || new Map();copy.set(row[1],(copy.get(row[1])||0)+1);actual.set(row[0],copy);
+  }
+  h.assert(actual.size===copies && [...actual.values()].every(copy=>copy.size===expected.size
+    && [...expected].every(([digest,count])=>copy.get(digest)===count)),
+    'Native note hash multiset lost, duplicated or changed source content in a target copy');
+  return {copies,notesPerCopy:source.notes,totalNotes:maximum,expectedMultisetSha256:hash(Buffer.from(JSON.stringify([...expected].sort())))};
+}
+
 async function awaitActualProxyTimeout({page,recorder,response,request,proxy,onStage,timeoutMillis=10000}) {
   let listener;let active=true;let headersVerified=false;let status=null;
   const cancellation=()=>{
@@ -352,7 +464,8 @@ async function awaitActualProxyTimeout({page,recorder,response,request,proxy,onS
     return result;
   } catch(failure) {
     try {onStage({stage:'proxy-response-failed',status,proxyHeaderVerified:headersVerified,finished:false});}
-    catch(persistenceFailure){throw new AggregateError([failure,persistenceFailure],'Proxy failure evidence could not be persisted; accepted state retained');}
+    catch(persistenceFailure){throw safeLifecycleAggregate([failure,persistenceFailure],
+      'Proxy failure evidence could not be persisted',{evidencePair:true});}
     throw failure;
   } finally {active=false;if(listener)page.off('requestfailed',listener);}
 }
@@ -361,7 +474,7 @@ async function cleanupLifecycle({browser,sql,relay,state,save,log=console.log,
   browserTimeoutMillis=30000,relayTimeoutMillis=10000,timeoutMillis=45000}) {
   const failures=[];let active=true;
   state.cleanup={stage:'cleanup-started',browser:browser?'PENDING':'ABSENT',relay:relay?'PENDING':'ABSENT',
-    relayPid:relay?.child?.pid || null,acceptedStateRetained:true};
+    relayPid:relay?.child?.pid || null,relayNativePid:relay?.ready?.pid || null,acceptedStateRetained:true};
   const record=stage=>{
     state.cleanup.stage=stage;
     try {save();log('LIFECYCLE_STAGE',JSON.stringify({runId:state.runId || null,...state.cleanup}));}
@@ -381,8 +494,9 @@ async function cleanupLifecycle({browser,sql,relay,state,save,log=console.log,
           const stop=relay.file('stop');
           if(fs.existsSync(stop))h.assert(privateJson(stop).attempt===state.attempt,'Existing relay stop marker belongs to another attempt');
           else publish(stop,{attempt:state.attempt});
-          await boundedLifecycleAction(()=>relay.closed,relayTimeoutMillis,
+          const exitCode=await boundedLifecycleAction(()=>relay.closed,relayTimeoutMillis,
             'The owned proxy relay did not stop; retain its process identity and private controls');
+          h.assert(exitCode===0,'Owned relay driver did not attest exit0; native closure is unknown and controls retained');
           if(active)state.cleanup.relay='CLOSED';
         }
       } catch(error){if(active){state.cleanup.relay='UNKNOWN';failures.push(error);}}
@@ -391,7 +505,7 @@ async function cleanupLifecycle({browser,sql,relay,state,save,log=console.log,
     for(const key of ['browser','relay'])if(state.cleanup[key]==='PENDING')state.cleanup[key]='UNKNOWN';
   } finally {active=false;}
   record(failures.length?'cleanup-failed':'cleanup-settled');
-  if(failures.length)throw new AggregateError(failures,'Lifecycle cleanup is incomplete; accepted work and owned controls were retained');
+  if(failures.length)throw safeLifecycleAggregate(failures,'Lifecycle cleanup is incomplete; accepted work and owned controls were retained');
   // Never delete accepted jobs, charts, immutable source, checkpoints or recovery state.
 }
 
@@ -405,7 +519,7 @@ async function waitPrivate(file, milliseconds = 20000, child) {
   throw Error('The owned relay receipt deadline elapsed; retain the original submission');
 }
 
-async function startRelay(env,stateFile,state) {
+function startOwnedRelay(env,stateFile,state) {
   const prefix=JSON.parse(env.CDS_LIFECYCLE_PROXY_RELAY_ARGV || 'null');
   h.assert(Array.isArray(prefix) && prefix.length>=2 && prefix.length<=16
     && prefix.every(value => typeof value==='string' && value.length>0 && value.length<4096),'An explicit owned relay executable argv is required');
@@ -414,17 +528,17 @@ async function startRelay(env,stateFile,state) {
   let output=0;
   for(const stream of [child.stdout,child.stderr])stream.on('data',bytes => {output+=bytes.length;if(output>4096)child.kill('SIGTERM');});
   const closed=new Promise(resolve => child.once('close',resolve));
-  const relay={root,child,closed,file:name => path.join(root,state.attempt + '.' + name + '.json')};
-  try {
-    await new Promise((resolve,reject) => {child.once('spawn',resolve);child.once('error',() => reject(Error('The owned relay process could not start')));});
-    const ready=await waitPrivate(relay.file('ready'),20000,child);
-    h.assert(ready.ready===true && ready.attempt===state.attempt && ready.port===18086,'The exact private relay did not start');
-    return relay;
-  } catch(failure) {
-    publish(relay.file('stop'),{attempt:state.attempt});
-    await Promise.race([closed,new Promise(resolve => setTimeout(resolve,10000))]);
-    throw failure;
-  }
+  const started=new Promise((resolve,reject)=>{child.once('spawn',resolve);child.once('error',failure=>reject(
+    new Error('The owned relay process could not start',{cause:failure})));});
+  started.catch(()=>{}); // Ownership survives a failed save before readiness is awaited.
+  return {root,child,closed,started,file:name => path.join(root,state.attempt + '.' + name + '.json')};
+}
+async function awaitRelayReady(relay,state,timeoutMillis=20000) {
+  await relay.started;
+  const ready=await waitPrivate(relay.file('ready'),timeoutMillis,relay.child);
+  h.assert(ready.ready===true && ready.attempt===state.attempt && ready.port===18086
+    && Number.isSafeInteger(ready.pid) && ready.pid>0,'The exact private relay did not start');
+  relay.ready=ready;return relay;
 }
 
 function processProof(receipt, expected) {
@@ -503,6 +617,20 @@ function safeLifecycleFailure(failure,depth=0,seen=new Set()) {
   } catch(_){return 'UNREADABLE_FAILURE: retain state and reconcile owned runtime';}
   if(message==='The exact real-proxy response deadline elapsed; accepted state retained')
     return 'PROXY_RESPONSE_TIMEOUT: verify owned proxy response evidence and retain accepted job';
+  if(message==='Owned lifecycle browser close deadline elapsed; process closure is unknown and accepted state retained')
+    return 'BROWSER_CLOSE_TIMEOUT: retain owned process identity and reconcile unknown closure';
+  if(message==='The owned proxy relay did not stop; retain its process identity and private controls')
+    return 'RELAY_CLOSE_TIMEOUT: retain owned relay process and reconcile unknown closure';
+  if(message==='Lifecycle cleanup deadline elapsed; accepted work and owned process identities retained')
+    return 'CLEANUP_TIMEOUT: retain owned process identities and reconcile incomplete cleanup';
+  if(message==='Owned lifecycle page close deadline elapsed; closure is unknown and accepted state retained')
+    return 'PAGE_CLOSE_TIMEOUT: retain owned page/process evidence and reconcile unknown closure';
+  if(message==='Owned lifecycle context close deadline elapsed; closure is unknown and accepted state retained')
+    return 'CONTEXT_CLOSE_TIMEOUT: retain owned browser context and reconcile unknown closure';
+  if(message==='Existing relay stop marker belongs to another attempt')
+    return 'RELAY_STOP_OWNER_MISMATCH: retain existing controls and verify attempt ownership';
+  if(message==='Owned relay driver did not attest exit0; native closure is unknown and controls retained')
+    return 'RELAY_EXIT_UNCONFIRMED: retain owned driver/native identities and reconcile nonzero or signalled exit';
   if(message==='The synthetic CDS fixture does not validate against the pinned OntarioMD migration schema')
     return 'SCHEMA_VALIDATION_FAILED: verify pinned OntarioMD schema bundle and fixture before acceptance';
   if(message==='Required CDS regression prerequisite missing: xmllint (libxml2-utils)')
@@ -520,13 +648,19 @@ function safeLifecycleFailure(failure,depth=0,seen=new Set()) {
   const prefix=typeof message==='string'?message.slice(0,4096):'[no string message]';
   return 'UNCLASSIFIED_FAILURE: retain state; message-prefix4096-sha256='+hash(Buffer.from(prefix));
 }
+function safeLifecycleAggregate(errors,message,{evidencePair=false}={}) {
+  const failure=new AggregateError(errors,message,{cause:errors[0]});
+  failure.message=message+'; '+(evidencePair?'primary=['+safeLifecycleFailure(errors[0])+']; evidence=['
+    +safeLifecycleFailure(errors[1])+']':'failures=['+safeLifecycleFailure(failure)+']')
+    +'; primary failure and accepted state retained';
+  return failure;
+}
 function recordWorkflowFailure(failure,{state,save,log=console.log}) {
   state.workflowFailure={stage:'workflow-failed',observedAt:Date.now(),acceptedStateRetained:true};
   try {
     save();log('LIFECYCLE_STAGE',JSON.stringify({runId:state.runId || null,...state.workflowFailure}));
   } catch(persistenceFailure) {
-    throw new AggregateError([failure,persistenceFailure],'Lifecycle failure evidence could not be recorded; primary=['
-      +safeLifecycleFailure(failure)+']; evidence=['+safeLifecycleFailure(persistenceFailure)+']; primary failure and accepted state retained');
+    throw safeLifecycleAggregate([failure,persistenceFailure],'Lifecycle failure evidence could not be recorded',{evidencePair:true});
   }
   throw failure;
 }
@@ -536,7 +670,7 @@ async function run(env = process.env) {
     return {outcome:'NOT_EXECUTED'};
   }
   requireNativeEnvironment(env);
-  let browser; let sql; let relay;
+  let browser; let sql; let relay;const closedPageAudits=[];
   const stateFile = safeStatePath(env.CDS_LIFECYCLE_STATE_FILE);
   const synthetic = env.CDS_LIFECYCLE_MODE === 'synthetic';
   h.assert(synthetic || !env.CDS_LIFECYCLE_MODE || env.CDS_LIFECYCLE_MODE === 'faults', 'Unknown lifecycle scenario');
@@ -580,7 +714,11 @@ async function run(env = process.env) {
     h.assert(/^web-[1-9][0-9]*$/.test(owner), 'The native synthetic operator is unavailable');
     if (state.owner) h.assert(state.owner === owner, 'The retained acceptance belongs to another native operator');
     state.owner = owner; save();
-    if(!synthetic)relay=await startRelay(env,stateFile,state);
+    if(!synthetic){
+      relay=startOwnedRelay(env,stateFile,state);
+      state.relayOwner={controlRoot:relay.root,driverPid:relay.child.pid || null};save();
+      await awaitRelayReady(relay,state);state.relayOwner.nativePid=relay.ready.pid;save();
+    }
     if (synthetic) {
       h.assert(sql.value(`SELECT COUNT(DISTINCT pp.provider_no) FROM program_provider pp
         JOIN secRole r ON r.role_no=pp.role_id JOIN provider p ON p.provider_no=pp.provider_no
@@ -593,6 +731,7 @@ async function run(env = process.env) {
     const open = async runId => {
       const recorder = h.createRecorder();
       const page = await context.newPage(); h.wireStrictPage(page,'cds-lifecycle',recorder);
+      const closer=createLifecyclePageCloser(page,recorder,{baseUrl:config.baseUrl});
       const responses=new WeakMap();
       page.on('response',response => {
         if(response.status()>=400) {
@@ -613,19 +752,22 @@ async function run(env = process.env) {
       const prover = createCdsMetadataProver({frame:page,config,sql,readApi:importApi});
       const qualify = async fault => {
         await page.waitForLoadState('networkidle',{timeout:10000});
-        for (const evidence of await transport.qualifyPending(prover)) console.log('CDS_METADATA_EOF_EVIDENCE',JSON.stringify(evidence));
+        for (const evidence of await transport.qualifyPending(prover,{expectedHttpFault:fault})) console.log('CDS_METADATA_EOF_EVIDENCE',JSON.stringify(evidence));
         assertScopedFault(recorder,fault);
       };
-      return {page,recorder,transport,qualify,responses};
+      return {page,recorder,transport,qualify,responses,close:closer.close};
     };
     const authenticate = async () => {
       context = await h.newContext(browser,config);
-      const login = h.createRecorder(); await h.login(context,config,login);
+      const login = h.createRecorder();const loginPage=await h.login(context,config,login);
       const closed = login.badResponses.some(entry => entry.status === 503 && entry.resourceType === 'document'
         && new URL(entry.url).pathname === new URL(config.baseUrl).pathname.replace(/\/$/,'') + '/provider/providercontrol');
       // The barrier may release while login is in flight; validate the exact actual native
       // schedule response rather than inventing an atomic observation across two requests.
       assertRetainedLogin(login,config.baseUrl,closed);
+      const closer=createLifecyclePageCloser(loginPage,login,{baseUrl:config.baseUrl,auxiliaryLogin:true,retainedLoginClosed:closed});
+      try {await loginPage.waitForLoadState('networkidle',{timeout:10000});closedPageAudits.push(await closer.close());}
+      finally {closer.dispose();}
     };
     await authenticate(); current = await open(state.runId);
     await current.qualify();
@@ -703,7 +845,8 @@ async function run(env = process.env) {
           onStage:stage=>{state.proxyClientResponse={...stage,observedAt:Date.now()};save();
             console.log('LIFECYCLE_STAGE',JSON.stringify({runId:state.runId,...state.proxyClientResponse}));}});
         state.proxyAfter=progress(sql,state.runId);requirePending(state.proxyAfter);save();
-        fault={kind:'nginx',request:selectedRequest,accepted:true,runId:state.runId,status:504,proxyVerified:true,
+        fault={kind:'nginx',request:selectedRequest,response:timeout,uploadId:state.uploadId,
+          proxyHeader:proxy.proxyHeader,proxyToken:proxy.proxyToken,accepted:true,runId:state.runId,status:504,proxyVerified:true,
           badResponse:current.responses.get(selectedRequest)};
         state.proxyEvidence={acceptedSha256:hashFile(relay.file('accepted'),16384).sha256,
           relayAttempt:state.attempt,proxyTimeoutSeconds:15,clientStatus:504};save();
@@ -724,20 +867,21 @@ async function run(env = process.env) {
     await bindAccepted(state.runId);
     if (!synthetic && !state.completed.includes('tab-close')) {
       state.tabProgress = await waitPending(sql,state.runId); save();
-      await current.qualify(fault); await boundedLifecycleAction(()=>current.page.close(),30000,
-        'Owned lifecycle page close deadline elapsed; closure is unknown and accepted state retained');
+      await current.qualify(fault);const closed=await current.close({runId:state.runId,expectedFault:fault});
+      closedPageAudits.push(closed);
       requirePending(progress(sql,state.runId));
-      assertScopedFault(current.recorder,fault);
+      state.tabCloseEvidence=closed.audit();save();
       current = await open(state.runId); await bindAccepted(state.runId);
       await current.qualify();
+      closed.audit();
       state.completed.push('tab-close'); save();
     }
     if (!synthetic && !state.completed.includes('native-session-expiry')) {
       state.expiryProgress = await waitPending(sql,state.runId); save();
       await current.qualify();
       const csrf = await current.page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
-      await boundedLifecycleAction(()=>current.page.close(),30000,
-        'Owned lifecycle page close deadline elapsed; closure is unknown and accepted state retained');
+      const closed=await current.close({runId:state.runId});
+      closedPageAudits.push(closed);
       const cookies = await context.cookies(String(config.baseUrl));
       const sessions = cookies.filter(cookie => cookie.name === 'JSESSIONID');
       h.assert(sessions.length === 1, 'The synthetic browser has no unique selected native session');
@@ -745,11 +889,12 @@ async function run(env = process.env) {
       state.expiryAfter = progress(sql,state.runId); requirePending(state.expiryAfter); save();
       const refused = await context.request.get(h.appUrl(config.baseUrl,'/form/cdsImportStatus?apiVersion=2&runId=' + state.runId),
         {headers:{'CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'},maxRedirects:0,failOnStatusCode:false});
-      h.assert([401,302].includes(refused.status()), 'The expired native session retained protected import access');
+      state.expiryDenial=await assertExpiredSessionDenial(refused,config.baseUrl);save();
       await boundedLifecycleAction(()=>context.close(),30000,
         'Owned lifecycle context close deadline elapsed; closure is unknown and accepted state retained');
       await authenticate(); current = await open(state.runId);
       await bindAccepted(state.runId);
+      state.expiryCloseEvidence=closed.audit();save();
       state.completed.push('native-session-expiry'); save();
     }
     const value = await awaitRunReceipt(current.page,state.runId,300000);
@@ -764,6 +909,7 @@ async function run(env = process.env) {
     h.assert(stored.expected === source.units * copies && stored.checkpoints === stored.expected
       && stored.pending === 0 && stored.patients === copies && stored.holds === 0 && stored.notes === source.notes * copies,
       'Native/chart/checkpoint completeness differs from the accepted source inventory');
+    const nativeNoteHashes=assertNativeNoteHashes(sql,state,source,copies);
     const shifted = text => {
       const value = new Date(text + 'T12:00:00Z'); value.setUTCDate(value.getUTCDate() + options.timeshiftInDays);
       return value.toISOString().slice(0,10);
@@ -797,8 +943,8 @@ async function run(env = process.env) {
       const transfer = current.page.waitForEvent('download',{timeout:30000});
       await current.page.locator('#' + selector).click();
       const download = await transfer;
-      h.assert(await download.failure() === null, 'A protected report download did not finish');
-      const actual = hashFile(await download.path(),8 * 1024 * 1024);
+      const downloaded=await completedLifecycleDownload(download);
+      const actual = hashFile(downloaded,8 * 1024 * 1024);
       h.assert(actual.bytes === reports[key].bytes && actual.sha256 === reports[key].sha256,
         'Browser-delivered protected report differs from its durable physical manifest');
     }
@@ -808,11 +954,12 @@ async function run(env = process.env) {
       && receipt.body.manifestDigest === state.manifestDigest && receipt.body.rulesetDigest === state.rulesetDigest,
       'Protected completion report differs from the accepted command/source/inventory');
     await current.qualify();
+    for(const closed of closedPageAudits)closed.audit();
     state.completed.push('native-reports-clean-complete'); save();
     console.log('LIFECYCLE_EVIDENCE',JSON.stringify({runId:state.runId,artifactSha256:state.artifactSha256,
       sourceSha256:state.sourceSha256,optionsDigest:state.optionsDigest,sourceDigest:state.sourceDigest,
       sourceBytes:source.buffer.length,notePayloadBytes:state.notePadding,
-      manifestDigest:state.manifestDigest,rulesetDigest:state.rulesetDigest,completed:state.completed,native:stored,reports,
+      manifestDigest:state.manifestDigest,rulesetDigest:state.rulesetDigest,completed:state.completed,native:stored,nativeNoteHashes,reports,
       nativeSessionProcess:state.nativeSessionProcess || null,
       sessionExpiry:'selected-native-HttpSession-administrative-expiry-not-inactivity-timer'}));
     }).catch(failure=>recordWorkflowFailure(failure,{state,save}));
@@ -824,4 +971,4 @@ async function run(env = process.env) {
 if (require.main === module) run().then(result => { if (result?.outcome === 'NOT_EXECUTED') process.exitCode = 2; })
   .catch(failure => { console.error('FAIL lifecycle gate: '+safeLifecycleFailure(failure)
     +'; accepted state retained; inspect protected artifacts'); process.exitCode = 1; });
-module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertAcceptance,assertScopedFault,expireSession,preflightSession,processProof,hashFile,evidencePath,protectedEvidence,contractApi,requireNativeEnvironment,requiredLifecycleStep,awaitActualProxyTimeout,cleanupLifecycle,boundedLifecycleAction,recordWorkflowFailure};
+module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertAcceptance,assertScopedFault,expireSession,preflightSession,processProof,hashFile,evidencePath,protectedEvidence,contractApi,requireNativeEnvironment,requiredLifecycleStep,awaitActualProxyTimeout,cleanupLifecycle,boundedLifecycleAction,recordWorkflowFailure,createLifecyclePageCloser,completedLifecycleDownload,startOwnedRelay,awaitRelayReady,assertExpiredSessionDenial,assertNativeNoteHashes};

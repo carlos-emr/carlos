@@ -122,10 +122,10 @@ const {EventEmitter} = require('node:events');
 const {installCdsMetadataTransportObserver} = require('./lib/cds-metadata-transport');
 async function networkFixture(options={}) {
   const initial=await observed('{"ok":true,"job":{"id":"run-1","state":"INCOMPLETE"}}');
-  const traces=new Map(),recorder={requestFailures:[]};
+  const traces=new Map(),recorder={requestFailures:[],badResponses:[]};
   let documentIdentity='a-b',documentRetired=false,detached=false;
   const realm=vm.createContext({});
-  const frame={isDetached:()=>detached,evaluate:async(fn,arg)=>{
+  const frame={isDetached:()=>detached,page:()=>page,evaluate:async(fn,arg)=>{
     if(typeof fn==='string')return;
     realm.argument=arg;
     return structuredClone(vm.runInContext('('+fn.toString()+')(argument)',realm));
@@ -146,8 +146,12 @@ async function networkFixture(options={}) {
   function emit(number,changes={}) {
     const tag=page.config.prefix+'-'+(changes.documentIdentity||documentIdentity)+'-'+number;
     traces.set(tag,{...structuredClone(initial.trace),tag,...changes.trace});
-    const request={headers:()=>({'x-cds-metadata-trace':tag}),frame:()=>frame,url:()=> 'http://localhost/carlos/form/cdsImportStatus?runId=run-1',method:()=> 'GET',resourceType:()=> 'fetch',failure:()=>({errorText:changes.error||'net::ERR_ABORTED'}),redirectedFrom:()=>changes.redirected?{}:null};
-    const response={request:()=>request,status:()=>200,headers:()=>({'content-type':'application/json'}),finished:changes.finished||(async()=>Error('net::ERR_ABORTED'))};
+    const request={headers:()=>({'x-cds-metadata-trace':tag}),frame:()=>frame,
+      url:()=>changes.url || 'http://localhost/carlos/form/cdsImportStatus?runId=run-1',method:()=>changes.method || 'GET',
+      postData:()=>changes.body ?? null,resourceType:()=>changes.resourceType || 'fetch',
+      failure:()=>({errorText:changes.error||'net::ERR_ABORTED'}),redirectedFrom:()=>changes.redirected?{}:null};
+    const response={request:()=>request,status:()=>changes.status || 200,
+      headers:()=>changes.headers || {'content-type':'application/json'},finished:changes.finished||(async()=>Error('net::ERR_ABORTED'))};
     page.emit('request',request);page.emit('response',response);
     const entry={url:request.url(),resourceType:'fetch',errorText:request.failure().errorText};
     Object.defineProperty(entry,'requestRef',{value:new WeakRef(request)});
@@ -296,4 +300,115 @@ test('binds safe page identities and cursor proof without retaining source text'
   assert.throws(()=>validateProof(trace,proof(trace)),/PAGE_PROOF/);
   assert.throws(()=>validateProof(trace,proof(trace,{page:{...trace.receipt.page,afterKey:'different'}})),/PAGE_PROOF/);
   assert.equal(validateProof(trace,proof(trace,{page:trace.receipt.page})).classification,'CDS_METADATA_EOF_CONFIRMED');
+});
+
+const acceptedRun='12345678-1234-4234-8234-123456789abc';
+const acceptedUpload='22345678-1234-4234-8234-123456789abc';
+async function expectedProxyFixture(options={}) {
+  const f=await networkFixture(options),token='a'.repeat(32);
+  const selected=f.emit(1,{url:'http://localhost/carlos/form/cdsImportSubmit',method:'POST',status:504,
+    body:'apiVersion=2&uploadId='+acceptedUpload,headers:{'content-type':'text/html','x-owned-proxy':token},
+    ...(options.requestChanges || {})});
+  const badResponse={status:selected.response.status(),url:selected.request.url(),method:selected.request.method(),resourceType:selected.request.resourceType()};
+  f.recorder.badResponses.push(badResponse);await Promise.resolve();
+  const fault={kind:'nginx',accepted:true,proxyVerified:true,status:504,runId:acceptedRun,uploadId:acceptedUpload,
+    request:selected.request,response:selected.response,proxyHeader:'X-Owned-Proxy',proxyToken:token,badResponse};
+  return{...f,selected,fault};
+}
+
+test('a verified exact proxy504 is excluded only from successful EOF qualification and remains raw for strict fault audit',async()=>{
+  const f=await expectedProxyFixture();let proved=0;
+  for(let repeat=0;repeat<2;repeat++)assert.deepEqual(await f.observer.qualifyPending(()=>{proved++;return proof(null);},
+    {expectedHttpFault:f.fault}),[]);
+  assert.equal(proved,0);assert.equal(isQualifiedCdsMetadataFailure(f.selected.entry),false);
+  assert.equal(f.recorder.requestFailures[0],f.selected.entry);assert.equal(f.recorder.badResponses[0],f.fault.badResponse);
+  const h=require('./lib/playwright-harness'),{assertScopedFault}=require('./demographic-cds-lifecycle-playwright-checks');
+  const recorder={...h.createRecorder(),...f.recorder};
+  assert.throws(()=>h.assertStrictPage(recorder));assertScopedFault(recorder,f.fault);
+  recorder.badResponses.push({...f.fault.badResponse});assert.throws(()=>assertScopedFault(recorder,f.fault));
+  recorder.badResponses.pop();recorder.requestFailures.push({errorText:'net::ERR_CONNECTION_RESET',requestRef:new WeakRef({})});
+  assert.throws(()=>assertScopedFault(recorder,f.fault));
+});
+
+test('no expected fault option leaves the observed proxy504 subject to the unchanged strict EOF refusal',async()=>{
+  const f=await expectedProxyFixture();let proved=0;
+  await assert.rejects(f.observer.qualifyPending(()=>{proved++;return proof(null);}),/FAILURE_NOT_QUALIFIABLE/);
+  assert.equal(proved,0);assert.equal(isQualifiedCdsMetadataFailure(f.selected.entry),false);
+});
+
+test('exact proxy scope survives bounded-record eviction without exempting any other metadata',async()=>{
+  const f=await expectedProxyFixture({maxTraces:1}),metadata=f.emit(2);await Promise.resolve();let proved=0;
+  const first=await f.observer.qualifyPending(()=>{proved++;return proof(null);},{expectedHttpFault:f.fault});
+  assert.equal(first.length,1);assert.equal(first[0].status,200);assert.equal(proved,1);
+  assert.equal(isQualifiedCdsMetadataFailure(metadata.entry),true);assert.equal(isQualifiedCdsMetadataFailure(f.selected.entry),false);
+  assert.deepEqual(await f.observer.qualifyPending(()=>{proved++;return proof(null);},{expectedHttpFault:f.fault}),[]);
+  assert.equal(proved,1);
+});
+
+test('a normally finished exact proxy504 still receives no metadata EOF qualification',async()=>{
+  const f=await expectedProxyFixture({requestChanges:{failed:false,finished:async()=>null}});
+  assert.deepEqual(await f.observer.qualifyPending(()=>{throw Error('A504 must not request EOF proof');},{expectedHttpFault:f.fault}),[]);
+  assert.equal(f.recorder.requestFailures.length,0);assert.equal(isQualifiedCdsMetadataFailure(f.selected.entry),false);
+});
+
+for(const [name,change]of[
+  ['unaccepted run',f=>{f.fault.accepted=false;}],
+  ['unverified proxy',f=>{f.fault.proxyVerified=false;}],
+  ['unknown fault kind',f=>{f.fault.kind='ignored';}],
+  ['malformed run',f=>{f.fault.runId='not-a-run';}],
+  ['malformed upload',f=>{f.fault.uploadId='not-an-upload';}],
+  ['another response request',f=>{f.fault.response={...f.selected.response,request:()=>({})};}],
+  ['another response status',f=>{f.fault.response={...f.selected.response,status:()=>502};}],
+  ['missing owned header',f=>{f.fault.response={...f.selected.response,headers:()=>({'content-type':'text/html'})};}],
+  ['wrong owned token',f=>{f.fault.proxyToken='b'.repeat(32);}],
+  ['another origin',f=>{f.selected.request.url=()=> 'http://other.invalid/carlos/form/cdsImportSubmit';}],
+  ['URL credentials',f=>{f.selected.request.url=()=> 'http://private:secret@localhost/carlos/form/cdsImportSubmit';f.fault.badResponse.url=f.selected.request.url();}],
+  ['URL query',f=>{f.selected.request.url=()=> 'http://localhost/carlos/form/cdsImportSubmit?apiVersion=2';f.fault.badResponse.url=f.selected.request.url();}],
+  ['URL fragment',f=>{f.selected.request.url=()=> 'http://localhost/carlos/form/cdsImportSubmit#private';f.fault.badResponse.url=f.selected.request.url();}],
+  ['another owner route',f=>{f.selected.request.url=()=> 'http://localhost/carlos/form/cdsImportStatus';}],
+  ['another method',f=>{f.selected.request.method=()=> 'GET';}],
+  ['document resource',f=>{f.selected.request.resourceType=()=> 'document';}],
+  ['another receiver page',f=>{f.frame.page=()=>({});}],
+  ['closed receiver page',f=>{f.page.isClosed=()=>true;}],
+  ['detached receiver frame',f=>{f.detach();}],
+  ['redirected request',f=>{f.selected.request.redirectedFrom=()=>({});}],
+  ['wrong body contract',f=>{f.selected.request.postData=()=> 'apiVersion=1&uploadId='+acceptedUpload;}],
+  ['duplicate body contract',f=>{f.selected.request.postData=()=> 'apiVersion=2&apiVersion=2&uploadId='+acceptedUpload;}],
+  ['another body upload',f=>{f.selected.request.postData=()=> 'apiVersion=2&uploadId='+acceptedRun;}],
+  ['duplicate body upload',f=>{f.selected.request.postData=()=> 'apiVersion=2&uploadId='+acceptedUpload+'&uploadId='+acceptedUpload;}],
+  ['oversized request body',f=>{f.selected.request.postData=()=> 'x'.repeat(16385);}],
+  ['absent request body',f=>{f.selected.request.postData=()=>null;}],
+  ['unretained raw response',f=>{f.fault.badResponse={...f.fault.badResponse};}],
+  ['duplicate raw response',f=>{f.recorder.badResponses.push(f.fault.badResponse);}],
+  ['unexpected raw failure',f=>{f.selected.entry.errorText='net::ERR_CONNECTION_RESET';}],
+  ['duplicate raw cancellation',f=>{f.recorder.requestFailures.push(f.selected.entry);}]
+])test('expected proxy scope refuses '+name,async()=>{
+  const f=await expectedProxyFixture();change(f);let proved=0;
+  await assert.rejects(f.observer.qualifyPending(()=>{proved++;return proof(null);},{expectedHttpFault:f.fault}));
+  assert.equal(proved,0);assert.equal(isQualifiedCdsMetadataFailure(f.selected.entry),false);
+});
+
+test('the exact expected proxy never excuses an unrelated non-JSON504 or malformed successful metadata',async()=>{
+  for(const another504 of[true,false]){
+    const f=await expectedProxyFixture();
+    const other=f.emit(2,another504?{url:f.selected.request.url(),method:'POST',status:504,
+      body:f.selected.request.postData(),headers:f.selected.response.headers()}:{trace:{valid:false,invalid:'METADATA_JSON_INVALID'}});
+    await Promise.resolve();
+    await assert.rejects(f.observer.qualifyPending(()=>proof(null),{expectedHttpFault:f.fault}));
+    assert.equal(isQualifiedCdsMetadataFailure(f.selected.entry),false);assert.equal(isQualifiedCdsMetadataFailure(other.entry),false);
+    assert.equal(f.recorder.requestFailures.length,2);
+  }
+});
+
+test('ambiguous tag reuse cannot receive the expected HTTP exclusion',async()=>{
+  const f=await expectedProxyFixture();f.emit(1);await Promise.resolve();
+  await assert.rejects(f.observer.qualifyPending(()=>proof(null),{expectedHttpFault:f.fault}),/EXPECTED_HTTP_FAULT_UNPROVEN/);
+  assert.equal(isQualifiedCdsMetadataFailure(f.selected.entry),false);
+});
+
+test('the originally observed route cannot be replaced by later request getters',async()=>{
+  const f=await expectedProxyFixture({requestChanges:{url:'http://localhost/carlos/form/cdsImportControl'}});
+  f.selected.request.url=()=> 'http://localhost/carlos/form/cdsImportSubmit';f.fault.badResponse.url=f.selected.request.url();
+  await assert.rejects(f.observer.qualifyPending(()=>proof(null),{expectedHttpFault:f.fault}),/EXPECTED_HTTP_FAULT_UNPROVEN/);
+  assert.equal(isQualifiedCdsMetadataFailure(f.selected.entry),false);
 });

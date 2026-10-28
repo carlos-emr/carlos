@@ -547,3 +547,202 @@ test('nested aggregate diagnostics have finite cause depth,width and output whil
     for(const privateText of ['synthetic-aggregate-secret','/workspace/protected','SELECT'])assert.equal(result.detail.includes(privateText),false);
   }
 });
+
+test('the real runner preserves plain and nested failures with successful or failed outer recording',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-aggregate-matrix-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  for(const nested of [false,true])for(const recordingFails of [false,true]){
+    const name=(nested?'nested':'plain')+'-'+(recordingFails?'failed-record':'saved-record');
+    const secret='synthetic-matrix-secret SELECT patient /workspace/protected/matrix.json';
+    const innerEvidence=Object.assign(Error(secret),{code:'ENOSPC'}),outerEvidence=Object.assign(Error(secret),{code:'ENOSPC'});
+    const f=proxyTimeoutFixture();f.options.onStage=stage=>{f.stages.push(stage);if(nested && stage.stage==='proxy-response-failed')throw innerEvidence;};
+    const selected={...state(),runId:randomUUID(),submitRequested:true},stateFile=path.join(directory,name+'-state.json');
+    gate.writeState(stateFile,selected,true);
+    const resultFile=path.join(directory,name+'-result.json'),processRef={env:{RESULT_JSON:resultFile}},lines=[];
+    let primary,thrown,cleaned=false;
+    const result=await h.runCheck({name:'aggregate-matrix-unit',processRef,stdout:{log:line=>lines.push(line)},
+      createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+      async run(){try {await gate.awaitActualProxyTimeout(f.options);} catch(error){
+        primary=error;
+        try {gate.recordWorkflowFailure(primary,{state:selected,save(){if(recordingFails)throw outerEvidence;
+          gate.writeState(stateFile,selected);},log(){}});} catch(recorded){thrown=recorded;throw recorded;}
+      }},cleanup(){cleaned=true;}});
+    assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleaned,true);assert.equal(result.cleanupFailed,undefined);
+    if(nested){assert.ok(primary instanceof AggregateError);assert.equal(primary.errors[1],innerEvidence);assert.equal(primary.cause,primary.errors[0]);}
+    if(recordingFails){assert.deepEqual(thrown.errors,[primary,outerEvidence]);assert.equal(thrown.cause,primary);}
+    else {assert.equal(thrown,primary);assert.equal(result.detail,primary.message);}
+    if(nested || recordingFails)assert.match(result.detail,/PROXY_RESPONSE_TIMEOUT:/);
+    else assert.match(result.detail,/exact real-proxy response deadline elapsed/);
+    assert.equal((result.detail.match(/ENOSPC: evidence filesystem full/g) || []).length,Number(nested)+Number(recordingFails));
+    const retained=JSON.parse(fs.readFileSync(resultFile));assert.equal(retained.detail,result.detail);
+    assert.ok(lines.some(line=>line.includes(result.detail)));assert.equal(gate.readState(stateFile).runId,selected.runId);
+    for(const output of [result.detail,JSON.stringify(retained),...lines])for(const privateText of ['synthetic-matrix-secret','SELECT','/workspace/protected'])
+      assert.equal(output.includes(privateText),false);
+    t.diagnostic('RETAINED_AGGREGATE_MATRIX '+JSON.stringify({case:name,outcome:result.outcome,detail:result.detail,cleanupFailed:false}));
+  }
+});
+
+test('the actual runner retains actionable cleanup aggregate reasons and original causes',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-cleanup-diagnostics-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  for(const overall of [false,true]){
+    const name=overall?'overall':'browser-and-relay',selected={...state(),runId:randomUUID(),submitRequested:true};
+    const resultFile=path.join(directory,name+'-result.json'),processRef={env:{RESULT_JSON:resultFile}},lines=[];let thrown;
+    const result=await h.runCheck({name:'cleanup-aggregate-unit',processRef,stdout:{log:line=>lines.push(line)},
+      createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),run(){return'workflow-finished';},
+      async cleanup(){try {await gate.cleanupLifecycle({state:selected,save(){},log(){},browser:{close:()=>new Promise(()=>{})},
+        relay:overall?undefined:{child:{pid:123},file:()=>path.join(directory,'stop.json'),closed:new Promise(()=>{})},
+        browserTimeoutMillis:overall?20:5,relayTimeoutMillis:5,timeoutMillis:overall?5:100});}
+        catch(error){thrown=error;throw error;}}});
+    assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(result.cleanupFailed,true);
+    assert.ok(thrown instanceof AggregateError);assert.equal(thrown.cause,thrown.errors[0]);
+    if(overall)assert.match(result.detail,/CLEANUP_TIMEOUT:/);
+    else {assert.match(result.detail,/BROWSER_CLOSE_TIMEOUT:/);assert.match(result.detail,/RELAY_CLOSE_TIMEOUT:/);
+      assert.match(thrown.errors[0].message,/browser close deadline/);assert.match(thrown.errors[1].message,/relay did not stop/);}
+    assert.equal(selected.cleanup.browser,'UNKNOWN');assert.equal(selected.cleanup.stage,'cleanup-failed');assert.equal(selected.submitRequested,true);
+    assert.equal(JSON.parse(fs.readFileSync(resultFile)).detail,result.detail);assert.ok(lines.some(line=>line.includes(result.detail)));
+    t.diagnostic('RETAINED_CLEANUP_RESULT '+JSON.stringify({case:name,outcome:result.outcome,detail:result.detail,cleanupFailed:true}));
+  }
+});
+
+function intentionalCloseFixture({auxiliaryLogin=false,retainedLoginClosed=false}={}) {
+  const page=new EventEmitter(),recorder=h.createRecorder(),pending=new Set(),runId=randomUUID();let closed=false;
+  const frame={page:()=>page};page.mainFrame=()=>frame;page.isClosed=()=>closed;
+  const fail=(request,errorText='net::ERR_ABORTED')=>{
+    pending.delete(request);recorder.requestFailures.push({errorText,requestRef:new WeakRef(request)});page.emit('requestfailed',request);
+  };
+  const request=(changes={})=>{
+    const selected={url:()=> 'http://localhost/carlos/form/cdsImportStatus?apiVersion=2&runId='+runId,
+      method:()=> 'GET',resourceType:()=> 'fetch',frame:()=>frame,...changes};pending.add(selected);page.emit('request',selected);return selected;
+  };
+  let action=()=>{for(const selected of [...pending])fail(selected);};
+  page.close=async()=>{action();closed=true;page.emit('close');};
+  const closer=gate.createLifecyclePageCloser(page,recorder,{baseUrl:'http://localhost/carlos',auxiliaryLogin,retainedLoginClosed});
+  return{page,recorder,runId,request,fail,closer,setAction(value){action=value;},markClosed(){closed=true;page.emit('close');}};
+}
+
+test('intentional close permits only exact new read cancellations and preserves their unqualified raw evidence',async()=>{
+  const f=intentionalCloseFixture(),request=f.request();
+  const closed=await f.closer.close({runId:f.runId});assert.equal(closed.evidence.cancellations,1);
+  assert.equal(f.recorder.requestFailures[0].requestRef.deref(),request);assert.equal(f.recorder.requestFailures.length,1);
+  assert.throws(()=>h.assertStrictPage(f.recorder),/request failed/);assert.deepEqual(closed.audit(),closed.evidence);
+  for(const event of ['request','requestfinished','requestfailed','close'])assert.equal(f.page.listenerCount(event),0);
+});
+
+test('intentional close captures a queued eligible request only until the actual close event',async()=>{
+  const f=intentionalCloseFixture();f.setAction(()=>{const late=f.request();f.fail(late);});
+  assert.equal((await f.closer.close({runId:f.runId})).evidence.cancellations,1);
+  const after=intentionalCloseFixture();after.setAction(()=>{after.markClosed();after.fail(after.request());});
+  await assert.rejects(after.closer.close({runId:after.runId}),/request failed/);
+});
+
+for(const [name,change] of [
+  ['POST request',f=>({method:()=> 'POST'})],['other origin',f=>({url:()=> 'http://example.invalid/carlos/form/cdsImportStatus?apiVersion=2&runId='+f.runId})],
+  ['other route',f=>({url:()=> 'http://localhost/carlos/form/cdsImportSubmit?apiVersion=2&runId='+f.runId})],
+  ['other run',()=>({url:()=> 'http://localhost/carlos/form/cdsImportStatus?apiVersion=2&runId='+randomUUID()})],
+  ['duplicate protocol',f=>({url:()=> 'http://localhost/carlos/form/cdsImportStatus?apiVersion=2&apiVersion=2&runId='+f.runId})],
+  ['other frame',f=>({frame:()=>({page:()=>f.page})})]
+])test('intentional close refuses cancellation of '+name,async()=>{
+  const f=intentionalCloseFixture();f.request(change(f));await assert.rejects(f.closer.close({runId:f.runId}),/request failed/);
+});
+
+test('intentional close rejects prior aborts, resets, duplicate aborts and late HTTP or script errors',async()=>{
+  for(const kind of ['prior','reset','duplicate','http','console','script']){
+    const f=intentionalCloseFixture(),request=f.request();
+    if(kind==='prior')f.fail(request);
+    f.setAction(()=>{
+      if(kind!=='prior')f.fail(request,kind==='reset'?'net::ERR_CONNECTION_RESET':'net::ERR_ABORTED');
+      if(kind==='duplicate')f.fail(request);
+      if(kind==='http')f.recorder.badResponses.push({status:500,url:request.url(),method:'GET',resourceType:'fetch'});
+      if(kind==='console')f.recorder.consoleIssues.push({text:'late synthetic console error'});
+      if(kind==='script')f.recorder.pageErrors.push({message:'late synthetic page error'});
+    });
+    await assert.rejects(f.closer.close({runId:f.runId}));
+  }
+});
+
+test('actual target closure records unobserved requests honestly and rejects unproven closure,overflow or later errors',async()=>{
+  const unsettled=intentionalCloseFixture(),request=unsettled.request();unsettled.setAction(()=>{});
+  const retired=await unsettled.closer.close({runId:unsettled.runId,timeoutMillis:5});
+  assert.equal(retired.evidence.retiredByObservedPageClosure,1);assert.equal(retired.evidence.observedRequestTerminals,0);
+  assert.equal(retired.evidence.cancellations,0);assert.equal(retired.evidence.retiredRequestRefs[0].deref(),request);
+  assert.equal(unsettled.recorder.requestFailures.length,0);assert.equal(retired.evidence.classification,'CONTROLLED_PAGE_CLOSED');
+  const unclosed=intentionalCloseFixture();unclosed.page.close=async()=>{};
+  await assert.rejects(unclosed.closer.close({runId:unclosed.runId}),/bounded actual closure/);
+  const hanging=intentionalCloseFixture();hanging.page.close=()=>new Promise(()=>{});
+  await assert.rejects(hanging.closer.close({runId:hanging.runId,timeoutMillis:5}),/close deadline/);
+  const overflow=intentionalCloseFixture();for(let index=0;index<129;index++)overflow.request();
+  await assert.rejects(overflow.closer.close({runId:overflow.runId}),/bounded actual closure/);
+  const f=intentionalCloseFixture();f.request();const closed=await f.closer.close({runId:f.runId});
+  f.recorder.pageErrors.push({message:'late synthetic error'});assert.throws(()=>closed.audit());
+});
+
+test('auxiliary login closure preserves the precise503 exception and rejects unrelated failures',async()=>{
+  const f=intentionalCloseFixture({auxiliaryLogin:true,retainedLoginClosed:true});
+  f.recorder.badResponses.push({status:503,resourceType:'document',url:'http://localhost/carlos/provider/providercontrol'});
+  f.request({url:()=> 'http://localhost/carlos/status/SessionHeartbeat'});
+  assert.equal((await f.closer.close()).evidence.cancellations,1);
+  const bad=intentionalCloseFixture({auxiliaryLogin:true});bad.request({url:()=> 'http://localhost/carlos/provider/readOnlyPoll'});
+  await assert.rejects(bad.closer.close(),/Native login/);
+});
+
+test('started downloads have finite completion bounds and cannot advance workflow after a late completion',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-download-bound-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const file=path.join(directory,'report');fs.writeFileSync(file,'protected synthetic report');
+  for(const step of ['failure','path']){
+    let finish,hashed=false,cleaned=false;const processRef={env:{}};
+    const download={failure:()=>step==='failure'?new Promise(resolve=>{finish=resolve;}):Promise.resolve(null),
+      path:()=>step==='path'?new Promise(resolve=>{finish=resolve;}):Promise.resolve(file)};
+    const result=await h.runCheck({name:'stalled-download-unit',processRef,stdout:{log(){}},
+      createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+      async run(){const selected=await gate.completedLifecycleDownload(download,5);gate.hashFile(selected);hashed=true;},cleanup(){cleaned=true;}});
+    assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleaned,true);assert.equal(hashed,false);
+    finish(step==='failure'?null:file);await new Promise(resolve=>setImmediate(resolve));assert.equal(hashed,false);
+  }
+  assert.equal(await gate.completedLifecycleDownload({failure:async()=>null,path:async()=>file}),file);
+  await assert.rejects(gate.completedLifecycleDownload({failure:async()=> 'cancelled',path:async()=>file}),/did not finish/);
+});
+
+test('relay ownership is retained before readiness failure and only an actual exit0 confirms cleanup',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-owned-relay-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  for(const mode of ['0','1','signal','no-ready']){
+    const selected={...state(),runId:randomUUID()},script=`const fs=require('node:fs'),path=require('node:path');
+      const root=process.argv[2],attempt=process.argv[3],mode=${JSON.stringify(mode)};
+      if(mode!=='no-ready')fs.writeFileSync(path.join(root,attempt+'.ready.json'),JSON.stringify({ready:true,attempt,port:18086,pid:process.pid}),{mode:0o600});
+      setInterval(()=>{if(mode!=='no-ready'&&fs.existsSync(path.join(root,attempt+'.stop.json'))){
+        if(mode==='signal')process.kill(process.pid,'SIGTERM');else process.exit(Number(mode));}},5);`;
+    const relay=gate.startOwnedRelay({CDS_LIFECYCLE_PROXY_RELAY_ARGV:JSON.stringify([process.execPath,'-e',script])},path.join(directory,'state.json'),selected);
+    assert.ok(relay.child.pid>0);t.after(async()=>{if(relay.child.exitCode===null)relay.child.kill('SIGTERM');await relay.closed;});
+    let failure;const processRef={env:{}};
+    const result=await h.runCheck({name:'owned-relay-exit-unit',processRef,stdout:{log(){}},
+      createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+      run:()=>gate.awaitRelayReady(relay,selected,mode==='no-ready'?10:2000),
+      async cleanup(){try {await gate.cleanupLifecycle({state:selected,save(){},log(){},relay,relayTimeoutMillis:mode==='no-ready'?5:2000});}
+        catch(error){failure=error;throw error;}}});
+    if(mode==='0'){assert.equal(failure,undefined);assert.equal(selected.cleanup.relay,'CLOSED');assert.equal(result.outcome,'PASS');assert.equal(processRef.exitCode,0);}
+    else {assert.ok(failure instanceof AggregateError);assert.equal(selected.cleanup.relay,'UNKNOWN');assert.equal(selected.cleanup.relayPid,relay.child.pid);
+      assert.equal(result.outcome,'FAIL');assert.equal(result.cleanupFailed,true);assert.equal(processRef.exitCode,1);}
+    assert.deepEqual(selected.completed,[]);
+  }
+});
+
+test('expired-session proof accepts only native unauthorized content or the exact same-context logout redirect',async()=>{
+  const response=(status,headers={},body='')=>({status:()=>status,headers:()=>headers,body:async()=>Buffer.from(body)});
+  for(const body of ['Unauthorized','{"error":"unauthorized"}'])await gate.assertExpiredSessionDenial(
+    response(401,{'content-type':body[0]==='{'?'application/json':'text/plain;charset=UTF-8'},body),'http://localhost/carlos');
+  await gate.assertExpiredSessionDenial(response(302,{location:'/carlos/logoutPage'}),'http://localhost/carlos');
+  for(const location of ['/login.jsp','/carlos/logoutPage?next=private','http://example.invalid/carlos/logoutPage','http://user:private@localhost/carlos/logoutPage','/other/logoutPage'])
+    await assert.rejects(gate.assertExpiredSessionDenial(response(302,{location}),'http://localhost/carlos'),/redirect/);
+  for(const invalid of [response(200),response(401,{'content-type':'text/html'},'Unauthorized'),response(401,{'content-type':'text/plain'},'upstream unauthorized')])
+    await assert.rejects(gate.assertExpiredSessionDenial(invalid,'http://localhost/carlos'));
+});
+
+test('native per-copy note hashes reject same-count duplication,omission,corruption and cross-copy loss',()=>{
+  const selected={...state(),runId:randomUUID(),notePadding:0},source={notes:256};
+  const expected=Array.from({length:256},(_,index)=>createHash('sha256').update('FAKE-CDS-LIFE-'+selected.sourceId+' note '+(index+1)).digest('hex'));
+  const rows=expected.flatMap(digest=>[['copy-a',digest],['copy-b',digest]]);
+  const sql={rows(query){assert.match(query,/SHA2\(n.note,256\)/);assert.match(query,/LIMIT 513$/);return rows;}};
+  assert.equal(gate.assertNativeNoteHashes(sql,selected,source,2).totalNotes,512);
+  for(const mutate of [copy=>{copy[0]=copy[2];},copy=>{copy[0]=['copy-a','0'.repeat(64)];},copy=>copy.pop(),copy=>{copy[0]=['copy-c',copy[0][1]];}]){
+    const altered=rows.map(row=>[...row]);mutate(altered);
+    assert.throws(()=>gate.assertNativeNoteHashes({rows:()=>altered},selected,source,2));
+  }
+});
