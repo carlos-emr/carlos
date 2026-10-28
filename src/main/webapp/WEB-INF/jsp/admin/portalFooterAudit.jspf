@@ -56,7 +56,15 @@
                                 <c:if test="${not empty attempt.statusAt}">
                                     <p><fmt:message key="admin.configureEmail.portalFooter.statusTime"/> <carlos:encode value="${attempt.statusAt}"/></p>
                                 </c:if>
-                                <pre class="mt-2" style="white-space:pre-wrap;"><carlos:encode value="${attempt.footerText}"/></pre>
+                                <c:choose>
+                                    <%-- Sent without the clinic footer while the Portal could not get one (portal #27, D138). --%>
+                                    <c:when test="${not empty attempt.footerSkipped}">
+                                        <p class="mt-2"><fmt:message key="admin.configureEmail.portalFooter.skipped"><fmt:param><carlos:encode value="${attempt.footerSkipped}"/></fmt:param></fmt:message></p>
+                                    </c:when>
+                                    <c:otherwise>
+                                        <pre class="mt-2" style="white-space:pre-wrap;"><carlos:encode value="${attempt.footerText}"/></pre>
+                                    </c:otherwise>
+                                </c:choose>
                             </details>
                         </c:forEach>
                         <c:if test="${not empty portalFooterAudit.nextBefore}">

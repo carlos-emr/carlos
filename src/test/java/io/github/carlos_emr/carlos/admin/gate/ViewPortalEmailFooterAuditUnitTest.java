@@ -77,7 +77,7 @@ class ViewPortalEmailFooterAuditUnitTest {
         request.addParameter("portalFooterDate","2026-10-09");
         var row=new PortalEmailFooterAuditPage.Attempt("01791547200000000000-00000000000000000000000000000001",
                 "mfa",java.time.Instant.parse("2026-10-09T01:00:00Z"),"unknown",
-                java.time.Instant.parse("2026-10-09T01:00:01Z"),"a".repeat(64),"FAKE Saved Old Clinic",null);
+                java.time.Instant.parse("2026-10-09T01:00:01Z"),"a".repeat(64),"FAKE Saved Old Clinic",null,null);
         var history=new PortalEmailFooterAuditPage(LocalDate.of(2026,10,9),List.of(row),null);
         when(audit.read(any(),eq(history.date()),isNull())).thenReturn(history);
         assertThat(action().execute()).isEqualTo("success");

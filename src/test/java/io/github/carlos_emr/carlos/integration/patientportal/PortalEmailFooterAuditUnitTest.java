@@ -115,6 +115,47 @@ class PortalEmailFooterAuditUnitTest {
         assertThat(saved.status()).isEqualTo("accepted");
         assertThat(saved.footerText()).isEqualTo(TEXT);
     }
+    /** A sign-in code or password reset the Portal sent without the footer (portal #27, D138). */
+    private ObjectNode skipped(String kind, String reason) {
+        var p = page();
+        var a = attempt(p);
+        a.put("kind", kind);
+        a.put("status", "accepted");
+        a.put("status_at", "2026-10-09T01:00:01.123456Z");
+        a.putNull("revision");
+        a.putNull("footer_text");
+        a.putNull("logo_sha256");
+        a.put("footer_skipped", reason);
+        return p;
+    }
+    @Test void shouldKeepSkippedAttempt_withItsReasonAndNoFooter() {
+        for (String kind : List.of("mfa", "password_reset")) {
+            for (String reason : List.of("config", "transport", "http_status", "response", "unknown_key",
+                    "signature", "claims", "freshness", "content")) {
+                var saved = parse(skipped(kind, reason)).attempts().get(0);
+                assertThat(saved.footerSkipped()).isEqualTo(reason);
+                assertThat(saved.revision()).isNull();
+                assertThat(saved.footerText()).isNull();
+                assertThat(saved.logoSha256()).isNull();
+                assertThat(saved.status()).isEqualTo("accepted");
+            }
+        }
+        // An ordinary attempt never carries a reason.
+        assertThat(parse(page()).attempts().get(0).footerSkipped()).isNull();
+    }
+    @Test void shouldRefuseSkippedAttemptOutsideItsContract() {
+        List<Consumer<ObjectNode>> invalid = List.of(
+                a->a.put("revision","a".repeat(64)), a->a.put("footer_text",TEXT), a->a.put("logo_sha256","b".repeat(64)),
+                a->a.put("footer_skipped","outage"), a->a.put("footer_skipped",""), a->a.putNull("footer_skipped"),
+                a->a.put("footer_skipped",1), a->a.put("kind","contact_change"), a->a.put("kind","booking_prompt"),
+                a->a.remove("logo_sha256"), a->a.put("recipient","fake@example.test"),
+                a->{ a.put("status","prepared"); });
+        for (Consumer<ObjectNode> mutation : invalid) {
+            var p = skipped("mfa", "freshness");
+            mutation.accept(attempt(p));
+            assertThatThrownBy(()->parse(p)).isInstanceOf(PortalContractException.class);
+        }
+    }
     @Test void shouldRefuseInvalidSavedAttemptContract() {
         List<Consumer<ObjectNode>> invalid = List.of(
                 a->a.put("clinic_id","other-clinic"),a->a.put("attempt_id","../file"),
