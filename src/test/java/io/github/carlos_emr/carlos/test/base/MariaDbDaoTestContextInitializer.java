@@ -22,7 +22,10 @@ import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 
-/** Opt-in physical MariaDB variant of the existing Spring/JPA DAO test harness. */
+/**
+ * Opt-in physical MariaDB variant of the existing Spring/JPA DAO test harness.
+ * @since 2026-10-28
+ */
 public class MariaDbDaoTestContextInitializer
         implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 

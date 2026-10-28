@@ -25,6 +25,10 @@ reports = list(args.reports.glob("TEST-*.xml"))
 for report in reports:
     root = ET.parse(report).getroot()
     mode = "flyway" if report.stem.endswith("-flyway") else "generated"
+    suite = report.stem.removeprefix("TEST-")
+    if mode == "flyway":
+        suite = suite.removesuffix("-flyway")
+    family_name = suite.rsplit(".", 1)[-1].split("$", 1)[0]
     # Actual testcase elements avoid existing nested-suite header discrepancies.
     for case in root.iter("testcase"):
         counts[mode]["tests"] += 1
@@ -35,7 +39,7 @@ for report in reports:
                 outcome = tag
         lines.append(f"{mode} {outcome}: {case.get('classname', '')}::{case.get('name', '')}")
         for family in families[mode]:
-            if family in report.name and outcome == "pass":
+            if family == family_name and outcome == "pass":
                 families[mode][family] += 1
 summary = "MariaDB DAO integration results\n" + str(counts) + "\n" + str(families) + "\n"
 args.output.write_text(summary + "\n".join(lines) + "\n")

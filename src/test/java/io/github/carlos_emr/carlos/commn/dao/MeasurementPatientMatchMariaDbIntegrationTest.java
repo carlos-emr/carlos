@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * CARLOS_TEST_MARIADB_URL is a server URL ending in / (no database or query string).
  * The supplied test account must be able to create/drop this suite's random database.
  * No existing schema is used. See docs/test/hibernate-mariadb-regressions.md.
+ * @since 2026-10-28
  */
 @Tag("integration")
 @Tag("dao")

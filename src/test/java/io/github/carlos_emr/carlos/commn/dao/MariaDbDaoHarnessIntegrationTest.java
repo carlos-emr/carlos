@@ -15,7 +15,10 @@ import javax.sql.DataSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Fails the MariaDB CI lane if either persistence path silently falls back to H2. */
+/**
+ * Fails the MariaDB CI lane if either persistence path silently falls back to H2.
+ * @since 2026-10-28
+ */
 @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_DAO", matches = "true")
 @Tag("integration")
 @Tag("dao")
