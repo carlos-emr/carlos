@@ -23,7 +23,7 @@ families = {mode: dict.fromkeys(required[mode], 0) for mode in required}
 lines = []
 reports = list(args.reports.glob("TEST-*.xml"))
 for report in reports:
-    root = ET.parse(report).getroot()
+    root = defusedxml.etree.ElementTree.parse(report).getroot()
     mode = "flyway" if report.stem.endswith("-flyway") else "generated"
     # Actual testcase elements avoid existing nested-suite header discrepancies.
     for case in root.iter("testcase"):
