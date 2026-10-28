@@ -7,6 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {randomUUID} = require('node:crypto');
 const {createHash} = require('node:crypto');
+const {EventEmitter} = require('node:events');
 const h = require('./lib/playwright-harness');
 const gate = require('./demographic-cds-lifecycle-playwright-checks');
 const ordinary = () => ({CDS_LIFECYCLE_PROVIDER_NO:'EDU1',CDS_LIFECYCLE_PROGRAM_ID:'7',CDS_LIFECYCLE_FACILITY_ID:'1',
@@ -257,4 +258,183 @@ test('a nested missing-prerequisite SkipCheck becomes required-gate FAIL1 while 
     cleanup(){cleaned=true;}});
   assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleaned,true);
   assert.match(result.detail,/cannot skip/);
+});
+
+function proxyTimeoutFixture(finished=()=>new Promise(()=>{})) {
+  const page=new EventEmitter(),recorder=h.createRecorder(),stages=[];
+  const request={url:()=> 'http://localhost:18085/carlos/form/cdsImportSubmit'};
+  const proxy={proxyHeader:'X-Owned-Proxy',proxyToken:'1'.repeat(32)};
+  const response={request:()=>request,status:()=>504,headers:()=>({'x-owned-proxy':proxy.proxyToken}),finished};
+  const options={page,recorder,response,request,proxy,onStage:stage=>stages.push(stage),timeoutMillis:20};
+  const abort=(selected=request,errorText='net::ERR_ABORTED')=>{
+    recorder.requestFailures.push({requestRef:new WeakRef(selected),errorText});page.emit('requestfailed',selected);
+  };
+  return {...options,options,stages,abort};
+}
+
+test('the real proxy response records verified headers before a normal finished EOF',async()=>{
+  const f=proxyTimeoutFixture(async()=>{assert.equal(f.stages[0].stage,'proxy-response-headers');return null;});
+  assert.deepEqual(await gate.awaitActualProxyTimeout(f.options),{terminal:'RESPONSE_FINISHED'});
+  assert.equal(f.stages.at(-1).stage,'proxy-response-finished');assert.equal(f.page.listenerCount('requestfailed'),0);
+});
+
+test('an already recorded exact raw cancellation does not wait on Playwright finished',async()=>{
+  let called=false;const f=proxyTimeoutFixture(()=>{called=true;return new Promise(()=>{});});f.abort();
+  assert.deepEqual(await gate.awaitActualProxyTimeout(f.options),{terminal:'EXACT_REQUEST_ABORTED'});
+  assert.equal(called,false);assert.equal(f.recorder.requestFailures.length,1);assert.equal(f.page.listenerCount('requestfailed'),0);
+});
+
+test('a late exact raw cancellation releases a response whose finished promise never settles',async()=>{
+  const f=proxyTimeoutFixture();const pending=gate.awaitActualProxyTimeout(f.options);
+  assert.equal(f.page.listenerCount('requestfailed'),1);f.abort();
+  assert.deepEqual(await pending,{terminal:'EXACT_REQUEST_ABORTED'});
+  assert.equal(f.page.listenerCount('requestfailed'),0);assert.equal(f.recorder.requestFailures.length,1);
+});
+
+test('a cancellation recorded during observer registration cannot be missed',async()=>{
+  const f=proxyTimeoutFixture();const on=f.page.on;
+  f.page.on=function(name,listener){on.call(this,name,listener);f.abort();return this;};
+  assert.deepEqual(await gate.awaitActualProxyTimeout(f.options),{terminal:'EXACT_REQUEST_ABORTED'});
+  assert.equal(f.page.listenerCount('requestfailed'),0);
+});
+
+for(const [name,change,pattern] of [
+  ['another response request',f=>{f.response.request=()=>({url:f.request.url});},/exact Nginx504/],
+  ['another response status',f=>{f.response.status=()=>502;},/exact Nginx504/],
+  ['missing proxy header',f=>{f.response.headers=()=>({});},/approved listener/],
+  ['wrong proxy header',f=>{f.response.headers=()=>({'x-owned-proxy':'2'.repeat(32)});},/approved listener/],
+  ['unexpected selected request error',f=>f.abort(f.request,'net::ERR_CONNECTION_RESET'),/unexpected error/],
+  ['duplicate selected request cancellations',f=>{f.abort();f.abort();},/duplicate cancellations/],
+  ['an aborted finished result without raw evidence',f=>{f.response.finished=async()=>Error('net::ERR_ABORTED');},/successful finished/]
+])test('real proxy timeout proof refuses '+name,async()=>{
+  const f=proxyTimeoutFixture();change(f);
+  await assert.rejects(gate.awaitActualProxyTimeout(f.options),pattern);
+  assert.equal(f.stages.at(-1).stage,'proxy-response-failed');assert.equal(f.page.listenerCount('requestfailed'),0);
+});
+
+test('another request object with the same URL cannot prove cancellation and expires visibly',async()=>{
+  const f=proxyTimeoutFixture();f.abort({url:f.request.url});
+  await assert.rejects(gate.awaitActualProxyTimeout(f.options),/deadline elapsed/);
+  assert.equal(f.stages.at(-1).stage,'proxy-response-failed');assert.equal(f.page.listenerCount('requestfailed'),0);
+  assert.equal(f.recorder.requestFailures.length,1);
+});
+
+test('late wrong or duplicate exact cancellations fail and detach their observer',async()=>{
+  for(const duplicate of [false,true]){
+    const f=proxyTimeoutFixture();const pending=gate.awaitActualProxyTimeout(f.options);
+    if(duplicate){f.abort();f.abort();}else f.abort(f.request,'net::ERR_FAILED');
+    await assert.rejects(pending,duplicate?/duplicate/:/unexpected error/);
+    assert.equal(f.page.listenerCount('requestfailed'),0);assert.equal(f.stages.at(-1).finished,false);
+  }
+});
+
+test('a response without EOF or a raw cancellation reaches a finite failed stage',async()=>{
+  const f=proxyTimeoutFixture();await assert.rejects(gate.awaitActualProxyTimeout(f.options),/deadline elapsed/);
+  assert.deepEqual(f.stages.map(stage=>stage.stage),['proxy-response-headers','proxy-response-failed']);
+  assert.equal(f.page.listenerCount('requestfailed'),0);
+});
+
+test('failed durable header recording cannot start a body wait or publish a finished stage',async()=>{
+  let finished=false;const f=proxyTimeoutFixture(async()=>{finished=true;return null;});
+  f.options.onStage=stage=>{f.stages.push(stage);if(stage.stage==='proxy-response-headers')throw Error('owned state write failed');};
+  await assert.rejects(gate.awaitActualProxyTimeout(f.options),/owned state write failed/);
+  assert.equal(finished,false);assert.equal(f.stages.at(-1).stage,'proxy-response-failed');
+  assert.equal(f.page.listenerCount('requestfailed'),0);
+});
+
+test('a later finished rejection after exact cancellation is handled without an unhandled rejection',async()=>{
+  let rejectFinished;const f=proxyTimeoutFixture(()=>new Promise((_resolve,reject)=>{rejectFinished=reject;}));
+  const unhandled=[];const observe=error=>unhandled.push(error);process.on('unhandledRejection',observe);
+  try {
+    const pending=gate.awaitActualProxyTimeout(f.options);await new Promise(resolve=>setImmediate(resolve));f.abort();
+    await pending;rejectFinished(Error('late finished rejection'));
+    await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(unhandled,[]);
+    assert.equal(f.page.listenerCount('requestfailed'),0);
+  } finally {process.off('unhandledRejection',observe);}
+});
+
+test('a failed proxy wait persists failure before cleanup and retains accepted handles without retry',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-proxy-state-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const selected={...state(),runId:randomUUID(),uploadId:randomUUID(),submitRequested:true};
+  const file=path.join(directory,'state.json');gate.writeState(file,selected,true);
+  const f=proxyTimeoutFixture();f.options.onStage=stage=>{selected.proxyClientResponse=stage;gate.writeState(file,selected);};
+  let cleanups=0;const processRef={env:{}};
+  const result=await h.runCheck({name:'proxy-state-unit',processRef,stdout:{log(){}},
+    createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+    run:()=>gate.requiredLifecycleStep(()=>gate.awaitActualProxyTimeout(f.options)),
+    cleanup(){cleanups++;assert.equal(gate.readState(file).proxyClientResponse.stage,'proxy-response-failed');}});
+  assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleanups,1);
+  const retained=gate.readState(file);
+  for(const key of ['runId','uploadId','submitRequested','sourceSha256','optionsDigest','artifactSha256'])assert.equal(retained[key],selected[key]);
+  assert.deepEqual(retained.completed,[]);assert.deepEqual(fs.readdirSync(directory),['state.json']);
+});
+
+test('cleanup uses an idempotent same-attempt stop marker and records only confirmed closures',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-proxy-cleanup-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const selected={...state(),runId:randomUUID()};const stop=path.join(directory,'stop.json');let closes=0,disposals=0,saves=0;
+  const options={state:selected,save(){saves++;},log(){},browser:{async close(){closes++;}},sql:{dispose(){disposals++;}},
+    relay:{child:{pid:123},file:()=>stop,closed:Promise.resolve(0)}};
+  await gate.cleanupLifecycle(options);const marker=fs.readFileSync(stop);await gate.cleanupLifecycle(options);
+  assert.deepEqual(fs.readFileSync(stop),marker);assert.equal(closes,2);assert.equal(disposals,2);assert.equal(saves,4);
+  assert.equal(selected.cleanup.stage,'cleanup-settled');assert.equal(selected.cleanup.browser,'CLOSED');assert.equal(selected.cleanup.relay,'CLOSED');
+  fs.writeFileSync(stop,JSON.stringify({attempt:randomUUID()}),{mode:0o600});const foreign=fs.readFileSync(stop);
+  await assert.rejects(gate.cleanupLifecycle(options),/cleanup is incomplete/);assert.deepEqual(fs.readFileSync(stop),foreign);
+});
+
+test('browser and relay cleanup deadlines retain unknown process closure and accepted identity',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-proxy-cleanup-timeout-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const selected={...state(),runId:randomUUID(),submitRequested:true};const stop=path.join(directory,'stop.json');let disposals=0;
+  await assert.rejects(gate.cleanupLifecycle({state:selected,save(){},log(){},browser:{close:()=>new Promise(()=>{})},
+    sql:{dispose(){disposals++;}},relay:{child:{pid:123},file:()=>stop,closed:new Promise(()=>{})},
+    browserTimeoutMillis:5,relayTimeoutMillis:5,timeoutMillis:100}),/cleanup is incomplete/);
+  assert.equal(selected.cleanup.browser,'UNKNOWN');assert.equal(selected.cleanup.relay,'UNKNOWN');assert.equal(selected.cleanup.relayPid,123);
+  assert.equal(selected.cleanup.stage,'cleanup-failed');assert.equal(selected.submitRequested,true);assert.equal(disposals,1);
+  assert.equal(JSON.parse(fs.readFileSync(stop)).attempt,selected.attempt);
+});
+
+test('the overall cleanup bound does not claim a later browser close or continue later cleanup actions',async()=>{
+  let close;let disposals=0;const selected=state();
+  const pending=gate.cleanupLifecycle({state:selected,save(){},log(){},browser:{close:()=>new Promise(resolve=>{close=resolve;})},
+    sql:{dispose(){disposals++;}},browserTimeoutMillis:50,timeoutMillis:5});
+  await assert.rejects(pending,/cleanup is incomplete/);assert.equal(selected.cleanup.browser,'UNKNOWN');
+  close();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(selected.cleanup.browser,'UNKNOWN');assert.equal(selected.cleanup.stage,'cleanup-failed');assert.equal(disposals,0);
+});
+
+test('cleanup state persistence failure remains a failed gate after confirmed resource closure',async()=>{
+  let closed=false;const selected=state();
+  await assert.rejects(gate.cleanupLifecycle({state:selected,save(){throw Error('owned state write failed');},log(){},
+    browser:{async close(){closed=true;}}}),/cleanup is incomplete/);
+  assert.equal(closed,true);assert.equal(selected.cleanup.browser,'CLOSED');assert.equal(selected.cleanup.stage,'cleanup-failed');
+});
+
+test('an operation-specific close deadline stops workflow continuation even if owned closure finishes later',async()=>{
+  let close;let continued=false;let disposed=false;
+  const pending=gate.requiredLifecycleStep(async()=>{
+    await gate.boundedLifecycleAction(()=>new Promise(resolve=>{close=()=>{disposed=true;resolve();};}),5,'owned close deadline');
+    continued=true;
+  });
+  await assert.rejects(pending,/owned close deadline/);close();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(disposed,true);assert.equal(continued,false);
+});
+
+test('workflow failure recording retains the primary failure when state persistence or logging fails',()=>{
+  for(const failedStep of ['save','log']){
+    const primary=Error('primary proxy failure'),secondary=Error('owned evidence unavailable');const selected=state();
+    assert.throws(()=>gate.recordWorkflowFailure(primary,{state:selected,
+      save(){if(failedStep==='save')throw secondary;},log(){if(failedStep==='log')throw secondary;}}),error=>{
+      assert.ok(error instanceof AggregateError);assert.deepEqual(error.errors,[primary,secondary]);
+      assert.match(error.message,/primary failure and accepted state retained/);return true;
+    });
+    assert.equal(selected.workflowFailure.stage,'workflow-failed');assert.equal(selected.workflowFailure.acceptedStateRetained,true);
+  }
+});
+
+test('successful workflow failure recording rethrows the exact primary failure after durable evidence',()=>{
+  const primary=Error('primary proxy failure'),selected=state(),steps=[];
+  assert.throws(()=>gate.recordWorkflowFailure(primary,{state:selected,
+    save(){steps.push('saved');assert.equal(selected.workflowFailure.stage,'workflow-failed');},
+    log(label,payload){steps.push('logged');assert.equal(label,'LIFECYCLE_STAGE');assert.equal(JSON.parse(payload).acceptedStateRetained,true);}}),
+  error=>error===primary);
+  assert.deepEqual(steps,['saved','logged']);
 });

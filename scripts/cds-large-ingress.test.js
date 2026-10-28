@@ -8,6 +8,37 @@ const path = require('node:path');
 const {createHash} = require('node:crypto');
 const {journalRow,rawPost,interruptPost,assertMetadataVersion,verifyUploadedBody} = require('./demographic-cds-large-ingress-playwright-checks');
 
+function observeRawPostListeners(t) {
+  const observations=[];const warnings=[];const original=http.request;
+  t.mock.method(http,'request',function(...args){
+    const request=Reflect.apply(original,this,args);
+    const observed={request,drains:0,maxClose:0,maxError:0};observations.push(observed);
+    observed.closed=new Promise(resolve=>request.once('close',resolve));
+    request.on('drain',()=>{observed.drains++;
+      observed.maxClose=Math.max(observed.maxClose,request.listenerCount('close'));
+      observed.maxError=Math.max(observed.maxError,request.listenerCount('error'));
+    });
+    return request;
+  });
+  const onWarning=warning=>{
+    if(warning.name==='MaxListenersExceededWarning' && observations.some(value=>value.request===warning.emitter))warnings.push(warning);
+  };
+  process.on('warning',onWarning);t.after(()=>process.off('warning',onWarning));
+  return {observations,warnings};
+}
+
+async function assertReleasedBackpressureListeners(observed,warnings) {
+  await observed.closed;
+  // Let the losing promises settle and Node deliver any queued listener warning.
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(observed.request.listenerCount('drain'),1,'Only the test drain observer may remain');
+  assert.equal(observed.request.listenerCount('close'),0,'Backpressure close listeners must be released');
+  assert.equal(observed.request.listenerCount('error'),1,'Only the request failure handler may remain');
+  assert.ok(observed.maxClose<=2,'Close listeners must remain bounded across drain cycles');
+  assert.ok(observed.maxError<=3,'Error listeners must remain bounded across drain cycles');
+  assert.equal(warnings.length,0,'Real request backpressure must not emit listener warnings');
+}
+
 test('independent upload journal includes exact big-endian index, offset, byte count and full hash', () => {
   const hash = createHash('sha256').update('synthetic').digest('hex');
   const row = journalRow(7,2**33,4096,hash);
@@ -45,6 +76,58 @@ test('actual HTTP content-length and chunked modes preserve the whole bounded re
   }
   assert.equal(observed[0]['content-length'],String(body.length));assert.equal(observed[0]['transfer-encoding'],undefined);
   assert.equal(observed[1]['content-length'],undefined);assert.equal(observed[1]['transfer-encoding'],'chunked');
+});
+
+test('many actual HTTP drain cycles preserve both framing modes without accumulating listeners',{timeout:5000},async t=>{
+  const {observations,warnings}=observeRawPostListeners(t);
+  const server=http.createServer((request,response)=>{
+    const hash=createHash('sha256');let bytes=0;
+    request.on('data',chunk=>{bytes+=chunk.length;hash.update(chunk);});
+    request.on('end',()=>response.end(JSON.stringify({bytes,hash:hash.digest('hex')})));
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const body=Buffer.alloc(2*1024*1024,65);
+  const expectedHash=createHash('sha256').update(body).digest('hex');
+  for(const chunked of [false,true]){
+    const result=await rawPost(new URL('http://127.0.0.1:'+server.address().port),{},body,{chunked});
+    const observed=observations.at(-1);
+    assert.equal(result.status,200);assert.equal(result.sentBytes,body.length);
+    assert.deepEqual(result.json,{bytes:body.length,hash:expectedHash});
+    assert.ok(observed.drains>10,'The real HTTP upload must exercise more than ten drain waits');
+    await assertReleasedBackpressureListeners(observed,warnings);
+  }
+});
+
+test('a peer disconnect during an actual backpressured upload fails and releases pending listeners',{timeout:5000},async t=>{
+  const {observations,warnings}=observeRawPostListeners(t);
+  let receivedBytes=0;
+  const server=http.createServer(request=>{
+    request.on('error',()=>{});
+    request.on('data',chunk=>{receivedBytes+=chunk.length;
+      if(receivedBytes>=1024*1024)request.socket.destroy();
+    });
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  await assert.rejects(rawPost(new URL('http://127.0.0.1:'+server.address().port),{},Buffer.alloc(4*1024*1024,65)),
+    /Ingress request failed before a complete response/);
+  assert.ok(receivedBytes>=1024*1024 && receivedBytes<4*1024*1024,'The peer must close after a real incomplete body prefix');
+  assert.ok(observations[0].drains>10,'The peer must close a request that exercised repeated backpressure');
+  await assertReleasedBackpressureListeners(observations[0],warnings);
+});
+
+test('a stalled actual upload retains its absolute deadline and releases pending listeners',{timeout:5000},async t=>{
+  const {observations,warnings}=observeRawPostListeners(t);
+  const server=http.createServer(request=>{request.on('error',()=>{});request.pause();});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>{server.closeAllConnections();return new Promise(resolve=>server.close(resolve));});
+  const start=performance.now();
+  await assert.rejects(rawPost(new URL('http://127.0.0.1:'+server.address().port),{},Buffer.alloc(4*1024*1024,65),{timeout:120}),
+    /Ingress absolute request deadline exceeded/);
+  assert.ok(performance.now()-start<1000);
+  assert.ok(observations[0].drains>10,'The timed-out upload must exercise repeated backpressure');
+  await assertReleasedBackpressureListeners(observations[0],warnings);
 });
 
 test('truncated, invalid UTF8/JSON and oversized metadata cannot count as successful transport evidence', async t => {

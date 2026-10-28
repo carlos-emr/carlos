@@ -87,7 +87,14 @@ async function rawPost(url, headers, body, {chunked = false, length = body.lengt
     (async () => {
       for (let offset = 0; offset < body.length && !resolved; offset += 65536) {
         const chunk = body.subarray(offset, Math.min(body.length, offset + 65536)); sent += chunk.length;
-        if (!request.write(chunk)) await Promise.race([once(request, 'drain'), once(request, 'close')]);
+        if (!request.write(chunk)) {
+          const controller = new AbortController();
+          // Release the losing wait's close/error listeners after every drain.
+          try {
+            await Promise.race([once(request, 'drain', {signal:controller.signal}),
+              once(request, 'close', {signal:controller.signal})]);
+          } finally { controller.abort(); }
+        }
       }
       request.end();
     })().catch(() => failure('Ingress body transmission failed'));

@@ -301,6 +301,100 @@ function assertScopedFault(recorder, fault) {
     h.assertStrictPage({...recorder,badResponses:recorder.badResponses.filter(entry => entry !== fault.badResponse),consoleIssues:console,requestFailures:failures});
 }
 
+async function boundedLifecycleAction(action, milliseconds, message) {
+  let timer;
+  try {
+    return await Promise.race([Promise.resolve().then(action),new Promise((_resolve,reject)=>{
+      timer=setTimeout(()=>reject(Error(message)),milliseconds);
+    })]);
+  } finally { clearTimeout(timer); }
+}
+
+async function awaitActualProxyTimeout({page,recorder,response,request,proxy,onStage,timeoutMillis=10000}) {
+  let listener;let active=true;let headersVerified=false;let status=null;
+  const cancellation=()=>{
+    const entries=recorder.requestFailures.filter(entry=>entry.requestRef?.deref()===request);
+    h.assert(entries.length<=1,'The exact real-proxy request had duplicate cancellations');
+    if(!entries.length)return null;
+    h.assert(entries[0].errorText==='net::ERR_ABORTED','The exact real-proxy request failed with an unexpected error');
+    return {terminal:'EXACT_REQUEST_ABORTED'};
+  };
+  try {
+    status=response.status();
+    h.assert(request && response.request()===request && status===504
+      && response.headers()[proxy.proxyHeader.toLowerCase()]===proxy.proxyToken,
+      'The response was not the exact Nginx504 from the approved listener');
+    h.assert(Number.isSafeInteger(timeoutMillis) && timeoutMillis>0 && timeoutMillis<=30000,'Invalid real-proxy response deadline');
+    headersVerified=true;onStage({stage:'proxy-response-headers',status:504,proxyHeaderVerified:true,finished:false});
+    const aborted=new Promise((resolve,reject)=>{
+      listener=failed=>{
+        if(failed!==request)return;
+        // The strict recorder is authoritative; let its listener record this event first.
+        queueMicrotask(()=>{
+          if(!active)return;
+          try {
+            const proof=cancellation();
+            h.assert(proof,'The exact real-proxy cancellation has no raw recorder entry');resolve(proof);
+          } catch(error){reject(error);}
+        });
+      };
+      page.on('requestfailed',listener);
+    });
+    // Register first, then inspect retained raw entries so an earlier cancellation cannot be missed.
+    const existing=cancellation();
+    const result=existing || await boundedLifecycleAction(()=>Promise.race([aborted,
+      Promise.resolve().then(()=>response.finished()).then(finished=>{
+        h.assert(finished===null,'The real-proxy response did not reach a successful finished observation');
+        return {terminal:'RESPONSE_FINISHED'};
+      })]),timeoutMillis,'The exact real-proxy response deadline elapsed; accepted state retained');
+    cancellation();
+    onStage({stage:'proxy-response-finished',status:504,proxyHeaderVerified:true,finished:true,...result});
+    return result;
+  } catch(failure) {
+    try {onStage({stage:'proxy-response-failed',status,proxyHeaderVerified:headersVerified,finished:false});}
+    catch(persistenceFailure){throw new AggregateError([failure,persistenceFailure],'Proxy failure evidence could not be persisted; accepted state retained');}
+    throw failure;
+  } finally {active=false;if(listener)page.off('requestfailed',listener);}
+}
+
+async function cleanupLifecycle({browser,sql,relay,state,save,log=console.log,
+  browserTimeoutMillis=30000,relayTimeoutMillis=10000,timeoutMillis=45000}) {
+  const failures=[];let active=true;
+  state.cleanup={stage:'cleanup-started',browser:browser?'PENDING':'ABSENT',relay:relay?'PENDING':'ABSENT',
+    relayPid:relay?.child?.pid || null,acceptedStateRetained:true};
+  const record=stage=>{
+    state.cleanup.stage=stage;
+    try {save();log('LIFECYCLE_STAGE',JSON.stringify({runId:state.runId || null,...state.cleanup}));}
+    catch(error){state.cleanup.stage='cleanup-failed';failures.push(error);}
+  };
+  record('cleanup-started');
+  try {
+    await boundedLifecycleAction(async()=>{
+      try {
+        if(browser){await boundedLifecycleAction(()=>browser.close(),browserTimeoutMillis,
+          'Owned lifecycle browser close deadline elapsed; process closure is unknown and accepted state retained');if(active)state.cleanup.browser='CLOSED';}
+      } catch(error){if(active){state.cleanup.browser='UNKNOWN';failures.push(error);}}
+      if(!active)return;
+      try {if(sql)sql.dispose();} catch(error){failures.push(error);}
+      try {
+        if(relay){
+          const stop=relay.file('stop');
+          if(fs.existsSync(stop))h.assert(privateJson(stop).attempt===state.attempt,'Existing relay stop marker belongs to another attempt');
+          else publish(stop,{attempt:state.attempt});
+          await boundedLifecycleAction(()=>relay.closed,relayTimeoutMillis,
+            'The owned proxy relay did not stop; retain its process identity and private controls');
+          if(active)state.cleanup.relay='CLOSED';
+        }
+      } catch(error){if(active){state.cleanup.relay='UNKNOWN';failures.push(error);}}
+    },timeoutMillis,'Lifecycle cleanup deadline elapsed; accepted work and owned process identities retained');
+  } catch(error){failures.push(error);
+    for(const key of ['browser','relay'])if(state.cleanup[key]==='PENDING')state.cleanup[key]='UNKNOWN';
+  } finally {active=false;}
+  record(failures.length?'cleanup-failed':'cleanup-settled');
+  if(failures.length)throw new AggregateError(failures,'Lifecycle cleanup is incomplete; accepted work and owned controls were retained');
+  // Never delete accepted jobs, charts, immutable source, checkpoints or recovery state.
+}
+
 async function waitPrivate(file, milliseconds = 20000, child) {
   const until=Date.now()+milliseconds;
   while(Date.now()<until) {
@@ -386,6 +480,15 @@ async function requiredLifecycleStep(action) {
     }
     throw failure;
   }
+}
+function recordWorkflowFailure(failure,{state,save,log=console.log}) {
+  state.workflowFailure={stage:'workflow-failed',observedAt:Date.now(),acceptedStateRetained:true};
+  try {
+    save();log('LIFECYCLE_STAGE',JSON.stringify({runId:state.runId || null,...state.workflowFailure}));
+  } catch(persistenceFailure) {
+    throw new AggregateError([failure,persistenceFailure],'Lifecycle failure evidence could not be recorded; primary failure and accepted state retained');
+  }
+  throw failure;
 }
 async function run(env = process.env) {
   if (env.CDS_LIFECYCLE_EXECUTE !== 'true') {
@@ -555,10 +658,9 @@ async function run(env = process.env) {
         await bindAccepted(accepted.runId);
         state.proxyProgress=await waitPending(sql,state.runId);save();
         const timeout=await timedOut;
-        const finished=await timeout.finished();
-        h.assert((finished===null || finished.message==='net::ERR_ABORTED')
-          && timeout.headers()[proxy.proxyHeader.toLowerCase()]===proxy.proxyToken,
-          'The response was not the actual Nginx504 from the approved listener');
+        await awaitActualProxyTimeout({page:current.page,recorder:current.recorder,response:timeout,request:selectedRequest,proxy,
+          onStage:stage=>{state.proxyClientResponse={...stage,observedAt:Date.now()};save();
+            console.log('LIFECYCLE_STAGE',JSON.stringify({runId:state.runId,...state.proxyClientResponse}));}});
         state.proxyAfter=progress(sql,state.runId);requirePending(state.proxyAfter);save();
         fault={kind:'nginx',request:selectedRequest,accepted:true,runId:state.runId,status:504,proxyVerified:true,
           badResponse:current.responses.get(selectedRequest)};
@@ -581,7 +683,8 @@ async function run(env = process.env) {
     await bindAccepted(state.runId);
     if (!synthetic && !state.completed.includes('tab-close')) {
       state.tabProgress = await waitPending(sql,state.runId); save();
-      await current.qualify(fault); await current.page.close();
+      await current.qualify(fault); await boundedLifecycleAction(()=>current.page.close(),30000,
+        'Owned lifecycle page close deadline elapsed; closure is unknown and accepted state retained');
       requirePending(progress(sql,state.runId));
       assertScopedFault(current.recorder,fault);
       current = await open(state.runId); await bindAccepted(state.runId);
@@ -592,7 +695,8 @@ async function run(env = process.env) {
       state.expiryProgress = await waitPending(sql,state.runId); save();
       await current.qualify();
       const csrf = await current.page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
-      await current.page.close();
+      await boundedLifecycleAction(()=>current.page.close(),30000,
+        'Owned lifecycle page close deadline elapsed; closure is unknown and accepted state retained');
       const cookies = await context.cookies(String(config.baseUrl));
       const sessions = cookies.filter(cookie => cookie.name === 'JSESSIONID');
       h.assert(sessions.length === 1, 'The synthetic browser has no unique selected native session');
@@ -601,7 +705,9 @@ async function run(env = process.env) {
       const refused = await context.request.get(h.appUrl(config.baseUrl,'/form/cdsImportStatus?apiVersion=2&runId=' + state.runId),
         {headers:{'CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'},maxRedirects:0,failOnStatusCode:false});
       h.assert([401,302].includes(refused.status()), 'The expired native session retained protected import access');
-      await context.close(); await authenticate(); current = await open(state.runId);
+      await boundedLifecycleAction(()=>context.close(),30000,
+        'Owned lifecycle context close deadline elapsed; closure is unknown and accepted state retained');
+      await authenticate(); current = await open(state.runId);
       await bindAccepted(state.runId);
       state.completed.push('native-session-expiry'); save();
     }
@@ -668,23 +774,12 @@ async function run(env = process.env) {
       manifestDigest:state.manifestDigest,rulesetDigest:state.rulesetDigest,completed:state.completed,native:stored,reports,
       nativeSessionProcess:state.nativeSessionProcess || null,
       sessionExpiry:'selected-native-HttpSession-administrative-expiry-not-inactivity-timer'}));
-    });
+    }).catch(failure=>recordWorkflowFailure(failure,{state,save}));
   },async cleanup() {
-    const failures=[];
-    try {if(browser)await browser.close();} catch(failure){failures.push(failure);}
-    try {if(sql)sql.dispose();} catch(failure){failures.push(failure);}
-    try {
-      if(relay) {
-        publish(relay.file('stop'),{attempt:state.attempt});
-        const stopped=await Promise.race([relay.closed.then(() => true),new Promise(resolve => setTimeout(() => resolve(false),10000))]);
-        h.assert(stopped,'The owned proxy relay did not stop; retain its private control directory');
-      }
-    } catch(failure){failures.push(failure);}
-    if(failures.length)throw new AggregateError(failures,'Lifecycle cleanup is incomplete; accepted work and controls were retained');
-    // Never delete accepted jobs, charts, immutable source, checkpoints or recovery state.
+    await cleanupLifecycle({browser,sql,relay,state,save});
   }});
 }
 
 if (require.main === module) run().then(result => { if (result?.outcome === 'NOT_EXECUTED') process.exitCode = 2; })
   .catch(() => { console.error('FAIL lifecycle gate: accepted state retained; inspect protected artifacts'); process.exitCode = 1; });
-module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertAcceptance,assertScopedFault,expireSession,preflightSession,processProof,hashFile,evidencePath,protectedEvidence,contractApi,requireNativeEnvironment,requiredLifecycleStep};
+module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertAcceptance,assertScopedFault,expireSession,preflightSession,processProof,hashFile,evidencePath,protectedEvidence,contractApi,requireNativeEnvironment,requiredLifecycleStep,awaitActualProxyTimeout,cleanupLifecycle,boundedLifecycleAction,recordWorkflowFailure};
