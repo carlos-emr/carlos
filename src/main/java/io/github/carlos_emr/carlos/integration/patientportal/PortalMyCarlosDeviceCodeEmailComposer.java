@@ -101,7 +101,9 @@ final class PortalMyCarlosDeviceCodeEmailComposer {
         email.setAdditionalParams("");
         email.setAttachments(Collections.emptyList());
         // The outbound archive is a permanent patient document; it keeps the email without the code.
-        email.setArchiveRedactions(List.of(displayCode, displayCode.replace(" ", "")));
+        // Exactly the form the body holds: the archive redactor refuses a value missing from any
+        // text alternative, and that refusal stops the send.
+        email.setArchiveRedactions(List.of(displayCode));
         return email;
     }
 }

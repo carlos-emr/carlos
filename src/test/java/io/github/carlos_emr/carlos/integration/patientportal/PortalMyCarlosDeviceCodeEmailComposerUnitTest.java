@@ -67,7 +67,7 @@ class PortalMyCarlosDeviceCodeEmailComposerUnitTest {
         var email = PortalMyCarlosDeviceCodeEmailComposer.request(42, "fake.patient@example.invalid", 3, "-1",
                 "Your myCarlos code", "Your FAKE Clinic myCarlos code is 482 193 644.", "482 193 644");
         assertEquals(TransactionType.MYCARLOS_CODE, email.getTransactionType());
-        assertEquals(List.of("482 193 644", "482193644"), email.getArchiveRedactions());
+        assertEquals(List.of("482 193 644"), email.getArchiveRedactions());
         assertArrayEquals(new String[] {"fake.patient@example.invalid"}, email.getRecipients());
         assertEquals(42, email.getDemographicNo());
         assertFalse(email.getIsEncrypted());
