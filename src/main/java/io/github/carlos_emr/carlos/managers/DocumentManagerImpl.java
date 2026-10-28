@@ -195,10 +195,10 @@ public class DocumentManagerImpl implements DocumentManager {
     public Document createDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException {
 
         // AUTHORIZATION EXCEPTION (D141): while the outbound email archive stores the myCarlos device
-        // code email for the system device-code job, that one document needs no eDoc right
-        // (DeviceCodeEmailScope). Every other document and caller is unchanged.
+        // code email for the system device-code job, that one document, filed for that job's patient,
+        // needs no eDoc right (DeviceCodeEmailScope). Every other document and caller is unchanged.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", "")
-                && !DeviceCodeEmailScope.coversDocument(loggedInInfo, document)) {
+                && !DeviceCodeEmailScope.coversDocument(loggedInInfo, document, demographicNo)) {
             throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 

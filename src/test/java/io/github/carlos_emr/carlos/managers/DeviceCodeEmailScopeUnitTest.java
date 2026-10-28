@@ -37,9 +37,13 @@ import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveTestKeyring
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -91,7 +95,7 @@ class DeviceCodeEmailScopeUnitTest extends CarlosUnitTestBase {
         doAnswer(call -> {
             Document document = call.getArgument(1);
             // Stored only while the archive is storing it, inside the job's scope.
-            assertThat(DeviceCodeEmailScope.coversDocument(call.getArgument(0), document)).isTrue();
+            assertThat(DeviceCodeEmailScope.coversDocument(call.getArgument(0), document, call.getArgument(2))).isTrue();
             document.setDocumentNo(321);
             return document;
         }).when(documentManager).createDocument(any(), any(Document.class), anyInt(), anyString(), any(byte[].class));
@@ -208,7 +212,7 @@ class DeviceCodeEmailScopeUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> service.archive(system, request(EmailLog.TransactionType.MYCARLOS_CODE, PATIENT)))
                     .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_edoc w)");
             assertThatThrownBy(() -> DeviceCodeEmailScope.archiving(() -> null)).isInstanceOf(IllegalStateException.class);
-            assertThat(DeviceCodeEmailScope.coversDocument(system, new Document())).isFalse();
+            assertThat(DeviceCodeEmailScope.coversDocument(system, new Document(), PATIENT)).isFalse();
             assertThat(leaked).isNotNull();
         } finally {
             release.complete(null);
@@ -222,6 +226,24 @@ class DeviceCodeEmailScopeUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> DeviceCodeEmailScope.open(PATIENT)).isInstanceOf(IllegalStateException.class);
         }
         assertThatThrownBy(() -> DeviceCodeEmailScope.open(0)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldBeOpenedOnlyByTheDeviceCodeJob_atOneCallSite() throws Exception {
+        // Each place that opens the scope widens D141, so a second one must be a deliberate change here.
+        Path main = Path.of(System.getProperty("basedir", System.getProperty("user.dir"))).resolve("src/main/java");
+        assertThat(main).isDirectory();
+        var opener = Pattern.compile("DeviceCodeEmailScope\\s*(\\.\\s*open\\s*\\(|::\\s*open\\b)"
+                + "|import\\s+static\\s+[\\w.]*DeviceCodeEmailScope\\b");
+        var callers = new ArrayList<String>();
+        try (Stream<Path> files = Files.walk(main)) {
+            for (Path file : (Iterable<Path>) files.filter(path -> path.toString().endsWith(".java"))::iterator) {
+                var found = opener.matcher(Files.readString(file));
+                while (found.find()) callers.add(main.relativize(file).toString().replace('\\', '/'));
+            }
+        }
+        assertThat(callers).containsExactly(
+                "io/github/carlos_emr/carlos/integration/patientportal/PortalMyCarlosDeviceCodeSyncService.java");
     }
 
     // --- document storage ---------------------------------------------------------------------
@@ -275,6 +297,12 @@ class DeviceCodeEmailScopeUnitTest extends CarlosUnitTestBase {
                 assertThatThrownBy(() -> DeviceCodeEmailScope.archiving(() ->
                         manager.createDocument(staff, archiveDocument(), PATIENT, "999998", bytes)))
                         .hasMessageContaining("Write Access Denied _edoc");
+                // ... and only filed for the patient the scope was opened for.
+                for (Integer patient : new Integer[] {PATIENT + 1, null}) {
+                    assertThatThrownBy(() -> DeviceCodeEmailScope.archiving(() ->
+                            manager.createDocument(system, archiveDocument(), patient, Provider.SYSTEM_PROVIDER_NO, bytes)))
+                            .hasMessageContaining("Write Access Denied _edoc");
+                }
                 var stored = DeviceCodeEmailScope.archiving(() ->
                         manager.createDocument(system, archiveDocument(), PATIENT, Provider.SYSTEM_PROVIDER_NO, bytes));
                 assertThat(stored.getDocumentNo()).isEqualTo(321);

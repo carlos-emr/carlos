@@ -26,8 +26,9 @@ import java.io.IOException;
  * <li>the email has no attachments.</li>
  * </ul>
  * The archive's patient-record access check still applies. Document storage accepts the scope only
- * while that archive call is storing its own document. Every other email, login and caller is
- * unchanged.
+ * while that archive call is storing its own document, for the same patient. Every other email,
+ * login and caller is unchanged. Only {@code PortalMyCarlosDeviceCodeSyncService} opens it; a test
+ * pins that single call site.
  */
 public final class DeviceCodeEmailScope implements AutoCloseable {
     private static final ThreadLocal<DeviceCodeEmailScope> CURRENT = new ThreadLocal<>();
@@ -112,10 +113,14 @@ public final class DeviceCodeEmailScope implements AutoCloseable {
         }
     }
 
-    /** Document side: whether this is the device code email's archived copy being stored now. */
-    static boolean coversDocument(LoggedInInfo login, Document document) {
+    /**
+     * Document side: whether this is the device code email's archived copy being stored now, for the
+     * patient the scope was opened for.
+     */
+    static boolean coversDocument(LoggedInInfo login, Document document, Integer demographicNo) {
         DeviceCodeEmailScope scope = current();
         return scope != null && scope.archiving && system(login) && document != null
+                && Integer.valueOf(scope.demographicNo).equals(demographicNo)
                 && OutboundEmailArchiveServiceImpl.DOCUMENT_DOCTYPE.equals(document.getDoctype())
                 && OutboundEmailArchiveServiceImpl.DOCUMENT_CLASS.equals(document.getDocClass())
                 && OutboundEmailArchiveServiceImpl.DOCUMENT_SOURCE.equals(document.getSource());

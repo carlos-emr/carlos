@@ -469,6 +469,45 @@ final class PortalMyCarlosDeviceApprovalService {
         });
     }
 
+    /** Why a clinic code request was cancelled when its code could not be emailed (mycarlos#141). */
+    static final String CODE_NOT_SENT = "code_not_sent";
+
+    /**
+     * Cancels a clinic code request whose code could not be emailed (mycarlos#141), reason
+     * {@value #CODE_NOT_SENT}. The portal never got its challenge and refuses a decision for a
+     * request without one, so none is queued: the portal request runs out by itself, and the
+     * patient's next first-device request goes to staff. Repeating it once done changes nothing.
+     *
+     * @return whether this call ended the request (false when it already had ended so)
+     */
+    boolean endUnsentCodeChallenge(int patient, Bytes challengeId) {
+        standalone();
+        Checks.positive(patient);
+        current();
+        source.requireTrustedSource(patient);
+        return transactions.withApprovalState(() -> {
+            Current cfg = current();
+            var row = challenges.findByChallengeForUpdate(challengeId).orElseThrow(() -> refuse("approval_not_found"));
+            challenge(cfg, row, patient);
+            var challengeMessage = outbox.findMessageForUpdate(row.challengeId(), "challenge");
+            var priorDecision = outbox.findMessageForUpdate(row.challengeId(), "decision");
+            source.requireTrustedSource(patient);
+            requireEqual(cfg.hash(), current().hash());
+            if (!"code".equals(row.kind())) throw refuse("approval_conflict");
+            if (!row.pending()) {
+                if (CODE_NOT_SENT.equals(row.cancellationReason())) return false;
+                throw refuse("approval_conflict");
+            }
+            // A challenge the portal may already have must end with a decision instead.
+            if (priorDecision.isPresent() || challengeMessage.isPresent()
+                    && (challengeMessage.get().publishedAt() != null || challengeMessage.get().leaseToken() != null)) {
+                throw refuse("approval_conflict");
+            }
+            challenges.terminal(row, row.cancelled(now(), CODE_NOT_SENT));
+            return true;
+        });
+    }
+
     Decision acceptFromCurrentPredecessor(int patient, Bytes challengeId, String exactApproval) {
         standalone();
         Checks.positive(patient);

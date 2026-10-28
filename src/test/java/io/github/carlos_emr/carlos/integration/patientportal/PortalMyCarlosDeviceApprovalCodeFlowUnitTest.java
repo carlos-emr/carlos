@@ -159,6 +159,54 @@ class PortalMyCarlosDeviceApprovalCodeFlowUnitTest {
     }
 
     @Test
+    void shouldCancelUnsentCodeRequest_withoutQueuingDecision() throws Exception {
+        // Its code could not be emailed: the portal never got the challenge, so it gets no decision.
+        var f = new Fixture();
+        var row = codeChallenge(f);
+        assertTrue(f.service.endUnsentCodeChallenge(1, row.challengeId()));
+        var cancelled = f.challengeRows.get(row.challengeId());
+        assertNotNull(cancelled.cancelledAt());
+        assertEquals("code_not_sent", cancelled.cancellationReason());
+        assertNull(f.outboxRows.get(key(row.challengeId(), "decision")));
+        assertFalse(f.service.endUnsentCodeChallenge(1, row.challengeId()));
+        // Ended one way, it can't be ended another.
+        var refusal = assertThrows(PortalMyCarlosDeviceApprovalService.Refusal.class,
+                () -> f.service.endCodeChallenge(1, row.challengeId(), "code_attempts"));
+        assertEquals("approval_conflict", refusal.code);
+        assertNull(f.outboxRows.get(key(row.challengeId(), "decision")));
+    }
+
+    @Test
+    void shouldNotCancelWithoutDecision_onceThePortalMayHaveTheChallenge() throws Exception {
+        for (boolean published : new boolean[] {true, false}) {
+            var f = new Fixture();
+            var row = codeChallenge(f);
+            var message = f.outboxRows.get(key(row.challengeId(), "challenge"));
+            var at = message.createdAt();
+            // Published, or a publish in flight (its lease held).
+            f.outboxRows.put(key(row.challengeId(), "challenge"), new PortalMyCarlosDeviceApprovalOutboxEntry(message.id(),
+                    message.challengeId(), message.messageKind(), message.clinicId(), message.targetUri(), message.configHash(),
+                    message.body(), message.bodyHash(), message.createdAt(), message.nextAttemptAt(), message.failures(),
+                    published ? null : new PortalMyCarlosDeviceApprovalTypes.Bytes(new byte[32]),
+                    published ? null : at.plusSeconds(60), published ? at : null, message.version() + 1));
+            var refusal = assertThrows(PortalMyCarlosDeviceApprovalService.Refusal.class,
+                    () -> f.service.endUnsentCodeChallenge(1, row.challengeId()));
+            assertEquals("approval_conflict", refusal.code);
+            assertTrue(f.challengeRows.get(row.challengeId()).pending());
+        }
+    }
+
+    @Test
+    void shouldNotCancelStaffChallenge_asUnsentCode() throws Exception {
+        var f = new Fixture();
+        var row = f.service.createOrReadExactChallenge(1, compact(f.first, "intent"));
+        var refusal = assertThrows(PortalMyCarlosDeviceApprovalService.Refusal.class,
+                () -> f.service.endUnsentCodeChallenge(1, row.challengeId()));
+        assertEquals("approval_conflict", refusal.code);
+        assertTrue(f.challengeRows.get(row.challengeId()).pending());
+    }
+
+    @Test
     void shouldRefuseOtherReasons_forEndingCodeRequest() throws Exception {
         var f = new Fixture();
         var row = codeChallenge(f);

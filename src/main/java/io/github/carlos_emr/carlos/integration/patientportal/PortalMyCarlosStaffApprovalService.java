@@ -293,10 +293,14 @@ public final class PortalMyCarlosStaffApprovalService {
     static final String SENDER_INACTIVE = "sender account not active";
     static final String FOOTER_MISSING = "clinic footer missing";
     static final String RECORD_RESTRICTED = "record access restricted";
+    static final String CODE_NOT_SENT_EARLIER = "earlier code email not sent";
+    /** How long a patient whose code could not be emailed is approved by staff instead. */
+    static final java.time.Duration CODE_NOT_SENT_HOLD = java.time.Duration.ofHours(24);
 
     /**
      * Sends tried per code request before giving up: each failed send leaves a failed row in the
-     * patient's email history, so they stay few.
+     * patient's email history, so they stay few. After the last one the request is cancelled
+     * ({@code code_not_sent}) and the patient's next first-device request goes to staff.
      */
     static final int MAX_SENDS = 3;
     /** Failed sends per code request and when to try again: 30 s, then doubling, at most 5 minutes. */
@@ -341,8 +345,10 @@ public final class PortalMyCarlosStaffApprovalService {
      * gets a {@code code} challenge, its code is emailed and the challenge published; any other
      * first device goes to staff, as the log says once;</li>
      * <li>code requests of the last minutes: a code not yet sent is sent again (backing off a failing
-     * send), challenges and decisions not yet published are published, and a request whose code
-     * was made before this server started ends as {@code expired} ({@code challenge_expired}).</li>
+     * send; after {@value #MAX_SENDS} failed sends the request is cancelled and the patient's next
+     * first-device request goes to staff), challenges and decisions not yet published are
+     * published, and a request whose code was made before this server started ends as
+     * {@code expired} ({@code challenge_expired}).</li>
      * </ol>
      * Each pass reads at most {@value #PAGES_PER_RUN} pages per run. Callers must not hold a
      * database transaction.
@@ -526,7 +532,9 @@ public final class PortalMyCarlosStaffApprovalService {
         String saved = journal.record(binding, request, null);
         if (saved != null && !"prepared".equals(saved)) return;
         if (saved == null) {
-            String fallback = policy.byCode() ? mail.reach(patient).fallback() : STAFF_ONLY;
+            String fallback = !policy.byCode() ? STAFF_ONLY
+                    : codeNotSentRecently(binding, patient) ? CODE_NOT_SENT_EARLIER
+                    : mail.reach(patient).fallback();
             if (fallback != null) {
                 // Fixed text and a fixed reason only: no address, patient or request.
                 LOGGER.info("myCarlos device approval goes to staff: {}", fallback);
@@ -547,7 +555,7 @@ public final class PortalMyCarlosStaffApprovalService {
         // A challenge staff made first stays theirs to approve.
         if (!"code".equals(challenge.kind())) return;
         if (saved == null) counts[0]++;
-        var code = emailCode(challenge, policy, mail, counts);
+        var code = emailCode(challenge, fence, policy, mail, counts);
         // The device is asked for the code only once it was sent.
         if (code == null || code.emailedAt() == null) return;
         try {
@@ -576,7 +584,7 @@ public final class PortalMyCarlosStaffApprovalService {
             if (challenge == null) continue;
             try {
                 if (challenge.pending()) {
-                    var code = emailCode(challenge, policy, mail, counts);
+                    var code = emailCode(challenge, fence, policy, mail, counts);
                     if (code != null && code.emailedAt() != null) publish(challenge, "challenge", client);
                 }
             } catch (PatientPortalException | PublicationPending failure) {
@@ -589,11 +597,18 @@ public final class PortalMyCarlosStaffApprovalService {
     /**
      * Makes sure an open code request's code was emailed: a code never emailed is replaced by a new
      * one (its value lived only in a run that ended) and sent, unless a failing send is backing off.
+     * After {@value #MAX_SENDS} failed sends the request is cancelled instead.
      *
      * @return the code row as far as it got, or null when none could be made
      */
-    private PortalMyCarlosDeviceApprovalCode emailCode(PortalMyCarlosDeviceApprovalChallenge challenge,
+    private PortalMyCarlosDeviceApprovalCode emailCode(PortalMyCarlosDeviceApprovalChallenge challenge, Runnable fence,
             PortalMyCarlosApprovalPolicy policy, CodeMail mail, int[] counts) {
+        var spent = emailRetries.get(challenge.challengeId());
+        if (spent != null && spent.failures() >= MAX_SENDS) {
+            // Its last send failed, but cancelling it then failed too (approval was switched off, say).
+            giveUp(challenge, fence, counts);
+            return null;
+        }
         var codes = new PortalMyCarlosDeviceApprovalCodeDao(factory);
         var challenges = new PortalMyCarlosDeviceApprovalChallengeDao(factory);
         var key = PortalMyCarlosClinicCode.serverKey();
@@ -632,10 +647,9 @@ public final class PortalMyCarlosStaffApprovalService {
         if (!sent) {
             var retry = emailRetries.merge(challenge.challengeId(), new EmailRetry(1, now.plusSeconds(30)), (old, first) ->
                     new EmailRetry(old.failures() + 1, now.plusSeconds(Math.min(300L, 30L << Math.min(old.failures(), 4)))));
-            // Fixed text and a fixed reason only. The request stays unanswered and expires; the
-            // device was never asked for a code.
+            // Fixed text and a fixed reason only. The device was never asked for a code.
             if (retry.failures() >= MAX_SENDS) {
-                LOGGER.info("myCarlos device code email was not sent {} times; no more tries for this request", MAX_SENDS);
+                giveUp(challenge, fence, counts);
             } else if (reach.address() == null) {
                 // Email stopped being possible after the request was taken.
                 LOGGER.info("myCarlos device code email was not sent: {}", reach.fallback());
@@ -654,6 +668,36 @@ public final class PortalMyCarlosStaffApprovalService {
             codes.update(latest, next);
             return next;
         });
+    }
+
+    /**
+     * The code could not be emailed {@value #MAX_SENDS} times: cancels the request
+     * ({@code code_not_sent}), so the patient's next first-device request goes to staff. The device
+     * was never asked for a code, and the portal request runs out by itself.
+     */
+    private void giveUp(PortalMyCarlosDeviceApprovalChallenge challenge, Runnable fence, int[] counts) {
+        int patient = challenge.demographicNo();
+        try {
+            if (core(systemSource(patient, fence)).endUnsentCodeChallenge(patient, challenge.challengeId())) {
+                counts[6]++;
+                auditCode("code.cancelled", challenge);
+                // Fixed text only: no address, patient or request.
+                LOGGER.info("myCarlos device code email was not sent {} times; the request is cancelled and the patient's"
+                        + " next request goes to staff", MAX_SENDS);
+            }
+        } catch (PortalMyCarlosDeviceApprovalService.Refusal refusal) {
+            // Unavailable: kept, and tried again by a later run. Any other refusal means the request
+            // already moved on another way (linked or decided), so there is nothing to cancel.
+            if ("approval_unavailable".equals(refusal.code)) throw refusal;
+        }
+        emailRetries.remove(challenge.challengeId());
+    }
+
+    /** Whether a code for this patient could not be emailed lately, so their next request goes to staff. */
+    private boolean codeNotSentRecently(PortalMyCarlosDeviceApprovalService.Current binding, int patient) {
+        var challenges = new PortalMyCarlosDeviceApprovalChallengeDao(factory);
+        Instant since = codeClock.instant().minus(CODE_NOT_SENT_HOLD);
+        return transactions.withApprovalState(() -> challenges.codeNotSentSince(binding.clinic, patient, since));
     }
 
     /** Read under the challenge's lock: whether its code matched and was issued under {@code policy}. */

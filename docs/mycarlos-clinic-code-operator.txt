@@ -36,22 +36,29 @@ Each run, in this order:
      myCarlos device approval goes to staff: <reason>
    where <reason> is policy staff_only, no usable chart email, no email
    consent, sender account not active, clinic footer missing (the clinic
-   email footer is required but not set), or record access restricted (the
-   patient's record is privacy-locked against the system provider). A send that fails later logs
+   email footer is required but not set), record access restricted (the
+   patient's record is privacy-locked against the system provider), or
+   earlier code email not sent (a code for this patient could not be emailed
+   in the last 24 hours, see step 3). A send that fails later logs
    "myCarlos device code email was not sent: <reason>" the same way;
 3. follows up the code requests of the last 15 minutes: a code not yet sent
    is sent again (a failing send waits 30 s, then twice as long each time, at
-   most 5 minutes; after 3 failed sends it stops, logs "myCarlos device code
-   email was not sent 3 times; no more tries for this request", and the
-   request expires unanswered), and challenges and decisions not yet
-   published are published.
+   most 5 minutes), and challenges and decisions not yet published are
+   published. After 3 failed sends the request is cancelled (reason
+   code_not_sent) and the log says "myCarlos device code email was not sent
+   3 times; the request is cancelled and the patient's next request goes to
+   staff". The device was never asked for a code; the portal has no
+   challenge to decide, so its request runs out by itself (10 minutes at
+   most) and the device offers a new one. For the next 24 hours that
+   patient's first-device requests go to staff, as for a patient with no
+   usable chart email.
 Each of the first two passes reads at most 50 pages of 20 per run; a longer
 backlog is read over the next runs, and codes are always settled first. The
 cursors are kept in the property table (mycarlos.approval.code.cursor.* and
 mycarlos.approval.code.requests.*).
 It acts as the built-in system provider (-1), with no staff login. Its audit
 rows are PortalJob.device-approval-sync.code.emailed / .code.accepted /
-.code.refused / .code.expired with content "system: device code" and the
+.code.refused / .code.expired / .code.cancelled with content "system: device code" and the
 request id; they
 never hold a code. The portal must let the device-approval-sync job hold the
 two new permissions portal.mycarlos.device_approval.codes.read and

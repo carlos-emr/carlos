@@ -153,6 +153,8 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
         final List<String> codes = new ArrayList<>();
         final List<JsonNode> decisions = new ArrayList<>();
         String intent;
+        /** Patient 1's later first-device requests (sequence 2, 3, ...), as when the device starts again. */
+        final List<String> laterIntents = new ArrayList<>();
         /** Requests after the first are an endless backlog for patient 2, 20 a page. */
         boolean backlog;
         /** "Consumed" answers wrongly, as if the call failed. */
@@ -175,6 +177,13 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
                                     .put("intent", intent);
                             last = sequence;
                         }
+                    }
+                    for (int i = 0; !backlog && i < laterIntents.size(); i++) {
+                        long sequence = i + 2;
+                        if (sequence <= after) continue;
+                        rows.addObject().put("sequence", Long.toString(sequence)).put("demographic_no", 1)
+                                .put("intent", laterIntents.get(i));
+                        last = sequence;
                     }
                     page.put("last_sequence", Long.toString(last));
                     return backlog && last > after ? page.put("next_cursor", Long.toString(last)).toString()
@@ -296,6 +305,18 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
             Object value = r.getObject(1);
             return value == null ? null : String.valueOf(value);
         }
+    }
+
+    /** A new FAKE first-device request from the same device, signed now with the fixture's FAKE key. */
+    private static String laterIntent(String requestId) throws Exception {
+        var claims = PortalMyCarlosDeviceApprovalStateTestSupport.claims(
+                data.path("flows").path("first").path("intent").path("claims"));
+        claims.put("request_id", requestId);
+        claims.put("iat", NOW.get());
+        claims.put("exp", NOW.get() + 590);
+        var key = PortalMyCarlosDeviceApprovalStateTestSupport.privateKey(data.path("keys").path("first"),
+                "FAKE_ed25519_private_pkcs8_b64url", "Ed25519");
+        return PortalMyCarlosDeviceApprovalCrypto.sign(Kind.INTENT, claims, scope, key);
     }
 
     private static UUID request() {
@@ -598,7 +619,7 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
     }
 
     @Test
-    void shouldStopAfterThreeFailedSends_andSayItOnce() throws Exception {
+    void shouldCancelRequestAndSendPatientsNextOneToStaff_afterThreeFailedSends() throws Exception {
         var portal = portal();
         var mail = new FakeMail();
         mail.failing = true;
@@ -608,7 +629,7 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
             NOW.addAndGet(31);
             job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
             NOW.addAndGet(61);
-            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+            assertEquals(1, job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail).ended());
             assertEquals(3, mail.tries);
             // Long after: no fourth send, so no fourth failed row in the patient's email history.
             NOW.addAndGet(300);
@@ -617,9 +638,42 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
             assertEquals(List.of(
                     "myCarlos device code email was not sent: the send failed; it is tried again later",
                     "myCarlos device code email was not sent: the send failed; it is tried again later",
-                    "myCarlos device code email was not sent 3 times; no more tries for this request"), log.messages());
+                    "myCarlos device code email was not sent 3 times; the request is cancelled and the patient's next"
+                            + " request goes to staff"), log.messages());
         }
-        assertTrue(portal.calls.stream().noneMatch(call -> call.endsWith("/challenge")));
+        // Cancelled here only: the portal never got the challenge, so it gets no decision either.
+        assertEquals("code_not_sent", sql("SELECT cancellation_reason FROM mycarlos_device_approval_challenge"));
+        assertEquals("0", sql("SELECT COUNT(*) FROM mycarlos_device_approval_outbox WHERE message_kind='decision'"));
+        assertTrue(portal.calls.stream().noneMatch(call -> call.endsWith("/challenge") || call.endsWith("/decision")));
+        // Staff checking the patient's page meanwhile find nothing to approve, and nothing is sent.
+        assertTrue(job.refresh(staff(), 1, portalService()).pending().isEmpty());
+        assertTrue(portal.calls.stream().noneMatch(call -> call.endsWith("/challenge") || call.endsWith("/decision")));
+
+        // The device starts again: no code this time. The job leaves it, and staff's refresh makes
+        // the in-person (staff_first) challenge.
+        mail.failing = false;
+        int reached = mail.reached;
+        portal.laterIntents.add(laterIntent("6f1d2c3b-4a59-4e68-8d7c-0b1a2f3e4d5c"));
+        try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(PortalMyCarlosStaffApprovalService.class)) {
+            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+            assertEquals(List.of("myCarlos device approval goes to staff: earlier code email not sent"), log.messages());
+        }
+        assertEquals(reached, mail.reached);
+        assertEquals(3, mail.tries);
+        assertEquals("1", sql("SELECT COUNT(*) FROM mycarlos_device_approval_challenge"));
+        var pending = job.refresh(staff(), 1, portalService()).pending();
+        assertEquals(1, pending.size());
+        assertTrue(pending.getFirst().firstDevice());
+        assertEquals("staff_first",
+                sql("SELECT approval_kind FROM mycarlos_device_approval_challenge WHERE cancelled_at IS NULL"));
+        assertEquals(1, portal.calls.stream().filter(call -> call.endsWith("/challenge")).count());
+
+        // A day later, a new request gets a code again.
+        NOW.addAndGet(PortalMyCarlosStaffApprovalService.CODE_NOT_SENT_HOLD.getSeconds());
+        portal.laterIntents.add(laterIntent("7a2e3d4c-5b6a-4f79-9e8d-1c2b3a4f5e6d"));
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        assertEquals(1, mail.sent.size());
+        assertEquals("2", sql("SELECT COUNT(*) FROM mycarlos_device_approval_challenge WHERE approval_kind='code'"));
     }
 
     @Test
