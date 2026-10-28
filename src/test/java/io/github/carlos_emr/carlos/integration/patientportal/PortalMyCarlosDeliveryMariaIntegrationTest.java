@@ -66,6 +66,7 @@ class PortalMyCarlosDeliveryMariaIntegrationTest {
         public List<io.github.carlos_emr.carlos.model.security.Secobjprivilege> getSecurityObjects(LoggedInInfo s) { return List.of(); }
         public boolean hasPrivilege(LoggedInInfo s, String o, String p, int d) { return true; }
         public boolean hasPrivilege(LoggedInInfo s, String o, String p, String d) { return true; }
+        public boolean hasPrivilegeReadOnly(LoggedInInfo s, String o, String p, String d) { return true; }
         public boolean isAllowedAccessToPatientRecord(LoggedInInfo s, Integer d) { return true; }
     };
 
