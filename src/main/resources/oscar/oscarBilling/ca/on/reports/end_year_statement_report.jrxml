@@ -9,6 +9,8 @@
 	<import>java.util.*</import>
 	<import>net.sf.jasperreports.engine.images.*</import>
 	<import>net.sf.jasperreports.engine.data.*</import>
+	<!-- Bundle the measuring/export font: host SansSerif metrics can clip every 12pt value in these rows. -->
+	<style name="statementFont" default="true" fontName="DejaVu Sans" />
 	<parameter name="fromDate" forPrompting="true" class="java.lang.String">
 		<defaultValueExpression><![CDATA["1900-01-01"]]></defaultValueExpression>
 	</parameter>

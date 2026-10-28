@@ -55,6 +55,27 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
+    public boolean discontinueIfActive(int drugId, int demographicNo, Date date, String reason) {
+        // Bulk updates bypass Drug's lifecycle callback, so advance lastUpdateDate explicitly.
+        return entityManager.createQuery("update Drug d set d.archived=true, d.archivedDate=:date, d.lastUpdateDate=:date, d.archivedReason=:reason "
+                        + "where d.id=:id and d.demographicId=:patient and d.archived=false")
+                .setParameter("date", date).setParameter("reason", StringUtils.trimToNull(reason))
+                .setParameter("id", drugId).setParameter("patient", demographicNo)
+                .executeUpdate() == 1;
+    }
+
+    @Override
+    public int archiveIfActive(int drugId, int demographicNo, String reason, Date archivedDate) {
+        // A bulk update bypasses @PreUpdate, so preserve the sync timestamp explicitly.
+        return entityManager.createQuery("update Drug d set d.archived = true, d.archivedReason = :reason,"
+                + " d.archivedDate = :date, d.lastUpdateDate = :date"
+                + " where d.id = :id and d.demographicId = :patient and d.archived = false")
+                .setParameter("reason", reason).setParameter("date", archivedDate)
+                .setParameter("id", drugId).setParameter("patient", demographicNo).executeUpdate();
+    }
+
+    @Override
     public boolean addNewDrug(Drug d) {
         try {
             entityManager.persist(d);

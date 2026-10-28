@@ -34,7 +34,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingPromptDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingPromptRequest;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalOfferedSlot;
@@ -74,8 +73,7 @@ class PortalBookingPrompt2ActionOfferedTimesUnitTest {
     private final MockHttpServletResponse response = new MockHttpServletResponse();
     private final LoggedInInfo user = mock(LoggedInInfo.class);
     private final PatientPortalStaffContext staff = new PatientPortalStaffContext("999998", "Synthetic Provider",
-            Set.of(PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE,
-                    PatientPortalStaffContext.PERMISSION_ACCOUNT_MANAGE));
+            Set.of(PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE));
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> login;
     private MockedStatic<LogAction> audit;
@@ -99,8 +97,7 @@ class PortalBookingPrompt2ActionOfferedTimesUnitTest {
         when(security.hasPrivilege(any(), anyString(), anyString(), eq("123"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
         when(resolver.resolveForPatient(any(), any(), eq(123))).thenReturn(staff);
-        when(portal.findAccount(eq(123), same(staff)))
-                .thenReturn(new PatientPortalAccountDto(3, "clinic-a", 123, "active", false, false, null, null));
+        when(portal.isBookingEligible(eq(123), same(staff))).thenReturn(true);
         Instant timestamp = Instant.parse("2026-10-01T12:00:00Z");
         when(portal.createBookingPrompt(eq(123), any(), same(staff))).thenReturn(new PatientPortalBookingPromptDto.Creation(
                 new PatientPortalBookingPromptDto(7, 123, "soon", "follow_up", null, "sent", "Synthetic Provider",

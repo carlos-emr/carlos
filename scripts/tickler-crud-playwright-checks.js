@@ -23,11 +23,13 @@
 
 const { chromium } = require('playwright');
 const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
+const { selectTicklerAssignee } = require('./lib/tickler-clinic');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors,
+  createRecorder, wireStrictPage, assertStrictPage, buildFailureDetails } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -53,6 +55,7 @@ const editedMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} edited through e
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
+const strictRecorder = createRecorder();
 // Set before the tickler is created; until then the run owns no rows to clean. Note
 // links at or below it predate the run and are never deleted (#4409).
 let linkIdFloor = null;
@@ -194,10 +197,7 @@ function getCommentRows(ticklerNo) {
 }
 
 function wirePage(page, label) {
-  page.on('dialog', async (dialog) => {
-    consoleIssues.push({ label, type: 'dialog', text: dialog.message() });
-    await dialog.accept();
-  });
+  wireStrictPage(page, label, strictRecorder, { baseline: [] });
   page.on('response', (response) => {
     const status = response.status();
     const responseUrl = response.url();
@@ -385,7 +385,7 @@ async function createTickler(context) {
   await page.locator('textarea[name="ticklerMessage"]').fill(createdMessage);
   await page.locator('input[name="xml_appointment_date"]').fill('2026-02-18');
   await page.locator('select[name="priority"]').selectOption('High');
-  await page.locator('select[name="task_assigned_to"]').selectOption(providerNo);
+  await selectTicklerAssignee(page, providerNo);
   await page.locator('input.btn-primary[name="Button"]').first().click();
   await page.waitForFunction(() => {
     const frame = document.getElementById('ticklerSubmitFrame');
@@ -432,10 +432,16 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
   assert(comments.includes(editedMessage), 'edited tickler comment was not saved');
 }
 
-async function completeTicklerViaEdit(context, ticklerNo) {
-  const page = await context.newPage();
+async function completeTicklerViaEdit(context, listPage, ticklerNo) {
+  await findRowInList(listPage, createdMessage, 'A');
+  const row = listPage.locator('#ticklerResults tbody tr').filter({ hasText: createdMessage }).first();
+  const popup = context.waitForEvent('page');
+  await row.locator('a[onclick*="openTicklerEdit"]').click();
+  const page = await popup;
   wirePage(page, 'tickler-complete-edit');
-  await gotoApp(page, '/tickler/ViewTicklerEdit', 'domcontentloaded', { tickler_no: ticklerNo });
+  await page.waitForURL(url => url.pathname.endsWith('/tickler/ViewTicklerEdit')
+    && url.searchParams.get('tickler_no') === String(ticklerNo),
+    { timeout: 30000, waitUntil: 'domcontentloaded' });
   await page.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('#status').selectOption('C');
   await page.locator('input[name="updateTickler"]').click();
@@ -501,7 +507,8 @@ const signalHandlers = installCleanupSignalHandlers(() => {
   }
 
   const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  context.on('page', page => wireStrictPage(page, 'tickler-crud', strictRecorder, { baseline: [] }));
   try {
     const schedulePage = await context.newPage();
     wirePage(schedulePage, 'login-schedule');
@@ -515,9 +522,7 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     const activeRow = await findRowInList(listPage, createdMessage, 'A');
     assert(String(activeRow.id) === String(ticklerNo), `list row id ${activeRow.id} did not match created id ${ticklerNo}`);
     const searchFoundCreated = await probeTicklerSearch(listPage, createdMessage);
-    if (!searchFoundCreated) {
-      console.log(`WARN tickler list search did not return the created message ${createdMessage}`);
-    }
+    assert(searchFoundCreated, 'Tickler list search did not return the created message');
 
     await editTicklerFromList(context, listPage, ticklerNo);
     await listPage.reload({ waitUntil: 'domcontentloaded' });
@@ -525,7 +530,7 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     const editedRow = await findRowInList(listPage, createdMessage, 'A');
     assert(String(editedRow.id) === String(ticklerNo), `edited list row id ${editedRow.id} did not match ${ticklerNo}`);
 
-    await completeTicklerViaEdit(context, ticklerNo);
+    await completeTicklerViaEdit(context, listPage, ticklerNo);
     await listPage.reload({ waitUntil: 'domcontentloaded' });
     await waitForTicklerListReady(listPage);
     await setTicklerListStatus(listPage, 'C');
@@ -537,6 +542,7 @@ const signalHandlers = installCleanupSignalHandlers(() => {
 
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
+    assertStrictPage(strictRecorder);
 
     console.log(`PASS tickler CRUD interface flow for tickler ${ticklerNo}`);
   } finally {
@@ -547,9 +553,11 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     // Last, so a signal arriving during cleanup still reaches the handler.
     signalHandlers.dispose();
   }
+  assertStrictPage(strictRecorder);
 })().catch((error) => {
   signalHandlers.dispose();
   cleanupMysqlDefaultsFile();
   console.error(`FAIL tickler CRUD interface flow: ${error.stack || error.message}`);
+  console.error(JSON.stringify(buildFailureDetails(strictRecorder), null, 2));
   process.exit(1);
 });

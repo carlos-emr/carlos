@@ -112,7 +112,7 @@ public class ProgramService extends AbstractServiceImpl {
         }
 
         if (programNo == null) {
-            throw new Exception("Can't get a program for this providers to use as default");
+            throw new Exception("Can't get a program for this provider to use as default");
         }
 
         List<AdmissionTo1> transfers = new AdmissionConverter().includeDemographic(true).getAllAsTransferObjects(getLoggedInInfo(), admissionManager.findAdmissionsByProgramAndDate(getLoggedInInfo(), Integer.parseInt(programNo), d, startIndex, numToReturn));

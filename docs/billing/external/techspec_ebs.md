@@ -1,6 +1,6 @@
 # Technical Specifications for Electronic Business Services (EBS)
 
-> **Source**: http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_ebs.pdf
+> **Source**: [http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_ebs.pdf](http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_ebs.pdf)
 > **Fetched**: 2026-04-29  
 > **Format**: extracted text from PDF via pypdfium2; tables may be space-aligned rather than GFM.  
 > **Authoritative source**: the PDF at the URL above. If this MD and the PDF disagree, the PDF wins.
@@ -8,6 +8,7 @@
 Page count: 37
 
 ---
+
 <!-- page 1 -->
 
 Technical Specifications for Electronic
@@ -627,6 +628,8 @@ requirements. Detailed description in message.
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 21 of 37
 APPENDIX B: The SOAP Message WSDL Policy Statement
+
+```text
 <wsp:Policy wsu:Id="request-policy">
 <wsp:ExactlyOne>
 <wsp:All>
@@ -741,12 +744,16 @@ Final December 2012 Version 3.0 Page 24 of 37
 </wsp:All>
  </wsp:ExactlyOne>
  </wsp:Policy>
+```
+
 
 <!-- page 25 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 25 of 37
 APPENDIX C: EBS Header Schema
+
+```xml
 <?xml version="1.0" encoding="UTF-8"?><xs:schema targetNamespace="http://ebs.health.ontario.ca/" version="1.0"
 xmlns:tns="http://ebs.health.ontario.ca/"
 xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -768,12 +775,16 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
  </xs:sequence>
  </xs:complexType>
 </xs:schema>
+```
+
 
 <!-- page 26 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 26 of 37
 APPENDIX D: MSA Header Schema
+
+```xml
 <?xml version="1.0" encoding="UTF-8"?><xs:schema targetNamespace="http://msa.ebs.health.ontario.ca/" version="1.0"
 xmlns:tns="http://msa.ebs.health.ontario.ca/"
 xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -795,12 +806,16 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
  </xs:sequence>
  </xs:complexType>
 </xs:schema>
+```
+
 
 <!-- page 27 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 27 of 37
 APPENDIX E: IDP Header Schema
+
+```xml
 <?xml version="1.0" encoding="UTF-8"?><xs:schema targetNamespace="http://idp.ebs.health.ontario.ca/" version="1.0"
 xmlns:tns="http://idp.ebs.health.ontario.ca/"
 xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -816,12 +831,16 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
  </xs:sequence>
  </xs:complexType>
 </xs:schema>
+```
+
 
 <!-- page 28 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 28 of 37
 APPENDIX F: Fault Schema
+
+```xml
 <?xml version="1.0" encoding="UTF-8"?><xs:schema targetNamespace="http://ebs.health.ontario.ca/" version="1.0"
 xmlns:tns="http://ebs.health.ontario.ca/"
 xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -833,12 +852,16 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
  </xs:sequence>
  </xs:complexType>
 </xs:schema>
+```
+
 
 <!-- page 29 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 29 of 37
 APPENDIX G: SOAP Header MSA Security Model Example
+
+```text
  <soapenv:Header>
  <ns2:EBS wsu:Id="id-1" xmlns:ns2="http://ebs.health.ontario.ca/" >
  <SoftwareConformanceKey>444361ee-277f-7732-c684-7a9923jfgh1b</SoftwareConformanceKey>
@@ -961,12 +984,16 @@ ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-pr
  </ds:Signature>
  </wsse:Security>
  </soapenv:Header>
+```
+
 
 <!-- page 33 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 33 of 37
 APPENDIX H: SOAP Header IDP Security Model Example
+
+```text
  <soapenv:Header>
  <ns2:EBS wsu:Id="id-1" xmlns:ns2="http://ebs.health.ontario.ca/" >
  <SoftwareConformanceKey>444361ee-277f-7732-c684-7a9923jfgh1b</SoftwareConformanceKey>
@@ -1087,8 +1114,9 @@ ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-pr
  </ds:Signature>
  </wsse:Security>
 </soapenv:Header>
+```
+
 
 <!-- page 37 -->
 
 Catalogue # CIB-XXXXXXX Month/Year © Queen’s Printer for Ontario
-

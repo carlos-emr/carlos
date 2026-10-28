@@ -73,6 +73,15 @@ public class Obec2Action extends ActionSupport {
 	   if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
 	  		  throw new SecurityException("missing required sec object (_report)");
 	  	  	}
+
+      // Create Report writes an OBEC file (and stages a copy in the EDT outbox when one is set), so a request
+      // carrying a Begin Date comes only as the form's POST; the page itself, with no date, stays open to GET.
+      String begin = this.getXml_vdate();
+      if (begin != null && !begin.isEmpty() && !"POST".equals(request.getMethod())) {
+         response.setHeader("Allow", "POST");
+         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+         return NONE;
+      }
 	   
       Properties proppies = CarlosProperties.getInstance();
       

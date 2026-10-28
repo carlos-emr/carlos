@@ -44,6 +44,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.service.FlowSheetCustomizationService" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
@@ -89,8 +90,10 @@
             if (!action.equals(cust.getAction())) continue;
             if (!measurement.equals(cust.getMeasurement())) continue;
 
-            boolean isClinicLevel = "".equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo());
-            boolean isProviderLevel = currentProvider.equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo());
+            FlowSheetCustomizationService.ScopeLevel customizationScope = SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
+            boolean isClinicLevel = FlowSheetCustomizationService.ScopeLevel.CLINIC == customizationScope;
+            boolean isProviderLevel = currentProvider.equals(cust.getProviderNo())
+                    && FlowSheetCustomizationService.ScopeLevel.PROVIDER == customizationScope;
 
             // Patient scope: inherit from clinic or provider
             if (demographic != null && !demographic.isEmpty()) {
@@ -129,12 +132,13 @@
                 isCurrentScopeMatch = demographic.equals(cust.getDemographicNo());
             } else if ("clinic".equals(scope)) {
                 // Clinic scope: providerNo="" AND demographicNo="0"
-                isCurrentScopeMatch = "".equals(cust.getProviderNo()) &&
-                                      "0".equals(cust.getDemographicNo());
+                isCurrentScopeMatch = FlowSheetCustomizationService.ScopeLevel.CLINIC
+                        == SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
             } else {
                 // Provider scope: providerNo=currentProvider AND demographicNo="0"
-                isCurrentScopeMatch = currentProvider.equals(cust.getProviderNo()) &&
-                                      "0".equals(cust.getDemographicNo());
+                isCurrentScopeMatch = currentProvider.equals(cust.getProviderNo())
+                        && FlowSheetCustomizationService.ScopeLevel.PROVIDER
+                        == SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
             }
 
             if (isCurrentScopeMatch) {
@@ -145,16 +149,12 @@
     }
 
     /**
-     * Determines the scope level name for a customization.
+     * Determines the scope level name for a customization. Delegates to
+     * {@link FlowSheetCustomizationService} so the page and the cascade checks share one
+     * null-safe definition of clinic/provider/patient scope.
      */
     private String getScopeLevelName(FlowSheetCustomization cust) {
-        if ("".equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo())) {
-            return "clinic";
-        } else if (!"0".equals(cust.getDemographicNo())) {
-            return "patient";
-        } else {
-            return "provider";
-        }
+        return SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevelName(cust);
     }
 
     /**
@@ -668,9 +668,9 @@ Flowsheet: <span style="font-weight:normal"><carlos:encode value='<%= displayNam
                                     </td>
                                     <td>
 
-                                        <%if (cust.getProviderNo().isEmpty()) { %>
+                                        <%if ("clinic".equals(custLevel)) { %>
                                         All patients
-                                        <%} else if (cust.getDemographicNo().equals("0")) { %>
+                                        <%} else if ("provider".equals(custLevel)) { %>
                                         Your patients
                                         <%} else { %>
                                         <a href="<%=request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= cust.getDemographicNo() %>' context="uriComponent"/>"

@@ -67,12 +67,37 @@
                 level="info" additivity="false">
             <AppenderRef ref="Console"/>
         </Logger>
+        <!-- The startup encryption-key check (#3939) names, at INFO, the tables this schema lacks.
+             It runs only when encryption.util.secret.key is missing, and that one line is what
+             tells a db_name pointing at the wrong, empty schema apart from a fresh install, so it
+             must be visible at default verbosity. Scoped to that class; it logs table and column
+             names only, never values. additivity="false" so the line is not printed twice. -->
+        <Logger name="io.github.carlos_emr.carlos.login.EncryptedDataCountLoader"
+                level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
         <!-- Hibernate's deprecation channel. HHH90000033 (the deprecated @Temporal annotation)
              alone is one WARN line per mapped date column, roughly 850 lines at every start, for
              a migration that is tracked as a whole rather than actionable line by line. Holding
              this one category at ERROR is what lets the Root default below be WARN without the
              journal opening on a wall of the same line; raise it while doing that migration. -->
         <Logger name="org.hibernate.orm.deprecation" level="error"/>
+        <!-- Struts' Dispatcher answers a request that matches no action with a 404 and logs
+             "Could not find action or result: <request URI>?<query string>" at WARN with a stack
+             trace (struts2-core 7.1.1, devMode off). The query string is caller-controlled and a
+             stale bookmark or mistyped chart link carries demographic_no, names and health
+             numbers, so the line puts PHI in the journal (issue #4570, finding 204). The page the
+             user sees is a clean 404; this drops only that one framework message, whatever
+             LOG_VERBOSITY is set to. Other Dispatcher output (real failures) is untouched, and
+             the 404 itself stays visible in the Tomcat access log, which does not record the
+             query string by default. The pattern is matched against the formatted message, (?s)
+             so an encoded line break in the URI cannot slip past a '.'.
+             A log4j.override.configuration file REPLACES this whole configuration
+             (MiscUtils.addLoggingOverrideConfiguration), so an operator's override must carry
+             this filter too or the query string returns to the journal. -->
+        <Logger name="org.apache.struts2.dispatcher.Dispatcher">
+            <RegexFilter regex="(?s)Could not find action or result.*" onMatch="DENY" onMismatch="NEUTRAL"/>
+        </Logger>
         <Logger name="org.apache.log4j.xml" level="error">
             <AppenderRef ref="Console"/>
         </Logger>

@@ -49,6 +49,7 @@
 
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { waitUntil } = require('./lib/concurrency-support');
 
 async function openRx(session, demographicNo) {
   const page = await session.context.newPage();
@@ -71,6 +72,33 @@ async function stageCustomDrug(page, name) {
   const added = after.filter((id) => !before.includes(id));
   h.assert(added.length === 1, `staging ${name} added ${added.length} cards`);
   return added[0].split('_')[1];
+}
+
+/**
+ * Stages a custom drug and lets the card's follow-up requests finish before returning: the stage
+ * re-render, the stash sync, the limited-use, renal-dosing, allergy and interaction lookups and
+ * the parse of the still-empty instructions. A step that edits the new card as soon as it appears
+ * is otherwise overtaken by one of those late responses (the re-render replaces the card), and a
+ * step that navigates away cancels them.
+ */
+async function stageCustomDrugSettled(page, name) {
+  const pending = new Set();
+  let changed = Date.now();
+  const started = request => { pending.add(request); changed = Date.now(); };
+  const settled = request => { pending.delete(request); changed = Date.now(); };
+  page.on('request', started);
+  page.on('requestfinished', settled);
+  page.on('requestfailed', settled);
+  try {
+    const key = await stageCustomDrug(page, name);
+    await waitUntil(() => pending.size === 0 && Date.now() - changed > 500,
+      'the requests started by staging a custom drug to settle');
+    return key;
+  } finally {
+    page.off('request', started);
+    page.off('requestfinished', settled);
+    page.off('requestfailed', settled);
+  }
 }
 
 /**
@@ -171,13 +199,46 @@ async function workflow(session) {
   await session.step('closing one staged drug saves only the other', async () => {
     const rx = await openRx(session, patient);
     const closed = await stageCustomDrug(rx, `${marker}-A`);
-    await stageCustomDrug(rx, `${marker}-B`);
+    const retained = await stageCustomDrug(rx, `${marker}-B`);
+    // Short valid directions previously triggered a substring exception while deriving dosage.
+    // Exercise the real parser and save, retaining the clinician's exact direction line.
+    await rx.locator(`#instructions_${retained}`).fill('1 od');
+    const [parsed] = await Promise.all([
+      rx.waitForResponse(response => response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rx/UpdateScript')
+        && new URLSearchParams(response.request().postData() || '').get('randomId') === retained
+        && new URLSearchParams(response.request().postData() || '').get('instruction') === '1 od'),
+      rx.locator(`label[for="jsonDxSearch_${retained}"]`).click(),
+    ]);
+    h.assert(parsed.status() === 200, 'Short valid directions were refused by the instruction parser');
+    const parsedFields = await parsed.json();
+    h.assert(Number(parsedFields.takeMin) === 1 && Number(parsedFields.takeMax) === 1
+      && String(parsedFields.frequency).toUpperCase() === 'OD',
+    `Short directions were parsed with the wrong dose or frequency: ${JSON.stringify(parsedFields)}`);
+    await rx.waitForFunction((key) => document.getElementById(`frequency_${key}`).textContent.trim().toUpperCase() === 'OD'
+      && Number(document.getElementById(`minimum_${key}`).textContent) === 1
+      && Number(document.getElementById(`maximum_${key}`).textContent) === 1, retained);
+    const directions = await rx.locator(`#instructions_${retained}`).inputValue();
+    const quantity = await rx.locator(`#quantity_${retained}`).inputValue();
+    const repeats = await rx.locator(`#repeats_${retained}`).inputValue();
+    h.assert(directions === '1 od', 'The instruction parser changed the displayed short directions');
     // The X on the card, as the prescriber clicks it.
     await rx.locator(`#set_${closed} a[onclick^='removePrescribingDrug']`).first().click();
     await rx.locator(`#drugName_${closed}`).waitFor({ state: 'detached', timeout: 10000 });
     await saveOnly(rx);
     await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
       AND customName=${h.sqlString(`${marker}-B`)}`, '1', 'the drug left on the pad was not saved');
+    const [saved] = sql.rows(`SELECT special,takemin,takemax,freqcode,quantity,\`repeat\` FROM drugs
+      WHERE demographic_no=${patient} AND customName=${h.sqlString(`${marker}-B`)}`);
+    // special is the printable prescription: drug name, directions, then quantity/repeats.
+    // Require its exact direction line and matching structured fields, rather than mistaking
+    // the expected drug-name/quantity wrapper for changed instructions.
+    const expectedSpecial = `${marker}-B\n${directions}\nQty:${quantity || '0'} Repeats:${repeats || '0'}`;
+    h.assert(saved && saved[0] === expectedSpecial && Number(saved[1]) === 1 && Number(saved[2]) === 1
+      && saved[3] === parsedFields.frequency && Number(saved[4]) === Number(quantity || '0')
+      && Number(saved[5]) === Number(repeats || '0'),
+    `Saving the retained medication changed its short directions or structured dose: ${JSON.stringify(saved)}`);
+    console.log(`    short-directions receipt: UpdateScript HTTP 200; instruction="1 od"; dose=1; frequency=${saved[3]}; stored=${JSON.stringify(saved[0].replace(`${marker}-B`, '<owned custom drug>'))}; quantity/repeats match the card`);
     h.assert(!drugsFor(sql, patient, marker).some(([name]) => name === `${marker}-A`),
       'the drug closed with its X was saved anyway');
     await rx.close();
@@ -253,6 +314,14 @@ async function workflow(session) {
     await first.locator('#saveButton').click();
     h.assert((await response).ok(), 'Save And Print failed');
     await first.locator('#carlosModal').waitFor({state: 'visible'});
+    // Save And Print loads the signed prescription in nested preview frames. Finish rendering
+    // its signature before closing the page, otherwise this test can abort the image response.
+    const signature = first.frameLocator('iframe[name="carlosPrescriptionPreview"]')
+      .frameLocator('iframe#preview').locator('#signature');
+    await signature.waitFor({ state: 'attached', timeout: 30000 });
+    await signature.evaluate(image => image.decode());
+    h.assert(await signature.evaluate(image => image.complete && image.naturalWidth > 0),
+      'Save And Print did not render its signature image');
     h.assert(await first.locator(`input[name="draftRevision_${key}"]`).inputValue() !== revision,
       'successful Save And Print did not refresh its own editor revision');
     const since = {responses: session.recorder.badResponses.length, console: session.recorder.consoleIssues.length};
@@ -483,4 +552,4 @@ async function workflow(session) {
 }
 
 if (require.main === module) runWorkflow('rx-stash-patient-isolation', workflow);
-module.exports = { workflow, openRx, stageCustomDrug, consumeExpectedConflict, clearOwnedPrescriptionRows };
+module.exports = { workflow, openRx, stageCustomDrug, stageCustomDrugSettled, saveOnly, consumeExpectedConflict, clearOwnedPrescriptionRows };

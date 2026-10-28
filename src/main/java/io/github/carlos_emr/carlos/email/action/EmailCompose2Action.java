@@ -37,7 +37,6 @@ import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
 import io.github.carlos_emr.carlos.email.core.EmailComposeStaging;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -112,6 +111,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * @since 2026-01-24
  */
 public class EmailCompose2Action extends ActionSupport {
+    static final String DRAFT_EXPIRED_RESULT = "draftExpired";
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -269,10 +269,7 @@ public class EmailCompose2Action extends ActionSupport {
 
         // Validate the draft's fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
-            if (logger.isWarnEnabled()) {
-                String sanitizedFid = LogSafe.sanitize(fid);
-                logger.warn("Invalid fid parameter received: {}", sanitizedFid); // NOSONAR javasecurity:S5145 (SonarCloud alert #26207) — sanitized with LogSafe
-            }
+            logger.warn("Invalid (non-numeric) fid parameter received; ignoring it");
             fid = null;
         }
 
@@ -680,6 +677,17 @@ public class EmailCompose2Action extends ActionSupport {
                 session.removeAttribute(key);
             }
         }
+    }
+
+    /**
+     * Shows the "draft expired" page: this window's one-time draft is gone, so 410 Gone. The page
+     * tells staff to close the window and email the eForm again.
+     *
+     * @return {@link #DRAFT_EXPIRED_RESULT}
+     */
+    private String draftExpired() {
+        response.setStatus(HttpServletResponse.SC_GONE);
+        return "draftExpired";
     }
 
     /**

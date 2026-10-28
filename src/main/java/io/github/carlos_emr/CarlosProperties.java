@@ -78,6 +78,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class CarlosProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
+    private final Properties deploymentOverrideProperties = new Properties();
     private static CarlosProperties carlosProperties = new CarlosProperties();
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
     /**
@@ -223,14 +224,28 @@ public class CarlosProperties extends Properties {
         try {
             readFromFile("/carlos.properties");
 
-            String overrideProperties = System.getProperty("carlos_override_properties");
-            if (overrideProperties != null) {
-                MiscUtils.getLogger().info("Applying override properties : " + overrideProperties);
-                readFromFile(overrideProperties);
-            }
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
+        String overrideProperties = System.getProperty("carlos_override_properties");
+        if (overrideProperties != null && !overrideProperties.isBlank()) {
+            File file = PathValidationUtils.resolveConfiguredFile(overrideProperties, "carlos override properties");
+            try (InputStream input = java.nio.file.Files.newInputStream(file.toPath())) {
+                deploymentOverrideProperties.load(input);
+                putAll(deploymentOverrideProperties);
+            } catch (java.nio.file.NoSuchFileException e) {
+                MiscUtils.getLogger().info("Override properties file not found");
+            } catch (IOException e) {
+                throw new IllegalStateException("Configured override properties could not be read", e);
+            }
+        }
+    }
+
+    /** Returns a copy of the constructor's parsed override, for startup fallback and application. */
+    public Properties getDeploymentOverrideProperties() {
+        Properties snapshot = new Properties();
+        snapshot.putAll(deploymentOverrideProperties);
+        return snapshot;
     }
 
     public void readFromFile(String url) throws IOException {

@@ -45,6 +45,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.gate.ProviderAppointmentReadGate" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.gate.ProviderWriteGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.util.*"
@@ -176,8 +177,10 @@
             {"savedeletetemplate", "providertemplate.jsp"},
             {"ar1", "formar1_99_12.jsp"},
             {"ar2", "formar2_99_08.jsp"},
-            {"newgroup", "/provider/ViewProviderNewGroup"},
-            {"savemygroup", "/provider/SaveMyGroup"}
+            // Read-only views. Saving and deleting group members are POSTed straight to
+            // provider/SaveMyGroup and provider/DeleteMyGroupMembers: a redirect issued from an
+            // included page is ignored, so the former savemygroup mode left a blank page (#4515).
+            {"newgroup", "/provider/ViewProviderNewGroup"}
 
     };
 
@@ -213,6 +216,14 @@
         response.setContentType("text/plain;charset=UTF-8");
     }
     request.getRequestDispatcher(includeTarget).include(request, response);
+    Object mutationStatus = request.getAttribute(ProviderWriteGuard.STATUS_ATTRIBUTE);
+    if (mutationStatus instanceof Integer) {
+        if (((Integer) mutationStatus) == 405) {
+            response.setHeader("Allow", "POST");
+        }
+        response.sendError((Integer) mutationStatus);
+        return;
+    }
     if (statusRequest) {
         Object status = request.getAttribute("providerAddStatusHttpStatus");
         if (status instanceof Integer) {

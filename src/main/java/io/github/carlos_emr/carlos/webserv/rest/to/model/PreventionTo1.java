@@ -30,12 +30,16 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 public class PreventionTo1 {
 
     private Integer id;
     private Integer demographicId;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date creationDate = new Date();
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date preventionDate;
 
     private String providerNo;
@@ -49,6 +53,7 @@ public class PreventionTo1 {
 
     private String creatorProviderNo;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdateDate;
 
     public Integer getDemographicId() {

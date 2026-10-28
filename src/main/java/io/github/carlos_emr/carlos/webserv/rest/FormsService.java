@@ -210,8 +210,10 @@ public class FormsService extends AbstractServiceImpl {
     @GET
     @Path("/{demographicNo}/completedEncounterForms")
     @Produces("application/json")
-    public FormListTo1 getCompletedFormNames(@PathParam("demographicNo") String demographicNo) {
-        requireRead(SECOBJ_FORMS, demographicNo);
+    public FormListTo1 getCompletedFormNames(@PathParam("demographicNo") Integer demographicNo) {
+        // Authorization and lookup must use the same patient identity, including for paths like /01/.
+        String patientId = demographicNo.toString();
+        requireRead(SECOBJ_FORMS, patientId);
         FormListTo1 formListTo1 = new FormListTo1();
 
         List<EncounterForm> encounterForms = formsManager.getAllEncounterForms();
@@ -221,7 +223,7 @@ public class FormsService extends AbstractServiceImpl {
             String table = StringUtils.trimToNull(encounterForm.getFormTable());
             if (table != null) {
 
-                EctFormData.PatientForm[] pforms = EctFormData.getPatientFormsFromLocalAndRemote(getLoggedInInfo(), demographicNo, table);
+                EctFormData.PatientForm[] pforms = EctFormData.getPatientFormsFromLocalAndRemote(getLoggedInInfo(), patientId, table);
                 int formId = 0;
                 String name = encounterForm.getFormName();
 
@@ -240,7 +242,7 @@ public class FormsService extends AbstractServiceImpl {
                         date = null;
                     }
 
-                    formListTo1.add(FormTo1.create(null, Integer.parseInt(demographicNo), formId, FormsManager.FORM, name, null, null, date, false));
+                    formListTo1.add(FormTo1.create(null, demographicNo, formId, FormsManager.FORM, name, null, null, date, false));
 
                 }
 

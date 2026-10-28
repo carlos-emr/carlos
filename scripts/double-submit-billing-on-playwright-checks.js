@@ -17,6 +17,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
+const { captureScheduleContext, assertScheduleContext } = require('./lib/native-schedule-context');
 const { MODES_REPLAY: MODES, rapid, settledCount, watchPosts, verdicts, armSlowServer } = require('./lib/double-submit-helpers');
 
 const BILL_DATE = process.env.BILLING_SUBMIT_DATE || '2024-05-06';
@@ -30,6 +31,11 @@ async function workflow(s) {
   const headers = () => (apptIds.length ? sql.rows(`SELECT id FROM billing_on_cheader1 WHERE appointment_no IN (${apptIds.join(',')})
     AND demographic_no=${patient}`).map(([id]) => id) : []);
   s.cleanup(() => {
+    const browser = s.context.browser();
+    h.assert(browser && !browser.isConnected(), 'Owned billing fixtures retained: browser closure is unconfirmed');
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}
+      AND last_name=${h.sqlString(marker)} AND provider_no=${h.sqlString(provider)}`) === '1',
+    'Owned billing patient identity changed');
     for (const id of headers()) {
       h.assert(/^[1-9]\d*$/.test(id), 'Owned bill id is invalid');
       sql.execute(`DELETE FROM billing_on_transaction WHERE ch1_id=${id}`);
@@ -42,27 +48,35 @@ async function workflow(s) {
     h.assert(!apptIds.length || sql.value(`SELECT COUNT(*) FROM appointment WHERE appointment_no IN (${apptIds.join(',')})`) === '0',
       'Owned appointments were not removed');
   });
-  sql.execute(`UPDATE demographic SET hin='9876543217', ver='ZZ', hc_type='ON', hc_renew_date='2099-12-31',
-    date_joined='2020-01-01' WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
-
   const [yy, mm, dd] = BILL_DATE.split('-').map(Number);
   const dayQuery = new URLSearchParams({ year: yy, month: mm, day: dd, view: '0', displaymode: 'day',
     dboperation: 'searchappointmentday', viewall: '1' });
+  // Capture the actual displayed site/provider before any appointment INSERT. Blank locations
+  // are intentionally invisible in a native multisite day sheet; never hide that with a looser link.
+  await h.gotoApp(s.schedule, s.config.baseUrl, `/provider/providercontrol?${dayQuery}`);
+  await s.schedule.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
+  const scheduleContext = await captureScheduleContext(s);
+  h.assert(scheduleContext.date === BILL_DATE, 'The native day sheet did not display the requested billing date');
+  sql.execute(`UPDATE demographic SET hin='9876543217', ver='ZZ', hc_type='ON', hc_renew_date='2099-12-31',
+    date_joined='2020-01-01' WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
+
   const v = verdicts('billing-on-save');
 
   for (const [index, mode] of MODES.entries()) {
     await s.step(`OHIP Save via ${mode.label} writes one bill`, async () => {
       const start = `${String(8 + index).padStart(2, '0')}:00:00`;
+      await assertScheduleContext(s, scheduleContext);
       const apptNo = sql.value(`INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name, demographic_no,
         program_id, notes, reason, location, resources, type, style, billing, status, createdatetime, updatedatetime, creator, remarks, urgency)
         VALUES (${h.sqlString(provider)}, ${h.sqlString(BILL_DATE)}, '${start}', ADDTIME('${start}', '00:14:00'),
         ${h.sqlString(`${marker},Workflow`)}, ${patient}, 0, ${h.sqlString(`${marker}-${mode.tag} bill`)}, ${h.sqlString(`${marker}-${mode.tag} bill`)},
-        '', '', '', '', '', 't', NOW(), NOW(), ${h.sqlString(provider)}, '', ''); SELECT LAST_INSERT_ID()`);
+        ${h.sqlString(scheduleContext.location)}, '', '', '', '', 't', NOW(), NOW(), ${h.sqlString(provider)}, '', ''); SELECT LAST_INSERT_ID()`);
       h.assert(/^[1-9]\d*$/.test(apptNo), 'The appointment fixture was not created');
       apptIds.push(apptNo);
 
       await h.gotoApp(s.schedule, s.config.baseUrl, `/provider/providercontrol?${dayQuery}`);
       await s.schedule.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
+      await assertScheduleContext(s, scheduleContext);
       const bill = s.schedule.locator(`a[onclick*="/billing?billRegion"][onclick*="appointment_no=${apptNo}&"]`).first();
       await bill.waitFor({ state: 'attached', timeout: 20000 });
       const page = await s.popup(s.schedule, bill, 'bill-form');

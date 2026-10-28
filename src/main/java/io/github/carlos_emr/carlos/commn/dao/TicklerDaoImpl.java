@@ -98,10 +98,29 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @Override
+    public Tickler findForUpdate(Integer ticklerNo) {
+        Tickler tickler = entityManager.find(Tickler.class, ticklerNo,
+                jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (tickler != null) {
+            // find may return a stale instance already managed by this persistence context.
+            entityManager.refresh(tickler, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        }
+        return tickler;
+    }
+
+    @Override
     public Tickler lockForAttachmentSync(Integer ticklerNo) {
         // SELECT ... FOR UPDATE on the parent row: a second attachment sync for the same
         // tickler blocks here until the first commits, then reads its rows.
         return entityManager.find(Tickler.class, ticklerNo, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Override
+    public List<Integer> findDemographicNos(Integer ticklerNo) {
+        return entityManager.createQuery(
+                "select t.demographicNo from Tickler t where t.id = :id", Integer.class)
+                .setParameter("id", ticklerNo)
+                .getResultList();
     }
 
     @Override
@@ -196,7 +215,10 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         List<Tickler> results = new ArrayList<>();
         for (int index = 0; index < ticklerNos.size(); index += IN_CLAUSE_BATCH_SIZE) {
             List<Integer> ticklerBatch = ticklerNos.subList(index, Math.min(index + IN_CLAUSE_BATCH_SIZE, ticklerNos.size()));
-            Query query = entityManager.createQuery("select t from Tickler t where t.id in (?1) AND t.demographicNo = ?2 AND t.status != 'D'");
+            // The lab displays print each linked tickler's assignee after this call returns; fetch it here
+            // (single-valued, so no duplicate rows) instead of leaving a lazy proxy the JSP cannot load.
+            Query query = entityManager.createQuery("select t from Tickler t left join fetch t.assignee"
+                    + " where t.id in (?1) AND t.demographicNo = ?2 AND t.status != 'D'");
             query.setParameter(1, ticklerBatch);
             query.setParameter(2, demoNo);
             results.addAll(query.getResultList());
@@ -229,7 +251,9 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         List<Tickler> results = new ArrayList<>();
         for (int index = 0; index < ticklerNos.size(); index += IN_CLAUSE_BATCH_SIZE) {
             List<Integer> ticklerBatch = ticklerNos.subList(index, Math.min(index + IN_CLAUSE_BATCH_SIZE, ticklerNos.size()));
-            Query query = entityManager.createQuery("select t from Tickler t where t.id in (?1) AND t.taskAssignedTo = ?2 AND t.demographicNo = ?3 AND t.status != 'D'");
+            // Same reason as findByTicklerNosDemo: the lab display (labDisplayAjax.jsp) prints the assignee.
+            Query query = entityManager.createQuery("select t from Tickler t left join fetch t.assignee"
+                    + " where t.id in (?1) AND t.taskAssignedTo = ?2 AND t.demographicNo = ?3 AND t.status != 'D'");
             query.setParameter(1, ticklerBatch);
             query.setParameter(2, assignedTo);
             query.setParameter(3, demoNo);
@@ -565,6 +589,10 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
             query = query + " and t.message = ?" + paramIndex++;
             paramList.add(filter.getMessage());
         }
+        if (!filter.getExcludedDemographicNos().isEmpty()) {
+            query += " and (t.demographicNo is null or t.demographicNo not in (?" + paramIndex++ + "))";
+            paramList.add(filter.getExcludedDemographicNos());
+        }
 
         return query;
     }
@@ -763,6 +791,11 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
             sb.append(" AND t.message = ?");
             sb.append(paramIndex++);
             paramList.add(filter.getMessage());
+        }
+
+        if (!filter.getExcludedDemographicNos().isEmpty()) {
+            sb.append(" AND (t.demographicNo IS NULL OR t.demographicNo NOT IN (?").append(paramIndex++).append("))");
+            paramList.add(filter.getExcludedDemographicNos());
         }
 
         if (filter.getSearchTerm() != null && !filter.getSearchTerm().trim().isEmpty()) {

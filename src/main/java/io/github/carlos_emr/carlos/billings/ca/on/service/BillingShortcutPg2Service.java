@@ -163,19 +163,34 @@ public class BillingShortcutPg2Service {
 
         persistBills(request, calc, demo, provider, userNo);
 
-        BillingShortcutPg2ViewModel.PostSaveAction action;
-        String redirectUrl = "";
-        String submit = request.getParameter("submit");
-        if ("Save".equals(submit)) {
-            action = BillingShortcutPg2ViewModel.PostSaveAction.CLOSE_WINDOW;
-        } else {
-            action = BillingShortcutPg2ViewModel.PostSaveAction.REDIRECT_TO_PG1;
-            redirectUrl = buildPg1RedirectUrl(request, demo, userNo);
-        }
+        BillingShortcutPg2ViewModel.PostSaveAction action = postSaveAction(request);
+        String redirectUrl = action == BillingShortcutPg2ViewModel.PostSaveAction.REDIRECT_TO_PG1
+                ? buildPg1RedirectUrl(request, demo, userNo) : "";
         return b.calculationHtml(calc.html + "<br>Billing records were added.<br>")
                 .postSaveAction(action)
                 .redirectUrl(redirectUrl)
                 .build();
+    }
+
+    /**
+     * Where the Confirmation window goes once its bills are saved: Save closes it, Save and
+     * Back reopens page 1 for the next bill.
+     *
+     * <p>The Confirmation page names its buttons {@code button}. {@code submit} is page 1's
+     * Next, which the page echoes back as a hidden field, so it reads "Next" whichever button
+     * was pressed; deciding from it sent Save back to page 1 too, which looks like an unsaved
+     * bill and invites a second save (#5055). A post without {@code button} still decides from
+     * {@code submit}, as before.</p>
+     *
+     * @param request the Confirmation page's save post
+     * @return {@code CLOSE_WINDOW} for Save, otherwise {@code REDIRECT_TO_PG1}
+     */
+    static BillingShortcutPg2ViewModel.PostSaveAction postSaveAction(HttpServletRequest request) {
+        String button = request.getParameter("button");
+        String choice = button == null || button.isEmpty() ? request.getParameter("submit") : button;
+        return "Save".equals(choice)
+                ? BillingShortcutPg2ViewModel.PostSaveAction.CLOSE_WINDOW
+                : BillingShortcutPg2ViewModel.PostSaveAction.REDIRECT_TO_PG1;
     }
 
     private static boolean shouldSave(HttpServletRequest request) {

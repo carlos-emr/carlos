@@ -920,7 +920,10 @@
                     credentials: 'same-origin',
                     body: data
                 })
-                .then(function(response) { return response.json(); })
+                .then(function(response) {
+                    if (!response.ok || response.redirected) throw new Error('Description shortcuts request failed');
+                    return response.json();
+                })
                 .then(function(json) {
                     if (json != null) {
                         for (var i = 0; i < json.documentDescriptionTemplate.length; i++) {
@@ -935,6 +938,14 @@
                             document.getElementById('docDescriptionList').appendChild(bdoc);
                         }
                     }
+                })
+                .catch(function() {
+                    // Say so instead of leaving an empty row: a refused or failed read is otherwise
+                    // indistinguishable from a type with no shortcuts (issue #5057).
+                    var note = document.createElement('span');
+                    note.className = 'text-danger small';
+                    note.textContent = '<fmt:message key="dms.incomingDocs.descriptionShortcutsUnavailable" var="descriptionShortcutsUnavailable"/><carlos:encode value="${descriptionShortcutsUnavailable}" context="javaScript"/>';
+                    document.getElementById('docDescriptionList').appendChild(note);
                 });
             }
         }

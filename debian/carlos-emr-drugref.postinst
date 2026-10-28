@@ -17,31 +17,44 @@ STATE=/var/lib/carlos-emr
 # boot-time carlos-emr-provision.service, or a repair by hand -- could leave
 # the database holding one generated password and a properties file naming the
 # other. Same file, same five-minute wait; a host without flock(1) behaves as
-# it did before the lock existed. `carlos-ctl import-o19` holds the same lock
-# for the whole of an import (#3678), and db-users must not rewrite grants
-# under one: with the o19 guard reporting an import this does not wait the five
-# minutes out, and returns 2 so the refusal below can say what to do.
+# it did before the lock existed, but still checks the import guard.
+# `carlos-ctl import-o19` holds the same lock for an active import (#3678).
+# A paused import releases the lock but still owns the database, so the guard
+# must be checked before taking the lock and again while holding it, including
+# after a wait. Return 2 so the refusal below can say what to do.
 PROVISION_LOCK="${STATE}/.finish-install.lock"
 O19_GUARD=/usr/lib/carlos-emr/carlos-emr-o19-guard
 o19_import_holds_database() {
-    # The guard carlos-emr ships (exit 1: an import is in progress). Absent,
-    # this only loses the shortcut; the lock itself still excludes.
+    # The guard carlos-emr ships (exit 1: an import is in progress, even
+    # while paused). An older install without it has only lock serialization.
     [ -x "${O19_GUARD}" ] && ! "${O19_GUARD}" 2>/dev/null
 }
 acquire_provision_lock() {
-    command -v flock >/dev/null 2>&1 || return 0
+    o19_import_holds_database && return 2
+    if ! command -v flock >/dev/null 2>&1; then
+        o19_import_holds_database && return 2
+        return 0
+    fi
     mkdir -p "${STATE}" 2>/dev/null || return 1
     # Probe in a subshell first: under dash a redirection attached to `exec` is
     # permanent (a trailing 2>/dev/null here silenced every later warning in
     # this script), and a failed one exits the shell instead of returning.
     ( exec 9>"${PROVISION_LOCK}" ) 2>/dev/null || return 1
     exec 9>"${PROVISION_LOCK}" || return 1
-    flock -n 9 && return 0
-    if ! o19_import_holds_database && flock -w 300 9; then
-        return 0
+    if ! flock -n 9; then
+        o19_import_holds_database && return 2
+        if ! flock -w 300 9; then
+            o19_import_holds_database && return 2
+            return 1
+        fi
     fi
-    o19_import_holds_database && return 2
-    return 1
+    # The ledger may have appeared while we took or waited for the lock. A
+    # previous owner may also have paused its import before releasing it.
+    if o19_import_holds_database; then
+        exec 9>&-
+        return 2
+    fi
+    return 0
 }
 
 # Whole seconds on the monotonic clock, for the bounded waits below: date +%s
@@ -117,10 +130,10 @@ case "$1" in
             acquire_provision_lock || provision_lock_rc=$?
             if [ "${provision_lock_rc}" = 2 ]; then
                 echo "carlos-emr-drugref: ERROR: an OSCAR 19 import is in progress and owns the" >&2
-                echo "carlos-emr-drugref: database (it holds ${PROVISION_LOCK}). The drug reference" >&2
+                echo "carlos-emr-drugref: database, including while paused. The drug reference" >&2
                 echo "carlos-emr-drugref: account and grants were NOT touched. Finish the import with" >&2
                 echo "carlos-emr-drugref:   sudo carlos-ctl import-o19 ... --resume" >&2
-                echo "carlos-emr-drugref: then:  sudo dpkg-reconfigure carlos-emr-drugref" >&2
+                echo "carlos-emr-drugref: then:  sudo dpkg --configure carlos-emr-drugref" >&2
                 exit 1
             fi
             if [ "${provision_lock_rc}" != 0 ]; then
@@ -128,7 +141,7 @@ case "$1" in
                 echo "carlos-emr-drugref: another CARLOS run (carlos-ctl finish-install, the boot-time" >&2
                 echo "carlos-emr-drugref: carlos-emr-provision.service, or carlos-ctl import-o19) is using the" >&2
                 echo "carlos-emr-drugref: database, or /var is not writable. Wait for it to finish, then:" >&2
-                echo "carlos-emr-drugref:   sudo dpkg-reconfigure carlos-emr-drugref" >&2
+                echo "carlos-emr-drugref:   sudo dpkg --configure carlos-emr-drugref" >&2
                 exit 1
             fi
             carlos-ctl db-users

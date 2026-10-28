@@ -1,6 +1,6 @@
 # OHIP Diagnostic Codes
 
-> **Source**: <https://www.health.gov.on.ca/en/pro/programs/ohip/claims_submission/diagnostic_codes.pdf>
+> **Source**: [https://www.health.gov.on.ca/en/pro/programs/ohip/claims_submission/diagnostic_codes.pdf](https://www.health.gov.on.ca/en/pro/programs/ohip/claims_submission/diagnostic_codes.pdf)
 > **Fetched**: 2026-04-29
 > **Pages**: 43
 > **Format**: extracted text from PDF via `pypdfium2`; code/description rows have been re-aligned into GFM tables. Section headings come from the PDF's Table of Contents (multi-line wrapped headings are merged). Where a description wraps across multiple lines in the PDF, those continuations have been merged into a single cell.

@@ -317,7 +317,7 @@
 				</box>
 				<expression><![CDATA[$F{billingtype}]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="293" y="0" width="59" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-32" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="false" pattern="dd-MMM-yy">
+			<element kind="textField" mode="Transparent" x="293" y="0" width="59" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-32" hTextAlign="Left" vTextAlign="Middle" rotation="None" textAdjust="StretchHeight" blankWhenNull="false" pattern="dd-MMM-yy">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -327,7 +327,7 @@
 				</box>
 				<expression><![CDATA[new SimpleDateFormat("yyyyMMdd").parse($F{serviceDate})]]></expression>
 			</element>
-			<element kind="textField" mode="Opaque" x="117" y="0" width="27" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-33" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+			<element kind="textField" mode="Opaque" x="117" y="0" width="27" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-33" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -364,7 +364,7 @@
 		</element>
 	</pageFooter>
 	<summary height="56" splitType="Stretch">
-		<element kind="textField" mode="Opaque" x="0" y="0" width="34" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-3" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+		<element kind="textField" mode="Opaque" x="0" y="0" width="34" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-3" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="false" pattern="">
 			<paragraph lineSpacing="Single" />
 			<box>
 				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -374,7 +374,7 @@
 			</box>
 			<expression><![CDATA["MSP:"]]></expression>
 		</element>
-		<element kind="textField" mode="Opaque" x="0" y="30" width="48" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-11" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+		<element kind="textField" mode="Opaque" x="0" y="30" width="48" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-11" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="false" pattern="">
 			<paragraph lineSpacing="Single" />
 			<box>
 				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -384,7 +384,7 @@
 			</box>
 			<expression><![CDATA["Private:"]]></expression>
 		</element>
-		<element kind="textField" mode="Opaque" x="0" y="20" width="49" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-13" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+		<element kind="textField" mode="Opaque" x="0" y="20" width="49" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-13" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="false" pattern="">
 			<paragraph lineSpacing="Single" />
 			<box>
 				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -394,7 +394,7 @@
 			</box>
 			<expression><![CDATA["ICBC:"]]></expression>
 		</element>
-		<element kind="textField" mode="Opaque" x="0" y="10" width="34" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-14" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+		<element kind="textField" mode="Opaque" x="0" y="10" width="34" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-14" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="false" pattern="">
 			<paragraph lineSpacing="Single" />
 			<box>
 				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />

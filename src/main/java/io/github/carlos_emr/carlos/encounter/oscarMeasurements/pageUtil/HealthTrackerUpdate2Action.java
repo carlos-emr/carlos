@@ -24,7 +24,9 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SecRoleDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
@@ -36,6 +38,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.healthtracker.Hea
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.healthtracker.HealthTrackerSubmissionParser;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.healthtracker.HealthTrackerSubmissionResult;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.healthtracker.HealthTrackerSubmissionService;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -69,6 +72,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * {@code _measurement w}, resolve the flowsheet the request named, and translate
  * the result into a Struts result.
  *
+ * <p><b>Appointment link.</b> The saved measurements and note are linked to the
+ * appointment this patient was last opened for from the day sheet, and only if
+ * it is this patient's ({@link EncounterPatientContext#currentAppointment}). It
+ * used to be the login-wide last-clicked appointment, so with another patient's
+ * appointment opened since, this patient's measurements and note were linked to
+ * the other patient's visit (issue #4673).
+ *
  * <p><b>Privilege choice.</b> The gate is {@code _measurement w}, matching the
  * sibling {@link EctMeasurements2Action} and the endpoint this replaces. The
  * Health Tracker page additionally hides its Save controls behind
@@ -91,6 +101,7 @@ public class HealthTrackerUpdate2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final FlowSheetCustomizationDao flowSheetCustomizationDao;
     private final HealthTrackerSubmissionService submissionService;
+    private final OscarAppointmentDao appointmentDao;
 
     /**
      * No-arg constructor for the Struts object factory. Resolves its collaborators
@@ -105,15 +116,18 @@ public class HealthTrackerUpdate2Action extends ActionSupport {
                      new HealthTrackerMeasurementPersister(SpringUtils.getBean(MeasurementDao.class)),
                      new HealthTrackerNoteComposer(),
                      SpringUtils.getBean(CaseManagementManager.class),
-                     SpringUtils.getBean(SecRoleDao.class)));
+                     SpringUtils.getBean(SecRoleDao.class)),
+             SpringUtils.getBean(OscarAppointmentDao.class));
     }
 
     HealthTrackerUpdate2Action(SecurityInfoManager securityInfoManager,
                                FlowSheetCustomizationDao flowSheetCustomizationDao,
-                               HealthTrackerSubmissionService submissionService) {
+                               HealthTrackerSubmissionService submissionService,
+                               OscarAppointmentDao appointmentDao) {
         this.securityInfoManager = securityInfoManager;
         this.flowSheetCustomizationDao = flowSheetCustomizationDao;
         this.submissionService = submissionService;
+        this.appointmentDao = appointmentDao;
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
@@ -184,7 +198,7 @@ public class HealthTrackerUpdate2Action extends ActionSupport {
                 request::getParameter,
                 demographicNo,
                 providerNo,
-                appointmentNo(session),
+                appointmentNo(request, demographicNo),
                 new EctProgram(session).getProgram(providerNo),
                 defaultDate);
 
@@ -259,15 +273,10 @@ public class HealthTrackerUpdate2Action extends ActionSupport {
         return MeasurementTemplateFlowSheetConfig.getInstance().getFlowSheet(template, customizations);
     }
 
-    private static int appointmentNo(HttpSession session) {
-        Object current = session.getAttribute("cur_appointment_no");
-        if (current == null) {
-            return 0;
-        }
-        try {
-            return Integer.parseInt(current.toString());
-        } catch (NumberFormatException e) {
-            return 0;
-        }
+    /** This patient's own current appointment, or {@code 0} when there is none. */
+    private int appointmentNo(HttpServletRequest request, int demographicNo) {
+        Appointment current = EncounterPatientContext.currentAppointment(
+                request, Integer.toString(demographicNo), appointmentDao);
+        return current == null ? 0 : current.getId();
     }
 }

@@ -62,28 +62,51 @@ public final class QueryByExampleSqlValidator {
             "\\b(?:into|procedure)\\b", Pattern.CASE_INSENSITIVE);
 
     /**
-     * Tables containing reusable authentication material or private cryptographic keys.
-     * Query-by-Example is a reporting surface, so even administrators must use the
-     * purpose-built management flows rather than exporting these records as report data.
+     * Tables containing reusable authentication material, private cryptographic keys, live
+     * HTTP session identifiers or integration configuration. Query-by-Example is a reporting
+     * surface, so even administrators must use the purpose-built management flows rather than
+     * exporting these records as report data.
+     *
+     * <p>This list must name exactly the tables that {@code db/reporting/carlos_report_grants.sql}
+     * classifies as {@code restricted}: the database never grants them to the reporting account,
+     * and this application-level check refuses them before a query is sent, as defense in depth.
+     * {@code QueryByExampleReportingClassificationUnitTest} keeps the two in step (issue #3372).</p>
      */
     static final Set<String> SECURITY_SENSITIVE_TABLES = Set.of(
             "appdefinition",
             "appuser",
+            "casemgmt_note_lock",
+            "consent_migration_audit",
+            "emailfooterlogo",
+            "outboundemailarchive",
+            "outboundemailarchiveattachment",
+            "outboundemailarchivedeletion",
+            "outboundemailarchivelegalholdevent",
+            "patient_portal_invite_delivery",
+            "portal_booking_offer",
+            "sms_config",
+            "sms_provider_rate_limit",
+            "sms_transaction",
             "emailconfig",
             "emaillog",
             "fax_config",
+            "oceansetting",
             "oscarcommlocations",
+            "oscarjob",
             "oscarkeys",
+            "pagemonitor",
             "professionalspecialists",
             "property",
             "publickeys",
+            "report_date",
             "security",
             "securityarchive",
             "securitytoken",
             "serviceaccesstoken",
             "serviceclient",
             "serviceoauthnonce",
-            "servicerequesttoken");
+            "servicerequesttoken",
+            "studylogin");
 
     /**
      * Reporting-safe built-ins. Anything not listed is rejected so stored functions and
@@ -226,7 +249,7 @@ public final class QueryByExampleSqlValidator {
         String unqualifiedTable = lastDot >= 0 ? normalizedTable.substring(lastDot + 1) : normalizedTable;
         if (SECURITY_SENSITIVE_TABLES.contains(canonicalIdentifier(unqualifiedTable))) {
             throw new QueryByExampleValidationException(
-                    "Queries may not read tables containing authentication secrets");
+                    "Queries may not read restricted tables holding credentials, keys, sessions or integration settings");
         }
     }
 

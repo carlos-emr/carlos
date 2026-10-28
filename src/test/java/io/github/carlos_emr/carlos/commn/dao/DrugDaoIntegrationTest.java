@@ -34,6 +34,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Propagation;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
@@ -61,6 +68,9 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private DrugDao drugDao;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -129,6 +139,64 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(drug);
         entityManager.flush();
         return drug;
+    }
+
+    @Test
+    void shouldPreserveFirstDiscontinuation_andRefuseAnotherPatient() {
+        Drug drug = createAndPersist(DEMO_NO, "Owned discontinuation", "", false);
+        assertThat(drugDao.discontinueIfActive(drug.getId(), DEMO_NO_2, today, "foreign")).isFalse();
+        assertThat(drugDao.discontinueIfActive(drug.getId(), DEMO_NO, today, " doseChange ")).isTrue();
+        assertThat(drugDao.discontinueIfActive(drug.getId(), DEMO_NO, tomorrow, "allergy")).isFalse();
+        entityManager.refresh(drug);
+        assertThat(drug.isArchived()).isTrue();
+        assertThat(drug.getArchivedReason()).isEqualTo("doseChange");
+        assertThat(drug.getArchivedDate().getTime()).isEqualTo(today.getTime());
+        assertThat(drug.getLastUpdateDate().getTime()).isEqualTo(today.getTime());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldAllowOnlyOneDiscontinuation_whenTransactionsOverlap() throws Exception {
+        var transaction = new TransactionTemplate(transactionManager);
+        Integer id = transaction.execute(status -> createAndPersist(DEMO_NO, "Concurrent discontinuation", "", false).getId());
+        var firstSaved = new CountDownLatch(1);
+        var secondStarted = new CountDownLatch(1);
+        var releaseFirst = new CountDownLatch(1);
+        var workers = Executors.newFixedThreadPool(2);
+        try {
+            var first = workers.submit(() -> transaction.execute(status -> {
+                boolean changed = drugDao.discontinueIfActive(id, DEMO_NO, today, "doseChange");
+                firstSaved.countDown();
+                try {
+                    if (!releaseFirst.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Transaction wait timed out");
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(interrupted);
+                }
+                return changed;
+            }));
+            assertThat(firstSaved.await(10, TimeUnit.SECONDS)).isTrue();
+            var second = workers.submit(() -> transaction.execute(status -> {
+                secondStarted.countDown();
+                return drugDao.discontinueIfActive(id, DEMO_NO, tomorrow, "allergy");
+            }));
+            assertThat(secondStarted.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> second.get(150, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+            releaseFirst.countDown();
+            assertThat(first.get(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(second.get(10, TimeUnit.SECONDS)).isFalse();
+            transaction.executeWithoutResult(status -> {
+                Drug saved = entityManager.find(Drug.class, id);
+                assertThat(saved.getArchivedReason()).isEqualTo("doseChange");
+                assertThat(saved.getArchivedDate().getTime()).isEqualTo(today.getTime());
+            });
+        } finally {
+            releaseFirst.countDown();
+            workers.shutdown();
+            if (!workers.awaitTermination(15, TimeUnit.SECONDS)) workers.shutdownNow();
+            transaction.executeWithoutResult(status -> entityManager.remove(entityManager.find(Drug.class, id)));
+        }
     }
 
     @Test

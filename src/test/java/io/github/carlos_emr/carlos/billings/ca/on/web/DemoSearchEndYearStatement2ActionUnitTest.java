@@ -118,8 +118,6 @@ class DemoSearchEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
         demo.setPhone("555-555-5555");
         demo.setPhone2("");
         when(mockService.findUniquePatient(any(), any(), any(), any())).thenReturn(demo);
-        // Pre-stash a stale summary; the action should clear it before populating fresh.
-        mockRequest.getSession(true).setAttribute("summary", "stale");
 
         DemoSearchEndYearStatement2Action action =
                 new DemoSearchEndYearStatement2Action(mockSecurityInfoManager, mockService);

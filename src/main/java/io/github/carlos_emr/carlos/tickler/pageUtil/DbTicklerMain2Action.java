@@ -56,7 +56,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>When checkbox values are present the action loops over each selected tickler ID,
  * determines the target {@link Tickler.STATUS} from the first character of
- * {@code submit_form}, delegates to {@link TicklerManager#updateStatus}, and then
+ * {@code submit_form}, delegates to {@link TicklerManager#updateStatusIfCurrent}, and then
  * redirects to {@code ticklerMain.jsp}.
  *
  * <p>Security: requires {@code _tickler} update privilege and POST method.
@@ -117,7 +117,8 @@ public final class DbTicklerMain2Action extends ActionSupport {
             return NONE;
         }
 
-        // Determine the requested status from the first character of submit_form
+        // Deletion retains the clinical record with status D. Legacy "Erase Completely"
+        // submissions must also only mark Deleted, never remove the task or related records.
         String submitForm = request.getParameter("submit_form");
         Tickler.STATUS status = Tickler.STATUS.A;
         if (submitForm != null && !submitForm.isEmpty()) {
@@ -130,12 +131,14 @@ public final class DbTicklerMain2Action extends ActionSupport {
         }
 
         int failCount = 0;
+        int conflictCount = 0;
         for (String ticklerIdStr : checkboxes) {
             try {
-                Tickler t = ticklerManager.getTickler(loggedInInfo, Integer.parseInt(ticklerIdStr));
-                if (t != null) {
-                    ticklerManager.updateStatus(loggedInInfo, t.getId(),
-                            loggedInInfo.getLoggedInProviderNo(), status);
+                int ticklerId = Integer.parseInt(ticklerIdStr);
+                Tickler.STATUS expectedStatus = renderedStatus(request.getParameter("expectedStatus_" + ticklerId));
+                if (!ticklerManager.updateStatusIfCurrent(loggedInInfo, ticklerId,
+                        loggedInInfo.getLoggedInProviderNo(), expectedStatus, status)) {
+                    conflictCount++;
                 }
             } catch (NumberFormatException e) {
                 MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", LogSafe.sanitize(ticklerIdStr), e);
@@ -150,8 +153,19 @@ public final class DbTicklerMain2Action extends ActionSupport {
         if (failCount > 0) {
             redirect += (redirect.contains("?") ? "&" : "?") + "failCount=" + failCount;
         }
+        if (conflictCount > 0) {
+            redirect += (redirect.contains("?") ? "&" : "?") + "conflictCount=" + conflictCount;
+        }
         response.sendRedirect(redirect);
         return NONE;
+    }
+
+    private static Tickler.STATUS renderedStatus(String value) {
+        try {
+            return value == null ? null : Tickler.STATUS.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private String appendScheduleNav(String redirect) {

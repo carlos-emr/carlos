@@ -463,6 +463,14 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                             </table>
                         </td>
                     </tr>
+                    <% if (mDSSegmentData.isLoadFailed()) { %>
+                    <%-- A failed query leaves the report partly read; say so rather than show it as complete. --%>
+                    <tr>
+                        <td bgcolor="white" colspan="2">
+                            <div class="FieldData mds-load-failed" id="mdsLoadFailed" role="alert" style="color:#a00000; font-weight:bold;"><fmt:message key="oscarMDS.segmentDisplay.msgLoadFailed"/></div>
+                        </td>
+                    </tr>
+                    <% } %>
                     <tr>
                         <td align="center" bgcolor="white" colspan="2">
                             <%
@@ -475,6 +483,13 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                     if (multiID[j].equals(request.getParameter("segmentID")))
                                         startFlag = true;
                                     if (startFlag) {
+                                        // A version that could not be read would otherwise just lose its routing
+                                        // status lines; the current version's failure is announced above.
+                                        if (currentData.isLoadFailed() && !multiID[j].equals(request.getParameter("segmentID"))) {
+                            %>
+                            <div class="FieldData mds-load-failed" role="alert" style="color:#a00000; font-weight:bold;"><b>Version:</b> v<%= j + 1 %> &mdash; <fmt:message key="oscarMDS.segmentDisplay.msgLoadFailed"/></div>
+                            <%
+                                        }
                                         if (currentData.statusArray.size() > 0) {
                             %>
 
