@@ -173,9 +173,14 @@ RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" && \
 RUN playwright install --with-deps chromium firefox && \
     echo "✅ Playwright browsers installed (Chromium, Firefox)"
 
-# Install pipx and Aider AI coding assistant
+# Aider requires Python <3.13; Ubuntu 26.04 supplies Python 3.14. Let uv
+# provide an isolated Python 3.12 instead of pip selecting an obsolete Aider.
+ARG UV_VERSION=0.13.6
+ARG AIDER_VERSION=0.86.2
 RUN /usr/local/bin/apt-install pipx && \
-    pipx install aider-chat && \
+    pipx install "uv==${UV_VERSION}" && \
+    uv tool install --python 3.12 "aider-chat==${AIDER_VERSION}" && \
+    aider --version && \
     pipx ensurepath
 
 # Install Postfix for mail testing with default values
