@@ -40,15 +40,55 @@ class CdsRulesetFingerprintMappingUnitTest {
     @ResourceLock("java.util.TimeZone")
     @ResourceLock("java.util.Locale")
     void shouldChangeFullFingerprint_whenActualProgramOrAuthorizationMappingBytesChange() {
-        ClassLoader deployed = CdsImportJobService.class.getClassLoader();
-        var original = CdsRulesetFingerprint.forClassLoader(deployed, URL::openStream);
-        for (String mapping :
+        assertMappedByteChanges(
                 List.of(
                         "PMmodule/model/Program",
                         "PMmodule/model/ProgramProvider",
                         "commn/model/ProviderDefaultProgram",
                         "model/security/Secrole",
-                        "commn/model/Facility")) {
+                        "commn/model/Facility"));
+    }
+
+    @Test
+    @ResourceLock("java.util.TimeZone")
+    @ResourceLock("java.util.Locale")
+    void shouldChangeFullFingerprint_whenParticipatingDaoImplementationBytesChange() {
+        assertMappedByteChanges(
+                List.of(
+                        "commn/dao/DemographicDao",
+                        "commn/dao/DemographicDaoImpl",
+                        "commn/dao/DemographicExtDao",
+                        "commn/dao/DemographicExtDaoImpl",
+                        "commn/dao/AdmissionDao",
+                        "commn/dao/AdmissionDaoImpl",
+                        "commn/dao/OscarAppointmentDao",
+                        "commn/dao/OscarAppointmentDaoImpl",
+                        "commn/dao/DocumentDao",
+                        "commn/dao/DocumentDaoImpl",
+                        "commn/dao/CtlDocumentDao",
+                        "commn/dao/CtlDocumentDaoImpl",
+                        "commn/dao/Hl7TextMessageDao",
+                        "commn/dao/Hl7TextMessageDaoImpl",
+                        "commn/dao/Hl7TextInfoDao",
+                        "commn/dao/Hl7TextInfoDaoImpl",
+                        "commn/dao/PatientLabRoutingDao",
+                        "commn/dao/PatientLabRoutingDaoImpl",
+                        "commn/dao/SecurityDao",
+                        "commn/dao/SecurityDaoImpl",
+                        "commn/dao/ProviderFacilityDao",
+                        "commn/dao/ProviderFacilityDaoImpl",
+                        "casemgmt/dao/CaseManagementNoteDAO",
+                        "casemgmt/dao/CaseManagementNoteDAOImpl",
+                        "casemgmt/dao/CaseManagementIssueDAO",
+                        "casemgmt/dao/CaseManagementIssueDAOImpl",
+                        "casemgmt/dao/IssueDAO",
+                        "casemgmt/dao/IssueDAOImpl"));
+    }
+
+    private static void assertMappedByteChanges(List<String> mappings) {
+        ClassLoader deployed = CdsImportJobService.class.getClassLoader();
+        var original = CdsRulesetFingerprint.forClassLoader(deployed, URL::openStream);
+        for (String mapping : mappings) {
             String resource = "io/github/carlos_emr/carlos/" + mapping + ".class";
             var reads = new AtomicInteger();
             var changed =
