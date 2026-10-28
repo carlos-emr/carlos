@@ -297,7 +297,8 @@
                 <td  style="width: 300px;"><fmt:message key="report.reportindex.formDaySheet"/></td>
                 <td><select name="provider_no" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
-                        ResultSet rsgroup = reportMainBean.queryResults(mygroup_dboperation);
+                        ResultSet rsgroup = reportMainBean.queryResults("site_search_group".equals(mygroup_dboperation)
+                                ? new String[]{curUser_no} : new String[0], mygroup_dboperation);
 
                         while (rsgroup.next()) {
                             if (isTeamAccessPrivacy)
@@ -310,7 +311,10 @@
                         }
                     %>
                     <%
-                        rsgroup = reportMainBean.queryResults(provider_dboperation);
+                        rsgroup = reportMainBean.queryResults("team_search_provider".equals(provider_dboperation)
+                                ? new String[]{curUser_no, curUser_no}
+                                : "site_search_provider".equals(provider_dboperation) ? new String[]{curUser_no}
+                                : new String[0], provider_dboperation);
                         while (rsgroup.next()) {
                     %>
                     <option value="<carlos:encode value='<%= rsgroup.getString("provider_no") %>' context="htmlAttribute"/>"

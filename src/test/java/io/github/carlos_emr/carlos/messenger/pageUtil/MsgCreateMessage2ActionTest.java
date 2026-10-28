@@ -206,6 +206,9 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         private final AtomicReference<String> sentItems = new AtomicReference<>();
         private final AtomicReference<String> sentPdfs = new AtomicReference<>();
         private final java.util.concurrent.atomic.AtomicInteger sends = new java.util.concurrent.atomic.AtomicInteger();
+        private Runnable duringSend = () -> { };
+        private String sentMessageId = "77";
+        private RuntimeException sendFailure;
         private boolean noRecipients;
         private String thisWindow;
         private String otherWindow;
@@ -238,11 +241,116 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
                             sends.incrementAndGet();
                             sentItems.set(invocation.getArgument(6));
                             sentPdfs.set(invocation.getArgument(7));
-                            return "77";
+                            duringSend.run();
+                            if (sendFailure != null) {
+                                throw sendFailure;
+                            }
+                            return sentMessageId;
                         });
             })) {
                 return executeAction(action);
             }
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"recipients", "delivery", "patient"})
+        void shouldKeepTheOriginalArchiveCarrier_whenAReplyOrForwardSendIsRedisplayed(String refusal) throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("patient".equals(refusal) ? "202" : "101");
+            action.setSubject("  FAKE raw <subject> & retry  ");
+            action.setMessage("FAKE raw body H&P + 中文\nretry");
+            action.setProvider(new String[]{"999998-0-1"});
+            getMockRequest().setParameter("archiveMessageId", new String[]{"0055", "55"});
+            noRecipients = "recipients".equals(refusal);
+            if ("delivery".equals(refusal)) sentMessageId = null;
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(getMockRequest().getAttribute("archiveMessageId")).isEqualTo(55);
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("  FAKE raw <subject> & retry  ");
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE raw body H&P + 中文\nretry");
+            @SuppressWarnings("unchecked")
+            List<ContactIdentifier> ticked = (List<ContactIdentifier>) getMockRequest().getAttribute("replyList");
+            assertThat(ticked).extracting(ContactIdentifier::getCompositeId).containsExactly("999998-0-1");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfDemographicNo()).isEqualTo(101);
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+            assertThat(sends.get()).isEqualTo("delivery".equals(refusal) ? 1 : 0);
+            verifyNoInteractions(mockDemoManager);
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"", "0", "-1", "2147483648", "55&messageNo=99", "<script>", " 55", "55.0"})
+        void shouldLeaveAnInvalidOptionalArchiveCarrierAbsent_withoutLosingTheRefusedCompose(String raw) throws Exception {
+            noRecipients = true;
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            getMockRequest().setParameter("archiveMessageId", raw);
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(getMockRequest().getAttribute("archiveMessageId")).isNull();
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("FAKE subject");
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNotNull();
+            assertThat(sends.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectConflictingRawArchiveCarriers_withoutChoosingTheFirstMessage() throws Exception {
+            noRecipients = true;
+            getMockRequest().setParameter("archiveMessageId", new String[]{"55", "56"});
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(getMockRequest().getAttribute("archiveMessageId")).isNull();
+            assertThat(sends.get()).isZero();
+        }
+
+        @Test
+        void shouldKeepFreshComposeCompatible_whenNoArchiveCarrierIsSubmitted() throws Exception {
+            noRecipients = true;
+            assertThat(send()).isEqualTo("error");
+            assertThat(getMockRequest().getAttribute("archiveMessageId")).isNull();
+            noRecipients = false;
+            assertThat(send()).isEqualTo("success");
+            assertThat(sends.get()).isEqualTo(1);
+        }
+
+        @Test
+        void shouldSendTheRecoveredComposition_whenTheUserRetriesAfterAnOrdinarySendFailure() throws Exception {
+            noRecipients = true;
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            getMockRequest().setParameter("archiveMessageId", "55");
+            assertThat(send()).isEqualTo("error");
+            Object recoveredId = getMockRequest().getAttribute("archiveMessageId");
+            assertThat(recoveredId).isEqualTo(55);
+            String recoveredSubject = (String) getMockRequest().getAttribute("ReSubject");
+            String recoveredBody = (String) getMockRequest().getAttribute("ReText");
+            // A following HTTP request/action carries form values, never the old request attributes.
+            mockRequest = new org.springframework.mock.web.MockHttpServletRequest("POST", "/messenger/CreateMessage");
+            mockRequest.setSession(getMockSession());
+            mockRequest.setParameter("archiveMessageId", recoveredId.toString());
+            setUpActionContext();
+            action = new MsgCreateMessage2Action();
+            injectField("securityInfoManager", mockSecurityInfoManager);
+            injectField("messengerDemographicManager", mockDemoManager);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            action.setSubject(recoveredSubject);
+            action.setMessage(recoveredBody);
+            action.setProvider(new String[]{RECIPIENT});
+            assertThat(mockRequest.getAttribute("archiveMessageId")).isNull();
+            noRecipients = false;
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentPdfs.get()).isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+            verify(mockDemoManager).attachDemographicToMessage(any(), eq(77), eq(101));
         }
 
         @Test
@@ -371,6 +479,68 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
                     .isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
             assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+        }
+
+        @Test
+        void shouldKeepTheChooserClear_whenTheInflightSendReturnsNoMessageId() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            duringSend = () -> MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, null);
+            sentMessageId = null;
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("FAKE subject");
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+            assertThat((String) getMockRequest().getAttribute("createMessageError")).contains("Failed to send");
+        }
+
+        @Test
+        void shouldKeepDiscardedAttachmentsAbsent_whenTheInflightSendThrows() {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            duringSend = () -> MsgAttachmentStaging.discard(getMockSession(), thisWindow);
+            sendFailure = new IllegalStateException("FAKE transport failure");
+
+            assertThatThrownBy(this::send).isSameAs(sendFailure);
+
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+        }
+
+        @Test
+        void shouldKeepTheNewerReplacement_whenTheInflightSendFails() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            duringSend = () -> MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 202, "<PDF>FAKE replacement</PDF>");
+            sentMessageId = "";
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE replacement</PDF>");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfDemographicNo()).isEqualTo(202);
+        }
+
+        @Test
+        void shouldKeepTheNewerSendRestorable_whenTheOlderSendSucceeds() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            AtomicReference<MsgAttachmentStaging.Staged> newerSend = new AtomicReference<>();
+            duringSend = () -> {
+                MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 202, "<PDF>FAKE newer send</PDF>");
+                newerSend.set(MsgAttachmentStaging.take(getMockSession(), thisWindow));
+            };
+
+            assertThat(send()).isEqualTo("success");
+            MsgAttachmentStaging.restore(getMockSession(), thisWindow, newerSend.get());
+
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE newer send</PDF>");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfDemographicNo()).isEqualTo(202);
         }
     }
 }

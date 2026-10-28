@@ -1,0 +1,6 @@
+# Python dependencies of the scripts in scripts/ci, hash-pinned so the CI
+# install is reproducible and tamper-evident (pip --require-hashes).
+# Update the version and the wheel hash together:
+#   python3 -m pip download --no-deps --only-binary=:all: defusedxml==<ver> && sha256sum *.whl
+defusedxml==0.7.1 \
+    --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61

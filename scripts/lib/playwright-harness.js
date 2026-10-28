@@ -687,6 +687,13 @@ function wireStrictPage(page, label, recorder, options = {}) {
     if (!strictSignals) {
       return;
     }
+    // The teardown logout (logoutOnClose) broadcasts the logout to every open page, and each one
+    // moves to the login page 500 ms later (LogoutBroadcastFilter); closing the context then abandons
+    // those loads. That is the harness ending the session, not the check: a teardown must never turn
+    // a passing check red. Only request failures are excused, and only once the close has begun.
+    if (isTearingDown(page)) {
+      return;
+    }
     const failure = request.failure();
     const url = request.url();
     if (isExpectedMissingAsset(404, url)) {
@@ -975,7 +982,7 @@ const TEARDOWN_LOGOUT_TIMEOUT_MS = 10000;
  *
  * @returns {Promise<boolean>} whether /logout answered below 400
  */
-async function logoutContext(context, config, { log = console, timeout = TEARDOWN_LOGOUT_TIMEOUT_MS } = {}) {
+async function logoutContext(context, config, { log = console, timeout = TEARDOWN_LOGOUT_TIMEOUT_MS, closePage = true } = {}) {
   let page;
   let posted;
   try {
@@ -994,12 +1001,25 @@ async function logoutContext(context, config, { log = console, timeout = TEARDOW
     log.warn(`WARN teardown logout did not complete: ${String((error && error.message) || error).split('\n')[0]}`);
     return false;
   } finally {
-    if (page) await page.close().catch(() => {});
+    if (page && closePage) await page.close().catch(() => {});
   }
 }
 
 /** Contexts whose session must outlive their close (keepSessionOnClose); never logged out on close. */
 const SESSIONS_KEPT_ON_CLOSE = new WeakSet();
+
+/** Contexts whose close (teardown logout, then close) has begun; see isTearingDown. */
+const CONTEXTS_TEARING_DOWN = new WeakSet();
+
+/** Whether the page belongs to a context that logoutOnClose has started to tear down. */
+function isTearingDown(page) {
+  try {
+    const context = typeof page.context === 'function' ? page.context() : null;
+    return Boolean(context) && CONTEXTS_TEARING_DOWN.has(context);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Keep this context's session alive when it is closed: no teardown logout for it.
@@ -1047,7 +1067,10 @@ function logoutOnClose(browser, config, { log = console, logout = logoutContext 
     done.add(context);
     try {
       if (await sessionStillHeld(context)) return;
-      await logout(context, config, { log });
+      // The enclosing close will dispose this temporary page with the context.
+      // Closing it separately can stall Chromium after the logout redirect and
+      // prevent the enclosing browser/context close from ever being reached.
+      await logout(context, config, { log, closePage: false });
     } catch (error) {
       log.warn(`WARN teardown logout did not complete: ${String((error && error.message) || error).split('\n')[0]}`);
     }
@@ -1058,6 +1081,7 @@ function logoutOnClose(browser, config, { log = console, logout = logoutContext 
       const context = await newContext(...args);
       const closeContext = context.close.bind(context);
       context.close = async (...closeArgs) => {
+        CONTEXTS_TEARING_DOWN.add(context);
         await logoutOnce(context);
         return closeContext(...closeArgs);
       };
@@ -1068,6 +1092,7 @@ function logoutOnClose(browser, config, { log = console, logout = logoutContext 
     const closeBrowser = browser.close.bind(browser);
     browser.close = async (...args) => {
       const open = typeof browser.contexts === 'function' ? browser.contexts() : [];
+      for (const context of open) CONTEXTS_TEARING_DOWN.add(context);
       for (const context of open) await logoutOnce(context);
       return closeBrowser(...args);
     };
@@ -1608,6 +1633,7 @@ module.exports = {
   assertNotErrorPage,
   assertRefused,
   isApplicationErrorPage,
+  isSecurityErrorBody,
   assertStrictPage,
   buildArtifactPath,
   buildFailureDetails,

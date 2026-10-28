@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.lab.gate;
 
+import io.github.carlos_emr.carlos.lab.service.PathnetPatientLinkService;
+import io.github.carlos_emr.carlos.lab.service.PathnetPatientLinkService.Selection;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -24,8 +26,7 @@ import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * Conditional-POST gate for {@code lab/CA/BC/index}. The JSP's scriptlet
- * performs DB mutations (linkDao.merge/persist or LabRequestReportLink save/update/delete) when a submit/action parameter is present. Enforces
+ * Conditional-POST gate for {@code lab/CA/BC/index}. An explicit POST links the selected patient through a transactional service. Enforces
  * {@code _lab} w privilege always, plus POST-only when the mutation
  * trigger is supplied (CSRF hardening). GET without trigger params is
  * allowed so the initial form renders via popup/navigation.
@@ -48,22 +49,54 @@ public final class ViewLabBcIndex2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
-        // Require POST when mutation-trigger params are present. index.jsp
-        // writes Hl7Link rows when chk[] is submitted or when the demo_id/pid
-        // pair is supplied (post-back from demo_select popup), so those are
-        // the real CSRF-relevant triggers in addition to conventional names.
-        boolean hasMutationTrigger = request.getParameter("submit") != null
+        boolean hasMutationTrigger = hasMutationTrigger(request);
+        if (hasMutationTrigger && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        if (hasMutationTrigger) {
+            try {
+                linkSelectedPatients(request, loggedInInfo.getLoggedInProviderNo());
+            } catch (IllegalArgumentException _) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Select a valid lab and patient");
+                return NONE;
+            }
+        }
+        return SUCCESS;
+    }
+
+    /** Recognizes both explicit picker submissions and checkbox confirmations. */
+    private static boolean hasMutationTrigger(HttpServletRequest request) {
+        return request.getParameter("submit") != null
                 || request.getParameter("action") != null
                 || request.getParameter("method") != null
                 || request.getParameter("linkChoice") != null
                 || request.getParameter("buttonAction") != null
                 || request.getParameterValues("chk") != null
                 || (request.getParameter("demo_id") != null && request.getParameter("pid") != null);
-        if (hasMutationTrigger && !"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
+    }
 
-        return SUCCESS;
+    private static void linkSelectedPatients(HttpServletRequest request, String providerNo) {
+        var service = SpringUtils.getBean(PathnetPatientLinkService.class);
+        var selections = new java.util.ArrayList<Selection>();
+        String pid = request.getParameter("pid");
+        String demographic = request.getParameter("demo_id");
+        if (pid != null && !pid.isBlank() && demographic != null && !demographic.isBlank()) {
+            selections.add(new Selection(
+                    parseIdentifier(pid), parseIdentifier(demographic)));
+        }
+        String[] checked = request.getParameterValues("chk");
+        if (checked != null) {
+            for (String id : checked) selections.add(new Selection(
+                    parseIdentifier(id), null));
+        }
+        service.linkAll(selections, providerNo);
+    }
+
+    private static int parseIdentifier(String value) {
+        int id = Integer.parseInt(value);
+        if (id <= 0) throw new IllegalArgumentException("Identifier must be positive");
+        return id;
     }
 }

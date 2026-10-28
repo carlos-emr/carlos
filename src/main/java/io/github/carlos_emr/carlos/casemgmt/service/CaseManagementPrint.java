@@ -56,6 +56,7 @@
 package io.github.carlos_emr.carlos.casemgmt.service;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.encounter.data.EctProviderData;
 import org.openpdf.text.DocumentException;
 import org.apache.logging.log4j.Logger;
@@ -91,6 +92,19 @@ import java.util.stream.Collectors;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CaseManagementPrint {
+
+    /** The selected notes or supplied chart context fail the print read boundary. */
+    public static final class NoteAccessDeniedException extends SecurityException {
+        private static final long serialVersionUID = 1L;
+
+        public NoteAccessDeniedException() {
+            super("Selected note access denied");
+        }
+
+        public NoteAccessDeniedException(SecurityException cause) {
+            super("Chart print context access denied", cause);
+        }
+    }
 
     private static Logger logger = MiscUtils.getLogger();
 
@@ -146,6 +160,7 @@ public class CaseManagementPrint {
      *
      * @throws IOException if file I/O operations fail during PDF generation or cleanup
      * @throws DocumentException if PDF document creation or manipulation fails
+     * @throws NoteAccessDeniedException if the chart context is invalid or a selected note is not readable
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
@@ -156,6 +171,12 @@ public class CaseManagementPrint {
         // parameter view to the authorized patient so a query string cannot select a second chart.
         request = patientScopedRequest(request, demographicNo);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
+        String program;
+        try {
+            program = ChartProgramContext.resolveForPrint(request, loggedInInfo);
+        } catch (SecurityException invalidContext) {
+            throw new NoteAccessDeniedException(invalidContext);
+        }
 
         ChartPrintDateRange printRange = useDateRange ? ChartPrintDateRange.from(startDate, endDate) : null;
 
@@ -198,6 +219,11 @@ public class CaseManagementPrint {
                 }
             }
         }
+        List<CaseManagementNote> readableNotes = readableNotes(loggedInInfo, notes, program);
+        if (!printAllNotes && readableNotes.size() != notes.size()) {
+            throw new NoteAccessDeniedException();
+        }
+        notes = readableNotes;
 
         // we're not guaranteed any ordering of notes given to us, so sort by observation date
         CarlosProperties p = CarlosProperties.getInstance();
@@ -224,7 +250,7 @@ public class CaseManagementPrint {
             for (String issueCode : issueCodes) {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, issueCode);
                 String[] issueIds = getIssueIds(issues);
-                tmpNotes = caseManagementMgr.getNotes(demono, issueIds);
+                tmpNotes = readableNotes(loggedInInfo, caseManagementMgr.getNotes(demono, issueIds), program);
                 issueNotes = new ArrayList<>();
                 for (CaseManagementNote tmpNote : tmpNotes) {
                     if (!tmpNote.isLocked() && !tmpNote.isArchived()) {
@@ -256,7 +282,7 @@ public class CaseManagementPrint {
             if (cpp == null) {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, "OMeds");
                 String[] issueIds = getIssueIds(issues); // new String[issues.size()];
-                othermeds = caseManagementMgr.getNotes(demono, issueIds);
+                othermeds = readableNotes(loggedInInfo, caseManagementMgr.getNotes(demono, issueIds), program);
                 // Rx-only printing renders Other Meds here, so omit those notes from the body.
                 Set<Long> printedMedicationIds = othermeds.stream().map(CaseManagementNote::getId)
                         .collect(Collectors.toSet());
@@ -277,14 +303,6 @@ public class CaseManagementPrint {
                     .filter(allergy -> !allergy.getArchived()).toList();
         }
 
-        SimpleDateFormat headerFormat = new SimpleDateFormat("yyyy-MM-dd.hh.mm.ss");
-        Date now = new Date();
-        String headerDate = headerFormat.format(now);
-
-        // Create new file to save form to
-        File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-        File encounterFile = PathValidationUtils.validateGeneratedChildPath("EncounterForm-" + headerDate + ".pdf", documentDir);
-        String fileName = encounterFile.getAbsolutePath();
         File file = null;
         FileOutputStream out = null;
         File file2 = null;
@@ -299,8 +317,10 @@ public class CaseManagementPrint {
 
         try {
 
-            file = PathValidationUtils.resolveTrustedPath(new File(fileName));
-            out = new FileOutputStream(file);
+            // A timestamp shared by concurrent requests can overwrite another patient's PDF.
+            // Register the unique owner-only file before opening it so every failure is cleaned up.
+            file = PathValidationUtils.createSecureTempFile("chart-print-encounter-", ".pdf");
+            out = new FileOutputStream(PathValidationUtils.resolveTrustedPath(file));
 
             CaseManagementPrintPdf printer = new CaseManagementPrintPdf(request, out);
             printer.printDocHeaderFooter();
@@ -327,7 +347,7 @@ public class CaseManagementPrint {
             }
             printer.finish();
 
-            pdfDocs.add(fileName);
+            pdfDocs.add(file.getAbsolutePath());
 
             if (printLabs) {
                 // get the labs which fall into the date range which are attached to this patient
@@ -437,29 +457,41 @@ public class CaseManagementPrint {
 
     }
 
+    /** Preserve legacy no-program visibility; configured charts use the same role/facility policy as their list. */
+    private List<CaseManagementNote> readableNotes(LoggedInInfo login, Collection<CaseManagementNote> notes,
+                                                  String program) {
+        if (program == null || "0".equals(program)) return new ArrayList<>(notes);
+        return new ArrayList<>(caseManagementMgr.filterNotes(login, login.getLoggedInProviderNo(), notes, program));
+    }
+
     private static HttpServletRequest patientScopedRequest(HttpServletRequest request, Integer demographicNo) {
         String patient = String.valueOf(demographicNo);
         return new HttpServletRequestWrapper(request) {
             @Override
             public String getParameter(String name) {
-                return "demographicNo".equals(name) ? patient : super.getParameter(name);
+                return isPatientParameter(name) ? patient : super.getParameter(name);
             }
 
             @Override
             public String[] getParameterValues(String name) {
-                return "demographicNo".equals(name) ? new String[]{patient} : super.getParameterValues(name);
+                return isPatientParameter(name) ? new String[]{patient} : super.getParameterValues(name);
             }
 
             @Override
             public Map<String, String[]> getParameterMap() {
                 Map<String, String[]> parameters = new HashMap<>(super.getParameterMap());
                 parameters.put("demographicNo", new String[]{patient});
+                parameters.put("demographic_no", new String[]{patient});
                 return Collections.unmodifiableMap(parameters);
             }
 
             @Override
             public Enumeration<String> getParameterNames() {
                 return Collections.enumeration(getParameterMap().keySet());
+            }
+
+            private boolean isPatientParameter(String name) {
+                return "demographicNo".equals(name) || "demographic_no".equals(name);
             }
         };
     }

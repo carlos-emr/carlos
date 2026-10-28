@@ -74,6 +74,19 @@ public final class Frm2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_form)");
         }
 
+        String submitType = request.getParameter("submit");
+        // Every save comes as the form page's POST. Only the read-only graph and print-all views
+        // open by GET. Refuse before the record class is constructed or any identifier is parsed.
+        if (!"POST".equals(request.getMethod()) && !isReadOnlySubmit(submitType)) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            } catch (IOException e) {
+                log.error("Could not send 405 for a form save sent without POST", e);
+            }
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         int newID = -1;
         FrmRecord rec = null;
@@ -100,9 +113,9 @@ public final class Frm2Action extends ActionSupport {
         // instantiate. Every use of rec below dereferences it, so a refused class raised a
         // NullPointerException that the catch at the end of this method downgraded to the
         // "failure" forward — surfacing to the clinician as "CARLOS Error: 500" for what is
-        // really a request naming a form this build cannot service. The chart can reach this:
-        // the form selector offers ALPHA and formAlpha carries rows, but no FrmAlphaRecord
-        // exists. Answer it as a client error and stop, rather than resolving a named result
+        // really a request naming a form this build cannot service (ALPHA reached this until
+        // FrmAlphaRecord was added, #4590; a registration left behind by a removed form still
+        // can). Answer it as a client error and stop, rather than resolving a named result
         // after the response is written (see the direct-response contract in CLAUDE.md).
         // Issue #3735. This runs before formId / demographic_no are parsed so a malformed
         // request naming an unsupported class is still refused with 400 rather than a 500.
@@ -118,17 +131,6 @@ public final class Frm2Action extends ActionSupport {
             return NONE;
         }
 
-        String submitType = request.getParameter("submit");
-        // Every save comes as the form page's POST. Only the read-only graph and print-all views open by GET.
-        if (!"POST".equals(request.getMethod()) && !isReadOnlySubmit(submitType)) {
-            response.setHeader("Allow", "POST");
-            try {
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            } catch (IOException e) {
-                log.error("Could not send 405 for a form save sent without POST", e);
-            }
-            return NONE;
-        }
         String id = request.getParameter("formId");
         Integer formId = null;
 

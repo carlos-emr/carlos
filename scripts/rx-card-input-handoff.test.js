@@ -240,3 +240,19 @@ test('the timeline form marks a submitted selection so an empty one is not a fir
   assert.match(jsp, /boolean selectionSubmitted = "true"\.equals\(request\.getParameter\("selectionSubmitted"\)\);/);
   assert.match(jsp, /if \(selectionSubmitted \|\| request\.getParameterValues\("drug"\) != null\) \{/);
 });
+
+test('a refused inline field blocks Save until the server accepts its correction', () => {
+  const s = cardFields();
+  const el = s.element('minimum_5', { textContent: 'two', focus() { this.focused = true; } });
+  s.context.document.querySelector = () => el.attributes['aria-invalid'] === 'true' ? el : null;
+  el.removeAttribute = name => { delete el.attributes[name]; };
+  s.context.updateProperty(el.id);
+  assert.equal(s.context.validateCardProperties(), false);
+  assert.equal(el.focused, true);
+  assert.deepEqual(s.alerts, ['dose "two"', 'dose "two"']);
+  el.textContent = '0.5';
+  s.context.updateProperty(el.id);
+  assert.equal(s.requests[0].options.synchronous, true, 'the correction must finish before Save reads the staged value');
+  s.requests[0].options.onSuccess({status: 200});
+  assert.equal(s.context.validateCardProperties(), true);
+});

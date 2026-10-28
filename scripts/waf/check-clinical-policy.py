@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
-"""Real nginx/ModSecurity/CRS regression checks for issues #4571--4575 and the
-add-prevention free text of PR #4742.
+"""Real nginx/ModSecurity/CRS regression checks for issues #4571--4575, the
+add-prevention free text of PR #4742, and the eForm signature data-URI
+carrier of issue #3552.
 
 Run from any directory (Python >= 3.10, Node for the shared prose corpus):
   python3 scripts/waf/check-clinical-policy.py
@@ -41,6 +42,7 @@ Without it, all runtime artifacts are removed, including after failures.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import html
 import http.client
@@ -74,6 +76,7 @@ VITALS = "/carlos/encounter/Measurements"
 FORWARD = "/carlos/casemgmt/ViewForward"
 ENTRY = "/carlos/CaseManagementEntry"
 PREVENTION = "/carlos/prevention/AddPrevention"
+PREGNANCY = "/carlos/Pregnancy"
 ERROR_LOG = "/carlos/eform/logEformError"
 # What a browser hands window.onerror for a broken eForm script, plus the two fixed reports CARLOS
 # itself sends. The first was answered 403 on a packaged install (932130 reads jQuery's "$(...)"
@@ -159,8 +162,41 @@ def load_corpus(node, root):
     return phrases, corpus
 
 
+def signature_png(size=96 * 1024):
+    """A signature-sized PNG data URI: the PNG file signature, then deterministic noise.
+
+    Real canvas output is compressed image data, so its Base64 is about as random as this.
+    """
+    noise = bytearray()
+    counter = 0
+    while len(noise) < size:
+        noise += hashlib.sha256(b"carlos-3552-signature-%d" % counter).digest()
+        counter += 1
+    image = b"\x89PNG\r\n\x1a\n" + bytes(noise[:size])
+    return "data:image/png;base64," + base64.b64encode(image).decode("ascii")
+
+
 def build_cases(phrases, corpus):
     cases = []
+    for operation in ("create", "complete"):
+        for name, value in (("baseline", "Routine follow up."), ("corpus", corpus), ("literal-markup", XSS)):
+            cases.append(request_case(f"pregnancy-{operation}-{name}", 5184, PREGNANCY, "notes", value,
+                                      extra=(("method", operation),)))
+    for field in ("demographicNo", "episodeId", "code", "startDate", "endDate", "method", "unrelatedField"):
+        cases.append(request_case(f"pregnancy-protected-{field}", 5184, PREGNANCY, field, XSS,
+                                  extra=() if field == "method" else (("method", "create"),),
+                                  expect="inbound", signatures=("941100", "941110")))
+    for suffix in ("Evil", "/child"):
+        cases.append(request_case(f"pregnancy-wrong-route-{suffix.replace('/', '-')}", 5184, PREGNANCY + suffix,
+                                  "notes", XSS, extra=(("method", "create"),),
+                                  expect="inbound", signatures=("941100", "941110")))
+    for verb in ("GET", "PUT"):
+        cases.append(request_case(f"pregnancy-wrong-{verb}", 5184, PREGNANCY, "notes", XSS, method=verb,
+                                  extra=(("method", "create"),), expect="inbound", signatures=("941100", "941110")))
+    for name, extra in (("absent", ()), ("unknown", (("method", "saveFormAjax"),)),
+                        ("duplicate", (("method", "create"), ("method", "complete")))):
+        cases.append(request_case(f"pregnancy-operation-{name}", 5184, PREGNANCY, "notes", XSS, extra=extra,
+                                  expect="inbound", signatures=("941100", "941110")))
     # Preserve diagnostic case names while the submitted Rx comment name is
     # distinct from comment_<n> used by the unrelated growth forms.
     rx_fields = {"instructions": "instructions", "drugName": "drugName", "comment": "rxComment"}
@@ -343,8 +379,8 @@ def build_cases(phrases, corpus):
                               expect="inbound", signatures=("941100", "941110")))
 
     # Image placeholder transport was renamed together with browser and server.
-    # The RCE marker distinguishes argument-level rule 1030 from the broader
-    # data-URI-only exclusion 1040: stale/mismatched field names must fail here.
+    # Only the exact argument name is exempt (1030): a stale or mismatched name
+    # is still scored, by the RCE marker and by the data-URI XSS rules.
     image_source = '{"id":"signature","value":"data:image/png;base64,AQID$(id)"}'
     cases.append(request_case("carlos-image-link-save", 3352, LETTER, "carlos-image-link", image_source))
     for field in ("openosp-image-link", "clinicalNote"):
@@ -352,6 +388,73 @@ def build_cases(phrases, corpus):
     for method in ("GET", "PUT"):
         cases.append(request_case(f"image-link-wrong-{method}", 3352, LETTER, "carlos-image-link", image_source, method, **rce))
     cases.append(request_case("image-link-wrong-route", 3352, LETTER + "Evil", "carlos-image-link", image_source, **rce))
+
+    # Exclusion 1040 (#3552): the page moves signature data URIs out of the eForm's own
+    # (author-named) fields into ARGS:carlos-data-uri and leaves "carlos-data-uri:<nonce>:<n>"
+    # behind, the nonce in ARGS:carlos-data-uri-nonce (scored like any field).
+    # A signature-sized carried value passes; the same value left in an author-named field, and
+    # every attribute-XSS vector the old request-wide 941130/941170 removal let through, is
+    # scored again; and the carrier itself is still scored off its route/method and by the
+    # families it does not unhook.
+    png, jsignature = signature_png(), "data:image/jsignature;base30,3E13Z5Y5_1O24Z66_1O1Z3_3E2Z4"
+    nonce = "0123456789abcdef0123456789abcdef"
+    cases.append(Case("data-uri-carried-save", 3552, "POST", LETTER, urlencode([
+        ("SignatureBox", f"carlos-data-uri:{nonce}:0"), ("StoreSignature1", f"carlos-data-uri:{nonce}:1"),
+        ("clinicalNote", "Routine follow up."), ("carlos-data-uri", png), ("carlos-data-uri", jsignature),
+        ("carlos-data-uri-nonce", nonce)])))
+    data_uri_xss = {"expect": "inbound", "signatures": ("941130", "941170")}
+    for name, value in (("png", png), ("jsignature", jsignature)):
+        cases.append(request_case(f"data-uri-in-author-field-{name}", 3552, LETTER, "SignatureBox", value, **data_uri_xss))
+    for name, value, signatures in (
+        ("data-html", "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==", ("941130", "941170")),
+        ("svg", "data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+", ("941130", "941170")),
+        ("javascript", "javascript:alert(document.domain)", ("941170",)),
+        ("xlink", "a xlink:href=x", ("941130",)),
+        ("formaction", "a formaction=x", ("941130",)),
+    ):
+        cases.append(request_case(f"data-uri-author-field-{name}", 3552, LETTER, "clinicalNote", value,
+                                  extra=(("carlos-data-uri", png),), expect="inbound", signatures=signatures))
+    # Random Base64 trips more than the two data-URI rules: with "==" padding at its end and
+    # "/if+" anywhere before it, 932140 (attack-rce, Windows "if ... ==") matches on its own. 9 of
+    # 300 random 30-200 KB payloads did, so under the former by-id 1040 about one signature save in
+    # 33 was refused. The carried argument must keep attack-rce unhooked; the control shows the
+    # value really does score 932140 on an argument 1040 does not name.
+    rce_shaped = "data:image/png;base64,iVBORw0KGgoAAAA/if+AAAAAAAAAAAAAAA=="
+    cases.append(Case("data-uri-carried-rce-shaped", 3552, "POST", LETTER, urlencode([
+        ("SignatureBox", f"carlos-data-uri:{nonce}:0"), ("carlos-data-uri", rce_shaped),
+        ("carlos-data-uri-nonce", nonce)])))
+    cases.append(request_case("data-uri-rce-shaped-control", 3552, LETTER, "carlos-data-uri-x", rce_shaped,
+                              expect="inbound", signatures=("932140",)))
+    # The nonce is drawn afresh for every submission, and it is scored like any field, both in
+    # ARGS:carlos-data-uri-nonce and inside every "carlos-data-uri:<nonce>:<n>" reference. A nonce
+    # that tripped CRS would refuse saves at random, as random Base64 did with 932140. Pin a fixed
+    # sample: edge shapes (all digits, all letters, exponent-like) and SHA-256-derived nonces, in
+    # references with index 0 and 255 (the largest one a save can carry; this is policy only, so
+    # the indices need not resolve). 1,500 random nonces passed when this was added.
+    one_pixel = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB"
+                 "9Wl5n2QAAAAASUVORK5CYII=")
+    sample_nonces = ["0" * 32, "f" * 32, "1e" + "0" * 30, "0e1" + "9" * 29, "deadbeef" * 4]
+    sample_nonces += [hashlib.sha256(b"carlos-3552-nonce-%d" % k).hexdigest()[:32] for k in range(19)]
+    for k, sample in enumerate(sample_nonces):
+        cases.append(Case(f"data-uri-nonce-sample-{k:02d}", 3552, "POST", LETTER, urlencode([
+            ("SignatureBox", f"carlos-data-uri:{sample}:0"), ("MirrorPad", f"carlos-data-uri:{sample}:255"),
+            ("clinicalNote", "Routine follow up."), ("carlos-data-uri", one_pixel),
+            ("carlos-data-uri-nonce", sample)])))
+    carrier_probe = "data:image/png;base64,AQID"
+    for method in ("GET", "PUT"):
+        cases.append(request_case(f"data-uri-carrier-wrong-{method}", 3552, LETTER, "carlos-data-uri",
+                                  carrier_probe, method, **data_uri_xss))
+    for suffix in ("Evil", "/child"):
+        cases.append(request_case(f"data-uri-carrier-route-{suffix.replace('/', '-')}", 3552, LETTER + suffix,
+                                  "carlos-data-uri", carrier_probe, **data_uri_xss))
+    for similar in ("carlos-data-uri-x", "carlos-data-uri-nonce"):
+        cases.append(request_case(f"data-uri-carrier-similar-name-{similar}", 3552, LETTER, similar, carrier_probe,
+                                  **data_uri_xss))
+    for family, value, signatures in (("lfi", TRAVERSAL, ("930100", "930110")),
+                                      ("rfi", RFI, ("931100",)),
+                                      ("php", "<?php echo 1;", ("933100",))):
+        cases.append(request_case(f"data-uri-carrier-{family}-still-inspected", 3552, LETTER, "carlos-data-uri",
+                                  value, expect="inbound", signatures=signatures))
 
     if len({case.name for case in cases}) != len(cases):
         raise ValueError("duplicate case names")
@@ -561,19 +664,41 @@ def audit_rules(audit, errors, token):
     rules = set()
     transactions = []
     decoder = json.JSONDecoder()
-    remaining = audit.strip()
-    while remaining:
-        try:
-            document, end = decoder.raw_decode(remaining)
-        except ValueError:
-            break  # A writer may not yet have finished its last transaction.
-        remaining = remaining[end:].lstrip()
-        tx = document.get("transaction", {})
-        headers = tx.get("request", {}).get("headers", {})
-        identified = tx.get("unique_id") == token or any(k.lower() == HEADER.lower() and v == token for k, v in headers.items())
-        if identified:
-            transactions.append(tx)
-            rules.update(str(m.get("details", {}).get("ruleId")) for m in tx.get("messages", []) if m.get("details", {}).get("ruleId"))
+    # ModSecurity's serial JSON audit log writes one transaction per line. A
+    # previous transaction may still be flushing when run_case snapshots its
+    # byte offset: the next read then begins in that record, sometimes at a
+    # quoted field that raw_decode accepts as a standalone string. Discard an
+    # incomplete/malformed line, not all later complete records. Every poll
+    # rereads from the same offset, so an unfinished final record is retried.
+    # Keep support for concatenated complete documents on a single line too.
+    for line in audit.splitlines():
+        remaining = line.strip()
+        while remaining:
+            try:
+                document, end = decoder.raw_decode(remaining)
+            except ValueError:
+                break
+            remaining = remaining[end:].lstrip()
+            if not isinstance(document, dict):
+                continue
+            tx = document.get("transaction")
+            if not isinstance(tx, dict):
+                continue
+            request = tx.get("request", {})
+            headers = request.get("headers", {}) if isinstance(request, dict) else {}
+            identified = tx.get("unique_id") == token or (
+                isinstance(headers, dict) and any(
+                    isinstance(k, str) and k.lower() == HEADER.lower() and v == token
+                    for k, v in headers.items()))
+            if identified:
+                transactions.append(tx)
+                messages = tx.get("messages", [])
+                if isinstance(messages, list):
+                    for message in messages:
+                        details = message.get("details", {}) if isinstance(message, dict) else {}
+                        rule = details.get("ruleId") if isinstance(details, dict) else None
+                        if rule is not None and str(rule).isdigit():
+                            rules.add(str(rule))
     # Some connectors lose the audit response during phase-4 interruption.
     # Their error log is useful only with this exact transaction id.
     correlated = "\n".join(line for line in errors.splitlines() if f'[unique_id "{token}"]' in line)
@@ -875,6 +1000,51 @@ class MechanicsTests(unittest.TestCase):
         errors = '[id "949110"] [unique_id "old"]\n[id "959100"] [unique_id "current"]'
         rules, transactions, _ = audit_rules(audit, errors, "current")
         self.assertEqual(rules, {"941100", "959100"})
+        self.assertEqual(len(transactions), 1)
+
+    def test_audit_offset_inside_previous_record_does_not_hide_current_transaction(self):
+        old = json.dumps({"transaction": {"unique_id": "old", "messages": [
+            {"details": {"ruleId": "931100"}}], "request": {"headers": {HEADER: "old"}}}})
+        current = json.dumps({"transaction": {"unique_id": "current", "messages": [
+            {"details": {"ruleId": "941100"}}]}})
+        for offset in range(len(old) + 1):
+            with self.subTest(offset=offset):
+                rules, transactions, _ = audit_rules(old[offset:] + "\n" + current + "\n", "", "current")
+                self.assertEqual(rules, {"941100"})
+                self.assertEqual([tx["unique_id"] for tx in transactions], ["current"])
+
+    def test_partial_audit_tail_is_retried_without_borrowing_unrelated_rules(self):
+        current = json.dumps({"transaction": {"unique_id": "current", "messages": [
+            {"details": {"ruleId": "941100"}}]}})
+        for end in range(1, len(current)):
+            with self.subTest(end=end):
+                self.assertEqual(audit_rules(current[:end], '[id "949110"] [unique_id "old"]', "current")[:2],
+                                 (set(), []))
+        rules, transactions, _ = audit_rules(current + "\n", "", "current")
+        self.assertEqual(rules, {"941100"})
+        self.assertEqual(len(transactions), 1)
+
+    def test_nonobject_and_malformed_audit_envelopes_cannot_supply_rule_evidence(self):
+        malformed = ["field", None, 42, [], {"transaction": "current"},
+                     {"transaction": {"request": "current", "messages": [{"details": {"ruleId": "931100"}}]}},
+                     {"transaction": {"request": {"headers": [HEADER, "current"]},
+                                      "messages": [{"details": {"ruleId": "931100"}}]}}]
+        audit = "\n".join(json.dumps(document) for document in malformed)
+        rules, transactions, _ = audit_rules(audit, '[id "949110"] [unique_id "current-other"]', "current")
+        self.assertEqual(rules, set())
+        self.assertEqual(transactions, [])
+        # Invalid message shapes on a correlated record must not crash or turn
+        # arbitrary values into signature ids that could make a denial pass.
+        for messages in ("931100", [{"details": "931100"}], ["931100"], [{"details": {"ruleId": {"id": "931100"}}}]):
+            with self.subTest(messages=messages):
+                malformed_tx = json.dumps({"transaction": {"unique_id": "current", "messages": messages}})
+                self.assertEqual(audit_rules(malformed_tx, "", "current")[0], set())
+
+    def test_concatenated_audit_documents_keep_exact_transaction_correlation(self):
+        documents = [json.dumps({"transaction": {"unique_id": token, "messages": [
+            {"details": {"ruleId": rule}}]}}) for token, rule in (("old", "931100"), ("current", "941100"))]
+        rules, transactions, _ = audit_rules("".join(documents), "", "current")
+        self.assertEqual(rules, {"941100"})
         self.assertEqual(len(transactions), 1)
 
     def test_false_block_and_unrelated_signature_cannot_pass(self):

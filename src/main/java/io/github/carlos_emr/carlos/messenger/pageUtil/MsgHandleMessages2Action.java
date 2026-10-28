@@ -91,13 +91,16 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @see ContactIdentifier
  */
 public class MsgHandleMessages2Action extends ActionSupport {
+    /** The value the {@code delete} flag holds when this request deletes its message. */
+    private static final String DELETE_FLAG = "Delete";
+
     /**
      * HTTP request object for accessing parameters and session.
      */
     HttpServletRequest request = ServletActionContext.getRequest();
     
     /**
-     * HTTP response object, maintained for consistency but not actively used.
+     * HTTP response object, used to refuse a delete that is not posted.
      */
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -152,10 +155,36 @@ public class MsgHandleMessages2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
+        // Delete is this route's only write: Reply, Reply All and Forward just open the compose page.
+        // ViewMessage.jsp posts it, but the route's name has no verb HttpMethodGuardFilter knows, so a
+        // GET carrying "delete" (which has no CSRF token) deleted the message (issue #3394). The test is
+        // the one the delete below makes: the parameter, or a value Struts already bound to the field.
+        boolean deletes = request.getParameter("delete") != null || DELETE_FLAG.equalsIgnoreCase(delete);
+        if (deletes && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        // Module access alone does not authorize a saved message. Check before reading its
+        // linked patients or quoting its body, including a reply/forward reconstructed on GET.
+        int requestedMessageId = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(messageNo);
+        boolean sharedChart = MsgAttachmentAccess.find(loggedInInfo, requestedMessageId) == null;
+        String chartPatient = request.getParameter("chartPatientNo");
+        if (sharedChart && (deletes || MsgAttachmentAccess.find(loggedInInfo, requestedMessageId, chartPatient) == null)) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+
         String demographicNo = this.getDemographic_no();
+        if (sharedChart) {
+            demographicNo = Integer.toString(io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(chartPatient));
+            request.setAttribute("chartPatientNo", demographicNo);
+        }
 
         // Check for attached demographics and update demographicNo if found
-        List<MsgDemoMap> msgDemoMap = messengerDemographicManager.getAttachedDemographicList(loggedInInfo, Integer.parseInt(messageNo));
+        List<MsgDemoMap> msgDemoMap = sharedChart ? Collections.emptyList()
+                : messengerDemographicManager.getAttachedDemographicList(loggedInInfo, requestedMessageId);
         if (msgDemoMap != null && msgDemoMap.size() > 0) {
             // Use the first attached demographic
             demographicNo = msgDemoMap.get(0).getDemographic_no() + "";
@@ -168,7 +197,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
 
         // Determine which operation to perform based on request parameters
         if (request.getParameter("delete") != null) {
-            delete = "Delete";
+            delete = DELETE_FLAG;
         } else if (request.getParameter("reply") != null) {
             reply = "Reply";
         } else if (request.getParameter("replyAll") != null) {
@@ -178,9 +207,9 @@ public class MsgHandleMessages2Action extends ActionSupport {
         }
 
         // Process delete operation
-        if ("Delete".equalsIgnoreCase(delete)) {
+        if (DELETE_FLAG.equalsIgnoreCase(delete)) {
             // Soft delete the message
-            messagingManager.deleteMessage(loggedInInfo, Integer.parseInt(messageNo));
+            messagingManager.deleteMessage(loggedInInfo, requestedMessageId);
 
         } 
         // Process reply or reply all operations
@@ -188,7 +217,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
 
             // Retrieve original message and format for quoting
             StringBuilder theSendMessage = new StringBuilder();
-            MessageTbl message = messagingManager.getMessage(loggedInInfo, Integer.parseInt(messageNo));
+            MessageTbl message = messagingManager.getMessage(loggedInInfo, requestedMessageId);
             String themessage = message.getMessage();
             // Add quote markers to each line
             themessage = themessage.replaceAll("\n", "\n>");
@@ -218,6 +247,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
             request.setAttribute("ReText", theSendMessage.toString());
             request.setAttribute("replyList", replyList);
             request.setAttribute("ReSubject", subject.toString());
+            request.setAttribute("archiveMessageId", Integer.parseInt(messageNo));
             keepForwardedAttachments(message.getId());
 
             return "reply";
@@ -231,7 +261,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
             StringBuilder theSendMessage = new StringBuilder();
 
             // Retrieve original message
-            MessageTbl forwardMessage = messagingManager.getMessage(loggedInInfo, Integer.parseInt(messageNo));
+            MessageTbl forwardMessage = messagingManager.getMessage(loggedInInfo, requestedMessageId);
 
             subject.append(forwardMessage.getSubject());
             themessage = forwardMessage.getMessage();
@@ -244,6 +274,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
             // Set attributes for message composition page
             request.setAttribute("ReText", theSendMessage.toString());
             request.setAttribute("ReSubject", subject.toString());
+            request.setAttribute("archiveMessageId", Integer.parseInt(messageNo));
             keepForwardedAttachments(forwardMessage.getId());
             return "reply";
         }
@@ -261,7 +292,9 @@ public class MsgHandleMessages2Action extends ActionSupport {
     private void keepForwardedAttachments(Integer messageId) {
         if (messageId != null && messageId > 0) {
             request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE,
-                    MsgAttachmentStaging.composeKey(request.getSession(), messageId));
+                    MsgAttachmentStaging.isKey(request.getParameter(MsgAttachmentStaging.KEY_PARAMETER))
+                            ? request.getParameter(MsgAttachmentStaging.KEY_PARAMETER)
+                            : MsgAttachmentStaging.composeKey(request.getSession(), messageId));
         }
     }
 

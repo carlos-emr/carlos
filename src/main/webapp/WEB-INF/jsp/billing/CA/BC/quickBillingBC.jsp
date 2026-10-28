@@ -277,8 +277,14 @@
       method="POST"
       class="bgLightLilac">
 
-    <div id="saved" style="display:none;">
-        ${carlos:forHtml(requestScope.saved)} Invoice(s) Saved
+    <div id="saved" style="display:none;" role="status">
+        <c:choose>
+            <c:when test="${requestScope.saveFailed}">
+                <fmt:message key="billing.bc.quickBilling.msgSaveFailed" var="saveFailedMessage"/>
+                ${carlos:forHtml(saveFailedMessage)}
+            </c:when>
+            <c:otherwise>${carlos:forHtml(requestScope.saved)} Invoice(s) Saved</c:otherwise>
+        </c:choose>
     </div>
 
     <c:if test="${requestScope.patientNotFound}">

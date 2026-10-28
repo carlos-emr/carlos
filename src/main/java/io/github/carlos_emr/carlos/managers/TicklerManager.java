@@ -131,6 +131,17 @@ public interface TicklerManager {
 
     public Tickler getTickler(LoggedInInfo loggedInInfo, Integer id);
 
+    /**
+     * Resolves the patient for note authorization without loading editable demographic entities.
+     * The tickler read privilege and existing lookup audit apply before disclosure.
+     *
+     * @param loggedInInfo LoggedInInfo current authenticated user
+     * @param id Integer tickler identifier
+     * @return Integer patient identifier, or {@code null} when the tickler is missing or unassigned
+     * @since 2026-10-24
+     */
+    public Integer getTicklerDemographicNo(LoggedInInfo loggedInInfo, Integer id);
+
     public void addComment(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String message);
 
     public void reassign(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String task_assigned_to);

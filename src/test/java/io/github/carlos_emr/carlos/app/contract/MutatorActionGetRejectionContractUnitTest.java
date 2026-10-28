@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
+import io.github.carlos_emr.carlos.app.HttpMethodGuardFilter;
 import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.service.MyGroupMembershipService;
@@ -46,6 +47,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -60,9 +64,14 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -146,6 +155,10 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     static Stream<Arguments> unconditionalMutators() {
         return Stream.of(
+            Arguments.of("io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
+                    "_prevention", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action",
+                    "_demographic", "w"),
             Arguments.of("io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerCreateGroup2Action",
                     "_admin", "w"),
             // --- login ---
@@ -183,6 +196,33 @@ class MutatorActionGetRejectionContractUnitTest {
             // BC billing code edit: saves a code's fee and dates; every form and request on its page posts.
             Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingEditCode2Action",
                     "_billing", "w"),
+            // BC billing deletes: marks a bill deleted (and, without a number, resets its appointment);
+            // the day sheet and the reports post them, as their Ontario twins require.
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDeleteNoAppt2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDeleteWithoutNo2Action",
+                    "_billing", "w"),
+            // BC billing saves that only their own POST forms reach (#4439 D12): quick billing's Save, the
+            // billing preferences, the service/diagnostic association save and Remove, the referral doctor
+            // add/edit and the billing code add. Each refuses GET and HEAD itself, not only by route name.
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBCSave2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveBillingPreferences2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveAssoc2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeleteServiceCodeAssoc2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AddReferralDoc2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingAddCode2Action",
+                    "_billing", "w"),
+            // BC private code delete: refuses anything but POST before its privilege check.
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeletePrivateCode2Action",
+                    "_admin.billing", "w"),
+            // eForm restore: marks a deleted eForm current again; both deleted-list pages post it.
+            Arguments.of("io.github.carlos_emr.carlos.eform.actions.UnRemEForm2Action",
+                    "_eform", "w"),
             // --- admin ---
             Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
                     "_admin", "w"),
@@ -416,6 +456,11 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Demographic report favourites and patient sets (#4225) are POST-only;
+        // report display/run/load remain GET-compatible. Focused RptDemographicReport2ActionUnitTest.
+        "io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action",
+        // UploadLoginText2ActionUnitTest covers read-only GET and mutation-intent rejection.
+        "io.github.carlos_emr.carlos.login.UploadLoginText2Action",
         // Legacy encounter forms: every save must be POST; only submit=graph/printAll/printAllJasperReport read
         // and permit GET. Focused GET/HEAD cases in Frm2ActionMethodGuardUnitTest.
         "io.github.carlos_emr.carlos.form.Frm2Action",
@@ -448,6 +493,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Message view (#4133): viewing permits GET; linkMsgDemo=true writes a msgDemoMap row and
         // must be a POST. Covered by MsgViewMessage2ActionUnitTest.
         "io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessage2Action",
+        // A patient's message list permits GET; a selected messageNo array unlinks messages
+        // and requires POST. Covered by MsgDisplayDemographicMessages2ActionUnitTest.
+        "io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayDemographicMessages2Action",
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         // Lab display settings (#3977): the view permits GET; dboperation=Save must be a POST.
         // Covered by LabDisplaySettings2ActionUnitTest.
@@ -486,6 +534,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
         // BC Teleplan: default page view permits GET; method dispatches are POST-only.
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
+        // Generate Teleplan File (#4439 D3): opening the page (menu, year archive) permits GET; providers is the
+        // Create Report form's write and needs POST. Also in HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE.
+        // Covered by GenerateTeleplanFile2ActionUnitTest.
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action",
         // BC MSP Quick Billing (#4772): opening the page permits GET; add (data) and remove accept
         // only POST, as the page sends them. Covered by QuickBillingBCSessionFormUnitTest.
         "io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action",
@@ -510,10 +562,11 @@ class MutatorActionGetRejectionContractUnitTest {
         // Waitinglist: reject GET on Save/Delete submit values.
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action",
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
-        // Prescription: reprint, staging (represcribe, represcribe2, saveReRxDrugIdToStash,
+        // Prescription: reprint/reprint2 (audit writes), staging (represcribe, represcribe2, saveReRxDrugIdToStash,
         // repcbAllLongTerm, represcribeMultiple) and saveDigitalSignature are POST-only;
         // viewPrescribing only renders the workspace and permits GET (#3908). Covered by
-        // RxPatientWriteAuthorizationUnitTest.shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost.
+        // RxPatientWriteAuthorizationUnitTest.shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost
+        // and shouldRejectUnsafeMethod_forPrescriptionReprintDispatch below.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
         // Pharmacies: search/getPharmacyInfo/... permit GET; delete, unlink, setPreferred, add,
         // save and the legacy pharmacyAction form are POST-only (#3908). Covered by
@@ -576,7 +629,23 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action",
         // BPMH form: method=save and method=print store the form and must be POST; opening it permits GET.
         // Focused GET/HEAD cases in BpmhFormRetrieve2ActionUnitTest.
-        "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action"
+        "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action",
+        // Write parameters other than `method` (#3394). Each also appears in
+        // HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE, which
+        // shouldRejectGetAndHead_forEveryFilterListedWriteParameter drives against the action.
+        // Provider Privilege: opening the page permits GET; submit (Add/Delete) or buttonUpdate rewrites
+        // privilege rows and must be a POST. Covered by ProviderPrivilegeRoleWriteGuardUnitTest.
+        "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action",
+        // Provider Role: opening and filtering permit GET; submit (a localized Add/Delete), buttonUpdate
+        // or buttonSetPrimaryRole changes a role, must be a POST and needs write. Covered by
+        // ProviderPrivilegeRoleWriteGuardUnitTest.
+        "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
+        // Dx registry report: the reports permit GET; method=editDesc rewrites a shared code description
+        // and must be a POST. Covered by DxresearchReport2ActionTest (EditDescMethodGuard).
+        "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action",
+        // Message actions: reply, replyAll and forward open the compose page by GET; delete deletes the
+        // message and must be a POST. Covered by MsgHandleMessages2ActionDeleteGuardUnitTest.
+        "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action"
     );
 
     /**
@@ -651,6 +720,8 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
+        "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action",
         // The form package is not in IN_SCOPE_PACKAGE_PREFIXES; its legacy form dispatcher registers here.
         "io.github.carlos_emr.carlos.form.Frm2Action",
         // measurements.web is not in IN_SCOPE_PACKAGE_PREFIXES; its data dispatcher registers here.
@@ -679,8 +750,20 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingEditCode2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDeleteNoAppt2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDeleteWithoutNo2Action",
+        "io.github.carlos_emr.carlos.eform.actions.UnRemEForm2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action",
+        // BC billing (#4439 D3, D12): the Teleplan file generation and the POST-only saves registered above.
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBCSave2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveBillingPreferences2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveAssoc2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeleteServiceCodeAssoc2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AddReferralDoc2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingAddCode2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeletePrivateCode2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
@@ -762,7 +845,12 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action",
         "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
         // The form package is not in IN_SCOPE_PACKAGE_PREFIXES; the BPMH form's dispatcher registers here.
-        "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action"
+        "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action",
+        // admin.web and commn.web are not in IN_SCOPE_PACKAGE_PREFIXES; these gate writes named by
+        // parameters other than `method` (#3394; conditional mutators).
+        "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action",
+        "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
+        "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
@@ -820,6 +908,116 @@ class MutatorActionGetRejectionContractUnitTest {
                     "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
                     "_rx", "w", httpMethod, Map.of("dispatch", dispatch));
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"reprint", "reprint2"})
+    @DisplayName("Prescription reprint audit writes should reject GET and HEAD")
+    void shouldRejectUnsafeMethod_forPrescriptionReprintDispatch(String method) throws Exception {
+        for (String httpMethod : List.of("GET", "HEAD")) {
+            assertRejectsUnsafeMethod(
+                    "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+                    "_rx", "w", httpMethod,
+                    Map.of("method", method, "scriptNo", "12", "drugList", "12", "demographicNo", "1"));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("DxresearchReport2Action should reject unsafe methods for the editDesc write")
+    void shouldRejectUnsafeMethod_forDxresearchReportEditDesc(String httpMethod) throws Exception {
+        assertRejectsUnsafeMethod(
+                "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action",
+                "_report", "r", httpMethod,
+                Map.of("method", "editDesc", "editingCodeType", "icd9", "editingCodeCode", "250",
+                        "editingCodeDesc", "FAKE description"));
+    }
+
+    /**
+     * The privilege each action behind {@link HttpMethodGuardFilter#MUTATION_INTENT_PARAMS_BY_ROUTE}
+     * checks before its method guard, as {@code {securityObject, level}}. A route added to that table
+     * needs an entry here, or {@link #filterListedWriteParameters()} fails.
+     */
+    private static final Map<String, String[]> FILTER_LISTED_ROUTE_PRIVILEGES = Map.of(
+        "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action", new String[]{"_admin", "w"},
+        "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action", new String[]{"_admin", "r"},
+        "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action", new String[]{"_msg", "r"},
+        "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action", new String[]{"_form", "w"},
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action", new String[]{"_billing", "w"});
+
+    /**
+     * One case per route and write parameter in {@link HttpMethodGuardFilter#MUTATION_INTENT_PARAMS_BY_ROUTE},
+     * with the action class the Struts configuration maps that route to. The filter is only the
+     * backstop: the action must refuse the GET itself, so a route listed there without its own guard
+     * fails here (issue #3394).
+     */
+    static Stream<Arguments> filterListedWriteParameters() throws Exception {
+        Map<String, String> classByRoute = strutsActionClassesByRoute();
+        List<Arguments> out = new ArrayList<>();
+        for (Map.Entry<String, Set<String>> route
+                : new java.util.TreeMap<>(HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE).entrySet()) {
+            String className = classByRoute.get(route.getKey());
+            assertThat(className)
+                .as("HttpMethodGuardFilter lists route %s, but no Struts action is mapped there", route.getKey())
+                .isNotNull();
+            assertThat(FILTER_LISTED_ROUTE_PRIVILEGES)
+                .as("add %s (route %s) to FILTER_LISTED_ROUTE_PRIVILEGES", className, route.getKey())
+                .containsKey(className);
+            for (String param : new TreeSet<>(route.getValue())) {
+                out.add(Arguments.of(route.getKey(), className, param));
+            }
+        }
+        return out.stream();
+    }
+
+    @ParameterizedTest(name = "{0} with {2} rejects GET and HEAD in {1}")
+    @MethodSource("filterListedWriteParameters")
+    @DisplayName("every filter-listed write parameter should be refused by the action itself for GET and HEAD")
+    void shouldRejectGetAndHead_forEveryFilterListedWriteParameter(
+            String route, String className, String param) throws Exception {
+        String[] privilege = FILTER_LISTED_ROUTE_PRIVILEGES.get(className);
+        for (String httpMethod : List.of("GET", "HEAD")) {
+            // A non-English label proves the guard keys on the parameter's presence, not its value.
+            assertRejectsUnsafeMethod(className, privilege[0], privilege[1], httpMethod,
+                    Map.of(param, "Ajouter", "messageNo", "1"));
+        }
+    }
+
+    /** Every Struts action in the {@code struts*.xml} modules, as {@code "/" + name} to its class. */
+    private static Map<String, String> strutsActionClassesByRoute() throws Exception {
+        Path configDir = Paths.get("src", "main", "webapp", "WEB-INF", "classes");
+        Map<String, String> classByRoute = new HashMap<>();
+        List<Path> configs;
+        try (Stream<Path> paths = Files.list(configDir)) {
+            configs = paths.filter(p -> p.getFileName().toString().matches("struts(?:-[a-z]+)?\\.xml"))
+                    .sorted().toList();
+        }
+        DocumentBuilder db = newHardenedDocumentBuilder();
+        for (Path config : configs) {
+            try (InputStream in = Files.newInputStream(config)) {
+                NodeList actions = db.parse(in).getElementsByTagName("action");
+                for (int i = 0; i < actions.getLength(); i++) {
+                    Element action = (Element) actions.item(i);
+                    classByRoute.put("/" + action.getAttribute("name"), action.getAttribute("class"));
+                }
+            }
+        }
+        return classByRoute;
+    }
+
+    private static DocumentBuilder newHardenedDocumentBuilder() throws Exception {
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setValidating(false);
+        dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        dbf.setXIncludeAware(false);
+        dbf.setExpandEntityReferences(false);
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        // The Struts modules declare a DOCTYPE; it is allowed but never resolved.
+        db.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
+        return db;
     }
 
     /**

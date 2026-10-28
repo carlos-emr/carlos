@@ -126,7 +126,64 @@ check therefore excuses that one aborted `/csrfguard` script load, proven by `na
 `legacy-lab-display` does.
 `clinical-forms-save-reopen` failed on this install at "Mental Health Form 14: Print Pdf answers a PDF
 carrying the saved prose", on two runs. Its other failing pairs are pinned by its own variants. That
-form is not touched here and no finding records the print failure yet.
+form is not touched here and no finding records the print failure yet. (Fixed in #5161: see the next
+paragraph.)
+The Mental Health form fixes of #5161 (issues #4595, #4596, #4597, #4600 and #4683, findings 236, 238,
+239 and 242) were validated on 2026-10-22. The 2026.09.0~snapshot26 packages were built inside an Ubuntu
+26.04 container from the `release/2026.08` fix branch at 57c87cb777: DrugRef came from its pinned ref, and
+carlos-ctl from the pin's fallback commit `325482a`, stamped 1.2.0 because that tag is not published yet.
+They were installed fresh with `scripts/deb-docker-validation.sh up` into an Ubuntu 26.04 systemd container
+with the demo dataset (`carlos-ctl check` clean, `:443`). That host reached the network only through an
+egress proxy that resets reused connections. So apt ran with `Acquire::https::Pipeline-Depth "0"` (set in
+the image passed as `BASE_IMAGE`) and Maven with `-Daether.connector.http.reuseConnections=false`.
+Results:
+
+- `clinical-forms-save-reopen` and its `-form14-42`, `-mental-health-script`,
+  `-mental-health-chart-reload`, `-mental-health-reopen` and `-mental-health-print` variants **PASS**, with
+  no expected failure left. So do `form-catalog-smoke` and `form-catalog-smoke-rourke2006-reopen`.
+- The Mental Health chain carries a Referred By of `Dr "Sam" O'Neil & <Co>` through the three Saves, the
+  reopen and the three prints.
+- The Form 14 Print Pdf failure recorded above is fixed in the same PR. The physician's name started at
+  x=415 and ran off the page, so the PDF lost its end. The new opt-in `fit` print-config column sets such a
+  value small enough to stay on its blank.
+- `--residue-audit` reports 63 `measurementType` and 44 `validations` rows added on the first run after a
+  fresh install. The Vascular Tracker's setup (`FrmSetupForm2Action`, through
+  `EctFindMeasurementTypeUtil.checkMeasurmentTypes`) adds its dictionary the first time it opens. A
+  second run reports no residue.
+- Negative control: the pre-fix pages, servlet and print config were put back into the installed webapp,
+  with `touch` so Jasper recompiled them. The five variants and `-rourke2006-reopen` then **FAIL** at
+  their steps, and the default entry fails at "Mental Health Form 14: each real date is validated". The
+  Mental Health chain stops at "The redisplayed form does not show the saved c_referredBy". Only
+  `-mental-health-script` (finding 237, fixed earlier) still passes.
+- Rows saved before the fix reopen on the right page through `formmentalhealth` and `formrourke2006`
+  (an ad-hoc check, not committed). That covers `c_lastVisited` stored as `referral/`, `assessment/`,
+  `outcome/`, `p1/`, `p2/` and `p3/`, and an unknown `../x`, which opens the first page.
+- The installer's "NOT ready to use" notice came from nginx's stock site on this IPv6-less container
+  (`[::]:80`), as section 2 describes. No `.install-incomplete` marker remained.
+- A later refactor of the `fit` branch moved it into the existing print-branch chain, with no output
+  change. Its `FrmPDFServlet` class was swapped into the same install, and `clinical-forms-save-reopen`
+  and `-form14-42` were run again: both **PASS**.
+`chart-entry-appointment-ownership-playwright-checks.js` (issue #4676) was added on 2026-10-22. It was run
+against 2026.09.0~snapshot26 packages built inside an Ubuntu 26.04 container from the `release/2026.08` fix
+branch: DrugRef from its pinned ref, and carlos-ctl from the pin's fallback commit `325482a`, stamped 1.2.0
+because that tag is not published yet. They were installed fresh with `scripts/deb-docker-validation.sh up`
+and the Ontario demo dataset (`carlos-ctl check` clean, `:443`). Behind the same connection-resetting egress
+proxy, the image's apt trusted the proxy's full CA bundle (`BUILD_CA_BUNDLE=/root/.ccr/ca-bundle.crt`; the
+proxy CA alone failed verification) and Maven ran with short request timeouts. Results:
+
+- The new check **PASS**es 4/4 steps and leaves no fixture rows. With the pre-fix
+  `EctIncomingEncounter2Action` and `EctSessionBean` classes swapped into the installed webapp, it **FAIL**s
+  at "entries naming a visit that is not their patient's are refused": every hostile entry answered 302.
+- `echart`, `echart-navbar-modules`, `echart-new-patient-notes`, `echart-note-sign-bill`, `echart-print`,
+  `echart-lock-lifecycle`, `echart-forms-latest-item`, `echart-note-verify-appointment-status`,
+  `chart-session-state-two-window-isolation`, `pmm-attach-note-two-window-isolation`,
+  `gap-provider-messenger-write-to-encounter`, `page-health-master-record`, `anonymous-access-refused`,
+  `mutator-get-rejection-live` and `waf-clinical-text-corpus-incoming-encounter-reason` **PASS**.
+- `echart-two-patient-isolation` fails at "Vascular Tracker setup and Update in A's window" (native Tab from
+  MedR comments did not focus MedA comments) and `echart-note-lifecycle` at "reopened, the signed note is
+  read-only"; both fail at the same steps with the pre-fix classes, so neither is this change's.
+  `session-state-two-window-isolation` failed once at its year-end statement step and once at its compose
+  attachment step, and passed on the next run with the fix and once with the pre-fix classes.
 `rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
 run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
 (DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the
@@ -518,8 +575,10 @@ overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 > hierarchy on a hybrid cgroup host), installs the three `.deb` files with the
 > section 3 preseed, refuses to continue unless `carlos-ctl check` reports
 > "All checks passed" and no `.install-incomplete` marker remains, stages the
-> section 4 fixtures, performs the section 6 first-login reset and writes
-> `/root/suite-env.sh`. Then it runs the suite and the server-log audit inside
+> section 4 fixtures, performs the section 6 first-login reset, writes
+> `/root/suite-env.sh` and creates the Vascular Tracker measurement dictionary
+> (`scripts/vascular-dictionary-initialize.js`; the VT checks refuse to start
+> without it so its one-off creation stays out of a run's residue window). Then it runs the suite and the server-log audit inside
 > the container, where the MariaDB socket is:
 >
 > ```bash
@@ -739,13 +798,25 @@ suite; the check runs as root and decrypts the `.pgp` download with it.
 consultation's Current Medications, which the form fills from the chart only
 when `CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true`. The package ships `false`,
 and the form's "Import active medications" button takes a different path
-(`getActiveMedications`), so turn the property on for the suite:
+(`getActiveMedications`), so turn the property on for the suite. Issue #5211
+was a missing prerequisite in the validation setup, rather than a form defect.
+`scripts/deb-docker-validation.sh up` now sets it on its disposable install
+before restarting. For a manual install:
 
 ```bash
 lxc exec carlos-test -- sed -i \
     's/^CONSULTATION_AUTO_INCLUDE_MEDICATIONS=false/CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true/' \
     /etc/carlos-emr/carlos.properties
 ```
+
+After restarting, export `CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true` in the
+**suite process** to confirm that the running application has this setting.
+The variable confirms the operator setup; it does not change the application.
+Without confirmation, `rx-unique-medication-list` reports SKIP with setup
+instructions before creating fixtures. With confirmation, an empty or incorrect
+medication list remains a FAIL. The Docker helper writes this export to
+`/root/suite-env.sh`. Keep the package default off; on an existing manual
+validation install, restore the original property value and restart when done.
 
 Restart once after loading so nothing serves from a pre-load cache:
 
@@ -854,6 +925,8 @@ Environment contract (one block, exported before every script):
 ```bash
 cd /root/carlos
 export BASE_URL=https://127.0.0.1/carlos
+# Confirm section 4 enabled the application property and restarted CARLOS.
+export CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true
 export CHROME_PATH=/usr/lib/carlos-emr/chromium/chrome
 # A secure fresh install randomises both secrets. Read the root-only handoff file,
 # then perform the mandatory first-login reset once before any suite loop.
@@ -888,8 +961,9 @@ export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/documen
 # privileges in the test DB; lab-upload-signed-feed finds its decrypted copies here by content.
 export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # With the journal unit named, those two checks also read the server log for their injected failure and
-# assert it shows the database's own error at ERROR and no Hibernate HHH000099 (#4436). Unset, that half
-# is skipped with a notice. Needs a user who can read the journal (root in the VM).
+# assert it shows the database's own error at ERROR and no Hibernate HHH000099 (#4436). Unset,
+# lab-upload-rollback skips that half with a notice and lab-upload-signed-feed fails, since its
+# fault evidence is the log. Needs a user who can read the journal (root in the VM).
 export LAB_UPLOAD_JOURNAL_UNIT=carlos-emr
 # Browser diagnostics omit raw clinical content. eDoc screenshots are disabled by
 # default; set EDOC_NAV_SCREENSHOT_DIR only for an explicitly approved test-data capture.
@@ -3308,3 +3382,310 @@ match needs matching DOB or full name, and absent HINs require matching DOB plus
 Conflicting HINs or insufficient source evidence block chain-wide mutations and require source
 review, including corrections that change all corroborating identity fields. The resolver does
 not silently omit an uncertain sibling. Other lab sources retain their existing membership rules.
+
+### Writes named by a parameter other than `method` (2026-10-22, issue #3394)
+
+Finding 315. `release/2026.08` at 3b86a51e57 plus the fix branch was packaged as `2026.09.0~snapshot26` with
+`dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` builder (OpenJDK 25), the CARLOS WAR compiled from source with
+the `debian/rules` Maven flags and DrugRef built from the `debian/drugref.pin` ref (`1941e14`). `lintian --fail-on
+error` passed and carlos-ctl was 1.1.2 from its release. The packages were installed fresh with
+`scripts/deb-docker-validation.sh up` (Ontario, demo dataset) and `carlos-ctl check` reported "All checks passed".
+The first run used the branch's first commit; the final run rebuilt and reinstalled from its head (`5038ddbd81`).
+
+| Run | `get-reject-dispatch-params` |
+|---|---|
+| fixed packages | PASS, all 5 steps. Each real POST writes (a privilege row's Update, a role's Add and Update, a message's Delete, a code description's Modify) and carries its CSRF token; all 9 GET and HEAD replays answer 405 with the application's header and change nothing. |
+| pre-fix `ProviderPrivilege2Action`, `ProviderRole2Action`, `MsgHandleMessages2Action`, `DxresearchReport2Action` and `HttpMethodGuardFilter` swapped in | FAILS at the last step: 6 of 9 replays answer 200, and the GETs rewrite privilege row B, change the throwaway provider's role, delete message B and rewrite the owned ICD-9 description. |
+
+The other checks that drive these routes ran on the final packages:
+- The smoke tier passes 12 of 12.
+- `assign-role`, `admin-role-management` (with `EXCLUSIVE=1`), `select-forms-panel`, `rh-form-workflow`
+  (`form/AddRHWorkFlow`), `form-adfv2-save-exit`, `form-checkbox-reopen`, `echart-forms-latest-item`,
+  `mutator-get-rejection-live`, `get-reject-provider-groups`, `get-reject-measurement-groups`,
+  `messenger-reply-conversation`, `messenger-reply-all-forward`, `messenger-demographic-link` and
+  `export-content-dx-registry-xlsx` pass. The `form/formname` saves in `clinical-forms-save-reopen` (twelve forms,
+  each redirected through `/form/forwardname` and redisplayed) and the Save and reopen steps of `bpmh-form` pass.
+- Five checks fail at the same step with the pre-fix classes and `struts-form.xml` swapped back in, so none comes from
+  this change: `clinical-forms-save-reopen` at "Mental Health Form 14: Print Pdf answers a PDF carrying the saved
+  prose", `bpmh-form` at "Print answers a PDF of the saved form", `authz-read-role-matrix` (`oscarResearch/dxresearch/
+  setupDxResearch` and `dxResearchLoadQuickList` answer 500 to a login with no sec object), `authz-read-admin-objects`
+  (its full-privilege control is not served `eform/fieldNoteReport/fieldnotereportdetail`) and
+  `messenger-reply-send-archive` at "Send and Archive archives exactly the message replied to".
+- `session-state-two-window-isolation` failed at its year-end statement step only when it ran after the twenty
+  checks above; alone it passes, three times on the fixed packages and once on the pre-fix ones.
+
+Review follow-up (CodeRabbit): `StrutsFormNestedForwardUnitTest` compared locations with action names only, so it
+missed `form/formname`'s `printAllJasperReport` result, `/form/formPdfJasperReport`, which the `form/*` wildcard
+serves. That is a nested action FORWARD to a view that does not exist. The test now matches wildcard actions and
+honours `struts.action.excludePattern`, and the result prints through `/form/createpdf` like `printAll`. Checked on
+the same install with only `struts-form.xml` changed:
+- A Lab Req 2007 Print post rewritten to `submit=printAllJasperReport` answers 404 (HTML) with the old location and
+  a 46 KB `application/pdf` with the new one. Rourke 2020's own Print, which writes its PDF in `Frm2Action`, still
+  passes in `form-rourke2020-growth`.
+- `select-forms-panel`, `rh-form-workflow`, `form-adfv2-save-exit`, `form-checkbox-reopen` and
+  `echart-forms-latest-item` pass.
+- `form-rourke2020-growth` fails with the old base-branch `struts-form.xml`, with the PR's previous head and with
+  this change. Growth 0-36m and Growth Chart never open from the Forms menu, and the Rourke 2020 save step varies
+  from run to run (two rows for one request, or Tomcat closing the `form/formname` connection so nginx answers
+  502). It is not caused by this change.
+- `form-print-pdf` cannot start on this install: the Forms menu lists no Lab Req 2007 for the admin login.
+
+### Query by Example reporting account (2026-10-22, issue #3372)
+
+Query by Example now runs every query as the read-only `carlos_report` account that carlos-ctl 1.2.0 provisions from the grant list
+the WAR ships (`WEB-INF/classes/db/reporting/carlos_report_grants.sql`); see `docs/query-by-example-least-privilege.md`. The branch
+(`claude/issue-3372-20261022`, WAR from `89f982f8`) was packaged unstamped as `2026.09.0~snapshot26`: the CARLOS WAR compiled on the host
+with JDK 25, DrugRef from `debian/drugref.pin`, `dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` builder with `CARLOS_WAR` and
+`DRUGREF_WAR`. carlos-ctl was built from its PR branch (carlos-emr/carlos-ctl#10) as `1.2.0`. Docker Hub rate-limited the `ubuntu:26.04`
+pull, so `BASE_IMAGE` named a local image built from it earlier the same day.
+
+**Fresh install** (Ontario, demo dataset, `scripts/deb-docker-validation.sh up`): `carlos-ctl check` passed, including "Query by Example
+runs as carlos_report: SELECT on 409 reportable table(s), nothing else". `SHOW GRANTS` lists `casemgmt_note` and `DigitalSignature`
+column by column, without `password` and `signatureImage`, and no restricted table.
+
+| Run | Result |
+|---|---|
+| `report-query-by-example-least-privilege` (new), `report-query-by-example`, `report-query-by-example-front-door` | **PASS**, 3 of 3 through `:443`: a reportable table answers; a table created after provisioning (with a planted secret) is refused by MariaDB in the outer query and in a subquery, the secret never reaches the page and no history row is written; every hidden column is refused by name and through `SELECT *` while the other columns answer; in MariaDB the account holds SELECT only, no table with hidden columns as a whole, no schema, global or role privilege |
+| `--tier smoke` | **PASS**, 12 of 12 |
+| server-log audit | **PASS**, no unexplained signature (6 known) |
+
+Drift, introduced by hand on the running install and then repaired (`/root/qbe-drift-scenarios.sh`, 22 assertions, all pass with the
+final carlos-ctl):
+
+| Drift | `carlos-ctl check` | Repair |
+|---|---|---|
+| table-wide `SELECT` on `DigitalSignature` | FAIL: "DigitalSignature (every column, hidden ones included)" | `db-users` |
+| `SELECT (password)` on `casemgmt_note` | FAIL: "casemgmt_note.password" | `db-users` |
+| `SELECT` on `security` | FAIL: "security (restricted)" | `db-users` |
+| `PROXY ON ''@'%'` | FAIL: privileges beyond SELECT (proxy) | `db-users` revokes the PROXY grant |
+| `appointment` revoked on `127.0.0.1` only | FAIL: "1 reportable table(s) are not granted to carlos_report@127.0.0.1" | `db-users` |
+| `casemgmt_note.note` revoked on `localhost` only | FAIL: "casemgmt_note.note for localhost" | `db-users` |
+| an extra `carlos_report@'%'` login | FAIL: "also exists for host(s) %" | `DROP USER` |
+| the account's password changed in MariaDB | FAIL: the recorded password "does not log in as carlos_report@localhost" | `db-users` |
+| a `PUBLIC` grant on the schema plus a stale `SELECT, INSERT` on `security` | FAIL: PUBLIC holds privileges | `db-users` reports the refused list; the refused run had already revoked the stale grant; revoke from PUBLIC, `db-users` |
+
+With the table-wide `DigitalSignature` grant in place, the application refused the account before running anything: the
+`report-query-by-example` check failed at its first query, as intended, and the log read "Query-by-Example refused the reporting
+account: it holds a privilege other than SELECT on reportable tables of carlos". MariaDB prints a table grant and a column grant on
+one table as a single `GRANT SELECT, SELECT (...)` line, which the audit refuses as unrecognised; `carlos-ctl check` names the
+table. After `db-users` both checks passed again.
+
+One defect was found and fixed here: when the grant list refused to run, `db-users` warned with the first 400 characters of the
+client's stderr, which the client fills with the echoed `BEGIN NOT ATOMIC` block, so MariaDB's message was cut off. carlos-ctl now
+reports the last `ERROR` line (carlos-ctl `b98c931`).
+
+**Upgrade from `2026.08.0~alpha20`** (carlos-ctl 1.1.2, no reporting account) to the same packages: `deb-upgrade-baseline.sh`, then
+`apt-get install` of `carlos-ctl_1.2.0`, `carlos-emr` and `carlos-emr-drugref`. The transaction created `carlos_report` on both hosts
+and granted 409 tables; Flyway applied exactly `1.0.58` (45 in all); `carlos-ctl check` passed. `deb-upgrade-verify.sh` first scored
+44 of 45: `carlos.properties` changed, because provisioning records `db_reporting_username` and `db_reporting_password`. The baseline
+now snapshots those two keys (the password as a digest only) apart from its other digests, and the verifier accepts exactly that
+addition. Re-run against the same PRE snapshot (alpha20 had neither key, so its digests are identical under both script versions):
+**46 passed, 0 failed**. On the upgraded install the three Query by Example checks pass 3 of 3, `--tier smoke` passes 12 of 12 and the
+server-log audit reports no unexplained signature; the install also came back healthy after its container was restarted mid-run.
+
+A review of carlos-ctl#10 then found the login probe ignoring `CARLOS_DB_PORT` and calling any failed login a wrong password. With
+carlos-ctl `607c24e` installed on the upgraded container, `check` still passed; changing the account's password on `127.0.0.1` alone
+was reported as "does not log in as carlos_report@127.0.0.1", and `db-users` repaired it. A second review found `check` printing its
+OK line beside a login it could not try (a busy account, or MariaDB not answering on the port). With carlos-ctl `325482a` installed
+(OK only after a login that worked), `check` still passed on the same container. The 22 drift assertions passed again, and so did the
+three Query by Example checks (3 of 3).
+
+The installer printed "NOT ready to use" during both the fresh `snapshot26` and the `alpha20` transactions (an nginx reload while
+`carlos-emr` configures); no marker remained and `check` passed, so it predates this change.
+
+### Administration navigation gates (2026-10-22, PR #4328, issues #4238 and #4623)
+
+`release/2026.08` at `9982baba3e` merged into the PR branch, packaged unstamped as `2026.09.0~snapshot26` in an `ubuntu:26.04`
+container (JDK 25, `dpkg-buildpackage -us -uc -b`; DrugRef from its pin, the pinned Chromium; Maven Central through a mirror because
+`repo1` answered 429), with carlos-ctl built from the `debian/carlos-ctl.pin` fallback commit `325482a2` re-versioned
+`1.2.0+pr4328test1` locally, because `1.2.0` is unpublished and `1.2.0~dev1` sorts below the `Depends` floor. Installed fresh with
+`scripts/deb-docker-validation.sh up` (Ontario, demo data, `carlos-ctl check` clean; the IPv6 nginx reload note above recurred).
+The six changed JSP files were compared byte for byte with the commit. Checks ran with `EXCLUSIVE=1`.
+
+| Run | Result |
+|---|---|
+| `manage-flowsheets-access`, 6 runs after the harness fix | PASS every run, 5 of 5 steps |
+| `admin-role-management`, 6 runs after the harness fix | PASS 29 of 29 in 4; 2 failed at the Access Control step on a deleted throwaway provider (cached list, fixed in the check) |
+| `admin-role-management` and `manage-flowsheets-access` back to back, twice, after the Access Control fix | PASS, PASS |
+| `admin-index-links`, `flowsheet-admin`, `get-reject-dispatch-params`, `gap-provider-flowsheet-upload` | PASS |
+| smoke tier | PASS, 12 of 12; `carlos-emr` did not restart |
+
+Before the harness fix, both checks failed on their own teardown: closing a context logs it out, LogoutBroadcastFilter sends every
+open page to the login page 500 ms later, and the close aborted those loads. With the `release/2026.08` pages compiled (the package
+runs Jasper with `development=false`, so a swapped JSP needs a restart), the same probe recorded the aborts in 2 of 4 runs with the
+previous harness and in 0 of 4 with the fixed one.
+
+Day-sheet gate, same install: a throwaway role holding `_admin.flowsheet r` plus an `o` row on a second day-sheet object. With the
+`release/2026.08` day sheet compiled, the link was hidden in exactly the three cases where the database returned the `o` row last
+(`_admin.reporting`, `_admin.misc`, `_admin.schedule`) and shown for `_admin.billing` and `_admin.fax`; `/administration`
+answered 200 in all five. With this PR's `administration-menu-gate.jspf` all five offer the link. With the `release/2026.08`
+Administration pages compiled, this PR's `admin-role-management` fails at "the granted throwaway opens Add A Role…": a login with
+`_admin.userAdmin` read was offered the Assign Role/Rights to Object card on the home page.
+
+### Rx Info: an unknown DIN is an empty DrugRef lookup (2026-10-22, issue #5006, finding 311)
+
+`release/2026.08` at `7a0aa6afa9` plus the PR commits, packaged unstamped as `2026.09.0~snapshot26` in an `ubuntu:26.04` container
+(JDK 25, `dpkg-buildpackage -us -uc -b`, lintian `--fail-on error` clean). DrugRef was fetched by `debian/fetch-drugref.sh` at the new
+pin `0d240f07` (carlos-emr/drugref2026#17) and its WAR built from that checkout with the `debian/rules` flags, then passed as
+`DRUGREF_WAR` because Maven's transfers through the egress proxy kept failing inside the package build; the WAR's `TablesDao` carries
+`findDrugIdFromDIN`. That override skips the default handoff, so it was then exercised on its own: a second
+`dpkg-buildpackage -nc -us -uc -b` from a fresh checkout of the same commit, with `DRUGREF_WAR`, `DRUGREF_SRC` and `DRUGREF_REF`
+unset and only the DrugRef build's Maven repository seeded under `debian/build/m2`, read the pin, fetched `0d240f07` through
+`debian/fetch-drugref.sh` and built DrugRef itself. Its `carlos-emr-drugref` deb carries DrugRef classes byte-identical to the
+installed one's. carlos-ctl was built from the `debian/carlos-ctl.pin` fallback commit `325482a2` re-versioned
+`1.2.0+validation1` locally, as in the section above. Installed fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo
+data, `carlos-ctl check` clean; the IPv6 nginx reload note recurred). `LAB_UPLOAD_JOURNAL_UNIT=carlos-emr` was set so the check reads
+the journal.
+
+| Installed DrugRef classes | `gap-encounter-rx-drug-info-on-host` |
+|---|---|
+| packaged (new pin) | PASS, 5 of 5, two runs; "missing DIN fallback does not log a DrugRef server exception" passes |
+| `TablesDao` and `Drugref` from the previous pin `1941e14`, swapped into the installed webapp | FAIL at that step: "An unknown DIN logged 2 DrugRef exception event(s) in journal unit carlos-emr: ERROR util.SimpleXmlRpcServer; ERROR util.SimpleXmlRpcServer"; the four steps before it, including the name-search fallback, pass |
+| packaged classes restored (`dpkg -V carlos-emr-drugref` clean) | PASS, 5 of 5 |
+
+The first run on the fresh install reported residue in `measurementType` (63 rows) and `validations` (44 rows):
+`MeasurementTemplateFlowSheetConfig` imports the flowsheet measurement types the first time an E-Chart opens after install. Later runs
+have no residue.
+
+Every manifest check whose name names Rx, a drug, DrugRef, an allergy or a prescription (113) then ran on the new pin: 108 pass.
+`inactive-drug-status` passes with `INACTIVE_DRUG_DIN=02303027` and `INACTIVE_DRUG_DATE=2018-06-12` from the installed dataset,
+`fax-prescription-drugref` with `scripts/e2e/fax/fixtures.sql` loaded, and `rx-unique-medication-list` with
+`CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true` (restored afterwards). The rest are known and not DrugRef's:
+`allergy-partial-start-date` fails at its last step as its manifest note says it does on `release/2026.08` (#4807),
+`rx-quantity-delete-race` and `rx-instructions-delete-race` are known failures (finding 312), `rx-preview-visit-site-isolation`
+skips without multisites, and `allergy-add-penicillin` is below. The smoke tier passes, 12 of 12, with no `carlos-emr` restart. The
+server-log audit has no DrugRef signature in any window that ran the packaged classes: its only `TablesDao.getDrugIdFromDIN`
+`NoResultException` events (four) were logged by the Tomcat process that ran the previous pin's classes for the failing run above,
+two by each of the check's two unknown-DIN requests. From the restore on, the audit's only unexplained signatures are finding 312's
+three `RxWriteScript2Action` errors (the discarded-card NullPointerException).
+
+`allergy-add-penicillin` fails at its control step ("the added allergy and its amendment are stored, and this run's window of the
+server journal is read") with "the server journal holds nothing in this run's window" on a server that has already served a few
+requests: the step needs some line from `carlos-emr.service` during the check's ten seconds, and the app logged none. This is not the
+DrugRef change. With the previous pin's classes swapped in, it passes on the first run after a restart (startup warnings
+fill its window) and fails the same way on the next run.
+
+### Ontario hospital (shortcut) billing (2026-10-22, issue #5055)
+
+`release/2026.08` at `7a0aa6afa9` plus this change, packaged unstamped as `2026.09.0~snapshot26` in an `ubuntu:26.04`
+container (JDK 25, `dpkg-buildpackage -us -uc -b`; DrugRef built from its pin, the pinned Chromium; Maven Central through
+the Google mirror because `repo.maven.apache.org` answered 429), with carlos-ctl built from the `debian/carlos-ctl.pin`
+fallback commit `325482a2` re-versioned `1.2.0+pr5055test1` locally (`1.2.0` is unpublished). Each package was installed
+fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo data, `carlos-ctl check` clean; the IPv6 nginx reload
+note above recurred). Findings 317 to 320 of `app-findings-log.md` record what each round found. The PR-head package
+installed fresh also passed `--tier smoke` (12 of 12) and `billing-on-hospital-shortcut`, `master-record-tabs`,
+`page-health-master-record`, `billing-on-submit`, `billing-on-third-party`, `demographic-master-crud-smoke` and
+`gap-billing-inr-calendar-popup`.
+
+| Package, or file swapped into the installed webapp | `billing-on-hospital-shortcut` |
+|---|---|
+| Package at `42ba5b7222` (before the fr-CA step was added), 4 runs | PASS, 9 of 9 steps, no residue |
+| Package at `42ba5b7222` with the release `demographic/edit.jsp` compiled | FAIL at "the Master Record offers Hospital Billing for this patient" |
+| Link only (`74e7c46485`): the release `calendar-setup.js` | FAIL at "the service-date calendar records the picked date"; page errors `trimEnd` and "Maximum call stack size exceeded" |
+| Link only, with the fixed `calendar-setup.js` (the release `BillingShortcutPg2Service`) | FAIL at "Save writes one claim for this patient and closes the window": the claim was written, page 1 reloaded |
+| PR head (`a681b3f12f`, base merged), fresh install, with the release `billingShortcutPg1.jsp` compiled | FAIL at the fr-CA step: "The French Next did not price the Confirmation" |
+| The same with the fixed `billingShortcutPg1.jsp` compiled, 2 runs | PASS, 10 of 10 steps, no residue |
+| Final PR head (`810fe2e9c6`), packaged and installed fresh | PASS, 10 of 10 steps; with it `master-record-tabs`, `page-health-master-record`, `billing-on-submit`, `billing-on-third-party`, `demographic-master-crud-smoke`, `gap-billing-inr-calendar-popup` and `--tier smoke` (12 of 12) |
+
+On the final package: `--tier smoke` 12 of 12; `master-record-tabs` and `page-health-master-record` (with Hospital Billing
+added to its patient-scope list) open and judge the new link; `billing-on-submit`, `billing-on-third-party`,
+`billing-on-correction-delete`, `billing-on-correction-save-another`, `billing-on-invoice-third-party`,
+`demographic-master-crud-smoke`, `tickler-crud` and `gap-billing-inr-calendar-popup` pass. `authz-read-role-matrix`
+refused `billingShortcutPg1View` with 403 to a login without `_billing`. Three checks fail identically with the release
+file swapped back, so they predate this change: `calendar-keyboard` (Ontario bill form Service Date: "the calendar button
+is not a named button or link") and `allergy-partial-start-date` (partial dates saved as full) with the release
+`calendar-setup.js`, `popup-opener-master-record` (Update Record did not navigate) with the release `edit.jsp`. Two fail
+on routes this change does not touch: `authz-read-role-matrix` (two `oscarResearch` routes answer 500) and
+`authz-read-patient-lock` (the routes it lists, none of them the shortcut pages). The server-log audit's
+unexplained signatures are BC billing routes probed on this Ontario install and those two research routes; every log
+line naming the shortcut routes is the check's deliberate GET (405) or that 403.
+
+### BC forms and billing (2026-10-22, issues #5090, #5062, #5051, #5050 and #4439)
+
+Branch `claude/bc-forms-5090-5062-5051-5050-4439` (PR #5167), merged with `release/2026.08` at `eacd3d9230`, packaged
+unstamped as `2026.09.0~snapshot26`: the CARLOS WAR compiled from source in an `ubuntu:26.04` builder (OpenJDK 25),
+DrugRef from `debian/drugref.pin` (`1941e14`), carlos-ctl `1.2.0` built from its pin's fallback commit (`325482a`),
+`dpkg-buildpackage -us -uc -b` with `CARLOS_WAR` and `DRUGREF_WAR`. Every run below used a fresh install made with
+`CARLOS_PROVINCE=bc scripts/deb-docker-validation.sh up` (BC preseed, BC demo data); `carlos-ctl check` passed each time.
+Checks that need the Teleplan output directory ran with `HOME_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/billing/download`.
+
+| Run | Result |
+|---|---|
+| New and changed checks: `form-bc-saved-value-encoding`, `form-bc-add-form-defaults`, `form-bc-epds-wording`, `get-reject-bc-billing`, `authz-bc-billing`, `billing-bc-teleplan-file`, `billing-bc-codes-admin`, `billing-bc-settle-paid-claims` | **PASS**, 8 of 8 |
+| The 44 BC-only checks of the default profile, `--residue-audit` | 42 **PASS** and 2 known failures (findings 145 and 153, pinned), no residue. `billing-bc-wcb-links` runs alone after `carlos-ctl restart`: the simulation lists the active providers cached at the first login after startup, and `up` has already signed in once |
+| `profile legacy-teleplan`, then `suite --profile legacy-teleplan --residue-audit`, then `profile default` | `billing-bc-remittance-upload` **PASS**, all 9 steps, no residue |
+| `--tier smoke` (final packages) | **PASS**, 12 of 12 |
+| `--tier core --province BC --residue-audit` (final packages) | 473 **PASS**, 74 FAIL, 30 SKIP (fixtures or settings a BC install lacks), 23 known failures, 1 unexpected pass (`xss-poison-eform`, finding 121), 1 failed elsewhere (`audit-log-chart-read`). None of the 74 is a BC form or BC billing check; see below |
+| server-log audit (after the core run) | 16 unexplained signatures, none in code this PR changes. The largest are `PreventionDisplayConfig` NPE (108) and the Flu Billing report's 500 (14, below). The base install, after only its 66-check run, logged three of the same signatures (Flu Billing, a constraint violation, a client abort) |
+
+**The 74 core failures are not this PR's.** They were rerun one by one with `EXCLUSIVE=1` after `carlos-ctl restart`. 8 passed: they need an exclusive run or failed on run order. The other 66 were run the same way on a fresh BC install of the unmodified base (`release/2026.08` at `eacd3d9230`, the commit the tested packages were merged with). 65 fail there too, and `appointment-waiting-list-prompt` is flaky on both: it fails 2 of 4 base runs with the same aborted login-page requests. None of the 66 is a BC form or BC billing check. They are: `admin-email-config`, `admin-index-links`, `admin-jobs`, `admin-lookup-lists`, `allergy-partial-start-date`, `annotate-document`, `appointment-waiting-list-prompt`, `audit-log-appointment`, `audit-log-billing-on`, `audit-log-chart-modules`, `audit-log-chart-note`, `audit-log-demographic-import`, `audit-log-document-read`, `audit-log-locked-patient`, `audit-log-report-tools`, `audit-log-session`, `audit-log-vitals`, `boundary-appointment-text`, `boundary-chart-note-text`, `boundary-demographic-search`, `boundary-demographic-text`, `boundary-document-text`, `boundary-messaging-text`, `boundary-rbt-group-label`, `bpmh-form`, `clinical-freetext`, `concurrency-appointment-edit`, `concurrency-chart-note-takeover`, `concurrency-security-record`, `concurrency-tickler-edit`, `concurrency-tickler-list-status`, `cpp-copy-position`, `demographic-cds-import`, `demographic-paper-chart-country`, `demographic-patient-consents`, `demographic-report-favourites`, `document-description-templates`, `double-submit-chart-note`, `double-submit-messenger`, `echart-note-lifecycle`, `echart-two-patient-isolation`, `gap-clinical-cpp-boxes`, `gap-encounter-eform-edoc-approval`, `gap-provider-schedule-reason-privacy`, `gap-records-hrm-inbox-null-hin`, `gap-records-hrm-report-actions`, `gap-records-usage-report`, `get-reject-chart-notes`, `get-reject-eform-editor`, `hrm-retired-statement`, `hrm-tickler`, `lab-recall-delegate`, `messenger-reply-send-archive`, `page-health-admin-panel:1of2`, `page-health-patient-hubs`, `password-change-preferences`, `patient-list-by-appointment-export`, `popup-opener-colour-picker`, `pregnancy-lifecycle`, `prevention-partial-date`, `prevention-print`, `prevention-print-selection`, `rx-unique-medication-list`, `schedule-period-delete`, `scratchpad-workflow`, `xss-poison-echart`. #4439 task 11 asks for each to be classified (an Ontario-only route gets `provinces: ["ON"]`, a BC defect a finding row); that classification is not part of this record. One is plainly BC-specific: `admin-index-links` fails because Administration offers the Flu Billing Report on BC, and the report queries the Ontario-only `billing_on_cheader1` table (HTTP 500).
+
+**Negative control.** The pre-fix `GenerateTeleplanFile2Action`, the six BC billing writes, `EditServiceCodeAssoc2Action`
+and `HttpMethodGuardFilter`, compiled against the installed classpath, and the pre-fix `TeleplanSubmission.jsp`,
+`leftNav.jspf`, `admin.jsp`, `manageSVCDXAssoc.jsp`, `billingBC.jsp` and `struts-billing.xml` were swapped into the
+install, then the fixed files put back byte for byte:
+- `billing-bc-teleplan-file` fails at "opening the Teleplan file item from the menu writes no batch of its own": the
+  menu's GET wrote 1 batch (#4439 D3).
+- `billing-bc-codes-admin` fails at its last step: Create New Association does not open an editor (#4439 D14).
+- `get-reject-bc-billing` still passes: `HttpMethodGuardFilter`'s route-name rules (the `save`, `add` and `delete`
+  prefixes and `billingaddcode`) already refused all 13 GETs. The actions' own guards (D12) are defense in depth.
+
+**Defects found and fixed during the run.**
+- `billing-bc-two-window-isolation` failed at "Update Invoice on a two-line private receipt": the private bill's
+  Save & Print Receipt answered 403. The ModSecurity audit log showed CRS rule 932115 (Windows command injection)
+  matching `& Print Receipt` in `ARGS:submit` on `billing/CA/BC/SaveBilling`, so no private-bill receipt could be
+  saved through the packaged front door. The button now reads "Save and Print Receipt", and `BillingSaveBilling2Action`
+  accepts both values; the check passes.
+- The residue audit found 9 `property`, 3 `providerArchive`, 3 `providerbillcenter` and 1 `PrintResourceLog` rows.
+  `billing-bc-simulation-encoding` and `billing-bc-two-window-isolation` add physicians through Add Provider, which
+  also writes those provider rows; `form-bc-antenatal-record` kept the print record of its own FAKE patient. All three
+  cleanups now remove them, and the rerun reported no residue.
+- `billing-bc-report-center` failed at its first step: a `target=_blank` tab reports an empty address until its first
+  navigation commits, and the check read it at once. It now waits for the centre's address.
+- `billing-bc-wcb-links` fails at its simulation step when an earlier login has already filled the active-provider
+  cache; after a restart it passes. This is a property of the check's fixture (documented in its header), not a defect.
+- `bpmh-form` fails at "Print answers a PDF of the saved form", as recorded for #3394 above with the pre-fix classes;
+  it is not caused by this change.
+
+**Final packages (`69ffc538`).** The review fixes after the runs above (Chart Checklist descriptions, BC-NewBorn page
+dates, the BC-AR 2007 doula boxes, BC-AR 2012's EPDS restore and substance-use "No" box, BC-NewBorn 2008's saved page,
+the PRI default) were packaged from `69ffc538` with `dpkg-buildpackage -us -uc -b`, the WAR compiled by `debian/rules`
+(lintian clean). Before installing, every one of the package's 1,045 `WEB-INF/jsp` files was compared with the commit
+and matched. An earlier rebuild with `-nc` had kept the previous build's WAR: debhelper's build stamp skips
+`dh_auto_build`, so the package carried code from before these fixes, and the comparison found 6 pages that differ.
+The runs below are on a fresh `CARLOS_PROVINCE=bc` install of the checked packages (`carlos-ctl check` passed).
+
+| Run | Result |
+|---|---|
+| `--tier smoke` | **PASS**, 12 of 12 |
+| `billing-bc-wcb-links`, after `carlos-ctl restart` | **PASS** |
+| The other 44 BC-only checks of the default profile, `--residue-audit` | 42 **PASS** and 2 known failures (findings 145 and 153), no residue. `form-bc-legacy-field-restore` passes all 5 steps and `form-bc-epds-wording` all 8 |
+| The 25 province-neutral checks whose scripts use `scripts/lib/get-reject-probe.js`, which this PR changed (`expect405`, off by default), `--residue-audit` | 13 **PASS**, 10 known failures (findings 263 and 264), 2 FAIL: `get-reject-chart-notes` and `get-reject-eform-editor`, both among the 66 that fail on the base above. Their routes answer GET with 200 or 302 and write; `expect405` changes only how a 403 is read, and neither check sets it. The residue audit found 434 `form_boolean_value` rows: `rourke-measurement` deletes its `formRourke2017` row but not the checkbox rows the form keeps for it, the gap `form-rourke2017` closed for itself. Neither check is changed here |
+| `profile legacy-teleplan`, `suite --profile legacy-teleplan --residue-audit`, `profile default` | `billing-bc-remittance-upload` **PASS**, no residue |
+| server-log audit | 2 unexplained signatures, `Misc.areaCode` and `Misc.phoneNumber` (`StringIndexOutOfBoundsException`), both from `billing-bc-wcb-links`: `TeleplanCorrectionActionWCB2Action` (lines 195 and 196) splits the patient's second phone number, which here is 1 character, into area code and number. Neither the action nor the check is changed here |
+
+**Negative control (form fixes).** Each pre-fix page was swapped into the install, with a Tomcat restart, and the fixed
+page put back byte for byte:
+- `formbcar2007pg2.jsp` and `formbcar2012pg2.jsp`: `form-bc-legacy-field-restore` fails at the BC-AR 2007 doula step
+  ("formbcar2007pg2 offers no doula box"), and `form-bc-epds-wording` fails at the BC-AR 2012 reopen: no EPDS answer is
+  ticked (every position `-1`).
+- `formbcar2012pg1.jsp`: the substance-use "No" box reopens unticked.
+- `formBCNewBorn2008pg2.jsp`: the record stores `c_lastVisited` `pg1` and reopens on page 1.
+- `formbcclientchartchecklist.jsp`: the description comes back as `FAKE desc `, cut at its first `'`.
+- BC-NewBorn page 2's date: on the package that kept the earlier WAR, the reopened page 2 shows "23/10/2026", page 1's
+  date, instead of the 05/03/2025 saved for it.
+
+**Defects found and fixed after the first runs.**
+- BC-AR 2007 pages 2 and 3 left the doula's `<td` unclosed, so the browser read the box as the cell's attributes:
+  the saved doula was never shown and never posted again.
+- BC-AR 2012 page 2 defined its EPDS restore but never called it: a reopened record showed no answer ticked, and the
+  next Save stored the answers as empty. The DOM-ready handler now restores them before the dirty check records the form.
+- BC-AR 2012 page 1 printed the substance-use "No" box's saved state as text after the box, so it never showed ticked
+  and the next Save cleared it.
+- BC-NewBorn 2008 pages 2 and 3 saved themselves as page 1, so a record always reopened on page 1.
+- BC-NewBorn pages 2 and 3 showed page 1's date in their own date boxes, so the next Save stored it over theirs
+  (CodeRabbit).
+- The Chart Checklist built its 17 free-text description boxes as Java strings with the saved value unencoded: a `'`
+  ended the attribute, and `<` or `&` did not come back as typed (CodeRabbit).
+- A configured PRI default billed privately even when the PRI form was not installed and another form was chosen in
+  its place (CodeRabbit). The private billing type now follows the chosen form.

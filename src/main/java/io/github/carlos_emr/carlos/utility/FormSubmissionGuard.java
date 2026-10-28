@@ -93,7 +93,9 @@ public final class FormSubmissionGuard {
         /** {@code demographic/DemographicAddRecord} from the Add Demographic form. */
         DEMOGRAPHIC_ADD,
         /** {@code encounter/AddService} from Consultation configuration &gt; Add Service. */
-        CONSULTATION_SERVICE_ADD
+        CONSULTATION_SERVICE_ADD,
+        /** {@code Pregnancy} from the patient-bound Add pregnancy form. */
+        PREGNANCY_CREATE
     }
 
     private enum State { ISSUED, SAVING, SAVED }

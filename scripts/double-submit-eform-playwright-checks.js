@@ -146,16 +146,27 @@ async function workflow(s) {
       const since = recorderMark(s.recorder);
       const failures = failureMark(s.recorder);
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, route) : null;
-      const activate = () => rapid(mode.key, form.locator('#remoteSubmitButton'),
-        { textField: form.locator('#remoteSubmitButton') });
+      const activate = async () => {
+        if (mode.key !== 'replay') return rapid(mode.key, form.locator('#remoteSubmitButton'),
+          { textField: form.locator('#remoteSubmitButton') });
+        // Reload the completed POST result, not an in-flight submit. A fixed delay can cancel
+        // the first response under load even though its row was committed, which never tests replay.
+        const [initial] = await Promise.all([
+          form.waitForResponse(response => response.request().method() === 'POST' && route.test(response.url())),
+          form.locator('#remoteSubmitButton').click({ noWaitAfter: true }),
+        ]);
+        h.assert(initial.status() === 200, `The initial eForm submission answered HTTP ${initial.status()}`);
+        h.assert((await initial.finished()) === null, 'The initial eForm submission response did not finish');
+        await form.waitForURL(url => route.test(url.pathname), { waitUntil: 'domcontentloaded' });
+        await form.reload({ waitUntil: 'domcontentloaded', timeout: 20000 });
+      };
       if (mode.key === 'slowResubmit') {
         await armUnsavedChangesPrompt(form);
         const dialogs = await h.withExpectedDialogs(form, activate);
         h.assert(dialogs.length === 1 && dialogs[0].type === 'beforeunload', 'Expected an accepted unsaved-form navigation prompt');
       } else await activate();
-      // The saved result page closes itself only after its 5 s success alert, so the replay reload (2.5 s after the
-      // click) should land on the still-open result page. rapid() swallows a "Target page closed" error, so prove the
-      // reload really ran: the window is still open, or the reload re-sent the POST.
+      // The saved result page closes itself after its 5 s success alert. Replay reloads as
+      // soon as that result loads, then proves the reload really re-sent the POST below.
       if (mode.key === 'replay') {
         h.assert(!form.isClosed() || posts.seen.length >= 2,
           'The eForm window closed before the replay reload ran, so the POST replay was never exercised');
@@ -318,7 +329,7 @@ async function workflow(s) {
         page.waitForResponse(r => r.request().method() === 'POST' && /\/eform\/addEForm$/i.test(new URL(r.url()).pathname)),
         page.locator('#remoteSaveEdocumentButton').click(),
       ]);
-      noEdoc = { status: response.status(), text: await response.text() };
+      noEdoc = { status: response.status(), text: await response.text(), receivedAt: new Date().toISOString() };
       await page.close();
     } finally {
       await restricted.context.close();
@@ -343,6 +354,13 @@ async function workflow(s) {
     h.assert(!noEdoc.text.includes(replayText),
       `The answer to a failed Add to Documents (HTTP ${noEdoc.status}) is the replay refusal "${replayText}.", which is what a `
       + 'replayed submission gets and hides that the eForm was saved and only the document step failed');
+    const failedStep = bundleMessage('eform.submitStep.addToDocuments', 'Add to Documents');
+    const savedStepMessage = bundleMessage('eform.submitSavedStepIncomplete',
+      "The eForm was saved, but {0} did not complete. Check the patient''s eForms and chart before you redo that step.")
+      .replace('{0}', failedStep).replace(/''/g, "'");
+    h.assert(noEdoc.status === 409 && noEdoc.text === savedStepMessage,
+      `The saved eForm's refused document step did not return HTTP 409 and its specific recovery guidance (HTTP ${noEdoc.status})`);
+    console.log(`    expected post-save denial receipt: ${noEdoc.receivedAt}; HTTP 409; eForm stored once; no document filed; step=ADD_TO_DOCUMENTS`);
   });
 }
 

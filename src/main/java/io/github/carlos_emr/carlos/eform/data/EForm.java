@@ -1196,9 +1196,7 @@ public class EForm extends EFormBase {
                 if (values.size() != names.size()) {
                     output = "";
                 } else {
-                    for (int i = 0; i < names.size(); i++) {
-                        output = DatabaseAP.parserReplace(names.get(i), values.get(i), output);
-                    }
+                    output = DatabaseAP.renderOutput(output, names, values);
                 }
             }
         }

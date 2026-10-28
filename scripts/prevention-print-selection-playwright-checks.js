@@ -9,8 +9,7 @@
 //   3. with both ticked, Print Immunizations Only returns a PDF headed "Immunizations" that carries
 //      the immunization and leaves the screening out;
 //   4. with no box ticked, Print warns that a prevention must be selected and posts nothing;
-//   5. with no box ticked, Print Immunizations Only does the same. Runs last: printImmOnly()
-//      (index.jsp) calls printFrm.submit() without the onPrint() check that Print goes through.
+//   5. with no box ticked, Print Immunizations Only does the same.
 // Each PDF is read with pdftotext (SKIP when Poppler is not installed). prevention-admin covers the
 // plain Enable Print ▸ Print of one immunization, rewrite-tag-routes the print form's route, and
 // authz-read-print-export who may reach it; none prints a selection or Immunizations Only.
@@ -47,14 +46,11 @@ async function workflow(s) {
     await index.locator('input[name="printButton"]').waitFor({ state: 'visible' });
     return index;
   };
-  /** The print box of one prevention type: its value is the row index that names the type in preventionHeader<i>. */
+  /** The selection-only print form values each checkbox by prevention type. */
   async function boxFor(index, type) {
-    const row = await index.evaluate(name => {
-      const header = [...document.querySelectorAll('input[id^="preventionHeader"]')].find(input => input.value === name);
-      return header ? header.id.slice('preventionHeader'.length) : null;
-    }, type);
-    assert(row !== null, `The Preventions page lists no ${type} row to print`);
-    return index.locator(`input[name="printHP"][value="${row}"]`);
+    const box = index.locator(`input[name="printHP"][value="${type}"]`);
+    assert(await box.count() === 1, `The Preventions page lists no unique ${type} row to print`);
+    return box;
   }
   async function printedText(index, button, label) {
     const outcome = await clickDownloadsOrOpens(index, button, { context: s.context, recorder: s.recorder, label, timeout: 20000 });

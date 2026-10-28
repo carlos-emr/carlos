@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -54,7 +55,7 @@ public class DemographicSearch2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
      * Validates session and demographic read privileges, identifies whether the
@@ -79,6 +80,8 @@ public class DemographicSearch2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        PatientReadAccess.deniedPatientsFromRequest(request, securityInfoManager, loggedInInfo,
+                "_demographic", SecurityInfoManager.READ);
         request.setAttribute(RECENT_PATIENTS_ATTRIBUTE, isRecentPatientsRequest(
                 request.getParameter("keyword"), request.getParameter("ptstatus")));
 
@@ -90,7 +93,7 @@ public class DemographicSearch2Action extends ActionSupport {
             return "apptResults";
         }
         if (displaymode != null && !"Search".equals(displaymode)) {
-            logger.debug("DemographicSearch2Action: unexpected displaymode='{}', falling through to general search", displaymode);
+            logger.debug("DemographicSearch2Action: unexpected display mode; using general search");
         }
         return SUCCESS;
     }

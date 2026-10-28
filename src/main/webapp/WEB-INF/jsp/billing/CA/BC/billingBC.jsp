@@ -212,12 +212,8 @@
         }
     }
 
-    // 3.a. in some situations if the default billing form is set as Private it may be possible
-    // to set the Billing Type to private as well
-    // The commons code for a private billing form is PRI
-    if ("PRI".equals(defaultBillingForm)) {
-        bean.setBillType("Pri");
-    }
+    // The configured default, before step 4 can replace it with the bill's own form (read by 3.a below).
+    String configuredBillingForm = defaultBillingForm;
 
     // 4. logged in user is overriding billing form preference during billing process.
     /* horrible hack. Do not repeat.
@@ -232,8 +228,27 @@
         defaultBillingForm = bean.getBillForm();
     }
 
-    if (billform.serviceExists(defaultBillingForm)) {
-        bean.setBillForm(defaultBillingForm);
+    bean.setBillForm(billform.resolveBillingForm(defaultBillingForm));
+
+    // 5. Nothing above names a billing form this install has, and the bill carries none (or one it does not
+    // have): use the form the Billing form list shows first, which is what the list would show chosen anyway.
+    // The packaged default_view is the Ontario form code MFP, which no BC install has, so before this a new BC
+    // install opened the bill form with no form at all and its reload after choosing the billing physician
+    // answered HTTP 500 (bean.getBillForm() was null).
+    if (bean.getBillForm() == null || !billform.serviceExists(bean.getBillForm())) {
+        BillingFormData.BillingForm[] installedForms = billform.getFormList();
+        if (installedForms.length > 0) {
+            bean.setBillForm(installedForms[0].getFormCode());
+        }
+    }
+
+    // 3.a. in some situations if the default billing form is set as Private it may be possible
+    // to set the Billing Type to private as well
+    // The commons code for a private billing form is PRI
+    // Only once the form is chosen, and only when the chosen form is that PRI form: a PRI default this install does
+    // not have is replaced by the fallback above, and must not leave a private billing type on the form that replaced it.
+    if ("PRI".equals(configuredBillingForm) && "PRI".equals(bean.getBillForm())) {
+        bean.setBillType("Pri");
     }
 
     // 1. global default billing visit location: carlos properties
@@ -1452,7 +1467,7 @@
                                                  table in place without changing the window's staged bill (#4673). --%>
                                             <select class="form-select" id="selectBillingForm" name="billForm">
                                                 <% for (int i = 0; i < billformlist.length; i++) { %>
-                                                <option <% if (bean.getBillForm().equalsIgnoreCase(billformlist[i].getFormCode())) {%>
+                                                <option <% if (billformlist[i].getFormCode().equalsIgnoreCase(bean.getBillForm())) {%>
                                                         selected
                                                         <% } %>
                                                         value="<carlos:encode value='<%= billformlist[i].getFormCode() %>' context="htmlAttribute"/>">

@@ -65,6 +65,7 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true for any target that is not loopback
  */
 const fs = require('fs');
+const { unbilledReportParams, isConfiguredUnbilledLink } = require('./lib/billing-on-unbilled-report-links');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
@@ -335,7 +336,9 @@ async function run() {
     // (they used to resolve at the host root and 404) and carry the region.
     // reportAction=unbilled is what populates the rows; without it the
     // assembler returns an empty model and the report renders nothing.
-    const reportParams = new URLSearchParams({ reportAction: 'unbilled', providerview: providerNo });
+    // The new-report action requires both dates; use the configured fixture's
+    // single-day window so a different unbilled visit cannot satisfy coverage.
+    const reportParams = unbilledReportParams(providerNo, appointmentDate);
     for (const report of ['/billing/CA/ON/ViewBillingONNewReport', '/billing/CA/ON/ViewBillingReportControl']) {
       const path = `${report}?${reportParams.toString()}`;
       // An unreachable route or an error page must fail, not fall through to
@@ -352,10 +355,12 @@ async function run() {
       if (!loaded) continue;
 
       const links = await unbilledBillLinks(page);
-      if (links.length === 0) {
-        console.log(`SKIP ${report} produced no unbilled "Bill" link on this dataset`);
-        continue;
-      }
+      check(`${report} exposes the configured unbilled appointment`,
+        links.some((href) => isConfiguredUnbilledLink(href, baseUrl, {
+          appointmentNo, demographicNo, providerNo, appointmentDate,
+        })),
+        `expected the configured BILLING_* visit within its single-day provider filter; links=${links.length}`);
+      if (links.length === 0) continue;
       const redacted = links.slice(0, 3).map(redactUrl);
       check(`${report} "Bill" links are context-path prefixed`,
         links.every((href) => href.startsWith(`${contextPath}/billing?`)),

@@ -93,7 +93,7 @@
             </c:if>
 
             <c:if test="${bean.stashIndex == -1}">
-                <c:redirect url="/rx/searchDrug"><c:param name="demographicNo" value="${bean.demographicNo}"/></c:redirect>
+                <c:redirect url="/rx/searchDrug"><c:param name="demographicNo" value="${bean.demographicNo}"/><c:if test="${not empty param.chartContext}"><c:param name="chartContext" value="${param.chartContext}"/></c:if></c:redirect>
             </c:if>
         </c:if>
 

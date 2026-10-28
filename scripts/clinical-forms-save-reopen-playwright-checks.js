@@ -18,7 +18,7 @@
 // `<form>` or `<form>.<concern>`, forms lower case) choose them, so a broken form gets its own manifest entry
 // pinned on its own finding, the default entry leaves that pair out, and scripts/form-claims.test.js proves
 // the entries together claim every pair exactly once. The concerns are open, validate (Discharge Summary and
-// Mental Health Form 1: invalid dates and cancelled confirmations write nothing), save, redisplay, chain (the
+// Mental Health Forms 1, 14 and 42: invalid dates and cancelled confirmations write nothing), save, redisplay, chain (the
 // next Mental Health pages), opener (a Save leaves the E-Chart that opened the form alone), reopen, print, dialogs (Save's
 // confirmation), resave (Palliative Care) and
 // problems (no JavaScript-layer problem on the form's pages).
@@ -30,6 +30,7 @@ const ui = require('./lib/playwright-ui');
 const claims = require('./lib/form-claims');
 const { markProblems, takeProblems } = require('./lib/form-problems');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { vascularTrackerCatalogFixture } = require('./lib/vascular-tracker-catalog-fixture');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { pdfText } = require('./form-print-pdf-playwright-checks');
 
@@ -42,11 +43,13 @@ const date = name => ({ name, value: DATE.value, stored: DATE.stored });
 // key: menu suffix; path/query: the shipped form_value; idColumn: the table's key column;
 // provider: the table records the saving provider; confirm: Save asks before posting;
 // print: 'page' (a server-rendered print popup), 'pdf' (a POST answered with a PDF), 'window' (the button calls
-// window.print, stubbed and counted) or 'popup' (a window of its own receives the print page), pressed
+// window.print, stubbed and counted) or 'popup' (a window of its own receives the print page; `pages` lists, for a
+// multi-page form, each page's link, route and print route, and each page is printed from itself), pressed
 // on the reopened form (on the saved page when printOn is 'saved'); resave: Save again from the window the first
 // Save redisplayed; sex: the patient's sex the form needs (the Annual V2 wrapper picks its template by it);
 // reopenNow: reopen straight after the save, because the next row writes the same table and the chart's
-// saved-form entry always opens the latest record of the table; chain: the later pages of a multi-page form.
+// saved-form entry always opens the latest record of the table; chain: the later pages of a multi-page form;
+// dates: the date boxes Save validates (the `validate` concern types invalid dates into each one).
 const FORMS = [
   { key: 'ANN', title: 'Annual Health Review', path: '../form/formannual.jsp', table: 'formAnnual',
     idColumn: 'ID', provider: true, confirm: true, prose: 'currentConcerns',
@@ -54,15 +57,19 @@ const FORMS = [
   { key: 'MH1', title: 'Mental Health Form 1', path: '../form/formMentalHealthForm1.jsp',
     table: 'formMentalHealthForm1', idColumn: 'id', provider: false, confirm: false, prose: 'observation',
     fields: [check('threatened'), { name: 'onDate', value: '2026/09/30', stored: '2026/09/30' },
-      { name: 'todayDate', value: '2026-10-01', stored: '2026-10-01' }], print: { button: 'Print Pdf', kind: 'pdf' } },
+      { name: 'todayDate', value: '2026-10-01', stored: '2026-10-01' }], dates: ['onDate', 'todayDate'],
+    print: { button: 'Print Pdf', kind: 'pdf' } },
   { key: 'MH14', title: 'Mental Health Form 14', path: '../form/formMentalHealthForm14.jsp',
     table: 'formMentalHealthForm14', idColumn: 'id', provider: false, confirm: false, prose: 'physicianName',
-    fields: [{ name: 'relationship', value: 'Spouse', stored: 'Spouse' }], print: { button: 'Print Pdf', kind: 'pdf' },
-    known: { problems: /Cannot read properties of undefined \(reading 'name'\)/ } },
+    // Forms 14 and 42 ask for day / month / year, and Save accepts that as well as yyyy/mm/dd (#4597).
+    fields: [{ name: 'relationship', value: 'Spouse', stored: 'Spouse' },
+      { name: 'signatureDate', value: '30/09/2026', stored: '30/09/2026' }], dates: ['signatureDate'],
+    print: { button: 'Print Pdf', kind: 'pdf' } },
   { key: 'MH42', title: 'Mental Health Form 42', path: '../form/formMentalHealthForm42.jsp',
     table: 'formMentalHealthForm42', idColumn: 'id', provider: false, confirm: false, prose: 'name',
-    fields: [check('chkThreatenedA'), { name: 'dateOfExamination', value: '2026/09/30', stored: '2026/09/30' }],
-    print: { button: 'Print Pdf', kind: 'pdf' }, known: { problems: /Cannot read properties of undefined \(reading 'name'\)/ } },
+    fields: [check('chkThreatenedA'), { name: 'dateOfExamination', value: '2026/09/30', stored: '2026/09/30' },
+      { name: 'dateOfOrder', value: '30-09-2026', stored: '30-09-2026' }], dates: ['dateOfExamination', 'dateOfOrder'],
+    print: { button: 'Print Pdf', kind: 'pdf' } },
   { key: 'DS', title: 'Discharge Summary', path: '../form/formDischargeSummary.jsp', table: 'formDischargeSummary',
     idColumn: 'id', provider: true, confirm: true, prose: 'briefSummary', fields: [date('dischargeDate')] },
   { key: 'PC', title: 'Palliative Care', path: '../form/formpalliativecare.jsp', table: 'formPalliativeCare',
@@ -82,13 +89,17 @@ const FORMS = [
     idColumn: 'ID', provider: true, confirm: true, prose: 'impressionPlan', sex: 'M',
     fields: [check('pmhxPshxUpdated'), { name: 'weight', value: '80', stored: '80' }], print: { button: 'Print', kind: 'window' } },
   // Referral, then Assessment, then Outcome: three Saves of one multi-page record (each Save files a merged
-  // row), printed from the last page, and reopened from the chart.
+  // row), each page printed, and reopened from the chart. Referred By is typed on the Referral page and carried,
+  // read-only, by the other two: its quotes, apostrophe, ampersand and angle brackets must survive every
+  // redisplay, every later Save, the reopen and the three prints (#4683).
   { key: 'MHC', title: 'Mental Health', path: '../form/formmentalhealth.jsp', table: 'formMentalHealth',
-    idColumn: 'ID', provider: true, confirm: true, prose: 'r_refComments', fields: [], printOn: 'saved',
+    idColumn: 'ID', provider: true, confirm: true, prose: 'r_refComments', printOn: 'saved',
+    fields: [{ name: 'c_referredBy', value: `Dr "Sam" O'Neil & <Co>`, stored: `Dr "Sam" O'Neil & <Co>` }],
     chain: [{ link: 'Assessment', prose: 'a_assComments' }, { link: 'Outcome', prose: 'o_outComments' }],
-    print: { button: 'Print', kind: 'popup', pathname: '/form/formmhoutcomeprint' },
-    // The note-lock beacon is sent when an Assessment Save reloads the chart (242).
-    known: { opener: /CaseManagementEntry failed \(net::ERR_ABORTED\)/ } },
+    print: { button: 'Print', kind: 'popup', pages: [
+      { link: 'Referral', page: '/form/formmhreferral', pathname: '/form/formmhreferralprint' },
+      { link: 'Assessment', page: '/form/formmhassessment', pathname: '/form/formmhassessmentprint' },
+      { link: 'Outcome', page: '/form/formmhoutcome', pathname: '/form/formmhoutcomeprint' }] } },
   // The shipped registration points at the Struts 1 route SetupForm.do. The chart opened it as a raw URL and the
   // application answered 404 (finding 103, fixed in #4667: the route now resolves to SetupForm). That row only opens,
   // so nothing downstream of the open can hold it up; the form behind it is VT2.
@@ -101,12 +112,13 @@ const FORMS = [
   // in #4667 and stay covered as regressions.
   { key: 'VT2', title: 'Vascular Tracker (extensionless route)', path: '../form/SetupForm', query: 'formName=VTForm&',
     table: 'formVTForm', idColumn: 'ID', provider: false, confirm: false, prose: 'value(ExerComments)',
-    fields: [{ name: 'value(ExerValue)', value: 'Y', stored: 'Y' }], saveButton: 'Update VT', savePath: '/form/SubmitForm',
+    // Exercise is minutes per week (0 to 1200): since #4674 a value outside the measurement's own rule refuses the save.
+    fields: [{ name: 'value(ExerValue)', value: '150', stored: '150' }], saveButton: 'Update VT', savePath: '/form/SubmitForm',
     idInUrl: false, ready: { button: 'Update VT' } },
 ].map(form => {
   if (form.openOnly) return { ...form, claim: form.key.toLowerCase(), concerns: ['open', 'problems'] };
   const concerns = ['open'];
-  if (form.key === 'DS' || form.key === 'MH1') concerns.push('validate');
+  if (form.key === 'DS' || form.dates) concerns.push('validate');
   concerns.push('save', 'redisplay');
   if (form.chain) concerns.push('chain', 'opener');
   concerns.push('reopen');
@@ -135,12 +147,9 @@ function validatePin(env = process.env) {
  * found there. A step's label is `<form title>: <attempt label>`, which is what the console prints.
  * scripts/form-claims.test.js proves each pinned literal equals the label the run generates.
  */
-const PINNED = Object.freeze({
-  'mh14.problems': 'Mental Health Form 14: raised no JavaScript-layer problems',
-  'mhc.opener': 'Mental Health: Saving a page leaves the E-Chart that opened the form alone',
-  'mhc.reopen': 'Mental Health: reopening from the E-Chart restores the saved values',
-  'mhc.print': 'Mental Health: Print renders the saved page for the owned patient',
-});
+// No pair is pinned at present: the Mental Health findings 236, 238, 239 and 242 are fixed (#4595, #4596, #4597,
+// #4600), and their manifest entries remain as regression coverage.
+const PINNED = Object.freeze({});
 const stepLabel = (form, concern, attemptLabel) => PINNED[claims.claimKey(form.claim, concern)] || `${form.title}: ${attemptLabel}`;
 
 const labels = form => [`form-${form.key}`, `reopen-${form.key}`, `print-${form.key}`];
@@ -224,11 +233,59 @@ async function revealSavedForm(page, link) {
   await link.waitFor({ state: 'visible' });
 }
 
+/**
+ * SetupForm lazily creates clinic-wide VT measurement definitions, even on an open-only
+ * visit. They belong in explicit environment initialization, before the suite's residue
+ * baseline. Refuse a missing initializer before this workflow writes registrations or opens
+ * the form; never delete or silently allow clinic-wide dictionary rows after a browser run.
+ */
+function requireVascularDictionaryReady(sql, xml = require('node:fs').readFileSync(
+  require('node:path').join(__dirname, '../src/main/webapp/form/VTForm.xml'), 'utf8')) {
+  // A reader for this checked-in definition's two scalar keys, not a general XML parser.
+  h.assert(typeof xml === 'string' && !/<!DOCTYPE|<!ENTITY/i.test(xml), 'Invalid VT definition fixture');
+  const blocks = [...xml.matchAll(/<measurement>([\s\S]*?)<\/measurement>/g)];
+  h.assert(blocks.length > 0 && blocks.length === (xml.match(/<measurement>/g) || []).length
+    && blocks.length === (xml.match(/<\/measurement>/g) || []).length, 'Incomplete VT measurement definitions');
+  const decode = text => text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+  const definitions = blocks.map(([ , block]) => {
+    const read = tag => {
+      const matches = [...block.matchAll(new RegExp(`<${tag}>([^<]*)<\\/${tag}>`, 'g'))];
+      h.assert(matches.length === 1, `VT definition must have one ${tag}`);
+      const text = matches[0][1];
+      h.assert(!/&(?!lt;|gt;|quot;|apos;|amp;)/.test(text), 'Unsupported VT definition entity');
+      return decode(text).trim();
+    };
+    const type = read('type'), instruction = read('measuringInstrc');
+    h.assert(type.length > 0, 'VT definition has no measurement type');
+    return { type, instruction };
+  });
+  const keys = definitions.map(({ type, instruction }) => JSON.stringify([type, instruction]));
+  h.assert(new Set(keys).size === keys.length, 'Duplicate VT measurement definition key');
+  const required = definitions.map(({ type, instruction }) =>
+    `SELECT ${h.sqlString(type)} AS vtType,${h.sqlString(instruction)} AS vtInstruction`).join(' UNION ALL ');
+  const missing = sql.rows(`SELECT vt_expected.vtType,vt_expected.vtInstruction FROM (${required}) vt_expected
+    WHERE NOT EXISTS (SELECT 1 FROM measurementType mt
+      WHERE mt.type=vt_expected.vtType AND mt.measuringInstruction=vt_expected.vtInstruction)`);
+  h.assert(Array.isArray(missing) && missing.every(row => Array.isArray(row) && row.length === 2
+    && row.every(value => typeof value === 'string')), 'VT dictionary precondition returned invalid rows');
+  h.assert(missing.length === 0,
+    `VT dictionary initialization is required before the suite residue baseline; missing keys: ${JSON.stringify(missing)}`);
+}
+
 async function workflow(s, { forms = FORMS, foldSavedForms = false, select = validatePin() } = {}) {
   const { sql, patient, provider, marker } = s;
   const wanted = new Set(select);
   const results = [];
   const chosen = forms.filter(form => form.concerns.some(concern => wanted.has(claims.claimKey(form.claim, concern))));
+  if (chosen.some(form => form.key === 'VT' || form.key === 'VT2')) requireVascularDictionaryReady(sql);
+  if (chosen.some(form => form.key === 'VT' || form.key === 'VT2')) {
+    const catalog = vascularTrackerCatalogFixture(sql);
+    // SetupForm can initialize shared definitions even if the native popup fails.
+    // Register first so all owned form/measurement children are removed before them.
+    s.cleanup(() => catalog.cleanup());
+    catalog.begin();
+  }
   const registrations = chosen.map(form => ({
     form, name: `${marker} ${form.key}`, value: `${form.path}?fixture=${marker}&row=${form.key}&${form.query || ''}demographic_no=`,
   }));
@@ -393,7 +450,7 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       }, ['open']);
     }
 
-    if (form.key === 'MH1') {
+    if (form.dates) {
       await attempt(entry, 'validate', 'each real date is validated and cancelling Save and Exit preserves the unsaved form', async () => {
         const { page } = entry;
         const originalUrl = page.url();
@@ -404,7 +461,7 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
         page.on('request', countPost);
         try {
           await page.locator(`[name="${form.prose}"]`).fill(entry.text);
-          const dates = form.fields.filter(field => !field.check);
+          const dates = form.fields.filter(field => form.dates.includes(field.name));
           for (const field of dates) await page.locator(`[name="${field.name}"]`).fill(field.value);
           for (const field of dates) {
             const input = page.locator(`[name="${field.name}"]`);
@@ -509,9 +566,11 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
   /** Referral is saved; open Assessment and then Outcome from the page's own links and Save each. */
   async function mentalHealthChain(entry) {
     const { form } = entry;
-    // The Assessment page reloads its opener on Save (window.opener.location.reload()), which is the E-Chart. Whether the
-    // chart stayed put is the `opener` concern, judged from what the chart did while the pages were saved.
+    // The Assessment page reloaded its opener on Save (window.opener.location.reload(), #4600), and the opener is the
+    // E-Chart. Whether the chart stayed put is the `opener` concern, judged from what the chart did while the pages were saved.
     entry.chartReloads = 0;
+    // Each page prints its own comments, so the print concern needs the text typed on each page.
+    entry.pageTexts = { Referral: entry.text };
     entry.chartMark = markProblems(s.recorder);
     const reloaded = frame => { if (frame === chart.mainFrame()) entry.chartReloads++; };
     chart.on('framenavigated', reloaded);
@@ -538,10 +597,18 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
         await expectValue(sql, `SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`, String(expected),
           `Saving the ${next.link} page did not file exactly one new row`);
         carried.push([next.prose, text]);
-        const [row] = sql.rows(`SELECT ${form.idColumn},${carried.map(([column]) => column).join(',')} FROM ${form.table}
+        entry.pageTexts[next.link] = text;
+        const kept = form.fields.map(field => column(field.name));
+        const [row] = sql.rows(`SELECT ${form.idColumn},${[...carried.map(([name]) => name), ...kept].join(',')} FROM ${form.table}
           WHERE demographic_no=${patient} ORDER BY ${form.idColumn} DESC LIMIT 1`);
-        carried.forEach(([column, value], i) => h.assert(row[1 + i] === value,
-          `After the ${next.link} Save the stored ${column} differs from what was typed`));
+        carried.forEach(([name, value], i) => h.assert(row[1 + i] === value,
+          `After the ${next.link} Save the stored ${name} differs from what was typed`));
+        // A field the page only shows, read-only, is posted back by its Save: a page that cut it short stores the cut value.
+        form.fields.forEach((field, i) => h.assert(row[1 + carried.length + i] === field.stored,
+          `After the ${next.link} Save the stored ${field.name} differs from what was set`));
+        for (const field of form.fields) {
+          h.assert(await fieldValue(page, field) === field.value, `The redisplayed ${next.link} page does not show the saved ${field.name}`);
+        }
         entry.id = row[0];
         h.assert(new URL(page.url()).searchParams.get('formId') === entry.id, `Saving the ${next.link} page redisplayed another record`);
         h.assert(await page.locator(`[name="${next.prose}"]`).first().inputValue() === text,
@@ -659,6 +726,40 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
     entry.reopened = page;
   }
 
+  /**
+   * Press Print on a page whose button posts the page into a window of its own, and judge that window: it shows the
+   * print view on `pathname`, carrying `text` and every structured value of the form exactly as it was typed.
+   */
+  async function printPopup(entry, page, buttonName, pathname, text) {
+    const { form } = entry;
+    const button = await claims.asPrecondition(async () => {
+      const found = page.getByRole('button', { name: buttonName, exact: true }).first();
+      await found.waitFor({ state: 'visible', timeout: 10000 });
+      return found;
+    }, `the ${buttonName} button`);
+    const opened = [];
+    const onPage = popup => { h.wireStrictPage(popup, `print-${form.key}`, s.recorder); opened.push(popup); };
+    s.context.on('page', onPage);
+    try {
+      await h.withExpectedDialogs(page, () => button.click({ noWaitAfter: true }));
+      const deadline = Date.now() + 20000;
+      const printed = () => opened.find(popup => !popup.isClosed() && popup.url().startsWith('http') && new URL(popup.url()).pathname.endsWith(pathname));
+      while (!printed() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 150));
+      const print = printed();
+      h.assert(print, `${buttonName} opened no window on ${pathname}`);
+      await print.waitForLoadState('domcontentloaded');
+      await h.assertNotErrorPage(print, `The print window on ${pathname}`);
+      const shown = await print.locator('body').innerText();
+      h.assert(shown.includes(text), `The print window on ${pathname} does not show the saved text`);
+      for (const field of form.fields.filter(item => !item.check)) {
+        h.assert(shown.includes(field.value), `The print window on ${pathname} does not show the saved ${field.name} as typed`);
+      }
+    } finally {
+      s.context.off('page', onPage);
+      for (const popup of opened) if (!popup.isClosed()) await popup.close().catch(() => {});
+    }
+  }
+
   /** Press Print on the form and judge what comes back; see FORMS for the four kinds. */
   async function pressPrint(entry, page) {
     const { form } = entry;
@@ -678,22 +779,14 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       return;
     }
     if (spec.kind === 'popup') {
-      const opened = [];
-      const onPage = popup => { h.wireStrictPage(popup, `print-${form.key}`, s.recorder); opened.push(popup); };
-      s.context.on('page', onPage);
-      try {
-        await h.withExpectedDialogs(page, () => button.click({ noWaitAfter: true }));
-        const deadline = Date.now() + 20000;
-        const printed = () => opened.find(popup => !popup.isClosed() && popup.url().startsWith('http') && new URL(popup.url()).pathname.endsWith(spec.pathname));
-        while (!printed() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 150));
-        const print = printed();
-        h.assert(print, `${spec.button} opened no window on ${spec.pathname}`);
-        await print.waitForLoadState('domcontentloaded');
-        await h.assertNotErrorPage(print, 'The print window');
-        h.assert((await print.locator('body').innerText()).includes(entry.text), 'The print window does not show the saved text');
-      } finally {
-        s.context.off('page', onPage);
-        for (const popup of opened) if (!popup.isClosed()) await popup.close().catch(() => {});
+      // A multi-page form prints each page from that page, reached by its own link; the page Print was found on comes last.
+      const pages = spec.pages || [{ pathname: spec.pathname }];
+      for (const target of pages) {
+        if (target.page && !new URL(page.url()).pathname.endsWith(target.page)) {
+          await claims.asPrecondition(() => page.getByRole('link', { name: target.link, exact: true }).first().click(), `the ${target.link} link`);
+          await page.waitForURL(url => url.pathname.endsWith(target.page), { waitUntil: 'domcontentloaded' });
+        }
+        await printPopup(entry, page, spec.button, target.pathname, target.link ? entry.pageTexts[target.link] : entry.text);
       }
       return;
     }
@@ -860,9 +953,16 @@ function concernLabel(form, concern) {
 
 // What scripts/form-claims.test.js and scripts/playwright-pin-validation.test.js read; the tail of this file is
 // evaluated alone by scripts/pdf-preflight.test.js, so it names as few globals as it can.
-const testing = { validatePin, claimForms: CLAIM_FORMS, labelFor, PINNED,
+const testing = { validatePin, claimForms: CLAIM_FORMS, labelFor, PINNED, requireVascularDictionaryReady,
   generatedLabel: (form, concern) => `${form.title}: ${concernLabel(form, concern)}` };
 if (require.main === module) runWorkflow(NAME, workflow, {
-  preflight: () => require('./lib/export-content-helpers').requirePoppler('pdftotext'),
+  preflight: ({ sql } = {}) => {
+    require('./lib/export-content-helpers').requirePoppler('pdftotext');
+    const selected = new Set(validatePin());
+    if (FORMS.some(form => (form.key === 'VT' || form.key === 'VT2')
+      && form.concerns.some(concern => selected.has(claims.claimKey(form.claim, concern))))) {
+      requireVascularDictionaryReady(sql);
+    }
+  },
 });
 module.exports = { workflow, FORMS, ...testing };

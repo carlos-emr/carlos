@@ -230,7 +230,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="${ctx}/share/javascript/screen.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/rx.js"></script>
         <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
-        <script type="text/javascript" src="${ctx}/share/javascript/rx-patient-context.js" data-demographic-no="<%= rxSessionBean.getDemographicNo() %>"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-patient-context.js" data-demographic-no="<%= rxSessionBean.getDemographicNo() %>"
+                data-chart-context="<carlos:encode value='<%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) %>' context="htmlAttribute"/>"></script>
         <script src="${ctx}/share/javascript/allergy-alerts.js"></script>
         <script src="${ctx}/share/javascript/rx-interaction-warnings.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/Oscar.js"></script>
@@ -1450,7 +1451,8 @@ function renderRxStage() {
              }
              data="elementId="+elementId+"&propertyValue="+encodeURIComponent(value);
              data = data + "&rand="+Math.floor(Math.random()*10001);
-             CarlosAjax.request(url, {method: 'post',parameters:data,
+             // Finish the card update before a Save click can submit the previous staged dose.
+             CarlosAjax.request(url, {method: 'post',parameters:data,synchronous:true,
                  onSuccess: function () {
                      // A corrected value was accepted: the field is no longer invalid.
                      if (el.carlosPropertyVersion === version) el.removeAttribute('aria-invalid');
@@ -1465,6 +1467,7 @@ function renderRxStage() {
                      } else if (error === 'INVALID_RX_REPEATS') {
                          reportInvalidProperty(el, RxInputValidation.format(jsMsg.repeatsInvalid, value));
                      } else {
+                         if (/^(minimum|maximum|repeats)_/.test(elementId)) el.setAttribute('aria-invalid', 'true');
                          reportRefusedRequest(transport);
                      }
                  }});
@@ -1492,6 +1495,17 @@ function renderRxStage() {
         el.className = 'highlight';
         el.setAttribute('aria-invalid', 'true');
         alert(message);
+    }
+
+    /** A refused inline edit must be corrected before saving the older staged value. */
+    function validateCardProperties() {
+        var invalid = document.querySelector('#drugForm [aria-invalid="true"]');
+        if (!invalid) return true;
+        var value = /^repeats_/.test(invalid.id) ? invalid.value : invalid.textContent;
+        reportInvalidProperty(invalid, RxInputValidation.format(
+            /^repeats_/.test(invalid.id) ? jsMsg.repeatsInvalid : jsMsg.doseInvalid, value));
+        invalid.focus();
+        return false;
     }
     function lookNonEdittable(elementId){
         document.getElementById(elementId).className='';
@@ -2251,8 +2265,9 @@ function addFav(randomId,brandName){
         var url= ctx + "/rx/addFavorite2";
         var data="parameterValue=addFav2&randomId="+randomId+"&favoriteName="+favoriteName;
         CarlosAjax.request(url, {method: 'post',parameters:data, onSuccess:function(transport){
-              // Reload this window's patient, not the most recently opened Rx patient (#3875).
-              window.location.href = RxPatientContext.withPatient(ctx + "/rx/searchDrug");
+              // Return to this patient's prescribing cards; searchDrug renders the legacy
+              // search results instead (#5248).
+              window.location.href = RxPatientContext.withPatient(ctx + "/rx/choosePatient");
    }
 					})
 }
@@ -2674,6 +2689,10 @@ function updateQty(element){
         var elemId=element.id;
         var ar=elemId.split("_");
         var rand=ar[1];
+        var card = document.getElementById('set_' + rand);
+        if (!card) return false;
+        var calculation = {};
+        card._rxCalculation = calculation;
         var data="parameterValue=updateDrug&randomId="+rand+"&action=updateQty&quantity="+encodeURIComponent(element.value);
         var url= ctx + "/rx/WriteScript";
 
@@ -2700,8 +2719,9 @@ function updateQty(element){
         CarlosAjax.request(url, {method: 'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
           onSuccess:function(transport){
-                // A declined/closed card can disappear while this calculation is in flight.
-                if (!document.getElementById('set_' + rand)) return;
+                // Staging starts an async quantity calculation. Its old answer must not erase
+                // directions parsed since then, or update a discarded/replaced card (#5183).
+                if (document.getElementById('set_' + rand) !== card || card._rxCalculation !== calculation) return;
                 var json = null;
                 try { json = JSON.parse(transport.responseText); } catch(e) { return; }
                 document.getElementById(methodStr).textContent=json.method;
@@ -2709,6 +2729,8 @@ function updateQty(element){
                 document.getElementById(frequencyStr).textContent=json.frequency;
                 document.getElementById(minimumStr).textContent=json.takeMin;
                 document.getElementById(maximumStr).textContent=json.takeMax;
+                document.getElementById(minimumStr).removeAttribute('aria-invalid');
+                document.getElementById(maximumStr).removeAttribute('aria-invalid');
                 if(json.duration==null || json.duration=="null"){
                     document.getElementById(durationStr).textContent='';
                 }else{
@@ -2735,6 +2757,10 @@ function updateQty(element){
         var elemId=element.id;
         var ar=elemId.split("_");
         var rand=ar[1];
+        var card = document.getElementById('set_' + rand);
+        if (!card) return false;
+        var calculation = {};
+        card._rxCalculation = calculation;
         var instruction="parameterValue=updateDrug&instruction="+encodeURIComponent(element.value)+"&action=parseInstructions&randomId="+rand;
         var url= ctx + "/rx/UpdateScript";
         var quantity="quantity_"+rand;
@@ -2753,8 +2779,7 @@ function updateQty(element){
         CarlosAjax.request(url, {method: 'POST',parameters:instruction,synchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
           onSuccess:function(transport){
-                // A declined/closed card can disappear while this calculation is in flight.
-                if (!document.getElementById('set_' + rand)) return;
+                if (document.getElementById('set_' + rand) !== card || card._rxCalculation !== calculation) return;
                 var json = null;
                 try { json = JSON.parse(transport.responseText); } catch(e) { return; }
                 if(json.policyViolations != null && json.policyViolations.length>0) {
@@ -2773,6 +2798,8 @@ function updateQty(element){
                 document.getElementById(frequencyStr).textContent=json.frequency;
                 document.getElementById(minimumStr).textContent=json.takeMin;
                 document.getElementById(maximumStr).textContent=json.takeMax;
+                document.getElementById(minimumStr).removeAttribute('aria-invalid');
+                document.getElementById(maximumStr).removeAttribute('aria-invalid');
                 if(json.duration==null || json.duration=="null"){
                     document.getElementById(durationStr).textContent='';
                 }else{
@@ -3027,6 +3054,7 @@ function updateQty(element){
 
 
     function updateSaveAllDrugsPrintContinue(){
+        if (!validateCardProperties()) return false;
     	if(!validateWrittenDate()) {
     		return false;
     	}
@@ -3067,6 +3095,7 @@ function updateQty(element){
     }
     
     function updateSaveAllDrugsContinue(){
+        if (!validateCardProperties()) return false;
     	if(!validateWrittenDate()) {
     		return false;
     	}
@@ -3119,6 +3148,14 @@ function updateQty(element){
             alert(jsMsg.staleDraft);
         } else if (transport && transport.status === 409) {
             alert(jsMsg.saveRefused);
+        } else if (transport && transport.responseJSON && /^INVALID_RX_PICKUP_(DATE|TIME)$/.test(transport.responseJSON.error)) {
+            var kind = transport.responseJSON.error === 'INVALID_RX_PICKUP_TIME' ? 'time' : 'date';
+            var badPickup = jQuery('input[name^="' + (kind === 'time' ? 'pickupTime_' : 'pickupDate_') + '"]').filter(function () {
+                return !(kind === 'time' ? RxInputValidation.pickupTime(this.value) : RxInputValidation.pickupDate(this.value)).ok;
+            }).first();
+            alert(RxInputValidation.format(kind === 'time' ? jsMsg.pickupTimeInvalid : jsMsg.pickupDateInvalid,
+                badPickup.length ? badPickup.val() : ''));
+            if (badPickup.length) badPickup.focus();
         } else if (transport && transport.responseJSON && transport.responseJSON.error === 'INVALID_RX_DATE') {
             // The server refused a written/start date that is not a real day (#5003); the cards
             // stay staged, so point at the field to correct.

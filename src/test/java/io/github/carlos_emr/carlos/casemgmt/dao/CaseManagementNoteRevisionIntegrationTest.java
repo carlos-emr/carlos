@@ -42,6 +42,68 @@ class CaseManagementNoteRevisionIntegrationTest extends CaseManagementNoteDaoBas
     private PlatformTransactionManager transactionManager;
 
     @Test
+    void shouldCountRevisions_withinEachIndependentUuidChain() {
+        CaseManagementNote first = createNote("1", "Independent chain A original", new Date(2000));
+        CaseManagementNote second = first.copyForRevision();
+        second.setNote("Independent chain A revision");
+        second.setUpdate_date(new Date(3000));
+        caseManagementNoteDAO.saveNote(second);
+        CaseManagementNote unrelated = createNote("1", "Independent chain B original", new Date(1000));
+        Long firstId = first.getId();
+        Long secondId = second.getId();
+        Long unrelatedId = unrelated.getId();
+        assertThat(second.getUuid()).isEqualTo(first.getUuid());
+        assertThat(unrelated.getUuid()).isNotEqualTo(first.getUuid());
+        entityManager.flush();
+        entityManager.clear();
+
+        // Read through the real DAO after clearing the first-level cache, so each
+        // value comes from Hibernate's SQL formula rather than a submitted counter.
+        assertThat(caseManagementNoteDAO.getNote(firstId).getRevision()).isEqualTo("2");
+        assertThat(caseManagementNoteDAO.getNote(secondId).getRevision()).isEqualTo("2");
+        assertThat(caseManagementNoteDAO.getNote(unrelatedId).getRevision()).isEqualTo("1");
+    }
+
+    @Test
+    void shouldCountZeroRevisions_forLegacyNullUuidDespiteUnrelatedChains() {
+        CaseManagementNote legacy = createNote("1", "Legacy note with no revision UUID");
+        Long legacyId = legacy.getId();
+        // The save DAO generates UUIDs for new notes; reproduce a pre-existing legacy
+        // row directly, without changing any unrelated record or bypassing the read path.
+        entityManager.createNativeQuery("UPDATE casemgmt_note SET uuid=NULL WHERE note_id=:id")
+                .setParameter("id", legacyId).executeUpdate();
+        createNote("1", "Unrelated non-null UUID note A");
+        createNote("1", "Unrelated non-null UUID note B");
+        entityManager.flush();
+        entityManager.clear();
+
+        CaseManagementNote reloaded = caseManagementNoteDAO.getNote(legacyId);
+        assertThat(reloaded.getUuid()).isNull();
+        assertThat(reloaded.getRevision()).isEqualTo("0");
+    }
+
+    @Test
+    void shouldDeriveCreationDate_fromTheNotesOwnUuidChain() {
+        CaseManagementNote first = createNote("1", "Creation date chain A original", new Date(2000));
+        CaseManagementNote second = first.copyForRevision();
+        second.setNote("Creation date chain A revision");
+        second.setUpdate_date(new Date(3000));
+        caseManagementNoteDAO.saveNote(second);
+        CaseManagementNote unrelated = createNote("1", "Older independent chain B", new Date(1000));
+        Long firstId = first.getId();
+        Long secondId = second.getId();
+        Long unrelatedId = unrelated.getId();
+        assertThat(second.getUuid()).isEqualTo(first.getUuid());
+        assertThat(unrelated.getUuid()).isNotEqualTo(first.getUuid());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(caseManagementNoteDAO.getNote(firstId).getCreate_date().getTime()).isEqualTo(2000L);
+        assertThat(caseManagementNoteDAO.getNote(secondId).getCreate_date().getTime()).isEqualTo(2000L);
+        assertThat(caseManagementNoteDAO.getNote(unrelatedId).getCreate_date().getTime()).isEqualTo(1000L);
+    }
+
+    @Test
     void shouldLockCurrentMetadataRows_inTheExistingPrecedenceOrder() {
         CaseManagementNote note = createNote("1", "Metadata locking");
         CaseManagementNoteExt older = new CaseManagementNoteExt();

@@ -44,6 +44,10 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.WcbDao;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
+import io.github.carlos_emr.carlos.commn.model.Billing;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
+import io.github.carlos_emr.carlos.providers.data.ProviderData;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -64,6 +68,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.MockedConstruction;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -84,6 +89,8 @@ class TeleplanCorrectionActionWCB2ActionUnitTest extends CarlosUnitTestBase {
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private AutoCloseable mockitoCloseable;
+    private MockedConstruction<BillingHistoryDAO> billingHistoryConstruction;
+    private MockedConstruction<ProviderData> providerConstruction;
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
     @Mock private BillingDao mockBillingDao;
@@ -116,6 +123,9 @@ class TeleplanCorrectionActionWCB2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(BillingmasterDAO.class, mockBillingmasterDao);
         registerMock(BillRecipientsDao.class, mockBillRecipientsDao);
         registerMock(BillingHistoryDao.class, mockBillingHistoryDao);
+        createAndRegisterMock(BillingServiceDao.class);
+        billingHistoryConstruction = org.mockito.Mockito.mockConstruction(BillingHistoryDAO.class);
+        providerConstruction = org.mockito.Mockito.mockConstruction(ProviderData.class);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -126,6 +136,8 @@ class TeleplanCorrectionActionWCB2ActionUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
+        if (providerConstruction != null) providerConstruction.close();
+        if (billingHistoryConstruction != null) billingHistoryConstruction.close();
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
         if (mockitoCloseable != null) mockitoCloseable.close();
@@ -230,6 +242,69 @@ class TeleplanCorrectionActionWCB2ActionUnitTest extends CarlosUnitTestBase {
 
         verify(mockBillingmasterDao).update(argThat((Billingmaster b) -> "S".equals(b.getBillingstatus())));
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/billing/CA/BC/billingTeleplanCorrectionWCB?billing_no=41");
+    }
+
+
+    @ParameterizedTest
+    @ValueSource(strings = {"id", "billingNo"})
+    void shouldRejectDuplicateIdentifiers_beforeAnySave(String parameter) throws Exception {
+        TeleplanCorrectionActionWCB2Action action = postedSave("Submit");
+        request.addParameter(parameter, "999");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(mockBillingDao, mockWcbDao, mockBillingmasterDao, mockBillingHistoryDao);
+    }
+
+    @Test
+    void shouldUseCanonicalPostedIdentifiers_whenBoundValuesDiffer() throws Exception {
+        TeleplanCorrectionActionWCB2Action action = postedSave("Submit");
+        action.setId("999");
+        action.setBillingNo("998");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(mockBillingDao).find(40);
+        verify(mockBillingmasterDao).updateBillingUnitForBillingNumber("", 40);
+        assertThat(action.getId()).isEqualTo("41");
+        assertThat(action.getBillingNo()).isEqualTo("40");
+        assertThat(response.getRedirectedUrl()).endsWith("?billing_no=41");
+    }
+
+    @Test
+    void shouldSettleHeaderAndClaim_whenPreviouslyNotSubmitted() throws Exception {
+        TeleplanCorrectionActionWCB2Action action = postedSave(TeleplanCorrectionActionWCB2Action.SUBMIT_SETTLE);
+        action.setStatus(io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.NOTSUBMITTED);
+        Billingmaster master = new Billingmaster();
+        when(mockBillingmasterDao.getBillingmaster(41)).thenReturn(master);
+        Billing header = new Billing();
+        when(mockBillingDao.find(40)).thenReturn(header);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(master.getBillingstatus()).isEqualTo("S");
+        assertThat(header.getStatus()).isEqualTo("S");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FOUND);
+    }
+
+    @Test
+    void shouldReportSaveFailure_whenPersistenceThrows() throws Exception {
+        TeleplanCorrectionActionWCB2Action action = postedSave("Submit");
+        org.mockito.Mockito.doThrow(new IllegalStateException("Database unavailable"))
+                .when(mockBillingmasterDao).updateBillingUnitForBillingNumber("", 40);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        assertThat(response.getRedirectedUrl()).isNull();
+    }
+
+    @Test
+    void shouldPreserveHeaderStatus_whenSubmitCarriesNoStatus() throws Exception {
+        Billing header = new Billing();
+        header.setStatus("O");
+        when(mockBillingDao.find(40)).thenReturn(header);
+
+        assertThat(postedSave("Submit").execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(header.getStatus()).isEqualTo("O");
+        verify(mockBillingDao, never()).merge(any(Billing.class));
     }
 
     @Test

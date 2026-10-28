@@ -135,8 +135,29 @@ function presBoxFull()   { setPresBoxSize(full, 'presTopTable'); }
 // ============================================================
 // Window Management
 // ============================================================
+/** Keeps the originating chart program on same-patient chart and Rx requests. */
+function legacyChartUrl(url) {
+    if (!encounterConfig.chartContext) return url;
+    var target = new URL(url, document.baseURI || window.location.href);
+    if (target.origin !== window.location.origin
+            || !/\/(?:encounter\/|rx\/|casemgmt\/|CaseManagement)/.test(target.pathname)) return url;
+    for (var name of ['demographicNo', 'demographic_no']) {
+        if (target.searchParams.getAll(name).some(function (patient) {
+            return Number(patient) !== Number(encounterConfig.demographicNo);
+        })) return url;
+    }
+    if (target.searchParams.has('chartContext')) return url;
+    // Navbar requests also submit their URL as reloadURL. Preserve relative links: turning a
+    // local path into an absolute IP-address URL triggers the packaged WAF's RFI protection.
+    var hashIndex = url.indexOf('#');
+    var hash = hashIndex < 0 ? '' : url.substring(hashIndex);
+    var base = hashIndex < 0 ? url : url.substring(0, hashIndex);
+    var separator = base.indexOf('?') < 0 ? '?' : (/[?&]$/.test(base) ? '' : '&');
+    return base + separator + 'chartContext=' + encodeURIComponent(encounterConfig.chartContext) + hash;
+}
+
 function popupPage(vheight, vwidth, name, varpage) {
-    var page = "" + varpage;
+    var page = legacyChartUrl("" + varpage);
     name = name.replace(/\s+/g, "_");
     var windowprops = "height=" + vheight + ",width=" + vwidth +
         ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
@@ -153,7 +174,7 @@ function popupPage(vheight, vwidth, name, varpage) {
 function popupStart(vheight, vwidth, varpage) {
     var windowprops = "height=" + vheight + ",width=" + vwidth +
         ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-    var popup = window.open(varpage, "", windowprops);
+    var popup = window.open(legacyChartUrl(varpage), "", windowprops);
     if (popup != null && popup.opener == null) {
         popup.opener = self;
     }
@@ -162,7 +183,7 @@ function popupStart(vheight, vwidth, varpage) {
 function popupStart1(vheight, vwidth, varpage) {
     var windowprops = "height=" + vheight + ",width=" + vwidth +
         ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-    window.open(varpage, encounterConfig.i18n.title, windowprops);
+    window.open(legacyChartUrl(varpage), encounterConfig.i18n.title, windowprops);
 }
 
 function closeEncounterWindow() {
@@ -172,10 +193,6 @@ function closeEncounterWindow() {
 function onSplit() {
     document.forms['encForm'].btnPressed.value = 'Split Chart';
     return confirm(encounterConfig.i18n.confirmSplit);
-}
-
-function getAnotherEncounter(newAppointmentNo) {
-    location = "./IncomingEncounter?appointmentList=true&appointmentNo=" + newAppointmentNo;
 }
 
 function measurementLoaded(name) {
@@ -340,7 +357,7 @@ function clickLoadDiv(e) {
 }
 
 function loadDiv(div, url) {
-    CarlosAjax.request(url, {
+    CarlosAjax.request(legacyChartUrl(url), {
         method: 'post',
         postBody: 'demographicNo=' + encodeURIComponent(encounterConfig.demographicNo)
             + '&appointmentNo=' + encodeURIComponent(encounterConfig.appointmentNo || '0'),
@@ -357,7 +374,7 @@ function loadDiv(div, url) {
 function popLeftColumn(url, div, params) {
     params = "cmd=" + params + '&demographicNo=' + encodeURIComponent(encounterConfig.demographicNo)
         + '&appointmentNo=' + encodeURIComponent(encounterConfig.appointmentNo || '0');
-    CarlosAjax.request(url, {
+    CarlosAjax.request(legacyChartUrl(url), {
         method: 'post',
         postBody: params,
         onSuccess: function (request) {
@@ -471,6 +488,7 @@ function navBarLoader() {
     };
 
     this.popColumn = function (url, div, params, navBar) {
+        url = legacyChartUrl(url);
         params = "reloadURL=" + encodeURIComponent(url) + "&numToDisplay=6&cmd=" + params
             + "&demographicNo=" + encodeURIComponent(encounterConfig.demographicNo)
             + "&appointmentNo=" + encodeURIComponent(encounterConfig.appointmentNo || "0");

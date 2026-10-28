@@ -17,6 +17,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { prepareOwnedMasterPostal, assertOwnedMasterPostal } = require('./lib/owned-master-postal');
 
 const TIMEOUT = 20000;
 const TYPE = 'electronic_communication_consent'; // the seeds ship it active; the demonstration consent is inactive
@@ -27,7 +28,9 @@ async function openEdit(master) {
   await master.locator('#updateButton').waitFor({ state: 'visible', timeout: TIMEOUT });
 }
 
-async function update(master) {
+async function update(s) {
+  await assertOwnedMasterPostal(s);
+  const { master } = s;
   await ui.clickAndAwaitReload(master, master.locator('#updateButton input[type="submit"]').first(), { timeout: TIMEOUT, label: 'Update Record' });
 }
 
@@ -35,13 +38,11 @@ async function workflow(s) {
   const { sql, patient, master, config } = s;
   s.cleanup(() => {
     sql.execute(`DELETE FROM Consent WHERE demographic_no=${patient};
-      DELETE FROM demographicExtArchive WHERE archiveId IN (SELECT id FROM demographicArchive WHERE demographic_no=${patient})
-        OR demographic_no=${patient};
+      DELETE FROM demographicExtArchive WHERE demographic_no=${patient};
       DELETE FROM demographiccust WHERE demographic_no=${patient}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM Consent WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM demographiccust WHERE demographic_no=${patient})
-      + (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${patient}
-        OR archiveId IN (SELECT id FROM demographicArchive WHERE demographic_no=${patient}))`) === '0',
+      + (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${patient})`) === '0',
     'The owned patient\'s consent, custom-field or extension archive rows were not removed');
   });
   const [typeId, typeName, typeDescription] = sql.rows(`SELECT id, name, IFNULL(description,'') FROM consentType
@@ -53,13 +54,15 @@ async function workflow(s) {
   const consentSection = () => master.locator('#consent');
   let consentId;
 
+  await prepareOwnedMasterPostal(s);
+
   await s.step('Opt In stores one consent dated today and the read view shows it Consented', async () => {
     await openEdit(master);
     const optIn = master.locator(`#optin_${TYPE}`);
     h.assert(await optIn.count() === 1, 'The Edit form offers no consent choices: run the server with the consent module on');
     h.assert(!(await optIn.isChecked()) && !(await master.locator(`#optout_${TYPE}`).isChecked()), 'A new patient opened with a consent choice');
     await optIn.check();
-    await update(master);
+    await update(s);
     const rows = consents();
     h.assert(rows.length === 1, `Opt In stored ${rows.length} consent rows`);
     [consentId] = rows[0];
@@ -73,7 +76,7 @@ async function workflow(s) {
     await openEdit(master);
     h.assert(await master.locator(`#optin_${TYPE}`).isChecked(), 'The Edit form lost the stored Opt In');
     await master.locator(`#optout_${TYPE}`).check();
-    await update(master);
+    await update(s);
     const rows = consents();
     h.assert(rows.length === 1 && rows[0][0] === consentId, 'Opt Out did not change the same consent row');
     h.assert(rows[0][2] === '1' && rows[0][4] === today && rows[0][5] === '0', `The opted-out consent is ${JSON.stringify(rows[0].slice(1))}`);
@@ -100,7 +103,7 @@ async function workflow(s) {
     h.assert(!(await master.locator(`#optin_${TYPE}`).isChecked()) && !(await master.locator(`#optout_${TYPE}`).isChecked()),
       'Clear left a consent choice ticked');
     h.assert(await master.locator(`#deleteConsent_${TYPE}`).inputValue() === '1', 'Clear did not mark the stored consent for deletion');
-    await update(master);
+    await update(s);
     const rows = consents();
     h.assert(rows.length === 1 && rows[0][0] === consentId && rows[0][5] === '1', `After Clear the consent rows are ${JSON.stringify(rows)}`);
     const shown = (await consentSection().innerText()).replace(/\s+/g, ' ');
@@ -110,7 +113,7 @@ async function workflow(s) {
   await s.step('a consent opted in again shows its description when pointed at, without a script error', async () => {
     await openEdit(master);
     await master.locator(`#optin_${TYPE}`).check();
-    await update(master);
+    await update(s);
     const live = consents().filter(row => row[5] === '0');
     h.assert(live.length === 1 && live[0][2] === '0', `Opting in again left ${JSON.stringify(live)}`);
     const name = consentSection().locator('.popup.label').filter({ hasText: typeName }).first();

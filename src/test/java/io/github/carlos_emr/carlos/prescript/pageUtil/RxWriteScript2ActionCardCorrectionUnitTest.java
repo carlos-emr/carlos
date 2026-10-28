@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
@@ -52,8 +54,12 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -69,6 +75,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -173,6 +180,108 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         }
         if (mocks != null) {
             mocks.close();
+        }
+    }
+
+    @Nested
+    @DisplayName("discarded-card calculation callbacks (#5036)")
+    class DiscardedCalculation {
+
+        @ParameterizedTest
+        @ValueSource(strings = {"updateQty", "parseInstructions"})
+        @DisplayName("should refuse a delayed calculation after another window deletes its card")
+        void shouldRejectCallback_afterConcurrentCardDeletion(String calculation) throws Exception {
+            request.setParameter("action", calculation);
+            request.setParameter("randomId", "1");
+            request.setParameter("quantity", "42");
+            request.setParameter("instruction", "Synthetic confidential directions");
+            var control = new RxPrescriptionData.Prescription(88, "999998", DEMOGRAPHIC_NO);
+            control.setRandomId(2);
+            control.setSpecial("Untouched synthetic instructions");
+            control.setQuantity("17");
+            String revision = control.getDraftRevision();
+            bean.getStashList().add(control);
+            var callbackEntered = new CountDownLatch(1);
+            var deletionCompleted = new CountDownLatch(1);
+            doAnswer(invocation -> {
+                callbackEntered.countDown();
+                assertThat(deletionCompleted.await(5, TimeUnit.SECONDS)).isTrue();
+                return true;
+            }).when(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull());
+
+            try (var worker = Executors.newSingleThreadExecutor();
+                    LogCapture capture = LogCapture.forLogger(RxWriteScript2Action.class)) {
+                var deletion = worker.submit(() -> {
+                    assertThat(callbackEntered.await(5, TimeUnit.SECONDS)).isTrue();
+                    // The second window removes the same draft while this callback is delayed.
+                    synchronized (bean) {
+                        bean.removeStashItem(bean.getIndexFromRx(1));
+                    }
+                    deletionCompleted.countDown();
+                    return null;
+                });
+                String result = action.updateDrug();
+                deletion.get(5, TimeUnit.SECONDS);
+
+                assertThat(response.getStatus()).isEqualTo(409);
+                assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
+                assertThat(response.getContentAsString()).doesNotContain("Synthetic confidential directions");
+                assertThat(capture.events()).isEmpty();
+                assertThat(bean.getStash()).containsExactly(control);
+                assertThat(control.getDrugId()).isEqualTo(88);
+                assertThat(control.getSpecial()).isEqualTo("Untouched synthetic instructions");
+                assertThat(control.getQuantity()).isEqualTo("17");
+                assertThat(control.getDraftRevision()).isEqualTo(revision);
+                verifyNoInteractions(mockRxManager, mockDrugDao, mockPartialDateDao, mockSignatureStampService);
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"updateQty", "parseInstructions"})
+        @DisplayName("should refuse unknown and malformed calculation keys without a server error")
+        void shouldRefuseCalculation_whenCardKeyIsUnknownOrMalformed(String calculation) throws Exception {
+            request.setParameter("action", calculation);
+            request.setParameter("quantity", "42");
+            request.setParameter("instruction", "Synthetic confidential directions");
+            for (String key : Arrays.asList(null, "", "bad", "-1", "9999999999", "0", "99")) {
+                response = new MockHttpServletResponse();
+                servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+                action = new RxWriteScript2Action(mockSignatureStampService);
+                if (key == null) request.removeParameter("randomId");
+                else request.setParameter("randomId", key);
+                try (LogCapture capture = LogCapture.forLogger(RxWriteScript2Action.class)) {
+                    String result = action.updateDrug();
+                    assertThat(response.getStatus()).as(key).isEqualTo(409);
+                    assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
+                    assertThat(capture.events()).isEmpty();
+                }
+                assertThat(bean.getStash()).containsExactly(card);
+                assertThat(card.getSpecial()).isEqualTo("1 tab PO OD");
+                assertThat(card.getQuantity()).isEqualTo("30");
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"updateQty", "parseInstructions"})
+        @DisplayName("should calculate a current card normally")
+        void shouldCalculate_whenCardStillExists(String calculation) throws Exception {
+            card.setFrequencyCode("OD");
+            card.setDuration("30");
+            card.setDurationUnit("D");
+            request.setParameter("action", calculation);
+            request.setParameter("randomId", "1");
+            request.setParameter("quantity", "42");
+            request.setParameter("instruction", "1 tab PO BID x 14 days");
+
+            assertThat(action.updateDrug()).isNull();
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentAsString()).contains("calQuantity");
+            assertThat(card.getQuantity()).isEqualTo("updateQty".equals(calculation) ? "42" : "28");
+            if ("parseInstructions".equals(calculation)) {
+                assertThat(card.getSpecial()).isEqualTo("1 tab PO BID x 14 days");
+                assertThat(card.getFrequencyCode()).isEqualTo("BID");
+            }
+            verifyNoInteractions(mockRxManager, mockDrugDao, mockPartialDateDao, mockSignatureStampService);
         }
     }
 
@@ -288,6 +397,47 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @DisplayName("pick-up fields")
+    class PickupFields {
+
+        @ParameterizedTest
+        @CsvSource({"pickupDate_1, 2026-02-30, DATE", "pickupDate_1, tomorrow, DATE",
+                "pickupTime_1, 24:00, TIME", "pickupTime_1, 12:60, TIME", "pickupTime_1, noon, TIME"})
+        void shouldRefuseInvalidPickup_beforeChangingAnyCard(String field, String value, String error) throws Exception {
+            request.setParameter("drugName_1", "CHANGED NAME");
+            request.setParameter(field, value);
+            request.setParameter("draftRevision_1", card.getDraftRevision());
+            action = spy(action);
+
+            assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).contains("INVALID_RX_PICKUP_" + error);
+            assertThat(card.getBrandName()).isEqualTo("SYNTHETIC DRUG");
+            verify(action, never()).persistStash(any(), any());
+        }
+
+        @Test
+        void shouldSavePickup_whenValidOrCleared() throws Exception {
+            request.setParameter("drugName_1", "SYNTHETIC DRUG");
+            request.setParameter("pickupDate_1", "2028-02-29");
+            request.setParameter("pickupTime_1", "12:30");
+            request.setParameter("draftRevision_1", card.getDraftRevision());
+            action = spy(action);
+            doReturn("9001").when(action).persistStash(mockLoggedInInfo, bean);
+
+            assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+            assertThat(io.github.carlos_emr.carlos.prescript.util.RxUtil.DateToString(card.getPickupDate(), "yyyy-MM-dd HH:mm"))
+                    .isEqualTo("2028-02-29 12:30");
+
+            request.setParameter("pickupDate_1", "");
+            request.setParameter("pickupTime_1", "");
+            assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+            assertThat(card.getPickupDate()).isNull();
+        }
+    }
+
+    @Nested
     @DisplayName("saving an acknowledged card again (#5005)")
     class CorrectedSave {
 
@@ -295,6 +445,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
 
         @BeforeEach
         void persistAssignsIds() {
+            registerMock(org.springframework.transaction.PlatformTransactionManager.class, new NoDatabaseTransactions());
             doAnswer(invocation -> {
                 Drug saved = invocation.getArgument(0);
                 saved.setId(nextDrugIds.removeFirst());
@@ -365,13 +516,71 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldRefuseCorrection_whenReasonWriteIsRefused() {
+            save();
+            logActionMock.reset();
+            var reasons = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class);
+            registerMock(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class, reasons);
+            card.setDrugReasonCodeSystem("icd9");
+            card.setDrugReasonCode("401");
+            try (var codes = mockConstruction(io.github.carlos_emr.carlos.managers.CodingSystemManager.class,
+                    (mock, context) -> when(mock.isCodeAvailable(anyString(), anyString())).thenReturn(true))) {
+                assertThatThrownBy(this::save).isInstanceOf(RxWriteScript2Action.PrescriptionSaveException.class);
+            }
+            assertThat(card.getDrugId()).isEqualTo(501);
+            assertThat(card.getScript_no()).isEqualTo("77");
+            logActionMock.verifyNoInteractions();
+        }
+
+        @Test
+        void shouldKeepConsumedDraft_whenCommitOutcomeIsUnknown() {
+            save();
+            String revision = card.getDraftRevision();
+            logActionMock.reset();
+            when(mockDrugDao.find(501)).thenReturn(row(501, false));
+            when(mockRxManager.archiveDrug(mockLoggedInInfo, 501, DEMOGRAPHIC_NO, Drug.REPRESCRIBED)).thenReturn(true);
+            registerMock(org.springframework.transaction.PlatformTransactionManager.class, new NoDatabaseTransactions() {
+                @Override
+                protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
+                    throw new org.springframework.transaction.TransactionSystemException("Synthetic uncertain commit");
+                }
+            });
+
+            assertThatThrownBy(this::save).isInstanceOf(RxWriteScript2Action.PrescriptionSaveException.class);
+
+            assertThat(card.getDrugId()).isEqualTo(502);
+            assertThat(card.getDraftRevision()).isNotEqualTo(revision);
+            assertThat(request.getAttribute("scriptId")).isNull();
+            logActionMock.verifyNoInteractions();
+        }
+
+        @Test
         @DisplayName("should report an incomplete save when the earlier row cannot be archived")
         void shouldReportIncompleteSave_whenEarlierRowCannotBeArchived() {
             save();
+            String revision = card.getDraftRevision();
             when(mockDrugDao.find(501)).thenReturn(row(501, false));
             when(mockRxManager.archiveDrug(any(), eq(501), anyInt(), anyString())).thenReturn(false);
 
             assertThatThrownBy(this::save).isInstanceOf(RxWriteScript2Action.PrescriptionSaveException.class);
+            assertThat(card.getDrugId()).isEqualTo(501);
+            assertThat(card.getScript_no()).isEqualTo("77");
+            assertThat(card.getDraftRevision()).isEqualTo(revision);
+            assertThat(bean.getRandomIdDrugIdPair().get(card.getRandomId())).isEqualTo(501);
+
+            // The retry must still replace 501, not the rolled-back 502.
+            when(mockRxManager.archiveDrug(mockLoggedInInfo, 501, DEMOGRAPHIC_NO, Drug.REPRESCRIBED)).thenReturn(true);
+            assertThat(save()).isEqualTo("77");
+            assertThat(card.getDrugId()).isEqualTo(503);
+            verify(mockRxManager, never()).archiveDrug(any(), eq(502), anyInt(), anyString());
         }
+    }
+
+    /** Exercises Spring synchronization/rollback callbacks without database writes in the unit fixture. */
+    private static class NoDatabaseTransactions extends org.springframework.transaction.support.AbstractPlatformTransactionManager {
+        @Override protected Object doGetTransaction() { return new Object(); }
+        @Override protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) { }
+        @Override protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) { }
+        @Override protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) { }
     }
 }

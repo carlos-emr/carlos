@@ -838,3 +838,46 @@ test('shouldDeclareThatFaxConfigureReadsTheDatabase_sinceItNowRestoresTheRow', (
   assert.match(check.fixtures, /fax_config/);
   assert.match(check.fixtures, /restores/);
 });
+
+// Profiles (issue #4439): a check that needs another install configuration runs only in its profile's run.
+const { PROFILES } = require('./run-playwright-suite');
+
+test('shouldNameOnlyKnownProfiles_forEveryManifestEntry', () => {
+  for (const check of checks.filter((entry) => entry.profile !== undefined)) {
+    assert.ok(PROFILES[check.profile], `${check.name} names unknown profile ${check.profile}`);
+  }
+  assert.ok(checks.some((check) => check.profile === 'legacy-teleplan'), 'the legacy-teleplan profile has no check');
+});
+
+test('shouldSelectProfileChecks_onlyInTheirProfileRun', () => {
+  const plain = { name: 'plain', tiers: ['core'], provinces: ['BC'] };
+  const legacy = { name: 'legacy', tiers: ['core'], provinces: ['BC'], profile: 'legacy-teleplan' };
+  const names = (options) => selectChecks([plain, legacy], { ...parseArguments([]), ...options }).map((c) => c.name);
+  assert.deepEqual(names({}), ['plain']);
+  assert.deepEqual(names({ profile: 'legacy-teleplan' }), ['legacy']);
+  assert.throws(() => names({ only: ['legacy'] }), /runs only with --profile legacy-teleplan/);
+  assert.throws(() => names({ only: ['plain'], profile: 'legacy-teleplan' }), /has no profile/);
+  assert.throws(() => parseArguments(['--profile', 'nonesuch']), /Unknown profile nonesuch/);
+});
+
+test('shouldFailASkip_inItsOwnProfileRun', () => {
+  const legacy = expectingCheck({ profile: 'legacy-teleplan', expectedFailure: undefined });
+  const skipped = runOne(legacy, { env: {}, profile: 'legacy-teleplan' }, child({ status: 2 }));
+  assert.equal(skipped.outcome, 'FAIL');
+  assert.match(skipped.detail, /skipped in its own --profile legacy-teleplan run/);
+  assert.match(skipped.detail, /needs a BC install with NEW_BC_TELEPLAN=no/);
+  // The skip's own reason stays: a missing fixture or tool skips a profile check too.
+  assert.match(skipped.detail, /a fixture or credential this check needs is not configured/);
+  const plainSkip = runOne(expectingCheck({ expectedFailure: undefined }), { env: {} }, child({ status: 2 }));
+  assert.equal(plainSkip.outcome, 'SKIP');
+});
+
+test('shouldSelectTheDefaultRun_whenOptionsCarryNoProfile', () => {
+  // selectChecks is exported; an options object built without profile must mean the default run, not no run.
+  const plain = expectingCheck({ name: 'plain-check', expectedFailure: undefined });
+  const legacy = expectingCheck({ name: 'legacy-check', profile: 'legacy-teleplan', expectedFailure: undefined });
+  const { profile, ...withoutProfile } = parseArguments([]);
+  assert.equal(profile, '');
+  assert.deepEqual(selectChecks([plain, legacy], withoutProfile).map((c) => c.name), ['plain-check']);
+  assert.deepEqual(selectChecks([plain, legacy], { ...withoutProfile, only: ['plain-check'] }).map((c) => c.name), ['plain-check']);
+});

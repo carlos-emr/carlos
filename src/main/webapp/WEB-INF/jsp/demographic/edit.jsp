@@ -924,7 +924,7 @@
                         }
                         var defaultCountry = defaultProvince.split('-')[0];
                         jQuery("#country").val(defaultCountry);
-                        updateProvinces(defaultProvince);
+                        updateProvinces(defaultProvince, true);
 
                         // initialize residential province separately to avoid overwriting demo values
                         var defaultResiProvince = '<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("demographic.default_province","") %>' context="javaScriptBlock"/>';
@@ -947,7 +947,7 @@
         </script>
         <% } %>
         <script>
-            function updateProvinces(province) {
+            function updateProvinces(province, initialSelection) {
                 var country = jQuery("#country").val();
                 if(country == '') {
                     console.log('empty country');
@@ -966,6 +966,11 @@
 
                         if (province != null) {
                             jQuery("#province").val(province);
+                            // ISO selectors normalize legacy codes (ON -> CA-ON).
+                            // Remember the rendered starting value only on initialization.
+                            if (initialSelection) {
+                                document.updatedelete.postal.dataset.originalProvince = jQuery("#province").val() || '';
+                            }
                         }
                     },
                     error: function (xhr, status, error) {
@@ -1153,6 +1158,31 @@
                             <%
                                 if ("ON".equals(prov)) {
                             %>
+                            <%-- Ontario hospital (shortcut) billing. This sidebar link is the
+                                 page's only opener: #654 dropped it with the rest of the
+                                 sidebar billing links, which left billingShortcutPg1View
+                                 unreachable (#5055). billForm prefers hospital_view, as
+                                 BillingShortcutPg2Service does when it reopens page 1. --%>
+                            <tr>
+                                <td><c:url var="masterRecordHospitalBilling" value="/billing/CA/ON/billingShortcutPg1View">
+                                        <c:param name="billRegion" value='<%= prov %>'/>
+                                        <c:param name="billForm" value='<%= oscarProps.getProperty("hospital_view", oscarProps.getProperty("default_view")) %>'/>
+                                        <c:param name="hotclick" value=""/>
+                                        <c:param name="appointment_no" value="0"/>
+                                        <c:param name="demographic_name" value='<%= demographic.getLastName() + "," + demographic.getFirstName() %>'/>
+                                        <c:param name="demographic_no" value='<%= String.valueOf(demographic.getDemographicNo()) %>'/>
+                                        <c:param name="providerview" value='<%= demographic.getProviderNo() %>'/>
+                                        <c:param name="user_no" value='<%= curProvider_no %>'/>
+                                        <c:param name="apptProvider_no" value="none"/>
+                                        <c:param name="appointment_date" value='<%= dateString %>'/>
+                                        <c:param name="start_time" value="00:00:00"/>
+                                        <c:param name="bNewForm" value="1"/>
+                                        <c:param name="status" value="t"/>
+                                    </c:url>
+                                    <a id="hospitalBillingLink" href="${carlos:forHtmlAttribute(masterRecordHospitalBilling)}"
+                                        onClick="popupPage(700,1000,this.href);return false;"
+                                        title="<fmt:message key="demographic.demographiceditdemographic.msgBillPatient"/>"><fmt:message key="demographic.demographiceditdemographic.msgHospitalBilling"/></a></td>
+                            </tr>
                             <%
                                 }
                             %>

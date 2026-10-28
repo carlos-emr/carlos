@@ -1,6 +1,8 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
 const {assert, assertStrictPage, createRecorder, wireStrictPage} = require('./playwright-harness');
+const {createInjectedResponseEvidence} = require('./injected-response-evidence');
+const {observeStoredPreviewCapacity} = require('./stored-preview-capacity-check');
 
 /** Real installed UI plus explicit capacity responses; the split POST is intercepted before filing. */
 async function checkLegacyDocumentImages(context, config, documentId) {
@@ -8,13 +10,35 @@ async function checkLegacyDocumentImages(context, config, documentId) {
   const page = await context.newPage();
   page.setDefaultTimeout(120000); page.setDefaultNavigationTimeout(120000);
   wireStrictPage(page, 'legacy-document-capacity', recorder);
+  const injectionEvidence = createInjectedResponseEvidence(recorder, 'legacy-document-capacity');
+  page.on('response', response => injectionEvidence.observe(response));
+  const injectedRequests = new WeakSet(), decodedUrls = new Set();
+  const nativeCapacity = observeStoredPreviewCapacity({page, recorder, documentId,
+    label: 'legacy-document-capacity', injectedRequests,
+    endpoint: new URL('documentManager/ManageDocument', String(config.baseUrl).replace(/\/?$/, '/')).href});
+  const expectInjected = (request, status) => {
+    injectionEvidence.expect(request, status);
+    injectedRequests.add(request);
+  };
+  async function rememberDecodedImage(image) {
+    const decoded = await image.evaluate(img => ({url: img.getAttribute('data-document-image-src'),
+      loaded: img.complete && img.naturalWidth > 0 && img.naturalHeight > 0
+        && img.getAttribute('data-document-image-state') === 'loaded'}));
+    assert(decoded.loaded && decoded.url, 'Legacy preview must have decoded pixels before accounting for capacity');
+    decodedUrls.add(new URL(decoded.url, page.url()).href);
+  }
+  async function reconcileCapacity() {
+    // Only exact injected responses use the synthetic ledger. Every real 503
+    // still requires the installed admission contract and a later decoded PNG.
+    injectionEvidence.removeExpectedDiagnostics();
+    await nativeCapacity.finish([...decodedUrls]);
+  }
   const render = requestUrl => {
     const url = new URL(requestUrl);
     return url.pathname.endsWith('/documentManager/ManageDocument')
       && ['showPage', 'viewDocPage'].includes(url.searchParams.get('method'))
       && url.searchParams.get('doc_no') === String(documentId);
   };
-  const capacityUrls = new Set();
   let injected = 0, phase = 'viewer';
   const pending = new Set(); let peak = 0, drainFinished;
   const finished = request => {
@@ -29,7 +53,7 @@ async function checkLegacyDocumentImages(context, config, documentId) {
     const url = new URL(route.request().url());
     if (render(url.href) && ((phase === 'viewer' && url.searchParams.get('curPage') === '2' && injected < 5)
       || (phase === 'split' && url.searchParams.get('curPage') === '1'))) {
-      injected++; capacityUrls.add(url.href);
+      injected++; expectInjected(route.request(), 503);
       await route.fulfill({status: 503, headers: {'Retry-After': '1', 'Content-Type': 'text/plain'}, body: 'Document capacity is busy'});
     } else await route.continue();
   });
@@ -41,6 +65,7 @@ async function checkLegacyDocumentImages(context, config, documentId) {
       const img = document.getElementById(`docImg_${id}`);
       return img?.getAttribute('data-document-image-state') === 'loaded' && img.complete && img.naturalWidth > 0;
     }, documentId);
+    await rememberDecodedImage(image);
     await page.locator(`#nextP_${documentId}`).click();
     await page.getByText('Waiting for document capacity. This image will load automatically.', {exact: true}).waitFor();
     await page.waitForFunction(id => {
@@ -50,7 +75,12 @@ async function checkLegacyDocumentImages(context, config, documentId) {
     }, documentId);
     assert(injected === 5, 'legacy image must recover after more than three capacity responses');
     assert(await image.isVisible(), 'recovered preview must be visible');
+    await rememberDecodedImage(image);
     assert(pending.size === 0, 'viewer must finish accepted image work before navigation');
+    await reconcileCapacity();
+    // The splitter can request the identical URLs in a new DOM. Its pixels
+    // must be proved again rather than borrowing the previous viewer's decode.
+    decodedUrls.clear();
 
     phase = 'split';
     await page.goto(`${config.baseUrl}/oscarMDS/ViewSplit?document=${documentId}&queueID=1&demoName=`);
@@ -65,6 +95,26 @@ async function checkLegacyDocumentImages(context, config, documentId) {
     const dimensions = await second.locator('img.page').evaluate(img => ({width: img.naturalWidth, height: img.naturalHeight}));
     const blob = await second.locator('img.page').getAttribute('src');
     assert(blob.startsWith('blob:'), 'split must render the bounded loader resource');
+    // Other thumbnails may also receive real server-capacity refusals. Decode
+    // each native page while its source image still exists, before rotation
+    // transfers ownership to a canvas or cleanup removes the page.
+    const previews = page.locator('#picker img.page');
+    const previewCount = await previews.count();
+    for (let index = 1; index < previewCount; index++) {
+      const preview = previews.nth(index);
+      await preview.scrollIntoViewIfNeeded();
+      await page.waitForFunction(({index, documentId}) => {
+        const img = document.querySelectorAll('#picker img.page')[index];
+        if (!img?.complete || !img.naturalWidth || !img.naturalHeight
+          || img.getAttribute('data-document-image-state') !== 'loaded') return false;
+        const url = new URL(img.getAttribute('data-document-image-src'), location.href);
+        return url.searchParams.get('doc_no') === String(documentId)
+          && url.searchParams.get('curPage') === String(index + 1);
+      }, {index, documentId});
+      await rememberDecodedImage(preview);
+    }
+    await second.locator('img.page').scrollIntoViewIfNeeded();
+    await reconcileCapacity();
     await second.locator('div').first().click();
     for (const angle of [90, 180]) {
       await page.locator('#tool_rotate').click();
@@ -109,7 +159,7 @@ async function checkLegacyDocumentImages(context, config, documentId) {
     // intercept the POST and suppress only its resulting popup in this test.
     await first.locator('div').first().click();
     await page.locator('#tool_add').click();
-    const postedBodies = [], mutationFailures = new Map();
+    const postedBodies = [];
     let mutationPhase = 'busy';
     await page.route('**/documentManager/SplitDocument', async route => {
       const fields = new URLSearchParams(route.request().postData());
@@ -125,8 +175,7 @@ async function checkLegacyDocumentImages(context, config, documentId) {
         status = 500; data = {success: false, accepted: true, retryable: false};
       }
       if (status !== 200) {
-        const statuses = mutationFailures.get(route.request().url()) || new Set();
-        statuses.add(status); mutationFailures.set(route.request().url(), statuses);
+        expectInjected(route.request(), status);
       }
       await route.fulfill({status, contentType: 'application/json', headers: {'Retry-After': '1'}, body: JSON.stringify(data)});
     });
@@ -148,6 +197,10 @@ async function checkLegacyDocumentImages(context, config, documentId) {
     const posted = new URLSearchParams(postedBodies[0]);
     assert(posted.getAll('page').length === 1 && posted.get('page') === '1,0', 'waiting status must never enter submitted page numbers');
     assert(posted.get('document') === String(documentId) && posted.get('queueID') === '1', 'split must retain valid document and queue identity');
+    assert(await page.locator('img[data-document-image-src]').evaluateAll((images, id) => images.every(img => {
+      const url = new URL(img.getAttribute('data-document-image-src'), location.href);
+      return url.searchParams.get('doc_no') !== String(id) || url.searchParams.get('curPage') !== '1';
+    }), documentId), 'successful split must remove its waiting first page before native preview cleanup');
 
     // A possibly accepted server failure cannot invite another clinical write.
     // Keep the rotated page visible, including its decoded bitmap and ownership.
@@ -178,15 +231,6 @@ async function checkLegacyDocumentImages(context, config, documentId) {
       'unknown outcome must prevent duplicate filing');
     assert(peak <= 4, `legacy viewers exceeded four image requests (${peak})`);
 
-    // Filter only the failures explicitly injected above; unrelated errors remain fatal.
-    recorder.badResponses = recorder.badResponses.filter(entry => !(entry.status === 503 && capacityUrls.has(entry.url))
-      && !mutationFailures.get(entry.url)?.has(entry.status));
-    recorder.consoleIssues = recorder.consoleIssues.filter(entry => {
-      const code = /Failed to load resource:.*(503|500)/.exec(entry.text)?.[1];
-      return !(code && ((code === '503' && capacityUrls.has(entry.location?.url))
-        || mutationFailures.get(entry.location?.url)?.has(Number(code))));
-    });
-    assertStrictPage(recorder);
     return {capacityResponses: injected, peak, rotations: 2, interceptedSplit: true, splitBusyResponses: 4, preservedUncertainSplit: true};
   } catch (error) {
     originalError = error;
@@ -201,9 +245,19 @@ async function checkLegacyDocumentImages(context, config, documentId) {
         drainFinished = () => {clearTimeout(timer); resolve();};
       });
     } catch (error) {cleanupErrors.push(error);}
+    try {await reconcileCapacity();} catch (error) {cleanupErrors.push(error);}
+    phase = 'complete';
     try {await page.close();} catch (error) {cleanupErrors.push(error);}
+    // Closing the page is the final event boundary. A busy image retry can
+    // finish while cleanup drains accepted work; account for its exact response
+    // here, rather than checking before those last diagnostics are delivered.
+    try {
+      await reconcileCapacity();
+      assertStrictPage(recorder);
+    } catch (error) {cleanupErrors.push(error);}
+    nativeCapacity.close();
     if (cleanupErrors.length) throw new AggregateError([originalError, ...cleanupErrors].filter(Boolean),
-      'Legacy document image check or cleanup failed');
+      'Legacy document image check or cleanup failed: ' + cleanupErrors.map(error => error.message).join('; '));
   }
 }
 module.exports = {checkLegacyDocumentImages};

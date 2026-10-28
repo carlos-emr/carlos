@@ -92,6 +92,16 @@ class EChartStaleNoteSingleLineScriptRegressionTest {
     }
 
     @Test
+    void shouldCarryChartPatient_whenLoadingNoteForDisplayOrEditing() {
+        for (String caller : new String[]{"minStaleNoteView", "fetchNote", "fullViewById"}) {
+            assertThat(function(caller))
+                    .as("%s preserves the chart context and explicit patient", caller)
+                    .contains("chartActionUrl(\"/CaseManagementView\")")
+                    .contains("\"&demographicNo=\" + encodeURIComponent(demographicNo)");
+        }
+    }
+
+    @Test
     @DisplayName("should draw a folded note's Maximize image in one place, for the manual and the single-line fold")
     void shouldDrawExpandImageOnce_forManualAndSingleLineFold() {
         assertThat(function("addExpandImage"))

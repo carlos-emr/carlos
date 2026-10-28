@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.billings.ca.on.web.BillingRequestGuards;
 
 public class SaveAssoc2Action
         extends ActionSupport {
@@ -54,6 +55,10 @@ public class SaveAssoc2Action
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+        // The association editor posts; a GET or HEAD is refused before anything is checked or saved.
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
         }
 
         ServiceCodeAssociation assoc = this.getSvcAssoc();

@@ -276,7 +276,7 @@
                 <input id="savebut" type="submit" value="<fmt:message key="global.save"/>" onclick="javascript: return onSave();"/>
                 <input id="saveexitbut" type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript: return onSaveExit();"/>
                 <input id="exitbut" type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript: return onExit();"/>
-                <input id="printbut" type="submit" value="<fmt:message key="global.btnPrint"/>" onclick="javascript: return onPrint();"/>
+                <input id="printbut" type="button" value="<fmt:message key="global.btnPrint"/>" onclick="javascript: return onPrint();"/>
             </div>
         </body>
         <style type="text/css">
@@ -323,8 +323,10 @@
 
 
         <script type="text/javascript">
+            // Print never saves: it shows the print view, prints, then asks whether to go back to editing. OK used to
+            // submit the form with submit=save as well, so "make changes?" saved the letter unasked (issue #4370);
+            // only Save and Save & Exit save now. Returning false keeps the Print submit button from posting.
             function onPrint() {
-                document.forms[0].submit.value = "save";
                 setVisibility('buttons', 'hidden');
                 setVisibility('textareaDiv', 'hidden');
                 setVisibility('textDiv', 'visible');
@@ -359,7 +361,7 @@
                 } else {
                     setVisibility('buttons', 'visible');
                 }
-                return (ret);
+                return false;
             }
 
             function onSave() {

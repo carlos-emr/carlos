@@ -676,10 +676,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
          * @param rotation  Degree of rotation for the text (usually 0)
          */
         public void writeDirectContent(PdfContentByte cb, BaseFont bf, float fontSize, int alignment, String text, float x, float y, float rotation) {
-            cb.beginText();
-            cb.setFontAndSize(bf, fontSize);
-            cb.showTextAligned(alignment, text, x, y, rotation);
-            cb.endText();
+            // Same baseline, alignment and rotation as cb.showTextAligned, but through a phrase so
+            // characters the base font lacks (the prescriber's name in Chinese, Japanese or Korean)
+            // are drawn in the bundled fallback faces rather than dropped (#5046). The PdfContentByte
+            // and Element alignment constants share their values.
+            PdfFonts.showTextAligned(cb, alignment, text, new Font(bf, fontSize), x, y, rotation);
         }
 
         private String geti18nTagValue(Locale locale, String tag) {
@@ -711,7 +712,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 // An absent field is skipped rather than handed to showTextAligned as null;
                 // the block moves up a line, it never prints "null".
                 if (pharmacyItem != null && !pharmacyItem.isBlank()) {
-                    PdfPCell pharmacyCell = new PdfPCell(new Phrase(pharmacyItem, new Font(bf, 10)));
+                    PdfPCell pharmacyCell = new PdfPCell(PdfFonts.phrase(pharmacyItem, new Font(bf, 10)));
                     pharmacyCell.setBorder(0);
                     pharmacyCell.setPadding(0);
                     pharmacyCell.setLeading(11f, 0);
@@ -734,7 +735,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             PdfPTable patientHeadingTable = new PdfPTable(1);
 
             // Rx date at top right, over the patient heading.
-            PdfPCell dateCell = new PdfPCell(new Phrase(this.rxDate, new Font(bfBold, 10)));
+            PdfPCell dateCell = new PdfPCell(PdfFonts.phrase(this.rxDate, new Font(bfBold, 10)));
             dateCell.setBorder(0);
             dateCell.setHorizontalAlignment(PdfContentByte.ALIGN_RIGHT);
             patientHeadingTable.addCell(dateCell);
@@ -754,7 +755,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 patientHeading.append(newline).append(chartNoTitle).append(patientChartNo);
             }
 
-            patientHeadingTable.addCell(new Phrase(patientHeading.toString(), new Font(bf, 10)));
+            patientHeadingTable.addCell(PdfFonts.phrase(patientHeading.toString(), new Font(bf, 10)));
             patientHeadingTable.setTotalWidth(272f);
             return patientHeadingTable;
         }
@@ -865,7 +866,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 if (this.clinicFax != null && !this.clinicFax.isEmpty()) {
                     prescriberHeading.append(newline).append(geti18nTagValue(locale, "RxPreview.msgFax")).append(": ").append(this.clinicFax);
                 }
-                PdfPCell cell = new PdfPCell(new Phrase(prescriberHeading.toString(), new Font(bf, 10)));
+                PdfPCell cell = new PdfPCell(PdfFonts.phrase(prescriberHeading.toString(), new Font(bf, 10)));
                 cell.setBorder(0);
                 prescriberHeadingTable.addCell(cell);
                 prescriberHeadingTable.writeSelectedRows(0, -1, 80f, height - 13f, cb);
@@ -961,7 +962,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                  */
                 String confidentiality = CarlosProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "");
                 ColumnText columnText = new ColumnText(cb);
-                columnText.addText(new Chunk(confidentiality, new Font(bf, 9)));
+                columnText.addText(PdfFonts.phrase(confidentiality, new Font(bf, 9)));
                 columnText.setSimpleColumn(13f, 0, page.getWidth() - 12f, 60, 10, Element.ALIGN_CENTER | Element.ALIGN_TOP);
                 columnText.go();
 
@@ -1805,7 +1806,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         Iterator<String> rxStr = listRx.iterator();
 
         while (rxStr.hasNext()) {
-            Paragraph rxEntry = new Paragraph(new Phrase(rxStr.next(), new Font(bf, 10)));
+            Paragraph rxEntry = new Paragraph(PdfFonts.phrase(rxStr.next(), new Font(bf, 10)));
             rxEntry.setKeepTogether(true);
             rxEntry.setSpacingBefore(1f);
 
@@ -1820,7 +1821,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
         // render additional notes
         if (hasAdditionalNote) {
-            Paragraph p = new Paragraph(new Phrase(additNotes, new Font(bf, 10)));
+            Paragraph p = new Paragraph(PdfFonts.phrase(additNotes, new Font(bf, 10)));
             p.setKeepTogether(true);
             p.setSpacingBefore(10f);
             p.setSpacingAfter(40f);

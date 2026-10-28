@@ -105,9 +105,14 @@ public record AppointmentCardContact(String name, String phone, String fax) {
         return saved(userProperties, providerNo, field);
     }
 
+    // The older key is read only when the saved value is blank, so a card whose lines are all
+    // saved costs one lookup per line, as it did before.
     private static String saved(UserPropertyDAO userProperties, String providerNo, Field field) {
-        return preferred(value(userProperties.getProp(providerNo, field.key())),
-                value(userProperties.getProp(providerNo, field.legacyKey())));
+        String saved = value(userProperties.getProp(providerNo, field.key()));
+        if (StringUtils.isNotBlank(saved)) {
+            return saved;
+        }
+        return preferred(saved, value(userProperties.getProp(providerNo, field.legacyKey())));
     }
 
     // The first non-blank of the saved and the older value, or "".

@@ -16,6 +16,33 @@ const variants = {
   instructions: { name: 'rx-instructions-delete-race', action: 'parseInstructions', field: 'instructions', value: '1 tab PO BID x 14 days' },
 };
 
+/** Account for one asserted stale callback refusal, including Chromium's sync-XHR callsite. */
+function consumeDiscardedCallbackFailure(recorder, mark, captured, response) {
+  h.assert(response.request() === captured && captured.method() === 'POST' && response.status() === 409,
+    'Only the captured discarded-card POST returning HTTP 409 can be expected');
+  const callback = new URL(captured.url());
+  h.assert(/\/rx\/(WriteScript|UpdateScript)$/.test(callback.pathname), 'The captured refusal is not an Rx callback');
+  const errors = recorder.badResponses.slice(mark.responses);
+  h.assert(errors.length === 1 && errors[0].status === 409 && errors[0].method === 'POST'
+    && errors[0].url === captured.url(), 'The expected callback must be the only failing response in its window');
+  const wrapperPath = callback.pathname.replace(/\/rx\/(WriteScript|UpdateScript)$/, '/csrfguard');
+  const expectedConsole = recorder.consoleIssues.slice(mark.console).filter(entry => {
+    if (!/^Failed to load resource: the server responded with a status of 409 \([^\r\n)]*\)$/.test(entry.text)
+        || !entry.location?.url) return false;
+    if (entry.location.url === captured.url()) return true;
+    const location = new URL(entry.location.url);
+    return location.origin === callback.origin && location.pathname === wrapperPath && !location.search && !location.hash;
+  });
+  h.assert(expectedConsole.length <= 1, 'One refused callback cannot account for multiple browser console failures');
+  consumeExpectedFailure(recorder, mark, { status: 409, path: /\/rx\/(WriteScript|UpdateScript)$/ });
+  // Synchronous XHR is wrapped by CSRFGuard; Chromium may attribute its resource refusal
+  // to that same-origin callsite. This is accepted only after the exact unique response above.
+  for (const entry of expectedConsole) {
+    const index = recorder.consoleIssues.indexOf(entry);
+    if (index >= mark.console) recorder.consoleIssues.splice(index, 1);
+  }
+}
+
 async function workflow(s) {
   h.assert(variants[mode], 'RX_DISCARD_CALLBACK must be quantity or instructions');
   const log = requiredRxServerLog();
@@ -78,9 +105,7 @@ async function workflow(s) {
       h.assert(!routingError, 'The held calculation could not be delivered');
       await response.finished();
       await rx.waitForLoadState('networkidle');
-      if ([400, 404, 409].includes(response.status())) {
-        consumeExpectedFailure(s.recorder, browserMark, { status: response.status(), path: /\/rx\/(WriteScript|UpdateScript)$/ });
-      }
+      if (response.status() === 409) consumeDiscardedCallbackFailure(s.recorder, browserMark, captured, response);
       await rx.reload({ waitUntil: 'domcontentloaded' });
       await rx.locator('#drugProfile[aria-busy="false"]').waitFor({ state: 'attached' });
       h.assert(await rx.locator('[id^="drugName_"]').count() === 0, 'The discarded draft returned after the callback');
@@ -93,8 +118,9 @@ async function workflow(s) {
       const errors = splitLogEvents(log.since(logMark))
         .filter(event => /^(ERROR|FATAL)$/.test(event.level) && /RxWriteScript2Action/.test(event.text)
           && /NullPointerException/.test(event.text));
-      h.assert([200, 204, 400, 404, 409].includes(response.status()) && errors.length === 0,
+      h.assert(response.status() === 409 && errors.length === 0,
         `The discarded ${mode} callback answered HTTP ${response.status()} and logged ${errors.length} NullPointerException event(s)`);
+      console.log(`    discarded ${mode} callback receipt: HTTP 409; no revived draft; clinical rows and control medication unchanged; no server exception`);
     });
   } finally {
     release();
@@ -104,4 +130,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow(variants[mode]?.name || 'rx-discarded-card-callback', workflow);
-module.exports = { workflow };
+module.exports = { workflow, consumeDiscardedCallbackFailure };

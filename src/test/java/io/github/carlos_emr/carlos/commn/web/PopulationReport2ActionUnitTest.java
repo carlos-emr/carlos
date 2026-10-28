@@ -40,6 +40,10 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -130,6 +134,49 @@ class PopulationReport2ActionUnitTest extends CarlosUnitTestBase {
         verify(manager, times(1)).getMajorMedicalConditions();
         assertThat(publishedConditions()).containsOnlyKeys("Diabetes");
         assertThat(request.getAttribute("date")).isNotNull();
+    }
+
+    @Test
+    void shouldComputeOnlyOnce_whenConcurrentRequestsMissTheCache() throws Exception {
+        var firstQueryStarted = new CountDownLatch(1);
+        var allowFirstQuery = new CountDownLatch(1);
+        var secondRequestStarted = new CountDownLatch(1);
+        var duplicateCompute = new CountDownLatch(1);
+        var firstQuery = new AtomicBoolean(true);
+        ShelterPopulation population = mock(ShelterPopulation.class);
+        when(manager.getShelterPopulation()).thenAnswer(call -> {
+            if (firstQuery.getAndSet(false)) {
+                firstQueryStarted.countDown();
+                assertThat(allowFirstQuery.await(5, TimeUnit.SECONDS)).isTrue();
+            } else {
+                duplicateCompute.countDown();
+            }
+            return population;
+        });
+        PopulationReport2Action first = newAction();
+        PopulationReport2Action second = newAction();
+        var workers = Executors.newFixedThreadPool(2);
+        try {
+            var firstResult = workers.submit(first::report);
+            assertThat(firstQueryStarted.await(5, TimeUnit.SECONDS)).isTrue();
+            var secondResult = workers.submit(() -> {
+                secondRequestStarted.countDown();
+                return second.report();
+            });
+            assertThat(secondRequestStarted.await(5, TimeUnit.SECONDS)).isTrue();
+            // Hold the first computation open: the second request must wait for its complete
+            // snapshot rather than starting the same database work or receiving partial data.
+            assertThat(duplicateCompute.await(200, TimeUnit.MILLISECONDS)).isFalse();
+            assertThat(secondResult.isDone()).isFalse();
+            allowFirstQuery.countDown();
+            assertThat(firstResult.get(5, TimeUnit.SECONDS)).isEqualTo("report");
+            assertThat(secondResult.get(5, TimeUnit.SECONDS)).isEqualTo("report");
+            verify(manager, times(1)).getShelterPopulation();
+            verify(manager, times(1)).getCategoryCodeDescriptions();
+        } finally {
+            allowFirstQuery.countDown();
+            workers.shutdownNow();
+        }
     }
 
     @Test

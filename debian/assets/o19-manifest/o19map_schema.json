@@ -2,7 +2,7 @@
  "format": 1,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-3+6ea61c42",
+ "SCHEMA_MAP_VERSION": "o19map-4+6ea61c42",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -13104,7 +13104,8 @@
    "passwordUpdateDate",
    "pinUpdateDate",
    "lastUpdateUser",
-   "lastUpdateDate"
+   "lastUpdateDate",
+   "usingMfa"
   ],
   "ServiceClient": [
    "id",
@@ -22926,7 +22927,7 @@
   "ctl_frequency": 20,
   "ctl_specialinstructions": 26,
   "default_role_access": 982,
-  "encounterForm": 99,
+  "encounterForm": 98,
   "encountertemplate": 186,
   "frm_labreq_preset": 193,
   "groups_tbl": 1,
@@ -24626,16 +24627,11 @@
   ],
   "program": [
    "alcohol",
-   "allowBatchAdmission",
-   "allowBatchDischarge",
    "firstNation",
-   "hic",
-   "holdingTank",
    "housing",
    "mentalHealth",
    "physicalHealth",
-   "transgender",
-   "userDefined"
+   "transgender"
   ],
   "program_access": [
    "all_roles"
@@ -24739,7 +24735,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-3+f2e0d233",
+   "SCHEMA_MAP_VERSION": "o19map-4+a3deefa1",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -41916,7 +41912,11 @@
      ]
     },
     "wcb_bp_code": {
-     "class": "copy",
+     "class": "merge",
+     "merge_keys": [
+      "code"
+     ],
+     "surrogate_pk": "wcb_bp_code_no",
      "cols": [
       "wcb_bp_code_no",
       "level1",
@@ -41927,7 +41927,11 @@
      ]
     },
     "wcb_noi_code": {
-     "class": "copy",
+     "class": "merge",
+     "merge_keys": [
+      "code"
+     ],
+     "surrogate_pk": "wcb_noi_code_no",
      "cols": [
       "wcb_noi_code_no",
       "level1",
@@ -41938,7 +41942,10 @@
      ]
     },
     "wcb_side": {
-     "class": "copy",
+     "class": "merge",
+     "merge_keys": [
+      "sidetype"
+     ],
      "cols": [
       "sidetype",
       "sidedesc",
@@ -43123,7 +43130,8 @@
      "passwordUpdateDate",
      "pinUpdateDate",
      "lastUpdateUser",
-     "lastUpdateDate"
+     "lastUpdateDate",
+     "usingMfa"
     ],
     "ServiceClient": [
      "id",
@@ -57298,7 +57306,7 @@
     "ctl_frequency": 20,
     "ctl_specialinstructions": 26,
     "default_role_access": 982,
-    "encounterForm": 55,
+    "encounterForm": 54,
     "encountertemplate": 186,
     "groups_tbl": 1,
     "issue": 71,
@@ -58833,16 +58841,11 @@
     ],
     "program": [
      "alcohol",
-     "allowBatchAdmission",
-     "allowBatchDischarge",
      "firstNation",
-     "hic",
-     "holdingTank",
      "housing",
      "mentalHealth",
      "physicalHealth",
-     "transgender",
-     "userDefined"
+     "transgender"
     ],
     "program_access": [
      "all_roles"
@@ -58951,9 +58954,7 @@
      "ID",
      "billing_no",
      "demographic_no",
-     "formNeeded",
-     "provider_no",
-     "w_duration"
+     "provider_no"
     ]
    },
    "PRISTINE_TOLERATED_TABLES": [

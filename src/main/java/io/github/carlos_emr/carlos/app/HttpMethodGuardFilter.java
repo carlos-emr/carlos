@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -56,6 +57,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *       parameter is also checked for mutator values (save, delete, update, etc.) to catch
  *       mixed-method actions that route via parameter. A compound value counts as the verb it
  *       starts with ({@code saveRxPageSize}, {@code delete_team}, {@code updateCategory}).</li>
+ *   <li><strong>Other dispatch parameters</strong>: a few routes choose their write from a
+ *       parameter other than {@code method} ({@code buttonUpdate}, {@code delete},
+ *       {@code forward}); {@link #MUTATION_INTENT_PARAMS_BY_ROUTE} lists them per route.</li>
  *   <li><strong>.jsp pages</strong>: The JSP filename is checked against an explicit set of
  *       known mutator JSPs identified by auditing form POST targets in the codebase.</li>
  * </ul>
@@ -65,6 +69,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * that have mutator-sounding names but legitimately need GET access.</p>
  *
  * <p>Must be mapped <strong>after CSRFGuard but before Struts</strong> in the filter chain.</p>
+ *
+ * <p>This filter is defence in depth. It cannot see a write that a route takes from a parameter it
+ * does not know, so every mutator {@code *2Action} must also refuse GET and HEAD itself, as
+ * {@code MutatorActionGetRejectionContractUnitTest} requires.</p>
  *
  * @since 2026-03-13
  */
@@ -138,12 +146,53 @@ public class HttpMethodGuardFilter implements Filter {
             "submit", "merge", "archive", "assign", "transfer",
             "approve", "reject", "toggle", "complete", "process",
             "cancel", "close",
+            // report/DxresearchReport?method=editDesc rewrites a coding system's shared code
+            // description; "edit" itself cannot be listed, since method=edit opens many forms (#3394).
+            "editdesc",
             // MfaActions2Action dispatches its privileged MFA-secret reset via ?method=resetMfa;
             // classify it as a mutation so GET/HEAD are rejected before the action runs.
             "makeissue", "issueadd", "issuedelete", "issuechange",
             "submitchangediagnosis", "ajaxchangediagnosis",
             "resetmfa"
     );
+
+    /**
+     * Routes that pick their write from a request parameter other than {@code method}: the route path
+     * (context path stripped) mapped to the parameters whose presence, with any value, means the
+     * request writes (issue #3394). Both are spelled as the action and its JSP spell them; the filter
+     * matches them case-insensitively.
+     *
+     * <p>Neither the route name nor {@code method} gives these writes away, so without this table the
+     * filter passed a GET straight through. Each action also refuses such a GET itself, and
+     * {@code MutatorActionGetRejectionContractUnitTest} drives every entry here against its action to
+     * prove it; this table is the backstop.</p>
+     *
+     * <p>A route belongs here only when its read paths never carry one of the listed parameters, so a
+     * bare GET (opening the page, filtering a list) still passes.</p>
+     */
+    public static final Map<String, Set<String>> MUTATION_INTENT_PARAMS_BY_ROUTE = Map.of(
+            // providerPrivilege.jsp: submit=Add|Delete writes a privilege row, buttonUpdate merges one.
+            "/admin/ProviderPrivilege", Set.of("submit", "buttonUpdate"),
+            // providerRole.jsp: submit (a localized Add or Delete), buttonUpdate and
+            // buttonSetPrimaryRole each change a provider's role.
+            "/admin/ProviderRole", Set.of("submit", "buttonUpdate", "buttonSetPrimaryRole"),
+            // ViewMessage.jsp's Delete button; reply, replyAll and forward only open the compose page.
+            "/messenger/HandleMessages", Set.of("delete"),
+            // Select Forms: forward=add|delete|up|down reorders the encounter form list (#3377).
+            "/form/select", Set.of("forward"),
+            // Generate Teleplan File: providers (the Create Report form's physician) writes an MSP batch; the menu
+            // item and the year archive links open the page without it (#4439 D3).
+            "/billing/CA/BC/GenerateTeleplanFile", Set.of("providers")
+    );
+
+    /** {@link #MUTATION_INTENT_PARAMS_BY_ROUTE} with every path and name lowercased, for lookup. */
+    private static final Map<String, Set<String>> MUTATION_INTENT_LOOKUP = MUTATION_INTENT_PARAMS_BY_ROUTE
+            .entrySet().stream()
+            .collect(Collectors.toUnmodifiableMap(
+                    e -> e.getKey().toLowerCase(Locale.ROOT),
+                    e -> e.getValue().stream()
+                            .map(name -> name.toLowerCase(Locale.ROOT))
+                            .collect(Collectors.toUnmodifiableSet())));
 
     /**
      * Action names (lowercased) that match mutator prefixes but are actually read-only
@@ -178,6 +227,10 @@ public class HttpMethodGuardFilter implements Filter {
                                           // Mapping, #3335): GET with no row id renders the table
                                           // and its Search; the action answers 405 to any non-POST
                                           // that names an id (a removal or remap).
+            "addrhinjection",            // form/addRhInjection, the RH form's injection editor
+                                          // (#4992): a ViewForm2Action wildcard view that only
+                                          // renders addRhInjection.jsp. The injection itself is
+                                          // stored by its form's POST to prevention/AddPrevention.
             "addrelation"                // AddDemographicRelationship2Action (demographic "Add
                                           // Relation" popup, edit-view.jsp): GET with only `demo`
                                           // renders the contact-search form (AddAlternateContact.jsp).
@@ -462,11 +515,40 @@ public class HttpMethodGuardFilter implements Filter {
 
         // Check the 'method' request parameter for mixed-method actions
         String methodParam = request.getParameter("method");
-        if (methodParam != null && !methodParam.isEmpty()) {
-            return isMutatorMethod(methodParam);
+        if (methodParam != null && !methodParam.isEmpty() && isMutatorMethod(methodParam)) {
+            return true;
         }
 
-        return false;
+        // Routes that dispatch their writes on another parameter name
+        return findMutationIntentParam(path, request) != null;
+    }
+
+    /**
+     * The first request parameter that names a write on this route, per
+     * {@link #MUTATION_INTENT_PARAMS_BY_ROUTE}, as the request spelled it.
+     *
+     * @param path    the normalized request path without the context path
+     * @param request the HTTP request (for parameter access)
+     * @return the parameter name, or {@code null} when the route is not listed or carries none
+     */
+    // FindSecBugs IMPROPER_UNICODE: folds a route path and parameter names to match a fixed ASCII block-list; folding can only widen what is refused, never let a request through.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "folds a route path and parameter names to match a fixed ASCII block-list; folding can only widen what is refused, never let a request through")
+    static String findMutationIntentParam(String path, HttpServletRequest request) {
+        if (path == null) {
+            return null;
+        }
+        Set<String> intentParams = MUTATION_INTENT_LOOKUP.get(path.toLowerCase(Locale.ROOT));
+        if (intentParams == null) {
+            return null;
+        }
+        java.util.Enumeration<String> paramNames = request.getParameterNames();
+        while (paramNames.hasMoreElements()) {
+            String paramName = paramNames.nextElement();
+            if (intentParams.contains(paramName.toLowerCase(Locale.ROOT).trim())) {
+                return paramName;
+            }
+        }
+        return null;
     }
 
     /**
@@ -620,6 +702,13 @@ public class HttpMethodGuardFilter implements Filter {
         // Compound method names are refused since the guard matched them by their verb; the label lets a
         // page that still sends one by GET be found in the log.
         String kind = methodParam != null && isCompoundMutatorMethod(methodParam) ? " (compound method name)" : "";
+        if (kind.isEmpty()) {
+            // Name only, never the value: a value could be anything the link carried.
+            String intentParam = findMutationIntentParam(path, request);
+            if (intentParam != null) {
+                kind = " (write parameter " + LogSafe.sanitize(intentParam) + ")";
+            }
+        }
 
         LOGGER.warn("Blocked {} request on mutator endpoint: {}{} (remote: {}, session: {})", // NOSONAR javasecurity:S5145 — all user-controlled args sanitized below
                 LogSafe.sanitize(request.getMethod()),

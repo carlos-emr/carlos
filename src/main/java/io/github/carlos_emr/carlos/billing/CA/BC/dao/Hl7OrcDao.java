@@ -44,13 +44,14 @@ public class Hl7OrcDao extends AbstractDaoImpl<Hl7Orc> {
         super(Hl7Orc.class);
     }
 
+    /** Returns one filler/date row per distinct filler, so multiple accessions remain explicit. */
     public List<Object[]> findFillerAndStatusChageByMessageId(Integer messageId) {
         String sql = "SELECT orc.fillerOrderNumber, MAX(obr.resultsReportStatusChange) " +
                 "FROM Hl7Orc orc, Hl7Pid pid, Hl7Obr obr " +
                 "WHERE obr.pidId = pid.id " +
                 "AND orc.pidId = pid.id " +
                 "AND pid.messageId = ?1 " +
-                "GROUP BY pid.messageId";
+                "GROUP BY pid.messageId, orc.fillerOrderNumber";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, messageId);
         return query.getResultList();

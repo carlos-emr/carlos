@@ -845,6 +845,78 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
 
         @Test
+        @DisplayName("should link extensions to the new demographic number when creating")
+        void shouldLinkExtensionsToNewDemographicNo_whenCreating() {
+            Demographic demographic = createTestDemographic();
+            demographic.setDemographicNo(null);
+            demographic.setExtras(new DemographicExt[] {
+                createTestDemographicExt(null, "demo_cell", "555-0100")
+            });
+            doAnswer(invocation -> {
+                invocation.<Demographic>getArgument(0).setDemographicNo(TEST_DEMO_NO);
+                return null;
+            }).when(mockDemographicDao).save(demographic);
+            List<Integer> demographicNoAtSave = new ArrayList<>();
+            doAnswer(invocation -> {
+                DemographicExt ext = invocation.getArgument(0);
+                demographicNoAtSave.add(ext.getDemographicNo());
+                return ext;
+            }).when(mockDemographicExtDao).saveEntity(any(DemographicExt.class));
+
+            manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+
+            assertThat(demographicNoAtSave).containsExactly(TEST_DEMO_NO);
+        }
+
+        @Test
+        @DisplayName("should override a client-supplied demographic number on extensions when creating")
+        void shouldOverrideClientDemographicNoOnExtensions_whenCreating() {
+            Demographic demographic = createTestDemographic();
+            demographic.setDemographicNo(null);
+            demographic.setExtras(new DemographicExt[] {
+                createTestDemographicExt(999, "demo_cell", "555-0100")
+            });
+            doAnswer(invocation -> {
+                invocation.<Demographic>getArgument(0).setDemographicNo(TEST_DEMO_NO);
+                return null;
+            }).when(mockDemographicDao).save(demographic);
+            List<Integer> demographicNoAtSave = new ArrayList<>();
+            doAnswer(invocation -> {
+                DemographicExt ext = invocation.getArgument(0);
+                demographicNoAtSave.add(ext.getDemographicNo());
+                return ext;
+            }).when(mockDemographicExtDao).saveEntity(any(DemographicExt.class));
+
+            manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+
+            assertThat(demographicNoAtSave).containsExactly(TEST_DEMO_NO);
+        }
+
+        @Test
+        @DisplayName("should discard a client-supplied extension id so create never updates an existing row")
+        void shouldClearExtensionId_whenCreating() {
+            Demographic demographic = createTestDemographic();
+            demographic.setDemographicNo(null);
+            DemographicExt ext = createTestDemographicExt(999, "demo_cell", "555-0100");
+            ext.setId(4242);
+            demographic.setExtras(new DemographicExt[] { ext });
+            doAnswer(invocation -> {
+                invocation.<Demographic>getArgument(0).setDemographicNo(TEST_DEMO_NO);
+                return null;
+            }).when(mockDemographicDao).save(demographic);
+            List<Integer> extIdAtSave = new ArrayList<>();
+            doAnswer(invocation -> {
+                DemographicExt saved = invocation.getArgument(0);
+                extIdAtSave.add(saved.getId());
+                return saved;
+            }).when(mockDemographicExtDao).saveEntity(any(DemographicExt.class));
+
+            manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+
+            assertThat(extIdAtSave).hasSize(1).containsOnlyNulls();
+        }
+
+        @Test
         @DisplayName("should throw exception when birth date invalid")
         void shouldThrowException_whenBirthDateInvalid() {
             Demographic demographic = createTestDemographic();

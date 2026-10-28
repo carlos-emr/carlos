@@ -61,6 +61,22 @@ async function workflow(s) {
       h.assert(sql.value(`SELECT CONCAT(codingSystem,'|',code,'|',DATE(endDate)) FROM Episode WHERE id=${id}`) === 'icd9|250|2026-02-03', 'Date edit changed the diagnosis');
     }
   });
+  if (literal) {
+    await s.step('reopen an episode script payload as literal text without executing stored JavaScript', async () => {
+      description = `${marker} ');window.__episodePayloadExecuted=1;//</script><script>window.__episodePayloadExecuted=2</script>`;
+      // The front-door WAF correctly refuses script markup in a submitted form. Seed the
+      // owned stored-XSS fixture directly, as the xss-poison checks do, then exercise the
+      // real chart opener and rendering. Ordinary apostrophe prose was saved through the UI above.
+      await editor.close();
+      sql.execute(`UPDATE Episode SET description=${h.sqlString(description)} WHERE id=${id} AND demographicNo=${patient}`);
+      await expectValue(sql, `SELECT description FROM Episode WHERE id=${id}`, description, 'Script fixture changed on save');
+      const link = chart.locator(`a[onclick*="episode.id=${id}"]`).first();
+      editor = await ui.clickOpensPopup(chart, link, {context:s.context, recorder:s.recorder, label:'episode-edit-literal-script',position:{x:8,y:9}});
+      h.assert(await editor.locator('#description').inputValue() === description, 'Reopening changed the literal script fixture');
+      h.assert(await editor.locator('#startDate').inputValue() === '2026-01-02', 'Script fixture broke the episode dates');
+      h.assert(await editor.evaluate(() => typeof window.__episodePayloadExecuted) === 'undefined', 'Stored episode JavaScript executed');
+    });
+  }
 }
 if (require.main === module) runWorkflow(name, workflow);
 module.exports = {workflow};

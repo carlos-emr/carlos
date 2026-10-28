@@ -194,6 +194,9 @@
             <result name="success">/WEB-INF/jsp/billing/CA/BC/TeleplanSubmission.jsp</result>
         </action>
 
+        <!-- The Activity List's MSP and HTML file links (#4439 D5). Writes the file itself and returns NONE. -->
+        <action name="billing/CA/BC/DownloadBilling" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DownloadBilling2Action"/>
+
         <action name="billing/CA/BC/ProcessRemittance" class="io.github.carlos_emr.carlos.billings.ca.bc.MSP.GenTa2Action">
             <result name="C12">/WEB-INF/jsp/billing/CA/BC/billStatus.jsp</result>
             <result name="S21">/WEB-INF/jsp/billing/CA/BC/viewReconcileReports.jsp</result>

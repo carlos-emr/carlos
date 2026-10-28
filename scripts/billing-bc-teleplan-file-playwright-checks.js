@@ -15,9 +15,11 @@
  * record per owned claim carrying its PHN and fee code; the claims are marked billed (B), each has
  * one Teleplan log line and one submission link to the batch, and the sequence moved; the Activity
  * List lists the batch and its files; a second simulation lists none of the billed claims.
- * Known failures, recorded in the manifest notes (all three are in #4439): opening the generation
- * page from the menu (a GET) writes a batch of its own (D3); the Activity List's file links answer
- * 404 (D5); the two File2 menu labels are swapped (D4). They are the last three steps, in that order.
+ * The last three steps are #4439 defects, fixed with it: opening the generation page from the menu
+ * (a GET) wrote a batch of its own (D3), and now neither the menu, a year link of the Activity List
+ * nor a GET naming a physician writes one (that GET answers 405); the Activity List's file links
+ * answered 404 (D5), and now return the batch's file as a download while a name no batch names, or
+ * a path, is refused; the two File2 menu labels were swapped (D4).
  * EXCLUSIVE: the batch number, the Teleplan sequence (property teleplan_sequence) and the
  * billactivity, log and link tables are clinic-wide. The check records them first and restores
  * them at the end: it deletes the billactivity, log and link rows written after the record and the
@@ -151,6 +153,7 @@ async function preflight({ sql }) {
 
 async function workflow(s) {
   const { sql, patient } = s;
+  const base = `${s.config.baseUrl.href.replace(/\/$/, '')}/`;
   const dir = homeDir();
   const physician = bc.createBillingPhysician(s);
   const phn = bc.makeBcPatient(s);
@@ -308,6 +311,18 @@ async function workflow(s) {
   await s.step(STEP.menuGet, async () => {
     const written = sql.value(`SELECT COUNT(*) FROM billactivity WHERE id > ${before.activity} AND id <= ${afterMenu}`);
     h.assert(written === '0', `Opening the Teleplan file item from the menu wrote ${written} batch(es)`);
+    // The Activity List's year links reopen this page for that year; a GET naming a physician is refused.
+    const frame = await openMenu(GEN_ROUTE, 'The Teleplan file page');
+    const latest = sql.value('SELECT IFNULL(MAX(id),0) FROM billactivity');
+    const year = frame.locator(`a[href*="${GEN_ROUTE}?year="]`).first();
+    h.assert(await year.count() === 1, 'The Activity List has no year link back to the Teleplan file page');
+    const yearResponse = await s.context.request.get(new URL(await year.getAttribute('href'), frame.url()).toString(), { maxRedirects: 0 });
+    h.assert(yearResponse.status() === 200, `A year link answered HTTP ${yearResponse.status()}`);
+    const getWithPhysician = await s.context.request.get(
+      new URL(`${GEN_ROUTE.slice(1)}?providers=${encodeURIComponent(physician.ohipNo)}`, base).toString(), { maxRedirects: 0 });
+    h.assert(getWithPhysician.status() === 405, `A GET naming the physician answered HTTP ${getWithPhysician.status()}, not 405`);
+    const after = sql.value(`SELECT COUNT(*) FROM billactivity WHERE id > ${latest}`);
+    h.assert(after === '0', `A year link or a GET naming the physician wrote ${after} batch(es)`);
   });
 
   await s.step(STEP.download, async () => {
@@ -321,6 +336,19 @@ async function workflow(s) {
     h.assert(response.status() === 200, `The MSP file link answered HTTP ${response.status()}`);
     h.assert((await response.body()).toString('latin1').trim() === fs.readFileSync(path.join(dir, batch.msp), 'latin1').trim(),
       'The MSP file link did not return the file');
+    // The files hold PHNs: each is a download, never a page rendered in CARLOS's origin.
+    h.assert(/^attachment\b/i.test(response.headers()['content-disposition'] || '')
+      && (response.headers()['content-type'] || '').startsWith('application/octet-stream'),
+    `The MSP file link is not a download: ${response.headers()['content-type']}; ${response.headers()['content-disposition']}`);
+    const html = await s.context.request.get(new URL(`billing/CA/BC/DownloadBilling?filename=${encodeURIComponent(batch.html)}`, base).toString(), { maxRedirects: 0 });
+    h.assert(html.status() === 200 && /^attachment\b/i.test(html.headers()['content-disposition'] || ''),
+      `The HTML report link answered HTTP ${html.status()} (${html.headers()['content-disposition']})`);
+    // Only a file a batch names, and only by its name (a path is refused before the disk is read; no "../", which
+    // the front door's WAF would block before CARLOS answered).
+    for (const [name, status] of [[`${batch.msp}x`, 404], [`archive/${batch.msp}`, 400], ['carlos.properties', 404]]) {
+      const refused = await s.context.request.get(new URL(`billing/CA/BC/DownloadBilling?filename=${encodeURIComponent(name)}`, base).toString(), { maxRedirects: 0 });
+      h.assert(refused.status() === status, `DownloadBilling for ${JSON.stringify(name)} answered HTTP ${refused.status()}, not ${status}`);
+    }
   });
 
   await s.step(STEP.labels, async () => {
