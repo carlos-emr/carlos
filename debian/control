@@ -49,6 +49,7 @@ Homepage: https://github.com/carlos-emr/carlos
 Vcs-Git: https://github.com/carlos-emr/carlos.git
 Vcs-Browser: https://github.com/carlos-emr/carlos
 Rules-Requires-Root: no
+Testsuite: autopkgtest
 
 Package: carlos-emr
 # amd64, not all: this package carries the eForm-to-PDF renderer, a vendored

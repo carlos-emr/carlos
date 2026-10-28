@@ -56,8 +56,8 @@
 // pair once. Only the pair's OWN failure keeps the pinned step label (lib/form-claims.js claimFailure): a concern that
 // depends on another is blocked ("not reached") when the other fails, a control that cannot be found or clicked is a
 // precondition, and a browser problem a concern did not cause is not absorbed by a concern that did no browser work,
-// so none of them reads as the known defect. Finding 251 (Save and Print take 7 and 11 seconds) is deliberately
-// not pinned: the timings are unstable and no budget is agreed, so there is no step that could assert it.
+// so none of them reads as the known defect. Issue 5400 adds Save response budgets below;
+// Print still has no performance assertion.
 //
 // Fixtures: the owned synthetic patient (given a complete demographic record and an infant's date of birth), one
 // marker-named Forms-menu registration per form (the shipped rows are hidden on Ontario installs and are clinic-wide,
@@ -77,6 +77,15 @@ const { revealSavedForm } = require('./form-catalog-smoke-playwright-checks');
 const NAME = 'form-rourke2020-growth';
 const ONLY = 'ROURKE_GROWTH_ONLY';
 const EXCEPT = 'ROURKE_GROWTH_EXCEPT';
+
+// Include front-door WAF processing: SQL-only tests missed the packaged slowdown.
+const ROURKE_SAVE_BUDGET_MS = 6500;
+const ROURKE_SWEEP_SAVE_BUDGET_MS = 15000;
+
+function judgeRourkeSaveDuration(duration, sweep = false) {
+  const budget = sweep ? ROURKE_SWEEP_SAVE_BUDGET_MS : ROURKE_SAVE_BUDGET_MS;
+  h.assert(duration <= budget, `Rourke ${sweep ? 'all-controls' : 'ordinary'} Save took ${duration} ms, exceeding the ${budget} ms response budget`);
+}
 
 /** The infant's age in days. 560 puts the 18-month visit (548 days) twelve days ago. */
 const INFANT_DAYS = 560;
@@ -730,7 +739,7 @@ async function workflow(s, { select = validatePin() } = {}) {
   }
 
   /** Press Save and judge the answer. Returns when the row is stored; records the redirect's frame for the redisplay. */
-  async function pressSave(entry, { exactRows, exit = false }) {
+  async function pressSave(entry, { exactRows, exit = false, sweep = false }) {
     const { page, form } = entry;
     const save = form.key === 'rourke2020'
       ? page.locator(`#tab-cp1 input[type="submit"][value="${exit ? 'Save and Exit' : 'Save'}"]`).first()
@@ -772,9 +781,11 @@ async function workflow(s, { select = validatePin() } = {}) {
     try {
       const dialogs = await h.withExpectedDialogs(page, () => save.click());
       const response = await posted.catch(() => null);
-      detail(entry, `Save was answered after ${Date.now() - started} ms`);
+      const duration = Date.now() - started;
+      detail(entry, `Save was answered after ${duration} ms`);
       h.assert(response, `Save posted nothing to form/formname (dialogs: ${dialogs.map(d => `${d.type} "${d.text.slice(0, 60)}"`).join('; ') || 'none'})`);
       h.assert(response.status() === (exit ? 200 : 302), `the save was answered ${response.status()}, not ${exit ? 'the close page' : 'a redirect'}`);
+      if (form.key === 'rourke2020') judgeRourkeSaveDuration(duration, sweep);
       if (!exit) entry.saveFrame = response.frame();
     } finally {
       stop();
@@ -1237,7 +1248,7 @@ async function workflow(s, { select = validatePin() } = {}) {
         for (const { name, value } of extras) { const element = document.querySelector(`#frmP1 [name="${name}"]`); if (element) element.value = value; }
         for (const element of document.querySelectorAll('#frmP1 input[type="radio"], #frmP1 input[type="checkbox"]')) element.checked = true;
       }, { extras: entry.extras });
-      await pressSave(entry, { exactRows: false });
+      await pressSave(entry, { exactRows: false, sweep: true });
       const { landed, id } = await redisplayedId(entry);
       sweepId = id;
       const stored = entry.extras.filter(extra => extra.stored);
@@ -1272,7 +1283,7 @@ async function workflow(s, { select = validatePin() } = {}) {
       await openTab(boxes, 0);
       const closed = boxes.waitForEvent('close', { timeout: 90000 });
       closed.catch(() => {});
-      await pressSave(entry, { exactRows: false, exit: true });
+      await pressSave(entry, { exactRows: false, exit: true, sweep: true });
       await closed;
       const saved = sql.rows(`SELECT provider_no,p3_immunization,p4_immunization FROM formRourke2020
         WHERE demographic_no=${patient} ORDER BY ID DESC LIMIT 1`);
@@ -1415,4 +1426,5 @@ module.exports = {
   ROURKE_LENGTH_WEIGHT_PAGES, ROURKE_HEAD_PAGES, ROURKE_PRINT_PAGES, GROWTH_PRINT_PAGES, PRINT_PAGE, PRINT_BOXES, BOX_SLACK,
   PATIENT_SEX, utcDate, sexMarks, printedGestation, judgeMeasureDate,
   UNICODE_NOTE, overflowNote, missingNoteText, judgePrintPending, trackRourkeWrites,
+  judgeRourkeSaveDuration, ROURKE_SAVE_BUDGET_MS, ROURKE_SWEEP_SAVE_BUDGET_MS,
 };
