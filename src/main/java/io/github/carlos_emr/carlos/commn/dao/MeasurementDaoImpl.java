@@ -62,10 +62,12 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         }
         // Measurement's lifecycle callback intentionally prohibits editing clinical values.
         // This constrained correction changes only ownership, never values or annotations.
+        // Keep the source subquery uncorrelated: Hibernate 7.4 wraps it in a derived
+        // table for MySQL, where MariaDB cannot resolve an outer UPDATE alias (#5399).
         int changed = entityManager.createQuery("update Measurement m set m.demographicId=:patient "
-                + "where m.id=:id and m.demographicId=:previous and exists "
-                + "(select e.id from MeasurementsExt e where e.measurementId=m.id "
-                + "and e.keyVal='lab_no' and e.val=:lab)")
+                + "where m.id=:id and m.demographicId=:previous and m.id in "
+                + "(select e.measurementId from MeasurementsExt e "
+                + "where e.keyVal='lab_no' and e.val=:lab)")
                 .setParameter("patient", demographicNo).setParameter("id", measurement.getId())
                 .setParameter("previous", measurement.getDemographicId()).setParameter("lab", labNo)
                 .executeUpdate();
