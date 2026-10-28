@@ -25,11 +25,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.text.MessageFormat;
 import java.time.LocalDate;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -142,6 +148,36 @@ class PortalEmailFooterAuditUnitTest {
         }
         // An ordinary attempt never carries a reason.
         assertThat(parse(page()).attempts().get(0).footerSkipped()).isNull();
+    }
+    @Test void shouldKeepSkippedAttempt_whilePreparedWithoutOutcome() {
+        // The Portal records a skipped send as prepared before SMTP answers, and it stays so if
+        // the outcome can't be written: it must still be listed, with its reason.
+        var p = skipped("password_reset", "transport");
+        attempt(p).put("status", "prepared");
+        attempt(p).putNull("status_at");
+        var saved = parse(p).attempts().get(0);
+        assertThat(saved.status()).isEqualTo("prepared");
+        assertThat(saved.statusAt()).isNull();
+        assertThat(saved.footerSkipped()).isEqualTo("transport");
+        assertThat(saved.footerText()).isNull();
+    }
+    @Test void shouldLabelEverySkipReason_inEveryLocale() throws Exception {
+        // The footer history shows a label, never the raw reason; a reason without one would
+        // show the bundle's missing-key marker instead.
+        for (String locale : List.of("en", "fr", "es", "pl", "pt_BR")) {
+            Properties bundle = new Properties();
+            try (Reader reader = Files.newBufferedReader(
+                    Path.of("src/main/resources/oscarResources_" + locale + ".properties"), StandardCharsets.ISO_8859_1)) {
+                bundle.load(reader);
+            }
+            String sentence = bundle.getProperty("admin.configureEmail.portalFooter.skipped");
+            assertThat(sentence).as(locale).contains("{0}").doesNotContain("'");
+            for (String reason : PortalEmailFooterAuditPage.SKIP_REASONS) {
+                String label = bundle.getProperty("admin.configureEmail.portalFooter.skippedReason." + reason);
+                assertThat(label).as(locale + " " + reason).isNotBlank().isNotEqualTo(reason).doesNotContain("'", "{", "<");
+                assertThat(new MessageFormat(sentence, Locale.ROOT).format(new Object[] {label})).contains(label);
+            }
+        }
     }
     @Test void shouldRefuseSkippedAttemptOutsideItsContract() {
         List<Consumer<ObjectNode>> invalid = List.of(

@@ -49,7 +49,8 @@ public record PortalEmailFooterAuditPage(LocalDate date, List<Attempt> attempts,
     private static final Set<String> SKIPPED_ATTEMPT_FIELDS = Set.of("attempt_id", "kind", "prepared_at",
             "status", "status_at", "clinic_id", "revision", "footer_text", "logo_sha256", "footer_skipped");
     private static final Set<String> SKIPPABLE_KINDS = Set.of("mfa", "password_reset");
-    private static final Set<String> SKIP_REASONS = Set.of("config", "transport", "http_status", "response",
+    /** Why the footer was skipped; each has a label (admin.configureEmail.portalFooter.skippedReason.*) in every locale. */
+    static final Set<String> SKIP_REASONS = Set.of("config", "transport", "http_status", "response",
             "unknown_key", "signature", "claims", "freshness", "content");
 
     public PortalEmailFooterAuditPage {

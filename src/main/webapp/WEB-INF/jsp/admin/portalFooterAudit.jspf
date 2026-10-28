@@ -57,9 +57,12 @@
                                     <p><fmt:message key="admin.configureEmail.portalFooter.statusTime"/> <carlos:encode value="${attempt.statusAt}"/></p>
                                 </c:if>
                                 <c:choose>
-                                    <%-- Sent without the clinic footer while the Portal could not get one (portal #27, D138). --%>
+                                    <%-- Sent without the clinic footer while the Portal could not get one (portal #27, D138).
+                                         footerSkipped is one of the nine reasons PortalEmailFooterAuditPage accepts, each
+                                         with a label in every locale; the label is encoded like any other text. --%>
                                     <c:when test="${not empty attempt.footerSkipped}">
-                                        <p class="mt-2"><fmt:message key="admin.configureEmail.portalFooter.skipped"><fmt:param><carlos:encode value="${attempt.footerSkipped}"/></fmt:param></fmt:message></p>
+                                        <fmt:message var="portalFooterSkippedReason" key="admin.configureEmail.portalFooter.skippedReason.${attempt.footerSkipped}"/>
+                                        <p class="mt-2"><fmt:message key="admin.configureEmail.portalFooter.skipped"><fmt:param><carlos:encode value="${portalFooterSkippedReason}"/></fmt:param></fmt:message></p>
                                     </c:when>
                                     <c:otherwise>
                                         <pre class="mt-2" style="white-space:pre-wrap;"><carlos:encode value="${attempt.footerText}"/></pre>
