@@ -30,7 +30,10 @@
 # - tests (parallel, does not wait for build):
 #   - Restores Maven dependencies from cache (graceful fallback if miss)
 #   - Runs tests (JUnit 5) using H2 in-memory database
-#   - Runs the patient-match SQL regressions against a physical MariaDB service
+# - mariadb-dao-tests (parallel):
+#   - Runs existing Spring DAO suites and patient-match regressions on MariaDB
+#   - Uses the production dialect with the existing generated test schema
+#   - Also verifies critical DAOs against a fresh Flyway-migrated schema
 #
 # - jspc (parallel, does not wait for build):
 #   - Restores Maven dependencies from cache (graceful fallback if miss)
@@ -136,16 +139,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-    services:
-      mariadb:
-        image: mariadb:11.8.8
-        env:
-          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: '1'
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
-          --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -158,7 +151,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           maven-cache: restore
-          extra-run-args: --add-host=host.docker.internal:host-gateway
 
       - name: Run tests
         run: |
@@ -168,19 +160,6 @@ jobs:
             echo '========================================='
             make install --run-tests
           "
-
-      - name: Verify patient matching against MariaDB
-        run: |
-          docker exec -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
-            carlos-tomcat-dev mvn --batch-mode --no-transfer-progress test \
-            -Dtest=MeasurementPatientMatchMariaDbIntegrationTest -Dtest.forkCount=1
-          python3 - <<'PY'
-          import xml.etree.ElementTree as ET
-          report = ET.parse('target/surefire-reports/TEST-io.github.carlos_emr.carlos.commn.dao.MeasurementPatientMatchMariaDbIntegrationTest.xml').getroot()
-          assert int(report.get('tests', '0')) > 0, 'MariaDB suite did not run'
-          for field in ('failures', 'errors', 'skipped'):
-              assert int(report.get(field, '-1')) == 0, f'MariaDB suite has {field}'
-          PY
 
       - name: Verify demographic dates in non-UTC JVMs
         run: |
@@ -257,6 +236,71 @@ jobs:
           path: |
             target/rourke-font-matrix/
             target/rourke-pdf/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  mariadb-dao-tests:
+    name: MariaDB DAO integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: read
+    services:
+      mariadb:
+        image: mariadb:11.8.8
+        env:
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: '1'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Start dev container (Maven cache restore-only)
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+          extra-run-args: --add-host=host.docker.internal:host-gateway
+
+      - name: Run existing DAO suites on physical MariaDB
+        run: |
+          docker exec -e CARLOS_TEST_MARIADB_DAO=true \
+            -e CARLOS_TEST_MARIADB_SCHEMA=generated \
+            -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
+            carlos-tomcat-dev mvn --batch-mode --no-transfer-progress test \
+            '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest' \
+            '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=3
+
+      - name: Verify critical DAO paths against the Flyway schema
+        if: always()
+        run: |
+          docker exec -e CARLOS_TEST_MARIADB_DAO=true -e CARLOS_TEST_MARIADB_SCHEMA=flyway \
+            -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
+            carlos-tomcat-dev mvn --batch-mode --no-transfer-progress surefire:test \
+            -Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest \
+            -Dgroups=spring-context -Dtest.forkCount=1 -Dcarlos.test.schema.expected=flyway \
+            -Dsurefire.reportNameSuffix=flyway
+
+      - name: Verify MariaDB coverage and summarize results
+        if: always()
+        # Maven's container creates root-owned target directories; write the
+        # sanitized artifact in the runner's own temporary directory.
+        run: python3 scripts/ci/verify-mariadb-dao-reports.py --output "$RUNNER_TEMP/mariadb-dao-test-summary.txt"
+
+      - name: Preserve sanitized MariaDB test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mariadb-dao-test-results
+          path: ${{ runner.temp }}/mariadb-dao-test-summary.txt
           if-no-files-found: ignore
           retention-days: 14
 

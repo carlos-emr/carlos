@@ -33,6 +33,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * No existing schema is used. See docs/test/hibernate-mariadb-regressions.md.
  */
 @Tag("integration")
+@Tag("dao")
+@Tag("mariadb-native")
 @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_URL", matches = "jdbc:mysql:.*")
 class MeasurementPatientMatchMariaDbIntegrationTest {
     private static final int PREVIOUS = 910001;

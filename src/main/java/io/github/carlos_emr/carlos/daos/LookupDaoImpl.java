@@ -888,19 +888,16 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         // CONCAT() is the correct MySQL/MariaDB string concatenation function;
         // the original code used '||' which is Oracle-style and acts as logical OR in MySQL.
         //
-        // The LIKE expression uses an explicit {@code ESCAPE '\'} clause so that the
-        // backslash-escaping of '%' / '_' below is honoured regardless of the target
-        // dialect's default escape character or SQL mode (e.g. MySQL
-        // {@code NO_BACKSLASH_ESCAPES}). Without the explicit clause, dialects that
-        // don't default to backslash would treat the escape characters as literals.
+        // A non-backslash escape is portable across MySQL/MariaDB SQL modes.
+        // Backslash string literals vary with NO_BACKSLASH_ESCAPES.
         String sql = "select count(*) from admission where admission_status = :status and CONCAT('P', program_id) in ("
-                + " select code from lst_orgcd where codecsv like :pattern escape '\\')";
+                + " select code from lst_orgcd where codecsv like :pattern escape '!')";
         String sql1 = "select count(*) from program_queue where CONCAT('P', program_id) in ("
-                + " select code from lst_orgcd where codecsv like :pattern escape '\\')";
+                + " select code from lst_orgcd where codecsv like :pattern escape '!')";
 
         // Escape LIKE special characters in orgCd to prevent unexpected wildcard expansion.
-        // Must stay in sync with the {@code ESCAPE '\'} clause in the SQL above.
-        String escapedOrgCd = orgCd.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        // Escape the marker first, then LIKE's wildcard characters.
+        String escapedOrgCd = orgCd.replace("!", "!!").replace("%", "!%").replace("_", "!_");
         String likePattern = "%" + escapedOrgCd + ",%";
 
         Number count = (Number) entityManager().createNativeQuery(sql)

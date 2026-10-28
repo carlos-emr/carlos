@@ -774,8 +774,9 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
             MeasurementType mt = new MeasurementType();
             mt.setType("BP");
             mt.setTypeDisplayName("Blood Pressure");
-            mt.setTypeDescription("");
-            mt.setMeasuringInstruction("");
+            mt.setTypeDescription("FAKE blood pressure");
+            mt.setMeasuringInstruction("FAKE seated");
+            mt.setValidation("1");
             entityManager.persist(mt);
             entityManager.flush();
 

@@ -31,8 +31,8 @@ separate transactions to check committed results, stale ownership and rollback.
 It also checks rejected sources, duplicate extensions, unchanged clinical fields
 and extensions, invalid/detached inputs, pessimistic locks, numeric bounds and
 timestamp bindings. Without the URL it is skipped in ordinary H2 test runs.
-The `tests` CI job supplies a physical MariaDB service, runs this suite separately,
-and rejects empty or skipped results.
+The `mariadb-dao-tests` CI job supplies a physical MariaDB service and includes
+this suite. Empty or skipped required coverage fails the job.
 
 With MariaDB's `REPEATABLE READ`, a stale ownership update can raise server error
 1020 (`HY000`, record changed since last read) before returning an affected-row
@@ -40,7 +40,74 @@ count. The regression accepts that precise refusal or the DAO's zero-row refusal
 and verifies in a fresh transaction that the winning owner's row is unchanged.
 Other JDBC failures, including the original SQL grammar error, fail the test.
 
+## Parallel H2 and MariaDB CI lanes
+
+The existing `tests` job continues to run the full Java suite with H2. The
+separate `mariadb-dao-tests` job runs existing Spring DAO integration tests on
+MariaDB, plus the ten Patient Match regressions. It selects `*Dao*IntegrationTest`,
+`*DAO*IntegrationTest`, and `QueryReturnTypeIntegrationTest`, with the inherited
+`spring-context` tag identifying the configurable Spring harness. Standalone
+tests that explicitly create their own H2 factories remain covered by the full
+H2 job; they are not presented as MariaDB coverage.
+
+Set `CARLOS_TEST_MARIADB_DAO=true` alongside the JDBC environment above to opt
+the existing `CarlosTestBase` into MariaDB. Both its JPA EntityManagerFactory
+and legacy SessionFactory use `OscarMySQL5Dialect`. Each cached Spring context
+owns a random database, which is dropped after its persistence factories and
+pool close. `MariaDbDaoHarnessIntegrationTest` verifies the physical database,
+owned schema, selected schema mode, and both dialects to prevent H2 fallback.
+
+The broad lane uses `CARLOS_TEST_MARIADB_SCHEMA=generated` (the default), with
+the same annotation-generated test schema and lookup fixtures as H2. Shared
+fixture SQL uses syntax supported by both engines. The generated MariaDB
+connections preserve explicitly inserted zero IDs so historical-sentinel
+fixtures have the same meaning on both engines. Production DAO queries and
+assertions are not rewritten. This lane checks database/dialect behavior; it
+does not claim that generated column definitions equal installed definitions.
+
+The same CI job also runs Measurement, MeasurementsExt, ProviderLabRouting,
+BillingONCHeader1 and harness-verification suites with
+`CARLOS_TEST_MARIADB_SCHEMA=flyway`. This creates the actual common + Ontario
+migration schema and disables Hibernate DDL and test-only lookup initialization.
+It retains the packaged SQL-mode, collation and Connector/J settings. This
+separate check catches physical schema mismatches in those critical paths.
+The report verifier requires executed cases from both schema modes and rejects
+failures, errors, skipped cases, and missing Patient Match or critical-DAO coverage.
+
+For a broad local run after compilation:
+
+```sh
+export CARLOS_TEST_MARIADB_DAO=true CARLOS_TEST_MARIADB_SCHEMA=generated
+mvn -B -ntp test \
+  '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest' \
+  '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=3
+```
+
+To verify a critical path against the installed schema, set the schema mode to
+`flyway` and pass `-Dcarlos.test.schema.expected=flyway`, select one of the listed
+critical suites plus `MariaDbDaoHarnessIntegrationTest`, and use one fork.
+
 ## Upgrade audit
+
+The broad MariaDB run exposed two further SQL compatibility failures:
+
+- BC billing-history totals cast stored amounts with HQL `CAST(... AS double)`.
+  Hibernate 7.4 rendered `FLOAT(53)`, which MariaDB rejects as a cast target.
+  The production dialect now renders double casts as `CAST(... AS double)`,
+  preserving floating point results using syntax accepted by MariaDB and MySQL
+  8.0.17+. Existing billing-history integration assertions run on both engines.
+- Active-client organization counts used a backslash SQL escape literal that
+  MariaDB rejected. They now use `ESCAPE '!'` and escape the marker and LIKE
+  wildcards in the bound value. Positive regression cases cover literal
+  underscores, percent signs, exclamation marks, backslashes and apostrophes,
+  including decoy organizations. This was an additional compatibility defect;
+  it has not been established as introduced by the Hibernate upgrade.
+
+Fixture portability changes retain existing assertions: MySQL-compatible
+upserts replace H2-only `MERGE`, native MariaDB routines replace H2 Java aliases,
+and MariaDB uses its built-in `TO_DAYS`. The generated schema also supplies the
+real log index referenced by a production index hint and matches the installed
+appointment-code column's case-sensitive collation.
 
 Reviewed the upstream [7.3 migration guide](https://docs.hibernate.org/orm/7.3/migration-guide/)
 and [7.4 migration guide](https://docs.hibernate.org/orm/7.4/migration-guide/),
