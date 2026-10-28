@@ -441,16 +441,26 @@ public class EmailManager {
         return java.util.ResourceBundle.getBundle("oscarResources", locale).getString(key);
     }
 
-    /** Clears the durable invitation body even when a synchronous failure precedes the dispatch gate. */
+    /**
+     * Clears the durable body of an email carrying a one-time code (a portal invitation, or a myCarlos
+     * device code) even when a synchronous failure precedes the dispatch gate.
+     */
     private void forgetInvitationBody(EmailLog emailLog) {
-        if (emailLog == null || emailLog.getId() == null
-                || emailLog.getTransactionType() != EmailLog.TransactionType.PORTAL_INVITE) {
+        if (emailLog == null || emailLog.getId() == null) {
+            return;
+        }
+        String forgotten = switch (emailLog.getTransactionType()) {
+            case PORTAL_INVITE -> EmailLog.PORTAL_INVITE_BODY_FORGOTTEN;
+            case MYCARLOS_CODE -> EmailLog.MYCARLOS_CODE_BODY_FORGOTTEN;
+            case null, default -> null;
+        };
+        if (forgotten == null) {
             return;
         }
         try {
             // A body-only update cannot overwrite a concurrently recorded delivery outcome.
-            emailLogDao.replaceBody(emailLog.getId(), EmailLog.PORTAL_INVITE_BODY_FORGOTTEN);
-            emailLog.setBody(EmailLog.PORTAL_INVITE_BODY_FORGOTTEN);
+            emailLogDao.replaceBody(emailLog.getId(), forgotten);
+            emailLog.setBody(forgotten);
         } catch (RuntimeException exception) {
             // Cleanup must preserve the send result or original exception and disclose no email content.
             logger.warn("patient portal invitation email body could not be cleared: {}",

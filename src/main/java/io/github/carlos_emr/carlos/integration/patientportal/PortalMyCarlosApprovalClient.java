@@ -34,6 +34,13 @@ final class PortalMyCarlosApprovalClient {
     record Approval(long sequence, UUID requestId, String challengeId, String approval) {
         @Override public String toString() { return "ApprovalProof[REDACTED]"; }
     }
+    /**
+     * One clinic code a device sent (clinic code v1, mycarlos#141). {@code codeR} is null once it was
+     * marked used or the request was decided. Never logged.
+     */
+    record Code(long sequence, UUID requestId, String challengeId, int attempt, String codeR, long submittedAt) {
+        @Override public String toString() { return "ApprovalCode[REDACTED]"; }
+    }
     record Page<T>(List<T> records, long lastSequence, Long nextCursor) {
         Page { records = List.copyOf(records); }
         @Override public String toString() { return "ApprovalPage[REDACTED]"; }
@@ -48,6 +55,22 @@ final class PortalMyCarlosApprovalClient {
         String response = exchange.call(PortalJob.PERMISSION_APPROVAL_PROOFS_READ, "GET",
                 ROOT + "device-approvals?after=" + cursor(after) + "&limit=20", new byte[0], 200);
         return approvals(response, after);
+    }
+
+    Page<Code> codes(long after) {
+        String response = exchange.call(PortalJob.PERMISSION_APPROVAL_CODES_READ, "GET",
+                ROOT + "device-approval-codes?after=" + cursor(after) + "&limit=20", new byte[0], 200);
+        return codes(response, after);
+    }
+
+    /** Marks one sent code used; the portal erases it. Repeating it is harmless. */
+    void consumed(UUID request, int attempt) {
+        uuid(request.toString());
+        if (attempt < 1 || attempt > 5) throw invalid();
+        JsonNode result = parse(exchange.call(PortalJob.PERMISSION_APPROVAL_CODES_CONSUME, "PUT",
+                ROOT + "device-approval-requests/" + request + "/codes/" + attempt + "/consumed", new byte[0], 200));
+        fields(result, "status");
+        if (!"consumed".equals(text(result, "status"))) throw invalid();
     }
 
     /** Body is the exact already committed outbox body, never a reminted signed object. */
@@ -96,6 +119,35 @@ final class PortalMyCarlosApprovalClient {
             try { PortalMyCarlosDeviceApprovalCodec.exact32(challenge); }
             catch (IllegalArgumentException failure) { throw invalid(); }
             result.add(new Approval(sequence, uuid(text(row, "request_id")), challenge, compact(row, "approval")));
+            previous = sequence;
+        }
+        return page(root, result, previous, after);
+    }
+    static Page<Code> codes(String response, long after) {
+        JsonNode root = parse(response);
+        fields(root, "codes", "last_sequence", "next_cursor");
+        JsonNode rows = array(root, "codes");
+        List<Code> result = new ArrayList<>();
+        long previous = nonnegative(after);
+        for (JsonNode row : rows) {
+            fields(row, "sequence", "request_id", "challenge_id", "attempt", "code_r", "submitted_at");
+            long sequence = decimal(text(row, "sequence"));
+            if (sequence <= previous) throw invalid();
+            String challenge = text(row, "challenge_id");
+            try { PortalMyCarlosDeviceApprovalCodec.exact32(challenge); }
+            catch (IllegalArgumentException failure) { throw invalid(); }
+            JsonNode attempt = row.get("attempt");
+            if (!attempt.isIntegralNumber() || !attempt.canConvertToInt() || attempt.intValue() < 1 || attempt.intValue() > 5) throw invalid();
+            JsonNode code = row.get("code_r");
+            String codeR = null;
+            if (!code.isNull()) {
+                if (!code.isTextual() || !PortalMyCarlosClinicCode.isCodeR(code.textValue())) throw invalid();
+                codeR = code.textValue();
+            }
+            JsonNode submitted = row.get("submitted_at");
+            if (!submitted.isIntegralNumber() || !submitted.canConvertToLong() || submitted.longValue() < 0) throw invalid();
+            result.add(new Code(sequence, uuid(text(row, "request_id")), challenge, attempt.intValue(), codeR,
+                    submitted.longValue()));
             previous = sequence;
         }
         return page(root, result, previous, after);

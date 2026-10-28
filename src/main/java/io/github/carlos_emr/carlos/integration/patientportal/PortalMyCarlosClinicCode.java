@@ -85,6 +85,76 @@ final class PortalMyCarlosClinicCode {
                 submitted.getBytes(StandardCharsets.US_ASCII));
     }
 
+    /**
+     * The key CARLOS keeps a code's hash under. It lives only in this server's memory, so the stored
+     * hash alone cannot give a 6-digit code back (a plain hash could be reversed by trying all of them).
+     * A restart makes a new key: codes sent before it can no longer match, and their requests expire.
+     */
+    record MacKey(byte[] id, byte[] secret) {
+        MacKey {
+            if (id == null || id.length != 16 || secret == null || secret.length != 32) {
+                throw new IllegalArgumentException("clinic code key must be 16 + 32 bytes");
+            }
+            id = id.clone();
+            secret = secret.clone();
+        }
+
+        @Override
+        public byte[] id() {
+            return id.clone();
+        }
+
+        @Override
+        public String toString() {
+            return "ClinicCodeKey[REDACTED]";
+        }
+    }
+
+    private static final class ServerKey {
+        private static final MacKey KEY = newKey(RANDOM);
+    }
+
+    /** @return this server's code key, made once per server start */
+    static MacKey serverKey() {
+        return ServerKey.KEY;
+    }
+
+    static MacKey newKey(SecureRandom random) {
+        byte[] id = new byte[16];
+        byte[] secret = new byte[32];
+        random.nextBytes(id);
+        random.nextBytes(secret);
+        return new MacKey(id, secret);
+    }
+
+    /**
+     * HMAC-SHA256 over a label, the request id and {@code code_r}: what CARLOS stores instead of the
+     * code, and what a submitted code is compared with (in constant time).
+     */
+    static byte[] mac(MacKey key, String requestId, String codeR) {
+        field(requestId);
+        if (!isCodeR(codeR)) throw new IllegalArgumentException("clinic code_r must be 6 digits");
+        try {
+            javax.crypto.Mac hmac = javax.crypto.Mac.getInstance("HmacSHA256");
+            hmac.init(new javax.crypto.spec.SecretKeySpec(key.secret, "HmacSHA256"));
+            return hmac.doFinal(String.join("\n", "carlos-mycarlos-clinic-code-mac-v1", requestId, codeR)
+                    .getBytes(StandardCharsets.US_ASCII));
+        } catch (java.security.GeneralSecurityException missing) {
+            throw new IllegalStateException("HmacSHA256 is unavailable", missing);
+        }
+    }
+
+    /**
+     * Whether a submitted {@code code_r} is the one whose hash was stored. Anything that is not 6
+     * ASCII digits, or a hash made under another key, never matches.
+     */
+    static boolean matches(MacKey key, byte[] storedKeyId, byte[] storedMac, String requestId, String submitted) {
+        if (!isCodeR(submitted) || storedKeyId == null || storedMac == null) return false;
+        boolean sameKey = MessageDigest.isEqual(key.id, storedKeyId);
+        boolean sameMac = MessageDigest.isEqual(mac(key, requestId, submitted), storedMac);
+        return sameKey & sameMac;
+    }
+
     private static boolean digits(String value) {
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);

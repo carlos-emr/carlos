@@ -241,6 +241,15 @@ final class PortalMyCarlosDeviceApprovalService {
     }
 
     PortalMyCarlosDeviceApprovalChallenge createOrReadExactChallenge(int patient, String exactIntent) {
+        return createOrReadExactChallenge(patient, exactIntent, false);
+    }
+
+    /**
+     * @param byCode whether a first device (no predecessor) is to be approved with an emailed clinic
+     *        code (kind {@code code}, mycarlos#141) instead of by staff; a re-link with a predecessor
+     *        is {@code accepted_device} either way, and an existing challenge is returned unchanged
+     */
+    PortalMyCarlosDeviceApprovalChallenge createOrReadExactChallenge(int patient, String exactIntent, boolean byCode) {
         standalone();
         Checks.positive(patient);
         current();
@@ -291,7 +300,7 @@ final class PortalMyCarlosDeviceApprovalService {
             var keys = catalogue(inventory, cfg);
             SigningIdentity identity = activeSigner(keys);
             Long predecessorVersion = predecessor == null ? null : predecessor.version();
-            var context = List.of("challenge", cfg.hash(), exactIntent, patient, predecessor == null ? "" : predecessor,
+            var context = List.of("challenge", cfg.hash(), exactIntent, patient, predecessor == null ? "" : predecessor, byCode,
                     identity, inventory.orElseThrow().generation(), inventory.orElseThrow().toStoredJson());
             Bytes nextId = memo.challenge(context, challengeIds);
             if (challenges.findByChallengeForUpdate(nextId).isPresent()
@@ -311,7 +320,7 @@ final class PortalMyCarlosDeviceApprovalService {
                 }
             }
             if (live >= 3) throw refuse("approval_unavailable");
-            String kind = predecessor == null ? "staff_first" : "accepted_device";
+            String kind = predecessor != null ? "accepted_device" : byCode ? "code" : "staff_first";
             Material material = memo.material(context, () -> {
                 Bytes id = nextId;
                 long expiry = Math.min(now.getEpochSecond() > Long.MAX_VALUE - 600 ? Long.MAX_VALUE : now.getEpochSecond() + 600, intent.claims().epoch("exp"));
@@ -342,6 +351,15 @@ final class PortalMyCarlosDeviceApprovalService {
     }
 
     Decision acceptFirstFromStaff(LoggedInInfo session, int patient, Bytes challengeId, Bytes expectedChallengeHash, String exactFingerprint) {
+        return acceptFirstFromStaff(session, patient, challengeId, expectedChallengeHash, exactFingerprint, row -> false);
+    }
+
+    /**
+     * @param codeMatched read under the challenge's lock: whether a {@code code} challenge's emailed
+     *        code already matched and the clinic's policy also asks for staff ({@code code_and_staff})
+     */
+    Decision acceptFirstFromStaff(LoggedInInfo session, int patient, Bytes challengeId, Bytes expectedChallengeHash,
+            String exactFingerprint, java.util.function.Predicate<PortalMyCarlosDeviceApprovalChallenge> codeMatched) {
         standalone();
         current();
         staff(session, patient, SecurityInfoManager.WRITE);
@@ -357,7 +375,8 @@ final class PortalMyCarlosDeviceApprovalService {
             Actor actor = staff(session, patient, SecurityInfoManager.WRITE);
             requireEqual(cfg.hash(), current().hash());
             requireEqual(row.challengeHash(), expectedChallengeHash);
-            if (!"staff_first".equals(row.kind())) throw refuse("staff_required");
+            // A code challenge reaches staff only once its code matched under code_and_staff (mycarlos#141).
+            if ("code".equals(row.kind()) ? !codeMatched.test(row) : !"staff_first".equals(row.kind())) throw refuse("staff_required");
             String fingerprint = HexFormat.of().formatHex(PortalMyCarlosDeviceApprovalCodec.exact32(row.candidateKid()));
             if (!fingerprint.equals(exactFingerprint)) throw new SecurityException("full device fingerprint confirmation required");
             if (row.consumedAt() != null) return historical(cfg, patient, row, bound, candidate, null, priorDecision);
@@ -373,6 +392,78 @@ final class PortalMyCarlosDeviceApprovalService {
             var newBinding = bindings.insert(new PortalMyCarlosPatientBinding(0, cfg.clinic, patient, row.recipientId(),
                     cfg.publicBase, cfg.internalOrigin, cfg.hash(), row.candidateKid(), now, 0));
             return commitAcceptance(row, newBinding, null, actor, acceptance, cfg, now);
+        });
+    }
+
+    /**
+     * Accepts a first device whose emailed clinic code matched (policy {@code code}, mycarlos#141).
+     * No staff member is involved: the code went only to the patient's chart email. The caller's
+     * source authorization (the device-code job) stands in for staff on the patient's page.
+     *
+     * @param codeMatched read under the challenge's lock: whether its code matched and the policy
+     *        needs no staff step
+     */
+    Decision acceptFromCode(int patient, Bytes challengeId,
+            java.util.function.Predicate<PortalMyCarlosDeviceApprovalChallenge> codeMatched) {
+        standalone();
+        Checks.positive(patient);
+        current();
+        source.requireTrustedSource(patient);
+        Memo memo = new Memo();
+        return transactions.withSigningInventory(inventory -> {
+            Current cfg = current();
+            var row = challenges.findByChallengeForUpdate(challengeId).orElseThrow(() -> refuse("approval_not_found"));
+            var bound = bindings.findByClinicPatientForUpdate(cfg.clinic, patient);
+            challenge(cfg, row, patient);
+            var candidate = devices.findByKidForUpdate(row.candidateKid());
+            var recipientBinding = bindings.findByClinicRecipientForUpdate(cfg.clinic, row.recipientId());
+            var priorDecision = outbox.findMessageForUpdate(row.challengeId(), "decision");
+            source.requireTrustedSource(patient);
+            requireEqual(cfg.hash(), current().hash());
+            if (!"code".equals(row.kind()) || !codeMatched.test(row)) throw refuse("staff_required");
+            if (row.consumedAt() != null) return historical(cfg, patient, row, bound, candidate, null, priorDecision);
+            if (bound.isPresent()) throw refuse("staff_required");
+            if (priorDecision.isPresent()) throw refuse("approval_conflict");
+            if (row.cancelledAt() != null) throw refuse("challenge_cancelled");
+            if (candidate.isPresent() || recipientBinding.isPresent()) throw refuse("binding_changed");
+            var keys = catalogue(inventory, cfg);
+            SigningIdentity identity = activeSigner(keys);
+            Instant now = now();
+            verifyNew(row, keys, null, cfg, now);
+            Material acceptance = acceptance(row, null, null, cfg, inventory.orElseThrow(), identity, keys, now, memo);
+            var newBinding = bindings.insert(new PortalMyCarlosPatientBinding(0, cfg.clinic, patient, row.recipientId(),
+                    cfg.publicBase, cfg.internalOrigin, cfg.hash(), row.candidateKid(), now, 0));
+            return commitAcceptance(row, newBinding, null, null, acceptance, cfg, now);
+        });
+    }
+
+    /**
+     * After the fifth wrong clinic code the request is refused for good: the challenge is cancelled
+     * and a {@code refused} decision with reason {@code code_attempts} is queued (mycarlos#141).
+     * Repeating it once done changes nothing.
+     *
+     * @return whether this call refused the request (false when it already was)
+     */
+    boolean refuseCodeAttempts(int patient, Bytes challengeId) {
+        standalone();
+        Checks.positive(patient);
+        current();
+        source.requireTrustedSource(patient);
+        return transactions.withApprovalState(() -> {
+            Current cfg = current();
+            var row = challenges.findByChallengeForUpdate(challengeId).orElseThrow(() -> refuse("approval_not_found"));
+            challenge(cfg, row, patient);
+            var priorDecision = outbox.findMessageForUpdate(row.challengeId(), "decision");
+            source.requireTrustedSource(patient);
+            requireEqual(cfg.hash(), current().hash());
+            if (!"code".equals(row.kind())) throw refuse("approval_conflict");
+            if (!row.pending()) {
+                if ("code_attempts".equals(row.cancellationReason())) return false;
+                throw refuse("approval_conflict");
+            }
+            if (priorDecision.isPresent()) throw refuse("approval_conflict");
+            cancel(row, now(), "code_attempts", cfg);
+            return true;
         });
     }
 
@@ -484,7 +575,7 @@ final class PortalMyCarlosDeviceApprovalService {
         requireEqual(accepted.kid(), challenge.candidateKid());
         requireEqual(accepted.x25519(), challenge.candidateX());
         requireEqual(accepted.ed25519(), challenge.candidateEd());
-        if (challenge.kind().equals("staff_first")) requireEqual(binding.rootKid(), accepted.kid());
+        if (!challenge.kind().equals("accepted_device")) requireEqual(binding.rootKid(), accepted.kid());
         requireEqual(accepted.challengeId(), challenge.challengeId());
         requireEqual(accepted.kind(), challenge.kind());
         requireEqual(accepted.predecessorId(), challenge.predecessorId());
@@ -586,7 +677,8 @@ final class PortalMyCarlosDeviceApprovalService {
     private void cancel(PortalMyCarlosDeviceApprovalChallenge row, Instant now, String reason, Current cfg) {
         challenges.terminal(row, row.cancelled(now, reason));
         enqueue(row, "decision", json("challenge_id", PortalMyCarlosDeviceApprovalCodec.base64(row.challengeId().copy()),
-                "status", reason.equals("challenge_expired") ? "expired" : "cancelled", "acceptance", null, "reason", reason), cfg, now);
+                "status", reason.equals("challenge_expired") ? "expired" : reason.equals("code_attempts") ? "refused" : "cancelled",
+                "acceptance", null, "reason", reason), cfg, now);
     }
     private static Bytes removalBody(UUID command, int patient, String recipient, String kid, Instant at) {
         return json("removal_id", command.toString(), "demographic_no", patient, "recipient_id", recipient,
@@ -715,7 +807,7 @@ final class PortalMyCarlosDeviceApprovalService {
         }
         static void keys(String kid, Bytes x, Bytes ed) { new DeviceKeys(kid, x, ed);
         }
-        static void approvalKind(String kind) { require("staff_first".equals(kind) || "accepted_device".equals(kind));
+        static void approvalKind(String kind) { require("staff_first".equals(kind) || "accepted_device".equals(kind) || "code".equals(kind));
         }
         static void uuid(UUID value) { require(value != null && value.version() == 4 && value.variant() == 2);
         }

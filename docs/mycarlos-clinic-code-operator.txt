@@ -1,0 +1,56 @@
+myCarlos clinic code v1 (carlos-emr/mycarlos#141)
+
+What it does
+A patient's first myCarlos device can be approved with a 9-digit code that
+CARLOS emails to the patient, instead of by staff comparing the device in
+person. The device checks the last 3 digits against the clinic's signing key
+before it sends anything, so a code shown by a look-alike website does not
+match. CARLOS checks the first 6 digits. A re-link or recovery that the
+patient's existing device approves never needs a code.
+
+Setting
+mycarlos.approval.policy in the CARLOS properties:
+  code            (default) the right code approves the device; no staff step
+  code_and_staff  the code is emailed too; after it matched, staff approve the
+                  device on the patient's Portal page as before
+  staff_only      staff approve every first device, as before
+Any other value stops the code job (logged by class name only) until fixed.
+A patient with no valid chart email, or whose email consent blocks sending, is
+approved by staff whatever the setting.
+
+The job
+PortalMyCarlosDeviceCodeSyncService runs every 5 seconds while myCarlos device
+approval is on (patient_portal.mycarlos_approval.enabled and its existing
+gates) and the device-approval-sync job key is set. It does nothing otherwise.
+Each run:
+1. reads new device requests; for a first device of a patient CARLOS can
+   email, it makes a code challenge, emails the code, then publishes the
+   challenge (the device asks for the code only once it was sent);
+2. reads the codes devices sent, compares each in constant time, accepts on a
+   match (or waits for staff under code_and_staff), refuses for good after the
+   fifth wrong code (reason code_attempts), and marks each code used.
+It acts as the built-in system provider (-1), with no staff login. Its audit
+rows are PortalJob.device-approval-sync.code.emailed / .code.accepted /
+.code.refused with content "system: device code" and the request id; they
+never hold a code. The portal must let the device-approval-sync job hold the
+two new permissions portal.mycarlos.device_approval.codes.read and
+portal.mycarlos.device_approval.codes.consume.
+
+Email
+Sent through the normal CARLOS email path from the portal invitation sender,
+patient_portal.invite.sender_email, which must match an active email account in
+Administration > Email. The usual consent gate and clinic footer rules apply.
+The system provider -1 needs _email rights (the seed data gives them). The text
+is in the patient's spoken or official language when CARLOS has it (English,
+French, Spanish, Polish, Portuguese), else English, and holds no health
+information. The code is redacted from the email archive, and the email log
+keeps only "This myCarlos device code is not kept by CARLOS..." once sent.
+
+Storage
+Migration V1.0.83 (number fixed at merge) lets the approval kind be 'code' and
+adds mycarlos_device_approval_code: per code challenge, an HMAC of the code,
+wrong attempts, expiry and when it was emailed. The HMAC key lives only in the
+running server's memory, so the table alone cannot give a code back. A restart
+forgets it: codes sent before the restart no longer match, and their requests
+expire (at most 10 minutes); the patient asks again from the app. The code
+cursor is kept in the property table (mycarlos.approval.code.cursor.*).

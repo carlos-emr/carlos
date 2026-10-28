@@ -91,6 +91,30 @@ class PortalMyCarlosClinicCodeUnitTest {
                 () -> PortalMyCarlosClinicCode.display("48219364"));
     }
 
+    @Test
+    void shouldMatchStoredHashOnlyForTheSameCodeRequestAndKey_whenSettlingCodes() {
+        var key = PortalMyCarlosClinicCode.newKey(new SecureRandom());
+        byte[] stored = PortalMyCarlosClinicCode.mac(key, REQUEST, "482193");
+        assertEquals(32, stored.length);
+        assertTrue(PortalMyCarlosClinicCode.matches(key, key.id(), stored, REQUEST, "482193"));
+        assertFalse(PortalMyCarlosClinicCode.matches(key, key.id(), stored, REQUEST, "482194"));
+        // Bound to the request: the same code for another request does not match.
+        assertFalse(PortalMyCarlosClinicCode.matches(key, key.id(), stored, "7c9e6679-7425-40de-944b-e07fc1f90ae7", "482193"));
+        // Under another server key (after a restart) nothing matches, not even the right code.
+        var restarted = PortalMyCarlosClinicCode.newKey(new SecureRandom());
+        assertFalse(PortalMyCarlosClinicCode.matches(restarted, restarted.id(), stored, REQUEST, "482193"));
+        assertFalse(PortalMyCarlosClinicCode.matches(restarted, key.id(), stored, REQUEST, "482193"));
+        for (String bad : new String[] {null, "48219", "4821930", " 482193"}) {
+            assertFalse(PortalMyCarlosClinicCode.matches(key, key.id(), stored, REQUEST, bad), String.valueOf(bad));
+        }
+        assertFalse(PortalMyCarlosClinicCode.matches(key, null, stored, REQUEST, "482193"));
+        assertFalse(PortalMyCarlosClinicCode.matches(key, key.id(), null, REQUEST, "482193"));
+        // The stored hash is not the code, and the key never prints.
+        assertFalse(new String(stored, java.nio.charset.StandardCharsets.ISO_8859_1).contains("482193"));
+        assertEquals("ClinicCodeKey[REDACTED]", key.toString());
+        assertSame(PortalMyCarlosClinicCode.serverKey(), PortalMyCarlosClinicCode.serverKey());
+    }
+
     /** A source whose next draw is the given number, to see the padding. */
     private static SecureRandom fixed(int value) {
         return new SecureRandom() {
