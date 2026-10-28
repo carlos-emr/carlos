@@ -54,7 +54,7 @@ def container():
     args = arguments()
     mounts = []
     expected = {DRIVER.CONFIG: ("config", False), DRIVER.SOURCE: ("source", False), DRIVER.STATE: ("state", True),
-                DRIVER.DOCUMENTS: ("documents", True), "/gate-evidence": ("evidence", True), "/gate-preparation": ("", True)}
+                DRIVER.DOCUMENTS: ("documents", True), "/gate-evidence": ("evidence", True), "/gate-preparation": ("", False)}
     for path, (leaf, writable) in expected.items():
         mounts.append({"Type": "bind", "Source": str(args.prepared_root) + ("/" + leaf if leaf else ""),
                        "Destination": path, "RW": writable, "Propagation": "rprivate"})
@@ -201,6 +201,22 @@ class RecoveryProtocolTests(unittest.TestCase):
             next(item for item in info["Mounts"] if item["Destination"] == path).update(replacement)
             with self.assertRaises(RuntimeError):
                 DRIVER.contract(info, arguments())
+
+    def test_rejects_writable_parent_alias_despite_read_only_source_and_config(self):
+        info = container()
+        runtime, selected = DRIVER.contract(info, arguments())
+        self.assertEqual(set(selected), {DRIVER.CONFIG, DRIVER.SOURCE, arguments().launcher,
+                         "/usr/lib/jvm/java-25-openjdk-amd64", "/usr/local/tomcat/webapps/carlos/WEB-INF/classes",
+                         "/usr/local/tomcat/webapps/carlos/WEB-INF/lib", "/usr/local/tomcat/lib"})
+        for path in ("/gate-preparation", DRIVER.SOURCE, DRIVER.CONFIG):
+            self.assertIs(runtime["binds"][path]["rw"], False)
+        self.assertNotIn("/gate-preparation", selected)
+        for path in (DRIVER.STATE, DRIVER.DOCUMENTS, "/gate-evidence"):
+            self.assertIs(runtime["binds"][path]["rw"], True)
+            self.assertNotIn(path, selected)
+        next(item for item in info["Mounts"] if item["Destination"] == "/gate-preparation")["RW"] = True
+        with self.assertRaisesRegex(RuntimeError, "PERSISTENT_BIND_MISMATCH"):
+            DRIVER.contract(info, arguments())
 
     def test_only_safe_operational_console_fields_are_retained(self):
         source = {"event": "RESULT", "runId": RUN, "state": "COMPLETE", "clinicalComplete": True,

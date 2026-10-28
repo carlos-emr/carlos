@@ -49,7 +49,7 @@ last setting deliberately differs from the form's checked default.
 
 The protected accepted job document, retained upload chunk journal, actual worker
 snapshot seal/inventory/member, selected report-set digest and all four physical
-report files are verified independently. Browser downloads of event, error and
+report files are verified independently. Browser downloads of event, error, units and
 completion reports must match those physical hashes. Web acceptance intentionally
 stores `snapshot=null`; the worker's later `jobRoot/snapshot` publication is a
 separate fact. The web source digest binds the ordered 52-byte chunk receipt

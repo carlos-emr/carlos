@@ -67,7 +67,18 @@ binds. The controller never changes their contents or permissions.
 | state | `/var/lib/carlos-emr/cds-import/state` | RW / 10001:10001 / 0700 |
 | documents | `/var/lib/CarlosDocument` | RW / 10001:10001 / 0700 |
 | evidence | `/gate-evidence` | RW / root:root / 0700 |
-| whole prepared root | `/gate-preparation` | RW / root:root / 0711 |
+| whole prepared root | `/gate-preparation` | RO / root:root / 0711 |
+
+The whole-root alias is read-only so its `config` and `source` children cannot
+provide an alternate writable route around their dedicated read-only mounts.
+Only the separate state, document and evidence leaves are writable. The controller
+rejects a writable parent alias even when the source and configuration binds are
+individually read-only.
+
+The parent alias remains bound in the runtime contract and its permissions are
+checked. Content hashing uses only the dedicated configuration, source and
+installed code/dependency roots; it never recursively hashes the redundant parent
+and its mutable state, document or evidence children.
 
 The base's execute-only traversal allows the Docker daemon to rebind the same
 private leaves. The production properties file is root:10001 0640. The metric

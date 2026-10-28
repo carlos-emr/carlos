@@ -366,8 +366,10 @@ def contract(info: dict, args: argparse.Namespace) -> tuple[dict, list[str]]:
                 and mount.get("Destination") not in binds, "UNSUPPORTED_MOUNT")
         binds[mount["Destination"]] = {"source": mount["Source"], "rw": mount["RW"]}
     base = str(args.prepared_root)
+    # The parent alias must also be read-only: otherwise its config/source
+    # children have a writable route despite their dedicated read-only mounts.
     expected = {CONFIG: ("config", False), SOURCE: ("source", False), STATE: ("state", True),
-                DOCUMENTS: ("documents", True), "/gate-evidence": ("evidence", True), "/gate-preparation": ("", True)}
+                DOCUMENTS: ("documents", True), "/gate-evidence": ("evidence", True), "/gate-preparation": ("", False)}
     for destination, (leaf, writable) in expected.items():
         require(binds.get(destination) == {"source": base + ("/" + leaf if leaf else ""), "rw": writable}, "PERSISTENT_BIND_MISMATCH")
     immutable = [path for path, mount in binds.items() if not mount["rw"]]
@@ -378,6 +380,8 @@ def contract(info: dict, args: argparse.Namespace) -> tuple[dict, list[str]]:
     # Hash installed entrypoints and every dependency byte through their file
     # links, not unrelated workspace/cache trees. All bind mappings/flags remain
     # included in the runtime contract below, including the RO cache target.
+    # The redundant parent alias stays bound and permission-checked, but is not
+    # a content root: its state/document/evidence children remain mutable.
     immutable = sorted(required)
     # Preserve all host settings in the digest. Dynamic container IDs and IPs
     # are excluded; Config.Env/labels remain secret in memory and appear as SHA.
