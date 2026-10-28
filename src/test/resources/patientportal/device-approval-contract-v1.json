@@ -360,8 +360,6 @@
   "frozen_m3_sha256": "9612ab78fd556f69a6f54f07ea38e820cdf19ba969dc61f35fa60c23e5e613d8",
   "keys": {
     "candidate": {
-      "FAKE_ed25519_private_pkcs8_b64url": "MC4CAQAwBQYDK2VwBCIEIIsNw8xr8xHPYoYfFBqZmyRIOq0XAMr3VPiXPuZ_vRCm",
-      "FAKE_x25519_private_pkcs8_b64url": "MC4CAQAwBQYDK2VuBCIEID1XOmN3e2mPjhqoFdv-MujFAgPZvmcrDNZL72-s8avz",
       "device_key_id": "NILvIeOXh-hlzSjZ53EuVMhDp_FdO_niBb_aLIbUbX8",
       "ed25519_public_key": "mrZ0XSTWNKiNtndpxBOz9-sGc6sHp8sOtJcUc01r9cA",
       "ed25519_seed_text": "FAKE delivery contract test key: M3 FAKE later candidate ed25519",
@@ -369,15 +367,12 @@
       "x25519_seed_text": "FAKE delivery contract test key: M3 FAKE later candidate x25519"
     },
     "clinic": {
-      "FAKE_private_pkcs8_b64url": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg8WJhwC7Xi8oSf4Xp5MhrNu-PSHooTlboIp4EZDuMGdqhRANCAASSqaKOLqUvo1PhaOGwHMnwhrpovg1uwe4GPYQrng2H25Z7Y9zB7maWHbHY8xeMCZaBe5xTqRiQbkgQWqDmXoCE",
       "clinic_id": "FAKE-m3-clinic",
       "kid": "DWjrgoPSuMUtfOOxEVlL1vvyupTtqyYFAO0wyzREY-I",
       "seed_text": "FAKE delivery contract test key: M3 FAKE clinic P256 key",
       "spki": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkqmiji6lL6NT4WjhsBzJ8Ia6aL4NbsHuBj2EK54Nh9uWe2Pcwe5mlh2x2PMXjAmWgXucU6kYkG5IEFqg5l6AhA"
     },
     "first": {
-      "FAKE_ed25519_private_pkcs8_b64url": "MC4CAQAwBQYDK2VwBCIEIA73Kt23W0hJY215BUIFTSGnsApI0Lbpe2G6RBbYRxg_",
-      "FAKE_x25519_private_pkcs8_b64url": "MC4CAQAwBQYDK2VuBCIEIB9q89mYXpBhLnV-ddsvnuQ8mGxGGCSF50qEGlbtnDd1",
       "device_key_id": "hSwmO3Paf0PcheknJyNrn8VbXrwA5xZalqVq25ApcP8",
       "ed25519_public_key": "-VEiv4BfzfOKPK05QTz5SaGP9a3Qwk075VkjqQGa7Ao",
       "ed25519_seed_text": "FAKE delivery contract test key: M3 FAKE first candidate ed25519",
@@ -385,8 +380,6 @@
       "x25519_seed_text": "FAKE delivery contract test key: M3 FAKE first candidate x25519"
     },
     "predecessor": {
-      "FAKE_ed25519_private_pkcs8_b64url": "MC4CAQAwBQYDK2VwBCIEIIdvYrJI1850pNeuUBhj0gyM6ZJIL1z_9OLG0GH9eygN",
-      "FAKE_x25519_private_pkcs8_b64url": "MC4CAQAwBQYDK2VuBCIEIPMYN0Z-SWqvVko_wNcflBbZLdEG2t7ktL4c8xMnQyrk",
       "device_key_id": "afOIevuMuSEuC1sh-4CwrX3Qs54iPS9KUgG15R1N_l4",
       "ed25519_public_key": "i3SCCDSJi3gxZFn1iTTFV7EyGMSfowgSsN0VhyypbY8",
       "ed25519_seed_text": "FAKE delivery contract test key: M3 FAKE accepted predecessor 0 ed25519",
@@ -394,8 +387,6 @@
       "x25519_seed_text": "FAKE delivery contract test key: M3 FAKE accepted predecessor 0 x25519"
     },
     "rogue": {
-      "FAKE_ed25519_private_pkcs8_b64url": "MC4CAQAwBQYDK2VwBCIEIK6vDD0nRSuF9b6H1S2aDN5K8j6ABOx_Kkm54NY-9hVg",
-      "FAKE_x25519_private_pkcs8_b64url": "MC4CAQAwBQYDK2VuBCIEIDjztjW0JYKHKgTpI3pmZzeMfqkn4GSLyDAFMW184zmX",
       "device_key_id": "GH2qcycBqckWVn7fLVk-1LIDFssAQWWDUnhCcWTVYGc",
       "ed25519_public_key": "89oBB6MMJnOM3HPHnt8OaXbqeHQWCWn652vb75fvk0c",
       "ed25519_seed_text": "FAKE delivery contract test key: M3 FAKE portal-only pending predecessor ed25519",

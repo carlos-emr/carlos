@@ -30,7 +30,12 @@ import org.junit.jupiter.api.Test;
 
 /** Consumes the one immutable shared fixture; no reference-generator or product-state imitation. */
 class PortalMyCarlosDeviceApprovalCodecUnitTest {
-    static final String FIXTURE_SHA256 = "2f20211f6bcfe14ff0723745b28def15e6453f54c428d1b9a1656e0d091505b6";
+    /**
+     * The shared fixture, byte for byte the copy in carlos-portal (tests/fixtures, from commit 42af5d0
+     * on): seed texts and public values only, no private key bytes.
+     */
+    static final String FIXTURE_SHA256 = "b96d88a837cf52869bd73ba1df6fda00f1129a585f3386ab4505fa0d7679de3a";
+    static final int FIXTURE_LENGTH = 223909;
 
     static JsonNode fixture() throws Exception {
         try (InputStream input = PortalMyCarlosDeviceApprovalCodecUnitTest.class.getResourceAsStream(
@@ -39,7 +44,7 @@ class PortalMyCarlosDeviceApprovalCodecUnitTest {
                 throw new IllegalStateException("shared M3 fixture missing");
             }
             byte[] bytes = input.readAllBytes();
-            assertEquals(225016, bytes.length);
+            assertEquals(FIXTURE_LENGTH, bytes.length);
             assertEquals(FIXTURE_SHA256, PortalMyCarlosDeviceApprovalCrypto.sha256(bytes));
             return new ObjectMapper().readTree(bytes);
         }
