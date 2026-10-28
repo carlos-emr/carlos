@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Verify executed MariaDB coverage and preserve outcomes without test payloads."""
+"""Verify MariaDB coverage; requires scripts/ci/requirements.txt dependencies."""
 from pathlib import Path
 import argparse
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--reports", type=Path, default=Path("target/surefire-reports"))
@@ -23,7 +23,7 @@ families = {mode: dict.fromkeys(required[mode], 0) for mode in required}
 lines = []
 reports = list(args.reports.glob("TEST-*.xml"))
 for report in reports:
-    root = defusedxml.etree.ElementTree.parse(report).getroot()
+    root = ET.parse(report).getroot()
     mode = "flyway" if report.stem.endswith("-flyway") else "generated"
     # Actual testcase elements avoid existing nested-suite header discrepancies.
     for case in root.iter("testcase"):

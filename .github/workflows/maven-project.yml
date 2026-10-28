@@ -293,7 +293,12 @@ jobs:
         if: always()
         # Maven's container creates root-owned target directories; write the
         # sanitized artifact in the runner's own temporary directory.
-        run: python3 scripts/ci/verify-mariadb-dao-reports.py --output "$RUNNER_TEMP/mariadb-dao-test-summary.txt"
+        run: |
+          python3 -m venv "$RUNNER_TEMP/mariadb-report-venv"
+          "$RUNNER_TEMP/mariadb-report-venv/bin/python" -m pip install \
+            --disable-pip-version-check --require-hashes -r scripts/ci/requirements.txt
+          "$RUNNER_TEMP/mariadb-report-venv/bin/python" scripts/ci/verify-mariadb-dao-reports.py \
+            --output "$RUNNER_TEMP/mariadb-dao-test-summary.txt"
 
       - name: Preserve sanitized MariaDB test results
         if: always()
