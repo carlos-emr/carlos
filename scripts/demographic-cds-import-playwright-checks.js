@@ -352,7 +352,7 @@ async function workflow(s) {
   h.assert(first && last, 'Test provider has no source-physician fixture name');
   const xml = buildCdsXml(v, {first, last}); assertSchemaValid(xml);
   const file = {name: `${s.marker}.xml`, mimeType: 'text/xml', buffer: Buffer.from(xml)};
-  let admin, frame, dry, actual, id;
+  let admin, frame, dry, actual, id, batch;
   await s.step('Existing menu and bookmark route render the secured durable import UI', async () => {
     ({admin, frame} = await openImportFrame(s));
     h.assert(await frame.locator('#cancelRun,#resumeRun,#eventReport,#errorReport,#receiptReport,#unitsReport').count() === 6,
@@ -524,16 +524,18 @@ async function workflow(s) {
     h.assert(await post(changed) === 409, 'Altered committed chunk was accepted');
     h.assert((await importApi(frame,'cdsUpload',{operation:'abandon',uploadId:probeId},'POST')).status === 200, 'Unsubmitted probe cleanup failed');
   });
-  await s.step('Multi-patient ZIP includes both copies and identical replay cannot insert duplicates', async () => {
+  await s.step('Multi-patient ZIP includes both source patients without duplicating an existing patient', async () => {
     const other = buildCdsXml({...v,lastName:mixedLast},{first,last}); assertSchemaValid(other);
     const zip=execFileSync('python3',['-c','import io,json,sys,zipfile; out=io.BytesIO(); z=zipfile.ZipFile(out,"w",zipfile.ZIP_DEFLATED); [z.writestr(n,t) for n,t in json.load(sys.stdin)]; z.close(); sys.stdout.buffer.write(out.getvalue())'],
       {input:JSON.stringify([['new/patient.xml',other],['existing/patient.xml',xml],['associated/readme.txt','Synthetic ancillary bytes retained in manifest.']]),timeout:30000});
-    const batch={name:`${s.marker}-batch.zip`,mimeType:'application/zip',buffer:zip};
+    batch={name:`${s.marker}-batch.zip`,mimeType:'application/zip',buffer:zip};
     const run=await uploadAndAwaitRun(s,admin,frame,batch);
     h.assert(run.summary.cleanComplete === true && run.summary.clinicalComplete === true
       && run.summary.discoveryComplete === true && run.summary.expectedPatients === 2 && run.summary.pendingUnits === 0,
       'ZIP did not commit or verify both source patients completely');
     h.assert(importedIds().length === 2, 'ZIP omitted a new patient or duplicated the existing patient');
+  });
+  await s.step('Identical ZIP replay verifies completeness without inserting duplicate clinical records', async () => {
     const replay=await uploadAndAwaitRun(s,admin,frame,batch);
     h.assert(replay.summary.operationTerminal === true && replay.summary.cleanComplete === true
       && replay.summary.clinicalComplete === true && replay.summary.expectedPatients === 2
@@ -561,8 +563,10 @@ async function nativeViewsWorkflow(s) {
     .replaceAll('FAKE-PW0000000000004241 imported fixture encounter note', xmlText(note));
   assertSchemaValid(xml);
   let frame, admin, run, id;
-  await s.step('Complete pinned corpus imports through the existing web menu with a clean durable receipt', async () => {
+  await s.step('Existing menu opens the secured complete corpus importer', async () => {
     ({frame, admin} = await openImportFrame(s));
+  });
+  await s.step('Complete pinned corpus imports through the existing web menu with a clean durable receipt', async () => {
     run = await uploadAndAwaitRun(s, admin, frame, {name:`${name}.xml`,mimeType:'text/xml',buffer:Buffer.from(xml)});
     await assertPrimaryJobStatus(frame,run.job.id);
     h.assert(run.summary.cleanComplete === true && run.summary.expectedPatients === 1
