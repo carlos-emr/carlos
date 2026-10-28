@@ -48,7 +48,6 @@ import org.mockito.*;
 import org.owasp.encoder.Encode;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -237,33 +236,8 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         }
 
-        @ParameterizedTest
-        @ValueSource(strings = {"00000000000000000000000000000000", "9999981700000000000"})
-        @DisplayName("should return 403 and write nothing when signatureKey was not issued to this session")
-        void shouldReturn403_whenSignatureKeyWasNotIssued(String unknownKey) throws Exception {
-            mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, unknownKey);
-            mockRequest.setContent(new byte[]{1, 2, 3});
-
-            String result = action.execute();
-
-            assertThat(result).isEqualTo(ActionSupport.NONE);
-            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-            assertThat(new File(DigitalSignatureUtils.getTempFilePath(unknownKey))).doesNotExist();
-            verifyNoInteractions(mockDigitalSignatureManager);
-        }
-
-        @Test
-        @DisplayName("should return 403 when signatureKey was issued to another session")
-        void shouldReturn403_whenSignatureKeyBelongsToAnotherSession() throws Exception {
-            String otherSessionsKey = DigitalSignatureUtils.generateSignatureRequestId(new MockHttpSession());
-            mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, otherSessionsKey);
-            mockRequest.setContent(new byte[]{1, 2, 3});
-
-            action.execute();
-
-            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-            assertThat(new File(DigitalSignatureUtils.getTempFilePath(otherSessionsKey))).doesNotExist();
-        }
+        // The issued-key refusals (403) are in SaveSignatureUpload2ActionIssuedKeyUnitTest: CI
+        // never runs this class on this release line (Surefire unmatched baseline).
 
         @Test
         @DisplayName("should return 400 when path validation throws")
