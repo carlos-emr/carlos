@@ -105,6 +105,11 @@ final class PortalMyCarlosClinicCode {
         }
 
         @Override
+        public byte[] secret() {
+            return secret.clone();
+        }
+
+        @Override
         public String toString() {
             return "ClinicCodeKey[REDACTED]";
         }

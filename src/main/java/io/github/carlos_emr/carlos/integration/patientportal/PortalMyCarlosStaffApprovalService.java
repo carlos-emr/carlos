@@ -38,6 +38,8 @@ public final class PortalMyCarlosStaffApprovalService {
             java.util.function.Supplier<PortalMyCarlosDeviceApprovalService.Current>, PortalMyCarlosDeviceApprovalService> suppliedCore;
     private final java.util.function.Function<PatientPortalService, PortalMyCarlosApprovalClient> suppliedClient;
     private final SecureRandom random = new SecureRandom();
+    /** The device-code job's time (code issue, match and email times); the system clock outside tests. */
+    private final Clock codeClock;
 
     @org.springframework.beans.factory.annotation.Autowired
     public PortalMyCarlosStaffApprovalService(PortalMyCarlosDeviceApprovalTransactions transactions,
@@ -50,6 +52,15 @@ public final class PortalMyCarlosStaffApprovalService {
             java.util.function.BiFunction<PortalMyCarlosDeviceApprovalService.SourceAuthorization,
                     java.util.function.Supplier<PortalMyCarlosDeviceApprovalService.Current>, PortalMyCarlosDeviceApprovalService> suppliedCore,
             java.util.function.Function<PatientPortalService, PortalMyCarlosApprovalClient> suppliedClient) {
+        this(transactions, factory, security, properties, suppliedCurrent, suppliedCore, suppliedClient, Clock.systemUTC());
+    }
+    PortalMyCarlosStaffApprovalService(PortalMyCarlosDeviceApprovalTransactions transactions,
+            EntityManagerFactory factory, SecurityInfoManager security, PropertyDao properties,
+            java.util.function.Supplier<PortalMyCarlosDeviceApprovalService.Current> suppliedCurrent,
+            java.util.function.BiFunction<PortalMyCarlosDeviceApprovalService.SourceAuthorization,
+                    java.util.function.Supplier<PortalMyCarlosDeviceApprovalService.Current>, PortalMyCarlosDeviceApprovalService> suppliedCore,
+            java.util.function.Function<PatientPortalService, PortalMyCarlosApprovalClient> suppliedClient, Clock codeClock) {
+        this.codeClock = Objects.requireNonNull(codeClock);
         this.suppliedCurrent = suppliedCurrent;
         this.suppliedCore = suppliedCore;
         this.suppliedClient = suppliedClient;
@@ -374,7 +385,7 @@ public final class PortalMyCarlosStaffApprovalService {
         var codes = new PortalMyCarlosDeviceApprovalCodeDao(factory);
         var challenges = new PortalMyCarlosDeviceApprovalChallengeDao(factory);
         var key = PortalMyCarlosClinicCode.serverKey();
-        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        Instant now = codeClock.instant().truncatedTo(ChronoUnit.SECONDS);
         String[] codeR = new String[1];
         var row = transactions.withApprovalState(() -> {
             var locked = challenges.findByChallengeForUpdate(challenge.challengeId()).orElseThrow();
@@ -405,7 +416,7 @@ public final class PortalMyCarlosStaffApprovalService {
         return transactions.withApprovalState(() -> {
             var latest = codes.findByChallengeForUpdate(challenge.challengeId()).orElseThrow();
             if (latest.emailedAt() != null || !latest.mac().equals(row.mac())) return latest;
-            var next = latest.emailed(Instant.now().truncatedTo(ChronoUnit.SECONDS));
+            var next = latest.emailed(codeClock.instant().truncatedTo(ChronoUnit.SECONDS));
             codes.update(latest, next);
             return next;
         });
@@ -448,7 +459,7 @@ public final class PortalMyCarlosStaffApprovalService {
         var codes = new PortalMyCarlosDeviceApprovalCodeDao(factory);
         var challenges = new PortalMyCarlosDeviceApprovalChallengeDao(factory);
         var key = PortalMyCarlosClinicCode.serverKey();
-        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        Instant now = codeClock.instant().truncatedTo(ChronoUnit.SECONDS);
         record Settled(PortalMyCarlosDeviceApprovalChallenge challenge, PortalMyCarlosDeviceApprovalCode code) {}
         var settled = transactions.withApprovalState(() -> {
             // Challenge first, then its code: the order the accept path locks them in.

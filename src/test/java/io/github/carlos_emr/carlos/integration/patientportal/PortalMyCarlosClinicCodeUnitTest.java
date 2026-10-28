@@ -104,6 +104,11 @@ class PortalMyCarlosClinicCodeUnitTest {
         var restarted = PortalMyCarlosClinicCode.newKey(new SecureRandom());
         assertFalse(PortalMyCarlosClinicCode.matches(restarted, restarted.id(), stored, REQUEST, "482193"));
         assertFalse(PortalMyCarlosClinicCode.matches(restarted, key.id(), stored, REQUEST, "482193"));
+        // A hash stored under another key id never matches, even when the secret happens to be the same.
+        byte[] otherId = key.id();
+        otherId[0] ^= 1;
+        var relabelled = new PortalMyCarlosClinicCode.MacKey(otherId, key.secret());
+        assertFalse(PortalMyCarlosClinicCode.matches(relabelled, key.id(), stored, REQUEST, "482193"));
         for (String bad : new String[] {null, "48219", "4821930", " 482193"}) {
             assertFalse(PortalMyCarlosClinicCode.matches(key, key.id(), stored, REQUEST, bad), String.valueOf(bad));
         }
