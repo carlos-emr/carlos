@@ -135,6 +135,7 @@ class Case:
     mime: str = "application/json"
     text: str = ""
     response_status: int = 200
+    response_budget_seconds: float | None = None
 
 
 def request_case(name, issue, route, field, value, method="POST", extra=(), **kw):
@@ -176,8 +177,33 @@ def signature_png(size=96 * 1024):
     return "data:image/png;base64," + base64.b64encode(image).decode("ascii")
 
 
-def build_cases(phrases, corpus):
+def build_cases(phrases, corpus, repo=ROOT):
     cases = []
+    rourke = "/carlos/form/formname"
+    identity = (("form_class", "Rourke2020"),)
+    cases.append(request_case("rourke-prose", 5400, rourke, "c_birthRemarks", corpus, extra=identity))
+    for label, route, field, method, extra in (
+        ("wrong-route", rourke + "Evil", "c_birthRemarks", "POST", identity),
+        ("wrong-form", rourke, "c_birthRemarks", "POST", (("form_class", "Other"),)),
+        ("wrong-method", rourke, "c_birthRemarks", "GET", identity),
+        ("other-field", rourke, "demographic_no", "POST", identity),
+    ):
+        cases.append(request_case("rourke-" + label, 5400, route, field, RFI, method, extra=extra,
+                                  expect="inbound", signatures=("931100",)))
+    cases.append(request_case("rourke-xss", 5400, rourke, "c_birthRemarks", XSS, extra=identity,
+                              expect="inbound", signatures=("941100", "941110")))
+    # Exercise the real exclusion scan at normal/sweep cardinalities. Browser
+    # integration separately proves the actual controls and stored clinical data.
+    generated = (repo / "debian/assets/modsecurity/REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf").read_text()
+    block = re.search(r"(?ms)^# \d+: /carlos/form/formname form_class=Rourke2020\b[^\n]*\n(.*?)(?=^# \d+:|\Z)", generated)
+    if not block:
+        raise ValueError("generated Rourke prose exclusions are missing")
+    prose_names = sorted(set(re.findall(r";ARGS:([A-Za-z0-9_.-]+)", block[1])))
+    for count, budget in ((450, 6.5), (1397, 15)):
+        fields = [*identity, *((name, "FAKE clinical note") for name in prose_names),
+                  *((f"checkbox{i}", "on") for i in range(count))]
+        cases.append(Case(f"rourke-{count}-controls-budget", 5400, "POST", rourke,
+                          urlencode(fields), response_budget_seconds=budget))
     for operation in ("create", "complete"):
         for name, value in (("baseline", "Routine follow up."), ("corpus", corpus), ("literal-markup", XSS)):
             cases.append(request_case(f"pregnancy-{operation}-{name}", 5184, PREGNANCY, "notes", value,
@@ -574,6 +600,31 @@ def relocate(text, mappings):
     return "".join(lines)
 
 
+def validate_rourke_rule_inventory(repo, crs_dir):
+    """Fail on CRS drift before exercising the generated ID-based exclusions."""
+    inventory = json.loads((repo / "scripts/waf/rourke-prose-rule-ids.json").read_text())
+    tags = {"attack-sqli", "attack-rce", "attack-injection-php", "attack-protocol", "attack-lfi", "attack-rfi"}
+    if set(inventory["content_attack_tags"]) != tags:
+        raise ValueError("Rourke inventory must retain exactly the six existing prose attack families")
+    actual = {str(level): [] for level in range(1, 5)}
+    for source in (crs_dir / "rules").glob("*.conf"):
+        for line in source.read_text().replace("\\\n", " ").splitlines():
+            rule = re.match(r"^\s*SecRule\s+(\S+).*?\bid:(\d+)", line)
+            if not rule or not any(v == "ARGS" or v.startswith("ARGS:") for v in rule[1].split("|")):
+                continue
+            rule_tags = set(re.findall(r"tag:'([^']+)'", line))
+            if rule_tags & tags:
+                levels = [tag.split("/")[1] for tag in rule_tags if tag.startswith("paranoia-level/")]
+                if len(levels) != 1 or levels[0] not in actual:
+                    raise ValueError("CRS prose rule has no supported paranoia level")
+                actual[levels[0]].append(int(rule[2]))
+    actual = {level: sorted(ids) for level, ids in actual.items()}
+    expected = inventory["rules_by_paranoia_level"]
+    if not any(actual.values()) or any(type(rule) is not int for ids in expected.values() for rule in ids) or expected != actual:
+        raise ValueError("Rourke prose rule inventory differs from installed CRS ARGS rules; review and regenerate before upgrading")
+    return expected
+
+
 def prepare_prefix(prefix, args):
     for name in ("logs", "state/tmp", "state/data", "nginx-body", "nginx-proxy", "nginx-fastcgi", "nginx-uwsgi", "nginx-scgi"):
         (prefix / name).mkdir(parents=True)
@@ -593,6 +644,9 @@ def prepare_prefix(prefix, args):
     corpus_file = args.repo / "scripts/lib/clinical-prose-corpus.js"
     hashes[str(corpus_file)] = hashlib.sha256(corpus_file.read_bytes()).hexdigest()
     shutil.copyfile(corpus_file, prefix / "clinical-prose-corpus.js")
+    validate_rourke_rule_inventory(args.repo, prefix / "crs")
+    inventory_file = args.repo / "scripts/waf/rourke-prose-rule-ids.json"
+    hashes[str(inventory_file)] = hashlib.sha256(inventory_file.read_bytes()).hexdigest()
     mappings = [
         ("/etc/carlos-emr/modsecurity", prefix / "policy"),
         ("/usr/share/modsecurity-crs", prefix / "crs"),
@@ -775,7 +829,9 @@ def run_case(prefix, server, port, case, token, args):
     # transaction. Parse the complete stream and keep the existing token filter.
     offsets["audit"] = 0
     start = time.monotonic()
-    status, body, marker, error = perform_request(port, case, token, args.request_timeout)
+    status, body, marker, error = perform_request(port, case, token,
+                                                max(args.request_timeout, case.response_budget_seconds or 0))
+    request_elapsed = time.monotonic() - start
     deadline = time.monotonic() + args.evidence_timeout
     while True:
         logs = {key: read_since(path, offsets[key]) for key, path in paths.items()}
@@ -787,6 +843,8 @@ def run_case(prefix, server, port, case, token, args):
         time.sleep(0.02)
     receipts = server.receipts.get(token, [])
     reasons = assess(case, token, status, body, marker, error, receipts, rules)
+    if case.response_budget_seconds is not None and request_elapsed > case.response_budget_seconds:
+        reasons.append(f"response took {request_elapsed:.3f}s; budget {case.response_budget_seconds}s")
     if not finished:
         reasons.append("missing correlated nginx access-log completion")
     return {
@@ -876,6 +934,30 @@ def run_engine(prefix, args, cases, report):
 
 
 class MechanicsTests(unittest.TestCase):
+    def test_rourke_inventory_matches_tagged_args_and_rejects_crs_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "scripts/waf").mkdir(parents=True)
+            rules = root / "crs/rules"
+            rules.mkdir(parents=True)
+            inventory = root / "scripts/waf/rourke-prose-rule-ids.json"
+            manifest = {"content_attack_tags": ["attack-sqli", "attack-rce", "attack-injection-php",
+                                               "attack-protocol", "attack-lfi", "attack-rfi"],
+                        "rules_by_paranoia_level": {"1": [942100], "2": [], "3": [], "4": []}}
+            inventory.write_text(json.dumps(manifest))
+            source = rules / "sample.conf"
+            source.write_text("SecRule ARGS \"@rx sql\" \"id:942100,tag:'attack-sqli',tag:'paranoia-level/1'\"\n"
+                              "SecRule ARGS \"@rx script\" \"id:941100,tag:'attack-xss'\"\n"
+                              "SecRule REQUEST_HEADERS \"@rx protocol\" \"id:920100,tag:'attack-protocol'\"\n")
+            self.assertEqual(validate_rourke_rule_inventory(root, root / "crs"), manifest["rules_by_paranoia_level"])
+            source.write_text(source.read_text() + "SecRule ARGS \"@rx sql\" \"id:942110,tag:'attack-sqli',tag:'paranoia-level/2'\"\n")
+            with self.assertRaisesRegex(ValueError, "differs from installed CRS"):
+                validate_rourke_rule_inventory(root, root / "crs")
+            manifest["content_attack_tags"].append("attack-xss")
+            inventory.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "six existing prose attack families"):
+                validate_rourke_rule_inventory(root, root / "crs")
+
     """Harness integrity tests, not substitutes for live security checks."""
 
     @staticmethod
@@ -1148,7 +1230,7 @@ def main(argv=None):
             if any(args.evidence_dir.iterdir()):
                 raise ValueError("--evidence-dir must be empty (existing evidence is never overwritten)")
         phrases, corpus = load_corpus(args.node, args.repo)
-        cases = build_cases(phrases, corpus)
+        cases = build_cases(phrases, corpus, args.repo)
         if args.case:
             cases = [case for case in cases if any(fragment in case.name for fragment in args.case)]
         if not cases:

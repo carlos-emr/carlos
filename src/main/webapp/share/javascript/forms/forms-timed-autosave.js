@@ -8,6 +8,8 @@ class FormsTimedAutosave {
         this.formElement = formElement;
         this.idleTime = 0;
         this.changed = false;
+        this.changeVersion = 0;
+        this.saving = false;
         this.saveEndpointUrl = saveEndpointUrl;
         this.messageDivName = messageDivName;
         this.validationMethod = validationMethod;
@@ -56,17 +58,24 @@ class FormsTimedAutosave {
     }
 
     sendRequest() {
+        // A slow save must not start another snapshot on every timer tick.
+        if (this.saving) return;
+        this.saving = true;
+        const sentVersion = this.changeVersion;
         const httpRequest = new XMLHttpRequest();
         const formData = new FormData(this.formElement);
         formData.append('submit', 'autosaveAjax');
 
         // bind events
-        let onSendRequestSuccessEvent = this.onSendRequestSuccess.bind(this);
+        let onSendRequestSuccessEvent = event => this.onSendRequestSuccess(event, sentVersion);
         httpRequest.addEventListener('load', onSendRequestSuccessEvent);
         let onSendRequestErrorEvent = this.onSendRequestError.bind(this);
         httpRequest.addEventListener('error', onSendRequestErrorEvent);
+        httpRequest.addEventListener('abort', onSendRequestErrorEvent);
+        httpRequest.addEventListener('timeout', onSendRequestErrorEvent);
 
         httpRequest.open('POST', this.saveEndpointUrl);
+        httpRequest.timeout = 60000;
         if ([...formData.values()].some(value => typeof value !== 'string')) {
             httpRequest.send(formData);
         } else {
@@ -78,21 +87,34 @@ class FormsTimedAutosave {
     }
 
     formChangedEvent(event) {
+        this.changeVersion += 1;
         this.changed = true;
     }
 
-    onSendRequestSuccess(event) {
-        let data = JSON.parse(event.target.responseText);
-        if (data['success'] === true) {
+    onSendRequestSuccess(event, sentVersion) {
+        try {
+            // Gateways and expired sessions can answer an autosave with HTML.
+            // Only an explicit successful acknowledgement may clear the warning.
+            if (event.target.status < 200 || event.target.status >= 300) throw new Error('Autosave failed');
+            const data = JSON.parse(event.target.responseText);
+            if (!data || data.success !== true || !Number.isSafeInteger(data.newFormId) || data.newFormId <= 0
+                || typeof data.newNewUrl !== 'string' || !data.newNewUrl
+                || typeof data.formAutosaveDate !== 'string' || !data.formAutosaveDate) throw new Error('Autosave failed');
             window.history.replaceState({fromId: data['newFormId']}, '', data['newNewUrl']);
             this.lastsavedDateString = data['formAutosaveDate'];
-            this.setMessageDivs(`Autosaved at ${this.lastsavedDateString}`);
+            // Edits made while this snapshot was in flight still need saving.
+            if (this.changeVersion === sentVersion) this.changed = false;
+            this.setMessageDivs(`Autosaved at ${this.lastsavedDateString}${this.changed ? '. New changes are still unsaved.' : ''}`);
+            this.saving = false;
+        } catch (error) {
+            this.onSendRequestError();
         }
-        this.changed = false;
     }
 
     onSendRequestError(event) {
-        this.changed = false;
+        this.saving = false;
+        this.changed = true;
+        this.setMessageDivs('Autosave failed. Your changes are still unsaved. Use Save or try again.');
     }
 
     setMessageDivs(message) {
