@@ -37,11 +37,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
-import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
-import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
@@ -49,14 +47,12 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
-import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
-import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
-import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.managers.FormsManager;
@@ -78,7 +74,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * {@code service_date} is {@code null}.</p>
  *
  * <p>Each attached record must belong to the email's patient, since its manifest names that
- * patient: a record linked to another patient stops the send. A title longer than
+ * patient: it is checked by the same rule as the send itself ({@link AttachmentOwnershipService}),
+ * and a record that is not linked to that patient stops the send. A title longer than
  * {@value #MAX_TITLE_LENGTH} characters is shortened.</p>
  *
  * <p>{@code recipient_id} is {@code null} for now: CARLOS does not yet hold the patient's
@@ -114,33 +111,27 @@ public class EmailDocumentManifestComposer {
     private final Hl7TextInfoDao hl7TextInfoDao;
     private final HRMDocumentDao hrmDocumentDao;
     private final FormsManager formsManager;
-    private final CtlDocumentDao ctlDocumentDao;
-    private final PatientLabRoutingDao patientLabRoutingDao;
-    private final HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
+    private final AttachmentOwnershipService attachmentOwnership;
     private final Clock clock;
 
     @Autowired
     public EmailDocumentManifestComposer(ClinicDAO clinicDao, EFormDataDao eFormDataDao, DocumentDao documentDao,
             Hl7TextInfoDao hl7TextInfoDao, HRMDocumentDao hrmDocumentDao, FormsManager formsManager,
-            CtlDocumentDao ctlDocumentDao, PatientLabRoutingDao patientLabRoutingDao,
-            HRMDocumentToDemographicDao hrmDocumentToDemographicDao) {
-        this(clinicDao, eFormDataDao, documentDao, hl7TextInfoDao, hrmDocumentDao, formsManager, ctlDocumentDao,
-                patientLabRoutingDao, hrmDocumentToDemographicDao, Clock.systemUTC());
+            AttachmentOwnershipService attachmentOwnership) {
+        this(clinicDao, eFormDataDao, documentDao, hl7TextInfoDao, hrmDocumentDao, formsManager, attachmentOwnership,
+                Clock.systemUTC());
     }
 
     EmailDocumentManifestComposer(ClinicDAO clinicDao, EFormDataDao eFormDataDao, DocumentDao documentDao,
             Hl7TextInfoDao hl7TextInfoDao, HRMDocumentDao hrmDocumentDao, FormsManager formsManager,
-            CtlDocumentDao ctlDocumentDao, PatientLabRoutingDao patientLabRoutingDao,
-            HRMDocumentToDemographicDao hrmDocumentToDemographicDao, Clock clock) {
+            AttachmentOwnershipService attachmentOwnership, Clock clock) {
         this.clinicDao = clinicDao;
         this.eFormDataDao = eFormDataDao;
         this.documentDao = documentDao;
         this.hl7TextInfoDao = hl7TextInfoDao;
         this.hrmDocumentDao = hrmDocumentDao;
         this.formsManager = formsManager;
-        this.ctlDocumentDao = ctlDocumentDao;
-        this.patientLabRoutingDao = patientLabRoutingDao;
-        this.hrmDocumentToDemographicDao = hrmDocumentToDemographicDao;
+        this.attachmentOwnership = attachmentOwnership;
         this.clock = clock;
     }
 
@@ -224,41 +215,19 @@ public class EmailDocumentManifestComposer {
 
     /**
      * Each attached record must belong to the email's patient: its manifest names that patient, and
-     * myCarlos files the document under them. A record linked to another patient stops the send,
-     * like a manifest that cannot be built. One linked to no patient, or gone, has nothing to
-     * contradict the send. A form needs no check here: its renderer reads it for the email's
-     * patient only.
+     * myCarlos files the document under them. This is the send's own rule
+     * ({@link AttachmentOwnershipService#allBelongToDemographic}), checked again here because the
+     * manifest is built from the record: a record not linked to the email's patient (another
+     * patient's, unlinked, deleted or gone) stops the send, like a manifest that cannot be built.
+     * A form is not checked here: its renderer reads it for the email's patient only.
      */
     private void requireTheEmailsPatient(DocumentType type, int recordId, Integer demographicNo) {
-        if (demographicNo == null) {
+        if (!AttachmentOwnershipService.isVerifiable(type)) {
             return;
         }
-        List<Integer> patients = switch (type) {
-            case EFORM -> {
-                EFormData eForm = eFormDataDao.find(recordId);
-                yield eForm == null ? List.of() : listOf(eForm.getDemographicId());
-            }
-            case DOC -> ctlDocumentDao.findByDocumentNoAndModule(recordId, "demographic").stream()
-                    .map(link -> link.getId().getModuleId())
-                    .toList();
-            case LAB -> {
-                PatientLabRouting routing = patientLabRoutingDao.findDemographicByLabId(recordId);
-                yield routing == null ? List.of() : listOf(routing.getDemographicNo());
-            }
-            case HRM -> hrmDocumentToDemographicDao.findByHrmDocumentId(recordId).stream()
-                    .map(HRMDocumentToDemographic::getDemographicNo)
-                    .toList();
-            case FORM -> List.of();
-        };
-        // 0 is an unmatched lab or document, as null is no patient.
-        List<Integer> linked = patients.stream().filter(patient -> patient != null && patient > 0).toList();
-        if (!linked.isEmpty() && !linked.contains(demographicNo)) {
+        if (!attachmentOwnership.allBelongToDemographic(type, demographicNo, List.of(recordId))) {
             throw new IllegalStateException("An attached record does not belong to the email's patient");
         }
-    }
-
-    private static List<Integer> listOf(Integer value) {
-        return value == null ? List.of() : List.of(value);
     }
 
     private RecordDetails recordDetails(LoggedInInfo loggedInInfo, DocumentType type, int recordId,
