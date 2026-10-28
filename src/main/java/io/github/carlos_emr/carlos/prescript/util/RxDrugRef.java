@@ -100,16 +100,28 @@ public class RxDrugRef {
      *
      * @param DIN     String the Drug Identification Number to look up
      * @param boolVal Boolean whether to include additional product details in the response
-     * @return Hashtable&lt;String, Object&gt; drug data keyed by field name, or null if not found
-     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @return Hashtable&lt;String, Object&gt; drug data keyed by field name, or null if no product carries the DIN
+     * @throws Exception if the DrugRef service is unavailable, returns a non-zero fault, or answers with
+     *         something other than a list
      * @since 2026-02-26
      */
     public Hashtable<String, Object> getDrugByDIN(String DIN, Boolean boolVal) throws Exception {
         Vector params = new Vector();
         params.addElement(DIN);
         params.addElement(boolVal);
-        Vector<Hashtable<String, Object>> vec = (Vector<Hashtable<String, Object>>) callWebserviceLite("get_drug_by_DIN", params);
-        if (vec == null || vec.isEmpty()) {
+        Object answer = callWebserviceLite("get_drug_by_DIN", params);
+        // An unknown DIN is "not found", not a failure (#5006): DrugRef answers it with an empty
+        // array, and a DrugRef that returned a Java null for it put an XML-RPC empty string on
+        // the wire. Both mean "no product"; the caller then searches by name. Any other shape is
+        // a broken answer and stays an error.
+        if (answer == null || "".equals(answer)) {
+            return null;
+        }
+        if (!(answer instanceof Vector)) {
+            throw new IllegalStateException("DrugRef: unexpected get_drug_by_DIN answer (" + answer.getClass().getSimpleName() + ")");
+        }
+        Vector<Hashtable<String, Object>> vec = (Vector<Hashtable<String, Object>>) answer;
+        if (vec.isEmpty()) {
             return null;
         }
         return vec.get(0);
@@ -394,12 +406,12 @@ public class RxDrugRef {
         String lastUpdateTime = getLastUpdateTime();
         Object identifyResult = callWebserviceLite("identify", params);
         if (identifyResult == null) {
-            throw new Exception("DrugRef: 'identify' returned no result for server " + server_url);
+            throw new Exception("DrugRef: 'identify' returned no result");
         }
         String drugDatabase = identifyResult.toString();
         Object versionResult = callWebserviceLite("version", params);
         if (versionResult == null) {
-            throw new Exception("DrugRef: 'version' returned no result for server " + server_url);
+            throw new Exception("DrugRef: 'version' returned no result");
         }
         String version = versionResult.toString();
         Map<String, String> verify = new HashMap<>();
@@ -431,6 +443,77 @@ public class RxDrugRef {
     public String getLastUpdateTime() throws Exception {
         Vector params = new Vector();
         return (String) callWebserviceLite("getLastUpdateTime", params);
+    }
+
+    /**
+     * Returns the outcome of the most recent {@link #updateDB()} attempt on the DrugRef server.
+     *
+     * <p>{@link #getLastUpdateTime()} answers only a date or the literal {@code "updating"}; it
+     * cannot say that an update failed, or why. DrugRef's {@code getUpdateStatus} can. The map
+     * carries {@code state} ({@code IDLE}, {@code RUNNING}, {@code SUCCEEDED}, {@code FAILED}),
+     * {@code step}, {@code message}, {@code startedAt}, {@code finishedAt} and {@code lastUpdate},
+     * every value a String, empty when the server did not supply one. Those keys are always
+     * present: this method seeds them before overlaying the struct, so a caller never has to
+     * tell "the server sent nothing" apart from "the server sent an empty value". Any further
+     * key the server sends is passed through.</p>
+     *
+     * @return Map&lt;String, String&gt; of the status struct, never missing a documented key
+     * @throws Exception if the DrugRef service is unavailable, predates {@code getUpdateStatus}
+     *                   (an XML-RPC fault), or answers with something other than a struct
+     * @since 2026-09-05
+     */
+    public Map<String, String> getUpdateStatus() throws Exception {
+        Vector params = new Vector();
+        Object result = callWebserviceLite("getUpdateStatus", params);
+        if (!(result instanceof Map<?, ?> struct)) {
+            throw new Exception("DrugRef: 'getUpdateStatus' returned no struct");
+        }
+        return normalizeStatusStruct(struct);
+    }
+
+    /**
+     * The status a caller should report when DrugRef cannot be reached at all: {@code state} of
+     * {@code UNAVAILABLE}, and every other documented key present and empty.
+     *
+     * <p>Exists so the outage payload is built from the same contract as a real answer instead of
+     * being hand-assembled at the call site. A client that meets the full set of keys on the
+     * success path and a bare {@code state} on the outage path has to cope with a shape change on
+     * exactly the path where it has least information to work with.</p>
+     *
+     * @return a mutable map carrying every key of {@link #getUpdateStatus()}
+     * @since 2026-09-06
+     */
+    public static Map<String, String> unavailableStatus() {
+        return normalizeStatusStruct(Map.of("state", "UNAVAILABLE"));
+    }
+
+    /** The keys {@link #getUpdateStatus()} guarantees, whatever the DrugRef build answers with. */
+    static final String[] STATUS_KEYS =
+            {"state", "step", "message", "startedAt", "finishedAt", "lastUpdate"};
+
+    /**
+     * Applies {@link #getUpdateStatus()}'s contract to a raw XML-RPC struct: the documented keys
+     * are seeded to empty first, so an answer that omits one still yields a String rather than a
+     * gap, and any extra key the server sends is carried through.
+     *
+     * <p>Seeded, not merely null-normalized. The current DrugRef sends all six, but this is a
+     * relay across a version boundary — the pin can move — and an omitted key left the relayed
+     * JSON without it, reaching the admin page as {@code undefined} instead of the empty string
+     * the contract promises.
+     *
+     * <p>Package-private and separated from the call itself so the contract is testable without
+     * a DrugRef server and without widening the network method.
+     */
+    static Map<String, String> normalizeStatusStruct(Map<?, ?> struct) {
+        Map<String, String> status = new HashMap<>();
+        for (String key : STATUS_KEYS) {
+            status.put(key, "");
+        }
+        for (Map.Entry<?, ?> entry : struct.entrySet()) {
+            status.put(String.valueOf(entry.getKey()),
+                    entry.getValue() == null ? "" : String.valueOf(entry.getValue()));
+        }
+        return status;
     }
 
     /**
@@ -672,11 +755,11 @@ public class RxDrugRef {
             object = server.execute(procedureName, params);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            logger.error("DrugRef: call interrupted for procedure '{}' on {}", procedureName, server_url, exception);
+            logger.error("DrugRef: call interrupted for procedure '{}'", procedureName);
         } catch (XmlRpcFaultException exception) {
-            logger.error("DrugRef: XML-RPC fault code={} calling '{}' on {}", exception.code, procedureName, server_url, exception);
+            logger.error("DrugRef: XML-RPC fault code={} calling '{}'", exception.code, procedureName);
         } catch (Exception exception) {
-            logger.error("DrugRef: failed to call '{}' on {}", procedureName, server_url, exception);
+            logger.error("DrugRef: failed to call '{}'; failureType={}", procedureName, exception.getClass().getSimpleName());
         }
         return object;
     }
@@ -684,9 +767,10 @@ public class RxDrugRef {
     /**
      * Calls the DrugRef XML-RPC service, propagating non-zero fault codes as exceptions.
      * A fault code of 0 is treated as a "no result" condition — the event is logged at
-     * WARN level and null is returned. {@link XmlRpcFaultException} with a non-zero code
-     * is re-thrown directly; all other exceptions (network, parse, timeout) are logged
-     * as "call failed" and wrapped in a plain {@link Exception}.
+     * WARN level and null is returned. Non-zero {@link XmlRpcFaultException} codes are
+     * preserved in a sanitized fault; other errors report their class in a plain exception.
+     * Raw messages and causes are intentionally not propagated: HTTP/client exceptions can
+     * embed the configured URL, including userinfo or query credentials.
      *
      * @param procedureName String the XML-RPC method name to call on the DrugRef server
      * @param params        Vector of typed parameters to pass to the remote method
@@ -701,18 +785,20 @@ public class RxDrugRef {
             object = server.execute(procedureName, params);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new Exception("DrugRef: call interrupted for procedure '" + procedureName + "'", exception);
+            throw new Exception("DrugRef: call interrupted for procedure '" + procedureName + "'");
         } catch (XmlRpcFaultException exception) {
             if (exception.code == 0) {
                 // Fault code 0 means "no result found" — log at warn level and return null
                 logger.warn("DrugRef: no result (fault code 0) for procedure '{}'", procedureName);
             } else {
-                logger.error("DrugRef: XML-RPC fault code={} calling '{}' on {}", exception.code, procedureName, server_url, exception);
-                throw exception;
+                logger.error("DrugRef: XML-RPC fault code={} calling '{}'", exception.code, procedureName);
+                throw new XmlRpcFaultException(exception.code,
+                        "DrugRef: XML-RPC fault code=" + exception.code + " calling '" + procedureName + "'");
             }
         } catch (Exception exception) {
-            logger.error("DrugRef: call failed for procedure '{}' on {}", procedureName, server_url, exception);
-            throw new Exception("DrugRef: call failed for '" + procedureName + "'", exception);
+            String failureType = exception.getClass().getSimpleName();
+            logger.error("DrugRef: call failed for procedure '{}'; failureType={}", procedureName, failureType);
+            throw new Exception("DrugRef: call failed for '" + procedureName + "' (" + failureType + ")");
         }
         return object;
     }
@@ -737,9 +823,18 @@ public class RxDrugRef {
      * may be a Vector of interaction records or a Hashtable keyed by interaction source
      * (e.g., "Holbrook Drug Interactions").
      *
+     * <p>An empty answer (an empty list, or a struct naming no source) means DrugRef compared the
+     * drugs and found nothing. Any other answer that carries no Holbrook list means nothing was
+     * compared and is thrown rather than returned as an empty list, because callers show "no
+     * interactions" for an empty list (issue #4506). That covers an answer that is neither a list
+     * nor a struct, a struct with DrugRef's {@code Error} key (no interaction source registered),
+     * and a source whose own lookup failed and answered with an error struct in place of its
+     * list.</p>
+     *
      * @param drugs Vector of drug identifiers (ATC codes or drug names) to check for interactions
      * @return Vector of interaction result Hashtables; empty Vector if no interactions found
-     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @throws Exception if the DrugRef service is unavailable, returns a non-zero fault, or
+     *                   answers without having checked the drugs
      * @since 2026-02-26
      */
     public Vector getInteractions(Vector drugs) throws Exception {
@@ -752,16 +847,26 @@ public class RxDrugRef {
         if (obj instanceof Vector) {
             vec = (Vector) obj;
         } else if (obj instanceof Hashtable) {
-            // Some DrugRef implementations return interactions keyed by source name
-            Object holbrook = ((Hashtable) obj).get("Holbrook Drug Interactions");
-            if (holbrook instanceof Vector) {
-                vec = (Vector) holbrook;
-            }
+            Hashtable<?, ?> sources = (Hashtable<?, ?>) obj;
             // Log only key names — not values, which may contain PHI (medication context).
             // Avoid calling .getClass() on values that may be null.
             if (logger.isDebugEnabled()) {
-                logger.debug("DrugRef interaction sources returned: {}", ((Hashtable<?, ?>) obj).keySet());
+                logger.debug("DrugRef interaction sources returned: {}", sources.keySet());
             }
+            if (sources.containsKey("Error")) {
+                throw new Exception("DrugRef: 'interactions_byATC' is not available");
+            }
+            // DrugRef keys interactions by source name and leaves out a source that found none,
+            // so an empty struct is "no interactions". Anything else must be the Holbrook list:
+            // a source whose lookup failed answers with its own {"Error": ...} struct here.
+            Object holbrook = sources.get("Holbrook Drug Interactions");
+            if (holbrook instanceof Vector) {
+                vec = (Vector) holbrook;
+            } else if (!sources.isEmpty()) {
+                throw new Exception("DrugRef: 'interactions_byATC' returned no interaction list");
+            }
+        } else {
+            throw new Exception("DrugRef: 'interactions_byATC' returned no result");
         }
         return vec;
     }

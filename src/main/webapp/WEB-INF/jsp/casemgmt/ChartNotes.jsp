@@ -1,3 +1,4 @@
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -31,9 +32,14 @@
 <%--
     ChartNotes.jsp — Renders the clinical notes panel inside the encounter page.
 
-    Loaded either as the standalone CaseManagementView AJAX result or as part of
-    newEncounterLayout.jsp. Displays filtered and sorted clinical notes for a
-    patient, with inline editing, issue assignment, and template insertion.
+    Rendered as the CaseManagementView "ajaxView" result into the encounter
+    layout's #notCPP container: on chart open through viewFullChart(false), and
+    again on every filter or save reload. newEncounterLayout.jsp must never also
+    include it server-side; that produced two note panels per chart. Displays
+    filtered and sorted clinical notes for a patient, with inline editing, issue
+    assignment, and template insertion. Patient-specific links (Browse Notes) use
+    the patient this request carries; the login-wide EctSessionBean supplies entry
+    metadata only when it belongs to this chart's patient (issue #4556).
 
     The 1 MB buffer (page directive + response.setBufferSize) prevents Tomcat 11
     from truncating large AJAX forward responses. Without it, the
@@ -47,9 +53,11 @@
 <%@page buffer="1024kb" %>
 <% response.setBufferSize(1024 * 1024); %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -89,6 +97,8 @@
 <%@page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
@@ -110,7 +120,15 @@
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-    String demoNo = request.getParameter("demographicNo");
+    String chartPatientNo;
+    try {
+        chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(400);
+        return;
+    }
+    String demoNo = chartPatientNo;
+    String demographicNo = chartPatientNo;
     String privateConsentEnabledProperty = CarlosProperties.getInstance().getProperty("privateConsentEnabled");
     boolean privateConsentEnabled = privateConsentEnabledProperty != null && privateConsentEnabledProperty.equals("true");
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -138,33 +156,34 @@
     try {
         Facility facility = loggedInInfo.getCurrentFacility();
 
-        String pId = (String) session.getAttribute("case_program_id");
+        String pId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
         if (pId == null) {
             pId = "";
         }
 
-        String demographicNo = request.getParameter("demographicNo");
-        EctSessionBean bean = null;
-        if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-            response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
-            return;
-        }
+        EctSessionBean bean = EncounterPatientContext.entryOrLoggedIn(request, loggedInInfo, chartPatientNo);
+        // Encounter metadata belongs to the explicitly named chart.
+        pageContext.setAttribute("chartPatientNo", chartPatientNo);
 
-        String provNo = bean.providerNo;
+        // This chart's own entry provider: the patient's remembered entry, or the logged-in provider
+        // when this login has not entered the chart. The login-wide bean's belongs to whichever chart
+        // was entered last, so taking it only when it was this chart's still changed the same chart's
+        // edit warnings with the order its windows were opened in (issue #4673).
+        String provNo = EncounterPatientContext.entryProvider(request, loggedInInfo, chartPatientNo);
         String dateFormat = "dd-MMM-yyyy H:mm";
         SimpleDateFormat jsfmt = new SimpleDateFormat("MMM dd, yyyy");
         Date dToday = new Date();
         String strToday = jsfmt.format(dToday);
-        String frmName = "caseManagementEntryForm" + demographicNo;
+        String frmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
         CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
         if (request.getParameter("caseManagementEntryForm") == null) {
             request.setAttribute("caseManagementEntryForm", cform);
         }
-        boolean layoutIncludesDependencies = Boolean.parseBoolean(
-                String.valueOf(request.getAttribute("eChartLayoutIncludesDependencies")));
 %>
 
-<% if (!layoutIncludesDependencies) { %>
+<%-- Shared libraries for the standalone route (casemgmt/ViewChartNotes). When this fragment is
+     inserted into #notCPP by CarlosAjax/update(), external <script src> tags are stripped and
+     not re-loaded (Prototype evalScripts semantics); only the inline scripts below run. --%>
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
 <script type="text/javascript">jQuery.noConflict();</script>
@@ -175,8 +194,14 @@
 <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/carlos-ajax.js" type="text/javascript"></script>
 <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
 <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/select.js" type="text/javascript"></script>
+<script>
+    // A standalone response needs the same initial context as the full chart layout.
+    // Fragments inserted into an existing chart retain the containing window's context.
+    if (typeof window.carlosChartContext === 'undefined') {
+        window.carlosChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+    }
+</script>
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp?v=<%= System.currentTimeMillis() %>"></script>
-<% } %>
 <script type="text/javascript">
     ctx = "${carlos:forJavaScript(ctx)}";
     imgPrintgreen.src = ctx + "/encounter/graphics/printerGreen.png"; //preload green print image so firefox will update properly
@@ -209,8 +234,10 @@
     notesIncrement = parseInt("<%=CarlosProperties.getInstance().getProperty("num_loaded_notes", "20") %>");
 
     jQuery(document).ready(function () {
-        notesLoader(0, notesIncrement, demographicNo);
-        notesScrollCheckInterval = setInterval('notesIncrementAndLoadMore()', 1000);
+        // Resets the pagination state an earlier render of this fragment left behind, loads
+        // the newest page and arms the scroll poll; see notesLoadFirstPage() in
+        // newCaseManagementView.js.jsp.
+        notesLoadFirstPage();
     });
 
     <% if( request.getAttribute("NoteLockError") != null ) { %>
@@ -220,6 +247,9 @@
 </script>
 <div id="topContent">
     <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView" method="post">
+        <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+        <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+        <% } %>
         <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="providerNo" value="<%=provNo%>"/>
         <input type="hidden" name="tab" value="Current Issues"/>
@@ -229,7 +259,9 @@
         <input type="hidden" name="chain" value="list">
         <input type="hidden" name="method" value="view">
         <input type="hidden" id="check_issue" name="check_issue">
-        <input type="hidden" id="serverDate" value="<%=strToday%>">
+        <%-- Today uses an ISO server day so the print calendars can format it in the chart locale. --%>
+        <input type="hidden" id="serverDate" value="<%=strToday%>"
+               data-print-date="<carlos:encode value='<%=dToday.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()%>' context="htmlAttribute"/>">
         <input type="hidden" id="resetFilter" name="resetFilter" value="false">
 
         <div id="filteredresults">
@@ -295,6 +327,8 @@
                 </fieldset>
             </c:if>
         </div>        
+        <button type="button" id="notesFilterToggle" aria-controls="filter" aria-expanded="false"
+                onclick="return showFilter();"><fmt:message key="encounter.Filter.title"/></button>
         <div id="filter" style="display:none;margin-top: 5px; margin-left: 5px;margin-right: 5px;">
             <input type="button" value="Hide" onclick="return filter(false);"/>
             <input type="button" value="<fmt:message key="encounter.resetFilter.title"/>"
@@ -427,11 +461,6 @@
         </div>
 
         <div id="encounterTools">
-            <!--  This leaves the OCEAN toolbar accessible -->
-            <div id="ocean_placeholder" style="display:none; width: 100%">
-                <span style="display:none">Ocean Toolbar</span>
-            </div>
-
             <%
                 if (privateConsentEnabled && showPopup && showConsentsThisTime) {
             %>
@@ -452,11 +481,17 @@
                 }
             %>
             <fieldset>
-                <legend>Template Search</legend>
+                <%-- Legend and placeholder were literal English here, so this panel stayed in
+                     English on a translated chart (reported by phc007). Both resolve from the
+                     browser locale like the rest of the page now. The placeholder has to go
+                     through a var + EL attribute because an attribute value cannot hold a tag. --%>
+                <legend><fmt:message key="encounter.templateSearch.legend"/></legend>
 
-                <img alt="<fmt:message key="encounter.msgFind"/>"
-                     src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/edit-find.png">
-                <input id="enTemplate" placeholder="template name" tabindex="6" size="16" type="text" value=""
+                <fmt:message key="encounter.templateSearch.namePlaceholder" var="templateNamePlaceholder"/>
+                <label for="enTemplate"><img alt="${carlos:forHtmlAttribute(templateNamePlaceholder)}"
+                     src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/edit-find.png"></label>
+                <input id="enTemplate" placeholder="${carlos:forHtmlAttribute(templateNamePlaceholder)}"
+                       size="16" type="text" value=""
                        onkeypress="return grabEnterGetTemplate(event)">
 
                 <div class="enTemplate_name_auto_complete" id="enTemplate_list" style="z-index: 1; display: none">
@@ -477,6 +512,9 @@
 </div>
 <%-- Insert smart note templates here --%>
 <form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath()%>/CaseManagementEntry" method="post">
+        <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+        <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+        <% } %>
     <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="includeIssue" value="off"/>
     <%
@@ -545,6 +583,12 @@
     <span id="notesLoading">
 		<img src="${carlos:forHtmlAttribute(ctx)}/images/DMSLoader.gif">Loading Notes...
 	</span>
+    <%-- Shown by notesLoader() when a notes fetch rendered nothing (issue #3609); the link
+         asks for the batch again and re-arms the scroll poll. Hidden until then. --%>
+    <span id="notesLoadFailed" role="alert" style="display: none;">
+        <fmt:message key="encounter.Index.msgNotesLoadFailed"/>
+        <button type="button" onclick="notesRetryLoad();"><fmt:message key="encounter.Index.btnRetryLoadNotes"/></button>
+    </span>
 
 
     <div id="issueList"
@@ -569,6 +613,10 @@
 
             <div id="form-control-panel">
                 <div id="save-sign-bill-buttons">
+                    <%-- "Display eChart Timer" in the provider's eChart preferences (on by default).
+                         setTime() in newEncounterLayout.js.jsp tolerates the button's absence. --%>
+                    <% if (SpringUtils.getBean(EchartDisplayPreferenceResolver.class)
+                            .resolve(loggedInInfo.getLoggedInProviderNo()).showTimer()) { %>
                     <button type="button" onclick="pasteTimer()" id="aTimer"
                             title="<fmt:message key="encounter.Index.pasteTimer"/>">00:00
                     </button>
@@ -579,18 +627,19 @@
                             <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5m5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5"></path>
                         </svg>
                     </button>
+                    <% } %>
                     <%
                         try {
                         if (facility != null && facility.isEnableGroupNotes()) {
                     %>
-                    <input tabindex="16" type='image'
+                    <input type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/group-gnote.png" id="groupNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return selectGroup(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:message key="encounter.Index.btnGroupNote"/>'>
                     <% }
                         if (facility != null && facility.isEnablePhoneEncounter()) {
                     %>
-                    <input tabindex="25" type='image' src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/attach.png"
+                    <input type='image' src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/attach.png"
                            id="attachNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return assign(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:message key="encounter.Index.btnAttachNote"/>'>
@@ -599,26 +648,27 @@
                             io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Facility check error in ChartNotes.jsp", facilityEx);
                         }
                     %>
-                    <input tabindex="17" type='image'
+                    <input type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/media-floppy.png" id="saveImg"
                            onclick="event.preventDefault();event.stopPropagation();return saveNoteAjax('save', 'list');"
                            title='<fmt:message key="encounter.Index.btnSave"/>'>
-                    <input tabindex="18" type='image'
+                    <input type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/document-new.png" id="newNoteImg"
                            onclick="newNote(event); return false;"
                            title='<fmt:message key="encounter.Index.btnNew"/>'>
-                    <input tabindex="19" type='image'
+                    <input type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/note-save.png" id="signSaveImg"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:message key="encounter.Index.btnSignSave"/>'>
-                    <input tabindex="20" type='image'
+                    <input type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/verify-sign.png" id="signVerifyImg"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].verify.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:message key="encounter.Index.btnSign"/>'>
                     <%
+                        // A chart entered from the messenger hides Bill; another window's entry must not.
                         if (bean.source == null) {
                     %>
-                    <input tabindex="21" type='image'
+                    <input type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/dollar-sign-icon.png"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].toBill.value='true';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:message key="encounter.Index.btnBill"/>'>
@@ -627,10 +677,10 @@
                     %>
 
 
-                    <input tabindex="23" type='image'
+                    <input type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/system-log-out.png"
                            onclick='closeEnc(event);return false;' title='<fmt:message key="global.btnExit"/>'>
-                    <input tabindex="24" type='image'
+                    <input type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/document-print.png"
                            onclick="return printSetup(event);"
                            title='<fmt:message key="encounter.Index.btnPrint"/>' id="imgPrintEncounter">
@@ -639,9 +689,11 @@
         </div>
         <div class="row">
             <div id="note-control-panel">
+                <c:if test="${not empty chartPatientNo}">
                 <button type="button"
-                        onclick="popupPage(500,200,'noteBrowser<%=bean.demographicNo%>','casemgmt/ViewNoteBrowser?demographic_no=<%=bean.demographicNo%>&FirstTime=1');">
+                        onclick="popupPage(500,200,'noteBrowser${carlos:forJavaScriptAttribute(chartPatientNo)}',chartActionUrl('/casemgmt/ViewNoteBrowser?demographic_no=${carlos:forJavaScriptAttribute(carlos:forUriComponent(chartPatientNo))}&FirstTime=1'));">
                     <fmt:message key="encounter.Index.BrowseNotes"/></button>
+                </c:if>
                 <button type="button" onclick="notesLoadAll();"><fmt:message key="encounter.Index.btnLoadAllNotes"/></button>
                 <button type="button" onclick="toggleFullViewForAll();"><fmt:message key="encounter.Index.btneExpandLoadedNotes"/></button>
                 <button type="button" onclick="toggleCollapseViewForAll();"><fmt:message key="encounter.Index.btnCollapseLoadedNotes"/></button>
@@ -652,38 +704,8 @@
 </form>
 
 <script type="text/javascript">
-    /**
-     * enable autocomplete for Issue search menus.
-     */
-    jQuery(document).ready(function($) {
-        var autocompleteUrl = ctx + "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;
-        
-        $(".issueAutocomplete").autocomplete({
-            source: function(request, response) {
-                $.get(autocompleteUrl + "&term=" + request.term)
-                    .done(function(data) {
-                        // Transform the data to the format expected by jQuery UI autocomplete
-                        var transformedData = $.map(data, function(item) {
-                            return {
-                                label: item.description.trim() + ' (' + item.code + ')',
-                                value: item.description.trim(),
-                                id: item.id
-                            };
-                        });
-                        response(transformedData);
-                    })
-                    .fail(function(xhr, status, error) {
-                        console.error("Autocomplete request failed:", status, error);
-                        response([]);
-                    });
-            },
-            delay: 100,
-            minLength: 3,
-            select: function (event, ui) {
-                document.getElementById("newIssueId").value = ui.item.id;
-                document.getElementById("newIssueName").value = ui.item.value;
-            }
-        });
+    jQuery(function () {
+        initializeIssueAutocomplete(document);
     });
 </script>
 

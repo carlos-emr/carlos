@@ -43,6 +43,12 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 
 public interface DocumentDao extends AbstractDao<Document> {
 
+    /** Updates only the page count, preserving concurrent classification/metadata edits. */
+    void updatePageCount(Integer documentNo, int pageCount);
+
+    /** Current metadata/classification under a row lock for document publication. */
+    Document findForPageMutation(Integer documentNo);
+
     public enum Module {
         DEMOGRAPHIC;
 
@@ -185,6 +191,9 @@ public interface DocumentDao extends AbstractDao<Document> {
      * @return List&lt;String&gt; list of distinct matching document descriptions
      */
     public List<String> findDocumentDescriptions(String keyword);
+
+    /** Candidate pages only: callers must authorize stored owners before exposing descriptions. */
+    public List<Document> findDocumentDescriptionCandidates(String keyword, Integer beforeDocumentNo, int limit);
 
     /**
      * Returns lightweight document DTOs for a demographic, bypassing the EAGER

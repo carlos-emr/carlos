@@ -149,21 +149,17 @@ public class JDBCUtil {
         }
     }
 
-    public static void toDataBase(InputStream inputStream, String fileName) {
-        try {
-            FormImportTarget target = parseImportFileName(fileName);
-            String formName = validateImportFormTable(target.formName());
-            Document doc = parseImportDocument(inputStream);
+    public static void toDataBase(InputStream inputStream, String fileName) throws XmlImportException {
+        FormImportTarget target = parseImportFileName(fileName);
+        String formName = validateImportFormTable(target.formName());
+        Document doc = parseImportDocument(inputStream);
 
-            // Table identifiers cannot be JDBC-bound. formName is accepted only after
-            // strict filename parsing plus the encounterForm/internal table allowlist.
-            if (importRowExists(formName, target)) {
-                return;
-            }
-            insertImportRow(formName, target, doc);
-        } catch (XmlImportException e) {
-            MiscUtils.getLogger().debug("Errors {}", e.getMessage(), e);
+        // Table identifiers cannot be JDBC-bound. formName is accepted only after
+        // strict filename parsing plus the encounterForm/internal table allowlist.
+        if (importRowExists(formName, target)) {
+            return;
         }
+        insertImportRow(formName, target, doc);
     }
 
     private static boolean importRowExists(String formName, FormImportTarget target) throws XmlImportException {
@@ -294,8 +290,12 @@ public class JDBCUtil {
         }
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs IMPROPER_UNICODE: fixed XML wrapper/id element names;
+    // import-managed DB fields are checked separately. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(
+            value = "IMPROPER_UNICODE",
+            justification = "case-insensitive comparison of fixed XML wrapper/id element names; "
+                    + "import-managed DB fields are checked separately")
     static ResultSet toResultSet(Node node, ResultSet rs) throws SQLException {
         int type = node.getNodeType();
 
@@ -329,8 +329,20 @@ public class JDBCUtil {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: fixed ASCII import-managed DB columns;
+    // archive entry name remains the trusted source for patient/timestamp. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(
+            value = "IMPROPER_UNICODE",
+            justification = "case-insensitive comparison against fixed ASCII import-managed DB column names; "
+                    + "XML body cannot choose patient/timestamp")
     private static boolean isImportTargetManagedField(String name) {
-        return IMPORT_TARGET_MANAGED_FIELDS.stream().anyMatch(field -> field.equalsIgnoreCase(name));
+        // A loop, not a lambda: the comparison must stay in this annotated method, not a synthetic one.
+        for (String field : IMPORT_TARGET_MANAGED_FIELDS) {
+            if (field.equalsIgnoreCase(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static void applyTrustedImportTarget(FormImportTarget target, ResultSet rs) throws SQLException {

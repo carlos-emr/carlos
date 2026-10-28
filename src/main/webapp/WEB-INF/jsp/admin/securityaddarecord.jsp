@@ -28,6 +28,22 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Add a Login Record form (Administration > User Management): creates a provider's login.
+
+    Features:
+        Provider dropdown limited to active providers without a login (site-scoped on multisite
+        installs). Role dropdown with no preselection, listing the roles Assign Role to Provider
+        would offer this administrator: every login is created with the role chosen here (#2689).
+        Browser checks mirror the server's; SecurityAddSecurityHelper is authoritative.
+
+    Parameters:
+        None (posts user_name, password, conPassword, provider_no, role_name, PIN, expiry,
+        forcePasswordReset and enableMfa to admin/SecurityAddSecurity).
+
+    @since 2001 (OSCAR McMaster); role selection added 2026-10-15 (#2689)
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -73,7 +89,9 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityAddSecurityHelper" %>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
@@ -168,6 +186,13 @@
                     alert('<fmt:message key="admin.securityrecord.formProviderNo"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
                     return false;
                 }
+                // Issue #2689: a login with no role can sign in but reach nothing, so the
+                // first role is chosen here. The server re-checks it against the same list.
+                if (document.searchprovider.role_name.value == "") {
+                    alert('<fmt:message key="admin.securityrecord.formRole"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
+                    document.searchprovider.role_name.focus();
+                    return false;
+                }
                 if (document.forms[0].b_ExpireSet.checked && document.forms[0].date_ExpireDate.value.length < 10) {
                     alert('<fmt:message key="admin.securityrecord.formDate"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
                     setfocus('date_ExpireDate');
@@ -237,10 +262,10 @@
             <table cellspacing="0" cellpadding="2" width="90%" border="0">
                 <tr>
                     <td>
-                        <div align="right"><fmt:message key="admin.securityrecord.formUserName"/>:
+                        <div align="right"><label for="user_name"><fmt:message key="admin.securityrecord.formUserName"/></label>:
                         </div>
                     </td>
-                    <td><input type="text" name="user_name" size="20" maxlength="10">
+                    <td><input type="text" name="user_name" id="user_name" size="30" maxlength="30">
                     </td>
                 </tr>
                 <tr>
@@ -265,11 +290,20 @@
                     <td><select name="provider_no" id="provider_no">
                         <option value="">-- select one --</option>
                         <%
-                            List<Map<String, Object>> resultList;
-                            if (isSiteAccessPrivacy) {
+                            // One query for every existing login record instead of a per-provider
+                            // lookup while rendering (avoids N+1 on installs with many providers).
+                            Set<String> providerNosWithLogin = new HashSet<String>();
+                            for (Security existingLogin : securityDao.findAllOrderBy("userName")) {
+                                providerNosWithLogin.add(existingLogin.getProviderNo());
+                            }
+
+                            // Site-scoped filtering relies on providersite rows, which only exist when
+                            // multisites is enabled (Add Provider writes them solely in that mode and no
+                            // Flyway seed populates the table). Without the multisites gate, a standalone
+                            // install where the admin holds _site_access_privacy renders an empty dropdown.
+                            if (isSiteAccessPrivacy && IsPropertiesOn.isMultisitesEnable()) {
                                 for (Provider p : providerSiteDao.findActiveProvidersBySharedSites(curProvider_no)) {
-                                    List<Security> s = securityDao.findByProviderNo(p.getProviderNo());
-                                    if (s.isEmpty()) {
+                                    if (!providerNosWithLogin.contains(p.getProviderNo())) {
                         %>
                         <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                         </option>
@@ -280,20 +314,38 @@
 
                         } else {
                             for (Provider p : providerDao.getActiveProviders()) {
+                                if (!providerNosWithLogin.contains(p.getProviderNo())) {
                         %>
                         <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                         </option>
                         <%
+                                    }
                                 }
+                            }
+                        %>
+                    </select></td>
+                </tr>
+                <%-- No option is preselected: the administrator chooses the role explicitly,
+                     and only from the roles Assign Role to Provider would let them assign. --%>
+                <tr>
+                    <td style="text-align: right"><label for="role_name"><fmt:message key="admin.securityrecord.formRole"/></label>:
+                    </td>
+                    <td><select name="role_name" id="role_name" aria-required="true">
+                        <option value="">-- select one --</option>
+                        <%
+                            for (String roleName : new SecurityAddSecurityHelper().assignableRoleNames(pageContext)) {
+                        %>
+                        <option value="<carlos:encode value='<%= roleName %>' context="htmlAttribute"/>"><carlos:encode value='<%= roleName %>' context="html"/></option>
+                        <%
                             }
                         %>
                     </select></td>
                 </tr>
                 <!-- new sec -->
                 <tr>
-                    <td align="right" nowrap><fmt:message key="admin.securityrecord.formExpiryDate"/>:
+                    <td align="right" nowrap><label for="b_ExpireSet"><fmt:message key="admin.securityrecord.formExpiryDate"/></label>:
                     </td>
-                    <td><input type="checkbox" name="b_ExpireSet" value="1" <%="checked" %>" /> <fmt:message key="admin.securityrecord.formDate"/>: <input type="text" name="date_ExpireDate"
+                    <td><input type="checkbox" name="b_ExpireSet" id="b_ExpireSet" value="1" <%="checked" %> /> <label for="date_ExpireDate"><fmt:message key="admin.securityrecord.formDate"/></label>: <input type="text" name="date_ExpireDate"
                                                                           id="date_ExpireDate"
                                                                           value="" size="10" readonly/> <img
                             src="<%= request.getContextPath() %>/images/cal.gif"

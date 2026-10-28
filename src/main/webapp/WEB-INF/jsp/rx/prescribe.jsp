@@ -98,6 +98,8 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
     for(RxPrescriptionData.Prescription rx : listRxDrugs ){
          String rand            = Long.toString(rx.getRandomId());
          String instructions    = rx.getSpecial();
+         int instructionRows    = instructions == null ? 1
+                 : Math.max(1, Math.min(4, instructions.trim().split("\\r\\n|\\r|\\n", -1).length));
          String specialInstruction=rx.getSpecialInstruction();
          String startDate       = RxUtil.DateToString(rx.getRxDate(), "yyyy-MM-dd");
          String writtenDate     = RxUtil.DateToString(rx.getWrittenDate(), "yyyy-MM-dd");
@@ -236,10 +238,10 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                     String prnStr="";
                     if(prn) { prnStr="prn"; }
 
-                drugName=drugName.replace("'", "\\'");
-                drugName=drugName.replace("\"","\\\"");
-                byte[] drugNameBytes = drugName.getBytes("ISO-8859-1");
-                drugName= new String(drugNameBytes, "UTF-8");
+                // drugName stays the raw stored name; each output below encodes it for its own context
+                // (htmlAttribute, javaScriptAttribute, javaScriptBlock). The former hand-escaping of quotes and
+                // the ISO-8859-1 -> UTF-8 re-decode put backslashes and replacement characters into the card,
+                // which a save then persisted into the prescription (#3952).
                 String fieldSetId = "set_" + rand;
 %>
 <%-- i18n variable declarations for this prescription card --%>
@@ -270,8 +272,9 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 <fmt:message key="WriteScript.msgRefillDurationError" var="i18nRefillDurationError"/>
 <fmt:message key="WriteScript.msgClose" var="i18nClose"/>
 
-<fieldset style="margin-top:2px;" id="<%=fieldSetId%>">
-    <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(<%=fieldSetId%>, <%=DrugReferenceId%>);"><img src='${carlos:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
+<%-- data-drug-ref-id links a ReRx card to its source drug so unticking ReRx can find the card (#3872); 0 for a new drug. --%>
+<fieldset style="margin-top:2px;" id="<%=fieldSetId%>" data-drug-ref-id="<carlos:encode value='<%= String.valueOf(DrugReferenceId) %>' context="htmlAttribute"/>">
+    <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(this.closest('fieldset'), <%=DrugReferenceId%>);"><img src='${carlos:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="${i18nAddToFavorites}" onclick="addFav('<%=rand%>','<carlos:encode value='<%= drugName %>' context="javaScriptAttribute"/>')">F</a>
     <a tabindex="-1" href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="var el=document.getElementById('rx_more_<%=rand%>');el.style.display=el.style.display==='none'?'':'none';">  <span id="moreLessWord_<%=rand%>" onclick="updateMoreLess(id)" >${i18nMore}</span> </a>
 
@@ -279,6 +282,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:5px;">
         <label style="width:101px;flex-shrink:0;" title="<carlos:encode value='<%= ATC %>' context="htmlAttribute"/>" >${i18nName}:</label>
         <input type="hidden" name="atcCode" value="<carlos:encode value='<%= ATCcode %>' context="htmlAttribute"/>" />
+        <input type="hidden" name="draftRevision_<%=rand%>" value="<carlos:encode value='<%= rx.getDraftRevision() %>' context="htmlAttribute"/>"/>
         <input tabindex="-1" type="text" id="drugName_<%=rand%>"  name="drugName_<%=rand%>"  size="30" <%if("0".equals(gcnCode)){%> onkeyup="saveCustomName(this);" value="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"<%} else{%> value="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"  onchange="changeDrugName('<%=rand%>','<carlos:encode value='<%= drugName %>' context="javaScriptAttribute"/>');" <%}%> TITLE="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"/>&nbsp;<span id="inactive_<%=rand%>" style="color:red;"></span>
     </div>
 
@@ -315,17 +319,26 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
     <div style="margin-bottom:5px;">
         <div style="display:flex;align-items:center;gap:5px;">
             <a tabindex="-1" href="javascript:void(0);" onclick="showHideSpecInst('siAutoComplete_<%=rand%>')" style="width:101px;flex-shrink:0;">${i18nShowHideSpecInst}: </a>
-            <input type="text" id="instructions_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" name="instructions_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" onkeypress="handleEnter(this,event);"
-                   value="<carlos:encode value='<%= instructions %>' context="htmlAttribute"/>" size="60" onchange="parseIntr(this);"/><a href="javascript:void(0);" tabindex="-1"
+            <%-- A textarea, not a text input: an input's value drops line breaks, so a favourite or
+                 re-prescription whose directions span two lines ran them together ("daily.O'Neil")
+                 on the card and in the saved prescription (#4996). One row for one line, so the card
+                 looks as before; Enter still opens Special Instructions, Shift+Enter adds a line.
+                 The newline after the opening tag is the one the HTML parser drops, so directions
+                 that themselves start with a line break keep it. --%>
+            <textarea id="instructions_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" name="instructions_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" onkeypress="handleEnter(this,event);"
+                   rows="<%= instructionRows %>" cols="60" style="resize:vertical;vertical-align:middle;" onchange="parseIntr(this);">
+<carlos:encode value='<%= instructions %>' context="html"/></textarea><a href="javascript:void(0);" tabindex="-1"
                                                                                    onclick="displayMedHistory('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>');"
                                                                                    style="color:red;font-size:13pt;vertical-align:super;text-decoration:none"
                                                                                    title="${i18nInstructionExamples}"><b>*</b></a>
             <a href="javascript:void(0);" tabindex="-1" onclick="displayInstructions('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>');"><img
                     src="<%= request.getContextPath() %>/images/icon_help_sml.gif" border="0" title="${i18nInstructionsFieldRef}" /></a>
-            <span id="major_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" style="display:none;background-color:red"></span>&nbsp;<span id="moderate_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"
-                                                                                                    style="display:none;background-color:orange"></span>&nbsp;<span
-                id='minor_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>' style="display:none;background-color:yellow;"></span>&nbsp;<span id='unknown_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>'
-                                                                                                      style="display:none;background-color:#B1FB17"></span>
+            <%-- Drug-drug interaction markers, filled by rx-interaction-warnings.js from rx/interactionWarnings (#4506). --%>
+            <span id="major_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="major" style="display:none;background-color:#b71c1c;color:#fff;font-weight:bold;padding:0 4px;"></span>&nbsp;<span
+                id="moderate_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="moderate" style="display:none;background-color:#ffb74d;color:#000;padding:0 4px;"></span>&nbsp;<span
+                id="minor_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="minor" style="display:none;background-color:#fff176;color:#000;padding:0 4px;"></span>&nbsp;<span
+                id="unknown_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="unknown" style="display:none;background-color:#c5e1a5;color:#000;padding:0 4px;"></span>&nbsp;<span
+                id="unchecked_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="unchecked" style="display:none;background-color:#e0e0e0;color:#000;padding:0 4px;"></span>
         </div>
         <div id="siAutoComplete_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" <%if (isSpecInstPresent) {%> style="overflow:visible;margin-top:1px;margin-bottom:10px"<%} else {%>
              style="overflow:visible;display:none;margin-top:1px;margin-bottom:10px"<%}%> >
@@ -497,15 +510,16 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
            </div><div>
            
             <fmt:message key="WriteScript.msgPickUpDate"/>:
+            <%-- Optional: a blank pick-up date/time is valid and saves as none (#5002). --%>
             <input type="text" id="pickupDate_<%=rand%>" name="pickupDate_<%=rand%>" value="<%=pickupDate%>"
-                   onchange="if (!isValidDate(this.value)) {this.value=null}"/>
+                   onchange="checkPickupField(this, 'date');"/>
             <fmt:message key="WriteScript.msgPickUpTime"/>:
             <input type="text" id="pickupTime_<%=rand%>" name="pickupTime_<%=rand%>" value="<%=pickupTime%>"
-                   onchange="if (!isValidTime(this.value)) {this.value=null}"/>
+                   onchange="checkPickupField(this, 'time');"/>
         </div>
         <div>
             <fmt:message key="WriteScript.msgComment"/>:
-           <input type="text" id="comment_<%=rand%>" name="comment_<%=rand%>" value="<%=comment%>" size="60"/>
+           <input type="text" id="comment_<%=rand%>" name="rxComment_<%=rand%>" value="<carlos:encode value='<%= comment %>' context="htmlAttribute"/>" size="60"/>
            </div><div>  
             <fmt:message key="WriteScript.msgETreatmentType"/>:
            <select name="eTreatmentType_<%=rand%>">
@@ -704,7 +718,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 
 
         <script type="text/javascript">
-            document.getElementById('drugName_'+'<%=rand%>').value=decodeURIComponent(encodeURIComponent('<carlos:encode value='<%= drugName %>' context="javaScriptBlock"/>'));
+            document.getElementById('drugName_'+'<%=rand%>').value='<carlos:encode value='<%= drugName %>' context="javaScriptBlock"/>';
             calculateRxData('<%=rand%>');
             handleEnter=function handleEnter(inField, ev){
                 var charCode;
@@ -715,8 +729,13 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                     charCode=ev.keyCode;
                 }
                 var id=inField.id.split("_")[1];
-                if(charCode==13)
+                if(charCode==13) {
+                    // Directions are a textarea (#4996): plain Enter keeps its old meaning and
+                    // adds no line; Shift+Enter enters a line break.
+                    if (ev.shiftKey) return;
+                    if (ev.preventDefault) ev.preventDefault();
                     showHideSpecInst('siAutoComplete_'+id);
+                }
             }
             showHideSpecInst=function showHideSpecInst(elementId){
               var el = document.getElementById(elementId);
@@ -752,37 +771,30 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                 }
             });
 
-            checkAllergy('<%=rand%>','<%=rx.getAtcCode()%>');
+            checkAllergy('<%=rand%>','<carlos:encode value="<%=rx.getAtcCode()%>" context="javaScriptBlock"/>','<carlos:encode value="<%=rx.getRegionalIdentifier()%>" context="javaScriptBlock"/>');
             checkIfInactive('<%=rand%>','<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptBlock"/>');
 
             var isDiscontinuedLatest=<%=isDiscontinuedLatest%>;
-            //oscarLog("isDiscon "+isDiscontinuedLatest);
-            //pause(1000);
-            var archR='<%=archivedReason%>';
-            if(isDiscontinuedLatest && archR!="represcribed"){
-               var archD='<%=archivedDate%>';
-               //oscarLog("in js discon "+archR+"--"+archD);
-
-                    if(confirm('This drug was discontinued on <%=archivedDate%> because of <%=archivedReason%> are you sure you want to continue it?')==true){
-                        //do nothing
-                    }
-                    else{
-                        document.getElementById('<%=fieldSetId%>').remove();
-                        //call java class to delete it from stash pool.
-                        var randId='<%=rand%>';
-                        deletePrescribe(randId);
-                    }
+            var keepStagedRx = true;
+            var archR='<carlos:encode value='<%= archivedReason %>' context="javaScriptBlock"/>';
+            if (isDiscontinuedLatest && archR !== "represcribed") {
+                var archD='<carlos:encode value='<%= archivedDate %>' context="javaScriptBlock"/>';
+                if (!confirm('This drug was discontinued on ' + archD + ' because of ' + archR
+                        + ' are you sure you want to continue it?')) {
+                    keepStagedRx = false;
+                    // Keep the draft visible until its removal succeeds, just like the card X.
+                    removePrescribingDrug(document.getElementById('<%=fieldSetId%>'), <%=DrugReferenceId%>);
+                }
             }
             var listRxDrugSize=<%=listRxDrugs.size()%>;
             //oscarLog("listRxDrugsSize="+listRxDrugSize);
             counterRx++;
             //oscarLog("counterRx="+counterRx);
-           var gcn_val="<%=gcnCode%>";
-           if(gcn_val === "0"){
-               document.getElementById('drugName_<%=rand%>').focus();
-           } else if(counterRx==listRxDrugSize){
-               //oscarLog("counterRx="+counterRx+"--listRxDrugSize="+listRxDrugSize);
-               document.getElementById('instructions_<%=rand%>').focus();
+           var gcn_val="<carlos:encode value='<%= gcnCode %>' context="javaScriptBlock"/>";
+           if (keepStagedRx) {
+               var focusInput = gcn_val === "0" ? document.getElementById('drugName_<%=rand%>')
+                       : counterRx === listRxDrugSize ? document.getElementById('instructions_<%=rand%>') : null;
+               if (focusInput) focusInput.focus();
            }
         </script>
                 <%}%>
@@ -794,13 +806,24 @@ if(skipParseInstr) {
 }
 </script>
 <%}%>
+<%-- Fail-loud staging feedback: createNewRx sets rxStageErrorKey, the bundle key of a notice, when the
+     picked item could not be staged (no prescribable DrugRef product, an unexpected error, or a
+     duplicate). Without this the pane rendered empty and the pick looked ignored. The notice is shown
+     in the user's language. --%>
+<c:if test="${not empty requestScope.rxStageErrorKey}">
+    <fmt:message key="${requestScope.rxStageErrorKey}" var="rxStageMessage"/>
+    <div class="rx-stage-message" role="status"
+         style="color:#8a1c1c;background:#fdecec;border:1px solid #e0a3a3;padding:10px 12px;margin:8px;border-radius:4px;">
+        <carlos:encode value="${rxStageMessage}"/>
+    </div>
+</c:if>
 <%-- Autocomplete for instructions field - drawn from med history (same source as displayMedHistory).
      Rendered once after all prescription cards, to avoid re-initializing on every card.
      Controlled by AUTOCOMPLETE_RX_INSTRUCTIONS property (default: true). --%>
 <% if (CarlosProperties.getInstance().isPropertyActive("AUTOCOMPLETE_RX_INSTRUCTIONS")) { %>
 <script type="text/javascript">
 jQuery(document).ready(function() {
-	jQuery("input[id^='instructions_']").autocomplete({
+	jQuery("[id^='instructions_']").autocomplete({
 		source: function(request, response) {
 			var randId = this.element[0].id.split("_")[1];
 			jQuery.ajax({

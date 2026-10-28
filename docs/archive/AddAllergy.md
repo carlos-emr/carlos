@@ -38,25 +38,26 @@ Oscar
 	4.2 Creates an object of type MedicalDataTransfer4, a wrapper for the XML
 	4.3 calls addMedicalData() on the MyOscarMedicalDataManagerUtils class, passing medicalDataTransfer object
 
-		```java
-		MedicalDataTransfer4 medicalDataTransfer = toMedicalDataTransfer(myOscarLoggedInInfo, allergy);
-		MyOscarMedicalDataManagerUtils.addMedicalData(myOscarLoggedInInfo, medicalDataTransfer, OSCAR_ALLERGIES_DATA_TYPE, allergy.getId(), false, true);
-		```
-	This is the web service call:
+```java
+MedicalDataTransfer4 medicalDataTransfer = toMedicalDataTransfer(myOscarLoggedInInfo, allergy);
+MyOscarMedicalDataManagerUtils.addMedicalData(myOscarLoggedInInfo, medicalDataTransfer, OSCAR_ALLERGIES_DATA_TYPE, allergy.getId(), false, true);
+```
 
-		```java
-		public static Long addMedicalData(MyOscarLoggedInInfo myOscarLoggedInInfo, MedicalDataTransfer4 medicalDataTransfer, String oscarDataType, Object localOscarObjectId, boolean completed, boolean active)
-				throws NotAuthorisedException_Exception, 
-				UnsupportedEncodingException_Exception, 
-				InvalidRequestException_Exception {
-			Long resultId=MedicalDataManager.addMedicalData(myOscarLoggedInInfo, medicalDataTransfer, completed, active);
-			logger.debug("addMedicalData success : resultId="+resultId);
+This is the web service call:
 
-			addSendRemoteDataLog(oscarDataType, localOscarObjectId, medicalDataTransfer.getData());
-		
-			return(resultId);
-		}
-		```
+```java
+public static Long addMedicalData(MyOscarLoggedInInfo myOscarLoggedInInfo, MedicalDataTransfer4 medicalDataTransfer, String oscarDataType, Object localOscarObjectId, boolean completed, boolean active)
+        throws NotAuthorisedException_Exception,
+        UnsupportedEncodingException_Exception,
+        InvalidRequestException_Exception {
+    Long resultId=MedicalDataManager.addMedicalData(myOscarLoggedInInfo, medicalDataTransfer, completed, active);
+    logger.debug("addMedicalData success : resultId="+resultId);
+
+    addSendRemoteDataLog(oscarDataType, localOscarObjectId, medicalDataTransfer.getData());
+
+    return(resultId);
+}
+```
 
 MyOscar 
 1. Converts the XML format of the Medical data to object of type MedicalData. If the XML is invalid, it throws UnsupportedEncodingException.
@@ -65,13 +66,7 @@ MyOscar
 		`throw(new InvalidRequestException("No medical data provided"))`
 
 	2.2 If the requesting person doesn't have access to create medical data for this patient,
- 
+
 		`throw(new NotAuthorisedException("Not allowed to create medical data for personId=" + medicalData.getOwningPersonId())`
 
 3. Otherwise, persists the data to the database using the autowired MedicalDataDAO object.
-
-
-
-
-
-

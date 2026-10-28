@@ -15,36 +15,55 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   SURFACE_SEARCH_TERM=FAKE-J
- *   SURFACE_DEMOGRAPHIC_NO=1
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (the owned patient and its cleanup)
  *   SURFACE_SCREENSHOT_DIR=/tmp
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *
+ * FIXTURE. The surfaces are opened for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker)
+ * and removes. It used to open DEMO patient 1 and save its phone comment twice; a Master Record save is not a round trip (it also
+ * rewrites the record's province and newsletter codes, and files an archive row for the previous state), so putting the comment
+ * back could never put the demo record back. The patient, its archive rows and its chart rows are deleted by the patient's key.
  */
 
 const { chromium } = require('playwright');
-const path = require('path');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const h = require('./lib/playwright-harness');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const { masterRecordLink } = require('./lib/master-record-link');
+const { clickOpensPopup } = require('./lib/playwright-ui');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const searchTerm = process.env.SURFACE_SEARCH_TERM || 'FAKE-J';
-const demographicNo = process.env.SURFACE_DEMOGRAPHIC_NO || '1';
+// The owned patient the surfaces are opened for, created in main (never a demo patient): its marker is the search term.
+const ownedMarker = newOwnedMarker();
+const searchTerm = ownedMarker;
+let demographicNo = null;
 const screenshotDir = process.env.SURFACE_SCREENSHOT_DIR || '/tmp';
 
 const badResponses = [];
 const consoleIssues = [];
+const recorder = h.createRecorder();
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -82,10 +101,7 @@ function isSevereConsoleMessage(message) {
 }
 
 function wirePage(page, label) {
-  page.on('dialog', async (dialog) => {
-    consoleIssues.push({ label, type: 'dialog', text: dialog.message() });
-    await dialog.accept();
-  });
+  h.wireStrictPage(page, label, recorder, { baseline: [] });
   page.on('response', (response) => {
     const responseUrl = response.url();
     const status = response.status();
@@ -125,9 +141,12 @@ async function login(context) {
 }
 
 async function openPatientFromSearch(context, schedulePage) {
-  const searchPopup = context.waitForEvent('page');
-  await schedulePage.locator('a').filter({ hasText: /^Search$/ }).click();
-  const searchPage = await searchPopup;
+  const searchLink = schedulePage.locator('a').filter({ hasText: /^Search$/ });
+  await searchLink.waitFor({ state: 'visible', timeout: 15000 });
+  const [searchPage] = await Promise.all([
+    context.waitForEvent('page'),
+    searchLink.click(),
+  ]);
   wirePage(searchPage, 'search');
   await searchPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
 
@@ -138,9 +157,12 @@ async function openPatientFromSearch(context, schedulePage) {
   ]);
   await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
-  const patientPopup = context.waitForEvent('page');
-  await searchPage.locator(`a[onclick*='DemographicEdit?demographic_no=${demographicNo}']`).first().click();
-  const patientPage = await patientPopup;
+  const patientLink = searchPage.locator(`a[onclick*='DemographicEdit?demographic_no=${demographicNo}']`).first();
+  await patientLink.waitFor({ state: 'visible', timeout: 15000 });
+  const [patientPage] = await Promise.all([
+    context.waitForEvent('page'),
+    patientLink.click(),
+  ]);
   wirePage(patientPage, 'patient');
   await patientPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   return patientPage;
@@ -199,13 +221,10 @@ async function checkDemographicCrud(context) {
   }
 }
 
-async function clickPopupLink(context, page, selector, label) {
-  const popupPromise = context.waitForEvent('page');
-  await page.locator(selector).first().click();
-  const popup = await popupPromise;
+async function clickPopupLink(context, page, fragment, label) {
+  const popup = await clickOpensPopup(page, masterRecordLink(page, fragment).first(),
+    { context, label, timeout: 30000 });
   wirePage(popup, label);
-  await popup.waitForLoadState('domcontentloaded', { timeout: 30000 });
-  await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   return popup;
 }
 
@@ -224,24 +243,28 @@ async function checkPatientPopups(context, patientPage) {
   const tickler = await clickPopupLink(
     context,
     patientPage,
-    "a[onclick*='/tickler/ViewTicklerMain']",
+    '/tickler/ViewTicklerMain',
     'tickler'
   );
+  assert(new URL(tickler.url()).searchParams.get('demoview') === String(demographicNo),
+    'tickler popup did not open for the owned patient');
   await tickler.locator('body').waitFor({ state: 'visible', timeout: 15000 });
   await assertDataTablesAvailable(tickler, 'tickler');
-  await tickler.screenshot({ path: path.join(screenshotDir, 'surface-tickler.png'), fullPage: true });
+  await tickler.screenshot({ path: buildArtifactPath(screenshotDir, 'surface-tickler'), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
   await tickler.close();
   await patientPage.bringToFront();
 
   const consultation = await clickPopupLink(
     context,
     patientPage,
-    "a[onclick*='ViewDisplayDemographicConsultationRequests']",
+    'ViewDisplayDemographicConsultationRequests',
     'consultation'
   );
+  assert(new URL(consultation.url()).searchParams.get('de') === String(demographicNo),
+    'consultation popup did not open for the owned patient');
   await consultation.locator('body').waitFor({ state: 'visible', timeout: 15000 });
   await assertDataTablesAvailable(consultation, 'consultation');
-  await consultation.screenshot({ path: path.join(screenshotDir, 'surface-consultation.png'), fullPage: true });
+  await consultation.screenshot({ path: buildArtifactPath(screenshotDir, 'surface-consultation'), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
 }
 
 async function checkAdminPage(context, appPath, label, requiredText) {
@@ -253,7 +276,7 @@ async function checkAdminPage(context, appPath, label, requiredText) {
   if (requiredText) {
     await page.locator('body').filter({ hasText: requiredText }).waitFor({ state: 'visible', timeout: 15000 });
   }
-  await page.screenshot({ path: path.join(screenshotDir, `surface-${label}.png`), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- local Playwright helper writes screenshots under caller-selected local artifact dir
+  await page.screenshot({ path: buildArtifactPath(screenshotDir, `surface-${label}`), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
   await page.close();
 }
 
@@ -266,9 +289,18 @@ async function checkAdminPage(context, appPath, label, requiredText) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  let browser = null;
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    // The Master Record form refuses to save a blank Canadian postal code ("The entered Postal Code is not valid"), and the surface
+    // step saves it; the demo patient this check used to open had one. A reserved real-format code, on the owned patient only.
+    sql.execute(`UPDATE demographic SET postal='K1A0B1' WHERE demographic_no=${demographicNo} AND last_name=${h.sqlString(ownedMarker)}`);
+    browser = await chromium.launch(launchOptions);
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    context.on('page', page => h.wireStrictPage(page, 'browser-surface-page', recorder, { baseline: [] }));
     const schedulePage = await login(context);
     const patientPage = await openPatientFromSearch(context, schedulePage);
 
@@ -282,14 +314,23 @@ async function checkAdminPage(context, appPath, label, requiredText) {
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     assert(fatalConsoleIssues.length === 0,
       `unexpected browser console failures: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
+    h.assertStrictPage(recorder);
 
     console.log('PASS demographic, tickler, consultation, and admin browser surfaces rendered correctly');
   } finally {
-    await browser.close();
+    try {
+      // A browser that will not close must not skip the patient's removal below.
+      if (browser) await browser.close().catch(() => {});
+      // After the browser is gone: the patient's archive and chart rows, then the patient, by its key.
+      if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker);
+    } finally {
+      sql.dispose();
+    }
   }
 })().catch((error) => {
   console.error('FAIL browser surface Playwright check');
   console.error(error.stack || error.message);
+  console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
   if (badResponses.length) {
     console.error(`HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
   }

@@ -250,6 +250,12 @@ public class Download2Action extends ActionSupport {
             File inboxDir = PathValidationUtils.validateConfiguredDirectory(
                     CarlosProperties.getInstance().getProperty("ONEDT_INBOX"), "ONEDT_INBOX");
             for (DownloadData d : downloadResult.getData()) {
+                // Keep the ministry filename EXACTLY as delivered (bare description). Ontario MOH
+                // consumers parse it positionally — BillingLegacyReport2Action selects its stylesheet
+                // on substring(2,4)=="OU", BillingDocumentErrorReportUpload2Action dispatches on
+                // startsWith("L") — so a <resourceID>_ prefix silently breaks both, and userDownload()
+                // writes the bare name anyway (one resource under two names). validatePath re-confines
+                // the name to inboxDir and strips traversal.
                 File document = PathValidationUtils.validatePath(d.getDescription(), inboxDir);
                 byte[] inputBytes = d.getContent();
 
@@ -296,7 +302,10 @@ public class Download2Action extends ActionSupport {
             logger.error("Unable to load resource list ", e);
             String errorMessage = McedtMessageCreator.exceptionToString(e);
             addActionError(getText("resourceAction.getResourceList.fault", new String[]{errorMessage}));
-            return SUCCESS;
+            // Return ERROR, not SUCCESS: a failed download must not resolve to the success result
+            // (which reads as a completed download). The error result renders the same download tab
+            // so the action error is shown to the user.
+            return ERROR;
         }
 
         //return null;
@@ -333,7 +342,12 @@ public class Download2Action extends ActionSupport {
             FileUtils.write(document, lastID, false);
 
         } catch (Exception e) {
-            logger.error("Unable to update Last Download ID ", e);
+            // Do NOT swallow: the last-downloaded id is the durable resume checkpoint. Losing it
+            // silently means the next run re-downloads already-fetched messages or skips new ones. Surface
+            // it so the download reports failure (the caller's catch returns ERROR) rather than continuing
+            // with a corrupt checkpoint.
+            logger.error("Unable to update the MCEDT last-downloaded checkpoint", e);
+            throw new RuntimeException("Failed to persist the MCEDT last-downloaded checkpoint", e);
         }
 
     }

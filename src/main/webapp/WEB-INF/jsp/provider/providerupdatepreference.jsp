@@ -110,12 +110,23 @@
 
             String selected_site = (String) request.getParameter("site");
             if (selected_site != null) {
-                session.setAttribute("site_selected", (selected_site.equals("none") ? null : selected_site));
+                // Only a clinic this login's clinic selector offers may be remembered: every active site, or under
+                // site or team access privacy the login's own. Anything else, "none" included, is All Clinics.
+                String offeredSite = null;
+                if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) {
+                    offeredSite = io.github.carlos_emr.carlos.commn.SiteChoice.offeredOrNull(selected_site,
+                            io.github.carlos_emr.carlos.commn.SiteChoice.offeredSites(
+                                    SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.SiteDao.class),
+                                    loggedInInfo.getLoggedInProviderNo(),
+                                    io.github.carlos_emr.carlos.commn.SiteChoice.hasAccessPrivacy(securityInfoManager, loggedInInfo)));
+                }
+                session.setAttribute("site_selected", offeredSite);
             }
 
             boolean saveSuccess = false;
             String errorDetails = null;
             ProviderPreference providerPreference = null;
+            String savedScheduleNavigationMode = null;
 
             String curUser_providerno = loggedInInfo.getLoggedInProviderNo();
 
@@ -141,6 +152,12 @@
                     // Save all preferences atomically - if any fail, all fail
                     providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
                     ProviderPropertyAction.updateOrCreateProviderProperties(request);
+
+                    String submittedScheduleNavigationMode = request.getParameter(UserProperty.SCHEDULE_NAVIGATION_MODE);
+                    if (submittedScheduleNavigationMode != null) {
+                        savedScheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
+                                submittedScheduleNavigationMode, false);
+                    }
 
                     // Save tickler provider number after other preferences succeed
                     if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()
@@ -181,6 +198,26 @@
         %>
         <% if (saveSuccess) { %>
         <script LANGUAGE="JavaScript">
+            <% if (savedScheduleNavigationMode != null) { %>
+            var scheduleNavigationPreferencePayload = {
+                mode: '<%= SafeEncode.forJavaScript(savedScheduleNavigationMode) %>',
+                source: 'provider-preference',
+                timestamp: Date.now()
+            };
+            try {
+                if (self.opener && typeof self.opener.applyScheduleNavigationPreference === 'function') {
+                    self.opener.applyScheduleNavigationPreference(scheduleNavigationPreferencePayload.mode);
+                }
+            } catch (e) {}
+            try {
+                var scheduleNavigationPreferenceChannel = new BroadcastChannel('carlos_schedule_navigation_mode');
+                scheduleNavigationPreferenceChannel.postMessage(scheduleNavigationPreferencePayload);
+                scheduleNavigationPreferenceChannel.close();
+            } catch (e) {}
+            try {
+                localStorage.setItem('carlos_schedule_navigation_mode', JSON.stringify(scheduleNavigationPreferencePayload));
+            } catch (e) {}
+            <% } %>
             if (self.opener && typeof self.opener.refresh1 === 'function') {
                 self.opener.refresh1();
             }

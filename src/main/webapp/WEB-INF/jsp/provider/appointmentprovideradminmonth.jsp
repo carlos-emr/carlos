@@ -53,26 +53,17 @@
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
     ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
+    MyGroupAccessRestrictionDao myGroupAccessRestrictionDao = SpringUtils.getBean(MyGroupAccessRestrictionDao.class);
 %>
 
 <%!
     //multisite starts =====================
-    private List<Site> sites;
-    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
-
-    private List<Site> curUserSites = new ArrayList<Site>();
-    private String[] curScheduleMultisite;
-    private List<String> siteProviderNos = new ArrayList<String>();
-    private List<String> siteGroups = new ArrayList<String>();
-    private String selectedSite = null;
-    private HashMap<String, String> siteBgColor = new HashMap<String, String>();
-    private HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
-
     private String getSiteHTML(String reason, List<Site> sites) {
         if (reason == null || reason.trim().length() == 0)
             return "";
         else
-            return "<span style='background-color:" + ApptUtil.getColorFromLocation(sites, reason) + "'>" + ApptUtil.getShortNameFromLocation(sites, reason) + "</span>";
+            return "<span style='background-color:" + SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(ApptUtil.getColorFromLocation(sites, reason), ""))
+                    + "'>" + SafeEncode.forHtmlContent(ApptUtil.getShortNameFromLocation(sites, reason)) + "</span>";
     }
 //multisite ends =====================
 %>
@@ -153,6 +144,23 @@
         providerview = request.getParameter("providerview") == null ? (mygroupno.equals(".default") ? curProvider_no : ("_grp_" + mygroupno)) : request.getParameter("providerview");
     }
     //String providerview = request.getParameter("providerview")==null?curProvider_no:request.getParameter("providerview") ;
+
+    // A week number opens the week view (the day sheet with weekView=true), which shows exactly
+    // one provider. "All providers" and a group have no single provider, and providerview is a
+    // request parameter, so a value that is not an existing provider gets no link either: those
+    // week numbers stay plain text instead of leading to a sheet for nobody (issue #4540).
+    // The day sheet lists the providers of the viewer's SAVED schedule view, not of providerview,
+    // so the target also needs that saved view: see ScheduleWeekLink for why. It also hides the
+    // providers in the viewer's MyGroupAccessRestriction rows from its schedule-view selector;
+    // this page does not, so the same rows decide here which provider gets no week link.
+    List<MyGroupAccessRestriction> viewerRestrictions = myGroupAccessRestrictionDao.findByProviderNo(curUser_no);
+    ScheduleWeekLink.Target weekViewTarget = ScheduleWeekLink.weekTarget(providerview, providerPreference.getMyGroupNo(),
+            providerNo -> {
+                Provider weekViewProvider = providerDao.getProvider(providerNo);
+                return weekViewProvider == null ? null : weekViewProvider.getFullName();
+            },
+            restrictedNo -> viewerRestrictions.stream()
+                    .anyMatch(restriction -> restrictedNo.equals(restriction.getMyGroupNo())));
     int NameMaxLen = 15;
 %>
 <%
@@ -168,28 +176,42 @@
 </security:oscarSec>
 
 <%
+    // Multisite state belongs to this request only. These are locals of the page's service method: a JSP
+    // declaration would make them fields of the one servlet instance that every login shares.
+    boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
+    List<Site> sites = new ArrayList<Site>();
+    List<Site> curUserSites = new ArrayList<Site>();
+    List<String> siteProviderNos = new ArrayList<String>();
+    List<String> siteGroups = new ArrayList<String>();
+    String selectedSite = null;
+    HashMap<String, String> siteBgColor = new HashMap<String, String>();
+    HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
     if (bMultisites) {
         SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
         sites = siteDao.getAllActiveSites();
 
-        String requestSite = request.getParameter("site");
-        if (requestSite != null) {
-            requestSite = (requestSite.equals("none") ? null : requestSite);
-            session.setAttribute("site_selected", requestSite);
-        }
-        selectedSite = (requestSite == null ? (String) session.getAttribute("site_selected") : requestSite);
-
+        String siteManagerProviderNo = (String) session.getAttribute("user");
         if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
             //user has Access Privacy, set user providers and group list
-            String siteManagerProviderNo = (String) session.getAttribute("user");
             curUserSites = siteDao.getActiveSitesByProviderNo(siteManagerProviderNo);
-            if (selectedSite == null) {
-                siteProviderNos = siteDao.getProviderNoBySiteManagerProviderNo(siteManagerProviderNo);
-                siteGroups = siteDao.getGroupBySiteManagerProviderNo(siteManagerProviderNo);
-            }
         } else {
             //get all active site as user site list
             curUserSites = sites;
+        }
+
+        // A requested or remembered clinic counts only while it is one this login is offered; anything else is
+        // All Clinics, and only an offered clinic is remembered.
+        String requestSite = request.getParameter("site");
+        if (requestSite != null) {
+            requestSite = io.github.carlos_emr.carlos.commn.SiteChoice.offeredOrNull(requestSite, curUserSites);
+            session.setAttribute("site_selected", requestSite);
+        }
+        selectedSite = io.github.carlos_emr.carlos.commn.SiteChoice.offeredOrNull(
+                requestSite == null ? (String) session.getAttribute("site_selected") : requestSite, curUserSites);
+
+        if ((isSiteAccessPrivacy || isTeamAccessPrivacy) && selectedSite == null) {
+            siteProviderNos = siteDao.getProviderNoBySiteManagerProviderNo(siteManagerProviderNo);
+            siteGroups = siteDao.getGroupBySiteManagerProviderNo(siteManagerProviderNo);
         }
 
         for (Site s : curUserSites) {
@@ -315,6 +337,9 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.provider.web.ScheduleWeekLink" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupAccessRestrictionDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupAccessRestriction" %>
 
     <body bgcolor="#EEEEFF" onLoad="refreshAllTabAlerts();">
 
@@ -324,6 +349,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script>
             jQuery.noConflict();
         </script>
@@ -379,25 +405,20 @@
              */
             function postViaFormPopup(url) {
                 var parts = url.split('?');
-                var form = document.createElement('form');
-                form.method = 'post';
-                form.action = "<%= request.getContextPath() %>/provider/providercontrol?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference<%=eformIds.toString()%><%=ectFormNames.toString()%>";
-                form.target = 'oscar_appt';
+                var fields = [];
                 if (parts.length > 1) {
                     var pairs = parts[1].split('&');
                     for (var i = 0; i < pairs.length; i++) {
                         var kv = pairs[i].split('=');
-                        var input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = decodeURIComponent(kv[0]);
-                        input.value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
-                        form.appendChild(input);
+                        fields.push([decodeURIComponent(kv[0]),
+                            kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '']);
                     }
                 }
-                document.body.appendChild(form);
-                window.open('', 'oscar_appt', 'height=10,width=10,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0');
-                form.submit();
-                document.body.removeChild(form);
+                // Open the popup inside the click handler (popup blockers), then
+                // post into it. carlosPostForm attaches the CSRF token, which
+                // CSRFGuard cannot inject into a runtime-built form in time (#4130).
+                var popup = window.open('', 'oscar_appt', 'height=10,width=10,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0');
+                carlosPostForm("${carlos:forJavaScript(pageContext.request.contextPath)}/provider/providercontrol?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference<%=eformIds.toString()%><%=ectFormNames.toString()%>", fields, {target: 'oscar_appt', popup: popup});
             }
 
             //<!--messenger code block-->
@@ -455,6 +476,11 @@
             }
 
             function refreshTabAlerts(id) {
+                // Only tabs mainMenu.jsp rendered for this role are refreshed; the server
+                // refuses a hidden tab's count (#2689), so polling one is a wasted 403.
+                if (!document.getElementById(id)) {
+                    return;
+                }
                 var url = "<%= request.getContextPath() %>/provider/ViewTabAlertsRefresh";
                 var pars = "id=" + id;
 
@@ -556,9 +582,9 @@
                         var providerview = "<carlos:encode value='<%= providerview %>' context="javaScriptBlock"/>";
                         if (providerview.indexOf("_grp_") != -1) {
 
-                            window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + siteName + "&mygroup_no=" + newGroupNo, "_self");
+                            window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + encodeURIComponent(siteName) + "&mygroup_no=" + encodeURIComponent(newGroupNo), "_self");
                         } else {
-                            window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + siteName + "&providerview=" + providerview, "_self");
+                            window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + encodeURIComponent(siteName) + "&providerview=" + encodeURIComponent(providerview), "_self");
                         }
                     }
                 </script>
@@ -740,7 +766,7 @@
 
                                         <% if (!bMultisites) { %>
 
-                                        <span class='datepreason'><%=date.getReason() %></span>
+                                        <span class='datepreason'><carlos:encode value='<%= date.getReason() %>'/></span>
                                         <% } %>
                                         <% }
                                         }
@@ -828,12 +854,13 @@
                                                     out.println("</tr>");
                                                     for (int j = -1; j < 7; j++) {
                                                         if (j == -1) {
+                                                            // Any day of the row will do: the week view starts at the beginning of its week.
+                                                            String weekHref = ScheduleWeekLink.href(request.getContextPath(), year, month,
+                                                                    dateGrid[i][j + 1] == 0 ? 1 : dateGrid[i][j + 1], weekViewTarget);
                                             %>
                                             <td align='center' bgcolor='#FOFOFO'><font
-                                                    FACE='VERDANA,ARIAL,HELVETICA' SIZE='2'> <a
-                                                    href='<%= request.getContextPath() %>/provider/providercontrol?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=dateGrid[i][j+1]==0?1:dateGrid[i][j+1]%>&view=<%=view==0?"0":("1&curProvider="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=week&dboperation=searchapptweek'>
-                                                        <%=(i + 1)%>
-                                            </font></td>
+                                                    FACE='VERDANA,ARIAL,HELVETICA' SIZE='2'><% if (weekHref != null) { %><a
+                                                    href="<carlos:encode value='<%= weekHref %>' context="htmlAttribute"/>"><%=(i + 1)%></a><% } else { %><%=(i + 1)%><% } %></font></td>
                                             <%
                                                     continue;
                                                 }
@@ -932,12 +959,13 @@
                                                     out.println("</tr>");
                                                     for (int j = -1; j < 7; j++) {
                                                         if (j == -1) {
+                                                            // Any day of the row will do: the week view starts at the beginning of its week.
+                                                            String weekHref = ScheduleWeekLink.href(request.getContextPath(), year, month,
+                                                                    dateGrid[i][j + 1] == 0 ? 1 : dateGrid[i][j + 1], weekViewTarget);
                                             %>
                                             <td align='center' bgcolor='#FOFOFO'><font
-                                                    FACE='VERDANA,ARIAL,HELVETICA' SIZE='2'> <a
-                                                    href='<%= request.getContextPath() %>/provider/providercontrol?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=dateGrid[i][j+1]==0?1:dateGrid[i][j+1]%>&view=<%=view==0?"0":("1&curProvider="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=week&dboperation=searchapptweek'>
-                                                        <%=(i + 1)%>
-                                            </font></td>
+                                                    FACE='VERDANA,ARIAL,HELVETICA' SIZE='2'><% if (weekHref != null) { %><a
+                                                    href="<carlos:encode value='<%= weekHref %>' context="htmlAttribute"/>"><%=(i + 1)%></a><% } else { %><%=(i + 1)%><% } %></font></td>
                                             <%
                                                     continue;
                                                 }
@@ -1000,7 +1028,7 @@
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/provider/providercontrol&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
                         return false;  //run code for 'C'alendar
                     case <fmt:message key="global.edocShortcut"/> :
-                        popupOscarRx('700', '1024', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');
+                        popupOscarRx('700', '1024', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=SafeEncode.forUriComponent(curUser_no)%>', 'edocView');
                         return false;  //run code for e'D'oc
                     case <fmt:message key="global.resourcesShortcut"/> :
                         popupOscarRx(550, 687, '<carlos:encode value='<%= resourcebaseurl %>' context="javaScriptBlock"/>');

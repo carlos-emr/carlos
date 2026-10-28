@@ -28,6 +28,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,5 +95,121 @@ public class FlowSheetCustomizationDaoIntegrationTest extends CarlosTestBase {
             long count = flowSheetCustomizationDao.getCountAll();
             assertThat(count).isEqualTo(1);
         }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return only clinic customizations for the clinic editor")
+        void shouldReturnClinicCustomizations_whenClinicScopeRequested() {
+            FlowSheetCustomization clinic = persistCustomization("issue3400", "", "0", false);
+            persistCustomization("issue3400", "provider-1", "0", false);
+            persistCustomization("issue3400", "provider-1", "42", false);
+            persistCustomization("issue3400", "", "0", true);
+            persistCustomization("other-flowsheet", "", "0", false);
+
+            List<FlowSheetCustomization> result =
+                    flowSheetCustomizationDao.getFlowSheetCustomizations("issue3400");
+
+            assertThat(result).containsExactly(clinic);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return clinic and matching provider customizations for the provider editor")
+        void shouldReturnClinicAndProviderCustomizations_whenProviderScopeRequested() {
+            FlowSheetCustomization clinic = persistCustomization("issue3400", "", "0", false);
+            FlowSheetCustomization provider = persistCustomization("issue3400", "provider-1", "0", false);
+            persistCustomization("issue3400", "provider-2", "0", false);
+            persistCustomization("issue3400", "provider-1", "42", false);
+            persistCustomization("issue3400", "provider-1", "0", true);
+            persistCustomization("other-flowsheet", "provider-1", "0", false);
+
+            List<FlowSheetCustomization> result =
+                    flowSheetCustomizationDao.getFlowSheetCustomizations("issue3400", "provider-1");
+
+            assertThat(result).containsExactly(clinic, provider);
+        }
+    }
+
+    @Nested
+    @DisplayName("Legacy unset scope fields")
+    class LegacyUnsetScopes {
+        @ParameterizedTest
+        @CsvSource(value = {"NIL,NIL,NIL", "'','',''", "'   ','   ','   '", "NIL,'0','0'"}, nullValues = "NIL")
+        void shouldLoadOnlyApplicableScopes_whenLegacyScopeFieldsAreUnset(
+                String clinicProvider, String clinicDemographic, String providerDemographic) {
+            String sheet = "legacy-unset-scope";
+            FlowSheetCustomization clinic = persistCustomization(sheet, clinicProvider, clinicDemographic, false);
+            FlowSheetCustomization provider = persistCustomization(sheet, "provider-1", providerDemographic, false);
+            FlowSheetCustomization patient = persistCustomization(sheet, "provider-2", "42", false);
+            persistCustomization(sheet, "provider-2", null, false);
+            persistCustomization(sheet, null, "43", false);
+            persistCustomization(sheet, null, null, true);
+            persistCustomization("other-sheet", null, null, false);
+
+            assertThat(flowSheetCustomizationDao.getFlowSheetCustomizations(sheet)).containsExactly(clinic);
+            assertThat(flowSheetCustomizationDao.getClinicLevelCustomizations(sheet)).containsExactly(clinic);
+            assertThat(flowSheetCustomizationDao.getFlowSheetCustomizations(sheet, "provider-1"))
+                    .containsExactly(clinic, provider);
+            assertThat(flowSheetCustomizationDao.getProviderLevelCustomizations(sheet, "provider-1"))
+                    .containsExactly(provider);
+            assertThat(flowSheetCustomizationDao.getFlowSheetCustomizations(sheet, "provider-1", 42))
+                    .containsExactly(clinic, provider, patient);
+            assertThat(flowSheetCustomizationDao.getPatientLevelCustomizations(sheet, "42"))
+                    .containsExactly(patient);
+            for (String unsetPatient : new String[] {null, "", "   ", "0"}) {
+                assertThat(flowSheetCustomizationDao.getPatientLevelCustomizations(sheet, unsetPatient)).isEmpty();
+            }
+            // A missing/zero patient must never match every provider row whose demographic is also unset.
+            assertThat(flowSheetCustomizationDao.getFlowSheetCustomizations(sheet, "provider-1", 0))
+                    .containsExactly(clinic, provider);
+            assertThat(flowSheetCustomizationDao.getFlowSheetCustomizations(sheet, "provider-1", null))
+                    .containsExactly(clinic, provider);
+        }
+
+        @Test
+        void shouldBlockByClinicBeforeProvider_withoutIncludingOtherOwners() {
+            String sheet = "legacy-cascade-scope";
+            // Insert the provider first so insertion order cannot accidentally give clinic precedence.
+            FlowSheetCustomization provider = persistCustomization(sheet, "provider-1", null, false);
+            FlowSheetCustomization clinic = persistCustomization(sheet, null, null, false);
+            persistCustomization(sheet, "provider-2", null, false);
+            persistCustomization(sheet, null, "42", false);
+            persistCustomization(sheet, null, null, true);
+            persistCustomization("other-sheet", null, null, false);
+
+            assertThat(flowSheetCustomizationDao.findHigherLevelCustomization(sheet, "A1C", "add", "provider-1", "42"))
+                    .isSameAs(clinic);
+            assertThat(flowSheetCustomizationDao.findHigherLevelCustomization(sheet, "A1C", "add", "provider-1", "   "))
+                    .isSameAs(clinic);
+            assertThat(flowSheetCustomizationDao.findHigherLevelCustomization(sheet, "A1C", "add", "   ", null))
+                    .isNull();
+            assertThat(flowSheetCustomizationDao.findHigherLevelCustomization(sheet, "OTHER", "add", "provider-1", "42"))
+                    .isNull();
+            assertThat(flowSheetCustomizationDao.findHigherLevelCustomization(sheet, "A1C", "delete", "provider-1", "42"))
+                    .isNull();
+
+            clinic.setArchived(true);
+            flowSheetCustomizationDao.merge(clinic);
+            assertThat(flowSheetCustomizationDao.findHigherLevelCustomization(sheet, "A1C", "add", "provider-1", "42"))
+                    .isSameAs(provider);
+            assertThat(flowSheetCustomizationDao.findHigherLevelCustomization(sheet, "A1C", "add", "provider-1", "0"))
+                    .isNull();
+            assertThat(flowSheetCustomizationDao.findHigherLevelCustomization(sheet, "A1C", "add", "provider-3", "42"))
+                    .isNull();
+        }
+    }
+
+    private FlowSheetCustomization persistCustomization(
+            String flowsheet, String providerNo, String demographicNo, boolean archived) {
+        FlowSheetCustomization customization = new FlowSheetCustomization();
+        customization.setFlowsheet(flowsheet);
+        customization.setProviderNo(providerNo);
+        customization.setDemographicNo(demographicNo);
+        customization.setMeasurement("A1C");
+        customization.setAction(FlowSheetCustomization.ADD);
+        customization.setPayload("<item />");
+        customization.setArchived(archived);
+        flowSheetCustomizationDao.persist(customization);
+        return customization;
     }
 }

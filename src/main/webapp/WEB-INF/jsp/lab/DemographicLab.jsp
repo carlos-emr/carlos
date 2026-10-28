@@ -31,6 +31,10 @@
 
 <%-- ========== PAGE IMPORTS ========== --%>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.lab.service.LabPatientAccess" %>
+<%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayLabAction2" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -80,6 +84,10 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     ArrayList<LabResultData> labs = comLab.populateLabResultsData(loggedInInfo, "", demographicNo, "", "", "", "U");
+    // The no-demographic inbox also contains routed labs: hide locked rows before any grouping
+    // or rendering, using the row's actual source-specific ownership rather than URL filters.
+    labs = LabPatientAccess.visibleResults(labs, SpringUtils.getBean(SecurityInfoManager.class),
+            SpringUtils.getBean(PatientLabRoutingDao.class), loggedInInfo);
     labs = getLatestLabVersions(labs);
     Collections.sort(labs);
 
@@ -91,7 +99,8 @@
     pageContext.setAttribute("demographicNo", demographicNo);
     pageContext.setAttribute("hasDemographicNo", demographicNo != null);
     pageContext.setAttribute("hasFname", request.getParameter("fname") != null);
-    pageContext.setAttribute("hasLabsAndNoDemographicNo", demographicNo == null && labs.size() > 0);
+    boolean hasLabsAndNoDemographicNo = demographicNo == null && !labs.isEmpty();
+    pageContext.setAttribute("hasLabsAndNoDemographicNo", hasLabsAndNoDemographicNo);
 %>
 
 <fmt:setBundle basename="oscarResources"/>
@@ -107,6 +116,7 @@
     <script type="text/javascript" src="${ctx}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
+    <fmt:message key="oscarMDS.index.msgNoReports" var="labEmptyTableMessage"/>
     <script type="text/javascript">
         function popupStart(vheight, vwidth, varpage, windowname) {
             var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
@@ -130,7 +140,7 @@
                 }
             }
             if (aBoxIsChecked) {
-                popupStart(300, 400, '${ctx}/oscarMDS/ViewSelectProvider', 'providerselect');
+                popupStart(397, 700, '${ctx}/oscarMDS/ViewSelectProvider', 'providerselect');
             } else {
                 alert('<fmt:message key="oscarMDS.index.msgSelectOneLab"/>');
             }
@@ -170,6 +180,7 @@
                 searching: true,
                 pageLength: 25,
                 language: {
+                    emptyTable: '<carlos:encode value='${labEmptyTableMessage}' context="javaScript"/>',
                     url: '${ctx}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
                 }
             });
@@ -262,16 +273,6 @@
                 </thead>
                 <tbody>
                     <%
-                        int colCount = (demographicNo == null) ? 7 : 6;
-                        if (labs.isEmpty()) {
-                    %>
-                    <tr>
-                        <td colspan="<%=colCount%>" class="text-center text-muted fst-italic">
-                            <fmt:message key="oscarMDS.index.msgNoReports"/>
-                        </td>
-                    </tr>
-                    <%
-                        } else {
                             for (int i = 0; i < labs.size(); i++) {
                                 LabResultData result = (LabResultData) labs.get(i);
                                 String segmentID = (String) result.segmentID;
@@ -286,7 +287,10 @@
                     <tr class="<%=rowClass%>">
                         <%  if (demographicNo == null) { %>
                         <td>
-                            <input type="checkbox" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"/>
+                            <%-- data-lab-type: the picker posts each checked lab as "<id>:<type>" (issue #4558). --%>
+                            <label for="flaggedLab<%= i %>" class="visually-hidden"><carlos:encode value='<%= formattedDate %>'/></label>
+                            <input type="checkbox" id="flaggedLab<%= i %>" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"
+                                   data-lab-type="<carlos:encode value='<%= result.labType %>' context='htmlAttribute'/>"/>
                         </td>
                         <% } %>
                         <td><%=SafeEncode.forHtmlContent(formattedDate)%></td>
@@ -309,7 +313,7 @@
                                 }
                                 if (labLabel == null || labLabel.isEmpty()) labLabel = StringUtils.trimToEmpty(result.getDiscipline());
                             %>
-                            <a href="javascript:reportWindow('<%=SafeEncode.forJavaScript(labUrl)%>')">
+                            <a href="<%=SafeEncode.forHtmlAttribute(labUrl)%>" onclick="reportWindow(this.href); return false;">
                                 <%=SafeEncode.forHtmlContent(labLabel)%>
                             </a>
                         </td>
@@ -330,7 +334,6 @@
                     </tr>
                     <%
                             }
-                        }
                     %>
                 </tbody>
             </table>
@@ -353,21 +356,6 @@
     }
 
     public ArrayList<LabResultData> getLatestLabVersions(ArrayList<LabResultData> labs) {
-        List<String> allLabIds = new ArrayList<>();
-        ArrayList<LabResultData> latestLabVersions = new ArrayList<>();
-        for (LabResultData lab : labs) {
-            if (allLabIds.contains(lab.getSegmentID())) {
-                continue;
-            }
-            String[] allLabVersionIdsOfLab = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()).split(",");
-            allLabIds.addAll(Arrays.asList(allLabVersionIdsOfLab));
-            for (LabResultData labResultData : labs) {
-                if (allLabVersionIdsOfLab[allLabVersionIdsOfLab.length - 1].equals(labResultData.getSegmentID())) {
-                    latestLabVersions.add(labResultData);
-                    break;
-                }
-            }
-        }
-        return latestLabVersions;
+        return CommonLabResultData.latestVisibleVersions(labs);
     }
 %>

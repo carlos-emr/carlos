@@ -44,6 +44,16 @@ import io.github.carlos_emr.carlos.log.LogAction;
  * Will provide access to pharmacy data.
  * <p>
  * Future Use: Add privacy, sec, and consent profiles
+ * <p>
+ * None of these methods checks privileges. {@code addPharmacy},
+ * {@code removePharmacy}, {@code getDemographicPharmacy} and
+ * {@code savePharmacyInfo} have had no production caller since the unused
+ * {@code Contact2Action} pharmacy routes were removed (issue #3509); they stay
+ * for the planned move of {@code PharmacyService} off its DAOs. A new caller
+ * must authorize the request for the owning patient first. The former
+ * {@code setDoNotContact} was removed rather than kept, because it wrote a
+ * "do not contact" flag into a consent field with no caller to show which
+ * polarity was intended.
  */
 @Service
 public class PharmacyManager {
@@ -94,7 +104,7 @@ public class PharmacyManager {
         }
 
         if (pharmacy.getDemographicNo() != demographicId) {
-            throw new IllegalArgumentException("Pharmacy association with id " + pharmacyId + " does't belong to demographic record with ID " + demographicId);
+            throw new IllegalArgumentException("Pharmacy association with id " + pharmacyId + " doesn't belong to demographic record with ID " + demographicId);
         }
 
         pharmacy.setStatus("0");
@@ -108,17 +118,10 @@ public class PharmacyManager {
         return pharmacyInfoDao.find(pharmacyId);
     }
 
-    public void setDoNotContact(LoggedInInfo loggedInInfo, Integer pharmacyId, boolean doNotContact) {
-        DemographicPharmacy pharmacy = demographicPharmacyDao.find(pharmacyId);
-        pharmacy.setConsentToContact(doNotContact);
-        demographicPharmacyDao.saveEntity(pharmacy);
-        LogAction.addLogSynchronous(loggedInInfo, "PharmacyManager.setDoNotContact", "demographicNo=" + pharmacy.getDemographicNo() + ",pharmacyId=" + pharmacyId);
-    }
-
     public Integer savePharmacyInfo(LoggedInInfo loggedInInfo, PharmacyInfo pharmacyInfo) {
 
         // not sure what the server is set to pass.
-        if (pharmacyInfo.getId() == 0) {
+        if (pharmacyInfo.getId() != null && pharmacyInfo.getId() == 0) {
             pharmacyInfo.setId(null);
         }
 

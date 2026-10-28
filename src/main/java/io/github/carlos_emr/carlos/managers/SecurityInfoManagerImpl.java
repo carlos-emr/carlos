@@ -66,7 +66,9 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
             return Collections.emptyList();
         }
 
-        return secUserRoleDao.findByProviderNo(loggedInInfo.getLoggedInProviderNo());
+        // Only active (activeyn = 1) provider-role assignments grant access; an inactive role
+        // must not feed hasPrivilege / isAllowedAccessToPatientRecord / getSecurityObjects.
+        return secUserRoleDao.findActiveByProviderNo(loggedInInfo.getLoggedInProviderNo());
     }
 
     @Override
@@ -116,6 +118,18 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public boolean hasPrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege, String demographicNo) {
+        return evaluatePrivilege(loggedInInfo, objectName, privilege, demographicNo, true);
+    }
+
+    @Override
+    public boolean hasPrivilegeReadOnly(LoggedInInfo loggedInInfo, String objectName, String privilege, String demographicNo) {
+        return evaluatePrivilege(loggedInInfo, objectName, privilege, demographicNo, false);
+    }
+
+    // The caller selects only whether an existing NORIGHTS decision marks the session.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Existing shared privilege evaluator; locale-safe hardening tracked in #2496")
+    private boolean evaluatePrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege,
+                                      String demographicNo, boolean markAccountLocked) {
         try {
             List<String> roleNameLs = new ArrayList<>();
             for (Secuserrole role : getRoles(loggedInInfo)) {
@@ -148,10 +162,12 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
 
             if (!noMatchingRoleToSpecificPatient && OscarRoleObjectPrivilege.checkPrivilege(roleNames,
                     (Properties) v.get(0), (List<String>) v.get(1), (List<String>) v.get(2), NORIGHTS)) {
-                HttpSession returnSession = loggedInInfo.getSession();
-                // nosemgrep: tainted-session-from-http-request -- value is hardcoded boolean true, not user input
-                returnSession.setAttribute("accountLocked", true);
-                loggedInInfo.setSession(returnSession);
+                if (markAccountLocked) {
+                    HttpSession returnSession = loggedInInfo.getSession();
+                    // nosemgrep: tainted-session-from-http-request -- value is hardcoded boolean true, not user input
+                    returnSession.setAttribute("accountLocked", true);
+                    loggedInInfo.setSession(returnSession);
+                }
             } else if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0),
                     (List<String>) v.get(1), (List<String>) v.get(2), "x")) {
                 return true;

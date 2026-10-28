@@ -74,6 +74,10 @@ public interface EFormDataDao extends AbstractDao<EFormData> {
 
     public List<Integer> findAllFdidByFormId(Integer formId);
 
+    /**
+     * The id, patient, date, time and provider of every current instance of an eForm, for the EForm Report Tool.
+     * Instances deleted from the chart are left out.
+     */
     public List<Object[]> findMetaFieldsByFormId(Integer formId);
 
     public List<Integer> findAllCurrentFdidByFormId(Integer formId);
@@ -85,6 +89,18 @@ public interface EFormDataDao extends AbstractDao<EFormData> {
     public List<EFormData> findByDemographicIdAndFormId(Integer demographicNo, Integer fid);
 
     public List<EFormData> findByFidsAndDates(TreeSet<Integer> fids, Date dateStart, Date dateEnd);
+
+    /**
+     * Finds current field-note IDs for one resident without loading other residents' values.
+     *
+     * @param fids selected field-note template IDs
+     * @param dateStart inclusive start of the report interval
+     * @param dateEnd exclusive end of the report interval
+     * @param residentId resident recorded in the note's residentId value
+     * @return distinct matching IDs; empty for missing/empty templates, a null/blank resident,
+     *         or no matches; never null
+     */
+    List<Integer> findFieldNoteIdsForResident(TreeSet<Integer> fids, Date dateStart, Date dateEnd, String residentId);
 
     public List<EFormData> findByFdids(List<Integer> ids);
 
@@ -104,5 +120,19 @@ public interface EFormDataDao extends AbstractDao<EFormData> {
     public List<String> getProvidersForEforms(Collection<Integer> fdidList);
 
     public Date getLatestFormDateAndTimeForEforms(Collection<Integer> fdidList);
+
+    /**
+     * Returns the subset of {@code fdids} whose {@code eform_data.demographic_no} is the given
+     * patient. Used as an ownership check before a browser-supplied eForm id is attached to, or
+     * sent out with, that patient's referral.
+     *
+     * @param demographicNo the patient that must own the eForms; {@code null} yields an empty list
+     * @param fdids candidate eForm data ids; {@code null} or empty yields an empty list without querying
+     * @return the owned fdids; never {@code null}
+     * @since 2026-09-24
+     */
+    public List<Integer> findFdidsForDemographic(Integer demographicNo, Collection<Integer> fdids);
+
+    EFormData lockForAttachmentSync(Integer id);
 
 }

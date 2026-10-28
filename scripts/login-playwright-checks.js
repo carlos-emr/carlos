@@ -12,6 +12,13 @@
  * password, forcePasswordReset flag, and passwordUpdateDate in a finally block. Use a
  * disposable development database, not a production or PHI-bearing environment.
  *
+ * NOT for a migrated clinic database. This script needs TEST_PASSWORD_HASH to match the
+ * CARLOS dev seed and drives the seeded clinician `carlosdoc`, which an OSCAR 19 import
+ * deletes (its P0 pristine gate refuses a target holding extra logins, and the seed
+ * script removes the seeded clinician before the clinic's rows land). Point it at a dev
+ * database; for a migrated one use scripts/o19-migrated-smoke-playwright-checks.js,
+ * which discovers its own accounts and fixtures from the migrated schema.
+ *
  * Defaults are for the local devcontainer:
  *   node scripts/login-playwright-checks.js
  *
@@ -21,20 +28,23 @@
  *   TEST_PASSWORD_HASH='<known hash for TEST_PASSWORD>'
  *
  * Optional environment:
- *   BASE_URL=http://127.0.0.1:8080/carlos
+ *   BASE_URL=https://127.0.0.1:8443/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=carlosdoc
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_DATABASE=carlos
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
 const { chromium, request } = require('playwright');
+const h = require('./lib/playwright-harness');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 
-const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const baseUrl = validateBaseUrl(process.env.BASE_URL || 'https://127.0.0.1:8443/carlos');
 const appPath = baseUrl.pathname.replace(/\/$/, '') || '';
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
@@ -43,7 +53,7 @@ const testPin = requiredEnv('TEST_PIN');
 const mysqlHost = process.env.MYSQL_HOST || 'db';
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = requiredEnv('MYSQL_PASSWORD');
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const resetPasswordNoCsrf = ['Carlos', '2026', '!NoCsrf'].join('');
 const resetPasswordRetry = ['Carlos', '2026', '!Retry'].join('');
 const resetPasswordValid = ['Carlos', '2026', '!Valid'].join('');
@@ -55,6 +65,8 @@ const mysqlDefaults = createMysqlDefaultsFile();
 const original = {};
 const results = [];
 const failures = [];
+let recorder = h.createRecorder();
+let diagnosticLabel = 'login';
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -66,13 +78,20 @@ function requiredEnv(name) {
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
+  if (parsed.protocol !== 'https:') {
+    throw new Error('BASE_URL must use HTTPS because CARLOS session cookies are Secure (devcontainer: https://127.0.0.1:8443/carlos)');
   }
 
   const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const localHosts = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0', 'host.docker.internal', 'carlos']);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -102,13 +121,28 @@ async function gotoApp(page, path, options = {}, query = null) {
   return page.goto(targetUrl, options); // nosemgrep
 }
 
+// A MariaDB option file is NOT a raw key=value format: in a value, '\' starts an
+// escape sequence ('\s' is a space, '\t' a tab) and an unquoted '#' starts a
+// comment that truncates the rest of the line. Writing the password verbatim
+// therefore silently corrupts it and the script dies on "Access denied" —
+// verified live against a dev instance whose root password contained a
+// backslash. Double-quoting the value neutralizes '#' and surrounding
+// whitespace; '\' and '"' still need escaping inside the quotes.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function createMysqlDefaultsFile() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-login-mysql-'));
   const file = path.join(dir, 'client.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  fs.writeFileSync(
+    file,
+    `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`,
+    { mode: 0o600 }
+  );
   return { dir, file };
 }
 
@@ -179,15 +213,72 @@ function assert(condition, message) {
   }
 }
 
+const testContexts = new Set();
+
+/** Acknowledge one proven browser fetch refusal, retaining every unrelated signal. */
+async function expectMissingCsrfRefusal(page, recorder, endpoint, form, send, verifyUnchanged) {
+  const beforeResponses = new Set(recorder.badResponses);
+  const beforeConsole = new Set(recorder.consoleIssues);
+  const expectedBody = new URLSearchParams(form).toString();
+  const witnessed = [];
+  const observe = response => {
+    const request = response.request();
+    if (request.method() === 'POST' && request.url() === endpoint && request.postData() === expectedBody) {
+      // The strict listener runs first for this same response event. Keep that
+      // exact entry, rather than later clearing every error with a matching URL.
+      witnessed.push({ response, request, entry: recorder.badResponses.at(-1) });
+    }
+  };
+  page.on('response', observe);
+  try {
+    const result = await send();
+    assert(witnessed.length === 1, 'Missing-CSRF control did not produce exactly one matching browser response');
+    const { response, request, entry } = witnessed[0];
+    await response.finished();
+    const body = await response.text();
+    assert(response.request() === request && response.status() === 403 && result.status === 403
+      && response.url() === endpoint && result.url === endpoint && result.text === body.slice(0, 300),
+    'Missing-CSRF control did not return its exact HTTP 403 response');
+    // web.xml maps this sendError(403) to the generic CARLOS errorpage.jsp.
+    assert(Object.hasOwn(response.headers(), h.APPLICATION_HEADER)
+      && /<p>\s*CARLOS Error:\s*403\s*<\/p>/.test(body) && !h.isWafPage(response.status(), body),
+    'Missing-CSRF refusal did not carry application error evidence');
+    await verifyUnchanged(result);
+    assert(entry && !beforeResponses.has(entry) && entry.status === 403
+      && entry.method === 'POST' && entry.url === endpoint,
+    'The exact missing-CSRF response was not recorded');
+    const resourceDiagnostics = recorder.consoleIssues.filter(issue => !beforeConsole.has(issue)
+      && issue.type === 'error' && issue.location?.url === endpoint
+      && /^Failed to load resource:.*\b403\b/.test(issue.text));
+    assert(resourceDiagnostics.length <= 1, 'Missing-CSRF control emitted duplicate resource diagnostics');
+    recorder.badResponses = recorder.badResponses.filter(issue => issue !== entry);
+    recorder.consoleIssues = recorder.consoleIssues.filter(issue => !resourceDiagnostics.includes(issue));
+    return result;
+  } finally {
+    page.off('response', observe);
+  }
+}
+
 async function record(name, fn) {
   const start = Date.now();
+  recorder = h.createRecorder();
+  diagnosticLabel = name;
   try {
     await fn();
+    h.assertStrictPage(recorder);
     results.push({ name, ms: Date.now() - start });
     console.log(`PASS ${name}`);
   } catch (error) {
     failures.push({ name, error });
     console.log(`FAIL ${name}: ${error.message}`);
+    console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
+  } finally {
+    // A failed assertion must not leave its browser processes alive while later
+    // checks run, especially on a memory-constrained validation VM.
+    for (const context of testContexts) {
+      await context.close().catch(() => {});
+    }
+    testContexts.clear();
   }
 }
 
@@ -204,7 +295,12 @@ async function assertResponseNotBlank(response, label, minBytes = 100) {
 }
 
 async function newBrowserContext(browser) {
-  return browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  const contextRecorder = recorder;
+  const label = diagnosticLabel;
+  context.on('page', page => h.wireStrictPage(page, label, contextRecorder, { baseline: [] }));
+  testContexts.add(context);
+  return context;
 }
 
 async function login(page, password = testPassword) {
@@ -248,6 +344,18 @@ async function expectSchedulePage(page, label) {
   assert(/Schedule|appointment|provider/i.test(html), `${label} did not look like a schedule page`);
 }
 
+// This check rewrites the seeded test user's password row, so an interrupted run
+// would leave carlosdoc on a throwaway password (issue #3600). A finally does not
+// run when the process is killed; this does. restoreOriginal() is a no-op until the
+// original row has been captured, and the cleartext MySQL password file goes too.
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    restoreOriginal();
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+});
+
 (async () => {
   Object.assign(original, securityRow());
   if (!baselineHash) {
@@ -258,6 +366,7 @@ async function expectSchedulePage(page, label) {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -286,7 +395,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('public login entry route rejects POST and allows GET', async () => {
-      const api = await request.newContext();
+      const api = await request.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
       const post = await api.post(appUrl('/index'), { form: { anything: 'x' } });
       assert(post.status() === 405, `POST /index expected 405, got ${post.status()}`);
       assert((post.headers().allow || '').includes('GET'), `POST /index missing Allow GET header`);
@@ -303,16 +412,18 @@ async function expectSchedulePage(page, label) {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
       await gotoApp(page, '/provider/providercontrol', { waitUntil: 'domcontentloaded' });
-      await page.waitForURL(/login|logout|index/, { timeout: 15000 });
+      // logoutPage submits its logout form after a delay. Wait for the final login
+      // page so that pending submission cannot abort the next route's navigation.
+      await page.waitForURL(appUrl('/index'), { timeout: 15000 });
       await assertNotBlank(page, 'unauthenticated provider redirect');
       await gotoApp(page, '/billing/CA/ON/ViewBillingONMRI', { waitUntil: 'domcontentloaded' });
-      await page.waitForURL(/login|logout|index/, { timeout: 15000 });
+      await page.waitForURL(appUrl('/index'), { timeout: 15000 });
       await assertNotBlank(page, 'unauthenticated billing MRI redirect');
       await context.close();
     });
 
     await record('unauthenticated structured and download routes return 401', async () => {
-      const api = await request.newContext();
+      const api = await request.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
       const ajax = await api.get(appUrl('/billing/CA/ON/ViewSearchRefDocAjax'), {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       });
@@ -381,27 +492,32 @@ async function expectSchedulePage(page, label) {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
       await loginToForcedReset(page);
-      const response = await page.evaluate(async ({ submitPath, password, resetPassword }) => {
-        const body = new URLSearchParams({
-          forcedpasswordchange: 'true',
-          oldPassword: password,
-          newPassword: resetPassword,
-          confirmPassword: resetPassword,
+      const before = securityRow();
+      const form = {
+        forcedpasswordchange: 'true',
+        oldPassword: testPassword,
+        newPassword: resetPasswordNoCsrf,
+        confirmPassword: resetPasswordNoCsrf,
+      };
+      await expectMissingCsrfRefusal(page, recorder, appUrl('/forcepasswordresetSubmit'), form,
+        () => page.evaluate(async ({ submitPath, form }) => {
+          const body = new URLSearchParams(form);
+          const res = await fetch(`${submitPath}/forcepasswordresetSubmit`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body,
+          });
+          return { status: res.status, url: res.url, text: (await res.text()).slice(0, 300) };
+        }, { submitPath: appPath, form }), response => {
+          assert(
+            response.status === 403 || /csrf/i.test(response.text) || response.url.includes('/errorpage'),
+            `missing-CSRF POST was not rejected: ${JSON.stringify(response)}`
+          );
+          const row = securityRow();
+          assert(row.password === baselineHash && row.forcePasswordReset === '1', 'missing-CSRF POST changed DB state');
+          assert(JSON.stringify(row) === JSON.stringify(before), 'missing-CSRF POST changed the security row');
         });
-        const res = await fetch(`${submitPath}/forcepasswordresetSubmit`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body,
-        });
-        return { status: res.status, url: res.url, text: (await res.text()).slice(0, 300) };
-      }, { submitPath: appPath, password: testPassword, resetPassword: resetPasswordNoCsrf });
-      assert(
-        response.status === 403 || /csrf/i.test(response.text) || response.url.includes('/errorpage'),
-        `missing-CSRF POST was not rejected: ${JSON.stringify(response)}`
-      );
-      const row = securityRow();
-      assert(row.password === baselineHash && row.forcePasswordReset === '1', 'missing-CSRF POST changed DB state');
       await context.close();
     });
 
@@ -485,7 +601,7 @@ async function expectSchedulePage(page, label) {
 
     await record('legacy /login forced-reset POST cannot change password without reset cache token', async () => {
       setForcedResetBaseline(1);
-      const api = await request.newContext();
+      const api = await request.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
       const res = await api.post(appUrl('/login'), {
         form: {
           forcedpasswordchange: 'true',
@@ -507,6 +623,8 @@ async function expectSchedulePage(page, label) {
       console.log(`Restored ${testUser} security row`);
     } finally {
       cleanupMysqlDefaultsFile();
+      // Last, so a signal arriving during the restore still reaches the handler.
+      signalHandlers.dispose();
     }
     console.log(`Completed ${results.length} Playwright checks, ${failures.length} failures`);
     if (failures.length) {
@@ -523,6 +641,7 @@ async function expectSchedulePage(page, label) {
   } catch (restoreError) {
     console.error(`Restore failed: ${restoreError.stack || restoreError}`);
   } finally {
+    signalHandlers.dispose();
     cleanupMysqlDefaultsFile();
   }
   process.exit(1);

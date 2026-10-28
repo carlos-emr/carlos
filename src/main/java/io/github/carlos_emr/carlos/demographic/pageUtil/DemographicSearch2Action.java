@@ -22,9 +22,10 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.Logger;
@@ -34,8 +35,9 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Struts2 action for demographic search. Replaces the {@code demographiccontrol.jsp}
  * {@code displaymode=Search} and {@code displaymode=Search } (trailing space) routes.
- * Performs security validation and routes to the appropriate result JSP. The target
- * JSPs handle their own data loading via Spring-managed DAOs and Managers.
+ * Performs security validation, identifies requests for the recent-patient shortcut,
+ * and routes to the appropriate result JSP. The target JSPs handle their own data
+ * loading via Spring-managed DAOs and Managers.
  *
  * <p>Routes to {@code demographicsearchresults.jsp} for general search, or
  * {@code demographicsearch2apptresults.jsp} for appointment-context search
@@ -46,16 +48,27 @@ import org.apache.struts2.ServletActionContext;
  */
 public class DemographicSearch2Action extends ActionSupport {
 
+    static final String RECENT_PATIENTS_ATTRIBUTE = "showRecentPatients";
+
     private static final Logger logger = MiscUtils.getLogger();
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+
+    public DemographicSearch2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    public DemographicSearch2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
     /**
-     * Validates session and demographic read privileges, then routes to the
-     * appropriate search results JSP based on the {@code displaymode} parameter.
+     * Validates session and demographic read privileges, identifies whether the
+     * target view should load recent patients, then routes to the appropriate
+     * search results JSP based on the {@code displaymode} parameter.
      *
      * @return {@link #SUCCESS} for general search results, or {@code "apptResults"}
      *         for appointment-context search (when {@code displaymode} is {@code "Search "})
@@ -75,6 +88,11 @@ public class DemographicSearch2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        PatientReadAccess.deniedPatientsFromRequest(request, securityInfoManager, loggedInInfo,
+                "_demographic", SecurityInfoManager.READ);
+        request.setAttribute(RECENT_PATIENTS_ATTRIBUTE, isRecentPatientsRequest(
+                request.getParameter("keyword"), request.getParameter("ptstatus")));
+
         // "Search " (with trailing space) is set by appointment-context forms
         // (addappointment.jsp, editappointment.jsp, ticklerAdd.jsp, PatientSearch.jsp, etc.)
         // so appointment workflows land on the appointment-specific search results view.
@@ -83,8 +101,14 @@ public class DemographicSearch2Action extends ActionSupport {
             return "apptResults";
         }
         if (displaymode != null && !"Search".equals(displaymode)) {
-            logger.debug("DemographicSearch2Action: unexpected displaymode='{}', falling through to general search", displaymode);
+            logger.debug("DemographicSearch2Action: unexpected display mode; using general search");
         }
         return SUCCESS;
+    }
+
+    private static boolean isRecentPatientsRequest(String keyword, String patientStatus) {
+        // An empty status is the explicit "All" view, so only active/default blank searches use recents.
+        boolean activePatients = patientStatus == null || "active".equals(patientStatus);
+        return activePatients && keyword != null && keyword.isEmpty();
     }
 }

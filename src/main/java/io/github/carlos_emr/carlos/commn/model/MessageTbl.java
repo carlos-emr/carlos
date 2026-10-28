@@ -42,6 +42,7 @@ import jakarta.persistence.TemporalType;
 @Entity
 @Table(name = "messagetbl")
 public class MessageTbl extends AbstractModel<Integer> {
+    public static final int SUBJECT_MAX_LENGTH = 128;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,7 +60,7 @@ public class MessageTbl extends AbstractModel<Integer> {
     @Column(name = "themessage")
     private String message;
 
-    @Column(name = "thesubject")
+    @Column(name = "thesubject", length = SUBJECT_MAX_LENGTH)
     private String subject;
 
     @Column(name = "sentby")

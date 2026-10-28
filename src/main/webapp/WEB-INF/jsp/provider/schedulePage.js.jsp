@@ -70,6 +70,12 @@ fetch(url, {
         'CSRF-TOKEN': csrfToken
     },
     body: 'appointment_no=' + encodeURIComponent(apptNo)
+}).then(function (response) {
+    // Read the (empty) answer: a response nobody reads is abandoned by the browser and reported as
+    // a failed request.
+    return response.text();
+}).catch(function () {
+    // Best effort, as before: without it the patient's chart just names no current visit.
 });
 }
 
@@ -94,6 +100,64 @@ return classElements;
 document.addEventListener('DOMContentLoaded', function() {
     setDefaultReasonView();
     initCancelledVisibility();
+});
+
+// Sticky day-sheet header: keeps the provider names exactly under the top bar
+// (--schedule-header-height), keeps the whole bar reachable on a sideways scroll,
+// and marks a schedule wider than the window "schedule-overflows" (see
+// "sticky-schedule-header" in receptionistapptstyle.css).
+// toggleCancelled and toggleReason change the schedule's width without resizing
+// anything watched here, so they send "schedule-content-changed".
+document.addEventListener('DOMContentLoaded', function () {
+    var header = document.getElementById('fixedHeaderWrapper');
+    if (!header || !window.ResizeObserver) { return; }
+    var root = document.documentElement;
+    var schedule = document.getElementById('scheduleTable');
+    var last = '';
+    document.body.classList.add('sticky-schedule-header');
+    function fitHeader() {
+        // The window's width without its vertical scrollbar, unrounded (zoom makes it fractional).
+        var visible = root.getBoundingClientRect().width;
+        root.style.setProperty('--schedule-visible-width', visible + 'px');
+        if (schedule) {
+            // Measured at the window's width: "schedule-overflows" marks a schedule
+            // whose own columns need more room, which then spans the page instead
+            // of holding still (see receptionistapptstyle.css).
+            document.body.classList.remove('schedule-overflows');
+            // Half a pixel absorbs rounding: a schedule exactly as wide as the window fits.
+            document.body.classList.toggle('schedule-overflows',
+                    schedule.getBoundingClientRect().width > visible + 0.5);
+        }
+        // Rounded down, so the names tuck a fraction of a pixel under the bar rather than
+        // leaving a gap that rows show through.
+        var height = Math.floor(header.getBoundingClientRect().height);
+        // The exact (fractional) width, so the bar's right end lands exactly on the
+        // window's edge, with no sliver under page zoom.
+        var left = Math.min(0, visible - header.getBoundingClientRect().width);
+        var now = visible + '/' + height + '/' + left;
+        if (now === last) { return; }
+        last = now;
+        root.style.setProperty('--schedule-header-height', height + 'px');
+        root.style.setProperty('--schedule-header-left', left + 'px');
+    }
+    // Changes are applied on the next frame, never inside the observer's own
+    // callback, so resizing the page cannot start a ResizeObserver loop.
+    var queued = false;
+    function fitSoon() {
+        if (queued) { return; }
+        queued = true;
+        requestAnimationFrame(function () { queued = false; fitHeader(); });
+    }
+    var observer = new ResizeObserver(fitSoon);
+    observer.observe(header);
+    // A vertical scrollbar appearing narrows the window without a resize event.
+    observer.observe(root);
+    // The schedule growing wider (more columns, longer content) is a reason to re-measure.
+    if (schedule) { observer.observe(schedule); }
+    // Belt and braces with the observer: some browsers report a zoom change as a resize only.
+    window.addEventListener('resize', fitSoon);
+    document.addEventListener('schedule-content-changed', fitSoon);
+    fitHeader();
 });
 
 // Toggle Cancelled Appointments Visibility
@@ -131,6 +195,8 @@ function toggleCancelled() {
     } catch (e) {
         // localStorage may be unavailable (e.g., private browsing); ignore
     }
+    // The schedule may now be wider or narrower: the sticky header re-measures it.
+    document.dispatchEvent(new CustomEvent('schedule-content-changed'));
 }
 
 // Initialize cancelled appointments visibility on page load
@@ -175,6 +241,7 @@ function initializeQSArray() {
     qsParm['dboperation'] = null;
     qsParm['viewall'] = null;
     qsParm['provider_no'] = null;
+    qsParm['weekView'] = null;
 }
 
 function getQSValues() {
@@ -273,6 +340,9 @@ function getLocation(id, multiplier) {
     if (qsParm['provider_no']) {
         destination += '&provider_no=' + encodeURIComponent(qsParm['provider_no']);
     }
+    if (qsParm['weekView'] === 'true') {
+        destination += '&weekView=true';
+    }
 
     window.location = destination;
 }
@@ -354,6 +424,8 @@ function toggleReason(event, providerNo) {
 
     // Update tooltips for this provider's appointments to respect privacy toggle
     updateTooltipsForProvider(providerNo, isVisible);
+    // The schedule may now be wider or narrower: the sticky header re-measures it.
+    document.dispatchEvent(new CustomEvent('schedule-content-changed'));
 }
 
 /**
@@ -415,6 +487,42 @@ popupPage2(queryString, 'appointment', height, width);
 var openEncounterInTab = <%=openEncounterInTab%>;
 // Use the JSP encoder wrapper here so null modes render safely and match the rest of this file.
 var scheduleNavigationMode = '${carlos:forJavaScript(scheduleNavigationModeValue)}';
+
+function normalizeScheduleNavigationMode(mode) {
+if (mode === 'tab' || mode === 'focused') {
+return mode;
+}
+return 'popup';
+}
+
+function applyScheduleNavigationPreference(mode) {
+scheduleNavigationMode = normalizeScheduleNavigationMode(mode);
+openEncounterInTab = scheduleNavigationMode === 'tab';
+}
+
+function handleScheduleNavigationPreferenceMessage(message) {
+if (message && message.mode) {
+applyScheduleNavigationPreference(message.mode);
+}
+}
+
+try {
+var scheduleNavigationPreferenceChannel = new BroadcastChannel('carlos_schedule_navigation_mode');
+scheduleNavigationPreferenceChannel.onmessage = function(event) {
+handleScheduleNavigationPreferenceMessage(event.data);
+};
+} catch(e) { /* BroadcastChannel not supported */ }
+
+try {
+window.addEventListener('storage', function(event) {
+if (event.key !== 'carlos_schedule_navigation_mode' || !event.newValue) {
+return;
+}
+try {
+handleScheduleNavigationPreferenceMessage(JSON.parse(event.newValue));
+} catch(e) {}
+});
+} catch(e) {}
 
 function appendQueryParam(url, key, value) {
 var parts = String(url).split('#');
@@ -499,7 +607,7 @@ var warningText = document.createElement("span");
 warningText.textContent = '${carlos:forJavaScript(accountExpiringWithDaysMsg)}';
 var changePasswordLink = document.createElement("a");
 changePasswordLink.className = "btn btn-sm btn-warning";
-changePasswordLink.href = "<%= request.getContextPath() %>/provider/ViewChangePassword";
+changePasswordLink.href = "<%= request.getContextPath() %>/provider/ViewProviderChangePassword";
 changePasswordLink.textContent = '${carlos:forJavaScript(changePasswordLabel)}';
 warning.appendChild(warningText);
 warning.appendChild(changePasswordLink);
@@ -692,6 +800,11 @@ setTimeout("refreshTabAlerts('"+id+"')", 10);
 }
 
 function refreshTabAlerts(id) {
+<%-- Only tabs the day view rendered for this role are refreshed; the server refuses a hidden
+     tab's count (#2689), so polling one is a wasted 403. --%>
+if (!document.getElementById(id)) {
+return;
+}
 var url = "<%= request.getContextPath() %>/provider/ViewTabAlertsRefresh";
 var pars = "id=" + id;
 jQuery.ajax({
@@ -731,6 +844,7 @@ if (targetWindow) { form.target = targetWindow; }
 if (parts.length > 1) {
     var pairs = parts[1].split('&');
     for (var i = 0; i < pairs.length; i++) {
+        if (!pairs[i]) { continue; }
         var kv = pairs[i].split('=');
         var input = document.createElement('input');
         input.type = 'hidden';
@@ -758,6 +872,81 @@ if (csrfInput) {
 }
 document.body.appendChild(form);
 form.submit();
+}
+
+<fmt:message var="apptStatusUpdateErrorMessage" key="provider.appointmentProviderAdminDay.statusUpdateError"/>
+var apptStatusUpdateInFlight = false;
+/**
+ * Updates an appointment status in place via an AJAX POST instead of a
+ * full-page form submission. This keeps the schedule visible (avoiding the
+ * blank white page that a full-page POST/redirect causes), shows a busy
+ * cursor while the update is in flight, and on success navigates to the
+ * refreshed day view using a history-replacing GET so browser Back does not
+ * appear to replay the status transition. Falls back to the full-page
+ * postViaForm helper when the Fetch API is unavailable.
+ * @param {string} url - providercontrol AddStatus URL with query parameters
+ */
+function updateApptStatus(url) {
+if (apptStatusUpdateInFlight) {
+    return false;
+}
+if (typeof window.fetch !== 'function') {
+    apptStatusUpdateInFlight = true;
+    postViaForm(url);
+    return false;
+}
+var parts = url.split('?');
+var body = new URLSearchParams();
+if (parts.length > 1) {
+    var pairs = parts[1].split('&');
+    for (var i = 0; i < pairs.length; i++) {
+        if (!pairs[i]) { continue; }
+        var kv = pairs[i].split('=');
+        var name = decodeURIComponent(kv[0]);
+        var value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
+        body.append(name, value);
+    }
+}
+var X = (window.pageXOffset?window.pageXOffset:window.document.body.scrollLeft);
+var Y = (window.pageYOffset?window.pageYOffset:window.document.body.scrollTop);
+body.append('x', X);
+body.append('y', Y);
+// Inject CSRF token from an existing form (CSRFGuard injects into DOM forms at page load)
+var csrfInput = document.querySelector('input[name="CSRF-TOKEN"]');
+if (!csrfInput || !csrfInput.value) {
+    console.error(new Error('CSRF token unavailable'));
+    alert('${carlos:forJavaScript(apptStatusUpdateErrorMessage)}');
+    return false;
+}
+body.append(csrfInput.name, csrfInput.value);
+var previousCursor = document.body.style.cursor;
+document.body.style.cursor = 'wait';
+apptStatusUpdateInFlight = true;
+fetch(parts[0], {
+    method: 'post',
+    headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'CSRF-TOKEN': csrfInput.value
+    },
+    body: body,
+    credentials: 'same-origin'
+}).then(function(response){
+    if (!response.ok) { throw new Error('HTTP ' + response.status); }
+    return response.text();
+}).then(function(target){
+    target = (target || '').trim();
+    if (target) {
+        window.location.replace(target);
+    } else {
+        throw new Error('empty response');
+    }
+}).catch(function(e){
+    apptStatusUpdateInFlight = false;
+    document.body.style.cursor = previousCursor;
+    console.error(e);
+    alert('${carlos:forJavaScript(apptStatusUpdateErrorMessage)}');
+});
+return false;
 }
 
 function scrollOnLoad() {

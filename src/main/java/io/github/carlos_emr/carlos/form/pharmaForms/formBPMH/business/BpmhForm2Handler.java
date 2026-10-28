@@ -401,7 +401,8 @@ public class BpmhForm2Handler {
                     parseMe = (demographicCustList.get(0)).getNotes();
                 }
 
-                logger.debug("Family Dr. may be in the demographic note field: " + parseMe);
+                // Do NOT log parseMe: it is the free-text demographic notes field (PHI).
+                logger.debug("Scanning demographic note field for a family physician reference");
 
                 if (!parseMe.isEmpty()) {
                     familyDrName = CaseNoteParser.getFamilyDr(parseMe);
@@ -457,14 +458,16 @@ public class BpmhForm2Handler {
                 logger.debug("DRUG: " + drugItem.getGenericName());
             }
 
+            // Every row is built from the patient's current medications. A posted row supplies only its
+            // instruction, matched by drug id; any other posted field, and any id that is not a current
+            // medication, is dropped (#4731).
+            List<BpmhDrug> postedRows = getBpmhFormBean().getDrugs();
+            bpmhDrugBeans = new ArrayList<>();
+            getBpmhFormBean().setDrugs(bpmhDrugBeans);
+
             if ((drugList != null) && (drugList.size() > 0)) {
 
-                bpmhDrugBeans = getBpmhFormBean().getDrugs();
                 drugFetch = new RxDrugData();
-
-                for (BpmhDrug bpmhDrugItem : bpmhDrugBeans) {
-                    logger.debug("BPMH DRUG: " + bpmhDrugItem.toString());
-                }
 
                 drugListIterator = drugList.iterator();
                 while (drugListIterator.hasNext()) {
@@ -472,33 +475,29 @@ public class BpmhForm2Handler {
                     drug = drugListIterator.next();
                     drugId = drug.getId() + "";
                     drugDIN = drug.getRegionalIdentifier();
-                    BpmhDrug bpmhDrugBean;
-                    BpmhDrug bpmhDrug = null;
+                    BpmhDrug bpmhDrug = new BpmhDrug();
                     RxDrugData.DrugMonograph drugData = null;
                     StringBuilder stringBuilder = null;
                     ArrayList<RxDrugData.DrugMonograph.DrugComponent> drugComponents = null;
                     String drugName = "";
                     String drugProduct = "";
 
-                    // check for updates to what is already contained in the form bean
-                    for (int i = 0; i < bpmhDrugBeans.size(); i++) {
-                        bpmhDrugBean = bpmhDrugBeans.get(i);
-
-                        if (drugId.equals(bpmhDrugBean.getId())) {
-                            bpmhDrug = bpmhDrugBean;
-                        }
-                    }
-
-                    // start a new bpmhDrug if nothing turns up.
-                    if (bpmhDrug == null) {
-                        bpmhDrug = new BpmhDrug();
-                        bpmhDrugBeans.add(bpmhDrug);
-                    }
+                    bpmhDrugBeans.add(bpmhDrug);
 
                     try {
                         BeanUtils.copyProperties(drug, bpmhDrug);
                     } catch (Exception e) {
                         logger.fatal("Failed to copy bean properties", e);
+                    }
+                    // Spring's copyProperties skips Integer -> String, so the id is set here: the form posts it back
+                    // to match each typed instruction to its drug (#4731).
+                    bpmhDrug.setId(drugId);
+                    if (postedRows != null) {
+                        for (BpmhDrug postedRow : postedRows) {
+                            if (postedRow != null && drugId.equals(postedRow.getId())) {
+                                bpmhDrug.setInstruction(postedRow.getInstruction());
+                            }
+                        }
                     }
 
                     // drug reason needs to be hacked together from different

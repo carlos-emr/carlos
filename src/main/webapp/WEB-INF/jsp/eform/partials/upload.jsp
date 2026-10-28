@@ -73,25 +73,38 @@
         </div>
 
         <script>
-            window.top.location.href = "<%=request.getContextPath()%>/administration?show=Forms";
+            window.top.location.href = "<%=request.getContextPath()%>/administration?show=Forms${param.scheduleNav eq '1' ? '&scheduleNav=1' : ''}";
         </script>
     </c:if>
 
 
     <form action="${pageContext.request.contextPath}/eform/uploadHtml" method="POST" onsubmit="return checkFormAndDisable()"
                enctype="multipart/form-data">
-        <div class="alert alert-danger" style="display:none"><% 
+        <c:if test="${param.scheduleNav eq '1'}">
+            <input type="hidden" name="scheduleNav" value="1"/>
+        </c:if>
+<%--
+    Upload rejections land here through this action's "input" result, and this
+    is the only place they can be seen. The alert used to carry a hardcoded
+    style="display:none" wrapped around the whole block, so the message was
+    built and then hidden -- a rejected eForm upload looked like nothing had
+    happened. Render the alert only when there is something to say, and let it
+    be visible when there is.
+
+    The messages come from the multipart layer and can embed the submitted
+    filename, so they are encoded rather than written raw.
+--%><%
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
 %>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
-<% } %></div>
+        <div class="alert alert-danger" role="alert">
+            <ul class="action-errors mb-0">
+                <% for (String error : actionErrors) { %>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
+                <% } %>
+            </ul>
+        </div>
+<% } %>
 
         <div class='uploadEformTitle'>
             <fmt:message key="eform.uploadhtml.formName"/> <span class="text-danger textExists" style='display:none;'>Name already exists</span><br>
@@ -107,11 +120,12 @@
             <fmt:message key="eform.uploadhtml.btnRoleType"/><br>
             <select name="roleType">
                 <option value="">- select one -</option>
-                <% ArrayList roleList = EFormUtil.listSecRole();
+                <% ArrayList<String> roleList = EFormUtil.listSecRole();
                     for (int i = 0; i < roleList.size(); i++) {
                 %>
 
-                <option value="<%=roleList.get(i) %>"><%=roleList.get(i) %>
+                <%-- Role names are administrator-entered text: encode them for each context (#4184). --%>
+                <option value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(roleList.get(i)) %>"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(roleList.get(i)) %>
                 </option>
 
                 <%} %>
@@ -141,9 +155,22 @@
 
     </form>
 
+    <fmt:message key="eform.uploadhtml.msgFileMissing" var="fileMissingMsg"/>
+    <fmt:message key="eform.uploadimages.processing" var="processingMsg"/>
     <div style="font-size:0; line-height:0">&nbsp;</div>
 
     <script>
+        function checkFormAndDisable() {
+            if (document.forms[0].formHtml.value === "") {
+                alert("${carlos:forJavaScript(fileMissingMsg)}");
+                return false;
+            }
+
+            document.forms[0].subm.value = "${carlos:forJavaScript(processingMsg)}";
+            document.forms[0].subm.disabled = true;
+            return true;
+        }
+
         $(document).ready(function () {
             $(".check").on("change", validate).keyup(validate);
         });

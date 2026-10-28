@@ -48,6 +48,20 @@ public interface DigitalSignatureManager extends OscarManagerBase {
     DigitalSignature getDigitalSignature(int id);
 
     /**
+     * Retrieves only authorization metadata for a stored digital signature.
+     * <p>
+     * This method must not load, decrypt, re-encrypt, or mutate the signature image payload.
+     * Use it when access must be checked before retrieving signature bytes.
+     * Legacy signatures created before module metadata may return an inferred module when the
+     * signature has a stored demographic and an existing owning record references the signature id.
+     *
+     * @param id The ID of the digital signature to retrieve metadata for.
+     * @return A {@code DigitalSignature} containing demographic and module metadata, or
+     *         {@code null} if no entity exists with the given ID.
+     */
+    DigitalSignature getDigitalSignatureMetadata(int id);
+
+    /**
      * Saves a digital signature to the database.
      * <p>
      * This is a low-level persistence method that does <strong>not</strong> check whether digital
@@ -117,4 +131,3 @@ public interface DigitalSignatureManager extends OscarManagerBase {
     DigitalSignature saveStampSignature(LoggedInInfo loggedInInfo, String providerNo, Integer demographicNo, ModuleType moduleType);
 
 }
-

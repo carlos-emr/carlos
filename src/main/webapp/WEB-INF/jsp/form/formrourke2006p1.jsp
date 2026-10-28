@@ -92,7 +92,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="form.rourke.title2006Page1"/></title>
-        <link rel="stylesheet" type="text/css" href="rourkeStyle.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/rourkeStyle.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -353,7 +353,7 @@
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
         <input type="hidden" name="c_lastVisited"
-               value=<%=props.getProperty("c_lastVisited", "p1")%>/>
+               value="<carlos:encode value='<%= props.getProperty("c_lastVisited", "p1") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table cellpadding="0" cellspacing="0" class="Header" class="hidePrint">

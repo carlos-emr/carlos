@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %><%--
+<%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -28,8 +28,18 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Legacy encounter concurrency recovery page. Displays the encounter text the refused save
+    submitted (the unsavedEncounter request attribute set by EctSaveEncounter2Action) as encoded,
+    soft-wrapped text for the authorized user to recover without adding line breaks. It used to
+    show the login-wide EctSessionBean's text, which follows whichever chart was entered last in
+    any window (issue #4673). No request parameters; requires the authenticated session and
+    _eChart read permission.
+    @since 2026-09-27 (soft-wrap and save-order documentation)
+--%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -48,8 +58,8 @@
 %>
 
 <%
-    EctSessionBean bean = null;
-    bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
+    Object unsaved = request.getAttribute("unsavedEncounter");
+    String unsavedEncounter = unsaved instanceof String ? (String) unsaved : "";
 %>
 <html>
     <head>
@@ -59,6 +69,6 @@
     </head>
     <body>
     <h1><fmt:message key="encounter.concurrencyError.errorMsg"/></h1>
-    <textarea name='encounterTextarea' wrap="hard" cols="99" rows="20"><%=bean.encounter%></textarea>
+    <textarea name="encounterTextarea" aria-label="<fmt:message key='encounter.noteBrowser.encounterNote'/>" wrap="soft" cols="99" rows="20"><carlos:encode value='<%= unsavedEncounter %>' context="htmlContent"/></textarea>
     </body>
 </html>

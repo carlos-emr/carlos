@@ -90,6 +90,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.EmailComposeManager"%>
 <%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager"%>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -119,7 +120,7 @@
     EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
 EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
 
-    String pId = (String) session.getAttribute("case_program_id");
+    String pId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
     Program program = null;
     if (pId == null) {
         pId = "";
@@ -128,14 +129,22 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         program = programDao.getProgram(Integer.valueOf(pId));
     }
 
-    String demographicNo = request.getParameter("demographicNo");
-    EctSessionBean bean;
-    if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
+    String chartPatientNo;
+    try {
+        chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(400);
         return;
     }
+    String demographicNo = chartPatientNo;
+    EctSessionBean bean = EncounterPatientContext.entryOrLoggedIn(request, loggedInInfo, chartPatientNo);
+    // Encounter metadata belongs to the explicitly named chart.
 
-    String provNo = bean.providerNo;
+    // This chart's own entry provider: the patient's remembered entry, or the logged-in provider
+    // when this login has not entered the chart. The login-wide bean's belongs to whichever chart
+    // was entered last, so taking it only when it was this chart's still changed the same chart's
+    // edit warnings with the order its windows were opened in (issue #4673).
+    String provNo = EncounterPatientContext.entryProvider(request, loggedInInfo, chartPatientNo);
 
     String dateFormat = "dd-MMM-yyyy H:mm";
     String anotherDateFormat = "dd-MM-yyyy";
@@ -167,7 +176,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     Date dToday = new Date();
     String strToday = jsfmt.format(dToday);
 
-    String frmName = "caseManagementEntryForm" + demographicNo;
+    String frmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
     CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
 
     if (cform == null) {
@@ -607,8 +616,10 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
+                <%-- url is a whole statement built from URI-encoded values: HTML-attribute encoding, not JavaScript-string encoding,
+                     which would escape its own quotes so the link never opened the form (#3941). --%>
                 <a class="links" title="<fmt:message key="encounter.view.eformView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<carlos:encode value='<%= url %>' context="javaScriptAttribute"/>"><fmt:message key="encounter.view"/></a>
+                   href="javascript:void(0)" onclick="<carlos:encode value='<%= url %>' context="htmlAttribute"/>"><fmt:message key="encounter.view"/></a>
             </div>
             <%
             } else if (note.isEmailNote()) {
@@ -853,7 +864,13 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 %>
 
 <script type="text/javascript">
-    maxNcId = <%=maxId%>;
+    // Appended batches must not discard the bounds of notes already rendered.
+    maxNcId = <%=offset%> > 0 ? Math.max(typeof maxNcId === "number" && isFinite(maxNcId) ? maxNcId : 0, <%=maxId%>) : <%=maxId%>;
+    // Batch size for notesLoader() in newCaseManagementView.js.jsp. It is the only way the
+    // client can tell an exhausted chart from a full batch: this fragment always emits these
+    // bootstrap scripts, so even a zero-note response has a non-empty body. Without it the
+    // scroll poll keeps requesting higher and higher offsets and the throbber never clears.
+    notesLastBatchSize = <%=noteSize%>;
 </script>
 
 
@@ -877,13 +894,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         if (slProp != null && slProp.getValue().equals("yes")) {
             singleLineFormat = "true";
         }
-    }
-
-    String oscarMsg = bean.oscarMsg != null ? bean.oscarMsg : "";
-    boolean hasOscarMsg = renderMoreNotesScript && !oscarMsg.equals("");
-    if (hasOscarMsg) {
-        bean.reason = "";
-        bean.oscarMsg = "";
     }
 
     String noteBody = null;
@@ -934,7 +944,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             var params = "method=updateNoteLock&demographicNo=" + demographicNo;
             jQuery.ajax({
                 type: "POST",
-                url: "<%=ctx%>/CaseManagementEntry",
+                url: chartActionUrl("/CaseManagementEntry"),
                 data: params,
                 success: function () {
                     //force save when exiting chart in case we loaded edited note in other chart
@@ -949,26 +959,24 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     jQuery(document).ready(function () {
         if ('<%=singleLineFormat%>' == 'true') {
-            var staleIds = new Array();
-
-            jQuery("img[id^='quitImg']").each(function () {
-                if (jQuery(this).attr('src').indexOf('/encounter/graphics/triangle_down.gif') != -1) {
-                    var iid = jQuery(this).attr('id');
-                    jQuery(this).trigger('click');
-                    staleIds.push(iid);
-                }
+            // The provider's single-line format: fold each shortened (stale) note onto one line with its
+            // date. These notes carry the Maximize image (name fullViewTrigger). Clicking it twice, to expand
+            // the note and fold it again, stopped working when fullViewById began adding a Minimize image of
+            // its own beside it: the second click hit the Maximize image and expanded the note again.
+            jQuery("img[name='fullViewTrigger'][id^='quitImg']").each(function () {
+                minStaleNoteView(this.id.substring('quitImg'.length));
             });
-
-            for (var i = 0; i < staleIds.length; i++) {
-                jQuery("#" + staleIds[i]).trigger('click');
-            }
         }
     });
 
     document.forms["caseManagementEntryForm"].noteId.value = "<%=savedId%>";
 
-    if (<%= hasOscarMsg %>) {
-        document.getElementById(caseNote).value += "\n\n<carlos:encode value='<%= oscarMsg %>' context="javaScript"/>";
+    // The chart render owns its message; asynchronous fragments never borrow another window's bean.
+    var encounterMessage = typeof pendingEncounterMessage === 'string'
+        ? pendingEncounterMessage : "";
+    if (encounterMessage && document.getElementById(caseNote)) {
+        document.getElementById(caseNote).value += "\n\n" + encounterMessage;
+        if (typeof pendingEncounterMessage === 'string') pendingEncounterMessage = '';
     }
 <% if (noteBody != null) { %>
     document.getElementById(caseNote).value += "\n\n<carlos:encode value='<%= noteBody %>' context="javaScript"/>";
@@ -992,13 +1000,16 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     //flag for determining if we want to submit case management entry form with enter key pressed in auto completer text box
     var submitIssues = false;
+    noteIssuesChanged = false;
 
 <%
     int MaxLen = 20;
     int TruncLen = 17;
     String ellipses = "...";
-    for (int j = 0; j < bean.templateNames.size(); j++) {
-        String encounterTmp = bean.templateNames.get(j);
+    // Template names are not patient data; a bean that never set up an encounter carries none.
+    List<String> templateNames = bean.templateNames != null ? bean.templateNames : List.of();
+    for (int j = 0; j < templateNames.size(); j++) {
+        String encounterTmp = templateNames.get(j);
         encounterTmp = StringUtils.maxLenString(encounterTmp, MaxLen, TruncLen, ellipses);
         encounterTmp = SafeEncode.forJavaScript(encounterTmp);
 %>
@@ -1008,16 +1019,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 <%
     }
 %>
-    //set default event for assigning issues
-    //we do this here so we can change event listener when changing diagnosis
-    var obj = {};
-    makeIssue = "makeIssue";
-    defaultDiv = "sig<%=savedId%>";
-    changeIssueFunc;  //set in changeDiagnosis function above
-    addIssueFunc = function(event) { updateIssues.call(obj, event, makeIssue, defaultDiv); };
-    if (document.getElementById('asgnIssues')) {
-        document.getElementById('asgnIssues').addEventListener('click', addIssueFunc);
-    }
     try {
          new Autocompleter.Local('enTemplate', 'enTemplate_list', autoCompList, {
              colours: itemColours,

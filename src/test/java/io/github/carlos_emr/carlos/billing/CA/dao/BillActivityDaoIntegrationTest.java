@@ -199,4 +199,34 @@ public class BillActivityDaoIntegrationTest extends CarlosTestBase {
             assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
         }
     }
+
+    /**
+     * The Teleplan file download serves only a file a batch names (issue #4439 D5): either of a batch's two file
+     * names finds it, a deleted batch does not, and nothing matches by prefix.
+     */
+    @Test
+    @Tag("read")
+    @Tag("query")
+    @DisplayName("should find a current batch by either of its file names")
+    void shouldFindCurrentBatch_byEitherFileName() throws Exception {
+        BillActivity current = new BillActivity();
+        EntityDataGenerator.generateTestDataForModelClass(current);
+        current.setOhipFilename("HJ261022_101500_001");
+        current.setHtmlFilename("HJ261022_101500_001.html");
+        current.setStatus("A");
+
+        BillActivity deleted = new BillActivity();
+        EntityDataGenerator.generateTestDataForModelClass(deleted);
+        deleted.setOhipFilename("HJ261022_101500_002");
+        deleted.setHtmlFilename("HJ261022_101500_002.html");
+        deleted.setStatus("D");
+
+        dao.persist(current);
+        dao.persist(deleted);
+
+        assertThat(dao.findCurrentByFilename("HJ261022_101500_001")).containsExactly(current);
+        assertThat(dao.findCurrentByFilename("HJ261022_101500_001.html")).containsExactly(current);
+        assertThat(dao.findCurrentByFilename("HJ261022_101500_002")).isEmpty();
+        assertThat(dao.findCurrentByFilename("HJ261022_101500")).isEmpty();
+    }
 }

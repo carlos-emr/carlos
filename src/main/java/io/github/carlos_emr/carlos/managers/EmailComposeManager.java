@@ -17,20 +17,19 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.Consent;
-import io.github.carlos_emr.carlos.commn.model.ConsentType;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -57,13 +56,17 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 public class EmailComposeManager {
     private final Logger logger = MiscUtils.getLogger();
 
+    public EmailComposeManager() { }
+
+    @Autowired
+    public EmailComposeManager(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = java.util.Objects.requireNonNull(securityInfoManager);
+    }
+
     @Autowired
     private EmailConfigDaoImpl emailConfigDao;
     @Autowired
     private EmailLogDaoImpl emailLogDao;
-    @Autowired
-    private UserPropertyDAO userPropertyDAO;
-
     @Autowired
     private DemographicManager demographicManager;
     @Autowired
@@ -71,28 +74,70 @@ public class EmailComposeManager {
     @Autowired
     private FormsManager formsManager;
     @Autowired
-    private PatientConsentManager patientConsentManager;
-    @Autowired
     private SecurityInfoManager securityInfoManager;
+    @Autowired
+    private EmailConsentResolver emailConsentResolver;
+    @Autowired
+    private NioFileManager nioFileManager;
 
     /**
      * Prepares an existing email for resending by retrieving its log entry.
      *
      * This method retrieves the email log for a previously sent email to allow resending
-     * with the same content and attachments. Requires READ privilege on the _email security object.
+     * with the same content and attachments. Requires email READ privilege and access to the
+     * associated patient record before any message content is returned.
      *
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param emailLogId Integer the unique identifier of the email log entry to retrieve
      * @return EmailLog the email log entry containing the original email data
      * @throws RuntimeException if the user lacks the required _email READ privilege
+     * @throws PortalInviteEmailException if the email is a patient portal invitation
      */
     public EmailLog prepareEmailForResend(LoggedInInfo loggedInInfo, Integer emailLogId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         EmailLog emailLog = emailLogDao.find(emailLogId);
+        if (emailLog == null || emailLog.getDemographic() == null
+                || emailLog.getDemographic().getDemographicNo() == null) {
+            return null;
+        }
+        Integer demographicNo = emailLog.getDemographic().getDemographicNo();
+        String patientId = String.valueOf(demographicNo);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, patientId)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, patientId)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("Access to the email patient record is denied");
+        }
+        if (EmailLog.TransactionType.PORTAL_INVITE.equals(emailLog.getTransactionType())) {
+            // A portal invitation carried a one-time code that activates a patient's portal account.
+            // Reopening it in the compose window would hand that credential to anyone who may read the
+            // patient's email history, so the invitation is resent from the portal panel instead.
+            throw new PortalInviteEmailException(demographicNo);
+        }
         return emailLog;
+    }
+
+    /**
+     * Refuses to reopen a patient portal invitation email, and names the patient whose portal page
+     * resends it instead, so a caller can send staff there. Checked only after the caller was allowed
+     * to read that patient's email.
+     */
+    public static final class PortalInviteEmailException extends SecurityException {
+        private static final long serialVersionUID = 1L;
+
+        private final int demographicNo;
+
+        public PortalInviteEmailException(int demographicNo) {
+            super("portal invitation emails cannot be reopened");
+            this.demographicNo = demographicNo;
+        }
+
+        /** @return the patient the invitation was sent to */
+        public int demographicNo() {
+            return demographicNo;
+        }
     }
 
     /**
@@ -107,11 +152,33 @@ public class EmailComposeManager {
      * @param attachedEForms String[] array of EForm IDs to attach to the email
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
      * @throws PDFGenerationException if PDF rendering fails for any EForm
-     * @throws RuntimeException if the user lacks the required _eform READ privilege
+     * @throws SecurityException if the user lacks the required _eform READ privilege
      */
     public List<EmailAttachment> prepareEFormAttachments(LoggedInInfo loggedInInfo, String fdid, String[] attachedEForms) throws PDFGenerationException {
+        return prepareEFormAttachments(loggedInInfo, fdid, attachedEForms, null);
+    }
+
+    /**
+     * Renders selected eForm attachments and optionally transfers their files to a compose directory.
+     * The caller retains ownership of the directory and must close it after use or transfer it to
+     * submission state. This method does not close it on failure, allowing the caller to clean the
+     * entire attempt, including attachments prepared by earlier calls.
+     *
+     * @param loggedInInfo current provider and security context
+     * @param fdid optional source eForm data identifier
+     * @param attachedEForms additional selected eForm identifiers
+     * @param workingDirectory caller-owned directory, or null to retain legacy renderer paths
+     * @return prepared attachment metadata; empty when no attachments are selected
+     * @throws PDFGenerationException if a selected attachment cannot be rendered or safely adopted
+     */
+    public List<EmailAttachment> prepareEFormAttachments(
+            LoggedInInfo loggedInInfo,
+            String fdid,
+            String[] attachedEForms,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
+            throw new SecurityException("missing required sec object (_eform)");
         }
 
         List<String> attachedEFormIds = convertToList(attachedEForms);
@@ -122,9 +189,8 @@ public class EmailComposeManager {
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         for (String eFormId : attachedEFormIds) {
             Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, Integer.parseInt(eFormId));
-            if (eFormPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(eFormPDFPath.getFileName().toString(), eFormPDFPath.toString(), DocumentType.EFORM, Integer.parseInt(eFormId), getFileSize(eFormPDFPath)));
-            }
+            eFormPDFPath = ownGeneratedPdf(eFormPDFPath, workingDirectory);
+            emailAttachments.add(new EmailAttachment(eFormPDFPath.getFileName().toString(), eFormPDFPath.toString(), DocumentType.EFORM, Integer.parseInt(eFormId), getFileSize(eFormPDFPath)));
         }
 
         return emailAttachments;
@@ -140,11 +206,31 @@ public class EmailComposeManager {
      * @param attachedDocuments String[] array of EDoc IDs to attach to the email
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
      * @throws PDFGenerationException if PDF rendering fails for any electronic document
-     * @throws RuntimeException if the user lacks the required _edoc READ privilege
+     * @throws SecurityException if the user lacks the required _edoc READ privilege
      */
     public List<EmailAttachment> prepareEDocAttachments(LoggedInInfo loggedInInfo, String[] attachedDocuments) throws PDFGenerationException {
+        return prepareEDocAttachments(loggedInInfo, attachedDocuments, null);
+    }
+
+    /**
+     * Renders selected document attachments and optionally transfers their files to a compose directory.
+     * The caller retains ownership of the directory and must close it after use or transfer it to
+     * submission state. This method does not close it on failure, allowing the caller to clean the
+     * entire attempt, including attachments prepared by earlier calls.
+     *
+     * @param loggedInInfo current provider and security context
+     * @param attachedDocuments selected document identifiers
+     * @param workingDirectory caller-owned directory, or null to retain legacy renderer paths
+     * @return prepared attachment metadata; empty when no attachments are selected
+     * @throws PDFGenerationException if a selected attachment cannot be rendered or safely adopted
+     */
+    public List<EmailAttachment> prepareEDocAttachments(
+            LoggedInInfo loggedInInfo,
+            String[] attachedDocuments,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
         List<String> attachedEDocIds = convertToList(attachedDocuments);
@@ -152,12 +238,38 @@ public class EmailComposeManager {
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         for (String eDocId : attachedEDocIds) {
             Path eDocPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, Integer.parseInt(eDocId));
-            if (eDocPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(eDocPDFPath.getFileName().toString(), eDocPDFPath.toString(), DocumentType.DOC, Integer.parseInt(eDocId), getFileSize(eDocPDFPath)));
-            }
+            if (workingDirectory == null) eDocPDFPath = applicationTempFile(eDocPDFPath);
+            eDocPDFPath = ownGeneratedPdf(eDocPDFPath, workingDirectory);
+            emailAttachments.add(new EmailAttachment(eDocPDFPath.getFileName().toString(), eDocPDFPath.toString(), DocumentType.DOC, Integer.parseInt(eDocId), getFileSize(eDocPDFPath)));
         }
 
         return emailAttachments;
+    }
+
+    /**
+     * The file an email attachment is prepared from, inside the CARLOS application temp tree.
+     *
+     * <p>A PDF document renders in place: {@code renderDocument} hands back the stored file itself.
+     * The compose window's attachment preview serves only application temp files, so before this a
+     * PDF document could never be emailed ("PDF preview is outside the CARLOS temp directory"). It is
+     * copied into the temp tree instead, so the preview and the send read the copy and the stored
+     * document is never handed on. A rendered file already in the temp tree is used as it is.</p>
+     *
+     * @param rendered a rendered attachment PDF, or {@code null}
+     * @return {@code rendered} if it is already an application temp file (or {@code null}), else a copy
+     *         of it in the application temp tree
+     * @throws PDFGenerationException if the copy cannot be made
+     */
+    public Path applicationTempFile(Path rendered) throws PDFGenerationException {
+        if (rendered == null || PathValidationUtils.isInApplicationTempDirectory(rendered.toFile())) {
+            return rendered;
+        }
+        try {
+            return nioFileManager.createTempFileFrom(rendered.getFileName().toString(), rendered);
+        } catch (IOException | RuntimeException e) {
+            // No file name or path in the message.
+            throw new PDFGenerationException("A document could not be copied for the email", e);
+        }
     }
 
     /**
@@ -170,11 +282,31 @@ public class EmailComposeManager {
      * @param attachedLabs String[] array of lab result IDs to attach to the email
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
      * @throws PDFGenerationException if PDF rendering fails for any laboratory result
-     * @throws RuntimeException if the user lacks the required _lab READ privilege
+     * @throws SecurityException if the user lacks the required _lab READ privilege
      */
     public List<EmailAttachment> prepareLabAttachments(LoggedInInfo loggedInInfo, String[] attachedLabs) throws PDFGenerationException {
+        return prepareLabAttachments(loggedInInfo, attachedLabs, null);
+    }
+
+    /**
+     * Renders selected lab attachments and optionally transfers their files to a compose directory.
+     * The caller retains ownership of the directory and must close it after use or transfer it to
+     * submission state. This method does not close it on failure, allowing the caller to clean the
+     * entire attempt, including attachments prepared by earlier calls.
+     *
+     * @param loggedInInfo current provider and security context
+     * @param attachedLabs selected lab identifiers
+     * @param workingDirectory caller-owned directory, or null to retain legacy renderer paths
+     * @return prepared attachment metadata; empty when no attachments are selected
+     * @throws PDFGenerationException if a selected attachment cannot be rendered or safely adopted
+     */
+    public List<EmailAttachment> prepareLabAttachments(
+            LoggedInInfo loggedInInfo,
+            String[] attachedLabs,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_lab)");
+            throw new SecurityException("missing required sec object (_lab)");
         }
 
         List<String> attachedLabIds = convertToList(attachedLabs);
@@ -182,9 +314,8 @@ public class EmailComposeManager {
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         for (String labId : attachedLabIds) {
             Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, Integer.parseInt(labId));
-            if (labPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(labPDFPath.getFileName().toString(), labPDFPath.toString(), DocumentType.LAB, Integer.parseInt(labId), getFileSize(labPDFPath)));
-            }
+            labPDFPath = ownGeneratedPdf(labPDFPath, workingDirectory);
+            emailAttachments.add(new EmailAttachment(labPDFPath.getFileName().toString(), labPDFPath.toString(), DocumentType.LAB, Integer.parseInt(labId), getFileSize(labPDFPath)));
         }
 
         return emailAttachments;
@@ -203,6 +334,26 @@ public class EmailComposeManager {
      * @throws PDFGenerationException if PDF rendering fails for any hospital report
      */
     public List<EmailAttachment> prepareHRMAttachments(LoggedInInfo loggedInInfo, String[] attachedHRMDocuments) throws PDFGenerationException {
+        return prepareHRMAttachments(loggedInInfo, attachedHRMDocuments, null);
+    }
+
+    /**
+     * Renders selected HRM report attachments and optionally transfers their files to a compose directory.
+     * The caller retains ownership of the directory and must close it after use or transfer it to
+     * submission state. This method does not close it on failure, allowing the caller to clean the
+     * entire attempt, including attachments prepared by earlier calls.
+     *
+     * @param loggedInInfo current provider and security context
+     * @param attachedHRMDocuments selected hospital-report identifiers
+     * @param workingDirectory caller-owned directory, or null to retain legacy renderer paths
+     * @return prepared attachment metadata; empty when no attachments are selected
+     * @throws PDFGenerationException if a selected attachment cannot be rendered or safely adopted
+     */
+    public List<EmailAttachment> prepareHRMAttachments(
+            LoggedInInfo loggedInInfo,
+            String[] attachedHRMDocuments,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
         if (!CarlosProperties.getInstance().isOntarioBillingRegion()) {
             return new ArrayList<>();
         }
@@ -217,9 +368,8 @@ public class EmailComposeManager {
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         for (String hrmId : attachedHRMIds) {
             Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, Integer.parseInt(hrmId));
-            if (hrmPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(hrmPDFPath.getFileName().toString(), hrmPDFPath.toString(), DocumentType.HRM, Integer.parseInt(hrmId), getFileSize(hrmPDFPath)));
-            }
+            hrmPDFPath = ownGeneratedPdf(hrmPDFPath, workingDirectory);
+            emailAttachments.add(new EmailAttachment(hrmPDFPath.getFileName().toString(), hrmPDFPath.toString(), DocumentType.HRM, Integer.parseInt(hrmId), getFileSize(hrmPDFPath)));
         }
 
         return emailAttachments;
@@ -238,12 +388,36 @@ public class EmailComposeManager {
      * @param demographicId Integer the patient demographic ID associated with the forms
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
      * @throws PDFGenerationException if PDF rendering fails for any clinical form
-     * @throws RuntimeException if the user lacks the required _form READ privilege for the specified demographic
+     * @throws SecurityException if the user lacks the required _form READ privilege for the specified demographic
      */
     public List<EmailAttachment> prepareFormAttachments(HttpServletRequest request, HttpServletResponse response, String[] attachedForms, Integer demographicId) throws PDFGenerationException {
+        return prepareFormAttachments(request, response, attachedForms, demographicId, null);
+    }
+
+    /**
+     * Renders selected form attachments and optionally transfers their files to a compose directory.
+     * The caller retains ownership of the directory and must close it after use or transfer it to
+     * submission state. This method does not close it on failure, allowing the caller to clean the
+     * entire attempt, including attachments prepared by earlier calls.
+     *
+     * @param request current authenticated request
+     * @param response current servlet response
+     * @param attachedForms selected form identifiers
+     * @param demographicId patient whose forms are rendered
+     * @param workingDirectory caller-owned directory, or null to retain legacy renderer paths
+     * @return prepared attachment metadata; empty when no attachments are selected
+     * @throws PDFGenerationException if a selected attachment cannot be rendered or safely adopted
+     */
+    public List<EmailAttachment> prepareFormAttachments(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            String[] attachedForms,
+            Integer demographicId,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, String.valueOf(demographicId))) {
-            throw new RuntimeException("missing required sec object (_form)");
+            throw new SecurityException("missing required sec object (_form)");
         }
 
         List<String> attachedFormIds = convertToList(attachedForms);
@@ -251,9 +425,8 @@ public class EmailComposeManager {
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         for (String formId : attachedFormIds) {
             Path formPDFPath = formsManager.renderForm(request, response, Integer.parseInt(formId), demographicId);
-            if (formPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(formPDFPath.getFileName().toString(), formPDFPath.toString(), DocumentType.FORM, Integer.parseInt(formId), getFileSize(formPDFPath)));
-            }
+            formPDFPath = ownGeneratedPdf(formPDFPath, workingDirectory);
+            emailAttachments.add(new EmailAttachment(formPDFPath.getFileName().toString(), formPDFPath.toString(), DocumentType.FORM, Integer.parseInt(formId), getFileSize(formPDFPath)));
         }
 
         return emailAttachments;
@@ -281,37 +454,22 @@ public class EmailComposeManager {
      * Retrieves the email communication consent status for a patient.
      *
      * This method checks the patient's consent status for email communications based on the configured
-     * consent type in user properties. Returns a two-element array containing the consent type name
-     * and the consent status (Unknown, Explicit Opt-In, or Explicit Opt-Out).
+     * consent type in user properties. Returns the consent type name, stable status code, and
+     * resource-bundle key used to localize the status at the view boundary.
      *
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param demographicId Integer the patient demographic ID to check consent for
-     * @return String[] array with two elements: [0] consent type name, [1] consent status description
+     * @return String[] array with three elements: [0] consent type name, [1] status code,
+     *         [2] status message key
      * @throws RuntimeException if the user lacks the required _email READ privilege
      */
     public String[] getEmailConsentStatus(LoggedInInfo loggedInInfo, Integer demographicId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
-        String UNKNOWN = "Unknown", OPTIN = "Explicit Opt-In", OPTOUT = "Explicit Opt-Out";
-        UserProperty userProperty = userPropertyDAO.getProp(UserProperty.EMAIL_COMMUNICATION);
-        if (userProperty == null || StringUtils.isNullOrEmpty(userProperty.getValue())) {
-            return new String[]{"", UNKNOWN};
-        }
-
-        String property = userProperty.getValue().split("[,;\\s()]+")[0];
-        ConsentType consentType = patientConsentManager.getConsentType(property);
-        if (consentType == null || !consentType.isActive()) {
-            return new String[]{"", UNKNOWN};
-        }
-
-        Consent consent = patientConsentManager.getConsentByDemographicAndConsentType(loggedInInfo, demographicId, consentType);
-        if (consent == null) {
-            return new String[]{consentType.getName(), UNKNOWN};
-        }
-
-        return consent.getPatientConsented() ? new String[]{consentType.getName(), OPTIN} : new String[]{consentType.getName(), OPTOUT};
+        EmailConsentResult consent = emailConsentResolver.resolve(loggedInInfo, demographicId);
+        return new String[]{consent.getConsentName(), consent.getStatusCode(), consent.getMessageKey()};
     }
 
     /**
@@ -324,18 +482,7 @@ public class EmailComposeManager {
      * @return Boolean TRUE if email consent is properly configured with an active consent type, FALSE otherwise
      */
     public Boolean isEmailConsentConfigured() {
-        UserProperty userProperty = userPropertyDAO.getProp(UserProperty.EMAIL_COMMUNICATION);
-        if (userProperty == null || StringUtils.isNullOrEmpty(userProperty.getValue())) {
-            return Boolean.FALSE;
-        }
-
-        String property = userProperty.getValue().split("[,;\\s()]+")[0];
-        ConsentType consentType = patientConsentManager.getConsentType(property);
-        if (consentType == null || !consentType.isActive()) {
-            return Boolean.FALSE;
-        }
-
-        return Boolean.TRUE;
+        return emailConsentResolver.isConfigured();
     }
 
     /**
@@ -431,22 +578,6 @@ public class EmailComposeManager {
     }
 
     /**
-     * Creates a password for encrypting PDF attachments based on patient demographic data.
-     *
-     * This method generates a password by concatenating the patient's birth date components
-     * (year, month, day) and health insurance number (HIN). This provides a patient-specific
-     * password that the patient can reconstruct using their own demographic information.
-     *
-     * @param loggedInInfo LoggedInInfo the current logged-in user session information
-     * @param demographicId Integer the patient demographic ID to create password for
-     * @return String the generated PDF password in format: YYYYMMDDHIN
-     */
-    public String createEmailPDFPassword(LoggedInInfo loggedInInfo, Integer demographicId) {
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicId);
-        return demographic.getYearOfBirth() + demographic.getMonthOfBirth() + demographic.getDateOfBirth() + demographic.getHin();
-    }
-
-    /**
      * Checks if the current user has a specific privilege for email operations.
      *
      * This method verifies that the logged-in user has the specified privilege level
@@ -509,6 +640,23 @@ public class EmailComposeManager {
             logger.error("Error accessing file: " + e.getMessage(), e);
         }
         return fileSize;
+    }
+
+    private static Path ownGeneratedPdf(
+            Path generatedPdf,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
+        if (generatedPdf == null) {
+            throw new PDFGenerationException("A selected email attachment could not be rendered");
+        }
+        if (workingDirectory == null) {
+            return generatedPdf;
+        }
+        try {
+            return workingDirectory.adoptGeneratedPdf(generatedPdf);
+        } catch (IOException e) {
+            throw new PDFGenerationException("Unable to secure generated email attachment", e);
+        }
     }
 
 }

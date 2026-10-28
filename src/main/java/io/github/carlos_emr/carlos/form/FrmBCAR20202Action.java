@@ -102,21 +102,44 @@ public class FrmBCAR20202Action extends ActionSupport {
         return "pg1";
     }
 
+    /**
+     * Stores the form and closes its window ({@code exit}, encounter/close.jsp). It does not redirect: a redirect
+     * already sent by {@link #save()} would have committed the response before the close page (issue #4919).
+     */
     public String saveAndExit() throws Exception {
-        save();
+        persistForm();
         return "exit";
     }
 
+    /** Stores the form and shows the page it was asked to go to next ({@code forwardTo}). */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String save() throws Exception {
+        response.sendRedirect(request.getContextPath() + persistForm());
+        return NONE;
+    }
+
+    /**
+     * The extensionless route of a BC-AR 2020 page: 1 to 5, or 6 for Attachments. The pages live under WEB-INF and
+     * are served only at these routes; the public {@code formBCAR2020pg<N>.jsp} addresses no longer exist.
+     */
+    static String pageRoute(int pageNo) {
+        return pageNo == 6 ? "/form/formBCAR2020Attachments" : "/form/formBCAR2020pg" + pageNo;
+    }
+
+    /** Stores a new version of the form from the request and returns the application path of the next page. */
+    private String persistForm() throws Exception {
         FrmBCAR2020Record bcar2020Record = (FrmBCAR2020Record) (new FrmRecordFactory()).factory(RECORD_NAME);
 
         int formId = StringUtils.isNotEmpty(request.getParameter("formId")) ? Integer.parseInt(request.getParameter("formId")) : 0;
         int demographicNo = StringUtils.isNotEmpty(request.getParameter("demographicNo")) ? Integer.parseInt(request.getParameter("demographicNo")) : 0;
-        String providerNo = StringUtils.isNotEmpty(request.getParameter("provNo")) ? request.getParameter("provNo") : "0";
+        // Stored as the signed-in provider's form, never a provider number taken from the request.
+        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         Integer page = StringUtils.isNotEmpty(request.getParameter("pageNo")) ? Integer.parseInt(request.getParameter("pageNo")) : 1;
         Integer forwardTo = StringUtils.isNotEmpty(request.getParameter("forwardTo")) ? Integer.parseInt(request.getParameter("forwardTo")) : page;
+        // A save copies the earlier version's rows into the new one, so that version must be this patient's.
+        requirePatientRights(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo, "w");
+        FrmBCAR2020Record.requireFormOfPatient(bcar2020Dao, formId, demographicNo);
 
         List<FormBCAR2020Data> currentRecords = bcar2020DataDao.findFields(formId);
         List<FormBCAR2020Text> currentTextRecords = bcar2020TextDao.findFields(formId);
@@ -202,29 +225,23 @@ public class FrmBCAR20202Action extends ActionSupport {
             persistRecords.add(rec);
         }
 
-        bcar2020DataDao.batchPersist(persistRecords, 50);
+        bcar2020DataDao.batchPersistAtomically(persistRecords, 50);
 
         for (FormBCAR2020Text rec : addTextRecords) {
             persistTextRecords.add(rec);
         }
 
-        bcar2020TextDao.batchPersist(persistTextRecords, 50);
+        bcar2020TextDao.batchPersistAtomically(persistTextRecords, 50);
 
-        String url = "/form/formBCAR2020pg";
-        if (forwardTo == 6) {
-            url = url + "Attachments.jsp";
-        } else {
-            url = url + forwardTo + ".jsp";
-        }
-        url = url + "?demographic_no=" + demographicNo + "&formId=" + formId + "&provNo=" + providerNo;
-        response.sendRedirect(request.getContextPath() + url);
-        return NONE;
+        return pageRoute(forwardTo) + "?demographic_no=" + demographicNo + "&formId=" + formId + "&provNo=" + providerNo;
     }
 
     public String print() {
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         Integer formId = Integer.parseInt(request.getParameter("formId"));
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        requirePatientRights(loggedInInfo, demographicNo, "r");
+        FrmBCAR2020Record.requireFormOfPatient(bcar2020Dao, formId, demographicNo);
 
         List<Integer> pagesToPrint = new ArrayList<>();
         // Loops through checking which pages were selected for printing
@@ -245,6 +262,20 @@ public class FrmBCAR20202Action extends ActionSupport {
         }
 
         return null;
+    }
+
+    /**
+     * Requires the BC-AR rights ({@code _form}) and the rights to this patient's record ({@code _demographic}), as
+     * {@code FrmForm2Action} does: a per-patient restriction is held on {@code _demographic$N}, which a
+     * {@code _form} check alone never reads.
+     */
+    private void requirePatientRights(LoggedInInfo loggedInInfo, int demographicNo, String rights) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", rights, demographicNo)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", rights, demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
     }
 
     public void printPdf(OutputStream os, LoggedInInfo loggedInInfo, Integer demographicNo, Integer formId, List<Integer> pagesToPrint) {

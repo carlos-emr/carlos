@@ -55,8 +55,40 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 @Repository
 public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements DocumentDao {
 
+    /** Description candidates, newest first: the first page. Both pages bind every value. */
+    private static final String DESCRIPTION_CANDIDATES_FIRST_PAGE =
+            "SELECT d FROM Document d WHERE d.status != 'D' AND d.docdesc LIKE ?1"
+            + " AND d.docdesc IS NOT NULL AND d.docdesc <> ''"
+            + " ORDER BY d.documentNo DESC";
+
+    /** Later description pages continue below the last document number scanned (?2). */
+    private static final String DESCRIPTION_CANDIDATES_NEXT_PAGE =
+            "SELECT d FROM Document d WHERE d.status != 'D' AND d.docdesc LIKE ?1"
+            + " AND d.docdesc IS NOT NULL AND d.docdesc <> '' AND d.documentNo < ?2"
+            + " ORDER BY d.documentNo DESC";
+
     public DocumentDaoImpl() {
         super(Document.class);
+    }
+
+    @Override
+    public void updatePageCount(Integer documentNo, int pageCount) {
+        if (documentNo == null || documentNo <= 0 || pageCount <= 0) throw new IllegalArgumentException("Invalid document page count");
+        int changed = entityManager.createQuery("update Document d set d.numberofpages=:pages where d.documentNo=:id and d.status<>:deleted")
+                .setParameter("pages", pageCount).setParameter("id", documentNo).setParameter("deleted", 'D').executeUpdate();
+        if (changed != 1) throw new IllegalStateException("Document is no longer available");
+        // JPQL bulk updates invalidate the second-level cache but bypass managed
+        // instances. Refresh under the acquired row lock so later flushes cannot
+        // write the caller's pre-wait metadata/classification back over another edit.
+        Document current = entityManager.find(Document.class, documentNo);
+        if (current != null) entityManager.refresh(current);
+    }
+
+    @Override
+    public Document findForPageMutation(Integer documentNo) {
+        Document document = entityManager.find(Document.class, documentNo, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (document != null) entityManager.refresh(document, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return document;
     }
 
     @Override
@@ -97,9 +129,20 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
 
     @Override
     public List<Object[]> findDocsAndConsultDocsByConsultId(Integer consultationId) {
-        Query query = entityManager.createQuery("SELECT d, cd FROM Document d, ConsultDocs cd WHERE d.documentNo = cd.documentNo AND cd.requestId = ?1 AND cd.docType = ?2 AND cd.deleted IS NULL");
+        Query query = entityManager.createQuery("SELECT d, cd FROM Document d, ConsultDocs cd, ConsultationRequest cr, CtlDocument c "
+                + "WHERE d.documentNo = cd.documentNo "
+                + "AND cr.id = cd.requestId "
+                + "AND c.id.documentNo = d.documentNo "
+                + "AND c.id.module = ?3 "
+                + "AND c.id.moduleId = cr.demographicId "
+                + "AND d.status = c.status "
+                + "AND d.status != 'D' "
+                + "AND cd.requestId = ?1 "
+                + "AND cd.docType = ?2 "
+                + "AND cd.deleted IS NULL");
         query.setParameter(1, consultationId);
         query.setParameter(2, ConsultDocs.DOCTYPE_DOC);
+        query.setParameter(3, Module.DEMOGRAPHIC.getName());
         return query.getResultList();
     }
 
@@ -337,10 +380,21 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
      */
     @Override
     public List<Document> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.updatedatetime>?1 order by x.updatedatetime";
-
-        Query query = entityManager.createQuery(sql);
+        // Exclude archive-backed eDocs before applying the result limit. Filtering in the manager
+        // after this query can return a short page and cause a synchronization client to stop before
+        // it reaches later ordinary documents.
+        Query query = entityManager.createQuery("""
+                SELECT document FROM Document document
+                WHERE document.updatedatetime > ?1
+                  AND NOT EXISTS (SELECT archive.id FROM OutboundEmailArchive archive
+                                  WHERE archive.document = document
+                                     OR archive.fileName = document.docfilename
+                                     OR archive.document.docfilename = document.docfilename)
+                  AND NOT EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
+                                  WHERE attachment.document = document
+                                     OR attachment.document.docfilename = document.docfilename)
+                ORDER BY document.updatedatetime
+                """);
         query.setParameter(1, updatedAfterThisDateExclusive);
         setLimit(query, itemsToReturn);
 
@@ -397,10 +451,25 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     @Override
     public List<Document> findByProgramProviderDemographicUpdateDate(Integer programId, String providerNo,
                                                                      Integer demographicId, Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sql = "select d from " + modelClass.getSimpleName()
-                + " d, CtlDocument c where c.id.documentNo=d.documentNo and c.id.module='demographic' AND c.id.moduleId = ?1 and (d.programId=?2 or d.programId is null or d.programId=-1) and d.doccreator=?3 and d.updatedatetime>?4 order by d.updatedatetime";
-
-        Query query = entityManager.createQuery(sql);
+        // As above, the exclusion belongs inside the limited query so archive rows cannot consume
+        // page slots in the SOAP synchronization API.
+        Query query = entityManager.createQuery("""
+                SELECT document FROM Document document, CtlDocument ctlDocument
+                WHERE ctlDocument.id.documentNo = document.documentNo
+                  AND ctlDocument.id.module = 'demographic'
+                  AND ctlDocument.id.moduleId = ?1
+                  AND (document.programId = ?2 OR document.programId IS NULL OR document.programId = -1)
+                  AND document.doccreator = ?3
+                  AND document.updatedatetime > ?4
+                  AND NOT EXISTS (SELECT archive.id FROM OutboundEmailArchive archive
+                                  WHERE archive.document = document
+                                     OR archive.fileName = document.docfilename
+                                     OR archive.document.docfilename = document.docfilename)
+                  AND NOT EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
+                                  WHERE attachment.document = document
+                                     OR attachment.document.docfilename = document.docfilename)
+                ORDER BY document.updatedatetime
+                """);
         query.setParameter(1, demographicId);
         query.setParameter(2, programId);
         query.setParameter(3, providerNo);
@@ -473,11 +542,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return results;
     }
 
-    /**
-     * Returns distinct document descriptions matching the keyword, in descending document number order.
-    /**
-     * Retrieves distinct document descriptions matching the keyword.
-     */
+    /** Raw legacy DAO lookup; callers remain responsible for clinical authorization. */
     public List<String> findDocumentDescriptions(String keyword) {
         if (keyword == null) {
             keyword = "%";
@@ -486,6 +551,21 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         Query query = entityManager.createQuery(jpql);
         query.setParameter(1, keyword);
         query.setMaxResults(20);
+        return query.getResultList();
+    }
+
+    /** Newest-first candidate pages; authorization and distinct-result limits belong to the caller. */
+    @Override
+    public List<Document> findDocumentDescriptionCandidates(String keyword, Integer beforeDocumentNo, int limit) {
+        if (limit <= 0 || limit > 100 || (beforeDocumentNo != null && beforeDocumentNo <= 0)) {
+            throw new IllegalArgumentException("Invalid document description page");
+        }
+        Query query = beforeDocumentNo == null
+                ? entityManager.createQuery(DESCRIPTION_CANDIDATES_FIRST_PAGE)
+                : entityManager.createQuery(DESCRIPTION_CANDIDATES_NEXT_PAGE);
+        query.setParameter(1, keyword == null ? "%" : keyword);
+        if (beforeDocumentNo != null) query.setParameter(2, beforeDocumentNo);
+        query.setMaxResults(limit);
         return query.getResultList();
     }
 

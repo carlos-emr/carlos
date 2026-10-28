@@ -48,11 +48,18 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.List;
 
+/**
+ * Saves and clears a patient's photo for the Client Image Manager popup ({@code uploadimage.jsp}).
+ *
+ * <p>The patient is the {@code demographicNo} the popup's forms post, and the login's write access to
+ * that patient is checked before anything else touches it. The session's {@code clientId} is never
+ * read: it held whichever popup was opened last, so with two patients' popups open Clear Photo in the
+ * first cleared the second patient's photo (issue #4546).</p>
+ */
 public class ClientImage2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -68,6 +75,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
     // Execute on struts action call — routes to saveImage or deleteImage based on method parameter
     public String execute() {
         validateWritePrivilege();
+        if (!isPostRequest()) return NONE;
 
         String method = request.getParameter("method");
         if ("deleteImage".equals(method)) {
@@ -78,19 +86,20 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
     public String saveImage() {
         validateWritePrivilege();
+        if (!isPostRequest()) return NONE;
         return doSaveImage();
     }
 
     private String doSaveImage() {
-        HttpSession session = request.getSession(true);
-        String id = (String) session.getAttribute("clientId");
+        Integer demographicNo = postedDemographicNo();
 
         log.info("client image upload requested");
 
-        if (id == null || id.isBlank()) {
+        if (demographicNo == null) {
             addActionError("No client selected.");
             return ERROR;
         }
+        validatePatientWriteAccess(demographicNo);
 
         if (clientImage == null || clientImageFileName == null || clientImageFileName.isBlank()) {
             addActionError("Please select an image to upload.");
@@ -122,7 +131,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
             byte[] imageData = Files.readAllBytes(validatedImage.toPath());
 
             ClientImage clientImageObj = new ClientImage();
-            clientImageObj.setDemographic_no(Integer.parseInt(id));
+            clientImageObj.setDemographic_no(demographicNo);
             clientImageObj.setImage_data(imageData);
             clientImageObj.setImage_type(type);
 
@@ -140,25 +149,26 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
     public String deleteImage() {
         validateWritePrivilege();
+        if (!isPostRequest()) return NONE;
         return doDeleteImage();
     }
 
     private String doDeleteImage() {
-        HttpSession session = request.getSession(true);
-        String id = (String) session.getAttribute("clientId");
+        Integer demographicNo = postedDemographicNo();
 
         log.info("client image delete requested");
 
-        if (id == null || id.isEmpty()) {
-            log.error("No clientId found in session for image delete");
+        if (demographicNo == null) {
+            log.warn("client image delete requested without a valid patient number");
             addActionError("No client selected.");
             return ERROR;
         }
+        validatePatientWriteAccess(demographicNo);
 
         try {
-            clientImageManager.deleteClientImage(Integer.parseInt(id));
+            clientImageManager.deleteClientImage(demographicNo);
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            LogAction.addLogSynchronous(loggedInInfo, "ClientImage2Action.deleteImage", "clientId=" + id);
+            LogAction.addLogSynchronous(loggedInInfo, "ClientImage2Action.deleteImage", "clientId=" + demographicNo);
         } catch (Exception e) {
             log.error("Error deleting image", e);
             addActionError("Error deleting image.");
@@ -167,6 +177,14 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
         request.setAttribute("success", true);
         return SUCCESS;
+    }
+
+    /** Refuses photo mutations from safe-method requests, including direct action entry points. */
+    private boolean isPostRequest() {
+        if ("POST".equals(request.getMethod())) return true;
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 
     /**
@@ -182,7 +200,46 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
             throw new SecurityException("User session is not valid");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            throw new SecurityException("missing required security object (_demographic)");
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+    }
+
+    /**
+     * Reads the patient the Client Image Manager was opened for, which both of its forms post as
+     * {@code demographicNo}. A missing, repeated or non-numeric value names no patient: the action
+     * must not guess one, and the session's {@code clientId} is deliberately not a fallback.
+     *
+     * @return the posted demographic number, or {@code null} when the request does not name exactly
+     *         one positive integer patient number
+     */
+    private Integer postedDemographicNo() {
+        String[] values = request.getParameterValues("demographicNo");
+        if (values == null || values.length != 1 || values[0] == null || !values[0].matches("[1-9]\\d{0,9}")) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(values[0]);
+        } catch (NumberFormatException _) {
+            // Ten digits above Integer.MAX_VALUE.
+            return null;
+        }
+    }
+
+    /**
+     * Checks the login may change this patient's record: {@code _demographic} write evaluated for the
+     * patient (a patient-specific override takes priority over the role's general right) and the
+     * patient-record access check that honours patient locks. Runs before the photo is read or written.
+     *
+     * @param demographicNo the posted patient number
+     * @throws SecurityException if either check refuses
+     */
+    private void validatePatientWriteAccess(Integer demographicNo) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", String.valueOf(demographicNo))) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("Unauthorized access to patient record");
         }
     }
 

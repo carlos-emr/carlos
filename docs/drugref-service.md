@@ -16,13 +16,13 @@ The endpoint is consumed by the prescription module for drug search, dosing, ATC
 
 | Container | Image | Internal Port | Host Port |
 |-----------|-------|---------------|-----------|
-| `carlos-tomcat-dev` | Tomcat 11 + JDK 21 (CARLOS app) | 8080 | 8080 |
-| `carlos-drugref-dev` | Tomcat 11 + JDK 21 (drugref2.war) | 8080 | 8180 |
+| `carlos-tomcat-dev` | Tomcat 11 + JDK 25 (CARLOS app) | 8080 | 8080 |
+| `carlos-drugref-dev` | Tomcat 11 + JDK 25 (drugref2.war) | 8080 | 8180 |
 | `carlos-mariadb-dev` | MariaDB | 3306 | 3306 |
 
 Both Tomcat instances listen on container port 8080 — there is no conflict because they run in separate containers on the `carlos-network` bridge. CARLOS resolves `drugref` via Docker's internal DNS.
 
-The `drugref2` database (separate from CARLOS's `oscar` database) is created on the same MariaDB instance by `.devcontainer/db/scripts/populate_db.sh`.
+The `drugref2` database (separate from CARLOS's `carlos` database) is created on the same MariaDB instance by `.devcontainer/db/scripts/populate_db.sh`.
 
 ## Remote Address Restriction & Override
 
@@ -81,6 +81,33 @@ curl -i http://drugref:8080/drugref2/DrugrefService?wsdl
 ```
 
 A healthy service returns `HTTP/1.1 200` with the WSDL document. `HTTP/1.1 403` means the requesting IP is outside the allow list — widen `DRUGREF_CATALINA_OPTS`.
+
+## Drug-Drug Interaction Warnings on the Rx Page
+
+The staged prescription cards on the Rx page (`SearchDrug3.jsp`) show interaction warnings from
+DrugRef's Holbrook data (`fetch("interactions_byATC", atcCodes)`). Issue #4506 restored them; before
+that the page never asked.
+
+- **Flow.** Whenever a card is staged or removed (and on load), `share/javascript/rx-interaction-warnings.js`
+  requests `GET rx/interactionWarnings?demographicNo=N` (`RxInteractionWarnings2Action`). The server checks
+  every staged drug's ATC code against the other staged drugs and the patient's current medications
+  (`RxInteractionWarningService`) and answers JSON; the page fills the card's `major_/moderate_/minor_/unknown_<randomId>`
+  marker, with the effect, evidence and DrugRef's comment in the tooltip. Interactions among current
+  medications alone have no card and are not shown.
+- **Warning level.** `RxInteractionWarningLevelResolver` applies `rxInteractionWarningLevel`: the facility
+  value, replaced by the provider's preference when set, replaced by the patient's setting when set.
+  Low (or not specified) shows everything, Medium moderate and major, High major only, None nothing.
+- **No-effect records are not warnings.** DrugRef records some pairs with effect `N` ("has no effect on");
+  in the shipped data those are exactly the records with no significance. They are skipped. Any other
+  ungraded record is shown at every level except None.
+- **Failures are visible.** A DrugRef error, an error struct (`{"Error": ...}`) or an empty answer makes the
+  check `unavailable`, and the page says so above the cards; it never renders an unanswered check as a
+  card with no interactions.
+- **Unclassified drugs are flagged.** A staged drug with no ATC code (a custom drug) cannot be checked; the
+  answer lists it under `unchecked` and its card says "Interactions not checked". Free-text custom notes
+  are not drugs and are left out.
+
+Browser regression: `scripts/rx-interaction-warnings-playwright-checks.js`.
 
 ## Bare-Metal Deployment
 

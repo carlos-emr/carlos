@@ -37,74 +37,27 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Objects;
 
 
 public final class EncryptionUtils {
-    private static final QueueCacheValueCloner<byte[]> byteArrayCloner = new QueueCacheValueCloner<byte[]>() {
-        public byte[] cloneBean(byte[] original) {
-            return (byte[]) original.clone();
-        }
-    };
+    private static final int AES_128_KEY_BYTES = 16;
+    private static final int AES_192_KEY_BYTES = 24;
+    private static final int AES_256_KEY_BYTES = 32;
     private static Logger logger = MiscUtils.getLogger();
-    private static final MessageDigest messageDigest = initMessageDigest();
-    private static final QueueCache<String, byte[]> sha1Cache;
-    private static final int MAX_SHA_KEY_CACHE_SIZE = 2048;
     public static final String SECRET_KEY_ENV_VAR = "encryption.util.secret.key";
-    private static SecretKeySpec SECRET_KEY_SPEC;
+    private static volatile SecretKeySpec SECRET_KEY_SPEC;
     private static final String ENCRYPTION_PREFIX = "{ENC}";
+    /**
+     * Smallest possible output of {@link #encrypt(byte[])}: the 12-byte IV plus the 16-byte
+     * (128-bit) GCM tag, before any ciphertext bytes.
+     */
+    public static final int MIN_CIPHERTEXT_BYTES = 12 + 16;
 
     public EncryptionUtils() {
-    }
-
-    private static MessageDigest initMessageDigest() {
-        try {
-            return MessageDigest.getInstance("SHA-1");
-        } catch (NoSuchAlgorithmException var1) {
-            logger.error("Error", var1);
-            return null;
-        }
-    }
-
-    /**
-     * @deprecated
-     * weak: do not use for generating password hashes.
-     * use the hash(String password) method below.
-     */
-    @Deprecated
-    public static byte[] getSha1(String s) {
-        byte[] b = (byte[]) sha1Cache.get(s);
-        if (b == null) {
-            b = getSha1NoCache(s);
-            if (s.length() < 2048) {
-                sha1Cache.put(s, b);
-            }
-        }
-
-        return b;
-    }
-
-    /**
-     * @deprecated
-     * weak: do not use for generating password hashes.
-     * use the hash(String password) method below.
-     */
-    @Deprecated
-    private static byte[] getSha1NoCache(String s) {
-        if (s == null) {
-            return null;
-        } else {
-            try {
-                synchronized (Objects.requireNonNull(messageDigest)) {
-                    return messageDigest.digest(s.getBytes("UTF-8"));
-                }
-            } catch (Exception var4) {
-                logger.error("Unexpected error.", var4);
-                return null;
-            }
-        }
     }
 
     /**
@@ -123,7 +76,7 @@ public final class EncryptionUtils {
      **/
     public static byte[] encrypt(byte[] input) throws Exception {
         if (Objects.isNull(SECRET_KEY_SPEC)) {
-            throw new Exception("Secret key not found in environment variables.");
+            throw new IllegalStateException("Secret key not found in CarlosProperties.");
         }
 
         byte[] iv = new byte[12];
@@ -161,7 +114,7 @@ public final class EncryptionUtils {
      **/
     public static byte[] decrypt(byte[] cipherBytes) throws Exception {
         if (Objects.isNull(SECRET_KEY_SPEC)) {
-            throw new Exception("Secret key not found in environment variables.");
+            throw new IllegalStateException("Secret key not found in CarlosProperties.");
         }
 
         ByteBuffer byteBuffer = ByteBuffer.wrap(cipherBytes);
@@ -245,6 +198,33 @@ public final class EncryptionUtils {
     }
 
     /**
+     * Reports whether a stored value has the exact shape {@link #encrypt(String)} writes: the
+     * {@code {ENC}} marker followed by standard Base64 that decodes to at least a 12-byte IV and a
+     * 16-byte GCM tag.
+     * <p>
+     * Stricter than {@link #isEncrypted(String)}, which is a bare prefix test that also answers
+     * {@code true} for null and empty input. Use this where plaintext must not be counted as
+     * ciphertext, such as the startup check for data a missing key would orphan. It narrows the
+     * {@code {ENC}} prefix collision (#3132) to plaintext that is itself well-formed Base64 of that
+     * length, but cannot rule it out without the key. It never decrypts and needs no key.
+     *
+     * @param value the stored value, may be null
+     * @return true when the value is shaped like output of {@link #encrypt(String)}
+     * @since 2026-09-29
+     */
+    public static boolean isWellFormedCiphertext(String value) {
+        if (value == null || !value.startsWith(ENCRYPTION_PREFIX)) {
+            return false;
+        }
+        try {
+            return Base64.getDecoder().decode(value.substring(ENCRYPTION_PREFIX.length())).length
+                    >= MIN_CIPHERTEXT_BYTES;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /**
      * Generates a new secret key for encryption/decryption.
      * <p>
      * This method uses the AES algorithm to generate a 256-bit secret key.
@@ -266,17 +246,70 @@ public final class EncryptionUtils {
      * <p>
      * This method retrieves the secret key from the CarlosProperties, decodes it from Base64,
      * and initializes the SECRET_KEY_SPEC with the decoded key.
-     * If the secret key is not found in the properties, an error is logged.
+     * <p>
+     * The cached SECRET_KEY_SPEC is unconditionally reset to {@code null} before re-deriving it,
+     * so a missing or invalid key always clears any previously cached spec rather than leaving a
+     * stale value in place.
+     * <p>
+     * Failure modes:
+     * <ul>
+     *   <li>A missing or blank key is treated as "not configured": a warning is logged and the
+     *       method returns with SECRET_KEY_SPEC left {@code null} (non-fatal, no exception). This
+     *       is the expected early-class-load state; Startup re-prepares the key once properties
+     *       are available.</li>
+     *   <li>An invalid key (not valid Base64, or not a 16/24/32-byte AES key) is fatal and throws.</li>
+     * </ul>
+     *
+     * @throws IllegalArgumentException if the configured key is not valid Base64 or does not
+     *                                  decode to a 16/24/32-byte (AES-128/192/256) key
      */
     public static void prepareSecretKeySpec() {
         String key = CarlosProperties.getInstance().getProperty(SECRET_KEY_ENV_VAR);
-        if (Objects.isNull(key)) {
-            logger.error("Secret key not found in environment variables.");
+        if (key != null) {
+            // Base64.getDecoder() rejects any whitespace, and CarlosProperties does not trim
+            // values. Normalize incidental surrounding whitespace (e.g. a manual properties edit)
+            // so a usable key is not rejected at startup. Base64 never legitimately contains
+            // surrounding whitespace, so trimming cannot mask or corrupt a real key.
+            key = key.trim();
+        }
+        SECRET_KEY_SPEC = null;
+        if (Objects.isNull(key) || key.isBlank()) {
+            // Expected during early class-load before properties are read (the static initializer
+            // documents this); Startup re-prepares once a key exists. Warn, not error, so this
+            // normal boot path does not raise false-positive monitoring alerts.
+            logger.warn("Secret key not found in CarlosProperties.");
             return;
         }
 
-        byte[] keyBytes = Base64.getDecoder().decode(key);
+        byte[] keyBytes;
+        try {
+            keyBytes = Base64.getDecoder().decode(key);
+        } catch (IllegalArgumentException e) {
+            // Use a sanitized message (the JDK detail message can name the offending character) but
+            // keep the original exception as the cause so operators retain the stack trace for
+            // diagnosis. The cause surfaces only in boot-time server logs, never to the browser.
+            throw new IllegalArgumentException("encryption key is not valid Base64", e);
+        }
+        if (keyBytes.length != AES_128_KEY_BYTES
+                && keyBytes.length != AES_192_KEY_BYTES
+                && keyBytes.length != AES_256_KEY_BYTES) {
+            throw new IllegalArgumentException("Invalid AES key length: " + keyBytes.length + " bytes");
+        }
         SECRET_KEY_SPEC = new SecretKeySpec(keyBytes, "AES");
+    }
+
+    /**
+     * Reports whether an application encryption key has been prepared. Read-only: it never
+     * prepares, generates or replaces a key. It says nothing about whether the key is the one
+     * existing values were encrypted under. In the servlet deployment Startup creates a key when
+     * none is set and refuses to start on an invalid one, so it is false there only before Startup
+     * runs; entry points that skip Startup may see false for a missing or invalid key.
+     *
+     * @return true when {@link #encrypt(String)} and {@link #decrypt(String)} have a key to use
+     * @since 2026-09-24
+     */
+    public static boolean isKeyConfigured() {
+        return SECRET_KEY_SPEC != null;
     }
 
     /**
@@ -316,8 +349,25 @@ public final class EncryptionUtils {
     }
 
     static {
-        sha1Cache = new QueueCache(4, 2048, byteArrayCloner);
-        prepareSecretKeySpec();
+        /*
+         * EncryptionUtils is frequently class-loaded before application properties are read, so
+         * the key may be absent (or, after a bad edit, invalid) at this point. Never let key
+         * preparation abort class loading - an exception here would surface as
+         * ExceptionInInitializerError and leave the class permanently unusable. Startup is
+         * authoritative: it re-prepares and validates the key once properties are available, and
+         * fails fast there if the key is invalid. Leaving the spec null mirrors the missing-key state.
+         * This deferral assumes the servlet Startup listener runs; non-servlet entry points (CLI,
+         * batch jobs, tests) do not re-validate the key and will see a null spec until they prepare it.
+         */
+        try {
+            prepareSecretKeySpec();
+        } catch (RuntimeException e) {
+            SECRET_KEY_SPEC = null;
+            // A missing/blank key does NOT reach here - prepareSecretKeySpec returns after logging.
+            // This only fires when an actually-invalid key is present at class-load (bad Base64 /
+            // wrong AES length). Warn rather than error: Startup re-prepares and fails fast there if
+            // the key is still invalid, so this class-load attempt is not the authoritative check.
+            logger.warn("Deferred encryption key initialization; it will be prepared at startup.", e);
+        }
     }
 }
-

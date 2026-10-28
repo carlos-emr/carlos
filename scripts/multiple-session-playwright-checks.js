@@ -42,6 +42,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -51,13 +52,20 @@ const testPin = process.env.TEST_PIN || '2026';
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -131,7 +139,7 @@ function isExpectedLogoutDestination(pathname) {
 }
 
 async function assertLogoutPageNoLoop(browser) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   const page = await context.newPage();
   const paths = [];
   page.on('framenavigated', (frame) => {
@@ -167,8 +175,8 @@ async function assertLogoutPageNoLoop(browser) {
   }
 
   const browser = await chromium.launch(launchOptions);
-  const contextA = await browser.newContext({ ignoreHTTPSErrors: true });
-  const contextB = await browser.newContext({ ignoreHTTPSErrors: true });
+  const contextA = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  const contextB = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
   try {
     const pageA = await login(contextA, 'browser A');

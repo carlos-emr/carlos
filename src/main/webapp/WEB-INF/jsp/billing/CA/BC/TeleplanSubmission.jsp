@@ -94,6 +94,7 @@
 %>
 <html>
 <head>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Billing Report</title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
@@ -154,7 +155,9 @@
                 form.appendChild(input);
             }
             document.body.appendChild(form);
-            form.submit();
+            // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+            // into a runtime-built form in time (#4130).
+            carlosSubmitForm(form);
         }
     </script>
 </head>
@@ -169,21 +172,15 @@
             <tr bgcolor="#DDDDEE">
                 <td align='CENTER'>Last5 Years</td>
             </tr>
+            <%-- Each year reopens this page's Activity List for that year: a GET without providers only renders it
+                 (#4439 D3). They opened the simulation page, which has no Activity List, and each was listed twice. --%>
             <% for (String year : yearArray) { %>
             <tr>
                 <td align='CENTER'><a
-                        href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile?year=<carlos:encode value='<%= year %>' context="uriComponent"/>">YEAR <carlos:encode value='<%= year %>' context="html"/>
+                        href="<%= request.getContextPath() %>/billing/CA/BC/GenerateTeleplanFile?year=<carlos:encode value='<%= year %>' context="uriComponent"/>">YEAR <carlos:encode value='<%= year %>' context="html"/>
                 </a></td>
             </tr>
             <% } %>
-
-            <c:forEach var="year" items="${yearArray}">
-                <tr>
-                    <td align='CENTER'><a
-                            href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile?year=${carlos:forHtmlAttribute(year)}">YEAR
-                        ${carlos:forHtml(year)}</a></td>
-                </tr>
-            </c:forEach>
 
 
         </table>
@@ -256,10 +253,11 @@
                 </c:otherwise>
             </c:choose></td>
 
-            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/DownloadBilling?filename=${billAct.ohipfilename}">
+            <%-- DownloadBilling serves only a file a batch in billactivity names, from HOME_DIR (#4439 D5). --%>
+            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/DownloadBilling?filename=${carlos:forUriComponent(billAct.ohipfilename)}">
                 ${carlos:forHtml(billAct.ohipfilename)}
             </a></td>
-            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/DownloadBilling?filename=${billAct.htmlfilename}">
+            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/DownloadBilling?filename=${carlos:forUriComponent(billAct.htmlfilename)}">
                 ${carlos:forHtml(billAct.htmlfilename)}
             </a></td>
             </tr>

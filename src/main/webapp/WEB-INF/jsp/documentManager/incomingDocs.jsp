@@ -76,68 +76,28 @@
 <jsp:useBean id="LastPatientsBean" class="java.util.ArrayList" scope="session"/>
 
 
-<style>
-    .autocomplete_style {
-        background: #fff;
-        text-align: left;
-        z-index: 2;
-    }
 
-    .autocomplete_style ul {
-        border: 1px solid #aaa;
-        margin: 0px;
-        padding: 2px;
-        list-style: none;
-    }
-
-    .autocomplete_style ul li.selected {
-        background-color: #ffa;
-        text-decoration: underline;
-    }
-
-    /* Constrain the left panel so fields don't extend off-page */
-    #incoming-docs-wrapper > table { width: 100%; table-layout: fixed; }
-    #incoming-docs-wrapper > table > tbody > tr > td:first-child { width: 380px; overflow: hidden; }
-    #incoming-docs-wrapper > table > tbody > tr > td:first-child table { width: 100% !important; }
-    #incoming-docs-wrapper > table > tbody > tr > td:first-child input[type="text"],
-    #incoming-docs-wrapper > table > tbody > tr > td:first-child select {
-        max-width: 100%;
-        box-sizing: border-box;
-    }
-    #incoming-docs-wrapper fieldset { border: 1px solid #ddd; border-radius: 4px; padding: 8px; margin-bottom: 8px; }
-    #incoming-docs-wrapper legend { font-size: 12px; font-weight: bold; padding: 0 4px; width: auto; float: none; }
-    #incoming-docs-wrapper fieldset input[type="button"] {
-        font-size: 11px; padding: 2px 6px; margin: 1px;
-    }
-
-
-    .multiPage {
-        background-color: RED;
-        color: WHITE;
-        font-weight: bold;
-        padding: 0px 5px;
-        font-size: medium;
-    }
-
-    .topalign {
-        vertical-align: text-top;
-    }
-
-    #incoming-docs-wrapper {
-        margin: auto 15px;
-    }
-
-    * table {
-        border-collapse: collapse;
-        width: 100%;
-    }
-</style>
 
 <%
     String user_no = (String) session.getAttribute("user");
 
     String imageType = IncomingDocUtil.getAndSetViewDocumentAs(user_no, request.getParameter("imageType"));
-    String queueIdStr = IncomingDocUtil.getAndSetIncomingDocQueue(user_no, request.getParameter("defaultQueue"));
+    // An explicit read-only retry stays in this window's queue even when another session
+    // changes the provider's shared default. Do not persist a retry as a preference change.
+    String queueIdStr = request.getParameter("queueId");
+    io.github.carlos_emr.carlos.managers.SecurityInfoManager queueSecurity = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+    io.github.carlos_emr.carlos.utility.LoggedInInfo queueLogin = io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
+    try {
+        if (queueIdStr == null) {
+            String selectedQueue = request.getParameter("defaultQueue");
+            if (selectedQueue != null) io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(queueSecurity, queueLogin, selectedQueue);
+            queueIdStr = IncomingDocUtil.getAndSetIncomingDocQueue(user_no, selectedQueue);
+        }
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(queueSecurity, queueLogin, queueIdStr);
+    } catch (SecurityException denied) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+        return;
+    }
     String entryMode = IncomingDocUtil.getAndSetEntryMode(user_no, request.getParameter("entryMode"));
 
     UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
@@ -206,10 +166,13 @@
     String errorMessage = "";
     String pdfNo = "";
     String pdfDirParam = request.getParameter("pdfDir");
-    // Validate pdfDir against whitelist to prevent path traversal (CWE-22)
-    String pdfDir = ("Fax".equals(pdfDirParam) || "Mail".equals(pdfDirParam)
-            || "File".equals(pdfDirParam) || "Refile".equals(pdfDirParam))
-            ? pdfDirParam : "Fax";
+    // Validate pdfDir against the incoming document folder allowlist to prevent path traversal
+    // (CWE-22). The allowlist is configurable, so the fallback has to come from it too --
+    // hardcoding "Fax" here made the first page load throw on any install whose configured
+    // folders do not include it.
+    List<String> allowedPdfDirs = IncomingDocUtil.getAllowedIncomingDocFolders();
+    String pdfDir = IncomingDocUtil.isAllowedIncomingDocFolder(pdfDirParam)
+            ? pdfDirParam : IncomingDocUtil.getDefaultIncomingDocFolder();
     String pdfDirectory = IncomingDocUtil.getIncomingDocumentFilePath(queueIdStr, pdfDir);
     String pdfAction = request.getParameter("pdfAction") == null ? "" : request.getParameter("pdfAction");
     String pdfPageNumber = request.getParameter("pdfPageNumber") == null ? "1" : request.getParameter("pdfPageNumber");
@@ -227,16 +190,59 @@
     }
     String pdfExtractPageNumber = request.getParameter("pdfExtractPageNumber") == null ? "" : request.getParameter("pdfExtractPageNumber");
 
+    // pdfAction rotates, deletes or extracts pages of the queued PDF: a mutation. The page
+    // is reached through ViewIncomingDocuments2Action and also as ManageDocument's
+    // nextIncomingDoc result, which bypasses that gate, so these checks are the shared
+    // boundary for both entry paths. CSRFGuard protects only
+    // POST/PUT/DELETE/PATCH, so a GET carrying pdfAction from a link, an image tag or a
+    // prefetch would otherwise change the file with no token. Refuse it before touching
+    // anything; the PdfInfoForm posts, so real operators never see this.
+    if (!pdfAction.isEmpty() && !"POST".equals(request.getMethod())) {
+        response.setHeader("Allow", "POST");
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return;
+    }
+    // The page itself only needs _edoc read (the gate above and ViewDocumentRead2Action), but
+    // a page action rewrites or deletes the queued file. Hold it to the same _edoc write that
+    // ManageDocument's addIncomingDocument requires, so a read-only user cannot change the
+    // queue with a CSRF-valid POST.
+    if (!pdfAction.isEmpty() && !ctx.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+            .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+        return;
+    }
+    // doPagesAction ignores names it does not know; reject them so a typo or a new verb
+    // cannot reach the page without first being added to the supported set.
+    if (!pdfAction.isEmpty() && !IncomingDocUtil.isSupportedPageAction(pdfAction)) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+        return;
+    }
+
     try {
-        IncomingDocUtil.doPagesAction(pdfAction, queueIdStr, pdfDir, pdfName, pdfPageNumber, pdfExtractPageNumber, vLocale);
+        String[] observedRevisions = request.getParameterValues("sourceRevision");
+        String observedRevision = observedRevisions != null && observedRevisions.length == 1 ? observedRevisions[0] : null;
+        IncomingDocUtil.doPagesAction(pdfAction, queueIdStr, pdfDir, pdfName, pdfPageNumber, pdfExtractPageNumber, vLocale, observedRevision);
+    } catch (io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.ConflictException | java.nio.file.NoSuchFileException changed) {
+        out.clearBuffer();
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageSourceChanged(
+                request, response, out, queueIdStr, pdfDir, request.getParameter("pdfNo"));
+        return;
+    } catch (IncomingDocUtil.PageEditAdmissionBusyException busy) {
+        out.clearBuffer();
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageEditBusy(
+                request, response, out, queueIdStr, pdfDir, request.getParameter("pdfNo"));
+        return;
+    } catch (io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException busy) {
+        errorMessage = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale())
+                .getString("dms.incomingDocs.editNotApplied");
     } catch (Exception e) {
         errorMessage = e.getMessage();
     }
 
 
     IncomingDocUtil myIncomingDocUtil = new IncomingDocUtil();
-    ArrayList pdfList = myIncomingDocUtil.getDocList(pdfDirectory);
-    ArrayList pdfListModifiedDate = myIncomingDocUtil.getPdfListModifiedDate();
+    List<String> pdfList = myIncomingDocUtil.getDocList(pdfDirectory);
+    List<String> pdfListModifiedDate = myIncomingDocUtil.getPdfListModifiedDate();
 
     pdfNo = request.getParameter("pdfNo") == null ? "1" : request.getParameter("pdfNo");
     int pdfNoInt;
@@ -252,7 +258,7 @@
 
     int PdfIndex = pdfNoInt - 1;
     if (pdfList.size() >= 1 && PdfIndex <= (pdfList.size() - 1)) {
-        pdfName = (String) pdfList.get(PdfIndex);
+        pdfName = pdfList.get(PdfIndex);
     } else {
         pdfName = "";
     }
@@ -263,8 +269,26 @@
 
     int tabIndex = 0;
     int numOfPage = 0;
+    String sourceRevision = "";
     if (!pdfName.isEmpty()) {
-        numOfPage = IncomingDocUtil.getNumOfPages(queueIdStr, pdfDir, pdfName);
+        try (io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock.Lease viewLease =
+                io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock.acquire(
+                    new File(IncomingDocUtil.getIncomingDocumentFilePathName(queueIdStr, pdfDir, pdfName)), new File(pdfDirectory))) {
+            numOfPage = IncomingDocUtil.getNumOfPages(queueIdStr, pdfDir, pdfName);
+            sourceRevision = io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.sha256(viewLease.source().toPath());
+        } catch (io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException busy) {
+            // This JSP also follows successful POST mutations. Retry a constructed read-only
+            // GET, never reload the current request and risk replaying a page edit or filing.
+            out.clearBuffer();
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageCountBusy(
+                    request, response, out, queueIdStr, pdfDir, pdfNo, pdfPageNumber, errorMessage);
+            return;
+        } catch (java.io.IOException unreadable) {
+            out.clearBuffer();
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageCountFailed(
+                    request, response, out, queueIdStr, pdfDir, pdfNo, pdfPageNumber, errorMessage);
+            return;
+        }
     }
 
     if (Integer.parseInt(pdfPageNumber) > numOfPage) {
@@ -274,6 +298,76 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <html lang="${pageContext.request.locale.language}">
 <head>
+<style>
+    .autocomplete_style {
+        background: #fff;
+        text-align: left;
+        z-index: 2;
+    }
+
+    .autocomplete_style ul {
+        border: 1px solid #aaa;
+        margin: 0px;
+        padding: 2px;
+        list-style: none;
+    }
+
+    .autocomplete_style ul li.selected {
+        background-color: #ffa;
+        text-decoration: underline;
+    }
+
+    /* Save & Next stays unmistakably grey until a patient is selected; Bootstrap's
+       default disabled state keeps the primary blue and reads as clickable.
+       pointer-events must come back on: Bootstrap's .btn:disabled removes hit testing,
+       which would silently kill both the tooltip and the not-allowed cursor. The
+       disabled attribute still prevents activation, so the button stays unclickable. */
+    #save:disabled {
+        background-color: #adb5bd;
+        border-color: #adb5bd;
+        color: #495057;
+        opacity: 1;
+        cursor: not-allowed;
+        pointer-events: auto;
+    }
+
+    /* Constrain the left panel so fields don't extend off-page */
+    #incoming-docs-wrapper > table { width: 100%; table-layout: fixed; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child { width: 380px; overflow: hidden; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child table { width: 100% !important; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child input[type="text"],
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child select {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    #incoming-docs-wrapper fieldset { border: 1px solid #ddd; border-radius: 4px; padding: 8px; margin-bottom: 8px; }
+    #incoming-docs-wrapper legend { font-size: 12px; font-weight: bold; padding: 0 4px; width: auto; float: none; }
+    #incoming-docs-wrapper fieldset input[type="button"] {
+        font-size: 11px; padding: 2px 6px; margin: 1px;
+    }
+
+
+    .multiPage {
+        background-color: RED;
+        color: WHITE;
+        font-weight: bold;
+        padding: 0px 5px;
+        font-size: medium;
+    }
+
+    .topalign {
+        vertical-align: text-top;
+    }
+
+    #incoming-docs-wrapper {
+        margin: auto 15px;
+    }
+
+    * table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+</style>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -431,63 +525,35 @@
         }
 
         function extractPagePdf(pdfNo, pdfDir, pdfName) {
-            var validPages = true;
             if (totalPage <= 1) {
                 alert("<fmt:message key="dms.incomingDocs.nothingToExtract"/>");
             } else {
                 var range = prompt("<fmt:message key="dms.incomingDocs.enterPagesToExtract"/> ", "1-" + curPage);
-                var rangestr = "";
-                if (range == null || range == "") {
-                    validPages = false;
-                }
-                range = trim(range);
-
-                var numbers = [];
+                if (range === null) return;
+                range = range.trim();
+                var validPages = range.length > 0;
+                var selectedPages = new Set();
                 var ranges = range.split(',');
-
-                for (var i = 0; i < ranges.length; i++) {
-                    if (ranges[i].length == 0) {
+                for (var i = 0; validPages && i < ranges.length; i++) {
+                    var match = /^([0-9]+)(?:-([0-9]+))?$/.exec(ranges[i].trim());
+                    if (!match) {
                         validPages = false;
+                        break;
                     }
-                    if (ranges[i]) {
-                        var ranges1 = ranges[i].split('-');
-                        if (ranges1.length > 2) {
-                            validPages = false;
-                        }
-                        for (var j = 0; j < ranges1.length; j++) {
-                            var re = /^[0-9]+$/;
-                            if (!re.test(ranges1[j])) {
-                                validPages = false;
-                            }
-                        }
-                        if (validPages) {
-                            var range3 = ranges[i].concat('-' + ranges[i]).split('-');
-                            for (var k = parseInt(range3[0], 10); k <= parseInt(range3[1], 10); k++) {
-                                if (k ><%=numOfPage%>) {
-                                    validPages = false;
-                                }
-                                if (k == 0) {
-                                    validPages = false;
-                                }
-                                numbers[k] = k;
-                            }
-                        }
+                    var first = Number(match[1]);
+                    var last = match[2] === undefined ? first : Number(match[2]);
+                    // Check bounds before expanding: user input must never determine
+                    // an unbounded loop or allocate a sparse array with a huge index.
+                    if (!Number.isSafeInteger(first) || !Number.isSafeInteger(last)
+                            || first < 1 || last < first || last > totalPage) {
+                        validPages = false;
+                        break;
+                    }
+                    for (var pageNumber = first; pageNumber <= last; pageNumber++) {
+                        selectedPages.add(pageNumber);
                     }
                 }
-
-                if (validPages) {
-                    var notwholedoc = false;
-                    for (var m = 1; m < numbers.length; m++) {
-                        if (numbers[m] == null) {
-                            notwholedoc = true;
-                        }
-                    }
-                    if (!notwholedoc) {
-                        if ((numbers.length - 1) ==<%=numOfPage%>) {
-                            validPages = false;
-                        }
-                    }
-                }
+                validPages = validPages && selectedPages.size > 0 && selectedPages.size < totalPage;
 
                 if (validPages) {
                     document.PdfInfoForm.pdfNo.value = pdfNo;
@@ -513,6 +579,24 @@
             }
         }
 
+        // The explanation belongs to the disabled state only. checkSave() in
+        // demographicProviderAutocomplete.js can re-disable the button when the typed
+        // value no longer matches a selected patient, so both the visible help and the
+        // tooltip are synchronized after each state change.
+        function syncSaveTooltip() {
+            var saveObj = document.getElementById('save');
+            var saveHelp = document.getElementById('save-disabled-help');
+            if (saveObj.disabled) {
+                saveObj.setAttribute('title', saveObj.getAttribute('data-disabled-title'));
+                saveObj.setAttribute('aria-describedby', 'save-disabled-help');
+                saveHelp.hidden = false;
+            } else {
+                saveObj.removeAttribute('title');
+                saveObj.removeAttribute('aria-describedby');
+                saveHelp.hidden = true;
+            }
+        }
+
         function loadRecentDemo(thisdemoid, thisDemoName) {
             var demogObj = document.getElementById('demofind');
             var autodemoObj = document.getElementById('autocompletedemo');
@@ -521,6 +605,7 @@
             demogObj.value = thisdemoid;
             autodemoObj.value = thisDemoName;
             saveObj.disabled = false;
+            syncSaveTooltip();
 
         }
 
@@ -568,8 +653,11 @@
             }
             console.log("pdfName " + pdfName);
             if (pdfName.length === 0) {
+                // No viewable document is selected (or its name failed path validation).
+                // Show a clear message rather than an empty <iframe src=""> that just
+                // renders as a blank right-hand pane with no explanation.
                 document.getElementById('pgnum') ? document.getElementById('pgnum').innerHTML = '' : '';
-                document.getElementById('docdisp') ? document.getElementById('docdisp').innerHTML = '<iframe	src=""  width="800" height="900" ></iframe>' : '';
+                document.getElementById('docdisp') ? document.getElementById('docdisp').innerHTML = '<div style="padding:16px;color:#555;">No document is available to preview.</div>' : '';
             } else {
                 document.getElementById('pgnum').innerHTML = pn + ' of <span class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>">' + totalPage + '</span>';
 
@@ -664,6 +752,9 @@
                 return false;
             }
 
+            // "File" is the shipped folder for documents filed straight to the chart, so the
+            // missing-recipient prompt is skipped there. A folder added through
+            // ALLOWED_INCOMING_DOC_FOLDERS is treated like the other queues and still prompts.
             if (document.PdfInfoForm.pdfDir.value != "File") {
                 var flagproviderObj = document.getElementsByName('flagproviders');
                 if (flagproviderObj.length == 0) {
@@ -829,7 +920,10 @@
                     credentials: 'same-origin',
                     body: data
                 })
-                .then(function(response) { return response.json(); })
+                .then(function(response) {
+                    if (!response.ok || response.redirected) throw new Error('Description shortcuts request failed');
+                    return response.json();
+                })
                 .then(function(json) {
                     if (json != null) {
                         for (var i = 0; i < json.documentDescriptionTemplate.length; i++) {
@@ -844,6 +938,14 @@
                             document.getElementById('docDescriptionList').appendChild(bdoc);
                         }
                     }
+                })
+                .catch(function() {
+                    // Say so instead of leaving an empty row: a refused or failed read is otherwise
+                    // indistinguishable from a type with no shortcuts (issue #5057).
+                    var note = document.createElement('span');
+                    note.className = 'text-danger small';
+                    note.textContent = '<fmt:message key="dms.incomingDocs.descriptionShortcutsUnavailable" var="descriptionShortcutsUnavailable"/><carlos:encode value="${descriptionShortcutsUnavailable}" context="javaScript"/>';
+                    document.getElementById('docDescriptionList').appendChild(note);
                 });
             }
         }
@@ -862,6 +964,7 @@
                     <input type="hidden" name="pdfNo" value="<carlos:encode value='<%= pdfNo %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfDir" value="<carlos:encode value='<%= pdfDir %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfName" value="<carlos:encode value='<%= pdfName %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="sourceRevision" value="<carlos:encode value='<%= sourceRevision %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfAction" value="">
                     <input type="hidden" name="pdfPageNumber" value="1">
                     <input type="hidden" name="pdfExtractPageNumber" value="">
@@ -891,10 +994,20 @@
                         <tr>
                             <td>
                                 <div class="d-flex gap-1 flex-wrap">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Fax');"><fmt:message key="dms.incomingDocs.fax"/></button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Mail');"><fmt:message key="dms.incomingDocs.mail"/></button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','File');"><fmt:message key="dms.incomingDocs.file"/></button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Refile');"><fmt:message key="dms.incomingDocs.refile"/></button>
+                                    <%
+                                        for (String allowedPdfDir : allowedPdfDirs) {
+                                            String pdfDirLabelKey = IncomingDocUtil.getIncomingDocFolderLabelKey(allowedPdfDir);
+                                    %>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','<carlos:encode value='<%= allowedPdfDir %>' context="javaScriptAttribute"/>');"><%
+                                        if (pdfDirLabelKey != null) {
+                                    %><fmt:message key="<%= pdfDirLabelKey %>"/><%
+                                        } else {
+                                    %><carlos:encode value='<%= allowedPdfDir %>' context="html"/><%
+                                        }
+                                    %></button>
+                                    <%
+                                        }
+                                    %>
                                 </div>
                             </td>
                         </tr>
@@ -912,8 +1025,8 @@
                                                     <option value=""><fmt:message key="dms.incomingDocs.selectPDF"/></option>
                                                     <%
                                                         for (int p = 0; p < pdfList.size(); p++) {
-                                                            String docName = (String) pdfList.get(p);
-                                                            String docModifiedDate = (String) pdfListModifiedDate.get(p);
+                                                            String docName = pdfList.get(p);
+                                                            String docModifiedDate = pdfListModifiedDate.get(p);
                                                     %>
                                                     <option value="<carlos:encode value='<%= docName %>' context="htmlAttribute"/>" title="<carlos:encode value='<%= docName %>' context="htmlAttribute"/>"><%=p + 1%>
                                                         ) <carlos:encode value='<%= docModifiedDate %>' context="html"/>
@@ -1011,10 +1124,17 @@
                             <option value="Fast" <%=entryMode.equals("Fast") ? "selected" : ""%> ><fmt:message key="dms.incomingDocs.fast"/></option>
                         </select>
                     </legend>
-                    <form id="forms_" method="post" action="ManageDocument">
+                    <fmt:message key="faxAnnotateViewer.status.documentServerBusy" var="incomingWaitMessage"/>
+                    <fmt:message key="faxAnnotateViewer.alert.saveUnconfirmed" var="incomingUnconfirmedMessage"/>
+                    <fmt:message key="faxAnnotateViewer.status.saving" var="incomingSavingMessage"/>
+                    <form id="forms_" method="post" action="ManageDocument" data-incoming-filing="true"
+                          data-saving-message="<carlos:encode value='${incomingSavingMessage}' context="htmlAttribute"/>"
+                          data-wait-message="<carlos:encode value='${incomingWaitMessage}' context="htmlAttribute"/>"
+                          data-unconfirmed-message="<carlos:encode value='${incomingUnconfirmedMessage}' context="htmlAttribute"/>">
                         <input type="hidden" name="method" value="addIncomingDocument"/>
                         <input type="hidden" name="pdfDir" value="<carlos:encode value='<%= pdfDir %>' context="htmlAttribute"/>">
                         <input type="hidden" name="pdfName" value="<carlos:encode value='<%= pdfName %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="sourceRevision" value="<carlos:encode value='<%= sourceRevision %>' context="htmlAttribute"/>">
                         <input type="hidden" name="queueId" value="<carlos:encode value='<%= queueIdStr %>' context="htmlAttribute"/>">
                         <input type="hidden" name="pdfNo" value="<carlos:encode value='<%= pdfNo %>' context="htmlAttribute"/>">
                         <input type="hidden" name="queue" value="1">
@@ -1137,7 +1257,7 @@
                                     <input id="saved" type="hidden" name="saved" value="false"/>
                                     <input type="hidden" name="demog" value="-1" id="demofind"/>
                                     <input tabIndex="<%=tabIndex++%>" type="text" id="autocompletedemo"
-                                           onchange="checkSave('')" name="demographicKeyword" style="width:100%;"/>
+                                           onchange="checkSave('');syncSaveTooltip();" name="demographicKeyword" style="width:100%;"/>
                                     <div id="autocomplete_choices" class="autocomplete"></div>
                                 </td>
                             </tr>
@@ -1206,9 +1326,18 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="2" align="left"><p>
-                                    <p><button type="submit" onclick="return checkDocument();" name="save"
-                                              tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm">Save & Next</button></td>
+                                <td colspan="2" align="left">
+                                    <fmt:message key="dms.incomingDocs.selectPatientToSave" var="selectPatientToSaveMessage"/>
+                                    <button type="submit" onclick="return checkDocument();" name="save"
+                                            tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm"
+                                            title="<carlos:encode value='${selectPatientToSaveMessage}' context="htmlAttribute"/>"
+                                            data-disabled-title="<carlos:encode value='${selectPatientToSaveMessage}' context="htmlAttribute"/>"
+                                            aria-describedby="save-disabled-help"><fmt:message key="inboxmanager.document.SaveAndNext"/></button>
+                                    <p id="incoming-filing-status" role="status" aria-live="polite"></p>
+                                    <div id="save-disabled-help" class="form-text text-muted">
+                                        <carlos:encode value='${selectPatientToSaveMessage}' context="html"/>
+                                    </div>
+                                </td>
                             </tr>
                         </table>
                     </form>
@@ -1266,6 +1395,7 @@
                         selectedDemos.push(document.getElementById('autocompletedemo').value);
 
                         document.getElementById('save').disabled = false;
+                        syncSaveTooltip();
 
                         if (document.PdfInfoForm.pdfDir.value != "File") {
                             var MRPName = document.getElementById('MRPName').value;
@@ -1283,5 +1413,6 @@
     showPageImg('<carlos:encode value='<%= queueIdStr %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= pdfDir %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= pdfName %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= pdfPageNumber %>' context="javaScriptBlock"/>');
 </script>
 
+<script src="<%=request.getContextPath()%>/js/incomingDocumentFiling.js"></script>
 </body>
 </html>

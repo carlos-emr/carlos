@@ -46,14 +46,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.providers.data.ProSignatureData;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
+import io.github.carlos_emr.carlos.prescript.data.UniqueMedicationList;
 import io.github.carlos_emr.carlos.util.DateUtils;
 
 import java.util.Date;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Calendar;
 
 @Service
@@ -77,7 +78,10 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
         Prescription result = prescriptionDao.find(prescriptionId);
 
         // --- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "PrescriptionManager.getPrescription", "id:" + result.getId());
+        // A missing id is a normal outcome (a caller validating a request parameter), not a crash:
+        // dereferencing result here turned "no such prescription" into an NPE for every caller.
+        LogAction.addLogSynchronous(loggedInInfo, "PrescriptionManager.getPrescription",
+                "id:" + (result == null ? "not found" : String.valueOf(result.getId())));
 
         return (result);
     }
@@ -124,36 +128,14 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
 
     @Override
     public List<Drug> getUniqueDrugsByPatient(LoggedInInfo loggedInInfo, Integer demographicNo) {
-        List<Drug> results = new ArrayList<Drug>();
-
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             LogAction.addLogSynchronous(loggedInInfo, "PrescriptionManager.getUniquePrescriptionsByPatient",
                     "No Read Access");
-            return results;
+            return new ArrayList<>();
         }
 
-        List<Drug> drugList = drugDao.findByDemographicId(demographicNo);
-        Collections.sort(drugList, new Drug.ComparatorIdDesc());
-
-        for (Drug drug : drugList) {
-
-            boolean isCustomName = true;
-
-            for (Drug p : results) {
-                if (p.getGcnSeqNo() == drug.getGcnSeqNo()) {
-                    if (! "0".equals(p.getGcnSeqNo())) // not custom - safe GCN
-                        isCustomName = false;
-                    else if (p.getCustomName() != null && drug.getCustomName() != null) // custom
-                        isCustomName = !p.getCustomName().equals(drug.getCustomName());
-
-                }
-            }
-
-            if (isCustomName) {
-                logger.info("ADDING PRESCRIPTION " + drug.getId());
-                results.add(drug);
-            }
-        }
+        // The same list the JSP views read (RxPrescriptionData.getUniquePrescriptionsByPatient), #4420.
+        List<Drug> results = UniqueMedicationList.select(drugDao.findByDemographicId(demographicNo));
 
         if (results.size() > 0) {
             String resultIds = Drug.getIdsAsStringList(results);
@@ -244,29 +226,11 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
 
         ProSignatureData sig = new ProSignatureData();
 
-        boolean hasSig = sig.hasSignature(info.getLoggedInProviderNo());
+        String doctorName = sig.hasSignature(info.getLoggedInProviderNo())
+                ? sig.getSignature(info.getLoggedInProviderNo()) : null;
 
-        String doctorName;
-
-        if (hasSig) {
-            doctorName = sig.getSignature(info.getLoggedInProviderNo());
-        } else {
-            doctorName = provider.getFirstName() + ' ' + provider.getSurname();
-        }
-
-        textView.append(doctorName + "\n");
-        textView.append(provider.getClinicName() + "\n");
-        textView.append(provider.getClinicAddress() + "\n");
-        textView.append(provider.getClinicCity() + "\n");
-        textView.append(provider.getClinicPostal() + "\n");
-        textView.append(provider.getClinicPhone() + "\n");
-        textView.append(provider.getClinicFax() + "\n");
-        textView.append(patient.getFirstName() + " " + patient.getSurname() + "\n");
-        textView.append(patient.getAddress() + "\n");
-        textView.append(patient.getCity() + " " + patient.getPostal() + "\n");
-        textView.append(patient.getPhone() + "\n");
-        textView.append(RxUtil.DateToString(
-                RxUtil.Today(), "MMMM d, yyyy") + "\n");
+        // Shared with the Rx page's saves, so a missing address or phone is an empty line, not "null".
+        textView.append(RxPrescriptionData.textViewHeader(doctorName, provider, patient, RxUtil.Today()));
 
         String drugTxt;
         for (Drug d : drugs) {
@@ -390,10 +354,33 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
 
     }
 
+    /**
+     * Links a digital signature to a prescription, or clears the existing link.
+     *
+     * <p>This link is what marks a script as signed for the Fax gate, so callers must treat a
+     * {@code false} result as a failure rather than assuming the script is now signed.</p>
+     *
+     * <p><strong>Authorization is the caller's responsibility.</strong> This method resolves the row
+     * by {@code scriptNo} alone and performs no patient-scoped check; callers reached from a request
+     * must first confirm the caller may write the prescription's own patient. See issue #3581.</p>
+     *
+     * @param loggedInInfo the calling session, retained for interface compatibility; this method
+     *                     performs no audit logging of its own
+     * @param scriptNo     the prescription (script) number to update
+     * @param digitalSignatureId the signature to link, or {@code null} to clear the existing link
+     * @return {@code true} when the prescription existed and was updated; {@code false} when no
+     *         prescription carries that script number, in which case nothing was written
+     */
     @Override
     public boolean setPrescriptionSignature(LoggedInInfo loggedInInfo, int scriptNo, Integer digitalSignatureId) {
 
         Prescription prescription = prescriptionDao.find(scriptNo);
+        if (prescription == null) {
+            // No such script to link the signature to: report failure instead of dereferencing null.
+            // Callers that gate on this (the stamp-on-write path) then leave the signature pad
+            // available rather than lighting the Fax button on a script the signature never reached.
+            return false;
+        }
         prescription.setDigitalSignatureId(digitalSignatureId);
 
         prescriptionDao.merge(prescription);

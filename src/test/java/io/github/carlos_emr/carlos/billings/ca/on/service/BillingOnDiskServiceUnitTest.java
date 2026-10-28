@@ -54,8 +54,12 @@ class BillingOnDiskServiceUnitTest {
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private BillingOnDiskService service;
 
+    @org.junit.jupiter.api.io.TempDir java.nio.file.Path outputDirectory;
+    private Object oldHome;
+
     @BeforeEach
     void setUp() {
+        oldHome = io.github.carlos_emr.CarlosProperties.getInstance().put("HOME_DIR", outputDirectory.toString());
         providerDao = mock(ProviderDao.class);
         diskCreationService = mock(BillingDiskCreationService.class);
         diskLoader = mock(BillingOnDiskLoader.class);
@@ -78,6 +82,8 @@ class BillingOnDiskServiceUnitTest {
 
     @AfterEach
     void tearDown() {
+        if (oldHome == null) io.github.carlos_emr.CarlosProperties.getInstance().remove("HOME_DIR");
+        else io.github.carlos_emr.CarlosProperties.getInstance().put("HOME_DIR", oldHome);
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
         }
@@ -108,7 +114,41 @@ class BillingOnDiskServiceUnitTest {
                 aryEq(new String[]{"O", "W", "I"}), eq(false), eq("4"), eq(false), eq(false));
         verify(claimFileService).writeFile("claim-body");
         verify(claimFileService).writeHtml("<html>claim</html>");
-        verify(transactionService).finalizeGeneratedDisk(claimFileService, 12);
+        verify(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(12), any(BillingOnDiskTransactionService.Outcome.class));
+    }
+
+    @Test
+    void shouldNotAllocateDisk_whenSelectedProviderOhipNumberIsMalformed() {
+        MockHttpServletRequest request = newDiskRequest("999998");
+        BillingProviderDto provider = provider("999998", "0000");
+        provider.setOhipNo("1234567");
+        when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
+
+        assertThatThrownBy(() -> service.generateNewDisk(request))
+                .isInstanceOfSatisfying(io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException.class,
+                        rejected -> assertThat(rejected.getProblems()).containsExactly(
+                                "Provider 999998: the OHIP billing number must be exactly 6 digits."));
+
+        verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
+        verify(diskCreationService, never()).createBatchHeader(any(), anyString(), anyString(), anyString(), anyString());
+        org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
+    }
+
+    @Test
+    void shouldNotAllocateDisk_whenSelectedProviderOhipNumberIsNotAllDigits() {
+        // Six characters fit the record, but the MOH field is numeric: the batch would be rejected.
+        MockHttpServletRequest request = newDiskRequest("999998");
+        BillingProviderDto provider = provider("999998", "0000");
+        provider.setOhipNo("12345A");
+        when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
+
+        assertThatThrownBy(() -> service.generateNewDisk(request))
+                .isInstanceOfSatisfying(io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException.class,
+                        rejected -> assertThat(rejected.getProblems()).containsExactly(
+                                "Provider 999998: the OHIP billing number must be exactly 6 digits."));
+
+        verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
+        org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
     }
 
     @Test
@@ -126,7 +166,7 @@ class BillingOnDiskServiceUnitTest {
         InOrder order = inOrder(claimFileService, transactionService);
         order.verify(claimFileService).writeFile("claim-body");
         order.verify(claimFileService).writeHtml("<html>claim</html>");
-        order.verify(transactionService).finalizeGeneratedDisk(claimFileService, 12);
+        order.verify(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(12), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
     @Test
@@ -146,7 +186,7 @@ class BillingOnDiskServiceUnitTest {
                 .hasMessageContaining("disk full");
 
         verify(claimFileService, never()).writeHtml(anyString());
-        verify(transactionService, never()).finalizeGeneratedDisk(claimFileService, 12);
+        verify(transactionService, never()).finalizeGeneratedDisk(eq(claimFileService), eq(12), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
     @Test
@@ -159,7 +199,7 @@ class BillingOnDiskServiceUnitTest {
         when(diskCreationService.getOhipfilename(12)).thenReturn("ohip.txt");
         when(diskCreationService.getHtmlfilename(12, "999998")).thenReturn("ohip.html");
         doThrow(new IllegalStateException("db down"))
-                .when(transactionService).finalizeGeneratedDisk(claimFileService, 12);
+                .when(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(12), any(BillingOnDiskTransactionService.Outcome.class));
 
         assertThatThrownBy(() -> service.generateNewDisk(request))
                 .isInstanceOf(IllegalStateException.class)
@@ -175,7 +215,7 @@ class BillingOnDiskServiceUnitTest {
         BillingProviderDto provider = provider("999998", "0000");
         when(diskLoader.getDiskCreateDate("55")).thenReturn("2026-04-30");
         when(diskCreationService.getProvider("55")).thenReturn(List.of(provider));
-        when(diskCreationService.updateBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(78);
+        when(diskCreationService.prepareBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(preparedHeader(78));
         when(diskCreationService.getOhipfilename(55)).thenReturn("regen.txt");
         when(diskCreationService.getHtmlfilename(55, "999998")).thenReturn("regen.html");
         doThrow(new BillingFileWriteException("permission denied"))
@@ -186,10 +226,10 @@ class BillingOnDiskServiceUnitTest {
                 .hasMessageContaining("permission denied");
 
         verify(claimFileService).readInBillingNo();
-        verify(claimFileService).renameFile();
+        verify(claimFileService).backupFileForRollback();
         verify(claimFileService).createBillingFileStr(eq(loggedInInfo), eq("78"),
                 aryEq(new String[]{"B"}), eq(false), eq("4"), eq(false), eq(false));
-        verify(transactionService, never()).finalizeGeneratedDisk(claimFileService, 55);
+        verify(transactionService, never()).finalizeGeneratedDisk(eq(claimFileService), eq(55), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
     @Test
@@ -198,29 +238,29 @@ class BillingOnDiskServiceUnitTest {
         BillingProviderDto provider = provider("999998", "0000");
         when(diskLoader.getDiskCreateDate("55")).thenReturn("2026-04-30");
         when(diskCreationService.getProvider("55")).thenReturn(List.of(provider));
-        when(diskCreationService.updateBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(78);
+        when(diskCreationService.prepareBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(preparedHeader(78));
         when(diskCreationService.getOhipfilename(55)).thenReturn("regen.txt");
         when(diskCreationService.getHtmlfilename(55, "999998")).thenReturn("regen.html");
         doThrow(new IllegalStateException("db down"))
-                .when(transactionService).finalizeGeneratedDisk(claimFileService, 55);
+                .when(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(55), any(BillingOnDiskTransactionService.Outcome.class));
 
         assertThatThrownBy(() -> service.regenerateDisk(request))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("db down");
 
-        verify(claimFileService).renameFile();
-        verify(claimFileService).deleteOhipFileQuietly();
-        verify(claimFileService).deleteHtmlFileQuietly();
-        verify(claimFileService).restoreLastRenameQuietly();
+        verify(claimFileService).backupFileForRollback();
+        verify(claimFileService).restoreRenamedFile();
+        verify(claimFileService).restoreHtmlForRollback();
+        verify(claimFileService, never()).deleteOhipFileQuietly();
     }
 
     @Test
-    void shouldRestoreOriginalFile_whenRegeneratedClaimGenerationFailsAfterRename() {
+    void shouldPreserveOriginalFile_whenRegeneratedClaimGenerationFails() {
         MockHttpServletRequest request = regenerateRequest("55");
         BillingProviderDto provider = provider("999998", "0000");
         when(diskLoader.getDiskCreateDate("55")).thenReturn("2026-04-30");
         when(diskCreationService.getProvider("55")).thenReturn(List.of(provider));
-        when(diskCreationService.updateBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(78);
+        when(diskCreationService.prepareBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(preparedHeader(78));
         when(diskCreationService.getOhipfilename(55)).thenReturn("regen.txt");
         when(diskCreationService.getHtmlfilename(55, "999998")).thenReturn("regen.html");
         doThrow(new IllegalStateException("claim body failed"))
@@ -231,10 +271,10 @@ class BillingOnDiskServiceUnitTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("claim body failed");
 
-        verify(claimFileService).renameFile();
-        verify(claimFileService).restoreLastRenameQuietly();
+        verify(claimFileService, never()).backupFileForRollback();
+        verify(claimFileService, never()).restoreRenamedFile();
         verify(claimFileService, never()).writeFile(anyString());
-        verify(transactionService, never()).finalizeGeneratedDisk(claimFileService, 55);
+        verify(transactionService, never()).finalizeGeneratedDisk(eq(claimFileService), eq(55), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
     @Test
@@ -243,22 +283,70 @@ class BillingOnDiskServiceUnitTest {
         BillingProviderDto provider = provider("999998", "0000");
         when(diskLoader.getDiskCreateDate("55")).thenReturn("2026-04-30");
         when(diskCreationService.getProvider("55")).thenReturn(List.of(provider));
-        when(diskCreationService.updateBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(78);
+        when(diskCreationService.prepareBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(preparedHeader(78));
         when(diskCreationService.getOhipfilename(55)).thenReturn("regen.txt");
         when(diskCreationService.getHtmlfilename(55, "999998")).thenReturn("regen.html");
         doThrow(new BillingFileWriteException("rename failed"))
-                .when(claimFileService).renameFile();
+                .when(claimFileService).backupFileForRollback();
 
         assertThatThrownBy(() -> service.regenerateDisk(request))
                 .isInstanceOf(BillingFileWriteException.class)
                 .hasMessageContaining("rename failed");
 
-        verify(claimFileService).renameFile();
+        verify(claimFileService).backupFileForRollback();
         verify(claimFileService, never()).deleteOhipFileQuietly();
         verify(claimFileService, never()).deleteHtmlFileQuietly();
-        verify(claimFileService, never()).restoreLastRenameQuietly();
+        verify(claimFileService, never()).restoreRenamedFile();
+        verify(claimFileService).discardHtmlBackup();
         verify(claimFileService, never()).writeFile(anyString());
-        verify(transactionService, never()).finalizeGeneratedDisk(claimFileService, 55);
+        verify(transactionService, never()).finalizeGeneratedDisk(eq(claimFileService), eq(55), any(BillingOnDiskTransactionService.Outcome.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldRetainPublishedFiles_whenCommitAcknowledgementIsLost(boolean regenerate) {
+        var provider = provider("999998", "0000");
+        when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
+        when(diskCreationService.createNewSoloDiskName("999998", "999998")).thenReturn(12);
+        when(diskCreationService.createBatchHeader(provider, "12", "4", "1", "999998")).thenReturn(34);
+        when(diskLoader.getDiskCreateDate("12")).thenReturn("2026-04-30");
+        when(diskCreationService.getProvider("12")).thenReturn(List.of(provider));
+        when(diskCreationService.prepareBatchHeader(provider, "12", "4", "1", "999998")).thenReturn(preparedHeader(34));
+        when(diskCreationService.getOhipfilename(12)).thenReturn("ohip.txt");
+        when(diskCreationService.getHtmlfilename(12, "999998")).thenReturn("ohip.html");
+        var source = new org.h2.jdbcx.JdbcDataSource();
+        source.setURL("jdbc:h2:mem:lost-billing-commit-" + java.util.UUID.randomUUID());
+        var manager = new org.springframework.jdbc.datasource.DataSourceTransactionManager(source) {
+            @Override protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
+                super.doCommit(status);
+                throw new org.springframework.transaction.TransactionSystemException("lost acknowledgement");
+            }
+        };
+        var factory = new org.springframework.aop.framework.ProxyFactory(new BillingOnDiskTransactionService());
+        factory.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(manager,
+                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        var transactional = (BillingOnDiskTransactionService) factory.getProxy();
+        org.mockito.Mockito.doAnswer(call -> {
+            transactional.finalizeGeneratedDisk(call.getArgument(0), call.getArgument(1), call.getArgument(2));
+            return null;
+        }).when(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(12), any(BillingOnDiskTransactionService.Outcome.class));
+        assertThatThrownBy(() -> {
+            if (regenerate) service.regenerateDisk(regenerateRequest("12"));
+            else service.generateNewDisk(newDiskRequest("999998"));
+        }).isInstanceOf(BillingFileWriteException.class).hasMessageContaining("Reconcile");
+        verify(claimFileService).writeFile("claim-body");
+        verify(claimFileService).writeHtml("<html>claim</html>");
+        verify(claimFileService, never()).deleteOhipFileQuietly();
+        verify(claimFileService, never()).deleteHtmlFileQuietly();
+        verify(claimFileService, never()).restoreRenamedFile();
+        verify(claimFileService, never()).restoreHtmlForRollback();
+        verify(claimFileService, never()).discardHtmlBackup();
+    }
+
+    private static BillingDiskCreationService.PreparedBatchHeader preparedHeader(int id) {
+        var dto = new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto();
+        dto.setId(String.valueOf(id));
+        return new BillingDiskCreationService.PreparedBatchHeader(dto, dto);
     }
 
     private static MockHttpServletRequest newDiskRequest(String providerNo) {
@@ -289,7 +377,29 @@ class BillingOnDiskServiceUnitTest {
         BillingProviderDto provider = new BillingProviderDto();
         provider.setProviderNo(providerNo);
         provider.setOhipNo("123456");
+        // The lookup service defaults a blank specialty to 00, so a real DTO always has one.
+        provider.setSpecialtyCode("00");
         provider.setBillingGroupNo(groupNo);
         return provider;
+    }
+
+    @Test
+    void shouldRetainPriorSubmissionBackup_afterSuccessfulSoloRegeneration() {
+        MockHttpServletRequest request = regenerateRequest("55");
+        BillingProviderDto provider = provider("999998", "0000");
+        when(diskLoader.getDiskCreateDate("55")).thenReturn("2026-04-30");
+        when(diskCreationService.getProvider("55")).thenReturn(List.of(provider));
+        when(diskCreationService.prepareBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(preparedHeader(78));
+        when(diskCreationService.getOhipfilename(55)).thenReturn("regen.txt");
+        when(diskCreationService.getHtmlfilename(55, "999998")).thenReturn("regen.html");
+
+        service.regenerateDisk(request);
+
+        InOrder order = inOrder(claimFileService, transactionService);
+        order.verify(claimFileService).backupFileForRollback();
+        order.verify(claimFileService).writeFile("claim-body");
+        order.verify(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(55), any(BillingOnDiskTransactionService.Outcome.class));
+        order.verify(claimFileService).retainFileBackup();
+        verify(claimFileService, never()).restoreRenamedFile();
     }
 }

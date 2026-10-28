@@ -49,13 +49,13 @@
     Request Parameters:
     - boxType: Type of message box to display (0=inbox, 1=sent, 2=deleted, 3=demographic)
     - demographic_no: Filter messages for specific patient
-    - orderby: Column to sort by (toggles ascending/descending on repeat click)
+    - orderby: Request-scoped sort column and direction, preserved in mailbox navigation links
+    - searchString: Request-scoped message search, preserved with sorting and pagination
     - page: Current page number for pagination
 
     Session Requirements:
     - msgSessionBean: Must be valid for page access (redirects to index.jsp if null)
     - userrole: User's role for security validation
-    - orderby: Stored sort preference (persisted across requests)
 
     Frontend Dependencies:
     - Bootstrap 5.3.3 (responsive layout, navigation tabs, table styling)
@@ -100,10 +100,8 @@
     if (!authed) {
         return;
     }
-    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
-    String scheduleNavQuerySuffix = showScheduleNav ? "&scheduleNav=1" : "";
-    String scheduleNavFirstQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 %>
+<%@ include file="messengerScheduleNav.jspf" %>
 
 <%
     // Determine which message box to display based on boxType parameter
@@ -141,15 +139,11 @@
 
     pageContext.setAttribute("pageType", "" + pageType);
 
-    if (request.getParameter("orderby") != null) {
-        String orderby = request.getParameter("orderby");
-        String sessionOrderby = (String) session.getAttribute("orderby");
-        if (sessionOrderby != null && sessionOrderby.equals(orderby)) {
-            orderby = "!" + orderby;
-        }
-        session.setAttribute("orderby", orderby);
+    String orderby = request.getParameter("orderby");
+    if (orderby == null || !orderby.matches("!?(status|from|subject|date|sentto|linked)")) {
+        orderby = "!date";
     }
-    String orderby = (String) session.getAttribute("orderby");
+
 
     int pageNum = 1;
     String pageParam = request.getParameter("page");
@@ -173,11 +167,15 @@
         return;
     }
 %>
-<jsp:useBean id="DisplayMessagesBeanId" scope="session" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayMessagesBean"/>
-<% DisplayMessagesBeanId.setProviderNo(bean.getProviderNo());
-    bean.nullAttachment();
+<jsp:useBean id="DisplayMessagesBeanId" scope="request" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayMessagesBean"/>
+<%-- Compose attachments are kept per compose window (MsgAttachmentStaging), so opening the inbox
+     no longer discards what an open compose window has attached (issue #4673). --%>
+<% DisplayMessagesBeanId.setProviderNo(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+    if (request.getParameter("btnClearSearch") != null) DisplayMessagesBeanId.clearFilter();
+    else if (request.getParameter("searchString") != null) DisplayMessagesBeanId.setFilter(request.getParameter("searchString"));
+    String inboxFilterSuffix = "&amp;searchString=" + SafeEncode.forUriComponent(DisplayMessagesBeanId.getFilter());
 %>
-<jsp:setProperty name="DisplayMessagesBeanId" property="*"/>
+
 <!DOCTYPE html>
 <html>
     <head>
@@ -329,6 +327,10 @@
     </h4>
     <form action="${pageContext.request.contextPath}/messenger/DisplayMessages" method="post" class="page-header-search-form">
         <input name="boxType" type="hidden" value="<%=pageType%>">
+        <input name="orderby" type="hidden" value="<%=SafeEncode.forHtmlAttribute(orderby)%>">
+        <% if (pageType == 3) { %>
+            <input name="demographic_no" type="hidden" value="<%=SafeEncode.forHtmlAttribute(demographic_no)%>">
+        <% } %>
         <% if (showScheduleNav) { %>
             <%-- Preserve schedule shell state after search submits; otherwise the top bar disappears on the next render. --%>
             <input name="scheduleNav" type="hidden" value="1">
@@ -355,9 +357,14 @@
                         if (pageType == 2) {
                             strutsAction = contextPath + "/messenger/ReDisplayMessages";
                         }
+                        strutsAction += "?boxType=" + pageType + "&orderby=" + SafeEncode.forUriComponent(orderby)
+                                + "&searchString=" + SafeEncode.forUriComponent(DisplayMessagesBeanId.getFilter());
                     %>
 
-                    <form action="<%=strutsAction%>" method="post" id="msgList">
+                    <form action="<%=SafeEncode.forHtmlAttribute(strutsAction)%>" method="post" id="msgList">
+                    <% if (pageType == 3) { %>
+                        <input name="demographic_no" type="hidden" value="<%=SafeEncode.forHtmlAttribute(demographic_no)%>">
+                    <% } %>
                     <% if (showScheduleNav) { %>
                         <%-- Bulk mailbox actions post back through Struts, so carry scheduleNav as form state. --%>
                         <input name="scheduleNav" type="hidden" value="1">
@@ -384,24 +391,26 @@
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 0) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages<%=scheduleNavFirstQuerySuffix%>">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=0<%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>&amp;orderby=<%=SafeEncode.forUriComponent(orderby)%>">
                                          <fmt:message key="messenger.DisplayMessages.btnRefresh"/></a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 1) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>&amp;orderby=<%=SafeEncode.forUriComponent(orderby)%>">
                                          <fmt:message key="messenger.DisplayMessages.btnSent"/></a><!-- sentMessage link-->
 
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 2) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=2<%=scheduleNavQuerySuffix%>">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=2<%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>&amp;orderby=<%=SafeEncode.forUriComponent(orderby)%>">
                                          <fmt:message key="messenger.DisplayMessages.btnDeletedMessage"/></a><!--deletedMessage link-->
 
                                     </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="javascript:BackToCarlos()"><fmt:message key="messenger.DisplayMessages.btnExit"/></a>
-                                    </li>
+                                    <% if (showMessengerExitButton) { %>
+                                        <li class="nav-item">
+                                            <a class="nav-link" href="javascript:BackToCarlos()"><fmt:message key="messenger.DisplayMessages.btnExit"/></a>
+                                        </li>
+                                    <% } %>
                                     </ul>
                         </td>
                     </tr>
@@ -443,7 +452,7 @@
 		                    String previous = "";
 		                    String next = "";
 		                    // Keep pagination inside the schedule shell by appending the same request flag used to render the top bar.
-		                    String path = request.getContextPath()+"/messenger/DisplayMessages?boxType=" + pageType + scheduleNavQuerySuffix + "&page=";
+		                    String path = request.getContextPath()+"/messenger/DisplayMessages?boxType=" + pageType + scheduleNavQuerySuffix + inboxFilterSuffix + "&amp;orderby=" + SafeEncode.forUriComponent(orderby) + "&amp;page=";
 		                    if (pageType != 3){
 
 		                    int totalMsgs = DisplayMessagesBeanId.getTotalMessages(pageType);
@@ -487,7 +496,7 @@
                                     <%} %>
                                     </th>
                                     <th style="text-align: left; width:120px;">
-                                        <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=status<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>"
+                                        <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=<%= "status".equals(orderby) ? "!status" : "status" %><%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>"
                                                    >
                                             <fmt:message key="messenger.DisplayMessages.msgStatus"/>
                                             <i class="fa-solid fa-caret-down"></i>
@@ -495,13 +504,13 @@
                                     </th>
                                     <th style="text-align: left;">
                                       <%if( pageType == 1 ) {%>
-                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=sentto<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>"
+                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=<%= "sentto".equals(orderby) ? "!sentto" : "sentto" %><%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>"
                                                     >
                                                     <fmt:message key="messenger.DisplayMessages.msgTo"/>
                                                     <i class="fa-solid fa-caret-down"></i>
                                                 </a>
                                        <%} else {%>
-                                                <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=from<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>"
+                                                <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=<%= "from".equals(orderby) ? "!from" : "from" %><%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>"
                                                    >
                                                     <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                                     <i class="fa-solid fa-caret-down"></i>
@@ -509,21 +518,21 @@
                                        <% } %>
                                     </th>
                                     <th style="text-align: left;">
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=subject<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=<%= "subject".equals(orderby) ? "!subject" : "subject" %><%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                                 <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;">
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=date<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=<%= "date".equals(orderby) ? "!date" : "date" %><%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                                 <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;" >
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=linked<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=<%= "linked".equals(orderby) ? "!linked" : "linked" %><%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                                 <i class="fa-solid fa-caret-down"></i>
@@ -590,7 +599,7 @@
 
                                     </td>
                                     <td>
-                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>">
+                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&boxType=<%=pageType%>&amp;orderby=<%=SafeEncode.forUriComponent(orderby)%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%><%=demographicQuerySuffix%><%=pageType == 3 ? "&amp;from=encounter" : ""%>">
                                         <carlos:encode value='<%= dm.getThesubject() %>' context="html"/>
                                     </a>
                                     <%

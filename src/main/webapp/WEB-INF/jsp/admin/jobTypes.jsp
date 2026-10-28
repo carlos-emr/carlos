@@ -43,7 +43,11 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.jobTypes.save" var="jobTypesSaveLabel"/>
+<fmt:message key="admin.jobTypes.cancel" var="jobTypesCancelLabel"/>
+<fmt:message key="admin.jobTypes.saveError" var="jobTypesSaveErrorLabel"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -76,8 +80,12 @@
 
 
         <script>
-            const jobTypesSaveLabel = "<fmt:message key='admin.jobTypes.save'/>";
-            const jobTypesCancelLabel = "<fmt:message key='admin.jobTypes.cancel'/>";
+            const jobTypesSaveLabel = "${carlos:forJavaScript(jobTypesSaveLabel)}";
+            const jobTypesCancelLabel = "${carlos:forJavaScript(jobTypesCancelLabel)}";
+            const jobTypesSaveErrorLabel = "${carlos:forJavaScript(jobTypesSaveErrorLabel)}";
+            let jobTypeTable;
+            let jobTypeSavePending = false;
+            let jobTypeEditorGeneration = 0;
 
             function editJobType(jobTypeId) {
                 jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/jobType/" + jobTypeId, {},
@@ -109,52 +117,57 @@
                 $('#new-jobtype').dialog('open');
             }
 
-            function clearJobs() {
-                $("#jobTypeTable tbody tr").remove();
-            }
-
             function listJobs() {
                 return getJobTypes();
             }
 
             function getJobTypes() {
-                jQuery.getJSON("${pageContext.request.contextPath}/ws/rs/jobs/types/all", {async: false},
+                return jQuery.getJSON("${pageContext.request.contextPath}/ws/rs/jobs/types/all", {async: false},
                     function (xml) {
+                        var arr = [];
                         if (xml.types) {
-                            var arr = new Array();
                             if (xml.types instanceof Array) {
                                 arr = xml.types;
                             } else {
                                 arr[0] = xml.types;
                             }
-
-                            for (var i = 0; i < arr.length; i++) {
-                                var job = arr[i];
-                                var $row = $('<tr>');
-                                var $nameLink = $('<a>').attr('href', 'javascript:void(0);')
-                                    .text(job.name)
-                                    .on('click', (function(id) { return function() { editJobType(id); }; })(job.id));
-                                $row.append($('<td>').append($('<u>').append($nameLink)));
-                                $row.append($('<td>').text(job.description));
-                                $row.append($('<td>').text(job.className));
-                                $row.append($('<td>').text(job.currentlyValid));
-                                $row.append($('<td>').text(job.enabled));
-                                $row.append($('<td>').text(new Date(job.updated)));
-
-                                $('#jobTypeTable tbody').append($row);
-
-                            }
-                            initiate();
                         }
 
+                        var rows = [];
+                        for (var i = 0; i < arr.length; i++) {
+                            var job = arr[i];
+                            var $row = $('<tr>');
+                            var $nameLink = $('<a>').attr('href', 'javascript:void(0);')
+                                .text(job.name)
+                                .on('click', (function(id) { return function() { editJobType(id); }; })(job.id));
+                            $row.append($('<td>').append($('<u>').append($nameLink)));
+                            $row.append($('<td>').text(job.description));
+                            $row.append($('<td>').text(job.className));
+                            $row.append($('<td>').text(job.currentlyValid));
+                            $row.append($('<td>').text(job.enabled));
+                            $row.append($('<td>').text(new Date(job.updated)));
+
+                            rows.push($row[0]);
+                        }
+
+                        var table = initiate();
+                        table.clear();
+                        table.rows.add(rows);
+                        table.draw(false);
+                        var pageInfo = table.page.info();
+                        if (pageInfo.page > 0 && pageInfo.page >= pageInfo.pages) {
+                            table.page(Math.max(0, pageInfo.pages - 1)).draw(false);
+                        }
                     });
             }
 
             function initiate() {
-                $('#jobTypeTable').DataTable({
-                    "order": []
-                });
-                return;
+                if (!jobTypeTable) {
+                    jobTypeTable = $('#jobTypeTable').DataTable({
+                        "order": []
+                    });
+                }
+                return jobTypeTable;
             }
 
             $(document).ready(function () {
@@ -166,15 +179,42 @@
                     height: 525,
                     width: 620,
                     modal: true,
+                    open: function () {
+                        jobTypeEditorGeneration++;
+                    },
                     buttons: {
                         saveJobType: {
-                            class: "btn btn-primary", text: jobTypesSaveLabel, click: function () {
-                                $.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType', $('#jobTypeForm').serialize(), function (data) {
-                                    clearJobs();
-                                    listJobs();
-                                });
-                                $(this).dialog("close");
-
+                            class: "btn btn-primary job-types-save", text: jobTypesSaveLabel, click: function () {
+                                if (jobTypeSavePending) {
+                                    return;
+                                }
+                                var $dialog = $(this);
+                                var editorGeneration = jobTypeEditorGeneration;
+                                var $saveButton = $dialog.dialog("widget").find(".job-types-save");
+                                function restoreSaveButton() {
+                                    jobTypeSavePending = false;
+                                    $saveButton.button("enable");
+                                }
+                                jobTypeSavePending = true;
+                                $saveButton.button("disable");
+                                var saveRequest;
+                                try {
+                                    saveRequest = $.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType', $('#jobTypeForm').serialize());
+                                } catch (error) {
+                                    restoreSaveButton();
+                                    window.alert(jobTypesSaveErrorLabel);
+                                    return;
+                                }
+                                saveRequest.always(restoreSaveButton)
+                                    .done(function () {
+                                        listJobs();
+                                        if (editorGeneration === jobTypeEditorGeneration) {
+                                            $dialog.dialog("close");
+                                        }
+                                    })
+                                    .fail(function () {
+                                        window.alert(jobTypesSaveErrorLabel);
+                                    });
                             }
                         },
                         cancel: {

@@ -60,8 +60,8 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key='encounter.formAnnual.title'/></title>
-        <link rel="stylesheet" type="text/css" href="annualStyle.css">
-        <link rel="stylesheet" type="text/css" media="print" href="print.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/annualStyle.css">
+        <link rel="stylesheet" type="text/css" media="print" href="${pageContext.request.contextPath}/form/print.css">
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         </style>
     </head>
@@ -392,7 +392,7 @@
                                 </tr>
                                 <tr>
                                     <td>&nbsp;</td>
-                                    <td class="Headings"><fmt:message key='encounter.formFemaleAnnual.btnNo'/></td>
+                                    <td class="Headings"><fmt:message key='encounter.formFemaleAnnual.formNo'/></td>
                                     <td class="Headings"><fmt:message key='encounter.formFemaleAnnual.btnYes'/></td>
                                     <td>&nbsp;</td>
                                 </tr>

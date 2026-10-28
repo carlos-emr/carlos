@@ -102,6 +102,18 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should return false for a null string")
+        void shouldReturnFalse_forNullString() {
+            assertThat(RxUtil.isStringToNumber(null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false for a trailing decimal point")
+        void shouldReturnFalse_forTrailingDecimalPoint() {
+            assertThat(RxUtil.isStringToNumber("1.")).isFalse();
+        }
+
+        @Test
         @DisplayName("should return false for a number followed by non-numeric characters")
         void shouldReturnFalse_forNumberFollowedByLetters() {
             assertThat(RxUtil.isStringToNumber("5mg")).isFalse();
@@ -156,9 +168,25 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse word dosage after method")
+        void shouldParseWordDosage_afterMethod() {
+            RxPrescriptionData.Prescription rx = parse("Take one tablet BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(1.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
         @DisplayName("should parse decimal dosage with frequency")
         void shouldParseDecimalDosage_withFrequency() {
             RxPrescriptionData.Prescription rx = parse("Take 1.5 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(1.5f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
+        @DisplayName("should parse decimal dosage without method")
+        void shouldParseDecimalDosage_withoutMethod() {
+            RxPrescriptionData.Prescription rx = parse("1.5 BID ");
             assertThat(rx.getTakeMax()).isEqualTo(1.5f);
             assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
         }
@@ -168,6 +196,14 @@ class RxUtilRegexUnitTest {
         void shouldParseLeadingDotDecimalDosage_withFrequency() {
             RxPrescriptionData.Prescription rx = parse("Take .5 BID ");
             assertThat(rx.getTakeMax()).isEqualTo(0.5f);
+        }
+
+        @Test
+        @DisplayName("should parse leading-dot decimal dosage without method")
+        void shouldParseLeadingDotDecimalDosage_withoutMethod() {
+            RxPrescriptionData.Prescription rx = parse(".5 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.5f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
         }
 
         @Test
@@ -187,10 +223,157 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse leading-dot dosage range with frequency")
+        void shouldParseLeadingDotDosageRange_withFrequency() {
+            RxPrescriptionData.Prescription rx = parse("Take .5-1 BID ");
+            assertThat(rx.getTakeMin()).isEqualTo(0.5f);
+            assertThat(rx.getTakeMax()).isEqualTo(1.0f);
+        }
+
+        @Test
+        @DisplayName("should parse dosage range without method")
+        void shouldParseDosageRange_withoutMethod() {
+            RxPrescriptionData.Prescription rx = parse("0.5-1.5 BID ");
+            assertThat(rx.getTakeMin()).isEqualTo(0.5f);
+            assertThat(rx.getTakeMax()).isEqualTo(1.5f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
+        @DisplayName("should parse leading-dot dosage range without method")
+        void shouldParseLeadingDotDosageRange_withoutMethod() {
+            RxPrescriptionData.Prescription rx = parse(".5-1 BID ");
+            assertThat(rx.getTakeMin()).isEqualTo(0.5f);
+            assertThat(rx.getTakeMax()).isEqualTo(1.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
         @DisplayName("should parse fraction 1/2 dosage")
         void shouldParseFractionHalf_withFrequency() {
             RxPrescriptionData.Prescription rx = parse("Take 1/2 BID ");
             assertThat(rx.getTakeMax()).isEqualTo(0.5f);
+        }
+
+        @Test
+        @DisplayName("should parse fraction 1/2 dosage without trailing whitespace")
+        void shouldParseFractionHalf_withoutTrailingWhitespace() {
+            RxPrescriptionData.Prescription rx = parse("Take 1/2");
+            assertThat(rx.getTakeMax()).isEqualTo(0.5f);
+        }
+
+        @Test
+        @DisplayName("should parse fraction 1/4 dosage")
+        void shouldParseFractionQuarter_withFrequency() {
+            RxPrescriptionData.Prescription rx = parse("Take 1/4 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.25f);
+        }
+
+        @Test
+        @DisplayName("should parse fraction 3/4 dosage")
+        void shouldParseFractionThreeQuarter_withFrequency() {
+            RxPrescriptionData.Prescription rx = parse("Take 3/4 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.75f);
+        }
+
+        @Test
+        @DisplayName("should ignore fraction with zero denominator")
+        void shouldIgnoreFractionZeroDenominator_withFrequency() {
+            RxPrescriptionData.Prescription rx = parse("Take 1/0 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
+        @DisplayName("should parse integer dosage with frequency synonym")
+        void shouldParseIntegerDosage_withFrequencySynonym() {
+            RxPrescriptionData.Prescription rx = parse("Take 1 once daily ");
+            assertThat(rx.getTakeMax()).isEqualTo(1.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
+        @DisplayName("should parse single-space amount before frequency")
+        void shouldParseSingleSpaceAmount_beforeFrequency() {
+            RxPrescriptionData.Prescription rx = parse("for 1 OD ");
+            assertThat(rx.getTakeMax()).isEqualTo(1.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
+        @DisplayName("should parse single-space amount before frequency synonym")
+        void shouldParseSingleSpaceAmount_beforeFrequencySynonym() {
+            RxPrescriptionData.Prescription rx = parse("for 1 once daily ");
+            assertThat(rx.getTakeMax()).isEqualTo(1.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
+        @DisplayName("should parse single-space range before frequency")
+        void shouldParseSingleSpaceRange_beforeFrequency() {
+            RxPrescriptionData.Prescription rx = parse("for 1-2 OD ");
+            assertThat(rx.getTakeMin()).isEqualTo(1.0f);
+            assertThat(rx.getTakeMax()).isEqualTo(2.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
+        @DisplayName("should parse single-space range before frequency synonym")
+        void shouldParseSingleSpaceRange_beforeFrequencySynonym() {
+            RxPrescriptionData.Prescription rx = parse("for 1-2 once daily ");
+            assertThat(rx.getTakeMin()).isEqualTo(1.0f);
+            assertThat(rx.getTakeMax()).isEqualTo(2.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
+        @DisplayName("should parse single-space decimal range before frequency")
+        void shouldParseSingleSpaceDecimalRange_beforeFrequency() {
+            RxPrescriptionData.Prescription rx = parse("for 0.5-1.5 OD ");
+            assertThat(rx.getTakeMin()).isEqualTo(0.5f);
+            assertThat(rx.getTakeMax()).isEqualTo(1.5f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
+        @DisplayName("should parse single-space decimal range before frequency synonym")
+        void shouldParseSingleSpaceDecimalRange_beforeFrequencySynonym() {
+            RxPrescriptionData.Prescription rx = parse("for 0.5-1.5 once daily ");
+            assertThat(rx.getTakeMin()).isEqualTo(0.5f);
+            assertThat(rx.getTakeMax()).isEqualTo(1.5f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
+        @DisplayName("should ignore compact integer token without whitespace")
+        void shouldIgnoreCompactIntegerToken_whenAmountHasNoWhitespace() {
+            RxPrescriptionData.Prescription rx = parse("Take 1tablet BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
+        @DisplayName("should ignore compact range before frequency")
+        void shouldIgnoreCompactRange_beforeFrequency() {
+            RxPrescriptionData.Prescription rx = parse("for tablet1-2 OD ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
+        @DisplayName("should ignore compact trailing integer token before frequency")
+        void shouldIgnoreCompactTrailingIntegerToken_whenAmountHasNoWhitespaceBeforeFrequency() {
+            RxPrescriptionData.Prescription rx = parse("Take tablet1 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
+        @DisplayName("should ignore compact trailing decimal token before frequency")
+        void shouldIgnoreCompactTrailingDecimalToken_whenAmountHasNoWhitespaceBeforeFrequency() {
+            RxPrescriptionData.Prescription rx = parse("Take tablet.5 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
         }
 
         @Test

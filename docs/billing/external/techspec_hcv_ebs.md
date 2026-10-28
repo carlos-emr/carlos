@@ -1,6 +1,6 @@
 # Technical Specification for Health Card Validation (HCV) Service via Electronic Business Services (EBS)
 
-> **Source**: [http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_hcv_ebs.pdf]
+> **Source**: [http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_hcv_ebs.pdf](http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_hcv_ebs.pdf)
 > **Fetched**: 2026-04-29  
 > **Format**: extracted text from PDF via pypdfium2; tables may be space-aligned rather than GFM.  
 > **Authoritative source**: the PDF at the URL above. If this MD and the PDF disagree, the PDF wins.
@@ -8,7 +8,6 @@
 Page count: 52
 
 ---
-```xml
 <!-- page 1 -->
 
 Technical Specification for Health Card
@@ -151,7 +150,7 @@ for: identification; authentication; and authorization of
 parties using EBS as well as ensuring message
 integrity by means of a digital signature applied to each
 message. For more information refer to:
-http://www.oasisopen.org/committees/tc_home.php?wg_abbrev=wss.
+http://www.oasis-open.org/committees/tc_home.php?wg_abbrev=wss.
 
 <!-- page 6 -->
 
@@ -738,6 +737,8 @@ vendor.
 
 Final February 2013 Version 4.0 Page 22 of 52
 Appendix D: The Message WSDL
+
+```text
 <?xml version="1.0" encoding="UTF-8"?><definitions name="HCValidationService" targetNamespace="http://hcv.health.ontario.ca/"
 xmlns="http://schemas.xmlsoap.org/wsdl/"
 xmlns:ebs="http://ebs.health.ontario.ca/"
@@ -804,7 +805,7 @@ Final February 2013 Version 4.0 Page 23 of 52
 Final February 2013 Version 4.0 Page 24 of 52
 </sp:RequiredParts>
 <sp:RequiredParts>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
 </sp:RequiredParts>
 </wsp:All>
 </wsp:ExactlyOne>
@@ -813,8 +814,8 @@ Final February 2013 Version 4.0 Page 24 of 52
 <sp:SignedParts>
 <sp:Header Name="EBS" Namespace="http://ebs.health.ontario.ca/"/>
 <sp:Header Name="MSA" Namespace="http://msa.ebs.health.ontario.ca/"/>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis200401-wss-wssecurity-utility-1.0.xsd"/>
-<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"/>
 <sp:Body/>
 </sp:SignedParts>
 </wsp:All>
@@ -843,7 +844,7 @@ Final February 2013 Version 4.0 Page 25 of 52
 <sp:Header Name="IDP" Namespace="http://idp.ebs.health.ontario.ca/"/>
 <sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-
 wss-wssecurity-utility-1.0.xsd"/>
-<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"/>
 <sp:Body/>
 </sp:SignedParts>
 </wsp:All>
@@ -870,7 +871,7 @@ Final February 2013 Version 4.0 Page 26 of 52
 <sp:Header Name="ServiceUserMUID" Namespace=""/>
 </sp:RequiredParts>
 <sp:RequiredParts>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
 </sp:RequiredParts>
 </wsp:All>
 </wsp:ExactlyOne>
@@ -934,11 +935,15 @@ Final February 2013 Version 4.0 Page 28 of 52
 </port>
 </service>
 </definitions>
+```
+
 
 <!-- page 29 -->
 
 Final February 2013 Version 4.0 Page 29 of 52
 Appendix E: Message Schema
+
+```text
 <?xml version="1.0" encoding="UTF-8"?><xs:schema
 targetNamespace="http://hcv.health.ontario.ca/"
 version="1.0"
@@ -1088,11 +1093,15 @@ Final February 2013 Version 4.0 Page 33 of 52
  </xs:restriction>
  </xs:simpleType>
 </xs:schema>
+```
+
 
 <!-- page 34 -->
 
 Final February 2013 Version 4.0 Page 34 of 52
 APPENDIX F: MSA Model Request Message Example
+
+```text
 <soapenv:Envelope
 xmlns:soap-sec="http://schemas.xmlsoap.org/security/2000-12"
 xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
@@ -1240,11 +1249,15 @@ Final February 2013 Version 4.0 Page 38 of 52
  </ns5:validate>
  </soapenv:Body>
 </soapenv:Envelope>
+```
+
 
 <!-- page 39 -->
 
 Final February 2013 Version 4.0 Page 39 of 52
 APPENDIX G: IDP Model Request Message Example
+
+```text
 <soapenv:Envelope
 xmlns:soap-sec="http://schemas.xmlsoap.org/security/2000-12"
 xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
@@ -1392,11 +1405,15 @@ Final February 2013 Version 4.0 Page 43 of 52
  </ns5:validate>
  </soapenv:Body>
 </soapenv:Envelope>
+```
+
 
 <!-- page 44 -->
 
 Final February 2013 Version 4.0 Page 44 of 52
 APPENDIX H: MSA Response Message Example
+
+```text
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" >
  <soapenv:Header>
  <wsse:Security soapenv:mustUnderstand="1"
@@ -1407,8 +1424,8 @@ APPENDIX H: MSA Response Message Example
  <dsig:KeyInfo xmlns:dsig="http://www.w3.org/2000/09/xmldsig#" >
  <wsse:SecurityTokenReference>
  <wsse:KeyIdentifier
-ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile1.0#X509SubjectKeyIdentifier"
-EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security1.0#Base64Binary">
+ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509SubjectKeyIdentifier"
+EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary">
 MyXZQNYrNkOJu5c9ZOAH7su3vEM=
 </wsse:KeyIdentifier>
  </wsse:SecurityTokenReference>
@@ -1512,11 +1529,15 @@ iSHjWJP0E4kcVLivqWp8yRccLVdhZGj9GDVQuoFPxU2JXcGH6Ul5PcoL8YyP5G5Gi+RMNFAxUR5wpNZD
  </ns3:validateResponse>
  </soapenv:Body>
 </soapenv:Envelope>
+```
+
 
 <!-- page 48 -->
 
 Final February 2013 Version 4.0 Page 48 of 52
 APPENDIX I: IDP Response Message Example
+
+```text
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" >
  <soapenv:Header>
  <wsse:Security soapenv:mustUnderstand="1"
@@ -1527,8 +1548,8 @@ xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-s
  <dsig:KeyInfo xmlns:dsig="http://www.w3.org/2000/09/xmldsig#" >
  <wsse:SecurityTokenReference>
  <wsse:KeyIdentifier
-ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile1.0#X509SubjectKeyIdentifier"
-EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security1.0#Base64Binary">
+ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509SubjectKeyIdentifier"
+EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary">
 MyXZQNYrNkOJu5c9ZOAH7su3vEM=
 </wsse:KeyIdentifier>
  </wsse:SecurityTokenReference>
@@ -1631,8 +1652,9 @@ iSHjWJP0E4kcVLivqWp8yRccLVdhZGj9GDVQuoFPxU2JXcGH6Ul5PcoL8YyP5G5Gi+RMNFAxUR5wpNZD
  </ns3:validateResponse>
  </soapenv:Body>
 </soapenv:Envelope>
+```
+
 
 <!-- page 52 -->
 
 Catalogue # CIB-XXXXXXX Month/Year © Queen’s Printer for Ontario
-```

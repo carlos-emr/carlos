@@ -62,6 +62,8 @@
 <html>
 
     <head>
+        <%-- Tokenises forms in panels injected by .load() (#4130). --%>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="admin.admin.ManageReferralDoc"/></title>
 
@@ -105,7 +107,7 @@
             String limit = request.getParameter("limit");
             String lastname = request.getParameter("lastname");
         %>
-        <form action="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc" class="d-flex flex-wrap align-items-center gap-2"
+        <form action="<%=request.getContextPath() %>/billing/CA/BC/ViewBillingManageReferralDoc" class="d-flex flex-wrap align-items-center gap-2"
               name="referralDocform" id="referralDocform">
             Last Name: <input type="text" name="lastname" value="<carlos:encode value='<%= StringUtils.noNull(lastname) %>' context="htmlAttribute"/>"/>
             <select name="limit" class="form-select" title="limit results">
@@ -114,7 +116,7 @@
                 <option value="100" <%=selected(limit, "100")%>>100</option>
             </select>
             <input class="btn btn-primary" type="submit" value="Search"/>
-            <a href="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc"
+            <a href="<%=request.getContextPath() %>/billing/CA/BC/ViewBillingAddReferralDoc"
                class="contentLink btn btn-info">Add Doctor</a>
         </form>
 
@@ -142,13 +144,15 @@
                 if (limit == null) limit = "10";
                 if (lastname == null) lastname = "%";
                 List<Billingreferral> alist = billingReferralDao.getBillingreferralByLastName(lastname);
+                // The DAO answers a search that matches nobody with null, not an empty list.
+                if (alist == null) alist = Collections.emptyList();
                 for (int i = 0; i < alist.size(); i++) {
                     Billingreferral billingReferral = alist.get(i);
             %>
             <tr>
                 <!--td><%=billingReferral.getBillingreferralNo()%></td-->
                 <td>
-                    <a href="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc?id=<carlos:encode value='<%= String.valueOf(billingReferral.getBillingreferralNo()) %>' context="uriComponent"/>"
+                    <a href="<%=request.getContextPath() %>/billing/CA/BC/ViewBillingAddReferralDoc?id=<carlos:encode value='<%= String.valueOf(billingReferral.getBillingreferralNo()) %>' context="uriComponent"/>"
                        class="contentLink"><carlos:encode value='<%= StringUtils.noNull(billingReferral.getReferralNo()) %>' context="html"/>
                     </a></td>
                 <td><carlos:encode value='<%= StringUtils.noNull(billingReferral.getLastName()) %>' context="html"/></td>
@@ -167,22 +171,26 @@
         </table>
     </div>
     <script>
-        registerFormSubmit('referralDocform', 'dynamic-content');
+        // The Administration panel this page opens in defines registerFormSubmit and jQuery; opened on its own, the
+        // search form and the links work as plain page loads.
+        if (typeof registerFormSubmit === 'function') {
+            registerFormSubmit('referralDocform', 'dynamic-content');
 
-        $(document).ready(function ($) {
-            $("a.contentLink").on("click", function (e) {
-                e.preventDefault();
-                $("#dynamic-content").load($(this).attr("href"),
-                    function (response, status, xhr) {
-                        if (status == "error") {
-                            var msg = "Sorry but there was an error: ";
-                            $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
+            $(document).ready(function ($) {
+                $("a.contentLink").on("click", function (e) {
+                    e.preventDefault();
+                    $("#dynamic-content").load($(this).attr("href"),
+                        function (response, status, xhr) {
+                            if (status == "error") {
+                                var msg = "Sorry but there was an error: ";
+                                $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
+                            }
                         }
-                    }
-                );
-            });
+                    );
+                });
 
-        });
+            });
+        }
     </script>
     </body>
 </html>

@@ -1,6 +1,6 @@
 # Technical Specifications for Electronic Business Services (EBS)
 
-> **Source**: [http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_ebs.pdf]
+> **Source**: [http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_ebs.pdf](http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_ebs.pdf)
 > **Fetched**: 2026-04-29  
 > **Format**: extracted text from PDF via pypdfium2; tables may be space-aligned rather than GFM.  
 > **Authoritative source**: the PDF at the URL above. If this MD and the PDF disagree, the PDF wins.
@@ -9,7 +9,6 @@ Page count: 37
 
 ---
 
-```xml
 <!-- page 1 -->
 
 Technical Specifications for Electronic
@@ -155,7 +154,7 @@ transmission of electronic messages. It will be used
 for: identification; authentication; and authorization of
 parties using EBS as well as ensuring message
 integrity by means of a digital signature applied to each
-message. For more information refer to http://www.oasisopen.org/committees/tc_home.php?wg_abbrev=wss.
+message. For more information refer to http://www.oasis-open.org/committees/tc_home.php?wg_abbrev=wss.
 
 <!-- page 6 -->
 
@@ -629,6 +628,8 @@ requirements. Detailed description in message.
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 21 of 37
 APPENDIX B: The SOAP Message WSDL Policy Statement
+
+```text
 <wsp:Policy wsu:Id="request-policy">
 <wsp:ExactlyOne>
 <wsp:All>
@@ -670,7 +671,7 @@ Final December 2012 Version 3.0 Page 22 of 37
 <sp:Header Name="UserID" Namespace=""/>
 </sp:RequiredParts>
 <sp:RequiredParts>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasisopen.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
 </sp:RequiredParts>
 </wsp:All>
 </wsp:ExactlyOne>
@@ -679,13 +680,13 @@ Final December 2012 Version 3.0 Page 22 of 37
 <sp:SignedParts>
 <sp:Header Name="EBS" Namespace="http://ebs.health.ontario.ca/"/>
 <sp:Header Name="MSA" Namespace="http://msa.ebs.health.ontario.ca/"/>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasisopen.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
 
 <!-- page 23 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 23 of 37
-<sp:Header Name="UsernameToken" Namespace="http://docs.oasisopen.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"/>
 <sp:Body/>
 </sp:SignedParts>
 </wsp:All>
@@ -707,8 +708,8 @@ Final December 2012 Version 3.0 Page 23 of 37
 <sp:SignedParts>
 <sp:Header Name="EBS" Namespace="http://ebs.health.ontario.ca/"/>
 <sp:Header Name="IDP" Namespace="http://idp.ebs.health.ontario.ca/"/>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis200401-wss-wssecurity-utility-1.0.xsd"/>
-<sp:Header Name="UsernameToken" Namespace="http://docs.oasisopen.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"/>
 <sp:Body/>
 </sp:SignedParts>
 </wsp:All>
@@ -736,19 +737,23 @@ Final December 2012 Version 3.0 Page 24 of 37
 <sp:Header Name="ServiceUserMUID" Namespace=""/>
 </sp:RequiredParts>
 <sp:RequiredParts>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasisopen.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
 </sp:RequiredParts>
 </wsp:All>
 </wsp:ExactlyOne>
 </wsp:All>
  </wsp:ExactlyOne>
  </wsp:Policy>
+```
+
 
 <!-- page 25 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 25 of 37
 APPENDIX C: EBS Header Schema
+
+```xml
 <?xml version="1.0" encoding="UTF-8"?><xs:schema targetNamespace="http://ebs.health.ontario.ca/" version="1.0"
 xmlns:tns="http://ebs.health.ontario.ca/"
 xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -770,12 +775,16 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
  </xs:sequence>
  </xs:complexType>
 </xs:schema>
+```
+
 
 <!-- page 26 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 26 of 37
 APPENDIX D: MSA Header Schema
+
+```xml
 <?xml version="1.0" encoding="UTF-8"?><xs:schema targetNamespace="http://msa.ebs.health.ontario.ca/" version="1.0"
 xmlns:tns="http://msa.ebs.health.ontario.ca/"
 xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -797,12 +806,16 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
  </xs:sequence>
  </xs:complexType>
 </xs:schema>
+```
+
 
 <!-- page 27 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 27 of 37
 APPENDIX E: IDP Header Schema
+
+```xml
 <?xml version="1.0" encoding="UTF-8"?><xs:schema targetNamespace="http://idp.ebs.health.ontario.ca/" version="1.0"
 xmlns:tns="http://idp.ebs.health.ontario.ca/"
 xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -818,12 +831,16 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
  </xs:sequence>
  </xs:complexType>
 </xs:schema>
+```
+
 
 <!-- page 28 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 28 of 37
 APPENDIX F: Fault Schema
+
+```xml
 <?xml version="1.0" encoding="UTF-8"?><xs:schema targetNamespace="http://ebs.health.ontario.ca/" version="1.0"
 xmlns:tns="http://ebs.health.ontario.ca/"
 xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -835,12 +852,16 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
  </xs:sequence>
  </xs:complexType>
 </xs:schema>
+```
+
 
 <!-- page 29 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 29 of 37
 APPENDIX G: SOAP Header MSA Security Model Example
+
+```text
  <soapenv:Header>
  <ns2:EBS wsu:Id="id-1" xmlns:ns2="http://ebs.health.ontario.ca/" >
  <SoftwareConformanceKey>444361ee-277f-7732-c684-7a9923jfgh1b</SoftwareConformanceKey>
@@ -859,7 +880,7 @@ APPENDIX G: SOAP Header MSA Security Model Example
  <wsse:Username>73367252</wsse:Username>
  </wsse:UsernameToken>
  <wsse:BinarySecurityToken
-EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security1.0#Base64Binary"
+EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary"
 ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3"
 wsu:Id="X509-FBB16D2886CB8FE58213384666945491">
 MIICMzCCAZygAwIBAgIET1e+dDANBgkqhkiG9w0BAQUFADBeMQswCQYDVQQGEwJDQTEQMA4GA1UECBMHT250YXJpbzENMAsGA1U
@@ -957,18 +978,22 @@ X6/PL0ecIyQVX1tFlacQ3Se67uCIp9ZAu677POQNpXCgNO6qMTZZMBZYeC8hS4jcPBCW0dYFvMsDAlbe
  <ds:KeyInfo Id="KI-FBB16D2886CB8FE58213384666945692">
  <wsse:SecurityTokenReference wsu:Id="STR-FBB16D2886CB8FE58213384666945693">
  <wsse:Reference URI="#X509-FBB16D2886CB8FE58213384666945491"
-ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile1.0#X509v3" />
+ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3" />
  </wsse:SecurityTokenReference>
  </ds:KeyInfo>
  </ds:Signature>
  </wsse:Security>
  </soapenv:Header>
+```
+
 
 <!-- page 33 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 33 of 37
 APPENDIX H: SOAP Header IDP Security Model Example
+
+```text
  <soapenv:Header>
  <ns2:EBS wsu:Id="id-1" xmlns:ns2="http://ebs.health.ontario.ca/" >
  <SoftwareConformanceKey>444361ee-277f-7732-c684-7a9923jfgh1b</SoftwareConformanceKey>
@@ -986,7 +1011,7 @@ APPENDIX H: SOAP Header IDP Security Model Example
  <wsse:Username>SUTESTDEVONE@YAHOO.CA</wsse:Username>
  <wsse:Password Type="wsse:PasswordText">Cliffsammy12!</wsse:Password>
  </wsse:UsernameToken>
-<wsse:BinarySecurityToken EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soapmessage-security-1.0#Base64Binary" ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-
+<wsse:BinarySecurityToken EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary" ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-
 wss-x509-token-profile-1.0#X509v3"
 wsu:Id="X509-
 02F859690D5C74E20913402151228211">MIICMzCCAZygAwIBAgIET1e+dDANBgkqhkiG9w0BAQUFADBeMQswCQYDVQQGEwJDQTE
@@ -1083,15 +1108,15 @@ kRZDrdgotJT++WzhMLdt1J0Kah0aZVCWabQrxeGY2N3QDuMWr5PSlm1RWbkA3W5B4YLaD+S/j3QKc=
  <ds:KeyInfo Id="KI-02F859690D5C74E20913402151228312">
  <wsse:SecurityTokenReference wsu:Id="STR-02F859690D5C74E20913402151228413">
 <wsse:Reference URI="#X509-02F859690D5C74E20913402151228211"
-ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile1.0#X509v3" />
+ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3" />
  </wsse:SecurityTokenReference>
  </ds:KeyInfo>
  </ds:Signature>
  </wsse:Security>
 </soapenv:Header>
+```
+
 
 <!-- page 37 -->
 
 Catalogue # CIB-XXXXXXX Month/Year © Queen’s Printer for Ontario
-
-```

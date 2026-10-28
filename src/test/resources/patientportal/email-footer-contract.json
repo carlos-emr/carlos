@@ -1,0 +1,28 @@
+{
+  "notice": "FAKE RFC8032 test key / fake root ONLY. Proposed v2 vector pending exact contract agreement. Test clock1700000001.",
+  "root_token": "FAKE-only-footer-root-token-2026-10-09",
+  "clinic_id": "clinic-a",
+  "derived_read_token": "7a257965d8016b6e6c52d751985df7f4423521a12271969026d66176adcbff1d",
+  "nonce_raw_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "public_key_base64url": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+  "payload": {
+    "iss": "carlos",
+    "aud": "carlos-patient-portal-email-footer",
+    "iat": 1700000000,
+    "exp": 1700000060,
+    "nonce": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "clinic_id": "clinic-a",
+    "kid": "fake-rfc8032",
+    "footer_html": "<b>FAKE Clinic</b><br><a href=\"https://clinic.example.test\">Website</a>",
+    "footer_text": "FAKE Clinic\nWebsite <https://clinic.example.test>",
+    "revision": "1bdcf9706b4f19c2a839d026010a7e488cb7dde459296e65fc83c7a3be33387a",
+    "logo": {
+      "content_id": "clinic-logo-fake@carlos-emr",
+      "content_type": "image/png",
+      "bytes_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X9b8AAAAASUVORK5CYII=",
+      "sha256": "6c8219e55bc9826fe4b326377fba6a5d3e6c8244e42b0aedd6298ad79e613201"
+    }
+  },
+  "payload_utf8_base64": "eyJpc3MiOiJjYXJsb3MiLCJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZW1haWwtZm9vdGVyIiwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjE3MDAwMDAwNjAsIm5vbmNlIjoiQUFFQ0F3UUZCZ2NJQ1FvTERBME9EeEFSRWhNVUZSWVhHQmthR3h3ZEhoOCIsImNsaW5pY19pZCI6ImNsaW5pYy1hIiwia2lkIjoiZmFrZS1yZmM4MDMyIiwiZm9vdGVyX2h0bWwiOiI8Yj5GQUtFIENsaW5pYzwvYj48YnI+PGEgaHJlZj1cImh0dHBzOi8vY2xpbmljLmV4YW1wbGUudGVzdFwiPldlYnNpdGU8L2E+IiwiZm9vdGVyX3RleHQiOiJGQUtFIENsaW5pY1xuV2Vic2l0ZSA8aHR0cHM6Ly9jbGluaWMuZXhhbXBsZS50ZXN0PiIsInJldmlzaW9uIjoiMWJkY2Y5NzA2YjRmMTljMmE4MzlkMDI2MDEwYTdlNDg4Y2I3ZGRlNDU5Mjk2ZTY1ZmM4M2M3YTNiZTMzMzg3YSIsImxvZ28iOnsiY29udGVudF9pZCI6ImNsaW5pYy1sb2dvLWZha2VAY2FybG9zLWVtciIsImNvbnRlbnRfdHlwZSI6ImltYWdlL3BuZyIsImJ5dGVzX2Jhc2U2NCI6ImlWQk9SdzBLR2dvQUFBQU5TVWhFVWdBQUFBRUFBQUFCQ0FRQUFBQzFIQXdDQUFBQUMwbEVRVlI0Mm1QOC94OEFBd01DQU8rWDliOEFBQUFBU1VWT1JLNUNZSUk9Iiwic2hhMjU2IjoiNmM4MjE5ZTU1YmM5ODI2ZmU0YjMyNjM3N2ZiYTZhNWQzZTZjODI0NGU0MmIwYWVkZDYyOThhZDc5ZTYxMzIwMSJ9fQ==",
+  "assertion": "eyJpc3MiOiJjYXJsb3MiLCJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZW1haWwtZm9vdGVyIiwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjE3MDAwMDAwNjAsIm5vbmNlIjoiQUFFQ0F3UUZCZ2NJQ1FvTERBME9EeEFSRWhNVUZSWVhHQmthR3h3ZEhoOCIsImNsaW5pY19pZCI6ImNsaW5pYy1hIiwia2lkIjoiZmFrZS1yZmM4MDMyIiwiZm9vdGVyX2h0bWwiOiI8Yj5GQUtFIENsaW5pYzwvYj48YnI-PGEgaHJlZj1cImh0dHBzOi8vY2xpbmljLmV4YW1wbGUudGVzdFwiPldlYnNpdGU8L2E-IiwiZm9vdGVyX3RleHQiOiJGQUtFIENsaW5pY1xuV2Vic2l0ZSA8aHR0cHM6Ly9jbGluaWMuZXhhbXBsZS50ZXN0PiIsInJldmlzaW9uIjoiMWJkY2Y5NzA2YjRmMTljMmE4MzlkMDI2MDEwYTdlNDg4Y2I3ZGRlNDU5Mjk2ZTY1ZmM4M2M3YTNiZTMzMzg3YSIsImxvZ28iOnsiY29udGVudF9pZCI6ImNsaW5pYy1sb2dvLWZha2VAY2FybG9zLWVtciIsImNvbnRlbnRfdHlwZSI6ImltYWdlL3BuZyIsImJ5dGVzX2Jhc2U2NCI6ImlWQk9SdzBLR2dvQUFBQU5TVWhFVWdBQUFBRUFBQUFCQ0FRQUFBQzFIQXdDQUFBQUMwbEVRVlI0Mm1QOC94OEFBd01DQU8rWDliOEFBQUFBU1VWT1JLNUNZSUk9Iiwic2hhMjU2IjoiNmM4MjE5ZTU1YmM5ODI2ZmU0YjMyNjM3N2ZiYTZhNWQzZTZjODI0NGU0MmIwYWVkZDYyOThhZDc5ZTYxMzIwMSJ9fQ.OofecPSkhNo47Ks6QeLDKfTMm9HRZLxEJtUkSXRZpQHBYhqrDMxIClO3M4Xo28Sy4oovOfOQdIO9byzObJxLCg"
+}

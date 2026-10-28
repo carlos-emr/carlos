@@ -58,7 +58,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -155,10 +154,6 @@
         printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
-    String wLReadonly = "";
-    if (oscarProps != null && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"))) {
-        wLReadonly = "readonly";
-    }
     
     String warningLevel = demoExt != null ? demoExt.get("rxInteractionWarningLevel") : null;
     if (warningLevel == null) warningLevel = "0";
@@ -344,14 +339,14 @@
                                                         </b></td>
                                                         <td align="left"><input type="text"
                                                                                 name="nameUsed" <%=getDisabled("nameUsed")%>
-                                                                                size="30"
+                                                                                size="30" maxlength="<%= Demographic.ALIAS_MAX_LENGTH %>"
                                                                                 value="<carlos:encode value='<%= demographic.getAlias() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td style="text-align: right;">
                                                             <strong><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></strong>
                                                         </td>
                                                         <td style="text-align: left;">
-                                                            <input type="text" id="patientPronouns" name="pronouns"
+                                                            <input type="text" id="patientPronouns" name="pronouns" maxlength="<%=Demographic.PRONOUN_MAX_LENGTH%>"
                                                                    value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPronoun()) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                     </tr>
@@ -656,7 +651,8 @@
                                                                 } %> : </b></td>
                                                         <td align="left"><input type="text" name="postal"
                                                                                 size="30" <%=getDisabled("postal")%>
-                                                                                value="<%=StringUtils.trimToEmpty(demographic.getPostal())%>"
+                                                                                data-original-province="<carlos:encode value='<%= StringUtils.trimToEmpty(province) %>' context="htmlAttribute"/>"
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPostal()) %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"
                                                                                 onChange="isPostalCode()"></td>
                                                     </tr>
@@ -943,7 +939,7 @@
                                                             <input type="text" name="phone"
                                                                    onblur="formatPhoneNum(this);" <%=getDisabled("phone")%>
                                                                    style="display: inline; width: auto;"
-                                                                   value="<%=StringUtils.trimToEmpty(StringUtils.trimToEmpty(demographic.getPhone()))%>">
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(StringUtils.trimToEmpty(demographic.getPhone())) %>' context="htmlAttribute"/>">
                                                             <label for="hPhoneExt"><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
                                                             <input type="text" style="width:50% !important;"
                                                                    name="hPhoneExt"
@@ -959,7 +955,7 @@
                                                                                 name="phone2" <%=getDisabled("phone2")%>
                                                                                 onblur="formatPhoneNum(this);"
                                                                                 style="display: inline; width: auto;"
-                                                                                value="<%=StringUtils.trimToEmpty(demographic.getPhone2())%>">
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPhone2()) %>' context="htmlAttribute"/>">
                                                             <label for="wPhoneExt"><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
                                                             <input type="text" style="width:50% !important;"
                                                                    name="wPhoneExt"
@@ -1045,7 +1041,7 @@
                                                             <strong><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></strong>
                                                         </td>
                                                         <td style="text-align: left;">
-                                                            <input type="text" id="patientGender" name="gender"
+                                                            <input type="text" id="patientGender" name="gender" maxlength="<%=Demographic.GENDER_MAX_LENGTH%>"
                                                                    value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getGender()) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                     </tr>
@@ -1104,12 +1100,12 @@
                                                         </td>
                                                         <td align="left" nowrap><input type="text" name="hin"
                                                                                        id="hinBox" <%=getDisabled("hin")%>
-                                                                                       value="<%=StringUtils.trimToEmpty(demographic.getHin())%>"
+                                                                                       value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getHin()) %>' context="htmlAttribute"/>"
                                                                                        size="17">
                                                             <fmt:message key="demographic.demographiceditdemographic.formVer"/><input
                                                                     type="text" name="ver"
                                                                     style="width:20% !important;" <%=getDisabled("ver")%>
-                                                                    value="<%=StringUtils.trimToEmpty(demographic.getVer())%>"
+                                                                    value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getVer()) %>' context="htmlAttribute"/>"
                                                                     onBlur="upCaseCtrl(this)" id="verBox">
                                                             <%if ("online".equals(oscarProps.getProperty("hcv.type", "simple"))) { %>
                                                             <input type="button" value="Validate"
@@ -1460,10 +1456,13 @@
                                                                                 property="FIRST_NATIONS_MODULE">
                                                         <tr>
                                                             <td colspan="8">
+                                                                <%-- This editor redirects readers without write access, which breaks an included response. --%>
+                                                                <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w">
                                                                 <jsp:include page="/WEB-INF/jsp/demographic/manageFirstNationsModule.jsp">
                                                                     <jsp:param name="demo"
                                                                                value="<%= demographic_no %>"/>
                                                                 </jsp:include>
+                                                                </security:oscarSec>
                                                             </td>
                                                         </tr>
                                                     </oscar:oscarPropertiesCheck>

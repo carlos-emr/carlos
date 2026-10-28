@@ -6,7 +6,7 @@
  *   TEST_USER=... TEST_PASSWORD=... TEST_PIN=... node scripts/application-health-playwright-checks.js
  *
  * Optional environment:
- *   BASE_URL=http://127.0.0.1:8080/carlos
+ *   BASE_URL=https://127.0.0.1:8443/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=...
  *   TEST_PASSWORD=...
@@ -15,6 +15,8 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const h = require('./lib/playwright-harness');
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -24,7 +26,7 @@ function requireEnv(name) {
   return value;
 }
 
-const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const baseUrl = validateBaseUrl(process.env.BASE_URL || 'https://127.0.0.1:8443/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = requireEnv('TEST_USER');
 const testPassword = requireEnv('TEST_PASSWORD');
@@ -32,6 +34,7 @@ const testPin = requireEnv('TEST_PIN');
 
 const findings = [];
 const visited = [];
+const recorder = h.createRecorder();
 
 const authenticatedRoutes = [
   { label: 'schedule', path: '/provider/providercontrol', requiredText: /Search|Schedule|Preference/i },
@@ -49,13 +52,20 @@ const protectedRoutes = [
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
+  if (parsed.protocol !== 'https:') {
+    throw new Error('BASE_URL must use HTTPS because CARLOS session cookies are Secure (devcontainer: https://127.0.0.1:8443/carlos)');
   }
 
   const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const localHosts = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0', 'host.docker.internal', 'carlos']);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -97,6 +107,7 @@ function isSevereConsoleMessage(message) {
 }
 
 function wirePage(page, label) {
+  h.wireStrictPage(page, label, recorder, { baseline: [] });
   page.on('response', (response) => {
     const responseUrl = response.url();
     const status = response.status();
@@ -111,10 +122,6 @@ function wirePage(page, label) {
   });
   page.on('pageerror', (error) => {
     findings.push({ label, type: 'pageerror', text: error.stack || error.message });
-  });
-  page.on('dialog', async (dialog) => {
-    findings.push({ label, type: 'dialog', text: dialog.message() });
-    await dialog.accept();
   });
 }
 
@@ -177,13 +184,26 @@ async function checkAuthenticatedRoute(context, route) {
 }
 
 async function checkProtectedRedirect(browser, appPath) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  context.on('page', page => h.wireStrictPage(page, 'application-health-page', recorder, { baseline: [] }));
   const page = await context.newPage();
   const label = `unauthenticated:${appPath}`;
   wirePage(page, label);
   await gotoApp(page, label, appPath);
   const text = await bodyText(page);
-  const atLogin = /login|username|password/i.test(text) || /login|logout/i.test(page.url());
+  // Three ways the app legitimately lands an unauthenticated client on the
+  // login surface: wording in the visible text, a login/logout URL, or the
+  // login FORM itself. The last matters because the served login page renders
+  // its username/password/pin fields with placeholder attributes, which never
+  // appear in innerText — so a correct auth redirect to /carlos/index used to
+  // read as a missing-auth-redirect finding purely because the heuristic
+  // could not see the form it had been handed.
+  const hasLoginForm =
+    (await page.locator('#username').count()) > 0 &&
+    (await page.locator('#password').count()) > 0;
+  const atLogin = hasLoginForm
+    || /login|username|password/i.test(text)
+    || /login|logout/i.test(page.url());
   if (!atLogin) {
     findings.push({ label, type: 'missing-auth-redirect', url: page.url(), body: text.slice(0, 500) });
   }
@@ -205,7 +225,8 @@ async function checkProtectedRedirect(browser, appPath) {
       await checkProtectedRedirect(browser, appPath);
     }
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    context.on('page', page => h.wireStrictPage(page, 'application-health-page', recorder, { baseline: [] }));
     const schedulePage = await login(context);
     if (!findings.some((finding) => finding.label === 'post-login' && finding.type === 'login-failed')) {
       for (const route of authenticatedRoutes) {
@@ -219,6 +240,7 @@ async function checkProtectedRedirect(browser, appPath) {
     if (blockingFindings.length) {
       throw new Error(`application health Playwright check found ${blockingFindings.length} issue(s)`);
     }
+    h.assertStrictPage(recorder);
 
     console.log('PASS application health routes rendered without HTTP, auth, or browser failures');
   } finally {
@@ -227,5 +249,6 @@ async function checkProtectedRedirect(browser, appPath) {
 })().catch((error) => {
   console.error('FAIL application health Playwright check');
   console.error(error.stack || error.message);
+  console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
   process.exit(1);
 });

@@ -33,40 +33,46 @@ Oscar
 4. For each pair of height and weight measurements:
 	4.1 Calls toXML(), which converts the Measurement object to an XML representation.
 	4.2 Creates an object of type MedicalDataTransfer4, a wrapper for the XML
-	```java
-		MedicalDataTransfer4 medicalDataTransfer = toHeightWeightMedicalDataTransfer(myOscarLoggedInInfo, hw);
-	```
-	4.3 calls addMedicalData() on the MyOscarMedicalDataManagerUtils class, passing medicalDataTransfer object
-	```java
-		MyOscarMedicalDataManagerUtils.addMedicalData(myOscarLoggedInInfo, medicalDataTransfer, OSCAR_MEASUREMENTS_DATA_TYPE, hw.getCompositeId(), true, true);
-	```
+
+```java
+MedicalDataTransfer4 medicalDataTransfer = toHeightWeightMedicalDataTransfer(myOscarLoggedInInfo, hw);
+```
+
+4.3 calls addMedicalData() on the MyOscarMedicalDataManagerUtils class, passing medicalDataTransfer object
+
+```java
+MyOscarMedicalDataManagerUtils.addMedicalData(myOscarLoggedInInfo, medicalDataTransfer, OSCAR_MEASUREMENTS_DATA_TYPE, hw.getCompositeId(), true, true);
+```
+
 5. Iterates through all of the Measurements and sends them according to their types:
-	```java
-		if ("HT".equals(measurementType.getType()) || "WT".equals(measurementType.getType())) {
-			// do nothing, processed in another loop
-		} else if ("BP".equals(measurementType.getType())) {
-			sendBloodPressure(myOscarLoggedInInfo, measurement);
-		} else if ("A1C".equals(measurementType.getType())) {
-			sendA1C(myOscarLoggedInInfo, measurement);
-		} else {
-			sendOtherHealthTracker(myOscarLoggedInInfo, patientMyOscarId, measurement, measurementType);
-		}	
-	```
 
-	Each of the method calls above ultimately calls the webservice through this integration point:
-	```java
-		public static Long addMedicalData(MyOscarLoggedInInfo myOscarLoggedInInfo, MedicalDataTransfer4 medicalDataTransfer, String oscarDataType, Object localOscarObjectId, boolean completed, boolean active)
-				throws NotAuthorisedException_Exception, 
-				UnsupportedEncodingException_Exception, 
-				InvalidRequestException_Exception {
-			Long resultId=MedicalDataManager.addMedicalData(myOscarLoggedInInfo, medicalDataTransfer, completed, active);
-			logger.debug("addMedicalData success : resultId="+resultId);
+```java
+if ("HT".equals(measurementType.getType()) || "WT".equals(measurementType.getType())) {
+    // do nothing, processed in another loop
+} else if ("BP".equals(measurementType.getType())) {
+    sendBloodPressure(myOscarLoggedInInfo, measurement);
+} else if ("A1C".equals(measurementType.getType())) {
+    sendA1C(myOscarLoggedInInfo, measurement);
+} else {
+    sendOtherHealthTracker(myOscarLoggedInInfo, patientMyOscarId, measurement, measurementType);
+}
+```
 
-			addSendRemoteDataLog(oscarDataType, localOscarObjectId, medicalDataTransfer.getData());
-		
-			return(resultId);
-		}
-	```
+Each of the method calls above ultimately calls the webservice through this integration point:
+
+```java
+public static Long addMedicalData(MyOscarLoggedInInfo myOscarLoggedInInfo, MedicalDataTransfer4 medicalDataTransfer, String oscarDataType, Object localOscarObjectId, boolean completed, boolean active)
+        throws NotAuthorisedException_Exception,
+        UnsupportedEncodingException_Exception,
+        InvalidRequestException_Exception {
+    Long resultId=MedicalDataManager.addMedicalData(myOscarLoggedInInfo, medicalDataTransfer, completed, active);
+    logger.debug("addMedicalData success : resultId="+resultId);
+
+    addSendRemoteDataLog(oscarDataType, localOscarObjectId, medicalDataTransfer.getData());
+
+    return(resultId);
+}
+```
 
 MyOscar 
 1. Converts the XML format of the Medical data to object of type MedicalData. If the XML is invalid, it throws UnsupportedEncodingException.
@@ -75,9 +81,7 @@ MyOscar
 		throw(new InvalidRequestException("No medical data provided"))
 
 	2.2 If the requesting person doesn't have access to create medical data for this patient,
- 
+
 		throw(new NotAuthorisedException("Not allowed to create medical data for personId=" + medicalData.getOwningPersonId())
 
-3. Otherwise, persists the data to the database using the autowired MedicalDataDAO object.	
-
-
+3. Otherwise, persists the data to the database using the autowired MedicalDataDAO object.

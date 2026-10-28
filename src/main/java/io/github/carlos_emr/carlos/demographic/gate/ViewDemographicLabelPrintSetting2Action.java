@@ -12,7 +12,9 @@
  */
 package io.github.carlos_emr.carlos.demographic.gate;
 
+import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -32,17 +34,36 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewDemographicLabelPrintSetting2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+
+    public ViewDemographicLabelPrintSetting2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    public ViewDemographicLabelPrintSetting2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        final int patient;
+        try {
+            patient = PatientReadAccess.requestedPatient(request, true);
+        } catch (IllegalArgumentException invalid) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        if (patient > 0) {
+            PatientReadAccess.requirePatient(securityInfoManager, loggedInInfo, patient, "_demographic", SecurityInfoManager.READ);
+            request.setAttribute(PatientReadAccess.AUTHORIZED_PATIENT_ATTRIBUTE, Integer.toString(patient));
+        }
         return SUCCESS;
     }
 }

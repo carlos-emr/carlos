@@ -100,6 +100,9 @@ public class PasswordHashHelper {
      * @throws IllegalArgumentException If the rawPassword is null.
      */
     public static String encodePassword(CharSequence rawPassword) throws IllegalArgumentException {
+        if (rawPassword == null) {
+            throw new IllegalArgumentException("rawPassword must not be null");
+        }
         return PASSWORD_ENCODER.encode(rawPassword);
     }
 
@@ -112,6 +115,12 @@ public class PasswordHashHelper {
      * @throws IllegalArgumentException if either rawPassword or encodedPassword is null.
      */
     public static boolean matches(CharSequence rawPassword, String encodedPassword) throws IllegalArgumentException {
+        if (rawPassword == null) {
+            throw new IllegalArgumentException("rawPassword must not be null");
+        }
+        if (encodedPassword == null) {
+            throw new IllegalArgumentException("encodedPassword must not be null");
+        }
         return PASSWORD_ENCODER.matches(rawPassword, encodedPassword);
     }
 
@@ -123,6 +132,12 @@ public class PasswordHashHelper {
      * @throws IllegalArgumentException if encodedPassword is null.
      */
     public static boolean upgradeEncoding(String encodedPassword) {
+        // Spring's DelegatingPasswordEncoder treats a null encoding as an upgrade candidate and
+        // answers true, so without this guard the documented precondition above is not enforced
+        // and a caller with no stored hash is told the password merely needs rehashing.
+        if (encodedPassword == null) {
+            throw new IllegalArgumentException("encodedPassword must not be null");
+        }
         return PASSWORD_ENCODER.upgradeEncoding(encodedPassword);
     }
 

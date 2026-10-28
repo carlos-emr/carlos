@@ -59,7 +59,20 @@ public class EctEditMeasurementGroup2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
+        // Writes only from the form's POST: a link, image tag or prefetch must never change the
+        // measurement configuration (issue #3335).
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
+            if (("add".equals(getForward()) || "delete".equals(getForward()))
+                    && !"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
+                response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
             if (this.getForward() != null) {
                 if (this.getForward().compareTo("add") == 0) {
                     MiscUtils.getLogger().debug("the add button is pressed");
@@ -94,7 +107,7 @@ public class EctEditMeasurementGroup2Action extends ActionSupport {
             return SUCCESS;
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("missing required sec object (_admin.measurements)");
         }
     }
 

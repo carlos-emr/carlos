@@ -30,9 +30,6 @@
 --%>
 <%!
     //multisite starts =====================
-    private List<Site> sites;
-    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
-
     private String getSiteHTML(String reason, List<Site> sites) {
         if (reason == null || reason.trim().length() == 0)
             return "";
@@ -41,6 +38,10 @@
     }
 %>
 <%
+
+    List<Site> sites = java.util.Collections.emptyList();
+    boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
+
     if (bMultisites) {
         SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
         sites = siteDao.getAllSites();
@@ -61,7 +62,6 @@
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -259,6 +259,20 @@
                 //document.schedule.keyword.select();
             }
 
+            /*
+             * Shows this calendar month again without posting. After Next this page is the POST
+             * result of schedule/CreateDate, so reloading it would submit the week setting again and
+             * regenerate every rule-made day in the range (issue #4880). The month links use the
+             * same display-only request (bFirstDisp=0). The date popup calls this after a save; the
+             * save has already updated the calendar's session data, so the saved day shows.
+             */
+            function showCalendarMonth() {
+                location.href = '${pageContext.request.contextPath}/schedule/CreateDate?provider_no='
+                    + encodeURIComponent('<carlos:encode value='<%= provider_no %>' context="javaScript"/>')
+                    + '&provider_name=' + encodeURIComponent('<carlos:encode value='<%= provider_name %>' context="javaScript"/>')
+                    + '&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=0&bFirstDisp=0';
+            }
+
             function refresh() {
                 history.go(0);//
                 //window.location.reload(); //
@@ -388,7 +402,7 @@
 
                             %>
                             <c:set var="__enc_1"><carlos:encode value='<%= provider_no %>' context="uriComponent"/></c:set>
-                            <td bgcolor='<%=bgcolor                                                                     
+                            <td bgcolor='<%=bgcolor
 .toString()%>'><a href="#"
                                                                      onclick="popupPage(260,720,'${pageContext.request.contextPath}/schedule/DatePopup?provider_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&year=<%=year%>&month=<%=month%>&day=<%=dateGrid[i][j]%>&bFirstDisp=1')">
                                 <font color="red"><%= dateGrid[i][j] %>

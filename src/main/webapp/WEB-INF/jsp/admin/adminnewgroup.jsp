@@ -33,22 +33,24 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
-<%@ page import="java.util.*,java.sql.*,java.util.ResourceBundle" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="java.util.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.admin.web.AdminNewGroup2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 
+<%--
+    Reached only through admin/AdminNewGroup (AdminNewGroup2Action), which checks the privilege,
+    refuses a Delete that is not a POST, and performs the Delete of Search/Edit/Delete Groups
+    before forwarding here. The page therefore never reads group members out of the request: it
+    renders the Add a Group form, or the deletion notice when the action set
+    AdminNewGroup2Action.MEMBERS_DELETED_ATTRIBUTE.
+--%>
 <%
-    if (!"POST".equalsIgnoreCase(request.getMethod()) && request.getParameter("submit") != null) {
-        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-        return;
-    }
-    MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
     ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);
+    boolean membersDeleted = request.getAttribute(AdminNewGroup2Action.MEMBERS_DELETED_ATTRIBUTE) != null;
 
     String curProvider_no = (String) session.getAttribute("user");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -71,8 +73,12 @@
 
             function setfocus() {
                 this.focus();
-                document.UPDATEPRE.mygroup_no.focus();
-                document.UPDATEPRE.mygroup_no.select();
+                // The deletion notice renders the same form without the group name field.
+                var groupName = document.UPDATEPRE && document.UPDATEPRE.mygroup_no;
+                if (groupName) {
+                    groupName.focus();
+                    groupName.select();
+                }
             }
 
             function validate() {
@@ -105,30 +111,10 @@
 
 
     <body onload="setfocus();">
-    <%
-        ResourceBundle properties = ResourceBundle.getBundle("oscarResources", request.getLocale());
-
-        if (request.getParameter("submit") != null && request.getParameter("submit").equals(properties.getString("admin.admindisplaymygroup.btnSubmit1"))) { //delete the group member
-            int rowsAffected = 0;
-            String[] param = new String[2];
-            StringBuffer strbuf = new StringBuffer();
-
-            for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-                strbuf = new StringBuffer(e.nextElement().toString());
-                if (strbuf.toString().indexOf("displaymode") != -1 || strbuf.toString().indexOf("submit") != -1)
-                    continue;
-
-                param[0] = request.getParameter(strbuf.toString());
-                param[1] = strbuf.toString().substring(param[0].length());
-                myGroupDao.deleteGroupMember(param[0], param[1]);
-                rowsAffected = 1;
-            }
-        }
-    %>
 
     <FORM NAME="UPDATEPRE" METHOD="post" ACTION="${pageContext.request.contextPath}/admin/AdminSaveMyGroup" onsubmit="return validate();">
 
-        <%if (request.getParameter("submit") != null && request.getParameter("submit").equals(properties.getString("admin.admindisplaymygroup.btnSubmit1"))) { %>
+        <%if (membersDeleted) { %>
         <br>
         <div class="alert alert-success">
             <strong><fmt:message key="admin.adminnewgroup.msgSuccess"/></strong> <fmt:message key="admin.adminnewgroup.msgDeleteSuccess"/>
@@ -169,12 +155,12 @@
             <tr class="<%=i%2==0?"":"table-info"%>">
                 <td width="20px" ALIGN="center">
                     <input type="checkbox" name="data" value="<%=i%>">
-                    <input type="hidden" name="provider_no<%=i%>" value="<%= provider.getId() %>">
-                    <input type="hidden" name="last_name<%=i%>" value='<%= provider.getLastName() %>'>
-                    <input type="hidden" name="first_name<%=i%>" value='<%= provider.getFirstName() %>'>
+                    <input type="hidden" name="provider_no<%=i%>" value="<carlos:encode value='<%= provider.getId() %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="last_name<%=i%>" value="<carlos:encode value='<%= provider.getLastName() %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="first_name<%=i%>" value="<carlos:encode value='<%= provider.getFirstName() %>' context="htmlAttribute"/>">
                 </td>
 
-                <td><%= provider.getLastName() %>, <%= provider.getFirstName() %>
+                <td><carlos:encode value='<%= provider.getLastName() %>'/>, <carlos:encode value='<%= provider.getFirstName() %>'/>
                 </td>
 
             </tr>
@@ -200,7 +186,9 @@
 
     <script>
         $(document).ready(function () {
-            parent.parent.resizeIframe($('html').height());
+            if (parent && parent.parent && typeof parent.parent.resizeIframe === 'function') {
+                parent.parent.resizeIframe($('html').height());
+            }
 
         });
     </script>

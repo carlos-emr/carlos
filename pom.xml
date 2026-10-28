@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>0-SNAPSHOT</version>
+    <version>2026.09.0-alpha1-SNAPSHOT</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -19,7 +19,7 @@
         <url>https://github.com/carlos-emr/carlos</url>
         <connection>scm:git:https://github.com/carlos-emr/carlos.git</connection>
         <developerConnection>scm:git:ssh://git@github.com:carlos-emr/carlos.git</developerConnection>
-        <tag>develop</tag>
+        <tag>HEAD</tag>
     </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -35,6 +35,24 @@
             src/main/webapp/**/*.min.js,
             src/main/webapp/**/*.min.css
         </sonar.exclusions>
+        <!--
+            The Query by Example grant list is a data table with one classification row per
+            database table, each shaped like the next (issue #3372). Copy-paste detection reads
+            those rows as duplicated blocks. Only duplication detection skips it; the file is
+            still analyzed.
+        -->
+        <!--
+            The legacy BC form pages (BC-AR original/2007/2012, both Birth Summaries, BC-NewBorn original and
+            2008, BC-INR, Chart Checklist, BC Health Passport) are versioned copies of provincial forms, kept so
+            old records still open, so each version repeats the previous one by design. Encoding their saved
+            values (#5090) marked thousands of those lines as new code. Only duplication detection skips them;
+            BC-AR 2020 (formBCAR2020*) is not covered.
+        -->
+        <sonar.cpd.exclusions>
+            src/main/resources/db/reporting/**,
+            src/main/webapp/WEB-INF/jsp/form/formbc*.jsp,
+            src/main/webapp/WEB-INF/jsp/form/formBCNewBorn2008*.jsp
+        </sonar.cpd.exclusions>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
         <!--
             Suppress SonarCloud S2083 (path traversal) false positives in files that use
@@ -44,7 +62,7 @@
             has already validated the path. This does NOT suppress the rule globally — any code
             that uses raw user input in file paths without PathValidationUtils will still be caught.
         -->
-        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling,pvuDocS6549</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling,pvuDocS6549,csrfTplS6638,csrfTplS3403,bcFormLabel,bcFormLabel2008,bcFormFont,bcFormFont2008</sonar.issue.ignore.multicriteria>
         <!-- PathValidationUtils itself (it IS the sanitizer) -->
         <sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>**/utility/PathValidationUtils.java</sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>
@@ -82,33 +100,69 @@
              so path-construction findings remain visible for other documentManager files. -->
         <sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>javasecurity:S6549</sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>**/documentManager/**/DocumentUpload2Action.java</sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>
+        <!--
+            The CSRFGuard client TEMPLATE (issue #4130) is not executed as written: CSRFGuard's
+            JavaScriptServlet replaces each quoted placeholder such as '%DOMAIN_STRICT%' with a
+            bare boolean before serving it, so upstream lines like
+            `'%DOMAIN_STRICT%' === false` run as `false === false`. Sonar reads the template
+            literally and reports a string-vs-boolean comparison. Only these two rules, only
+            this file; every other rule still analyses the CARLOS patches in it.
+        -->
+        <sonar.issue.ignore.multicriteria.csrfTplS6638.ruleKey>javascript:S6638</sonar.issue.ignore.multicriteria.csrfTplS6638.ruleKey>
+        <sonar.issue.ignore.multicriteria.csrfTplS6638.resourceKey>**/csrfguard/carlos-csrfguard.js</sonar.issue.ignore.multicriteria.csrfTplS6638.resourceKey>
+        <sonar.issue.ignore.multicriteria.csrfTplS3403.ruleKey>javascript:S3403</sonar.issue.ignore.multicriteria.csrfTplS3403.ruleKey>
+        <sonar.issue.ignore.multicriteria.csrfTplS3403.resourceKey>**/csrfguard/carlos-csrfguard.js</sonar.issue.ignore.multicriteria.csrfTplS3403.resourceKey>
+        <!--
+            The legacy BC form pages' layout is the provincial paper form's: unlabelled entry boxes laid out in
+            table cells and <font> sizing throughout. Relabelling or restyling them changes the printed form, so
+            these two markup rules are not reported on them. Every other rule, security rules included, still is,
+            and BC-AR 2020 (formBCAR2020*) is not covered.
+        -->
+        <sonar.issue.ignore.multicriteria.bcFormLabel.ruleKey>Web:InputWithoutLabelCheck</sonar.issue.ignore.multicriteria.bcFormLabel.ruleKey>
+        <sonar.issue.ignore.multicriteria.bcFormLabel.resourceKey>**/WEB-INF/jsp/form/formbc*.jsp</sonar.issue.ignore.multicriteria.bcFormLabel.resourceKey>
+        <sonar.issue.ignore.multicriteria.bcFormLabel2008.ruleKey>Web:InputWithoutLabelCheck</sonar.issue.ignore.multicriteria.bcFormLabel2008.ruleKey>
+        <sonar.issue.ignore.multicriteria.bcFormLabel2008.resourceKey>**/WEB-INF/jsp/form/formBCNewBorn2008*.jsp</sonar.issue.ignore.multicriteria.bcFormLabel2008.resourceKey>
+        <sonar.issue.ignore.multicriteria.bcFormFont.ruleKey>Web:UnsupportedTagsInHtml5Check</sonar.issue.ignore.multicriteria.bcFormFont.ruleKey>
+        <sonar.issue.ignore.multicriteria.bcFormFont.resourceKey>**/WEB-INF/jsp/form/formbc*.jsp</sonar.issue.ignore.multicriteria.bcFormFont.resourceKey>
+        <sonar.issue.ignore.multicriteria.bcFormFont2008.ruleKey>Web:UnsupportedTagsInHtml5Check</sonar.issue.ignore.multicriteria.bcFormFont2008.ruleKey>
+        <sonar.issue.ignore.multicriteria.bcFormFont2008.resourceKey>**/WEB-INF/jsp/form/formBCNewBorn2008*.jsp</sonar.issue.ignore.multicriteria.bcFormFont2008.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine/>
+        <!-- Extra JVM options for forked test JVMs, set with -Dtest.jvmArgs="...". Unlike
+             -DargLine, a command-line value reaches the forks. The report font matrix
+             (scripts/check-report-fonts.sh) uses it to give each scenario its own user.home,
+             because the JDK caches its fontconfig resolution there (issue #5046). -->
+        <test.jvmArgs/>
+        <test.forkCount>4</test.forkCount>
         <!-- Log4j Version -->
-        <log4j2.version>2.25.4</log4j2.version>
+        <log4j2.version>2.25.5</log4j2.version>
         <!-- Slf4j Version -->
         <slf4j.version>2.0.17</slf4j.version>
         <!-- Hapi Fhir Version -->
         <hapifhir.version>8.4.0</hapifhir.version>
         <!-- Apache CXF Version -->
-        <cxf.version>4.1.5</cxf.version>
+        <cxf.version>4.1.8</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
-        <netty.version>4.1.135.Final</netty.version>
+        <netty.version>4.1.137.Final</netty.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
-        <spring.version>7.0.7</spring.version>
+        <spring.version>7.0.9</spring.version>
         <spring-security.version>7.0.5</spring-security.version>
         <!-- Struts -->
         <struts.version>7.1.1</struts.version>
         <!-- Jackson -->
-        <jackson.version>2.21.2</jackson.version>
+        <jackson.version>2.22.3</jackson.version>
         <!-- Apache HttpClient 5 -->
-        <httpclient5.version>5.6.1</httpclient5.version>
+        <httpclient5.version>5.6.3</httpclient5.version>
+        <!-- Version of the provided-scope Tomcat artifacts we compile against. The servlet
+             container actually deployed against is a deployment concern (see the Dockerfile
+             base image); this property does not constrain the runtime. -->
+        <tomcat.version>11.0.24</tomcat.version>
         <!-- Bouncy Castle -->
-        <bouncycastle.version>1.84</bouncycastle.version>
+        <bouncycastle.version>1.86</bouncycastle.version>
         <!-- JasperReports -->
-        <jasperreports.version>7.0.6</jasperreports.version>
+        <jasperreports.version>7.0.8</jasperreports.version>
         <!-- Modern OpenPDF uses org.openpdf.* for handwritten PDF code.
              JasperReports PDF still uses the legacy com.lowagie.* OpenPDF coordinate;
              keep both coordinates distinct so Maven does not replace the JasperReports
@@ -116,21 +170,27 @@
         <openpdf.version>3.0.3</openpdf.version>
         <jasperreports.openpdf.version>1.3.43</jasperreports.openpdf.version>
         <!-- PDFBox -->
-        <pdfbox.version>3.0.7</pdfbox.version>
+        <pdfbox.version>3.0.8</pdfbox.version>
         <!-- TwelveMonkeys ImageIO -->
-        <twelvemonkeys.version>3.13.1</twelvemonkeys.version>
+        <twelvemonkeys.version>3.15.2</twelvemonkeys.version>
         <!-- ZXing barcode -->
         <zxing.version>3.5.4</zxing.version>
         <!-- OWASP Encoder -->
         <owasp-encoder.version>1.4.0</owasp-encoder.version>
         <!-- OWASP CSRFGuard -->
         <csrfguard.version>4.5.0-jakarta</csrfguard.version>
+        <!-- Structural validation for authorized Query-by-Example SELECTs -->
+        <jsqlparser.version>5.3</jsqlparser.version>
         <!-- JNA: pin transitive ultrabuk-htmltopdf-java range [5.12,) to the locked version -->
-        <jna.version>5.19.0</jna.version>
+        <jna.version>5.19.1</jna.version>
         <!-- HAPI HL7 v2 -->
         <hapi-hl7.version>1.0.1</hapi-hl7.version>
+        <!-- Flyway schema migrations (Community edition covers MariaDB/MySQL) -->
+        <flyway.version>11.14.0</flyway.version>
+        <!-- Selenium: drives the pinned headless Chromium for eForm browser PDF rendering -->
+        <selenium.version>4.46.0</selenium.version>
         <!-- Testing -->
-        <junit-jupiter.version>6.0.3</junit-jupiter.version>
+        <junit-jupiter.version>6.1.3</junit-jupiter.version>
         <mockito.version>5.23.0</mockito.version>
         <struts.devMode>false</struts.devMode>
         <!-- Struts 7.x has migrated com.opensymphony.xwork2.* to org.apache.struts2.* -->
@@ -146,23 +206,21 @@
             <url>file://${basedir}/local_repo</url>
         </repository>
 
-        <!-- JitPack removed: ultrabuk-htmltopdf-java is now in local_repo,
-             repacked with only the Ubuntu Noble amd64 native (17MB vs 315MB).
-             This eliminates JitPack's tendency to shadow Maven Central artifacts
-             under alternate groupIds, which caused dependency-lock failures in CI. -->
+        <!-- JitPack fully removed. Every artifact it used to serve is vendored in
+             local_repo, byte-identical to dependencies-lock.json:
+             - com.github.openosp:ultrabuk-htmltopdf-java (repacked with only the
+               Ubuntu Noble amd64 native, 17MB vs 315MB)
+             - com.github.librepdf.openpdf:openpdf / openpdf-html 3.0.3 (+ parent POM).
+               These keep the JitPack multi-module coordinates on purpose: the modern
+               org.openpdf.* 3.x line must coexist with com.github.librepdf:openpdf
+               1.3.x (com.lowagie.*) required by JasperReports, and Maven allows only
+               one version per groupId:artifactId.
+             Removing JitPack ends its on-demand rebuilds serving different bytes
+             (SHA512 lock failures) and its shadowing of Maven Central artifacts
+             under alternate groupIds. -->
         <repository>
             <id>central</id>
             <url>https://repo.maven.apache.org/maven2</url>
-        </repository>
-
-        <!-- Only for com.github.openosp:ultrabuk-htmltopdf-java (not on Maven Central).
-             Listed LAST so Central resolves everything it can first, preventing jitpack
-             from shadowing Central artifacts with its own builds (different bytes/hashes). -->
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-            <releases><enabled>true</enabled></releases>
-            <snapshots><enabled>false</enabled></snapshots>
         </repository>
     </repositories>
 
@@ -176,6 +234,14 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Struts' transitive FreeMarker 2.3.34 permits malformed locales to
+                 alter template lookup paths (CVE-2026-84939). Keep localized
+                 rendering while using the upstream locale-validation fix. -->
+            <dependency>
+                <groupId>org.freemarker</groupId>
+                <artifactId>freemarker</artifactId>
+                <version>2.3.35</version>
+            </dependency>
             <!-- JAXB dependencies for Jakarta EE (jakarta.xml.bind namespace) -->
             <dependency>
                 <groupId>jakarta.xml.bind</groupId>
@@ -185,12 +251,12 @@
             <dependency>
                 <groupId>org.glassfish.jaxb</groupId>
                 <artifactId>jaxb-runtime</artifactId>
-                <version>4.0.6</version>
+                <version>4.0.9</version>
             </dependency>
             <dependency>
                 <groupId>org.glassfish.jaxb</groupId>
                 <artifactId>jaxb-core</artifactId>
-                <version>4.0.6</version>
+                <version>4.0.9</version>
             </dependency>
             <!-- Override transitive xercesImpl to fix CVE-2022-23437 and CVE-2020-14338 -->
             <dependency>
@@ -273,20 +339,27 @@
                 <artifactId>serializer</artifactId>
                 <version>2.7.3</version>
             </dependency>
-            <!-- Override transitive org.hl7.fhir.core (6.5.27) from hapi-fhir-structures-dstu3.
+            <!-- Override transitive org.hl7.fhir.core (6.5.27) from hapi-fhir-structures-dstu3
+                 and hapi-fhir-structures-r4 to a patched version.
                  Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0),
                  CVE-2026-33180 HTTP auth credential leak in redirects (patched in 6.9.0),
                  CVE-2026-34359 credential leak via URL prefix matching on redirect (patched in 6.9.4),
-                 CVE-2026-42236 FHIRPath ReDoS in matches()/replaceMatches() (patched in 6.9.7). -->
+                 CVE-2026-42236 FHIRPath ReDoS in matches()/replaceMatches() (patched in 6.9.7),
+                 and XSLT transform hardening fixes patched in 6.9.10. -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.utilities</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.10</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.10</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.r4</artifactId>
+                <version>6.9.10</version>
             </dependency>
             <!-- Override Apache Neethi 3.2.1 from CXF WSN policy dependencies.
                  Fixes GHSA-reported denial-of-service issues in policy normalization:
@@ -294,14 +367,14 @@
             <dependency>
                 <groupId>org.apache.neethi</groupId>
                 <artifactId>neethi</artifactId>
-                <version>3.2.2</version>
+                <version>3.2.4</version>
             </dependency>
             <!-- Override older transitive commons-configuration2 releases flagged by Snyk
                  for secret exposure during interpolation failures (CVE-2024-32958). -->
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-configuration2</artifactId>
-                <version>2.15.0</version>
+                <version>2.15.1</version>
             </dependency>
             <!-- Override the OpenTelemetry API family aligned by the transitive dependency tree.
                  Addresses the Snyk/OpenTelemetry baggage-header allocation alert (CVE-2026-45292)
@@ -312,13 +385,22 @@
                 <artifactId>opentelemetry-api</artifactId>
                 <version>1.62.0</version>
             </dependency>
-            <!-- Override transitive Artemis 2.50.0 from cxf-services-wsn-core.
-                 Security fix for missing authentication on critical functions (patched in 2.52.0);
-                 see the Dependabot alert for org.apache.artemis:artemis-server 2.50.0. -->
+            <!-- Pin the httpcore5 pair reached transitively through httpclient5 and through the
+                 older httpclient5-cache 5.3.1 that is also in the tree. 5.4.3 fixes CVE-2026-54399
+                 (unbounded HTTP/1 header parsing -> memory-exhaustion DoS) and CVE-2026-54428
+                 (HPackDecoder applies no header list size limit until the HTTP/2 SETTINGS frame is
+                 acknowledged). httpclient5 5.6.3 already resolves 5.4.3 on its own; this pin keeps
+                 that from silently regressing if dependency depth shifts and the older
+                 httpclient5-cache branch becomes the nearest one. -->
             <dependency>
-                <groupId>org.apache.artemis</groupId>
-                <artifactId>artemis-server</artifactId>
-                <version>2.52.0</version>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5</artifactId>
+                <version>5.4.3</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5-h2</artifactId>
+                <version>5.4.3</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -365,7 +447,7 @@
         <dependency>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
-            <version>1.3.6</version>
+            <version>1.4.0</version>
         </dependency>
 
         <!-- Log4j 2 libraries -->
@@ -403,7 +485,7 @@
         <dependency>
             <groupId>commons-validator</groupId>
             <artifactId>commons-validator</artifactId>
-            <version>1.10.1</version>
+            <version>1.11.0</version>
             <exclusions>
                 <!-- Excluded this low version to avoid triggering security issue -->
                 <exclusion>
@@ -415,18 +497,18 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.21.0</version>
+            <version>2.22.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-collections4</artifactId>
-            <version>4.5.0</version>
+            <version>4.6.0</version>
         </dependency>
         <!-- apache commons codec -->
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
-           <version>1.21.0</version>
+           <version>1.22.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -437,6 +519,20 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-csv</artifactId>
             <version>1.14.1</version>
+        </dependency>
+
+        <!-- SQL parsing used to fail closed before Query-by-Example reaches JDBC -->
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>${jsqlparser.version}</version>
+            <exclusions>
+                <!-- Benchmarking support is not used by the parser at runtime. -->
+                <exclusion>
+                    <groupId>org.openjdk.jmh</groupId>
+                    <artifactId>jmh-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- ==================== HTTP Client ==================== -->
 
@@ -458,7 +554,7 @@
         <dependency>
             <groupId>org.apache.tomcat</groupId>
             <artifactId>tomcat-coyote</artifactId>
-            <version>11.0.20</version>
+            <version>${tomcat.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -602,6 +698,18 @@
             <artifactId>mysql-connector-j</artifactId>
             <version>9.6.0</version>
         </dependency>
+        <!-- Flyway schema migrations: flyway-core is the engine; flyway-mysql adds the
+             MariaDB/MySQL database module required since Flyway 9. Both are Community edition. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-core</artifactId>
@@ -651,7 +759,9 @@
 
         <!-- Modern OpenPDF (LGPL) for application code that imports org.openpdf.*.
              Do not use the com.github.librepdf group here; JasperReports PDF needs that
-             legacy coordinate at 1.3.x because it is compiled against com.lowagie.*. -->
+             legacy coordinate at 1.3.x because it is compiled against com.lowagie.*.
+             The com.github.librepdf.openpdf coordinates are vendored in local_repo
+             (formerly served by JitPack, now removed). -->
         <dependency>
             <groupId>com.github.librepdf.openpdf</groupId>
             <artifactId>openpdf</artifactId>
@@ -709,7 +819,7 @@
             </exclusions>
         </dependency>
 
-        <!-- ==================== Rules Engine (Drools) ==================== -->
+                <!-- ==================== Rules Engine (Drools) ==================== -->
 
         <!-- Drools 10.x KIE engine aggregator (upgraded from 7.74.1.Final for Jakarta EE). -->
         <dependency>
@@ -786,6 +896,13 @@
         </dependency>
 
         <!-- JasperReports JDT compiler (required for runtime .jrxml compilation) -->
+        <!-- Embedded Unicode fonts for patient-label PDF output. -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-fonts</artifactId>
+            <version>${jasperreports.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
             <artifactId>jasperreports-jdt</artifactId>
@@ -882,7 +999,7 @@
         <dependency>
             <groupId>com.github.hazendaz</groupId>
             <artifactId>displaytag</artifactId>
-            <version>3.7.0</version>
+            <version>3.8.0</version>
             <exclusions>
                 <!-- Exclude SLF4J to use project's managed version -->
                 <exclusion>
@@ -914,7 +1031,7 @@
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
-            <version>1.22.1</version>
+            <version>1.23.2</version>
         </dependency>
 
         <dependency>
@@ -922,12 +1039,19 @@
             <artifactId>bcpkix-jdk18on</artifactId>
             <version>${bouncycastle.version}</version>
         </dependency>
+        <!-- Used directly by PDFSigningUtil (CMS attribute tables, ESS signing-certificate-v2);
+             already resolved through bcpkix, declared because the code imports it. -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcutil-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
+        </dependency>
 
         <!-- Apache Ant (security-patched version, required by JasperReports) -->
         <dependency>
             <groupId>org.apache.ant</groupId>
             <artifactId>ant</artifactId>
-            <version>1.10.15</version>
+            <version>1.10.18</version>
         </dependency>
 
         <!-- ==================== Templating (Velocity) ==================== -->
@@ -971,7 +1095,7 @@
         <dependency>
             <groupId>com.sun.xml.messaging.saaj</groupId>
             <artifactId>saaj-impl</artifactId>
-            <version>3.0.4</version>
+            <version>3.0.6</version>
         </dependency>
 
         <!-- ==================== Web Services (CXF) ==================== -->
@@ -1129,6 +1253,12 @@
             <artifactId>cxf-rt-rs-client</artifactId>
             <version>${cxf.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-transports-local</artifactId>
+            <version>${cxf.version}</version>
+            <scope>test</scope>
+        </dependency>
 
         <dependency>
             <groupId>org.commonmark</groupId>
@@ -1234,14 +1364,14 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <version>2.4.240</version>
+            <version>2.5.250</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.5.0-jre</version>
+            <version>33.7.1-jre</version>
         </dependency>
 
         <!-- Flying Saucer - HTML/CSS to PDF via OpenPDF 3.0.x (org.openpdf.* namespace) -->
@@ -1278,6 +1408,22 @@
             <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>hapi-fhir-structures-dstu3</artifactId>
             <version>${hapifhir.version}</version>
+        </dependency>
+        <!-- FHIR R4 structure definitions: the National Vaccine Catalogue (NVC) v2 bundle
+             is FHIR R4 JSON (CanadianVaccineCatalogueManager / NvcBundleParser).
+             jena-shex is excluded: it only backs RDF/ShEx validation, which CARLOS never
+             uses, and would otherwise pull Apache Jena, libthrift and a JSON-LD stack
+             (~15 jars) onto the runtime classpath for no functional gain. -->
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-structures-r4</artifactId>
+            <version>${hapifhir.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.jena</groupId>
+                    <artifactId>jena-shex</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- JAX-WS RI (used at runtime for SOAP web services) -->
@@ -1339,7 +1485,26 @@
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
-            <version>3.2.3</version>
+            <version>3.2.4</version>
+        </dependency>
+        <!-- Direct API dependency for application-owned render-cleanup telemetry. Export remains
+             deployment-configured; without an SDK the API safely behaves as a no-op. -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+        <!-- Selenium drives the pinned headless Chromium for eForm browser PDF rendering.
+             Deliberately NOT selenium-java: chrome-driver + support keeps the tree to the
+             Chromium path only (no firefox/edge/safari driver artifacts in the WAR). -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-chrome-driver</artifactId>
+            <version>${selenium.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-support</artifactId>
+            <version>${selenium.version}</version>
         </dependency>
         <!-- TOTP/HOTP library for MFA -->
         <dependency>
@@ -1351,12 +1516,13 @@
         <!-- SpotBugs annotations: provides edu.umd.cs.findbugs.annotations.SuppressFBWarnings for
              per-site, justified suppression of Find Security Bugs findings (e.g. the informational
              IMPROPER_UNICODE case-folding detector). CLASS retention, compile-only; provided scope
-             keeps it out of the WAR. Version tracks the spotbugs engine (plugin 4.9.3.0).
+             keeps it out of the WAR. Version tracks the spotbugs engine (plugin 4.10.2.0;
+             see the hold rationale on the spotbugs-maven-plugin declaration).
              See docs/static-analysis-workflows.md. -->
         <dependency>
             <groupId>com.github.spotbugs</groupId>
             <artifactId>spotbugs-annotations</artifactId>
-            <version>4.9.3</version>
+            <version>4.10.2</version>
             <scope>provided</scope>
         </dependency>
 
@@ -1368,13 +1534,54 @@
                 <directory>${basedir}/src/main/resources</directory>
                 <filtering>true</filtering>
             </resource>
+            <!-- Ship the Flyway migration set on the WAR classpath at db/migration so the
+                 boot-time FlywaySchemaValidator (carlos.flyway.onBoot=validate|migrate) can read
+                 it. The canonical source stays in database/mysql/migration/ (next to the rest of
+                 the DB tree); this copies it into the classpath at build time. Not filtered — SQL
+                 must not be run through the property interpolator. -->
+            <resource>
+                <directory>${basedir}/database/mysql/migration</directory>
+                <targetPath>db/migration</targetPath>
+                <filtering>false</filtering>
+            </resource>
         </resources>
 
         <plugins>
+            <!-- Flyway CLI for local/CI schema work: `mvn flyway:info|validate|migrate|baseline`.
+                 Not bound to any lifecycle phase — the WAR build never migrates. Credentials are
+                 passed at invocation (-Dflyway.url/-Dflyway.user/-Dflyway.password or env), never
+                 committed. Locations default to the common+Ontario set; override with
+                 -Dflyway.locations for BC or test databases. -->
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <version>${flyway.version}</version>
+                <configuration>
+                    <locations>
+                        <location>filesystem:database/mysql/migration/common</location>
+                        <location>filesystem:database/mysql/migration/on</location>
+                    </locations>
+                    <!-- Conversion default: stamp at the FULL genesis (V1 + province
+                         V1.0.1/V1.0.2). Never 1 — that would replay the province files on the
+                         next migrate (data loss). -->
+                    <baselineVersion>1.0.2</baselineVersion>
+                    <baselineDescription>CARLOS full genesis (V1 + province V1.0.1/V1.0.2)</baselineDescription>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.14</version>
+                <configuration>
+                    <!-- JSqlParser's generated token-manager method exceeds the JVM method
+                         size after instrumentation; dependency code is outside our coverage scope. -->
+                    <excludes>
+                        <exclude>net.sf.jsqlparser.*</exclude>
+                        <!-- The generated third-party lexer exceeds the JVM method-size
+                             limit after instrumentation; application rules remain covered. -->
+                        <exclude>org.drools.drl.parser.lang.DRL6Lexer</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
@@ -1398,6 +1605,8 @@
                 <configuration>
                     <propertiesEncoding>ISO-8859-1</propertiesEncoding>
                     <nonFilteredFileExtensions>
+                        <nonFilteredFileExtension>ttf</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>ttc</nonFilteredFileExtension>
                         <nonFilteredFileExtension>pdf</nonFilteredFileExtension>
                         <nonFilteredFileExtension>jar</nonFilteredFileExtension>
                         <nonFilteredFileExtension>xls</nonFilteredFileExtension>
@@ -1405,6 +1614,9 @@
                         <nonFilteredFileExtension>xsd</nonFilteredFileExtension>
                         <nonFilteredFileExtension>jasper</nonFilteredFileExtension>
                         <nonFilteredFileExtension>doc</nonFilteredFileExtension>
+                        <!-- SQL resources (db/reporting/carlos_report_grants.sql) use @session
+                             variables and must reach the WAR byte for byte, like the migrations. -->
+                        <nonFilteredFileExtension>sql</nonFilteredFileExtension>
                     </nonFilteredFileExtensions>
                 </configuration>
             </plugin>
@@ -1445,8 +1657,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.15.0</version>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
+                    <release>25</release>
                     <!-- Emit MethodParameters attribute into .class files so Spring SpEL can
                          resolve method-argument names like #providerNo in @Cacheable conditions.
                          Without this, Spring 6+ silently fails parameter-name discovery (legacy
@@ -1579,8 +1790,12 @@
                 <artifactId>maven-pmd-plugin</artifactId>
                 <version>3.28.0</version>
                 <configuration>
-                    <!-- Target JDK version -->
-                    <targetJdk>21</targetJdk>
+                    <!-- PMD parses sources at this language level. It must track the
+                         compiler <release> above: left at 21 while javac emits 25,
+                         PMD silently reports parse errors (or mis-analyses) on any
+                         Java 22-25 syntax instead of applying the ruleset. PMD 7.22
+                         pinned below recognises Java 25. -->
+                    <targetJdk>25</targetJdk>
 
                     <!-- Custom ruleset -->
                     <rulesets>
@@ -1631,26 +1846,27 @@
                 <configuration>
                     <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
                          so forks are completely isolated and safe to run in parallel. -->
-                    <forkCount>4</forkCount>
+                    <forkCount>${test.forkCount}</forkCount>
                     <reuseForks>true</reuseForks>
                     <!-- Keep test classes sequential within each fork. Several Spring integration
                          tests share application-context caches or fixed seed data; fork-level
                          parallelism still provides isolated H2 databases. -->
                     <perCoreThreadCount>false</perCoreThreadCount>
+                    <!-- Discover all existing test classes, including legacy *Test names.
+                         Domain-specific includes silently omitted executable regressions. -->
                     <includes>
-                        <include>**/test/**/*Test.java</include>
-                        <include>**/test/**/*Tests.java</include>
-                        <include>**/tickler/**/*Test.java</include>
-                        <include>**/messenger/**/*Test.java</include>
-                        <include>**/provider/**/*Test.java</include>
-                        <include>**/managers/**/*Test.java</include>
-                        <include>**/*IntegrationTest.java</include>
-                        <include>**/*UnitTest.java</include>
-                        <include>**/*RegressionTest.java</include>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
                     </includes>
-                    <excludes>
-                        <exclude>**/archive/**/*Test.java</exclude>
-                    </excludes>
+                    <!-- Fork test JVMs under the locale the packaged service runs with
+                         (carlos-emr.service sets LANG=C.UTF-8). The JVM derives its filename
+                         encoding (sun.jnu.encoding) from the locale and it cannot be overridden
+                         by a system property, so under a POSIX/C shell non-ASCII document names
+                         fail with InvalidPathException in tests but never in production. -->
+                    <environmentVariables>
+                        <LANG>C.UTF-8</LANG>
+                        <LC_ALL>C.UTF-8</LC_ALL>
+                    </environmentVariables>
                     <argLine>
                        @{argLine}
                        -Xmx2048m
@@ -1659,6 +1875,8 @@
                        --add-opens java.base/java.util=ALL-UNNAMED
                        -Djdk.attach.allowAttachSelf=true
                        -XX:+EnableDynamicAgentLoading
+                       -Djava.awt.headless=true
+                       ${test.jvmArgs}
                      </argLine>
                     <!-- Test filtering by groups when specified -->
                     <groups>${groups}</groups>
@@ -1693,22 +1911,10 @@
                 <configuration>
                     <!-- Can be overridden with -Ddependency.lock.filename=xxx -->
                     <filename>${dependency.lock.filename}</filename>
-                    <!-- Skip integrity/version checks for JitPack-served artifacts.
-                         JitPack builds from source on demand and can serve different
-                         bytes (and thus different SHA512 hashes) between environments,
-                         causing spurious lock-file failures. Tracked for long-term
-                         fix (publish to a stable repo). See issue: JitPack exclusion. -->
-                    <dependencySets>
-                        <dependencySet>
-                            <includes>
-                                <include>com.github.openosp:ultrabuk-htmltopdf-java</include>
-                            </includes>
-                            <version>ignore</version>
-                            <integrity>ignore</integrity>
-                            <allowMissing>true</allowMissing>
-                            <allowExtraneous>true</allowExtraneous>
-                        </dependencySet>
-                    </dependencySets>
+                    <!-- No exemptions: formerly JitPack-served artifacts (ultrabuk-htmltopdf-java,
+                         openpdf 3.x) are vendored in local_repo with deterministic bytes that
+                         match the lock, so full version+integrity checking applies to the
+                         entire tree. -->
                 </configuration>
                 <executions>
                     <execution>
@@ -1734,7 +1940,7 @@
                     <failOnError>false</failOnError>
                     <failOnWarnings>false</failOnWarnings>
                     <quiet>true</quiet>
-                    <source>21</source>
+                    <source>25</source>
                     <additionalJOptions>
                         <additionalJOption>-Xdoclint:none</additionalJOption>
                     </additionalJOptions>
@@ -1774,8 +1980,14 @@
                                     <goal>compile</goal>
                                 </goals>
                                 <configuration>
-                                    <sourceDirectory>src/main/webapp</sourceDirectory>
-                                    <outputDirectory>src/main/jsp</outputDirectory>
+                                    <webAppSourceDirectory>${project.basedir}/src/main/webapp</webAppSourceDirectory>
+                                    <classesDirectory>${project.build.outputDirectory}</classesDirectory>
+                                    <!-- Validation only: keep generated JSP classes separate from
+                                         application classes and leave the source web.xml untouched.
+                                         sourceDirectory/outputDirectory are not jspc 5 parameters. -->
+                                    <generatedClasses>${project.build.directory}/jspc/classes</generatedClasses>
+                                    <webXmlFragment>${project.build.directory}/jspc/webfrag.xml</webXmlFragment>
+                                    <mergeFragment>false</mergeFragment>
                                     <excludes>
                                         <exclude>**/*.jspf</exclude>
                                         <!-- Exclude the deprecated jsp file, the file is not using now -->
@@ -1788,10 +2000,8 @@
                             </execution>
                         </executions>
                     </plugin>
-                    <!-- Dependency lock is already validated in the build job.
-                         Skip in jspc profile because JitPack can shadow Maven Central
-                         artifacts under alternate groupIds in CI environments with cold
-                         caches, causing false dependency-lock failures. -->
+                    <!-- Dependency lock is already validated in the build job;
+                         skip the redundant check in the jspc profile. -->
                     <plugin>
                         <groupId>se.vandmo</groupId>
                         <artifactId>dependency-lock-maven-plugin</artifactId>
@@ -1806,9 +2016,10 @@
             </build>
         </profile>
 
-        <!-- Skip dependency lock check in CI workflows (e.g. SonarCloud)
-             where JitPack-served artifacts produce different SHA512 hashes
-             than locally-cached ones, causing false failures.
+        <!-- Skip dependency lock check in CI workflows (e.g. SonarCloud) and
+             container builds that validate the lock elsewhere or intentionally
+             build from a moving ref. All dependencies now resolve from Maven
+             Central or local_repo with deterministic bytes (JitPack removed).
              Activate with: mvn ... -Pskip-dependency-lock -->
         <profile>
             <id>skip-dependency-lock</id>
@@ -1842,7 +2053,25 @@
                     <plugin>
                         <groupId>com.github.spotbugs</groupId>
                         <artifactId>spotbugs-maven-plugin</artifactId>
-                        <version>4.9.3.0</version>
+                        <!-- 4.10.x for Java 25: 4.9.3 bundles an ASM that cannot read
+                             class file version 69 and aborts every class with
+                             "Unsupported class file major version 69", producing no
+                             report at all. 4.10.2 carries ASM 9.10.1, which reads it.
+
+                             HELD at 4.10.2.0 against the dependency bump on
+                             release/2026.08 (#3820), which raised this to 4.10.4.1.
+                             4.10.4.x declares <prerequisites><maven>3.8.9</maven>, and
+                             this analysis runs `mvn` inside carlos-tomcat-dev, which
+                             installs `maven` from apt on a noble base image — Ubuntu
+                             noble ships maven 3.8.7-2. Maven enforces plugin
+                             prerequisites, so 4.10.4.1 fails the build outright with
+                             "requires Maven version 3.8.9" before analysing anything.
+                             4.10.2.0 asks only for maven 3.6.3.
+
+                             To take 4.10.4.x, the dev image must first ship Maven
+                             >= 3.8.9 (apt noble cannot); until then this pin is the
+                             newest SpotBugs that runs here. -->
+                        <version>4.10.2.0</version>
                         <configuration>
                             <effort>Max</effort>
                             <threshold>Low</threshold>
@@ -1852,6 +2081,14 @@
                             <excludeFilterFile>${project.basedir}/.github/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
                             <fork>true</fork>
                             <maxHeap>${spotbugs.maxHeapMb}</maxHeap>
+                            <!-- The forked analyzer's default cap is 10 minutes. Until
+                                 4.10 this never mattered, because on Java 25 bytecode the
+                                 old analyzer aborted immediately on every class instead of
+                                 analysing anything. A real effort=Max pass over the whole
+                                 tree needs more room than that on a loaded runner, and the
+                                 failure mode is an opaque "execution timed out" with no
+                                 report, so give it an explicit ceiling. -->
+                            <timeout>2400000</timeout>
                             <plugins>
                                 <plugin>
                                     <groupId>com.h3xstream.findsecbugs</groupId>

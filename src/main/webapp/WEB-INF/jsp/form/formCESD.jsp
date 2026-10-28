@@ -55,7 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%
     String formClass = "CESD";
-    String formLink = "formCDSD.jsp";
+    String formLink = "formCESD.jsp";
 
     int demoNo = Integer.parseInt(request.getParameter("demographic_no"));
     int formId = Integer.parseInt(request.getParameter("formId"));
@@ -169,7 +169,7 @@
             }
         }
     </script>
-    <script type="text/javascript" src="formScripts.js">
+    <script type="text/javascript" src="${pageContext.request.contextPath}/form/formScripts.js">
     </script>
 
 

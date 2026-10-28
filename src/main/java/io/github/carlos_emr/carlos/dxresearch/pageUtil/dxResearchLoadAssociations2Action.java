@@ -37,9 +37,6 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
@@ -49,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.dao.DxDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.DxAssociation;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -61,23 +59,22 @@ import org.apache.commons.csv.CSVRecord;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-public class dxResearchLoadAssociations2Action extends ActionSupport {
+public class dxResearchLoadAssociations2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private DxDao dxDao = (DxDao) SpringUtils.getBean(DxDao.class);
-    private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private static final String PRIVILEGE_READ = "r";
     private static final String PRIVILEGE_UPDATE = "u";
     private static final String PRIVILEGE_WRITE = "w";
-
-    
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -102,21 +99,19 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
             }
         }
 
-        if ("getAllAssociations".equals(method)) {
-            getAllAssociations();
-        } else if ("clearAssociations".equals(method)) {
-            clearAssociations();
-        } else if ("addAssociation".equals(method)) {
-            addAssociation();
-        } else if ("export".equals(method)) {
-            export();
-        } else if ("uploadFile".equals(method)) {
-            uploadFile();
-        } else if ("autoPopulateAssociations".equals(method)) {
-            autoPopulateAssociations();
-        }
-
-        return SUCCESS;
+        // JSON/CSV handlers own the response and must not dispatch a JSP afterwards.
+        return switch (method) {
+            case "getAllAssociations" -> getAllAssociations();
+            case "clearAssociations" -> clearAssociations();
+            case "addAssociation" -> addAssociation();
+            case "export" -> export();
+            case "uploadFile" -> uploadFile();
+            case "autoPopulateAssociations" -> autoPopulateAssociations();
+            default -> {
+                checkPrivilege(request, PRIVILEGE_READ);
+                yield SUCCESS;
+            }
+        };
      }
 
     public String getAllAssociations() throws IOException {
@@ -130,10 +125,8 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
             assoc.setDescription(getDescription(assoc.getCodeType(), assoc.getCode()));
         }
 
-        //serialize and return
-        ArrayNode jsonArray = objectMapper.valueToTree(associations);
-        response.getWriter().print(jsonArray);
-        return null;
+        JsonResponseWriter.write(response, associations);
+        return NONE;
     }
 
     private String getDescription(String dxCodeType, String dxCode) {
@@ -150,8 +143,8 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsUpdated", recordsUpdated);
-        response.getWriter().print(objectMapper.valueToTree(map));
-        return null;
+        JsonResponseWriter.write(response, map);
+        return NONE;
     }
 
     public String addAssociation() throws IOException {
@@ -167,8 +160,8 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, String> map = new HashMap<String, String>();
         map.put("result", "success");
-        response.getWriter().print(objectMapper.valueToTree(map));
-        return null;
+        JsonResponseWriter.write(response, map);
+        return NONE;
     }
 
     public String export() throws IOException {
@@ -189,7 +182,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         printer.flush();
         printer.close();
 
-        return null;
+        return NONE;
     }
 
     public String uploadFile() throws IOException {
@@ -224,8 +217,6 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
             }
         }
 
-        int rowsInserted = 0;
-
         if (this.isReplace()) {
             dxDao.removeAssociations();
         }
@@ -241,13 +232,10 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
             assoc.setDxCode(data[x][3]);
 
             dxDao.persist(assoc);
-            rowsInserted++;
         }
 
-        Map<String, Integer> map = new HashMap<String, Integer>();
-        map.put("recordsAdded", rowsInserted);
-        response.getWriter().print(objectMapper.valueToTree(map));
-
+        // The multipart form is a normal page submission, not an AJAX request.
+        // Render the refreshed list without prefixing its HTML with JSON.
         return SUCCESS;
     }
 
@@ -280,9 +268,9 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsAdded", recordsAdded);
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
 
-        return null;
+        return NONE;
     }
 
 
@@ -317,13 +305,15 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     private File file; // Uploaded file
     private boolean replace = true; // Flag for replacement
 
-    public File getFile() {
-        return file;
-    }
-
-    @StrutsParameter
-    public void setFile(File file) {
-        this.file = file;
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        file = null;
+        if (uploadedFiles != null && uploadedFiles.size() == 1) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            if (uploaded != null && "file".equals(uploaded.getInputName())) {
+                file = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            }
+        }
     }
 
     public boolean isReplace() {

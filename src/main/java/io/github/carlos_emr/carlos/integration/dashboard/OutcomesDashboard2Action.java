@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.w3c.dom.NodeList;
@@ -97,13 +98,13 @@ public class OutcomesDashboard2Action extends ActionSupport {
             if (indicatorTemplate != null) {
                 OutcomesDashboardUtils.sendProviderIndicatorData(LoggedInInfo.getLoggedInInfoFromSession(request), provider, indicatorTemplate);
             } else {
-                logger.warn("shared indicator not found:" + metricSetName);
+                logger.warn("Requested shared indicator at index {} was not found", x);
             }
         }
 
         ObjectNode o = objectMapper.createObjectNode();
 
-        response.getWriter().print(o.toString());
+        JsonResponseWriter.write(response, o);
 
         return null;
     }

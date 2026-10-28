@@ -44,7 +44,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.springframework.context.i18n.LocaleContextHolder;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -68,6 +69,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public static final int FIRST_NAME_MAX_LENGTH = 30;
     public static final int MIDDLE_NAMES_MAX_LENGTH = 100;
     public static final int ALIAS_MAX_LENGTH = 70;
+    public static final int PREF_NAME_MAX_LENGTH = 30;
+    public static final int PRONOUN_MAX_LENGTH = 25;
+    public static final int GENDER_MAX_LENGTH = 25;
     public static final int ADDRESS_MAX_LENGTH = 60;
     public static final int CITY_MAX_LENGTH = 50;
     public static final int PROVINCE_MAX_LENGTH = 20;
@@ -109,35 +113,57 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
     private int hashCode = Integer.MIN_VALUE; // primary key
     private Integer demographicNo; // fields
-    private String phone;
-    private String patientStatus;
+    // Persist raw legacy values directly. Friendly getters and hydration setters must
+    // not turn a read into an UPDATE; explicit setters retain the existing write rules.
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "phone", length = 20)
+    private String phone = "";
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "patient_status", length = 20)
+    private String patientStatus = "";
     private Date patientStatusDate;
-    private String rosterStatus;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "roster_status", length = 20)
+    private String rosterStatus = "";
     private String providerNo;
     private String hin;
     private String address;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "province", length = 20)
     private String province;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "month_of_birth", length = 2)
     private String monthOfBirth;
     private String ver;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "date_of_birth", length = 2)
     private String dateOfBirth;
     private String sex;
     private String sexDesc;
     private Date dateJoined;
-    private String familyDoctor;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "family_doctor", length = 80)
+    private String familyDoctor = "";
     private String familyPhysician;
 
     private String city;
     private String firstName;
     private String postal;
     private Date hcRenewDate;
-    private String phone2;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "phone2", length = 20)
+    private String phone2 = "";
     private String pcnIndicator;
     private Date endDate;
     private String lastName;
     private String hcType;
-    private String chartNo;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "chart_no", length = 10)
+    private String chartNo = "";
     private String email;
     private Boolean consentToUseEmailForCare;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "year_of_birth", length = 4)
     private String yearOfBirth;
     private Date effDate;
     private Date rosterDate;
@@ -145,7 +171,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private String rosterTerminationReason;
     private String links;
     private DemographicExt[] extras;
-    private String alias;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "alias", length = 70)
+    private String alias = "";
     private String previousAddress;
     private String children;
     private String sourceOfIncome;
@@ -162,6 +190,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
     private Provider provider;
     private String lastUpdateUser = null;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdateDate = new Date();
 
     private String title;
@@ -180,12 +209,24 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private String residentialCity;
     private String residentialProvince;
     private String residentialPostal;
-    private String gender;
-    private String pronoun;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "gender")
+    private String gender = "";
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "pronoun")
+    private String pronoun = "";
     private Integer genderId;
     private Integer pronounId;
     private String patientType;
 
+    /**
+     * The stored pref_name column, mapped by field (issue #4835). The entity uses property access,
+     * and {@link #getPrefName()} answers the alias when one is set, so a getter mapping made every
+     * loaded patient with a differing alias look changed: the next flush wrote the alias into
+     * pref_name, and an alias longer than the 30-character column failed the page.
+     */
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "pref_name", length = 30)
     private String prefName;
 
     private Provider mrp;
@@ -286,6 +327,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         addFieldLengthError(errors, "First name", firstName, FIRST_NAME_MAX_LENGTH);
         addFieldLengthError(errors, "Middle names", middleNames, MIDDLE_NAMES_MAX_LENGTH);
         addFieldLengthError(errors, "Preferred name", alias, ALIAS_MAX_LENGTH);
+        addFieldLengthError(errors, "Preferred name", prefName, PREF_NAME_MAX_LENGTH);
+        errors.addAll(validateIdentityFieldLengths(null, pronoun, gender));
         addFieldLengthError(errors, "Address", address, ADDRESS_MAX_LENGTH);
         addFieldLengthError(errors, "City", city, CITY_MAX_LENGTH);
         addFieldLengthError(errors, "Province", province, PROVINCE_MAX_LENGTH);
@@ -321,12 +364,45 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         return errors;
     }
 
+    /** Validates these submitted values before an update mutates a managed patient entity. */
+    public static List<String> validateIdentityFieldLengths(String preferredName, String pronouns, String gender) {
+        List<String> errors = new ArrayList<>();
+        addFieldLengthError(errors, "Name Used", preferredName, ALIAS_MAX_LENGTH);
+        addFieldLengthError(errors, "Pronoun", pronouns, PRONOUN_MAX_LENGTH);
+        addFieldLengthError(errors, "Gender", gender, GENDER_MAX_LENGTH);
+        return errors;
+    }
+
     private static void addFieldLengthError(List<String> errors, String fieldName, String value, int maxLength) {
-        if (StringUtils.length(value) > maxLength) {
+        if (value != null && value.codePointCount(0, value.length()) > maxLength) {
             String unit = maxLength == 1 ? "character" : "characters";
             errors.add(fieldName + " exceeds maximum length of " + maxLength + " " + unit + ".");
         }
     }
+
+    /**
+     * The pref_name value for a Name Used typed on the Master Record (issue #5128).
+     *
+     * <p>Name Used is stored whole in the alias (70 characters, checked by
+     * {@link #validateFieldLengths()}) and copied into pref_name, which holds only 30. A longer
+     * copy failed the save under a strict sql_mode (HTTP 500, nothing saved) and was cut silently
+     * under an empty one. The copy is now cut to the column here, at whole characters, so a
+     * surrogate pair is never split; {@link #getPrefName()} shows the alias first, so the cut copy
+     * is not what the patient's name reads as. pref_name is NOT NULL, so no value becomes "".</p>
+     *
+     * @param nameUsed the submitted Name Used, or {@code null} when the form sent none
+     * @return at most {@link #PREF_NAME_MAX_LENGTH} characters of it, never {@code null}
+     */
+    public static String prefNameForNameUsed(String nameUsed) {
+        if (nameUsed == null) {
+            return "";
+        }
+        if (nameUsed.codePointCount(0, nameUsed.length()) <= PREF_NAME_MAX_LENGTH) {
+            return nameUsed;
+        }
+        return nameUsed.substring(0, nameUsed.offsetByCodePoints(0, PREF_NAME_MAX_LENGTH));
+    }
+
     @jakarta.persistence.Transient
 
     public String getDisplayName() {
@@ -434,7 +510,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: phone
      */
-    @jakarta.persistence.Column(name = "phone", length = 20)
+    @jakarta.persistence.Transient
     public String getPhone() {
         if (phone == null) {
             return "";
@@ -448,13 +524,13 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param phone the phone value
      */
     public void setPhone(String phone) {
-        this.phone = phone;
+        this.phone = StringUtils.defaultString(phone);
     }
 
     /**
      * Return the value associated with the column: patient_status
      */
-    @jakarta.persistence.Column(name = "patient_status", length = 20)
+    @jakarta.persistence.Transient
     public String getPatientStatus() {
         if (patientStatus == null) {
             return "";
@@ -475,7 +551,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param patientStatus the patient_status value
      */
     public void setPatientStatus(String patientStatus) {
-        this.patientStatus = patientStatus;
+        this.patientStatus = StringUtils.defaultString(patientStatus);
     }
 
     public void setPatientStatusDate(Date patientStatusDate) {
@@ -485,7 +561,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: roster_status
      */
-    @jakarta.persistence.Column(name = "roster_status", length = 20)
+    @jakarta.persistence.Transient
     public String getRosterStatus() {
         if (rosterStatus == null) {
             return "";
@@ -499,7 +575,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param rosterStatus the roster_status value
      */
     public void setRosterStatus(String rosterStatus) {
-        this.rosterStatus = rosterStatus;
+        this.rosterStatus = StringUtils.defaultString(rosterStatus);
     }
 
     /**
@@ -559,9 +635,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: province
      */
-    @jakarta.persistence.Column(name = "province", length = 20)
+    @jakarta.persistence.Transient
     public String getProvince() {
-        return province;
+        String normalized = StringUtils.trimToNull(province);
+        // Retain the deployment locale used by the existing explicit setter.
+        return normalized == null ? null : normalized.toUpperCase(Locale.getDefault());
     }
 
     /**
@@ -580,9 +658,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: month_of_birth
      */
-    @jakarta.persistence.Column(name = "month_of_birth", length = 2)
+    @jakarta.persistence.Transient
     public String getMonthOfBirth() {
-        return monthOfBirth;
+        return StringUtils.trimToNull(monthOfBirth);
     }
 
     /**
@@ -614,9 +692,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: date_of_birth
      */
-    @jakarta.persistence.Column(name = "date_of_birth", length = 2)
+    @jakarta.persistence.Transient
     public String getDateOfBirth() {
-        return dateOfBirth;
+        return StringUtils.trimToNull(dateOfBirth);
     }
 
     /**
@@ -673,12 +751,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: family_doctor
      */
-    @jakarta.persistence.Column(name = "family_doctor", length = 80)
+    @jakarta.persistence.Transient
     public String getFamilyDoctor() {
-        if (StringUtils.isBlank(familyDoctor)) {
-            this.familyDoctor = "";
-        }
-        return familyDoctor;
+        return StringUtils.isBlank(familyDoctor) ? "" : familyDoctor;
     }
 
     /**
@@ -687,7 +762,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param familyDoctor the family_doctor value
      */
     public void setFamilyDoctor(String familyDoctor) {
-        this.familyDoctor = familyDoctor;
+        this.familyDoctor = StringUtils.isBlank(familyDoctor) ? "" : familyDoctor;
     }
 
     /**
@@ -775,8 +850,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
     @jakarta.persistence.Transient
 
+    // The family_physician column is frequently null. Coalesce to "" before matching
+    // (mirroring getFamilyDoctor()'s null handling) so these transient parse getters
+    // never NPE — e.g. when Jackson serializes a Demographic over the REST API.
     public String getFamilyPhysicianLastName() {
-        Matcher m = FD_LAST_NAME.matcher(getFamilyPhysician());
+        Matcher m = FD_LAST_NAME.matcher(StringUtils.trimToEmpty(getFamilyPhysician()));
         if (m.find()) {
             return m.group(2);
         }
@@ -785,7 +863,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     @jakarta.persistence.Transient
 
     public String getFamilyPhysicianFirstName() {
-        Matcher m = FD_FIRST_NAME.matcher(getFamilyPhysician());
+        Matcher m = FD_FIRST_NAME.matcher(StringUtils.trimToEmpty(getFamilyPhysician()));
         if (m.find()) {
             return m.group(2);
         }
@@ -794,7 +872,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     @jakarta.persistence.Transient
 
     public String getFamilyPhysicianFullName() {
-        Matcher m = FD_FULL_NAME.matcher(getFamilyPhysician());
+        Matcher m = FD_FULL_NAME.matcher(StringUtils.trimToEmpty(getFamilyPhysician()));
         if (m.find()) {
             return m.group(2);
         }
@@ -803,7 +881,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     @jakarta.persistence.Transient
 
     public String getFamilyPhysicianNumber() {
-        Matcher m = FD_OHIP.matcher(getFamilyPhysician());
+        Matcher m = FD_OHIP.matcher(StringUtils.trimToEmpty(getFamilyPhysician()));
         if (m.find()) {
             return m.group(2);
         }
@@ -856,11 +934,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     /**
-     * Gets demographic's preferred name.
+     * Gets the name to show for the patient: the alias when one is set, otherwise the stored
+     * preferred name. Not mapped; Hibernate reads and writes the {@code prefName} field.
      *
-     * @return Returns the preferred name.
+     * @return the alias, or the stored preferred name when there is no alias
      */
-    @jakarta.persistence.Column(name = "pref_name")
+    @jakarta.persistence.Transient
     public String getPrefName() {
         if (getAlias() != null && !getAlias().isEmpty()) {
             return getAlias();
@@ -920,7 +999,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: phone2
      */
-    @jakarta.persistence.Column(name = "phone2", length = 20)
+    @jakarta.persistence.Transient
     public String getPhone2() {
         if (phone2 == null) {
             return "";
@@ -934,7 +1013,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param phone2 the phone2 value
      */
     public void setPhone2(String phone2) {
-        this.phone2 = phone2;
+        this.phone2 = StringUtils.defaultString(phone2);
     }
 
     /**
@@ -1016,7 +1095,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: chart_no
      */
-    @jakarta.persistence.Column(name = "chart_no", length = 10)
+    @jakarta.persistence.Transient
     public String getChartNo() {
         if (chartNo == null) {
             return "";
@@ -1030,7 +1109,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param chartNo the chart_no value
      */
     public void setChartNo(String chartNo) {
-        this.chartNo = chartNo;
+        this.chartNo = StringUtils.defaultString(chartNo);
     }
 
     /**
@@ -1053,9 +1132,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: year_of_birth
      */
-    @jakarta.persistence.Column(name = "year_of_birth", length = 4)
+    @jakarta.persistence.Transient
     public String getYearOfBirth() {
-        return yearOfBirth;
+        return StringUtils.trimToNull(yearOfBirth);
     }
 
     /**
@@ -1138,7 +1217,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setEffDate(Date effDate) {
         this.effDate = effDate;
     }
-    @jakarta.persistence.Column(name = "alias", length = 70)
+    @jakarta.persistence.Transient
 
     public String getAlias() {
         if (alias == null) {
@@ -1148,7 +1227,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     public void setAlias(String alias) {
-        this.alias = alias;
+        this.alias = StringUtils.defaultString(alias);
     }
     @jakarta.persistence.Column(name = "children", length = 255)
 
@@ -1219,7 +1298,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setPhoneComment(String phoneComment) {
         this.phoneComment = phoneComment;
     }
-    @jakarta.persistence.Column(name = "gender")
+    @jakarta.persistence.Transient
 
     public String getGender() {
         if (gender == null) {
@@ -1229,9 +1308,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     public void setGender(String gender) {
-        this.gender = gender;
+        this.gender = StringUtils.defaultString(gender);
     }
-    @jakarta.persistence.Column(name = "pronoun")
+    @jakarta.persistence.Transient
 
     public String getPronoun() {
         if (pronoun == null) {
@@ -1241,7 +1320,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     public void setPronoun(String pronoun) {
-        this.pronoun = pronoun;
+        this.pronoun = StringUtils.defaultString(pronoun);
     }
 
     @Override
@@ -1294,7 +1373,33 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     public String getAgeAsOf(Date asofDate) {
-        return Utility.calcAgeAtDate(Utility.calcDate(Utility.convertToReplaceStrIfEmptyStr(getYearOfBirth(), DEFAULT_YEAR), Utility.convertToReplaceStrIfEmptyStr(getMonthOfBirth(), DEFAULT_MONTH), Utility.convertToReplaceStrIfEmptyStr(getDateOfBirth(), DEFAULT_DATE)), asofDate);
+        return getAgeAsOf(asofDate, null);
+    }
+
+    /**
+     * Calculates the patient's age at a specific point in time using demographic birth date fields.
+     *
+     * <p>This method constructs a birth date from the demographic's year, month, and day of birth fields
+     * (using defaults if any component is missing), then calculates age relative to the given date.
+     *
+     * @param asofDate the reference date for age calculation; if null, the current date is used
+     * @param locale the locale for formatting age strings (e.g., "2 years", "3 months");
+     *               if null, uses the current context locale; {@link ResourceBundle#getBundle(String, Locale)}
+     *               handles further locale fallback
+     * @return formatted age string at the specified date (e.g., "45 years", "3 months", "not born yet"),
+     *         or null if the birth date cannot be calculated
+     */
+    public String getAgeAsOf(Date asofDate, Locale locale) {
+        return Utility.calcAgeAtDate(
+            Utility.calcDate(
+                Utility.convertToReplaceStrIfEmptyStr(
+                    getYearOfBirth(), DEFAULT_YEAR),
+                Utility.convertToReplaceStrIfEmptyStr(
+                    getMonthOfBirth(), DEFAULT_MONTH),
+                Utility.convertToReplaceStrIfEmptyStr(
+                    getDateOfBirth(), DEFAULT_DATE)),
+            asofDate,
+            locale);
     }
     @jakarta.persistence.Transient
 
@@ -1528,13 +1633,23 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
     @jakarta.persistence.Transient
 
-    public GregorianCalendar getBirthDay() {
+    // Declared as Calendar, not GregorianCalendar, to match setBirthDay(Calendar).
+    // A JavaBean property whose getter and setter disagree on type is malformed:
+    // property introspectors look for a setter matching the GETTER's return type,
+    // so a GregorianCalendar return made them demand setBirthDay(GregorianCalendar)
+    // and fail when it was absent. Live-caught as EclipseLink MOXy aborting the
+    // whole JAXB context ("No JAXB context can be created") on any deployment
+    // that exercised it. The instance returned is still a GregorianCalendar.
+    public Calendar getBirthDay() {
         GregorianCalendar cal = null;
-
-        if (dateOfBirth != null && monthOfBirth != null && yearOfBirth != null) {
+        String day = getDateOfBirth();
+        String month = getMonthOfBirth();
+        String year = getYearOfBirth();
+        if (day != null && month != null && year != null) {
             cal = new GregorianCalendar();
-            cal.setTimeInMillis(0);
-            cal.set(Integer.parseInt(yearOfBirth), Integer.parseInt(monthOfBirth) - 1, Integer.parseInt(dateOfBirth));
+            // Clear the epoch's local time-of-day before setting this date-only value.
+            cal.clear();
+            cal.set(Integer.parseInt(year), Integer.parseInt(month) - 1, Integer.parseInt(day));
 
             // force materialisation of data
             cal.getTimeInMillis();
@@ -1725,11 +1840,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             return dm1.getChartNo().compareTo(dm2.getChartNo());
         }
     };
-    public static final Comparator<Demographic> ProviderNoComparator = new Comparator<Demographic>() {
-        public int compare(Demographic dm1, Demographic dm2) {
-            return dm1.getProviderNo().compareTo(dm2.getProviderNo());
-        }
-    };
+    /**
+     * Orders patients by provider number, placing missing providers first.
+     * Non-null values retain their existing string order, including blank values.
+     */
+    public static final Comparator<Demographic> ProviderNoComparator = Comparator.comparing(
+            Demographic::getProviderNo, Comparator.nullsFirst(Comparator.naturalOrder()));
     public static final Comparator<Demographic> PatientStatusComparator = new Comparator<Demographic>() {
         public int compare(Demographic dm1, Demographic dm2) {
             return dm1.getPatientStatus().compareTo(dm2.getPatientStatus());
@@ -1743,14 +1859,25 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
 
     /**
+     * Bundle lookup without the JVM-default-locale fallback. Plain
+     * {@code getBundle(name, locale)} answers an unsupported locale with the <em>server's</em>
+     * language, which is exactly the leak the callers below pass a browser locale in to avoid.
+     */
+    private static final ResourceBundle.Control NO_FALLBACK_CONTROL =
+            ResourceBundle.Control.getNoFallbackControl(ResourceBundle.Control.FORMAT_PROPERTIES);
+
+    /**
      * Loads the oscarResources bundle for the given locale, falling back to English if the locale
      * has no matching bundle.
+     *
+     * @param locale the browser-preferred locale for this request; {@code null} means English
      */
     private static ResourceBundle getResourceBundle(Locale locale) {
         try {
-            return ResourceBundle.getBundle("oscarResources", locale);
-        } catch (MissingResourceException e) {
-            return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH);
+            return ResourceBundle.getBundle("oscarResources",
+                    locale == null ? Locale.ENGLISH : locale, NO_FALLBACK_CONTROL);
+        } catch (MissingResourceException _) {
+            return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH, NO_FALLBACK_CONTROL);
         }
     }
 
@@ -1761,15 +1888,40 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private static String getRes(ResourceBundle bundle, String key, String fallback) {
         try {
             return bundle.getString(key);
-        } catch (MissingResourceException e) {
+        } catch (MissingResourceException _) {
             return fallback;
         }
     }
 
+    /**
+     * Compatibility entry point for callers compiled against earlier releases.
+     *
+     * @deprecated Pass the negotiated browser locale to
+     * {@link #getStandardIdentificationHtml(String, Locale)}. Legacy callers use English.
+     */
+    @Deprecated(since = "2026.08", forRemoval = false)
     public String getStandardIdentificationHTML(String contextPath) {
+        return getStandardIdentificationHtml(contextPath, Locale.ENGLISH);
+    }
+
+    /**
+     * Renders the patient identity block shown at the top of the chart.
+     *
+     * <p>The locale is a required argument, not something this method looks up, because CARLOS
+     * has no Spring {@code LocaleResolver} on the Struts/JSP request path: {@code LocaleContextHolder}
+     * and the JVM default both report the <em>server's</em> language there. The chart header is
+     * assembled here in Java but surrounded by {@code <fmt:message>} text resolved from the
+     * browser's {@code Accept-Language}, so taking the locale from anywhere but the request
+     * produced a header that was half translated. Callers pass
+     * {@code LocaleUtils.resolveBundleLocale(request)}.</p>
+     *
+     * @param contextPath servlet context path used to build the edit / appointment-history links
+     * @param locale browser-preferred locale for this request; {@code null} falls back to English
+     */
+    public String getStandardIdentificationHtml(String contextPath, Locale locale) {
         //TODO move this into the DemographicManager as a property modifier and wrap each item with setting preferences
         StringBuilder sb = new StringBuilder();
-        ResourceBundle carlosRes = getResourceBundle(LocaleContextHolder.getLocale());
+        ResourceBundle carlosRes = getResourceBundle(locale);
 
         sb.append("<div id='patient-label'>");
         sb.append("<div id='patient-full-name'>");
@@ -1779,7 +1931,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         sb.append("' target='_blank'>");
 
         if (getTitle() != null && getTitle().length() > 0) {
-            sb.append(SafeEncode.forHtmlContent(getTitle())).append(" ");
+            sb.append(SafeEncode.forHtmlContent(getTitle()));
+            sb.append(" ");
         }
 
         sb.append(SafeEncode.forHtmlContent(getFormattedName()));
@@ -1793,7 +1946,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             String pronouns = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPronouns", "Pronouns");
             sb.append(pronouns);
             sb.append("</div>");
-            sb.append(SafeEncode.forHtml(getPronoun()));
+            sb.append(SafeEncode.forHtmlContent(getPronoun()));
             sb.append("</div>");
         }
 
@@ -1844,14 +1997,59 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             String hinLabel = getRes(carlosRes, "demographic.patient.context.hin", "HIN");
             sb.append(hinLabel);
 			sb.append(" (");
-            sb.append(SafeEncode.forHtml(getHcType()));
+            sb.append(SafeEncode.forHtmlContent(getHcType()));
 			sb.append(")</div>");
-			sb.append(SafeEncode.forHtml(getHin()));
+			sb.append(SafeEncode.forHtmlContent(getHin()));
 			sb.append("&nbsp;");
-			sb.append(SafeEncode.forHtml(getVer()));
+			sb.append(SafeEncode.forHtmlContent(getVer()));
             sb.append("</div>");
         }
 
+        appendContactDetails(sb, carlosRes);
+
+        //--> next appointment date
+        sb.append("<div id='patient-next-appointment'>");
+        sb.append("<div class='label'>");
+        String apptHref = contextPath + "/demographic/DemographicApptHistory?demographic_no="
+                + SafeEncode.forUriComponent(String.valueOf(getDemographicNo()))
+                + "&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25";
+        String apptHistoryTitle = getRes(carlosRes, "global.viewAppointmentHistory", "Appointment History");
+        sb.append("<a href=\"").append(SafeEncode.forHtmlAttribute(apptHref))
+                .append("\" title='").append(SafeEncode.forHtmlAttribute(apptHistoryTitle))
+                .append("' target='_blank'>");
+        String nAppt = getRes(carlosRes, "global.nextAppointment", "Next Appt.");
+        sb.append(nAppt);
+        sb.append("</a>");
+        sb.append("</div>");
+        String unknown = getRes(carlosRes, "demographic.demographicaddrecordhtm.formNewsLetter.optUnknown", "Unknown");
+        if (getNextAppointment() != null && !getNextAppointment().isEmpty()) {
+            sb.append(SafeEncode.forHtmlContent(getNextAppointment()));
+        } else {
+            sb.append(SafeEncode.forHtmlContent(unknown));
+        }
+        sb.append("</div>");
+
+        //--> most responsible practitioner (last item, pushed to right via CSS)
+        sb.append("<div id='patient-mrp'>");
+        sb.append("<div class='label'>");
+        String mrpLabel = getRes(carlosRes, "demographic.demographiceditdemographic.formMRP", "MRP");
+        sb.append(mrpLabel);
+        sb.append("</div>");
+        Provider mrp = getMrp();
+        if (mrp != null) {
+            sb.append(SafeEncode.forHtmlContent(mrp.getFormattedName()));
+        } else {
+            sb.append(SafeEncode.forHtmlContent(unknown));
+        }
+        sb.append("</div>");
+
+        sb.append("</div>");
+
+        return sb.toString();
+    }
+
+    /** Appends optional contact fields using the caller-selected message bundle. */
+    private void appendContactDetails(StringBuilder sb, ResourceBundle carlosRes) {
         //--> phone
         if (getPhone() != null && !getPhone().isEmpty()) {
             sb.append("<div id='patient-phone' class='copyable' title='")
@@ -1894,44 +2092,6 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             sb.append(SafeEncode.forHtmlContent(getEmail()));
             sb.append("</div>");
         }
-
-        //--> next appointment date
-        sb.append("<div id='patient-next-appointment'>");
-        sb.append("<div class='label'>");
-        String apptHref = contextPath + "/demographic/DemographicApptHistory?demographic_no="
-                + SafeEncode.forUriComponent(String.valueOf(getDemographicNo()))
-                + "&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25";
-        sb.append("<a href=\"").append(SafeEncode.forHtmlAttribute(apptHref))
-                .append("\" title='View Appointment History' target='_blank'>");
-        String nAppt = getRes(carlosRes, "global.nextAppointment", "Next Appt.");
-        sb.append(nAppt);
-        sb.append("</a>");
-        sb.append("</div>");
-        String unknown = getRes(carlosRes, "demographic.demographicaddrecordhtm.formNewsLetter.optUnknown", "Unknown");
-        if (getNextAppointment() != null && !getNextAppointment().isEmpty()) {
-            sb.append(SafeEncode.forHtmlContent(getNextAppointment()));
-        } else {
-            sb.append(SafeEncode.forHtmlContent(unknown));
-        }
-        sb.append("</div>");
-
-        //--> most responsible practitioner (last item, pushed to right via CSS)
-        sb.append("<div id='patient-mrp'>");
-        sb.append("<div class='label'>");
-        String mrpLabel = getRes(carlosRes, "demographic.demographiceditdemographic.formMRP", "MRP");
-        sb.append(mrpLabel);
-        sb.append("</div>");
-        Provider mrp = getMrp();
-        if (mrp != null) {
-            sb.append(SafeEncode.forHtmlContent(mrp.getFormattedName()));
-        } else {
-            sb.append(SafeEncode.forHtmlContent(unknown));
-        }
-        sb.append("</div>");
-
-        sb.append("</div>");
-
-        return sb.toString();
     }
 
     @Override
@@ -1939,11 +2099,30 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public Integer getId() {
         return this.getDemographicNo();
     }
+    /**
+     * Compatibility bean property for callers without a request locale.
+     *
+     * @deprecated Use {@link #getRosterStatusDisplay(Locale)} for browser-localized text.
+     * Legacy callers use English.
+     */
+    @Deprecated(since = "2026.08", forRemoval = false)
     @jakarta.persistence.Transient
-
     public String getRosterStatusDisplay() {
+        return getRosterStatusDisplay(Locale.ENGLISH);
+    }
+
+    /**
+     * Roster status as a clinician-readable label.
+     *
+     * <p>Takes the locale rather than reading one, for the reason given on
+     * {@link #getStandardIdentificationHtml(String, Locale)}. This locale-aware overload is not a JavaBean getter;
+     * the deprecated no-argument compatibility property remains {@code @Transient}.</p>
+     *
+     * @param locale browser-preferred locale for this request; {@code null} falls back to English
+     */
+    public String getRosterStatusDisplay(Locale locale) {
         String rs = StringUtils.trimToNull(this.getRosterStatus());
-        ResourceBundle carlosRes = getResourceBundle(LocaleContextHolder.getLocale());
+        ResourceBundle carlosRes = getResourceBundle(locale);
         if (rs != null) {
             if ("RO".equals(rs)) {
                 return getRes(carlosRes, "demographic.enrollementhistory.Rostered", "ROSTERED");

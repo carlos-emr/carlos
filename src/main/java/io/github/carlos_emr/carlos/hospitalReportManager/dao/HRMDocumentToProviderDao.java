@@ -48,6 +48,22 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
 
     public List<HRMDocumentToProvider> findByProviderNoLimit(String providerNo, List<Integer> demographicNumbers, boolean patientSearch, Date newestDate, Date oldestDate,
                                                              Integer viewed, Integer signedOff, boolean isPaged, Integer page, Integer pageSize) {
+        return findByProviderNoLimit(providerNo, demographicNumbers, patientSearch, newestDate, oldestDate, viewed, signedOff, isPaged, page, pageSize, null);
+    }
+
+    /**
+     * Finds one page of a provider's HRM routing rows, filtered like the overload without
+     * {@code signedOffSince} (patient, report-date range, viewed and signed-off flags) and
+     * additionally keeping only reports signed off at or after {@code signedOffSince}.
+     *
+     * <p>The bound is the sign-off time, not the report's own dates. The Inbox Hub toolbar uses it
+     * to list the reports signed off today without paging in the provider's whole history.
+     *
+     * @param signedOffSince inclusive lower bound on the sign-off timestamp, or null for none
+     */
+    public List<HRMDocumentToProvider> findByProviderNoLimit(String providerNo, List<Integer> demographicNumbers, boolean patientSearch, Date newestDate, Date oldestDate,
+                                                             Integer viewed, Integer signedOff, boolean isPaged, Integer page, Integer pageSize,
+                                                             Date signedOffSince) {
 
         if (patientSearch && (demographicNumbers == null || demographicNumbers.isEmpty())) {
             return Collections.emptyList();
@@ -96,6 +112,9 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         if (signedOff != 2) {
             sql.append("AND x.signedOff = :signedOff ");
         }
+        if (signedOffSince != null) {
+            sql.append("AND x.signedOffTimestamp >= :signedOffSince ");
+        }
 
         // Construct the query and set parameters
         Query query = entityManager.createQuery(sql.toString());
@@ -115,6 +134,9 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         }
         if (signedOff != 2) {
             query.setParameter("signedOff", signedOff);
+        }
+        if (signedOffSince != null) {
+            query.setParameter("signedOffSince", signedOffSince);
         }
 
         // Pagination handling
@@ -152,12 +174,9 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, hrmDocumentId);
         query.setParameter(2, providerNo);
-        try {
-            List<HRMDocumentToProvider> results = query.getResultList();
-            return results.get(results.size() - 1);
-        } catch (Exception e) {
-            return null;
-        }
+        @SuppressWarnings("unchecked")
+        List<HRMDocumentToProvider> results = query.getResultList();
+        return results.isEmpty() ? null : results.get(results.size() - 1);
     }
 
     public List<HRMDocumentToProvider> findByHrmDocumentIdAndProviderNoList(Integer hrmDocumentId, String providerNo) {
@@ -168,6 +187,34 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         @SuppressWarnings("unchecked")
         List<HRMDocumentToProvider> documentToProviders = query.getResultList();
         return documentToProviders;
+    }
+
+    /**
+     * Deletes a report's routing rows for one provider number with a bulk statement.
+     *
+     * <p>Use this, not {@code remove(entity)}, while the report is locked with
+     * {@code HRMDocumentDao.findForUpdate}: that loads {@code HRMDocument.matchedProviders}, an eager
+     * unidirectional collection, and an {@code EntityManager.remove()} of one of its rows leaves the
+     * document referencing a removed instance, so the next flush throws
+     * {@code TransientPropertyValueException}. A bulk delete bypasses the persistence context.</p>
+     *
+     * @param hrmDocumentId the report
+     * @param providerNo the provider number whose rows are deleted (for example {@code -1}, unclaimed)
+     * @return the number of rows deleted
+     */
+    public int deleteByHrmDocumentIdAndProviderNo(Integer hrmDocumentId, String providerNo) {
+        Query query = entityManager.createQuery(
+                "delete from HRMDocumentToProvider x where x.hrmDocumentId=?1 and x.providerNo=?2");
+        query.setParameter(1, hrmDocumentId);
+        query.setParameter(2, providerNo);
+        return query.executeUpdate();
+    }
+
+    /** Deletes only a rule-owned row; bulk DML avoids the report's eager collection cascade. */
+    public int deleteAutomaticRouting(Integer routingId) {
+        return entityManager.createQuery("delete from HRMDocumentToProvider x where x.id=:id"
+                + " and x.mrpDemographicNo is not null")
+                .setParameter("id", routingId).executeUpdate();
     }
 
     public List<HRMDocumentToProvider> findSignedByHrmDocumentId(Integer hrmDocumentId) {

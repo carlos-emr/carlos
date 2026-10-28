@@ -33,27 +33,42 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+
+<%--
+    Document description templates: the clinic-wide list (setDefault=true, from Administration) or
+    the signed-in provider's own list (from Preferences). Reached only through
+    admin/DisplayDocumentDescriptionTemplate; this page repeats that gate's rules
+    (DocumentDescriptionTemplateAccess) so it never opens for a user the gate would refuse.
+    Clinic-wide: _admin or _admin.document read to open, write to change (the Add, Update and
+    Delete controls stay hidden without write). Own list: _pref write (issue #5057).
+    Parameters: setDefault=true selects the clinic-wide list.
+    @since 2012
+--%>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@page import="io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplateAccess" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="java.util.ArrayList" %>
 
 <%
     String curProvider_no = (String) session.getAttribute("user");
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
-%>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
-</security:oscarSec>
-<%
-    if (!authed) {
+    SecurityInfoManager templateSecurity = SpringUtils.getBean(SecurityInfoManager.class);
+    LoggedInInfo templateUser = LoggedInInfo.getLoggedInInfoFromSession(request);
+    boolean clinicList = DocumentDescriptionTemplateAccess.isClinicListRequest(request);
+    try {
+        DocumentDescriptionTemplateAccess.requireOpenPage(templateSecurity, templateUser, clinicList);
+    } catch (SecurityException denied) {
+        response.sendRedirect(request.getContextPath() + "/securityError?type=" + (clinicList ? "_admin" : "_pref"));
         return;
     }
+    // The own list needs _pref write to open at all; the clinic-wide list opens for readers too.
+    boolean templatesEditable = !clinicList
+            || DocumentDescriptionTemplateAccess.canEditClinicList(templateSecurity, templateUser);
     ArrayList docTypes = EDocUtil.getDoctypes("demographic");
     UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
     UserProperty uProp = userPropertyDAO.getProp(curProvider_no, UserProperty.DOCUMENT_DESCRIPTION_TEMPLATE);
@@ -74,10 +89,32 @@
 
     <script type="text/javascript">
         var useDocumentDescriptionTemplateType;
+        // A reader of the clinic-wide list without write sees the list but no Add/Update/Delete.
+        var templatesEditable = <%= templatesEditable %>;
 
-        function getCsrfToken() {
+        function showEditControl(control, visible) {
+            control.style.visibility = visible && templatesEditable ? 'visible' : 'hidden';
+        }
+
+        function reportTemplateError() {
+            document.getElementById('templateStatus').textContent =
+                'The document description request failed. Your changes may not have been saved. Reload and try again.';
+        }
+
+        async function templateRequest(url, data) {
+            if (window.csrfTokenReady) await window.csrfTokenReady;
             var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-            return csrfEl ? csrfEl.value : '';
+            if (!csrfEl || !csrfEl.value) throw new Error('CSRF token is unavailable');
+            var response = await fetch(url, {
+                method: 'POST', credentials: 'same-origin',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfEl.value},
+                body: data
+            });
+            if (!response.ok || response.redirected) throw new Error('Document description request failed');
+            // Keep errors visible until reload: a concurrent successful read must
+            // not hide an earlier failed write or uncertain save outcome.
+            return response.text();
         }
 
         function adddocDescription() {
@@ -87,19 +124,15 @@
                 var docShortcut = document.docDescriptionForm.docDescriptionShortcut.value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var providerNo = document.docDescriptionForm.providerNo.value;
-                var data = 'method=addDocumentDescription&description=' + docDescription + '&shortcut=' + docShortcut + '&doctype=' + docType + '&providerNo=' + providerNo;
-                fetch(url, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'CSRF-TOKEN': getCsrfToken()
-                    },
-                    body: data
-                }).then(function(response) { return response.text(); }).then(function(responseText) {
+                // URLSearchParams encodes each value: the description is typed text, and
+                // concatenating it raw cut it off at the first "&" and read "+" as a space.
+                var data = new URLSearchParams({
+                    method: 'addDocumentDescription', description: docDescription, shortcut: docShortcut,
+                    doctype: docType, providerNo: providerNo
+                }).toString();
+                templateRequest(url, data).then(function(responseText) {
                     getDocumentDescriptionTemplateFromSelectedDocType();
-                });
+                }).catch(reportTemplateError);
             } else {
                 alert("<fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
             }
@@ -113,19 +146,13 @@
                 var docShortcut = document.docDescriptionForm.docDescriptionShortcut.value;
                 var providerNo = document.docDescriptionForm.providerNo.value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
-                var data = 'method=updateDocumentDescription&description=' + docDescription + '&shortcut=' + docShortcut + '&doctype=' + docType + '&id=' + id + '&providerNo=' + providerNo;
-                fetch(url, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'CSRF-TOKEN': getCsrfToken()
-                    },
-                    body: data
-                }).then(function(response) { return response.text(); }).then(function(responseText) {
+                var data = new URLSearchParams({
+                    method: 'updateDocumentDescription', description: docDescription, shortcut: docShortcut,
+                    doctype: docType, id: id, providerNo: providerNo
+                }).toString();
+                templateRequest(url, data).then(function(responseText) {
                     getDocumentDescriptionTemplateFromSelectedDocType();
-                });
+                }).catch(reportTemplateError);
             } else {
                 alert("<fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
             }
@@ -136,18 +163,9 @@
                 var id = document.docDescriptionForm.descriptionId.value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=deleteDocumentDescription&id=' + id;
-                fetch(url, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'CSRF-TOKEN': getCsrfToken()
-                    },
-                    body: data
-                }).then(function(response) { return response.text(); }).then(function(responseText) {
+                templateRequest(url, data).then(function(responseText) {
                     getDocumentDescriptionTemplateFromSelectedDocType();
-                });
+                }).catch(reportTemplateError);
             } else {
                 alert("<fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
             }
@@ -182,17 +200,11 @@
             adoc = document.createElement('div');
             docDescriptionList.appendChild(adoc);
             var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
-            var data = 'method=getDocumentDescriptionFromDocType&doctype=' + docType + "&providerNo=" + providerNo + "&useDocumentDescriptionTemplateType=" + useDocumentDescriptionTemplateType;
-            fetch(url, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'CSRF-TOKEN': getCsrfToken()
-                },
-                body: data
-            }).then(function(response) { return response.text(); }).then(function(responseText) {
+            var data = new URLSearchParams({
+                method: 'getDocumentDescriptionFromDocType', doctype: docType, providerNo: providerNo,
+                useDocumentDescriptionTemplateType: useDocumentDescriptionTemplateType
+            }).toString();
+            templateRequest(url, data).then(function(responseText) {
                 var json = JSON.parse(responseText);
 
                 if (json != null) {
@@ -217,13 +229,13 @@
                     docDescriptionList.appendChild(mySelect);
                     getDescriptionAndShortcutFromSelectedList();
                 }
-            });
+            }).catch(reportTemplateError);
 
         }
 
         function getDescriptionAndShortcutFromSelectedList() {
             if (document.getElementById('docDescList').selectedIndex <= 0) {
-                document.docDescriptionForm.addDescription.style.visibility = 'visible';
+                showEditControl(document.docDescriptionForm.addDescription, true);
                 document.docDescriptionForm.updateDescription.style.visibility = 'hidden';
                 document.docDescriptionForm.deleteDescription.style.visibility = 'hidden';
                 document.docDescriptionForm.descriptionId.value = "";
@@ -233,30 +245,21 @@
                 var id = document.getElementById('docDescList').options[document.getElementById('docDescList').selectedIndex].value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=getDocumentDescriptionFromId&id=' + id;
-                fetch(url, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'CSRF-TOKEN': getCsrfToken()
-                    },
-                    body: data
-                }).then(function(response) { return response.text(); }).then(function(responseText) {
+                templateRequest(url, data).then(function(responseText) {
                     var json = JSON.parse(responseText);
                     if (json != null) {
                         document.docDescriptionForm.addDescription.style.visibility = 'hidden';
-                        document.docDescriptionForm.updateDescription.style.visibility = 'visible';
-                        document.docDescriptionForm.deleteDescription.style.visibility = 'visible';
+                        showEditControl(document.docDescriptionForm.updateDescription, true);
+                        showEditControl(document.docDescriptionForm.deleteDescription, true);
                         document.docDescriptionForm.descriptionId.value = json.documentDescriptionTemplate.id;
                         document.docDescriptionForm.docDescription.value = json.documentDescriptionTemplate.description;
                         document.docDescriptionForm.docDescriptionShortcut.value = json.documentDescriptionTemplate.descriptionShortcut;
                     }
-                });
+                }).catch(reportTemplateError);
             }
         }
 
-        function checkClinicDefault() {
+        function checkClinicDefault(savePreference) {
 
             if (document.getElementById('useclinicdefault').checked && document.docDescriptionForm.providerNo.value != "null") {
                 document.getElementById('docTypeTable').style.visibility = 'hidden';
@@ -266,49 +269,31 @@
                 document.docDescriptionForm.addDescription.style.visibility = 'hidden';
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=saveDocumentDescriptionTemplatePreference&defaultShortcut=<%=UserProperty.CLINIC%>';
-                fetch(url, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'CSRF-TOKEN': getCsrfToken()
-                    },
-                    body: data
-                });
+                if (savePreference) templateRequest(url, data).catch(reportTemplateError);
             } else {
                 useDocumentDescriptionTemplateType = document.docDescriptionForm.providerNo.value != "null" ? "<%=UserProperty.USER%>" : "<%=UserProperty.CLINIC%>";
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=saveDocumentDescriptionTemplatePreference&defaultShortcut=' + useDocumentDescriptionTemplateType;
-                fetch(url, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'CSRF-TOKEN': getCsrfToken()
-                    },
-                    body: data
-                });
+                if (savePreference) templateRequest(url, data).catch(reportTemplateError);
                 document.getElementById('docTypeTable').style.visibility = 'visible';
-                document.getElementById('docType').selectedIndex = -1;
+                document.getElementById('docType').selectedIndex = 0;
                 document.getElementById('tblDesc').style.visibility = 'hidden';
                 getDocumentDescriptionTemplateFromSelectedDocType();
             }
         }
     </script>
 </head>
-<body onload="checkClinicDefault()">
+<body onload="checkClinicDefault(false)">
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
+<p id="templateStatus" role="alert"></p>
 <%
-    String providerNo = curProvider_no;
-    if (request.getParameter("setDefault") != null && request.getParameter("setDefault").equals("true")) {
-        providerNo = null;
-    }
+    // The page only ever edits the clinic-wide list or the signed-in provider's own list.
+    String providerNo = clinicList ? null : curProvider_no;
 %>
 <form method="post" name="docDescriptionForm" action="${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate">
     <div id="usefault" style="<%=providerNo==null? "visibility:hidden" : ""%>">
         <input type="checkbox" name="useclinicdefault" <%=clinicDefault == true ? "checked='checked'" : ""%>
-               id="useclinicdefault" onclick="checkClinicDefault()"><fmt:message key="provider.setDocumentDescriptionTemplate.useClinicDefault"/>
+               id="useclinicdefault" onclick="checkClinicDefault(true)"><fmt:message key="provider.setDocumentDescriptionTemplate.useClinicDefault"/>
     </div>
     <% if (providerNo == null) {%>
     <fmt:message key="provider.setDocumentDescriptionTemplate.setClinicDefault"/>
@@ -325,7 +310,7 @@
                         for (int j = 0; j < docTypes.size(); j++) {
                             String docType = (String) docTypes.get(j);
                     %>
-                    <option value="<%= docType%>"><%= docType%>
+                    <option value="<carlos:encode value='<%= docType %>' context="htmlAttribute"/>"><carlos:encode value='<%= docType %>'/>
                     </option>
                     <%}%>
                 </select>
@@ -345,14 +330,14 @@
 
     <table style="visibility:hidden" id="tblDesc">
         <tr>
-            <th align="left"><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionShortcut"/></th>
-            <th align="left"><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/></th>
+            <th align="left"><label for="docDescriptionShortcut"><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionShortcut"/></label></th>
+            <th align="left"><label for="docDescription"><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/></label></th>
         </tr>
         <tr>
-            <td><input type="hidden" name="providerNo" value="<%=(providerNo==null?"null":providerNo)%>"><input
-                    type="hidden" name="descriptionId"><input name="docDescriptionShortcut" maxlength="20" size="20"
-                                                              value=""></td>
-            <td><input name="docDescription" maxlength="255" size="60" value=""></td>
+            <td><input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo == null ? "null" : providerNo %>' context="htmlAttribute"/>"><input
+                    type="hidden" name="descriptionId"><input id="docDescriptionShortcut" name="docDescriptionShortcut" maxlength="20" size="20"
+                                                              value=""<%= templatesEditable ? "" : " readonly" %>></td>
+            <td><input id="docDescription" name="docDescription" maxlength="255" size="60" value=""<%= templatesEditable ? "" : " readonly" %>></td>
         </tr>
         <tr>
             <td colspan="2"><input type="button"
@@ -367,4 +352,4 @@
     </table>
 </form>
 </body>
-<html>
+</html>

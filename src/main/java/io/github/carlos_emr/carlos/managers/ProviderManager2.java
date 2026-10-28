@@ -472,7 +472,28 @@ public class ProviderManager2 {
         }
     }
 
+    /**
+     * Updates settings for the authenticated provider and records a sanitized audit entry.
+     *
+     * <p>The target must match the provider identity from {@code loggedInInfo}. This
+     * manager-level check mirrors the REST endpoint as defense in depth; cross-provider
+     * administration requires a separate explicit endpoint.</p>
+     *
+     * @param loggedInInfo authenticated caller identity
+     * @param providerNo provider whose settings are being updated
+     * @param settings new provider settings
+     * @throws SecurityException when the caller is missing or targets another provider
+     * @since 2026-07-21
+     */
     public void updateProviderSettings(LoggedInInfo loggedInInfo, String providerNo, ProviderSettings settings) {
+
+        // Defense in depth: keep the self-only authorization rule with the operation so
+        // a future non-REST caller cannot bypass the ProviderService endpoint guard.
+        // Cross-provider editing belongs behind a separate explicit admin endpoint.
+        String currentProviderNo = loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null;
+        if (providerNo == null || !providerNo.equals(currentProviderNo)) {
+            throw new SecurityException("provider settings may only be saved for the authenticated provider");
+        }
 
         ProviderPreference pp = providerPreferenceDao.find(providerNo);
         if (pp == null) {
@@ -685,6 +706,13 @@ public class ProviderManager2 {
 
         providerExtDao.merge(providerExt);
 
+        // Audit trail: record who changed which provider's settings, placed after the DAO
+        // writes above. If any merge throws, the exception propagates and this line is never
+        // reached, so no audit entry is recorded for an update that did not complete. The
+        // target provider identifier is passed as the structured data field (no settings
+        // values) to avoid logging PHI-adjacent content.
+        LogAction.addLogSynchronous(loggedInInfo, "ProviderManager.updateProviderSettings", providerNo);
+
     }
 
     public void updateProvider(LoggedInInfo loggedInInfo, Provider provider) {
@@ -695,6 +723,8 @@ public class ProviderManager2 {
 
     }
 
+    /** @deprecated Legacy property API; the clinic-wide switch is managed by ProviderLinkingRulesService. */
+    @Deprecated
     public boolean updateAutoLinkToMrpProperty(LoggedInInfo loggedInInfo, String value) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.lab", SecurityInfoManager.WRITE, null) &&
             !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", SecurityInfoManager.WRITE, null)) {
@@ -712,6 +742,8 @@ public class ProviderManager2 {
 		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
 	}
 
+    /** @deprecated Legacy property API, retained for callers of the previous release. */
+    @Deprecated
 	public boolean viewAutoLinkToMrpPropertyStatus(LoggedInInfo loggedInInfo) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.lab", SecurityInfoManager.READ, null) &&
             !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", SecurityInfoManager.READ, null)) {
@@ -721,7 +753,7 @@ public class ProviderManager2 {
 		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
 	}
 
-	// If no property is found, it returns true by default.
+	// Filing for others is offered only after an explicit opt-in.
 	public boolean isHl7OfferFileForOthers(LoggedInInfo loggedInInfo, String providerNo) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
 			throw new RuntimeException("missing required security object _lab");
@@ -731,7 +763,7 @@ public class ProviderManager2 {
 				.stream()
 				.findFirst()
 				.map(p -> "true".equals(p.getValue()))
-				.orElse(true); // default to true
+				.orElse(false); // default off
 	}
 
 	public boolean isHl7AllowOthersFileForYou(LoggedInInfo loggedInInfo, String providerNo) {

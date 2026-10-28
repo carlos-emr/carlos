@@ -60,6 +60,17 @@ public interface EmailConfigDao extends AbstractDao<EmailConfig> {
     public EmailConfig findActiveEmailConfigById(int id);
 
     /**
+     * Encrypts an active account's credentials only if its stored configuration still matches.
+     * The comparison and update run under a row lock; unrelated account fields are never written.
+     *
+     * @param id account ID
+     * @param original exact configuration read before encryption
+     * @param encrypted configuration with encrypted secret fields
+     * @return true if updated, false if the account was changed, disabled, or removed
+     */
+    boolean encryptCredentialsIfUnchanged(int id, String original, String encrypted);
+
+    /**
      * Retrieves all active email configurations in the system.
      *
      * <p>This method returns a list of all currently active email configurations available

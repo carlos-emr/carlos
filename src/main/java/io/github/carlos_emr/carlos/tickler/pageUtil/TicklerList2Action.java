@@ -40,11 +40,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Predicate;
 
+import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.slf4j.Logger;
@@ -52,12 +53,15 @@ import org.slf4j.LoggerFactory;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerCommentDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -77,24 +81,19 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class TicklerList2Action extends ActionSupport {
 
     private static final Logger logger = LoggerFactory.getLogger(TicklerList2Action.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final int MAX_PAGE_SIZE = 500;
     private static final String DATE_FORMAT_PATTERN = "yyyy-MM-dd";
     private static final String TIME_FORMAT_PATTERN = "HH:mm";
 
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
 
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     @Override
     public String execute() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
 
         if (loggedInInfo == null) {
             writeJsonError(response, HttpServletResponse.SC_UNAUTHORIZED, "Session expired");
@@ -102,6 +101,21 @@ public class TicklerList2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", null)) {
+            writeJsonError(response, HttpServletResponse.SC_FORBIDDEN, "Access denied");
+            return null;
+        }
+
+        final int requestedPatient;
+        final java.util.Set<Integer> deniedPatients;
+        try {
+            requestedPatient = PatientReadAccess.requestedListPatient(request);
+            if (requestedPatient > 0) PatientReadAccess.requirePatient(securityInfoManager, loggedInInfo,
+                    requestedPatient, "_tickler", SecurityInfoManager.READ);
+            deniedPatients = PatientReadAccess.deniedPatients(securityInfoManager, loggedInInfo, "_tickler", SecurityInfoManager.READ);
+        } catch (IllegalArgumentException invalid) {
+            writeJsonError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid patient identity");
+            return null;
+        } catch (SecurityException denied) {
             writeJsonError(response, HttpServletResponse.SC_FORBIDDEN, "Access denied");
             return null;
         }
@@ -119,6 +133,8 @@ public class TicklerList2Action extends ActionSupport {
             }
 
             CustomFilter filter = buildFilterFromRequest(request);
+            if (requestedPatient > 0) filter.setDemographicNo(Integer.toString(requestedPatient));
+            filter.setExcludedDemographicNos(deniedPatients);
 
             // recordsTotal uses a filter without search so the total count reflects form filters only
             String originalSearchTerm = filter.getSearchTerm();
@@ -142,9 +158,25 @@ public class TicklerList2Action extends ActionSupport {
             Date today = new Date();
 
             int ticklerWarnDays = getTicklerWarnDays();
+            // Encounter form names are resolved once per patient on the page, and only for
+            // patients that actually have a form attachment: the form id alone cannot address a
+            // form, so the client needs the name to build its link.
+            Map<Integer, Map<String, String>> formNamesByDemographic = new HashMap<>();
+
+            // Per-type read rights are patient-scoped, so they are resolved once per
+            // (type, patient) on the page; a link the reader may not open is marked restricted.
+            Map<String, Boolean> readableByTypeAndPatient = new HashMap<>();
+            // An item that has moved to another patient since it was attached is left out of
+            // the row altogether, whatever the reader's rights.
+            Map<String, Boolean> ownedByItemAndPatient = new HashMap<>();
 
             for (TicklerListDTO dto : ticklerDTOs) {
-                rows.add(buildTicklerRow(dto, ticklerWarnDays, dateFormat, locale));
+                if (dto.getDemographicNo() != null && deniedPatients.contains(dto.getDemographicNo())) continue;
+                dto.setLinks(ownedLinks(ticklerAttachmentService, loggedInInfo, dto, ownedByItemAndPatient));
+                rows.add(buildTicklerRow(dto, ticklerWarnDays, dateFormat, locale,
+                        formNamesFor(loggedInInfo, dto, formNamesByDemographic),
+                        link -> isLinkReadable(securityInfoManager, ticklerAttachmentService,
+                                loggedInInfo, dto, link, readableByTypeAndPatient)));
 
                 if (dto.getComments() != null && !dto.getComments().isEmpty()) {
                     commentsMap.put(String.valueOf(dto.getId()), buildCommentsArray(dto.getComments(), dateFormat, timeFormat, today));
@@ -158,8 +190,7 @@ public class TicklerList2Action extends ActionSupport {
             result.put("data", rows);
             result.put("comments", commentsMap);
 
-            String json = objectMapper.writeValueAsString(result);
-            response.getWriter().write(json);
+            JsonResponseWriter.write(response, result);
 
             LogAction.addLogSynchronous(loggedInInfo, "TicklerList2Action",
                     "draw=" + draw + ",start=" + start + ",length=" + length + ",total=" + totalRecords);
@@ -180,7 +211,7 @@ public class TicklerList2Action extends ActionSupport {
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private CustomFilter buildFilterFromRequest(HttpServletRequest request) {
+    static CustomFilter buildFilterFromRequest(HttpServletRequest request) {
         CustomFilter filter = new CustomFilter();
 
         String status = getStringParam(request, "status", "A");
@@ -200,6 +231,11 @@ public class TicklerList2Action extends ActionSupport {
 
         String demographicNo = getStringParam(request, "demographicNo", "");
         filter.setDemographicNo(demographicNo);
+        // The patient view has no date controls. Include future recalls unless
+        // the caller supplies an explicit date filter below.
+        if (demographicNo.matches("\\d+")) {
+            filter.setEndDate(null);
+        }
 
         String client = getStringParam(request, "client", "");
         filter.setClient(client);
@@ -243,7 +279,7 @@ public class TicklerList2Action extends ActionSupport {
      * @param colIndexStr String the DataTables column index from the request
      * @return String the CustomFilter sortColumn value
      */
-    private String mapColumnIndexToField(String colIndexStr) {
+    private static String mapColumnIndexToField(String colIndexStr) {
         switch (colIndexStr) {
             case "6":  return "priority";
             case "4":  // fall-through to default
@@ -258,9 +294,13 @@ public class TicklerList2Action extends ActionSupport {
      * @param warnDays int the number of days to consider a tickler as warning
      * @param dateFormat SimpleDateFormat thread-local date formatter
      * @param locale Locale the request locale for status description i18n
+     * @param formNames Map&lt;String, String&gt; form id to form name for this tickler's patient
+     * @param linkReadable Predicate&lt;TicklerLinkDTO&gt; whether the reader may open the linked item
      * @return Map containing the tickler row data
      */
-    private Map<String, Object> buildTicklerRow(TicklerListDTO dto, int warnDays, SimpleDateFormat dateFormat, Locale locale) {
+    static Map<String, Object> buildTicklerRow(TicklerListDTO dto, int warnDays, SimpleDateFormat dateFormat,
+                                               Locale locale, Map<String, String> formNames,
+                                               Predicate<TicklerLinkDTO> linkReadable) {
         Map<String, Object> row = new HashMap<>();
         row.put("id", dto.getId());
         row.put("message", dto.getMessage() != null ? dto.getMessage() : "");
@@ -280,15 +320,112 @@ public class TicklerList2Action extends ActionSupport {
         if (dto.getLinks() != null) {
             for (TicklerLinkDTO link : dto.getLinks()) {
                 Map<String, Object> linkMap = new HashMap<>();
-                linkMap.put("id", link.getId());
                 linkMap.put("tableName", link.getTableName());
+                if (!linkReadable.test(link)) {
+                    // The reader holds _tickler but not the item's type: the row still shows
+                    // that something is attached, but no identifier (neither the item id nor
+                    // the attachment row id, both PHI-correlating) and no viewer URL leaves
+                    // the server.
+                    linkMap.put("restricted", Boolean.TRUE);
+                    links.add(linkMap);
+                    continue;
+                }
+                linkMap.put("id", link.getId());
                 linkMap.put("tableId", link.getTableId());
+                if (TicklerLinkDTO.TABLE_NAME_FORM.equals(link.getTableName())) {
+                    // Left absent when the form no longer resolves (or the id is ambiguous); the
+                    // client then renders an unlinked marker rather than a URL to the wrong form.
+                    String formName = formNames.get(String.valueOf(link.getTableId()));
+                    if (formName != null) {
+                        linkMap.put("formName", formName);
+                    }
+                }
                 links.add(linkMap);
             }
         }
         row.put("links", links);
 
         return row;
+    }
+
+    /**
+     * Keeps the links whose item still belongs to the tickler's patient, looked up afresh
+     * (cached per item and patient for the page). A row that was valid when written can name
+     * a document since re-filed or an HRM report since re-assigned; such a link is dropped
+     * rather than rendered, restricted or not, so the list never surfaces another patient's
+     * item. Rows with no recorded type cannot be checked and are kept.
+     */
+    static List<TicklerLinkDTO> ownedLinks(TicklerAttachmentService ticklerAttachmentService, LoggedInInfo loggedInInfo,
+                                          TicklerListDTO dto, Map<String, Boolean> cache) {
+        if (dto.getLinks() == null || dto.getLinks().isEmpty()) {
+            return dto.getLinks();
+        }
+        List<TicklerLinkDTO> owned = new ArrayList<>();
+        for (TicklerLinkDTO link : dto.getLinks()) {
+            DocumentType documentType = DocumentType.fromType(link.getDocType());
+            if (documentType == null || link.getTableId() == null) {
+                owned.add(link);
+                continue;
+            }
+            String key = documentType.getType() + ":" + link.getTableId() + ":" + link.getLabType() + ":" + dto.getDemographicNo();
+            boolean stillOwned = cache.computeIfAbsent(key, k -> ticklerAttachmentService.belongsToPatient(loggedInInfo,
+                    documentType, link.getTableId().intValue(), link.getLabType(), dto.getDemographicNo()));
+            if (stillOwned) {
+                owned.add(link);
+            }
+        }
+        return owned;
+    }
+
+    /**
+     * Whether the reader may open an attachment: {@code _tickler} read for the tickler's patient
+     * (the endpoint only proved the global right, and a patient-specific denial takes precedence
+     * over it) and read on the attachment type's security object for that patient, the same
+     * gates the picker and the Add/Edit windows apply. A row with no recorded type (none after
+     * the {@code ticklerdocs} migration) is subject to the patient gate only, so a legacy row is
+     * never hidden by a lookup that cannot classify it but never shown across a patient denial.
+     */
+    static boolean isLinkReadable(SecurityInfoManager securityInfoManager,
+                                  TicklerAttachmentService ticklerAttachmentService, LoggedInInfo loggedInInfo,
+                                  TicklerListDTO dto, TicklerLinkDTO link, Map<String, Boolean> cache) {
+        String demographicNo = dto.getDemographicNo() == null ? null : String.valueOf(dto.getDemographicNo());
+        boolean ticklerReadable = cache.computeIfAbsent("_tickler:" + demographicNo,
+                key -> securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, demographicNo));
+        if (!ticklerReadable) {
+            return false;
+        }
+        DocumentType documentType = DocumentType.fromType(link.getDocType());
+        if (documentType == null) {
+            return true;
+        }
+        boolean typeReadable = cache.computeIfAbsent(documentType.getType() + ":" + demographicNo,
+                key -> securityInfoManager.hasPrivilege(loggedInInfo,
+                        TicklerAttachmentService.readSecurityObject(documentType), SecurityInfoManager.READ, demographicNo));
+        if (!typeReadable || documentType != DocumentType.DOC) {
+            return typeReadable;
+        }
+        if (link.getTableId() == null) {
+            return false;
+        }
+        // General _edoc read does not override this document's patient, program or queue
+        // restrictions. The viewer uses this same check before serving the document.
+        return cache.computeIfAbsent("document:" + link.getTableId(),
+                key -> ticklerAttachmentService.canReadDocument(loggedInInfo, link.getTableId().intValue()));
+    }
+
+    /**
+     * Resolves the form-name lookup for a tickler's patient, once per patient per page and only
+     * when the tickler carries an encounter form attachment.
+     */
+    private Map<String, String> formNamesFor(LoggedInInfo loggedInInfo, TicklerListDTO dto,
+                                             Map<Integer, Map<String, String>> cache) {
+        boolean hasForm = dto.getLinks() != null && dto.getLinks().stream()
+                .anyMatch(link -> TicklerLinkDTO.TABLE_NAME_FORM.equals(link.getTableName()));
+        if (!hasForm || dto.getDemographicNo() == null) {
+            return java.util.Collections.emptyMap();
+        }
+        return cache.computeIfAbsent(dto.getDemographicNo(),
+                demographicNo -> ticklerAttachmentService.formNamesByFormId(loggedInInfo, demographicNo));
     }
 
     /**
@@ -332,8 +469,6 @@ public class TicklerList2Action extends ActionSupport {
      * @param message String the error message
      * @throws IOException if writing fails
      */
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void writeJsonError(HttpServletResponse response, int statusCode, String message) throws IOException {
         response.setStatus(statusCode);
         Map<String, Object> error = new HashMap<>();
@@ -342,7 +477,7 @@ public class TicklerList2Action extends ActionSupport {
         error.put("recordsTotal", 0);
         error.put("recordsFiltered", 0);
         error.put("data", new ArrayList<>());
-        response.getWriter().write(objectMapper.writeValueAsString(error));
+        JsonResponseWriter.write(response, error);
     }
 
     /**
@@ -353,7 +488,7 @@ public class TicklerList2Action extends ActionSupport {
      * @param warnDays int the warning threshold in days
      * @return boolean true if the tickler should show a warning
      */
-    private boolean isWarning(TicklerListDTO dto, int warnDays) {
+    private static boolean isWarning(TicklerListDTO dto, int warnDays) {
         if (dto.getServiceDate() == null || warnDays <= 0) {
             return false;
         }
@@ -406,7 +541,7 @@ public class TicklerList2Action extends ActionSupport {
      * @param defaultValue String the default value if parameter is missing
      * @return String the parameter value or default
      */
-    private String getStringParam(HttpServletRequest request, String name, String defaultValue) {
+    private static String getStringParam(HttpServletRequest request, String name, String defaultValue) {
         String val = request.getParameter(name);
         return (val != null) ? val.trim() : defaultValue;
     }

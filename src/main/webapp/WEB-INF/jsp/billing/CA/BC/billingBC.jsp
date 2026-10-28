@@ -101,8 +101,9 @@
             String value = (String) assocCodeMap.get(key);
             String rowName = assocArrayName + "row";
             out.append("var " + rowName + index + " = new Array(2);\n");
-            out.append(rowName + index + "[0]='" + key + "'; ");
-            out.append(rowName + index + "[1]='" + value + "';\n");
+            // Codes come from the association tables, which an administrator edits: write them as JS strings.
+            out.append(rowName + index + "[0]='" + SafeEncode.forJavaScript(key) + "'; ");
+            out.append(rowName + index + "[1]='" + SafeEncode.forJavaScript(value) + "';\n");
             out.append(assocArrayName + "[" + index + "]=" + rowName + index + ";\n");
             index++;
         }
@@ -119,8 +120,9 @@
     BillingPreferencesDAO billingPreferencesDAO = SpringUtils.getBean(BillingPreferencesDAO.class);
 %>
 <%
-    // current data is held in the session.
-    BillingSessionBean bean = (BillingSessionBean) pageContext.findAttribute("billingSessionBean");
+    // This window's bill, handed over by the action that opened or resumed it (BcBillStaging). It
+    // used to be the login-wide session bill: whichever bill another window opened last (#4673).
+    BillingSessionBean bean = (BillingSessionBean) request.getAttribute("billingSessionBean");
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Demographic demo = demographicManager.getDemographic(loggedInInfo, bean.getPatientNo());
 
@@ -210,12 +212,8 @@
         }
     }
 
-    // 3.a. in some situations if the default billing form is set as Private it may be possible
-    // to set the Billing Type to private as well
-    // The commons code for a private billing form is PRI
-    if ("PRI".equals(defaultBillingForm)) {
-        bean.setBillType("Pri");
-    }
+    // The configured default, before step 4 can replace it with the bill's own form (read by 3.a below).
+    String configuredBillingForm = defaultBillingForm;
 
     // 4. logged in user is overriding billing form preference during billing process.
     /* horrible hack. Do not repeat.
@@ -230,8 +228,15 @@
         defaultBillingForm = bean.getBillForm();
     }
 
-    if (billform.serviceExists(defaultBillingForm)) {
-        bean.setBillForm(defaultBillingForm);
+    bean.setBillForm(billform.resolveBillingForm(defaultBillingForm));
+
+    // 3.a. in some situations if the default billing form is set as Private it may be possible
+    // to set the Billing Type to private as well
+    // The commons code for a private billing form is PRI
+    // Only once the form is chosen, and only when the chosen form is that PRI form: a PRI default this install does
+    // not have is replaced by the fallback above, and must not leave a private billing type on the form that replaced it.
+    if ("PRI".equals(configuredBillingForm) && "PRI".equals(bean.getBillForm())) {
+        bean.setBillType("Pri");
     }
 
     // 1. global default billing visit location: carlos properties
@@ -372,8 +377,6 @@
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/bootstrap-datetimepicker.min.js"></script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
     <script type="text/javascript"
@@ -722,7 +725,13 @@
             %>
 
             if (document.BillingCreateBillingForm.xml_billtype.value == "WCB") {
-                callReplacementWebService("wcbForms.jsp<%=wcb%>", 'wcbForms');
+                // The patient's WCB forms, through their gate action: the JSP itself is not public.
+                // Loaded once: submitting runs this again, and a reload then cleared the form the
+                // prescriber had picked while the diagnosis was still being checked, so Continue
+                // was refused with "A WCB Form must be selected."
+                if (jQuery("#wcbForms").children().length === 0) {
+                    callReplacementWebService("<%= request.getContextPath() %>/billing/CA/BC/ViewWcbForms<%=wcb%>", 'wcbForms');
+                }
             } else {
                 jQuery("#wcbForms").empty();
             }
@@ -823,10 +832,10 @@
         var awnd = null;
 
         function OtherScriptAttach() {
-            t0 = escape(document.BillingCreateBillingForm.xml_other1.value);
-            t1 = escape(document.BillingCreateBillingForm.xml_other2.value);
-            t2 = escape(document.BillingCreateBillingForm.xml_other3.value);
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 820, 740, 1);
+            var t0 = encodeURIComponent(document.BillingCreateBillingForm.xml_other1.value);
+            var t1 = encodeURIComponent(document.BillingCreateBillingForm.xml_other2.value);
+            var t2 = encodeURIComponent(document.BillingCreateBillingForm.xml_other3.value);
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 820, 740, 1);
             awnd.focus();
         }
 
@@ -841,20 +850,12 @@
 
         function ReferralScriptAttach(elementName) {
             var d = elementName;
-            t0 = escape(document.BillingCreateBillingForm.elements[d].value);
-            t1 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + d + '&formName=BillingCreateBillingForm', 600, 600, 1);
+            var t0 = encodeURIComponent(document.BillingCreateBillingForm.elements[d].value);
+            var t1 = encodeURIComponent("");
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + encodeURIComponent(d) + '&formName=BillingCreateBillingForm', 600, 600, 1);
             awnd.focus();
         }
 
-
-        function ResearchScriptAttach() {
-            t0 = escape(document.serviceform.xml_referral1.value);
-            t1 = escape(document.serviceform.xml_referral2.value);
-
-            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/<rewrite:reWrite jspPage="billingReferralCodeSearch.jsp"/>?name=' + t0 + '&name1=' + t1 + '&search=', 600, 600, 1);
-            awnd.focus();
-        }
 
         function POP(n, h, v) {
             window.open(n, 'OSCAR', 'toolbar=no,location=no,directories=no,status=yes,menubar=no,resizable=yes,copyhistory=no,scrollbars=yes,width=' + h + ',height=' + v + ',top=100,left=200');
@@ -1331,7 +1332,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= SafeEncode.forHtmlContent(error) %></li>
             <% } %>
         </ul>
     </div>
@@ -1352,17 +1353,24 @@
         </div>
         <%}%>
 
-        <form style="bcBillingForm" class="d-flex flex-wrap align-items-center gap-2" method="post"
+        <form name="BillingCreateBillingForm" id="bcBillingForm" class="d-flex flex-wrap align-items-center gap-2" method="post"
               action="${pageContext.request.contextPath}/billing/CA/BC/CreateBilling" onsubmit="toggleWCB();">
 
             <input autocomplete="false" name="hidden" type="text" style="display:none;">
             <input type="hidden" name="fromBilling" value="">
+            <%-- This window's own bill (BcBillStaging); review and save read exactly this bill (issue #4673). --%>
+            <input type="hidden" name="billKey" value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute("billKey")) %>">
 
             <%
                 // set up this form
                 BillingCreateBillingForm thisForm = (BillingCreateBillingForm) request.getSession().getAttribute("BillingCreateBillingForm");
-
-                if (thisForm != null) {
+                // Since the Struts 1 form bean was removed nothing stores this form in the session, and the
+                // page answered HTTP 500 on every open (issue #4716). Build it here, so the defaults below
+                // are computed and the fields further down show them, as the bound form used to.
+                if (thisForm == null) {
+                    thisForm = new BillingCreateBillingForm();
+                }
+                {
 
                     thisForm.setXml_provider(bean.getBillingProvider());
                     String visitLocation = CarlosProperties.getInstance().getProperty("visitlocation");
@@ -1442,9 +1450,12 @@
 
                                             <label for="selectBillingForm"><fmt:message key="billing.billingform"/></label>
 
-                                            <select class="form-select" id="selectBillingForm">
+                                            <%-- Posted with Continue (billForm), so a validation return or Go Back
+                                                 shows the code table of the form chosen here: choosing reloads the
+                                                 table in place without changing the window's staged bill (#4673). --%>
+                                            <select class="form-select" id="selectBillingForm" name="billForm">
                                                 <% for (int i = 0; i < billformlist.length; i++) { %>
-                                                <option <% if (bean.getBillForm().equalsIgnoreCase(billformlist[i].getFormCode())) {%>
+                                                <option <% if (billformlist[i].getFormCode().equalsIgnoreCase(bean.getBillForm())) {%>
                                                         selected
                                                         <% } %>
                                                         value="<carlos:encode value='<%= billformlist[i].getFormCode() %>' context="htmlAttribute"/>">
@@ -1469,7 +1480,7 @@
                                                 </option>
                                                 <% for (int j = 0; j < billphysician.length; j++) { %>
                                                 <option
-                                                        value="<%=billphysician[j].getProviderNo()%>"><carlos:encode value='<%= billphysician[j].getProviderName() %>' context="html"/>
+                                                        value="<%=billphysician[j].getProviderNo()%>" <%= billphysician[j].getProviderNo().equals(thisForm.getXml_provider()) ? "selected" : "" %>><carlos:encode value='<%= billphysician[j].getProviderName() %>' context="html"/>
                                                 </option>
                                                 <%} %>
                                             </select>
@@ -1483,12 +1494,13 @@
 
                                             <label for="xml_billtype"><fmt:message key="billing.billingtype"/></label>
                                             <select class="form-select" id="xml_billtype"
-                                                         property="xml_billtype" onchange="CheckType();gotoPrivate();">
-                                                <option value="MSP">Bill MSP</option>
-                                                <option value="WCB">Bill WCB</option>
-                                                <option value="ICBC">Bill ICBC</option>
-                                                <option value="Pri">Private</option>
-                                                <option value="DONOTBILL">Do Not Bill</option>
+                                                         name="xml_billtype" onchange="CheckType();gotoPrivate();">
+                                                <% String formBillType = thisForm.getXml_billtype(); %>
+                                                <option value="MSP" <%= "MSP".equals(formBillType) ? "selected" : "" %>>Bill MSP</option>
+                                                <option value="WCB" <%= "WCB".equals(formBillType) ? "selected" : "" %>>Bill WCB</option>
+                                                <option value="ICBC" <%= "ICBC".equals(formBillType) ? "selected" : "" %>>Bill ICBC</option>
+                                                <option value="Pri" <%= "Pri".equals(formBillType) ? "selected" : "" %>>Private</option>
+                                                <option value="DONOTBILL" <%= "DONOTBILL".equals(formBillType) ? "selected" : "" %>>Do Not Bill</option>
                                             </select>
 
                                         </div>
@@ -1506,7 +1518,7 @@
                                                         ;
                                                 %>
                                                 <option
-                                                        value="<carlos:encode value='<%= locationDescription %>' context="htmlAttribute"/>"><carlos:encode value='<%= billlocation[i].getDescription() %>' context="html"/>
+                                                        value="<carlos:encode value='<%= locationDescription %>' context="htmlAttribute"/>" <%= locationDescription.equals(thisForm.getXml_location()) ? "selected" : "" %>><carlos:encode value='<%= billlocation[i].getDescription() %>' context="html"/>
                                                 </option>
                                                 <%} %>
                                             </select>
@@ -1524,7 +1536,7 @@
                                                     for (BillingFormData.BillingVisit billingVisit : billvisit) {
                                                 %>
                                                 <option
-                                                        value="<carlos:encode value='<%= billingVisit.getVisitType() %>' context="htmlAttribute"/>">
+                                                        value="<carlos:encode value='<%= billingVisit.getVisitType() %>' context="htmlAttribute"/>" <%= billingVisit.getVisitType() != null && billingVisit.getVisitType().equals(thisForm.getXml_visittype()) ? "selected" : "" %>>
                                                     <carlos:encode value='<%= billingVisit.getDescription() %>' context="html"/>
                                                 </option>
                                                 <%}%>
@@ -1550,7 +1562,7 @@
                                         </a>
                                         <input type="text" style="min-width:100px;" class="form-control"
                                                    name="xml_appointment_date" size="10" readonly="true"
-                                                   id="xml_appointment_date"/>
+                                                   id="xml_appointment_date" value="<carlos:encode value='<%= thisForm.getXml_appointment_date() %>' context="htmlAttribute"/>"/>
                                     </div>
 
                                 </td>
@@ -1625,7 +1637,7 @@
                                         <label for="dependent">Dependent</label>
                                         <select class="form-select" name="dependent" id="dependent">
                                             <option value="00">No</option>
-                                            <option value="66">Yes</option>
+                                            <option value="66" <%= "66".equals(thisForm.getDependent()) ? "selected" : "" %>>Yes</option>
                                         </select>
                                     </div>
 
@@ -1674,7 +1686,8 @@
                                                 }
                                             }
                                             request.setAttribute("paymentMethodList", types);
-                                            request.setAttribute("defaultPaymentMethod", CarlosProperties.getInstance().getProperty("DEFAULT_PAYMENT_METHOD", ""));
+                                            request.setAttribute("defaultPaymentMethod", StringUtils.isNotBlank(thisForm.getXml_encounter())
+                                                    ? thisForm.getXml_encounter() : CarlosProperties.getInstance().getProperty("DEFAULT_PAYMENT_METHOD", ""));
                                         %>
                                         <select class="form-select" id="xml_encounter" name="xml_encounter">
                                             <c:forEach items="${paymentMethodList}" var="paymentMethod">
@@ -1811,6 +1824,7 @@
                                                 <td>
                                                     <div class="input-group">
                                                         <input type="text" class="form-control" name="xml_refer1"
+                                                                   value="<carlos:encode value='<%= thisForm.getXml_refer1() %>' context="htmlAttribute"/>"
                                                                    onkeypress="return grabEnter(event,'ReferralScriptAttach1()')"/>
                                                         <button type="button" class="btn btn-primary"
                                                                 onclick="ReferralScriptAttach('xml_refer1')">
@@ -1821,8 +1835,8 @@
                                                 <td>
                                                     <select class="form-select" name="refertype1">
                                                         <option value="">Select Type</option>
-                                                        <option value="T">Refer To</option>
-                                                        <option value="B">Refer By</option>
+                                                        <option value="T" <%= "T".equals(thisForm.getRefertype1()) ? "selected" : "" %>>Refer To</option>
+                                                        <option value="B" <%= "B".equals(thisForm.getRefertype1()) ? "selected" : "" %>>Refer By</option>
                                                     </select>
                                                 </td>
                                             </tr>
@@ -1841,8 +1855,8 @@
                                                 <td>
                                                     <select class="form-select" name="refertype2">
                                                         <option value="">Select Type</option>
-                                                        <option value="T">Refer To</option>
-                                                        <option value="B">Refer By</option>
+                                                        <option value="T" <%= "T".equals(thisForm.getRefertype2()) ? "selected" : "" %>>Refer To</option>
+                                                        <option value="B" <%= "B".equals(thisForm.getRefertype2()) ? "selected" : "" %>>Refer By</option>
                                                     </select>
                                                 </td>
                                             </tr>
@@ -2156,10 +2170,11 @@
                                     <td align="left" colspan="2">
                                         <select class="form-select" name="correspondenceCode"
                                                      onchange="correspondenceNote();">
+                                            <% String formCorrespondence = thisForm.getCorrespondenceCode(); %>
                                             <option value="0">No Correspondence</option>
-                                            <option value="N">Electronic Correspondence</option>
-                                            <option value="C">Paper Correspondence</option>
-                                            <option value="B">Both</option>
+                                            <option value="N" <%= "N".equals(formCorrespondence) ? "selected" : "" %>>Electronic Correspondence</option>
+                                            <option value="C" <%= "C".equals(formCorrespondence) ? "selected" : "" %>>Paper Correspondence</option>
+                                            <option value="B" <%= "B".equals(formCorrespondence) ? "selected" : "" %>>Both</option>
                                         </select>
                                     </td>
                                 </tr>

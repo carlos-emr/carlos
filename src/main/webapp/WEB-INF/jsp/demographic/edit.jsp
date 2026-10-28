@@ -7,14 +7,14 @@
       - edit-view.jsp: Read-only demographic display
       - edit-form-personal.jsp: Edit form personal info, address, HIN
       - edit-form-clinical.jsp: Roster, consent, programs, notes
-    A 4th include (zdemographicfulltitlesearch.jsp) is self-contained.
+    A 4th include (zdemographicfulltitlesearch.jsp) is self-contained. The left navigation is
+    patient-nav.jsp (also <jsp:include>), shared with the patient portal page and driven by the
+    PatientNavModel the action sets.
 
     @since 2026-04-04
 --%>
 <%@ page import="java.util.*" %>
-<%@ page import="java.net.*" %>
 <%@ page import="java.text.DecimalFormat" %>
-<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
@@ -36,7 +36,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Admission" %>
@@ -53,7 +52,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.WaitingListName" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
@@ -71,7 +69,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -87,7 +84,6 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
@@ -111,23 +107,15 @@
     String informedConsent = (String) request.getAttribute("informedConsent");
     boolean privateConsentEnabled = Boolean.TRUE.equals(request.getAttribute("privateConsentEnabled"));
     ProvinceNames pNames = (ProvinceNames) request.getAttribute("pNames");
-    String dateString = (String) request.getAttribute("dateString");
-    String noteReason = (String) request.getAttribute("noteReason");
     String currentProgram = (String) request.getAttribute("currentProgram");
     boolean isMobileOptimized = Boolean.TRUE.equals(request.getAttribute("isMobileOptimized"));
-    String prov = (String) request.getAttribute("prov");
     String curProvider_no = (String) request.getAttribute("curProvider_no");
-    String userfirstname = (String) request.getAttribute("userfirstname");
-    String userlastname = (String) request.getAttribute("userlastname");
-    String apptProvider = (String) request.getAttribute("apptProvider");
-    String appointment = (String) request.getAttribute("appointment");
     CarlosProperties oscarProps = (CarlosProperties) request.getAttribute("oscarProps");
 
     // DAOs/Managers from request attributes
     ScheduleTemplateCodeDao scheduleTemplateCodeDao = (ScheduleTemplateCodeDao) request.getAttribute("scheduleTemplateCodeDao");
     WaitingListDao waitingListDao = (WaitingListDao) request.getAttribute("waitingListDao");
     WaitingListNameDao waitingListNameDao = (WaitingListNameDao) request.getAttribute("waitingListNameDao");
-    UserPropertyDAO pref = (UserPropertyDAO) request.getAttribute("userPropertyDAO");
     DemographicDao demographicDao = (DemographicDao) request.getAttribute("demographicDao");
     DemographicExtDao demographicExtDao = (DemographicExtDao) request.getAttribute("demographicExtDao");
     DemographicArchiveDao demographicArchiveDao = (DemographicArchiveDao) request.getAttribute("demographicArchiveDao");
@@ -167,11 +155,6 @@
         printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
-    String wLReadonly = "";
-    if (oscarProps != null && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"))) {
-        wLReadonly = "readonly";
-    }
-    
     String warningLevel = demoExt != null ? demoExt.get("rxInteractionWarningLevel") : null;
     if (warningLevel == null) warningLevel = "0";
 
@@ -252,6 +235,7 @@
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jspf/demographic-field-length-limits.jspf" %>
         <title><fmt:message key="demographic.demographiceditdemographic.title"/></title>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -279,6 +263,8 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script defer src="${carlos:forHtmlAttribute(ctx)}/demographic/eligibilityDialog.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/popup.js"></script>
@@ -668,14 +654,6 @@
             }
 
             <security:oscarSec roleName="<%= roleName$ %>" objectName="_eChart" rights="r" reverse="<%= false %>" >
-            var numMenus = 1;
-            var encURL = "${carlos:forJavaScript(ctx)}/encounter/IncomingEncounter?providerNo=<carlos:encode value='<%= curProvider_no %>' context="javaScript"/>&appointmentNo=&demographicNo=<%=demographic_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=<%=URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8)%>&userName=<%=URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8) %>&curDate=<%=dateString%>&appointmentDate=&startTime=&status=";
-
-            function showMenu(menuNumber, eventObj) {
-                var menuId = 'menu' + menuNumber;
-                return showPopup(menuId, eventObj);
-            }
-
             <%if (oscarProps.getProperty("workflow_enhance")!=null && oscarProps.getProperty("workflow_enhance").equals("true")) {%>
 
             function showAppt(targetAppt, eventObj) {
@@ -711,69 +689,14 @@
 
             <%}%>
 
-            function add2url(txt) {
-                var reasonLabel = "reason=";
-                var encTypeLabel = "encType=";
-                var beg = encURL.indexOf(reasonLabel);
-                beg += reasonLabel.length;
-                var end = encURL.indexOf("&", beg);
-                var part1 = encURL.substring(0, beg);
-                var part2 = encURL.substr(end);
-                encURL = part1 + encodeURI(txt) + part2;
-                beg = encURL.indexOf(encTypeLabel);
-                beg += encTypeLabel.length;
-                end = encURL.indexOf("&", beg);
-                part1 = encURL.substring(0, beg);
-                part2 = encURL.substr(end);
-                encURL = part1 + encodeURI(txt) + part2;
-                popupEChart(710, 1024, encURL);
-                return false;
-            }
-
-            function customReason() {
-                var txtInput;
-                var list = document.getElementById("listCustom");
-                if (list.style.display == "block")
-                    list.style.display = "none";
-                else {
-                    list.style.display = "block";
-                    txtInput = document.getElementById("txtCustom");
-                    txtInput.focus();
-                }
-
-                return false;
-            }
-
-            function grabEnterCustomReason(event) {
-
-                var txtInput = document.getElementById("txtCustom");
-                if (window.event && window.event.keyCode == 13) {
-                    add2url(txtInput.value);
-                } else if (event && event.which == 13) {
-                    add2url(txtInput.value);
-                }
-
-                return true;
-            }
-
             function addToPatientSet(demoNo, patientSet) {
                 if (patientSet == "-") return;
-                var form = document.createElement('form');
-                form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/demographic/ViewAddDemoToPatientSet';
-                form.target = 'addpsetwin';
-                var fields = {demoNo: demoNo, patientSet: patientSet};
-                for (var key in fields) {
-                    var input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = key;
-                    input.value = fields[key];
-                    form.appendChild(input);
-                }
-                document.body.appendChild(form);
-                window.open('', 'addpsetwin', 'width=50,height=50');
-                form.submit();
-                document.body.removeChild(form);
+                // Open the popup inside the change handler (popup blockers), then
+                // post into it. carlosPostForm attaches the CSRF token, which
+                // CSRFGuard cannot inject into a runtime-built form in time (#4130).
+                var popup = window.open('', 'addpsetwin', 'width=50,height=50');
+                carlosPostForm('${carlos:forJavaScript(pageContext.request.contextPath)}/demographic/ViewAddDemoToPatientSet',
+                    {demoNo: demoNo, patientSet: patientSet}, {target: 'addpsetwin', popup: popup});
             }
 
             </security:oscarSec>
@@ -804,12 +727,19 @@
             var workPhoneHistory = "";
             var cellPhoneHistory = "";
 
+            // The history values are the patient's own text: the popup shows them as text, not as markup.
+            function historyText(value) {
+                return String(value).replace(/[&<>"']/g, function (c) {
+                    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+                });
+            }
+
             function generateMarkup(addresses, type, header) {
                 var markup = '<table border="0" cellpadding="2" cellspacing="2" width="200px">';
                 markup += '<tr><th><b>Date Entered</b></th><th><b>' + header + '</b></th></tr>';
                 for (var x = 0; x < addresses.length; x++) {
                     if (addresses[x].type == type) {
-                        markup += '<tr><td>' + addresses[x].dateSeen + '</td><td>' + addresses[x].name + '</td></tr>';
+                        markup += '<tr><td>' + historyText(addresses[x].dateSeen) + '</td><td>' + historyText(addresses[x].name) + '</td></tr>';
                     }
                 }
                 markup += "</table>";
@@ -886,6 +816,9 @@
                         consentDate.style.display = "none";
                     }
 
+                    // A cleared consent cannot also be confirmed as explicit (#3858).
+                    setExplicitConsentBox(radioBtnName, false);
+
                     // is the user trying to clear an old consent or are they just curious what the clear button does.
                     if (preset === "true") {
                         // set the delete parameter to update the deleted status in the database entry.
@@ -894,14 +827,27 @@
                 }
             }
 
+            // The "patient confirmed consent directly" box only means something with Opt-in selected
+            // (#3858). The server ignores it otherwise; this keeps the form from suggesting it counts.
+            function setExplicitConsentBox(consentType, enabled) {
+                var box = document.getElementById("recordExplicit_" + consentType);
+                if (!box) {
+                    return;
+                }
+                box.disabled = !enabled;
+                if (!enabled) {
+                    box.checked = false;
+                }
+            }
+
             function updateEnrolledTo() {
                 var rosterSelect = document.getElementById("roster_status");
-                if (rosterSelect.getValue() == "RO") {
+                if (rosterSelect.value == "RO") {
                     if (document.getElementById("enrolledTo").value != document.getElementById("mrp").value && confirm(i18n.msgConfirmEnrolledToMRP)) {
                         document.getElementById("enrolledTo").value = document.getElementById("mrp").value;
                     }
                 } else {
-                    if (document.getElementById("enrolledTo").value != "" && confirm(i18n.msgConfirmClearEnrolledTo.replace('{0}', rosterSelect.getValue()))) {
+                    if (document.getElementById("enrolledTo").value != "" && confirm(i18n.msgConfirmClearEnrolledTo.replace('{0}', rosterSelect.value))) {
                         document.getElementById("enrolledTo").value = "";
                     }
                 }
@@ -973,7 +919,7 @@
                         }
                         var defaultCountry = defaultProvince.split('-')[0];
                         jQuery("#country").val(defaultCountry);
-                        updateProvinces(defaultProvince);
+                        updateProvinces(defaultProvince, true);
 
                         // initialize residential province separately to avoid overwriting demo values
                         var defaultResiProvince = '<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("demographic.default_province","") %>' context="javaScriptBlock"/>';
@@ -996,7 +942,7 @@
         </script>
         <% } %>
         <script>
-            function updateProvinces(province) {
+            function updateProvinces(province, initialSelection) {
                 var country = jQuery("#country").val();
                 if(country == '') {
                     console.log('empty country');
@@ -1015,6 +961,11 @@
 
                         if (province != null) {
                             jQuery("#province").val(province);
+                            // ISO selectors normalize legacy codes (ON -> CA-ON).
+                            // Remember the rendered starting value only on initialization.
+                            if (initialSelection) {
+                                document.updatedelete.postal.dataset.originalProvince = jQuery("#province").val() || '';
+                            }
                         }
                     },
                     error: function (xhr, status, error) {
@@ -1079,6 +1030,22 @@
         pageContext.setAttribute("demographic", demographic, PageContext.PAGE_SCOPE);
     %>
     <div id="editDemographicWrapper" style="margin: 0 auto;">
+        <%-- The save that led here kept the chart but refused a consent change made against a
+             consent record that someone else had changed since the page was opened. The names are
+             looked up by DemographicEdit2Action from validated consent type ids; the request
+             parameter itself is never written to the page. --%>
+        <c:if test="${ not empty requestScope.consentNotSavedNames }">
+            <div id="consentNotSavedWarning" role="alert"
+                 style="margin:8px;padding:10px 14px;border:2px solid #b35900;background-color:#fff4e5;color:#000;font-weight:bold;">
+                <fmt:message key="demographic.demographiceditdemographic.msgConsentNotSaved"/>
+                <ul style="margin:6px 0;">
+                    <c:forEach items="${ requestScope.consentNotSavedNames }" var="consentNotSavedName">
+                        <li><carlos:encode value="${ consentNotSavedName }"/></li>
+                    </c:forEach>
+                </ul>
+                <fmt:message key="demographic.demographiceditdemographic.msgConsentNotSavedReview"/>
+            </div>
+        </c:if>
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn" colspan="2">
@@ -1099,7 +1066,7 @@
                                 <%
                                     String genderDisplayText = DemographicEditHelper.getGenderDisplayText(request.getLocale(), demographic.getSex());
                                 %>
-                                <span class="patient-header-details"><carlos:encode value='<%= genderDisplayText %>' context="html"/> &middot; <carlos:encode value='<%= demographic.getAgeAsOf(new Date()) %>' context="html"/> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <carlos:encode value='<%= birthYear %>' context="html"/>-<carlos:encode value='<%= birthMonth %>' context="html"/>-<carlos:encode value='<%= birthDate %>' context="html"/></span>
+                                <span class="patient-header-details"><carlos:encode value='<%= genderDisplayText %>' context="html"/> &middot; <carlos:encode value='<%= demographic.getAgeAsOf(new Date(), request.getLocale()) %>' context="html"/> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <carlos:encode value='<%= birthYear %>' context="html"/>-<carlos:encode value='<%= birthMonth %>' context="html"/>-<carlos:encode value='<%= birthDate %>' context="html"/></span>
                                 <% if (demographic.getHin() != null && !demographic.getHin().isEmpty()) { %>
                                 <span class="patient-header-hin"><fmt:message key="demographic.patient.context.hin"/>: <carlos:encode value='<%= demographic.getHin() %>' context="html"/><% if (demographic.getVer() != null && !demographic.getVer().isEmpty()) { %> <carlos:encode value='<%= demographic.getVer() %>' context="html"/><% } %></span>
                                 <% } %>
@@ -1112,179 +1079,8 @@
             </tr>
             <tr>
                 <td class="MainTableLeftColumn" valign="top">
-                    <table border=0 cellspacing=0 width="100%" id="appt_table">
-                        <tr class="Header">
-                            <td style="font-weight: bold"><fmt:message key="demographic.demographiceditdemographic.msgAppt"/></td>
-                        </tr>
-                        <tr id="appt_hx">
-                            <td><a
-                                    href='<%= request.getContextPath() %>/demographic/DemographicApptHistory?demographic_no=<%=demographic.getDemographicNo()%>&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25'><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
-                            </td>
-                        </tr>
-
-                        <%
-                            // wLReadonly already computed in preamble
-                            WaitingList wL = WaitingList.getInstance();
-                            if (!wL.getFound()) {
-                                wLReadonly = "readonly";
-                            }
-                            if (wLReadonly.equals("")) {
-                        %>
-                        <tr>
-                            <td><a
-                                    href="<%= request.getContextPath() %>/waitinglist/SetupDisplayPatientWaitingList?demographic_no=<%=demographic.getDemographicNo()%>">
-                                <fmt:message key="demographic.demographiceditdemographic.msgWaitList"/></a>
-                            </td>
-                        </tr>
-                    </table>
-                    <table border=0 cellspacing=0 width="100%">
-                        <%}%>
-                        <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
-                            <tr class="Header">
-                                <td style="font-weight: bold"><fmt:message key="admin.admin.billing"/></td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <%
-                                        if ("ON".equals(prov)) {
-                                    %>
-                                    <c:set var="__encBillingHistoryDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
-                                    <c:set var="__encBillingHistoryUrl" value="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONHistory?demographic_no=${__encBillingHistoryDemoNo}" />
-                                    <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(500,800,'<carlos:encode value='${__encBillingHistoryUrl}' context="javaScriptAttribute"/>')">
-                                        <fmt:message key="demographic.demographiceditdemographic.msgBillHistory"/></a>
-                                    <%
-                                    } else {
-                                    %>
-                                    <c:set var="__encInvoiceLastName"><carlos:encode value='<%= StringUtils.defaultString(demographic.getLastName()) %>' context="uriComponent"/></c:set>
-                                    <c:set var="__encInvoiceFirstName"><carlos:encode value='<%= StringUtils.defaultString(demographic.getFirstName()) %>' context="uriComponent"/></c:set>
-                                    <c:set var="__encInvoiceDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
-                                    <c:set var="__encInvoiceUrl" value="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill?lastName=${__encInvoiceLastName}&firstName=${__encInvoiceFirstName}&filterPatient=true&demographicNo=${__encInvoiceDemoNo}" />
-                                    <a href="#"
-                                       onclick="popupPage(800,1000,'<carlos:encode value='${__encInvoiceUrl}' context="javaScriptAttribute"/>');return false;">
-                                        <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/></a>
-
-
-                                    <br/>
-                                    <a href="javascript:void(0);" onclick="return !showMenu('2', event);"
-                                       onmouseover="callEligibilityWebService('<%=request.getContextPath()%>/billing/CA/BC/ManageTeleplan','returnTeleplanMsg');"><fmt:message key="demographic.demographiceditdemographic.btnCheckElig"/></a>
-                                    <div id='menu2' class='menu' onclick='event.cancelBubble = true;'
-                                         style="width:350px;">
-                                        <span id="search_spinner"><fmt:message key="demographic.demographiceditdemographic.msgLoading"/></span>
-                                        <span id="returnTeleplanMsg"></span>
-                                    </div>
-                                    <%}%>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><a
-                                        href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700, 1000, '<%=request.getContextPath()%>/billing?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarProps.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=&appointment_no=0&demographic_name=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>%2C<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&demographic_no=<%=demographic.getDemographicNo()%>&providerview=<%=demographic.getProviderNo()%>&user_no=<%=curProvider_no%>&apptProvider_no=none&appointment_date=<%=dateString%>&start_time=00:00:00&bNewForm=1&status=t');return false;"
-                                        title="<fmt:message key="demographic.demographiceditdemographic.msgBillPatient"/>"><fmt:message key="demographic.demographiceditdemographic.msgCreateInvoice"/></a></td>
-                            </tr>
-                            <%
-                                if ("ON".equals(prov)) {
-                            %>
-                            <%
-                                }
-                            %>
-
-                        </security:oscarSec>
-                        <tr class="Header">
-                            <td style="font-weight: bold"><fmt:message key="encounter.Index.clinicalModules"/></td>
-                        </tr>
-                        <tr>
-                            <td><a
-                                    href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=<%=demographic.getDemographicNo()%>&proNo=<%=demographic.getProviderNo()%>')"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
-                        </tr>
-
-                        <tr>
-                            <td><a
-                                    href="javascript: function myFunction() {return false; }"
-                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/rx/choosePatient?providerNo=<carlos:encode value='<%= curProvider_no %>' context="javaScriptAttribute"/>&demographicNo=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>')"><fmt:message key="global.prescriptions"/></a>
-                            </td>
-                        </tr>
-
-                        <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart"
-                                           rights="r" reverse="<%=false%>">
-                                <tr>
-                                    <td>
-                                        <a href="javascript: function myFunction() {return false; }"
-                                           onClick="popupEChart(710, 1024,encURL);return false;"
-                                           title="<fmt:message key="demographic.demographiceditdemographic.btnEChart"/>">
-                                            <fmt:message key="demographic.demographiceditdemographic.btnEChart"/></a>
-                                    </td>
-                                </tr>
-                            <tr>
-                                <td><a
-                                        href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,960,'${carlos:forHtml(ctx)}/prevention/ViewPreventionIndex?demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>');return false;">
-                                    <fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
-                            </tr>
-                        </security:oscarSec>
-                        <tr>
-                            <td>
-                                <c:set var="__enc_1"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
-                                <a
-                                        href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ViewTicklerMain?demoview=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>');return false;">
-                                    <fmt:message key="global.tickler"/></a>
-                            </td>
-                        </tr>
-
-
-                        <% if (oscarProps.getProperty("clinic_no", "").startsWith("1022")) { // quick hack to make Dr. Hunter happy
-                        %>
-                        <tr>
-                            <td><a
-                                    href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname?formname=AR1&demographic_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>');">AR1</a>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><a
-                                    href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname?formname=AR2&demographic_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>');">AR2</a>
-                            </td>
-                        </tr>
-                        <% } %>
-                                           <c:set var="__enc_2"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
-                    <tr class="Header">
-                            <td style="font-weight: bold"><fmt:message key="encounter.Index.clinicalResources"/></td>
-                        </tr>
-                        <special:SpecialPlugin moduleName="inboxmnger">
-                            <tr>
-                                <td>
-
-                                    <a href="#"
-                                       onClick="window.open('<%=request.getContextPath()%>/mod/docmgmtComp/DocList?method=list&&demographic_no=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>','_blank','resizable=yes,status=yes,scrollbars=yes');return false;">Inbox
-                                        Manager</a><br>
-                                </td>
-                            </tr>
-                        </special:SpecialPlugin>
-                        <special:SpecialPlugin moduleName="inboxmnger" reverse="true">
-                            <tr>
-                                <td>
-                                    <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&curUser=<%=curProvider_no%>')"><fmt:message key="demographic.demographiceditdemographic.msgDocuments"/></a></td>
-                            </tr>
-                            <%
-                                UserProperty upDocumentBrowserLink = pref.getProp(curProvider_no, UserProperty.EDOC_BROWSER_IN_MASTER_FILE);
-                                if (upDocumentBrowserLink != null && upDocumentBrowserLink.getValue() != null && upDocumentBrowserLink.getValue().equals("yes")) {%>
-                            <tr>
-                                <td>
-                                    <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentBrowser?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=Private Documents')"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
-                            </tr>
-                            <%}%>
-                        </special:SpecialPlugin>
-                        <tr>
-                            <td><a
-                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&apptProvider=<carlos:encode value='<%= apptProvider != null ? apptProvider : "" %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment != null ? appointment : "" %>' context="uriComponent"/>"><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
-                        </tr>
-
-                    </table>
+                    <%-- The patient's navigation, shared with the patient portal page (PatientNavModel). --%>
+                    <jsp:include page="/WEB-INF/jsp/demographic/patient-nav.jsp"/>
                 </td>
                 <td class="MainTableRightColumn" valign="top">
                     <!-- A list used in the mobile version for users to pick which information they'd like to see -->
@@ -1326,6 +1122,10 @@
                                       onSubmit="return checkTypeInEdit();" autocomplete="off">
                                     <input type="hidden" name="demographic_no"
                                            value="<%=demographic.getDemographicNo()%>">
+                                    <%-- The record version this form was rendered from (issue #4225): a save from a
+                                         form opened before another user's save is refused, not applied over it. --%>
+                                    <input type="hidden" name="demographicVersion"
+                                           value="<carlos:encode value='${demographicEditVersion}' context="htmlAttribute"/>">
                                     <table width="100%" class="demographicDetail">
                                         <%
                                             DemographicMerged dmDAO = new DemographicMerged();
@@ -1395,6 +1195,9 @@
                                                             <!--input type="button" name="Button" value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>" onclick="javascript:window.alert('Health Card Number Already Inuse');"-->
                                                         </td>
                                                         <td width="40%" align='right' valign="top">
+                                                            <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
+                                                                <a href="<%=request.getContextPath()%>/report/ViewGenerateLetters?demo=<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/>" target="_blank" rel="noopener"><fmt:message key="report.GenerateLetters.title"/></a>
+                                                            </security:oscarSec>
                                                             <input type="button" size="110" name="Button"
                                                                    value="<fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/>"
                                                                    onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;">
@@ -1510,7 +1313,6 @@
                 step: 1
             });
         </script>
-    <c:set var="__enc_3"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
     </oscar:oscarPropertiesCheck>
 
     <script type="text/javascript">
@@ -1568,39 +1370,6 @@
             dobEl.addEventListener('change', syncDobParts);
             dobEl.addEventListener('blur',   syncDobParts);
         }
-
-        function callEligibilityWebService(url, id) {
-            var ran_number = Math.round(Math.random() * 1000000);
-            var params = "demographic=<carlos:encode value='${__enc_3}' context="javaScript"/>&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
-            fetch(url + '?' + params, {
-                method: 'GET',
-                credentials: 'same-origin',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            }).then(function(r) { return r.text(); })
-              .then(function(text) {
-                // Server-rendered eligibility HTML inserted into DOM (same-origin trusted content)
-                document.getElementById(id).innerHTML = text;
-                document.getElementById('search_spinner').innerHTML = "";
-            });
-        }
-        
-        function checkInsuranceEligibility() {
-            let params = {};
-            params.demographic = '<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>';
-            params.method = 'checkElig';
-            params.rand = Math.round(Math.random()*1000000);  //hack to get around ie caching the page
-            let url = '${ctx}/billing/CA/BC/ManageTeleplan';
-            jQuery.post(url, params, function() {
-                jQuery('#menu2').dialog({
-                    title: "MSP Eligibility"
-                });
-            }).done(function(data){
-                jQuery('#menu2 #search_spinner').text("");
-                jQuery('#menu2 #returnTeleplanMsg').html(data);
-            })
-         }
 
         <%
 if (privateConsentEnabled) {

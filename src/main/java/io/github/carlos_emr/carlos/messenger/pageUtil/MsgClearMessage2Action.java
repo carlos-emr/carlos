@@ -46,16 +46,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
- * Struts2 action for clearing message attachments from the session.
+ * Struts2 action behind the compose page's "Clear New Message" button: drops what that compose
+ * window has attached and shows a fresh compose page.
  * 
- * <p>This action provides a simple mechanism to clear all attachments that have been
- * accumulated in the message session bean during message composition. It is typically
- * invoked when a user wants to remove all attachments from a draft message or reset
- * the attachment state before composing a new message.</p>
- * 
- * <p>The action operates by retrieving the MsgSessionBean from the HTTP session and
- * calling its nullAttachment() method, which removes all stored attachment data
- * including Base64-encoded PDF documents and file attachments.</p>
+ * <p>The compose page's link names its own window ({@code attachmentKey}); only that window's
+ * staged attachments ({@link MsgAttachmentStaging}) are dropped, and the fresh page gets a new
+ * key. This used to empty the attachments of the login-wide {@link MsgSessionBean}, which also
+ * discarded what another compose window, for another patient, had attached (issue #4673).</p>
  * 
  * <p>Usage scenarios:</p>
  * <ul>
@@ -81,31 +78,25 @@ public final class MsgClearMessage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     
     /**
-     * HTTP response object, maintained for consistency but not used in this action.
+     * HTTP response object used to redirect when the message session bean is unavailable.
      */
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
 
     /**
-     * Clears all attachments from the message session bean.
-     * 
-     * <p>This method retrieves the MsgSessionBean from the HTTP session and
-     * invokes its nullAttachment() method to remove all stored attachments.
-     * The attachments are permanently cleared from the session, requiring
-     * users to re-attach any documents they wish to include in their message.</p>
-     * 
-     * <p>Note: This method does not perform null checking on the session bean.
-     * If the bean is not present in the session, a NullPointerException will
-     * be thrown. This is acceptable as the bean should always exist when this
-     * action is invoked from the message composition interface.</p>
-     * 
-     * @return SUCCESS constant indicating successful attachment clearing
+     * Drops the attachments of the compose window named by {@code attachmentKey}; the user must
+     * attach again for the new message. Other compose windows keep theirs.
+     *
+     * <p>If the session bean is absent (expired session, direct URL hit, or race
+     * condition), the user is redirected to the message inbox.</p>
+     *
+     * @return SUCCESS to show a fresh compose page, or NONE if the
+     *         session bean was absent and the request was redirected to the inbox
      * @throws IOException if there's an I/O error (declared but not typically thrown)
      * @throws ServletException if there's a servlet processing error (declared but not typically thrown)
      */
-    public String execute()
-            throws IOException, ServletException {
+    public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
             throw new SecurityException("missing required sec object (_msg)");
@@ -114,10 +105,15 @@ public final class MsgClearMessage2Action extends ActionSupport {
         // Retrieve the message session bean from the HTTP session
         MsgSessionBean bean;
         bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
-        
-        // Clear all attachments from the bean
-        bean.nullAttachment();
-        
+        if (bean == null) {
+            // A relative, constant target stays within the current /messenger/ path without
+            // accepting request-controlled redirect input or invoking URL-based session tracking.
+            response.sendRedirect("DisplayMessages");
+            return NONE;
+        }
+
+        // Drop this compose window's attachments only; a missing or malformed key drops nothing.
+        MsgAttachmentStaging.discard(request.getSession(), request.getParameter(MsgAttachmentStaging.KEY_PARAMETER));
         return SUCCESS;
     }
 }

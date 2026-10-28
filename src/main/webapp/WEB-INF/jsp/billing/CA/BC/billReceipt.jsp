@@ -78,7 +78,8 @@
     double totalRefunds = 0;
     String color = "", colorflag = "";
     BillingHistoryDAO dao = new BillingHistoryDAO();
-    BillingViewBean bean = (BillingViewBean) pageContext.findAttribute("billingViewBean");
+    // This request's invoice (BillingView2Action), never the one viewed last in any window (#4673).
+    BillingViewBean bean = (BillingViewBean) request.getAttribute("billingViewBean");
     request.setAttribute("paymentTypes", bean.getPaymentTypes());
     DemographicData demoData = new DemographicData();
     Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
@@ -285,7 +286,11 @@
     <body bgcolor="#FFFFFF" text="#000000" rightmargin="0" leftmargin="0" topmargin="10" marginwidth="0"
           marginheight="0">
     <form action="${pageContext.request.contextPath}/billing/CA/BC/UpdateBilling" method="post">
-        <input type="hidden" name="billingNo" id="billingNo"/>
+        <input type="hidden" name="billingNo" id="billingNo" value="${carlos:forHtmlAttribute(billingViewBean.billingNo)}"/>
+        <%-- Every bill this receipt combines, so the receipt shown after the update lists all of them. --%>
+        <c:forEach var="receiptBillingNo" items="${requestScope.receiptBillingNos}">
+            <input type="hidden" name="receiptBillingNo" value="${carlos:forHtmlAttribute(receiptBillingNo)}"/>
+        </c:forEach>
         <table width="650" border="0" align="center" style="border:black solid 1px ">
             <tr>
                 <td>
@@ -423,13 +428,13 @@
                                                         <div style="padding-left: 5px;">
                                                             <carlos:encode value='<%= demo.getAddress() %>' context="html"/><br>
                                                             <carlos:encode value='<%= demo.getCity() %>' context="html"/>,
-                                                            <%=demo.getProvince()%><br>
+                                                            <carlos:encode value='<%= demo.getProvince() %>' context="html"/><br>
                                                             <carlos:encode value='<%= demo.getPostal() %>' context="html"/>
                                                         </div>
                                                         <strong>Gender:</strong>
-                                                        <%=demo.getSex()%>                              <br>
+                                                        <carlos:encode value='<%= demo.getSex() %>' context="html"/><br>
                                                         <strong>Birth Date :</strong>
-                                                        <%=DemographicData.getDob(demo, "-")%>
+                                                        <carlos:encode value='<%= DemographicData.getDob(demo, "-") %>' context="html"/>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -665,14 +670,17 @@
 
                                                             <tr>
                                                                 <td colspan="2" align="left" valign="bottom">
+                                                                    <%-- Only Update Invoice submits this form. The other buttons are type="button":
+                                                                         a button with no type submits its form, so Print posted the update and
+                                                                         reloaded the receipt before it could print (issue #5068). --%>
                                                                     <input type="submit" name="submit" class="header" value="Update Invoice" />
-                                                                    <button class="header" value="Edit Invoice"
+                                                                    <button type="button" class="header" value="Edit Invoice"
                                                                             onclick="editInvoice('<carlos:encode value='<%= StringUtils.noNull(bean.getBillingMasterNo()) %>' context="javaScriptAttribute"/>')">
                                                                         Edit Invoice
                                                                     </button>
-                                                                    <button class="header" onclick="printInvoiceWithoutNotes()">Print</button>
-                                                                    <button class="header" onclick="printInvoiceWithNotes()">Print With Notes</button>
-                                                                    <button class="header" onclick="window.close()">Cancel</button>
+                                                                    <button type="button" class="header" onclick="printInvoiceWithoutNotes()">Print</button>
+                                                                    <button type="button" class="header" onclick="printInvoiceWithNotes()">Print With Notes</button>
+                                                                    <button type="button" class="header" onclick="window.close()">Cancel</button>
                                                                 </td>
                                                             </tr>
                                                         </table>

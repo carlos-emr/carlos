@@ -95,6 +95,34 @@ public class ServiceSpecialistsDaoIntegrationTest extends CarlosTestBase {
         return entity;
     }
 
+    @Test
+    @DisplayName("should match literal percent, underscore and escape characters in fax searches")
+    void shouldMatchLiteralMetacharacters_whenSearchingFaxRecipients() {
+        createServiceSpecialist(3618, 36181);
+        createServiceSpecialist(3618, 36182);
+        ProfessionalSpecialist exact = entityManager.find(ProfessionalSpecialist.class, 36181);
+        exact.setLastName("Review!_% Clinic");
+        exact.setFaxNumber("6135550100");
+        ProfessionalSpecialist other = entityManager.find(ProfessionalSpecialist.class, 36182);
+        other.setLastName("Review!ABC Clinic");
+        other.setFaxNumber("6135550101");
+        entityManager.flush();
+        assertThat(dao.searchSpecialistsWithService("Review!_%", 20))
+                .extracting(row -> ((ProfessionalSpecialist) row[0]).getId()).containsExactly(36181);
+    }
+
+    @Test
+    void shouldExcludeDeletedSpecialists_fromConsultationPickers() {
+        createServiceSpecialist(3336, 33361);
+        createServiceSpecialist(3336, 33362);
+        entityManager.find(ProfessionalSpecialist.class, 33362).setDeleted(true);
+        entityManager.flush();
+        assertThat(dao.findSpecialists(3336))
+                .extracting(row -> ((ProfessionalSpecialist) row[1]).getId()).containsExactly(33361);
+        assertThat(dao.findAllSpecialistsWithService())
+                .extracting(row -> ((ProfessionalSpecialist) row[1]).getId()).contains(33361).doesNotContain(33362);
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {

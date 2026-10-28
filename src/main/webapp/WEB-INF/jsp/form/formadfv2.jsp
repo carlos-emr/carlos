@@ -34,12 +34,6 @@
 
     //FrmData fd = new FrmData();    String resource = fd.getResource(); resource = resource + "ob/riskinfo/";
 
-    //get project_home
-    String project_home = getServletContext().getRealPath("/");
-    String sep = project_home.substring(project_home.length() - 1);
-    project_home = project_home.substring(0, project_home.length() - 1);
-    project_home = project_home.substring(project_home.lastIndexOf(sep) + 1);
-
     boolean bView = false;
     if (request.getParameter("view") != null && request.getParameter("view").equals("1")) bView = true;
 %>
@@ -48,7 +42,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>MEDICAL HISTORY AND ADMISSION EXAMINATION</title>
-        <link rel="stylesheet" type="text/css" href="arStyle.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/arStyle.css">
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     </head>
 
@@ -101,23 +95,15 @@
             }
         }
 
+        // Save and Save & Exit post into the window they were pressed in: a save is answered by a
+        // redirect that redisplays the saved record here, and an exit by close.jsp, which closes
+        // this window. The target used to be "apptProviderSearch", the legacy schedule window's
+        // name; CARLOS opens no such window, so the browser opened a second one for the POST and
+        // left this one showing the unsaved form, where another Save filed a second row
+        // (finding 240, #4598). The action matches the <form> tag's own.
         function reset() {
-            document.forms[0].target = "apptProviderSearch";
-            document.forms[0].action = "/<%=project_home%>/form/formname";
-        }
-
-        function onPrint() {
-            document.forms[0].submit.value = "print"; //printAR1
-            var ret = checkAllDates();
-            if (ret == true) {
-                //ret = confirm("Do you wish to save this form and view the print preview?");
-                popupFixedPage(650, 850, '<%= request.getContextPath() %>/provider/notice.htm');
-                document.forms[0].action = "<%= request.getContextPath() %>/form/createpdf?__title=&__cfgfile=&__cfgfile=&__template=";
-                document.forms[0].target = "planner";
-                document.forms[0].submit();
-                document.forms[0].target = "apptProviderSearch";
-            }
-            return ret;
+            document.forms[0].target = "_self";
+            document.forms[0].action = "<%= request.getContextPath() %>/form/formname";
         }
 
         function onSave() {

@@ -46,6 +46,13 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
 
     List<BillingService> findByServiceCode(String code);
 
+    /**
+     * Adds a new private code only if none exists, serializing private-code additions in this database
+     * until the caller's transaction completes. Existing fee-history rows are left unchanged.
+     * @return false when the code is already present
+     */
+    boolean persistPrivateCodeIfAbsent(BillingService code);
+
     List<BillingService> findByServiceCodeAndDate(String code, Date date);
 
     List<BillingService> findByServiceCodes(List<String> codes);
@@ -98,7 +105,25 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
 
     List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow> findBillingServiceAndCtlBillingServiceByMagic(String serviceType, String serviceGroup, Date billReferenceDate);
 
-    List<Object> findBillingCodesByCodeAndTerminationDate(String serviceCode, Date terminationDate);
+    /**
+     * Returns the distinct service code when {@code serviceCode} is billable on
+     * {@code serviceDate}: the row in effect on that date (the latest
+     * {@code billingserviceDate} on or before it, the same rule the billing form's code
+     * lookups apply) must terminate after it.
+     *
+     * <p>A code whose earliest row takes effect after {@code serviceDate} has no row in effect
+     * and is therefore not returned, so a stale or crafted submission of a fee dated before its
+     * effective date (e.g. the 2026 OMA uninsured fees) is rejected the same way as an unknown
+     * code.</p>
+     *
+     * <p>This is an equality match, not {@code LIKE}: pass the code as stored. Do not escape
+     * {@code _} or {@code %}; private codes start with {@code _} (e.g. {@code _OMA_A003}).</p>
+     *
+     * @param serviceCode the literal service code
+     * @param serviceDate the bill's service date; the row in effect on it must terminate after it
+     * @return the matching code, or an empty list
+     */
+    List<Object> findBillingCodesByCodeAndTerminationDate(String serviceCode, Date serviceDate);
 
     String getCodeDescription(String val, String billReferalDate);
 }

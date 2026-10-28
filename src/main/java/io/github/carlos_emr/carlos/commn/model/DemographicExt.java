@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.commn.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -64,6 +66,7 @@ public class DemographicExt extends AbstractModel<Integer> implements Serializab
     private String value;
     @Column(name = "date_time")
     @Temporal(TemporalType.TIMESTAMP)
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private java.util.Date dateCreated;
     private boolean hidden;
 

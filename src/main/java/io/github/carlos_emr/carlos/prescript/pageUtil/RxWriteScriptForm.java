@@ -161,12 +161,17 @@ public final class RxWriteScriptForm {
     }
 
     public float getTakeMinFloat() {
-        float i = -1;
         try {
-            i = Float.parseFloat(this.takeMin);
-        } catch (Exception e) {
+            return Float.parseFloat(this.takeMin);
+        } catch (NumberFormatException | NullPointerException e) {
+            // -1 is the legacy "unspecified" sentinel. Absent/empty input maps to it as intended; a
+            // non-empty value that fails to parse is a data-quality problem, so surface it (previously
+            // swallowed silently) rather than corrupting the dose to -1 with no signal.
+            if (this.takeMin != null && !this.takeMin.trim().isEmpty()) {
+                MiscUtils.getLogger().warn("Unparseable takeMin dose value; defaulting to the -1 unspecified sentinel");
+            }
+            return -1;
         }
-        return i;
     }
 
     public String getTakeMax() {
@@ -178,12 +183,14 @@ public final class RxWriteScriptForm {
     }
 
     public float getTakeMaxFloat() {
-        float i = -1;
         try {
-            i = Float.parseFloat(this.takeMax);
-        } catch (Exception e) {
+            return Float.parseFloat(this.takeMax);
+        } catch (NumberFormatException | NullPointerException e) {
+            if (this.takeMax != null && !this.takeMax.trim().isEmpty()) {
+                MiscUtils.getLogger().warn("Unparseable takeMax dose value; defaulting to the -1 unspecified sentinel");
+            }
+            return -1;
         }
-        return i;
     }
 
     public String getFrequencyCode() {
@@ -255,10 +262,7 @@ public final class RxWriteScriptForm {
     }
 
     public void setSpecial(String RHS) {
-
-        if (RHS == null || RHS.length() < 6)
-            MiscUtils.getLogger().error("drug special is either null or empty : " + RHS, new IllegalArgumentException("special is null or empty"));
-
+        // Short directions such as "1 od" are valid; binding prescription text is not an error to log.
         this.special = RHS;
     }
 

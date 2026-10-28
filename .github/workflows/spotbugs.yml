@@ -14,8 +14,8 @@
 # all local_repo dependencies are available for compilation.
 #
 # Usage:
-# - Triggered on pull requests targeting develop, main, experimental
-# - Triggered on pushes to develop
+# - Triggered on pull requests targeting develop, main, experimental, or release/*
+# - Triggered on pushes to develop or release/*
 # - Scheduled weekly full scan (Monday 5:30 UTC)
 # - Manual dispatch available
 #
@@ -38,13 +38,14 @@ on:
       - main
       - develop
       - experimental
+      - release/*
     paths:
       - '**.java'
       - 'pom.xml'
       - '.github/spotbugs/**'
       - '.github/workflows/spotbugs.yml'
   push:
-    branches: [develop]
+    branches: [develop, "release/*"]
     paths:
       - '**.java'
       - 'pom.xml'
@@ -92,9 +93,26 @@ jobs:
           echo "Attempting to pull pre-built image from $IMAGE..."
           if docker pull "$IMAGE" 2>pull-image-error.log; then
             docker tag "$IMAGE" carlos-tomcat-dev
-            echo "pulled=true" >> "$GITHUB_OUTPUT"
-            echo "reason=success" >> "$GITHUB_OUTPUT"
-            echo "Successfully pulled pre-built image!"
+            # The published :latest tag is not keyed to the Dockerfile, and PR
+            # runs of container-images.yml do not publish a new one. A pull
+            # therefore returns the PREVIOUSLY published image even when this
+            # branch changes the JDK -- and the mismatch only surfaces as
+            # "release version N not supported" after the whole Maven toolchain
+            # has started, in every compiling job at once. Check the image's JDK
+            # against the <release> this tree compiles at, and fall through to
+            # the local build (reason=not-found) when they disagree.
+            want="$(sed -n 's:.*<release>\([0-9][0-9]*\)</release>.*:\1:p' pom.xml | head -1)"
+            got="$(docker run --rm --entrypoint java carlos-tomcat-dev -version 2>&1 \
+                   | sed -n '1s/.*version "\([0-9][0-9]*\).*/\1/p')"
+            if [ -n "$want" ] && [ "$got" != "$want" ]; then
+              echo "pulled=false" >> "$GITHUB_OUTPUT"
+              echo "reason=not-found" >> "$GITHUB_OUTPUT"
+              echo "Pre-built image has JDK ${got:-unknown}, this tree needs JDK $want - building locally."
+            else
+              echo "pulled=true" >> "$GITHUB_OUTPUT"
+              echo "reason=success" >> "$GITHUB_OUTPUT"
+              echo "Successfully pulled pre-built image (JDK ${got:-unknown})!"
+            fi
           else
             echo "pulled=false" >> "$GITHUB_OUTPUT"
             if grep -qiE 'manifest unknown|not found' pull-image-error.log; then
@@ -177,10 +195,25 @@ jobs:
               -T 1C
           "
 
+      - name: Resolve SpotBugs XML report path
+        id: resolve_spotbugs_report
+        if: always()
+        run: |
+          for report in target/spotbugs-result.xml target/spotbugsTemp.xml; do
+            if [ -s "$report" ]; then
+              echo "report=$report" >> "$GITHUB_OUTPUT"
+              echo "found=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+          echo "report=target/spotbugs-result.xml" >> "$GITHUB_OUTPUT"
+          echo "found=false" >> "$GITHUB_OUTPUT"
+
       - name: Convert SpotBugs security XML to SARIF
         if: always()
         run: |
-          REPORT="target/spotbugs-result.xml"
+          export REPORT="${{ steps.resolve_spotbugs_report.outputs.report }}"
           if [ ! -f "$REPORT" ]; then
             echo "::error::No SpotBugs report found at $REPORT"
             if [ "${{ steps.run_spotbugs.outcome }}" = "success" ]; then
@@ -190,10 +223,11 @@ jobs:
           fi
 
           python3 << 'PYEOF'
+          import os
           import xml.etree.ElementTree as ET
           import json, sys
 
-          report_path = "target/spotbugs-result.xml"
+          report_path = os.environ["REPORT"]
           sarif_path = "spotbugs-security-report.sarif"
           metrics_path = "spotbugs-security-metrics.env"
 
@@ -322,6 +356,13 @@ jobs:
           print(f"Skipped {skipped_no_source} security findings without source locations")
           PYEOF
 
+      # Diagnostics only: retain the existing analyzer and upload outcomes.
+      # Print only rule/severity/location metadata from the already-generated report.
+      - name: Summarize security finding locations
+        if: always() && hashFiles('spotbugs-security-report.sarif') != ''
+        continue-on-error: true
+        run: python3 scripts/summarize_security_locations.py spotbugs-security-report.sarif
+
       - name: Upload security SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84
         if: >
@@ -334,16 +375,16 @@ jobs:
 
       - name: Upload SpotBugs quality artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always() && hashFiles('target/spotbugs-result.xml') != ''
+        if: always() && steps.resolve_spotbugs_report.outputs.found == 'true'
         with:
           name: spotbugs-quality-xml
-          path: target/spotbugs-result.xml
+          path: ${{ steps.resolve_spotbugs_report.outputs.report }}
           retention-days: 14
 
       - name: Report summary
         if: always()
         run: |
-          REPORT="target/spotbugs-result.xml"
+          REPORT="${{ steps.resolve_spotbugs_report.outputs.report }}"
           METRICS="spotbugs-security-metrics.env"
           echo "### SpotBugs + Find Security Bugs Results" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"

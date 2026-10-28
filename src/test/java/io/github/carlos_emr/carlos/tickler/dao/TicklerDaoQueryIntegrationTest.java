@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.tickler.dao;
 
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.commn.model.TicklerComment;
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -51,6 +53,28 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("read")
 public class TicklerDaoQueryIntegrationTest extends TicklerDaoBaseIntegrationTest {
 
+    @Test
+    void shouldOrderClinicalPrioritiesInBothDirections_whenPagingTicklers() {
+        for (Tickler.PRIORITY priority : List.of(Tickler.PRIORITY.Low, Tickler.PRIORITY.High, Tickler.PRIORITY.Normal)) {
+            Tickler row = createTickler(1001, "issue4170-priority", Tickler.STATUS.A);
+            row.setPriority(priority);
+        }
+        entityManager.flush();
+        CustomFilter filter = new CustomFilter();
+        filter.setStartDate(null);
+        filter.setEndDate(null);
+        filter.setSearchTerm("issue4170-priority");
+        filter.setSortColumn("priority");
+        filter.setSort_order("asc");
+        assertThat(ticklerDao.getTicklerDTOs(filter, 0, 10)).extracting(io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO::getPriority)
+                .containsExactly(Tickler.PRIORITY.High, Tickler.PRIORITY.Normal, Tickler.PRIORITY.Low);
+        assertThat(ticklerDao.getTicklerDTOs(filter, 1, 1)).extracting(io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO::getPriority)
+                .containsExactly(Tickler.PRIORITY.Normal);
+        filter.setSort_order("desc");
+        assertThat(ticklerDao.getTicklerDTOs(filter, 0, 10)).extracting(io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO::getPriority)
+                .containsExactly(Tickler.PRIORITY.Low, Tickler.PRIORITY.Normal, Tickler.PRIORITY.High);
+    }
+
     @Nested
     @DisplayName("Date Range Queries")
     class DateRangeQueries {
@@ -76,6 +100,35 @@ public class TicklerDaoQueryIntegrationTest extends TicklerDaoBaseIntegrationTes
                 assertThat(results).allMatch(t -> t.getDemographicNo().equals(1001));
             }
         }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should return comments that the patient tickler view can render after detachment")
+        void shouldInitializeComments_whenSearchingPatientTicklers() {
+            Tickler tickler = entityManager.createQuery(
+                    "select t from Tickler t where t.demographicNo = :demographicNo", Tickler.class)
+                    .setParameter("demographicNo", 1001)
+                    .getSingleResult();
+            TicklerComment comment = new TicklerComment();
+            comment.setTicklerNo(tickler.getId());
+            comment.setProviderNo("999998");
+            comment.setMessage("Visible patient tickler comment");
+            entityManager.persist(comment);
+            entityManager.flush();
+            entityManager.clear();
+
+            Calendar range = Calendar.getInstance();
+            range.add(Calendar.DAY_OF_MONTH, -1);
+            Date begin = range.getTime();
+            range.add(Calendar.DAY_OF_MONTH, 2);
+            List<Tickler> results = ticklerDao.search_tickler_bydemo(1001, "A", begin, range.getTime());
+            assertThat(results).hasSize(1);
+
+            Tickler found = results.getFirst();
+            entityManager.detach(found);
+            assertThat(found.getComments()).extracting(TicklerComment::getMessage)
+                    .contains("Visible patient tickler comment");
+        }
     }
 
     @Nested
@@ -98,6 +151,56 @@ public class TicklerDaoQueryIntegrationTest extends TicklerDaoBaseIntegrationTes
             assertThat(results).isNotNull();
             assertThat(results).anyMatch(t -> t.getPriority() == Tickler.PRIORITY.High);
             assertThat(results).allMatch(t -> t.getStatus() == Tickler.STATUS.A);
+        }
+    }
+
+    /**
+     * The lab displays (labDisplay.jsp, labDisplayAjax.jsp) print each linked tickler's assignee after
+     * these lookups have returned and the transaction has ended (#4722). The base data assigns patient
+     * 1001's tickler to 999998 and patient 1002's to 999999, both seeded as "Test Provider".
+     */
+    @Nested
+    @DisplayName("Lab-linked tickler lookups")
+    class LabLinkedTicklerLookups {
+
+        private Integer ticklerIdOf(Integer demographicNo) {
+            return entityManager.createQuery("select t.id from Tickler t where t.demographicNo = :demographicNo", Integer.class)
+                    .setParameter("demographicNo", demographicNo)
+                    .getSingleResult();
+        }
+
+        private void assertAssigneeReadableAfterDetach(List<Tickler> results, String providerNo) {
+            assertThat(results).hasSize(1);
+            Tickler found = results.getFirst();
+            // clear() detaches the tickler and every proxy it holds, as the end of the request's transaction does.
+            entityManager.clear();
+            assertThat(Hibernate.isInitialized(found.getAssignee())).as("the assignee is loaded with the tickler").isTrue();
+            assertThat(found.getAssignee().getProviderNo()).isEqualTo(providerNo);
+            assertThat(found.getAssignee().getLastName()).isEqualTo("Provider");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should load the assignee with the lab's ticklers for a patient")
+        void shouldLoadAssignee_whenFindingLabTicklersForPatient() {
+            Integer ticklerId = ticklerIdOf(1002);
+            entityManager.clear();
+
+            List<Tickler> results = ticklerDao.findByTicklerNosDemo(List.of(ticklerId), 1002);
+
+            assertAssigneeReadableAfterDetach(results, "999999");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should load the assignee with the lab's ticklers assigned to one provider")
+        void shouldLoadAssignee_whenFindingLabTicklersAssignedToProvider() {
+            Integer ticklerId = ticklerIdOf(1001);
+            entityManager.clear();
+
+            List<Tickler> results = ticklerDao.findByTicklerNosAssignedTo(List.of(ticklerId), "999998", 1001);
+
+            assertAssigneeReadableAfterDetach(results, "999998");
         }
     }
 

@@ -53,10 +53,9 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ClinicDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Clinic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.AppointmentCardContact" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -199,20 +198,13 @@
                                     String fax = clinic.getClinicFax();
 
 
-                                    UserProperty up = userPropertyDao.getProp(appt.getProviderNo(), "APPT_CARD_NAME");
-                                    if (up != null && !up.getValue().isEmpty()) {
-                                        firstLine = up.getValue();
-                                    }
-
-                                    up = userPropertyDao.getProp(appt.getProviderNo(), "APPT_CARD_PHONE");
-                                    if (up != null && !up.getValue().isEmpty()) {
-                                        phone = up.getValue();
-                                    }
-
-                                    up = userPropertyDao.getProp(appt.getProviderNo(), "APPT_CARD_FAX");
-                                    if (up != null && !up.getValue().isEmpty()) {
-                                        fax = up.getValue();
-                                    }
+                                    // What Preferences saved for the provider, else the older keys, else the
+                                    // defaults above (issue #5134).
+                                    AppointmentCardContact card = AppointmentCardContact.resolve(
+                                            userPropertyDao, appt.getProviderNo(), firstLine, phone, fax);
+                                    firstLine = card.name();
+                                    phone = card.phone();
+                                    fax = card.fax();
 
                                 %>
                                 <b style="font-size:14pt"><carlos:encode value='<%= firstLine %>' context="html"/>

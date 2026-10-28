@@ -28,6 +28,26 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Rx Indication (drug reason) popup
+
+    Purpose:
+    Files and archives the indications (ICD9 reasons) of one prescribed medication. Opened from the
+    Reason link of a drug in the Rx profile (ListDrugs.jsp, popupRxReasonWindow) through the
+    rx/RxReason action (RxReason2Action), which renders this page and handles its posts.
+
+    Features:
+    - Patient Dx Registry: the patient's diagnoses; a link puts its ICD9 code in the indication box
+      Save validates, and shows the description beside the box (#5000)
+    - Indication search (dxJSONCodeSearch.jsp) with comments and a primary-indication flag
+    - The drug's current indications, each with an Archive form and reason
+
+    Parameters:
+    - demographicNo: the patient (request parameter or the demoNo attribute after a post)
+    - drugId: the medication whose indications are shown and filed
+
+    @since 2026-08-04
+--%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -39,6 +59,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO,io.github.carlos_emr.carlos.commn.model.Dxresearch,io.github.carlos_emr.carlos.commn.dao.Icd9Dao,io.github.carlos_emr.carlos.commn.model.Icd9" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 <%
     CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
@@ -69,7 +90,8 @@
             <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script> --%>
 
         <script type="text/javascript" src="${ oscar_context_path }/library/jquery/jquery-3.7.1.min.js"></script>
-        <script type="text/javascript" src="${ oscar_context_path }/js/jquery-ui-1.8.18.custom.min.js"></script>
+        <script type="text/javascript" src="${ oscar_context_path }/library/jquery/jquery-compat.js"></script>
+        <script type="text/javascript" src="${ oscar_context_path }/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript">var ctx = '${ oscar_context_path }';</script>
         <title>Drug Reason</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -143,14 +165,25 @@
                 padding: 3px;
             }
         </style>
-        <link rel="stylesheet" type="text/css" href="styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
         <script type="text/javascript">
 
+            // A Patient Dx Registry link files that diagnosis: Save reads and validates the visible
+            // jsonDxSearch box as the ICD9 code, so the code goes there and the description is shown
+            // beside it. Putting the description in the box made every registry pick fail as an
+            // invalid code (#5000).
             function assignPatientDxLink(id, name) {
                 $("#codeTxt").val(id);
-                $(".codeTxt").val(name);
-                $(".codeTxt").css('color', 'black')
+                $("#jsonDxSearch").val(id).prop('title', id + ' - ' + name).css('color', 'black');
+                $("#jsonDxSearchDescription").text(name);
             }
+
+            // Typing a different code makes the shown registry description stale.
+            $(document).on('input', '#jsonDxSearch', function () {
+                $("#codeTxt").val('');
+                $(this).prop('title', '');
+                $("#jsonDxSearchDescription").text('');
+            });
 
             function toggleArchiveMenu(id) {
                 $('#' + id).toggle();
@@ -182,8 +215,8 @@
                                 <a href="javascript:void(0);"
                                    onclick="assignPatientDxLink('<carlos:encode value='<%= dx.getDxresearchCode() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= idc9Desc %>' context="javaScriptAttribute"/>')"
                                    title="<carlos:encode value='<%= dx.getDxresearchCode() %>' context="htmlAttribute"/> - <carlos:encode value='<%= idc9Desc %>' context="htmlAttribute"/>">
-                                    <%=dx.getDxresearchCode()%>
-                                    - <%=StringUtils.maxLenString(idc9Desc, 10, 6, StringUtils.ELLIPSIS)%>
+                                    <carlos:encode value='<%= dx.getDxresearchCode() %>' context="html"/>
+                                    - <carlos:encode value='<%= StringUtils.maxLenString(idc9Desc, 10, 6, StringUtils.ELLIPSIS) %>' context="html"/>
                                 </a>
                             </td>
                         </tr>
@@ -215,7 +248,7 @@
             <td style="border-left: 2px solid #A9A9A9;">
 
                 <%if (request.getAttribute("message") != null) { %>
-                <span style="color:red;"><%=request.getAttribute("message") %></span>
+                <span style="color:red;"><carlos:encode value='<%= String.valueOf(request.getAttribute("message")) %>' context="html"/></span>
                 <%} %>
 
                 <form action="${pageContext.request.contextPath}/rx/RxReason" method="post" id="rxReasonForm">
@@ -231,6 +264,7 @@
                         <jsp:include page="/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxJSONCodeSearch.jsp">
                             <jsp:param value="true" name="enableCodeSystemSelect"/>
                         </jsp:include>
+                        <span id="jsonDxSearchDescription" aria-live="polite"></span>
 
                         <table>
                             <tr>
@@ -282,9 +316,9 @@
 
                                     <%for (DrugReason drugReason : drugReasons) { %>
                                     <tr>
-                                        <td><%=drugReason.getCodingSystem() %>
+                                        <td><carlos:encode value='<%= drugReason.getCodingSystem() %>' context="html"/>
                                         </td>
-                                        <td><%=drugReason.getCode() %>
+                                        <td><carlos:encode value='<%= drugReason.getCode() %>' context="html"/>
                                         </td>
                                         <td>
                                             <%
@@ -293,16 +327,16 @@
                                             %>
                                             <carlos:encode value='<%= descr %>' context="html"/>
                                         </td>
-                                        <td><%=drugReason.getComments() %>
+                                        <td><%=SafeEncode.forHtmlContent(drugReason.getComments()) %>
                                         </td>
                                         <td>
                                             <%if (drugReason.getPrimaryReasonFlag()) { %>
                                             True
                                             <%}%>
                                         </td>
-                                        <td><%=drugReason.getProviderNo() %>
+                                        <td><carlos:encode value='<%= drugReason.getProviderNo() %>' context="html"/>
                                         </td>
-                                        <td><%=drugReason.getDateCoded() %>
+                                        <td><carlos:encode value='<%= String.valueOf(drugReason.getDateCoded()) %>' context="html"/>
                                         </td>
                                         <td>
                                             <a onclick="toggleArchiveMenu('archive<%=drugReason.getId()%>')"
@@ -316,12 +350,12 @@
                                                 <form action="${pageContext.request.contextPath}/rx/RxReason" method="post">
                                                     <fieldset>
                                                         <legend>Archive Coding
-                                                            System: <%=drugReason.getCodingSystem() %>
-                                                            Code: <%=drugReason.getCode() %>
+                                                            System: <carlos:encode value='<%= drugReason.getCodingSystem() %>' context="html"/>
+                                                            Code: <carlos:encode value='<%= drugReason.getCode() %>' context="html"/>
                                                         </legend>
                                                         <input type="hidden" name="method" value="archiveReason"/>
                                                         <input type="hidden" name="reasonId"
-                                                               value="<%=drugReason.getId()%>"/>
+                                                               value="<carlos:encode value='<%= String.valueOf(drugReason.getId()) %>' context="htmlAttribute"/>"/>
                                                         Reason: <input type="text" name="archiveReason"/>
                                                         <input type="submit" value="Archive"/>
                                                     </fieldset>

@@ -29,6 +29,15 @@
 
 --%>
 
+<%--
+    Purpose: View and edit the authenticated provider's text signature.
+    Features: Escapes stored text, supports an existing NULL signature, and submits
+    explicit saves through the POST-only EnterSignature action.
+    Parameters: The session user identifies the provider; signature is the form
+    value. CSRFGuard supplies the token for the protected POST request.
+    @since 2026-09-17
+--%>
+
 <!-- add by caisi -->
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -85,9 +94,7 @@
                     <tr>
                         <td><fmt:message key="provider.editSignature.msgProviderSignature"/></td>
                         <td>&nbsp;</td>
-                        <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                        <td style="text-align: right"><%@ include file="/WEB-INF/jsp/includes/about-license-links.jspf" %></td>
                     </tr>
                 </table>
             </td>
@@ -106,7 +113,7 @@
                 <!-- add by caisi -->
                 <caisi:isModuleLoad moduleName="caisi">
                     <INPUT TYPE="checkbox"
-                            <%= ((Boolean)session.getAttribute("signOnNote")).booleanValue()?"checked":""%>
+                            <%= Boolean.TRUE.equals(session.getAttribute("signOnNote"))?"checked":""%>
                            onchange="toggleSig('<%= curUser_no %>')">also sign the signiture in encounter notes
                 </caisi:isModuleLoad>
                 <!-- add by caisi end-->
@@ -121,7 +128,7 @@
                 <!-- add by caisi -->
                 <caisi:isModuleLoad moduleName="caisi">
                     <INPUT TYPE="checkbox"
-                            <%= ((Boolean)session.getAttribute("signOnNote")).booleanValue()?"checked":""%>
+                            <%= Boolean.TRUE.equals(session.getAttribute("signOnNote"))?"checked":""%>
                            onchange="toggleSig('<%= curUser_no %>')">also sign the signature in encounter notes
                 </caisi:isModuleLoad>
                 <!-- add by caisi end-->

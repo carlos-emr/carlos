@@ -22,10 +22,9 @@
  */
 package io.github.carlos_emr.carlos.mds.data;
 
-import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.GregorianCalendar;
+import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Locale;
@@ -37,28 +36,29 @@ import io.github.carlos_emr.carlos.commn.dao.MdsNTEDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsOBRDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsOBXDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsPV1Dao;
-import io.github.carlos_emr.carlos.commn.dao.MdsZLBDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsZMCDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsZMNDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsZRGDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
-import io.github.carlos_emr.carlos.commn.model.MdsNTE;
-import io.github.carlos_emr.carlos.commn.model.MdsOBX;
 import io.github.carlos_emr.carlos.commn.model.MdsPV1;
-import io.github.carlos_emr.carlos.commn.model.MdsZLB;
 import io.github.carlos_emr.carlos.commn.model.MdsZMC;
-import io.github.carlos_emr.carlos.commn.model.MdsZMN;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 /**
- * Data carrier for {@code MDSSegmentData}.
+ * Loads one legacy MDS lab report for {@code oscarMDS/SegmentDisplay.jsp}.
  *
- * <p>These classes carry legacy billing state between services, actions, and
- * JSPs. Prefer explicit fields and accessors here over loosely typed request
- * attributes in the view layer.</p>
+ * <p>MDS reports exist only in databases imported from OSCAR; nothing in CARLOS writes them. Their
+ * detail tables ({@code mdsOBX}, {@code mdsZMN}, {@code mdsNTE}, ...) have no primary key, and the
+ * entities map the segmentID every row of a report shares as {@code @Id}. Every multi-row read here
+ * therefore uses a scalar projection: an entity query would resolve all rows of the report to the
+ * first one (issue #4567).</p>
+ *
+ * <p>A query failure is logged and recorded in {@link #isLoadFailed()} rather than thrown, so the
+ * page can still render the patient and routing blocks and tell the reader that the results could
+ * not be loaded, instead of presenting a partial report as a complete one.</p>
  */
 
 public class MDSSegmentData {
@@ -70,110 +70,105 @@ public class MDSSegmentData {
     public String reportStatus;
     public String clientNo;
     public String accessionNo;
-    public ProviderData providers;
+    /** Never null: the page reads it even when the report could not be loaded. */
+    public ProviderData providers = new ProviderData("", "", "");
     public ArrayList<Headers> headersArray = new ArrayList<Headers>();
     public ArrayList<ReportStatus> statusArray = new ArrayList<ReportStatus>();
+    private boolean loadFailed;
 
     public void populateMDSSegmentData(String SID) {
         this.segmentID = SID;
-        String associatedOBR = "";
-        String labID = "";
-        int mdsOBXNum = 0;
+        Integer segment = ConversionUtils.fromIntString(segmentID);
         try {
 
             // Get the header info
             MdsMSHDao mshDao = SpringUtils.getBean(MdsMSHDao.class);
-            for (Object[] o : mshDao.findMdsSementDataById(ConversionUtils.fromIntString(segmentID))) {
+            for (Object[] o : mshDao.findMdsSementDataById(segment)) {
                 Date dateTime = (Date) o[0];
-                String controlId = (String) o[1];
-                String reportFormStatus = (String) o[2];
+                String controlId = text(o[1]);
+                String reportFormStatus = text(o[2]);
 
-                GregorianCalendar cal = new GregorianCalendar(Locale.ENGLISH);
-                SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MMM-yyyy", Locale.ENGLISH);
-                cal.setTime(dateTime);
-
-                reportDate = dateFormat.format(cal.getTime());
+                if (dateTime != null) {
+                    reportDate = new SimpleDateFormat("dd-MMM-yyyy", Locale.ENGLISH).format(dateTime);
+                }
                 reportStatus = (reportFormStatus.equals("1") ? "Final" : "Partial");
-                clientNo = controlId.split("-")[0];
-                accessionNo = controlId.split("-")[1];
-            }
-
-            // Get the lab ID
-            MdsZLBDao zlbDao = SpringUtils.getBean(MdsZLBDao.class);
-            MdsZLB zlb = zlbDao.find(ConversionUtils.fromIntString(this.segmentID));
-            if (zlb != null) {
-                labID = zlb.getLabId();
+                // The message control id is "<client number>-<accession number>".
+                String[] controlParts = controlId.split("-");
+                clientNo = controlParts[0];
+                accessionNo = controlParts.length > 1 ? controlParts[1] : "";
             }
 
             // Get the providers
             MdsPV1Dao pvDao = SpringUtils.getBean(MdsPV1Dao.class);
-            MdsPV1 pv = pvDao.find(ConversionUtils.fromIntString(this.segmentID));
+            MdsPV1 pv = pvDao.find(segment);
             if (pv != null) {
                 providers = new ProviderData(pv.getRefDoctor(), pv.getConDoctor(), pv.getAdmDoctor());
-            } else {
-                providers = new ProviderData("", "", "");
             }
 
             // Get the lab status
             ProviderLabRoutingDao plrDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
-            for (Object[] o : plrDao.findProviderAndLabRoutingByIdAndLabType(ConversionUtils.fromIntString(this.segmentID), "MDS")) {
+            for (Object[] o : plrDao.findProviderAndLabRoutingByIdAndLabType(segment, "MDS")) {
                 Provider provider = (Provider) o[0];
                 ProviderLabRoutingModel providerLabRouting = (ProviderLabRoutingModel) o[1];
 
-                statusArray.add(new ReportStatus(provider.getFirstName() + " " + provider.getLastName(), provider.getProviderNo(), descriptiveStatus(providerLabRouting.getStatus()), providerLabRouting.getComment(), ConversionUtils.toDateString(providerLabRouting.getTimestamp()), this.segmentID));
+                // The routing time to the minute: a date-only string would show every
+                // acknowledgement at midnight.
+                statusArray.add(new ReportStatus(provider.getFirstName() + " " + provider.getLastName(), provider.getProviderNo(), descriptiveStatus(providerLabRouting.getStatus()), providerLabRouting.getComment(), ConversionUtils.toTimestampString(providerLabRouting.getTimestamp()), this.segmentID));
             }
 
             // Get item descriptions and ranges and read into a hashtable
             Hashtable<String, Mnemonics> mnemonics = new Hashtable<String, Mnemonics>();
             MdsZMNDao zmnDao = SpringUtils.getBean(MdsZMNDao.class);
-            MdsZMN zmn = zmnDao.find(ConversionUtils.fromIntString(this.segmentID));
-            if (zmn != null) {
-                mnemonics.put(zmn.getResultMnemonic(), new Mnemonics(zmn.getReportName(), zmn.getUnits(), zmn.getReferenceRange()));
+            for (Object[] o : zmnDao.findMnemonicsBySegmentId(segment)) {
+                if (o[0] != null) {
+                    mnemonics.put(text(o[0]), new Mnemonics(text(o[1]), text(o[2]), text(o[3])));
+                }
             }
 
-            // Process the notes
+            // Process the notes, keyed by the obxID of the result each belongs to
             Hashtable<Integer, ArrayList<String>> notes = new Hashtable<Integer, ArrayList<String>>();
             MdsNTEDao nteDao = SpringUtils.getBean(MdsNTEDao.class);
             MdsZMCDao zmcDao = SpringUtils.getBean(MdsZMCDao.class);
-            MdsNTE nte = nteDao.find(labID);
-            if (nte != null) {
-                if (notes.get(nte.getAssociatedOBX()) == null) {
-                    notes.put(nte.getAssociatedOBX(), new ArrayList<String>());
-                }
-                if (nte.getSourceOfComment().equals("M")) {
-                    (notes.get(nte.getAssociatedOBX())).add(new String(nte.getComment().substring(3)));
-                } else {
-                    if (nte.getSourceOfComment().equals("MC")) {
-                        MdsZMC zmc = zmcDao.findByIdAndSetId(ConversionUtils.fromIntString(this.segmentID), nte.getComment().substring(1));
-                        if (zmc == null) {
-                            zmc = zmcDao.findByIdAndSetId(ConversionUtils.fromIntString(this.segmentID), "%" + nte.getComment().substring(1, nte.getComment().length() - 1) + "%");
-                        }
+            for (Object[] o : nteDao.findNotesBySegmentId(segment)) {
+                String sourceOfComment = text(o[0]);
+                String comment = text(o[1]);
+                Integer associatedOBX = ConversionUtils.fromIntString(o[2]);
+                ArrayList<String> obxNotes = notes.computeIfAbsent(associatedOBX, key -> new ArrayList<String>());
 
-                        if (zmc != null) {
-                            (notes.get(nte.getAssociatedOBX())).add(zmc.getMessageCodeDesc());
-                        }
-                    } else {
-                        logger.info("Found message note in unknown format.  Format:" + nte.getSourceOfComment());
-                        (notes.get(nte.getAssociatedOBX())).add("Unknown note format!");
+                if (sourceOfComment.equals("M")) {
+                    // A plain note carries its text after a three-character prefix.
+                    obxNotes.add(comment.length() > 3 ? comment.substring(3) : "");
+                } else if (sourceOfComment.equals("MC")) {
+                    // A message-code note names the mdsZMC set that holds its text.
+                    MdsZMC zmc = comment.length() > 1 ? zmcDao.findByIdAndSetId(segment, comment.substring(1)) : null;
+                    if (zmc == null && comment.length() > 2) {
+                        zmc = zmcDao.findByIdAndSetId(segment, "%" + comment.substring(1, comment.length() - 1) + "%");
                     }
+
+                    if (zmc != null) {
+                        obxNotes.add(zmc.getMessageCodeDesc());
+                    }
+                } else {
+                    logger.info("Found message note in unknown format.  Format:" + sourceOfComment);
+                    obxNotes.add("Unknown note format!");
                 }
             }
 
             // Get the report section names
             MdsZRGDao zrgDao = SpringUtils.getBean(MdsZRGDao.class);
-            for (Object[] o : zrgDao.findById(ConversionUtils.fromIntString(this.segmentID))) {
-                String groupDesc = (String) o[0];
+            for (Object[] o : zrgDao.findById(segment)) {
+                String groupDesc = text(o[0]);
                 String groupId = (String) o[1];
-                Integer groupIdCount = (Integer) o[2];
-                String groupHeading = (String) o[3];
+                int groupIdCount = ((Number) o[2]).intValue();
+                String groupHeading = text(o[3]);
 
                 if (groupIdCount == 1 && !groupHeading.equals("")) {
                     String[] rGH = {groupHeading};
                     headersArray.add(new Headers(groupDesc, groupId, rGH));
                 } else if (groupIdCount > 1) {
                     ArrayList<String> tempArray = new ArrayList<String>();
-                    for (Object oo : zrgDao.findReportGroupHeadingsById(ConversionUtils.fromIntString(this.segmentID), groupId)) {
-                        tempArray.add(String.valueOf(oo));
+                    for (Object oo : zrgDao.findReportGroupHeadingsById(segment, groupId)) {
+                        tempArray.add(text(oo));
                     }
 
                     String[] reportGroupHeading = new String[tempArray.size()];
@@ -187,11 +182,18 @@ public class MDSSegmentData {
             // Create the data structures for each section, grouped by OBR
             MdsOBRDao obrDao = SpringUtils.getBean(MdsOBRDao.class);
             for (int i = 0; i < headersArray.size(); i++) {
-                List<String> resultCodes = zmnDao.findResultCodes(ConversionUtils.fromIntString(this.segmentID), headersArray.get(i).reportSequence);
-                for (Object[] ooo : obrDao.findByIdAndResultCodes(ConversionUtils.fromIntString(this.segmentID), resultCodes)) {
-                    String associatedObr = (String) ooo[0];
-                    Date observationDateTime = (Date) ooo[1];
-                    (headersArray.get(i)).groupedReportsArray.add(new GroupedReports(associatedObr, ConversionUtils.toTimestampString(observationDateTime), resultCodes));
+                List<String> resultCodes = zmnDao.findResultCodes(segment, headersArray.get(i).reportSequence);
+                if (resultCodes.isEmpty()) {
+                    // The OBR and OBX queries read an empty code list as no filter, which would list
+                    // every result of the report again under a group that files none.
+                    continue;
+                }
+                for (Object[] ooo : obrDao.findByIdAndResultCodes(segment, resultCodes)) {
+                    // obrID is an int column; observationDateTime is the raw HL7 timestamp string
+                    // GroupedReports parses.
+                    String associatedObr = text(ooo[0]);
+                    String observationDateTime = (String) ooo[1];
+                    (headersArray.get(i)).groupedReportsArray.add(new GroupedReports(associatedObr, observationDateTime, resultCodes));
                 }
             }
 
@@ -200,25 +202,61 @@ public class MDSSegmentData {
             Mnemonics thisOBXMnemonics = new Mnemonics();
             for (int i = 0; i < (headersArray.size()); i++) {
                 for (int j = 0; j < (headersArray.get(i)).groupedReportsArray.size(); j++) {
-                    associatedOBR = ((headersArray.get(i)).groupedReportsArray.get(j)).associatedOBR;
-                    List<String> codes = ((headersArray.get(i)).groupedReportsArray.get(j)).codes;
+                    GroupedReports group = (headersArray.get(i)).groupedReportsArray.get(j);
+                    Integer associatedOBR = ConversionUtils.fromIntString(group.associatedOBR);
 
-                    for (MdsOBX obx : obxDao.findByIdObrAndCodes(ConversionUtils.fromIntString(this.segmentID), associatedOBR, codes)) {
+                    for (Object[] obx : obxDao.findByIdObrAndCodes(segment, associatedOBR, group.codes)) {
+                        Integer obxId = ConversionUtils.fromIntString(obx[0]);
+                        String observationIdentifier = text(obx[1]);
+                        thisOBXMnemonics.update(mnemonics.get(mnemonicOf(observationIdentifier)));
 
-                        mdsOBXNum = obx.getObxId();
-                        thisOBXMnemonics.update(mnemonics.get(obx.getObservationIdentifier().substring(1, obx.getObservationIdentifier().indexOf('^'))));
-
-                        ((headersArray.get(i)).groupedReportsArray.get(j)).resultsArray.add(new Results(thisOBXMnemonics.reportName, thisOBXMnemonics.referenceRange, thisOBXMnemonics.units, obx.getObservationValue(), obx.getAbnormalFlags(), obx.getObservationIdentifier(), obx.getObservationResultStatus(), notes.get(Integer.toString(mdsOBXNum)), obx.getProducersId().substring(0, obx.getProducersId().indexOf('^'))));
-
+                        group.resultsArray.add(new Results(thisOBXMnemonics.reportName, thisOBXMnemonics.referenceRange, thisOBXMnemonics.units, text(obx[2]), text(obx[3]), observationIdentifier, text(obx[4]), notes.get(obxId), beforeCaret(text(obx[5]))));
                     }
                 }
             }
         } catch (Exception e) {
+            loadFailed = true;
             logger.error("In MDS Segment Data", e);
         }
     }
 
+    /**
+     * Whether a query failed while the report was loaded. The fields hold whatever was read before
+     * the failure, so the page must not present them as the whole report.
+     *
+     * @return true when {@link #populateMDSSegmentData(String)} caught an exception
+     */
+    public boolean isLoadFailed() {
+        return loadFailed;
+    }
+
+    /** A column value as text: null becomes empty, numbers become their decimal string. */
+    private static String text(Object value) {
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    /**
+     * The ZMN mnemonic an OBX observation identifier names: the text between its one-character prefix
+     * and the first caret ({@code "XFKGLU^Glucose"} names {@code "FKGLU"}), or the whole remainder when
+     * an imported identifier has no caret.
+     */
+    private static String mnemonicOf(String observationIdentifier) {
+        if (observationIdentifier.length() < 2) {
+            return "";
+        }
+        return beforeCaret(observationIdentifier.substring(1));
+    }
+
+    /** The first caret-delimited component of an HL7 field, or the whole field when it has none. */
+    private static String beforeCaret(String field) {
+        int caret = field.indexOf('^');
+        return caret < 0 ? field : field.substring(0, caret);
+    }
+
     public String descriptiveStatus(String status) {
+        if (status == null || status.isEmpty()) {
+            return "Not Acknowledged";
+        }
         switch (status.charAt(0)) {
             case 'A':
                 return "Acknowledged";

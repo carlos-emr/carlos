@@ -133,6 +133,21 @@ public class LabManagerUnitTest extends LabUnitTestBase {
 
         @Test
         @Tag("read")
+        @Tag("security")
+        @DisplayName("should authorize against the requested demographic, not role-level null")
+        void shouldAuthorizeAgainstRequestedDemographic_notRoleLevelNull() {
+            when(mockHl7TextMessageDao.findByDemographicNo(TEST_DEMO_NO, 0, 10))
+                .thenReturn(Collections.emptyList());
+
+            labManager.getHl7Messages(mockLoggedInInfo, TEST_DEMO_NO, 0, 10);
+
+            // Patient-scoped: the demographic is the authorization target so per-patient _lab
+            // overrides apply. Previously this passed null (any _lab holder read any patient).
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_lab", "r", String.valueOf(TEST_DEMO_NO));
+        }
+
+        @Test
+        @Tag("read")
         @DisplayName("should return messages when valid demographic number provided")
         void shouldReturnMessages_whenValidDemographicNoProvided() {
             // Given
@@ -577,8 +592,9 @@ public class LabManagerUnitTest extends LabUnitTestBase {
                 // Expected
             }
 
-            // Then - verify the "_lab" security object and "r" privilege are used
-            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_lab", "r", null);
+            // Then - verify the "_lab" security object and "r" privilege are used, scoped to the
+            // requested demographic (patient-scoped; formerly this passed a role-level null target).
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_lab", "r", String.valueOf(TEST_DEMO_NO));
         }
 
         @Test

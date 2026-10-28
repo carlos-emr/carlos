@@ -40,6 +40,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Drug;
@@ -56,6 +58,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.DrugSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.PrescriptionResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.RxStatus;
 
 /**
  * Unit tests for {@link RxWebService}.
@@ -77,6 +80,48 @@ class RxWebServiceUnitTest {
     @BeforeEach
     void setUp() {
         service = new TestableRxWebService();
+    }
+
+    @Test
+    void shouldPreserveUnicodeText_whenPrintingPrescriptionPdf() throws Exception {
+        var bytes = new java.io.ByteArrayOutputStream();
+        prescriptionPdf("Nguyễn Łukasz İstanbul ≥ 5 ≤ 9").write(bytes);
+        try (var pdf = org.apache.pdfbox.Loader.loadPDF(bytes.toByteArray())) {
+            org.assertj.core.api.Assertions.assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf))
+                    .contains("Nguyễn Łukasz İstanbul ≥ 5 ≤ 9");
+            for (var name : pdf.getPage(0).getResources().getFontNames()) {
+                org.assertj.core.api.Assertions.assertThat(pdf.getPage(0).getResources().getFont(name).isEmbedded()).isTrue();
+            }
+        }
+    }
+
+    @Test
+    void shouldPropagateWriteFailure_whenPrescriptionOutputFails() throws Exception {
+        var stream = prescriptionPdf("Synthetic prescription");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> stream.write(new java.io.OutputStream() {
+            @Override public void write(int value) throws java.io.IOException { throw new java.io.IOException("write failed"); }
+        })).isInstanceOf(java.io.IOException.class).hasMessage("Prescription PDF could not be generated");
+    }
+
+    private jakarta.ws.rs.core.StreamingOutput prescriptionPdf(String text) {
+        service.prescriptionManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.PrescriptionManager.class);
+        var script = new Prescription();
+        script.setDemographicId(1);
+        org.mockito.Mockito.when(service.prescriptionManager.getPrescription(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(1))).thenReturn(script);
+        org.mockito.Mockito.when(service.prescriptionManager.getDrugsByScriptNo(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(1), org.mockito.ArgumentMatchers.isNull())).thenReturn(java.util.List.of());
+        service.demographicManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
+        var request = new io.github.carlos_emr.carlos.webserv.rest.to.model.PrintRxTo1();
+        request.setWidth(612f);
+        request.setHeight(792f);
+        var point = new io.github.carlos_emr.carlos.webserv.rest.to.model.PrintPointTo1();
+        point.setText(text);
+        point.setX(36);
+        point.setY(720);
+        point.setFontSize(10);
+        request.setPrintPoints(java.util.List.of(point));
+        try (var log = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            return service.print(1, 1, new org.springframework.mock.web.MockHttpServletRequest(), request);
+        }
     }
 
     private DrugTo1 createTestTransferObject() {
@@ -196,6 +241,40 @@ class RxWebServiceUnitTest {
         void shouldThrowRuntimeException_whenPrivilegeCheckFails() {
             assertThatThrownBy(() -> service.drugs(6, null))
                     .isInstanceOf(RuntimeException.class);
+        }
+
+        @Test
+        @DisplayName("should map all status path to all drugs")
+        void shouldMapAllStatusPath_toAllDrugs() {
+            DrugSearchResponse resp = service.drugs("all", 1);
+            assertThat(resp.getContent()).hasSize(2);
+            assertThat(resp.getContent().get(0).getBrandName()).isEqualTo("Aspirin");
+            assertThat(resp.getContent().get(1).getBrandName()).isEqualTo("Tylenol");
+        }
+
+        @ParameterizedTest(name = "should map {0} status path to {1}")
+        @CsvSource({
+                "current,Tylenol",
+                "archived,Aspirin",
+                "longterm,Metformin XR"
+        })
+        void shouldMapSingleDrugStatusPaths_toExpectedBrand(String status, String expectedBrandName) {
+            DrugSearchResponse resp = service.drugs(status, 1);
+            assertThat(resp.getContent()).hasSize(1);
+            assertThat(resp.getContent().get(0).getBrandName()).isEqualTo(expectedBrandName);
+        }
+
+        @Test
+        @DisplayName("should deny access for unauthorized demographic across status paths")
+        void shouldDenyAccess_forUnauthorizedDemographicAcrossStatusPaths() {
+            assertThatThrownBy(() -> service.drugs("all", 6))
+                    .isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> service.drugs("current", 6))
+                    .isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> service.drugs("archived", 6))
+                    .isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> service.drugs("longterm", 6))
+                    .isInstanceOf(AccessDeniedException.class);
         }
     }
 
@@ -478,6 +557,16 @@ class RxWebServiceUnitTest {
             else return null;
         }
 
+        @Override
+        public List<Drug> getDrugs(LoggedInInfo info, int demographicNo, RxStatus status) {
+            return switch (status) {
+                case ALL -> getAllDrugs(info, demographicNo);
+                case CURRENT -> getCurrentDrugs(info, demographicNo);
+                case ARCHIVED -> getArchivedDrugs(info, demographicNo);
+                case LONGTERM -> getLongTermDrugs(info, demographicNo);
+            };
+        }
+
         private List<Drug> getAllDrugs(LoggedInInfo info, int id) {
             return this.drugs;
         }
@@ -496,6 +585,19 @@ class RxWebServiceUnitTest {
                 if (d.isArchived()) toReturn.add(d);
             }
             return toReturn;
+        }
+
+        @Override
+        public List<Drug> getLongTermDrugs(LoggedInInfo info, int demographicNo) {
+            Drug longTermDrug = new Drug();
+            longTermDrug.setId(3);
+            longTermDrug.setGenericName("Metformin");
+            longTermDrug.setBrandName("Metformin XR");
+            longTermDrug.setProviderNo("1");
+            longTermDrug.setDuration("28");
+            longTermDrug.setArchived(false);
+            longTermDrug.setLongTerm(true);
+            return List.of(longTermDrug);
         }
 
         @Override

@@ -1,0 +1,329 @@
+#!/bin/sh
+# postinst for carlos-emr-drugref.
+#
+# DrugRef is a second web application in the CARLOS Tomcat instance. This
+# script creates its database, loads the Health Canada Drug Product Database
+# seed that ships with CARLOS, and deploys the context descriptor.
+set -e
+
+CONF_DIR=/etc/carlos-emr
+SHARE=/usr/share/carlos-emr
+DRUGREF_PROPERTIES="${CONF_DIR}/drugref2.properties"
+STATE=/var/lib/carlos-emr
+
+# The provisioning lock carlos-emr.postinst and `carlos-ctl finish-install`
+# take. db-users below provisions BOTH packages' accounts and rewrites both
+# properties files with the passwords it generates, so a concurrent run -- a
+# boot-time carlos-emr-provision.service, or a repair by hand -- could leave
+# the database holding one generated password and a properties file naming the
+# other. Same file, same five-minute wait; a host without flock(1) behaves as
+# it did before the lock existed, but still checks the import guard.
+# `carlos-ctl import-o19` holds the same lock for an active import (#3678).
+# A paused import releases the lock but still owns the database, so the guard
+# must be checked before taking the lock and again while holding it, including
+# after a wait. Return 2 so the refusal below can say what to do.
+PROVISION_LOCK="${STATE}/.finish-install.lock"
+O19_GUARD=/usr/lib/carlos-emr/carlos-emr-o19-guard
+o19_import_holds_database() {
+    # The guard carlos-emr ships (exit 1: an import is in progress, even
+    # while paused). An older install without it has only lock serialization.
+    [ -x "${O19_GUARD}" ] && ! "${O19_GUARD}" 2>/dev/null
+}
+acquire_provision_lock() {
+    o19_import_holds_database && return 2
+    if ! command -v flock >/dev/null 2>&1; then
+        o19_import_holds_database && return 2
+        return 0
+    fi
+    mkdir -p "${STATE}" 2>/dev/null || return 1
+    # Probe in a subshell first: under dash a redirection attached to `exec` is
+    # permanent (a trailing 2>/dev/null here silenced every later warning in
+    # this script), and a failed one exits the shell instead of returning.
+    ( exec 9>"${PROVISION_LOCK}" ) 2>/dev/null || return 1
+    exec 9>"${PROVISION_LOCK}" || return 1
+    if ! flock -n 9; then
+        o19_import_holds_database && return 2
+        if ! flock -w 300 9; then
+            o19_import_holds_database && return 2
+            return 1
+        fi
+    fi
+    # The ledger may have appeared while we took or waited for the lock. A
+    # previous owner may also have paused its import before releasing it.
+    if o19_import_holds_database; then
+        exec 9>&-
+        return 2
+    fi
+    return 0
+}
+
+# Whole seconds on the monotonic clock, for the bounded waits below: date +%s
+# moves with NTP steps, which would end a wait early (skipping provisioning
+# while MariaDB is still restarting) or hold dpkg past its stated bound.
+uptime_s() {
+    cut -d. -f1 /proc/uptime
+}
+
+# carlos-emr.service is running or on its way up. is-active alone is false while a
+# unit is still `activating`, which would end a readiness wait before it began.
+emr_alive() {
+    case "$(systemctl is-active carlos-emr.service 2>/dev/null)" in
+        active|activating|reloading) return 0 ;;
+    esac
+    return 1
+}
+
+case "$1" in
+    configure)
+        # Configuration, installed once. It carries a database password, so it
+        # is not a conffile and it is not world-readable.
+        if [ ! -e "${DRUGREF_PROPERTIES}" ]; then
+            install -m 0640 -o root -g carlos "${SHARE}/skel/drugref2.properties" "${DRUGREF_PROPERTIES}"
+        fi
+        chown root:carlos "${DRUGREF_PROPERTIES}"
+        chmod 0640 "${DRUGREF_PROPERTIES}"
+
+        # DrugRef's StartUp listener resolves its configuration as
+        # ${user.home}/drugref2.properties, and user.home for the service is
+        # the state directory. A symlink keeps the real file in /etc where
+        # configuration belongs.
+        ln -sfn "${DRUGREF_PROPERTIES}" "${STATE}/drugref2.properties"
+
+        install -m 0644 "${SHARE}/tomcat/Catalina/localhost/drugref2.xml" \
+            "${CONF_DIR}/tomcat/Catalina/localhost/drugref2.xml"
+
+        # Start MariaDB and wait for it, the same bounded wait carlos-emr.postinst
+        # uses. A single probe lost the race whenever the server was still
+        # starting -- and in the usual transaction it is: carlos-emr is configured
+        # immediately before this package and its db-apply-settings RESTARTS
+        # MariaDB to apply the CARLOS drop-in. Losing that race skipped the whole
+        # DrugRef provisioning and seed load while configure still reported
+        # success, leaving prescribing lookups empty until someone ran
+        # dpkg-reconfigure by hand. deb-systemd-invoke honours policy-rc.d.
+        if [ -d /run/systemd/system ]; then
+            deb-systemd-invoke start mariadb.service >/dev/null 2>&1 || true
+            # Wall-clock bound, and every probe (this final one too) is capped by
+            # timeout(1) as well as --connect-timeout, so a server that accepts
+            # the socket but never answers cannot hold configure past the
+            # "60 seconds" the warning below reports.
+            deadline=$(( $(uptime_s) + 60 ))
+            while [ "$(uptime_s)" -lt "${deadline}" ] \
+                && ! timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; do
+                sleep 2
+            done
+        fi
+
+        DB_READY=0
+        if timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; then
+            DB_READY=1
+            # Provision the account and password (carlos-ctl handles both
+            # packages' accounts in one place, and is idempotent). No `|| true`
+            # here: everything below assumes the drugref account exists with
+            # the password now recorded in drugref2.properties, so a
+            # provisioning failure must fail configure loudly rather than
+            # continue into grants for an account that was never created.
+            # Loud on failure, like the db-users call itself: everything below
+            # assumes the drugref account exists with the password now recorded
+            # in drugref2.properties, and running that unserialized beside
+            # another provisioning run is how the two disagree.
+            provision_lock_rc=0
+            acquire_provision_lock || provision_lock_rc=$?
+            if [ "${provision_lock_rc}" = 2 ]; then
+                echo "carlos-emr-drugref: ERROR: an OSCAR 19 import is in progress and owns the" >&2
+                echo "carlos-emr-drugref: database, including while paused. The drug reference" >&2
+                echo "carlos-emr-drugref: account and grants were NOT touched. Finish the import with" >&2
+                echo "carlos-emr-drugref:   sudo carlos-ctl import-o19 ... --resume" >&2
+                echo "carlos-emr-drugref: then:  sudo dpkg --configure carlos-emr-drugref" >&2
+                exit 1
+            fi
+            if [ "${provision_lock_rc}" != 0 ]; then
+                echo "carlos-emr-drugref: ERROR: could not take ${PROVISION_LOCK}." >&2
+                echo "carlos-emr-drugref: another CARLOS run (carlos-ctl finish-install, the boot-time" >&2
+                echo "carlos-emr-drugref: carlos-emr-provision.service, or carlos-ctl import-o19) is using the" >&2
+                echo "carlos-emr-drugref: database, or /var is not writable. Wait for it to finish, then:" >&2
+                echo "carlos-emr-drugref:   sudo dpkg --configure carlos-emr-drugref" >&2
+                exit 1
+            fi
+            carlos-ctl db-users
+            mariadb --protocol=socket --user=root -e \
+                "CREATE DATABASE IF NOT EXISTS \`drugref2\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+            mariadb --protocol=socket --user=root -e \
+                "SET SESSION sql_log_bin = 0;
+                 GRANT ALL PRIVILEGES ON \`drugref2\`.* TO 'drugref'@'localhost';
+                 GRANT ALL PRIVILEGES ON \`drugref2\`.* TO 'drugref'@'127.0.0.1';
+                 GRANT SELECT, SHOW VIEW, TRIGGER, EVENT ON \`drugref2\`.* TO 'backup'@'localhost';
+                 FLUSH PRIVILEGES;"
+
+            # Load the seed only into an empty database. DrugRef runs Hibernate
+            # with hbm2ddl.auto=validate, so the tables must exist before it
+            # deploys; re-loading over a populated database would discard drug
+            # data a site has updated since.
+            #
+            # The _carlos_seed_complete marker table distinguishes "populated
+            # by a finished seed load" from "populated by a seed load that was
+            # KILLED part-way": without it, a retry after an interrupted load
+            # saw tables present, skipped the load, and reported success over
+            # a half-loaded database that Hibernate then failed to validate on
+            # every start. A populated database WITHOUT the marker is either
+            # that, or a pre-existing dataset from before this package — both
+            # are left alone, but loudly.
+            tables="$(mariadb --protocol=socket --user=root -N -B -e \
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='drugref2'")"
+            seeded="$(mariadb --protocol=socket --user=root -N -B -e \
+                "SELECT COUNT(*) FROM information_schema.tables
+                  WHERE table_schema='drugref2' AND table_name='_carlos_seed_complete'")"
+            if [ "${tables}" = 0 ]; then
+                echo "carlos-emr-drugref: loading the drug reference dataset (this takes a minute)"
+                for f in "${SHARE}/schema/drugref/development-drugref.sql" \
+                         "${SHARE}/schema/drugref"/2*-drugref-*.sql; do
+                    [ -r "${f}" ] || continue
+                    mariadb --protocol=socket --user=root --default-character-set=utf8mb4 \
+                        drugref2 < "${f}"
+                done
+
+                # The upstream seed creates every table as ENGINE=Aria. A
+                # non-transactional table cannot take part in the backup's
+                # --single-transaction snapshot, so it would be dumped from
+                # whenever it happened to be read rather than from the snapshot
+                # instant — and the nightly backup reports it every night.
+                # Convert once, here, rather than leaving it as a documented
+                # manual step nobody performs.
+                # Two review findings, both applied: the generated SQL is
+                # captured BEFORE execution (in a pipe, only the consumer's
+                # exit status counted, so a failed metadata query fed the
+                # consumer empty input and the load reported success without
+                # converting anything), and table identifiers are
+                # backtick-escaped (REPLACE doubles any \` in a name) before
+                # root executes them.
+                alter_sql="$(mariadb --protocol=socket --user=root -N -B -e \
+                    "SELECT CONCAT('ALTER TABLE \`drugref2\`.\`',
+                                   REPLACE(table_name, '\`', '\`\`'),
+                                   '\` ENGINE=InnoDB;')
+                       FROM information_schema.tables
+                      WHERE table_schema='drugref2' AND engine <> 'InnoDB'")"
+                if [ -n "${alter_sql}" ]; then
+                    printf '%s\n' "${alter_sql}" | mariadb --protocol=socket --user=root drugref2
+                fi
+                mariadb --protocol=socket --user=root drugref2 -e \
+                    "SET SESSION sql_log_bin = 0;
+                     CREATE TABLE _carlos_seed_complete (loaded_at DATETIME NOT NULL) ENGINE=InnoDB;
+                     INSERT INTO _carlos_seed_complete VALUES (NOW());"
+                echo "carlos-emr-drugref: drug reference dataset loaded"
+            elif [ "${seeded}" != 0 ]; then
+                echo "carlos-emr-drugref: drugref2 already has ${tables} tables; leaving the data alone"
+            else
+                echo "carlos-emr-drugref: WARNING: drugref2 has ${tables} tables but no seed-completion marker." >&2
+                echo "carlos-emr-drugref: WARNING: either this is a pre-existing dataset (fine — leaving it alone)," >&2
+                echo "carlos-emr-drugref: WARNING: or a previous seed load was interrupted and the data is INCOMPLETE." >&2
+                echo "carlos-emr-drugref: WARNING: if DrugRef fails to deploy or lookups return nothing, reload with:" >&2
+                echo "carlos-emr-drugref: WARNING:   sudo mariadb -e 'DROP DATABASE drugref2' && sudo dpkg-reconfigure carlos-emr-drugref" >&2
+            fi
+        else
+            echo "carlos-emr-drugref: WARNING: MariaDB did not answer within 60 seconds, so the" >&2
+            echo "carlos-emr-drugref: WARNING: DrugRef database was NOT provisioned or loaded and" >&2
+            echo "carlos-emr-drugref: WARNING: prescribing lookups will return nothing. Once MariaDB" >&2
+            echo "carlos-emr-drugref: WARNING: is running (systemctl status mariadb), finish with the" >&2
+            echo "carlos-emr-drugref: WARNING: command below, which also restarts the EMR to load DrugRef:" >&2
+            echo "carlos-emr-drugref: WARNING:   sudo dpkg-reconfigure carlos-emr-drugref" >&2
+        fi
+
+        # Restart so Tomcat picks up the new context. DrugRef shares the JVM
+        # with CARLOS, so this is a short EMR outage — which is why the package
+        # is installed alongside carlos-emr rather than months later.
+        # is-active is a query, not a lifecycle action, so systemctl is the
+        # right tool for it; the restart itself goes through deb-systemd-invoke
+        # so policy-rc.d is honoured.
+        # is-failed as well as is-active: an earlier start (carlos-emr's, or a
+        # crash-looping deploy) may already have spent the unit's
+        # StartLimitBurst and left it failed. Skipping here would then
+        # leave the EMR down for good. reset-failed clears the start counter (and
+        # the failed state) so a restart we asked for on purpose is never refused
+        # as a crash loop — see the same guard in carlos-emr.postinst.
+        # Not when MariaDB never answered: nothing was provisioned, DrugRef cannot
+        # deploy without its account and schema, and a restart would only take a
+        # running EMR down for its ~2-minute redeploy. Nothing needs loading from
+        # disk either: apt unpacks both packages before configuring either, so
+        # carlos-emr's own configure already (re)started the EMR on these DrugRef
+        # files. The dpkg-reconfigure the warning above asks for restarts it.
+        #
+        # Under dpkg the restart is not done here at all: this package activates
+        # carlos-emr's carlos-emr-restart trigger, which carlos-emr's own
+        # configure activates too, and dpkg runs the triggered carlos-emr
+        # postinst ONCE after both are configured -- one ~2-minute webapp deploy
+        # per transaction instead of two, and the waiting happens there. It
+        # applies the same rule as below (restart only an EMR that is running or
+        # crash-looped, or that carlos-emr's configure asked to start). Outside
+        # dpkg (dpkg-reconfigure, which sets no DPKG_RUNNING_VERSION) nothing
+        # would process the trigger, so the restart and wait below run inline.
+        if [ "${DB_READY}" = 1 ] && [ -n "${DPKG_RUNNING_VERSION:-}" ] \
+            && dpkg-trigger --no-await carlos-emr-restart 2>/dev/null; then
+            echo "carlos-emr-drugref: the EMR restarts once, at the end of this transaction, to load DrugRef."
+        elif [ "${DB_READY}" = 1 ] && [ -d /run/systemd/system ] && \
+           { systemctl is-active --quiet carlos-emr.service || \
+             systemctl is-failed --quiet carlos-emr.service; }; then
+            systemctl reset-failed carlos-emr.service >/dev/null 2>&1 || true
+            if ! deb-systemd-invoke restart carlos-emr.service; then
+                echo "carlos-emr-drugref: WARNING: the EMR did not restart — DrugRef will not" >&2
+                echo "carlos-emr-drugref: serve until it does (journalctl -u carlos-emr)." >&2
+            elif ! emr_alive; then
+                # A restart can exit 0 without starting anything: the unit's
+                # ConditionPathExists= skips it while the seeded-credential guard
+                # is in place (carlos-emr.postinst explains that state). Nothing
+                # will come up, so do not wait for it.
+                echo "carlos-emr-drugref: the EMR is not running (see carlos-emr's messages above);"
+                echo "carlos-emr-drugref: DrugRef deploys with it when it starts."
+            else
+                # Wait for the redeploy, bounded, as carlos-emr.postinst does after
+                # its own start: returning with Tomcat still down for the ~2 minute
+                # deploy made the operator's first `carlos-ctl check` report
+                # "nothing is listening on 18080" over a healthy system.
+                # Loopback Tomcat, not the front door: DrugRef is loopback-only
+                # and the front door is carlos-emr's to prove. The XML-RPC
+                # endpoint, because the context root answers 404 even when
+                # deployed: the service answers a GET with 405 once DrugRef is
+                # up (200 is accepted too), and 000 / 404 / 503 until then.
+                echo "carlos-emr-drugref: waiting for the EMR to redeploy with DrugRef (a couple of minutes)..."
+                # A deadline (monotonic, see uptime_s), not an attempt count: each
+                # probe can take its full 10-second --max-time, so 60 attempts plus
+                # a 5-second sleep could hold dpkg for 15 minutes behind a "five
+                # minutes" message.
+                # The last probe may start just before the deadline, so the true
+                # bound is ~5 min + 10 s.
+                deadline=$(( $(uptime_s) + 300 ))
+                code=""
+                while [ "$(uptime_s)" -lt "${deadline}" ] && emr_alive; do
+                    # Match READY positively. curl already prints 000 when it
+                    # cannot connect, so an `|| echo 000` fallback turned that
+                    # into 000000, which a list of not-ready codes let through:
+                    # the loop declared DrugRef deployed a second into the
+                    # restart, before the new JVM had even bound the port.
+                    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+                            http://127.0.0.1:18080/drugref2/DrugrefService 2>/dev/null || true)"
+                    case "${code}" in
+                        200|405) break ;;
+                    esac
+                    sleep 5
+                done
+                # The loop also ends early if the EMR stops (a failed deploy), so
+                # judge by the answer, not by the counter.
+                case "${code:-}" in
+                    200|405) echo "carlos-emr-drugref: DrugRef is deployed." ;;
+                    *)
+                        echo "carlos-emr-drugref: WARNING: DrugRef did not answer within five minutes of the restart" >&2
+                        echo "carlos-emr-drugref: WARNING: (systemctl status carlos-emr; carlos-ctl logs | grep drugref2)." >&2
+                        ;;
+                esac
+            fi
+        fi
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

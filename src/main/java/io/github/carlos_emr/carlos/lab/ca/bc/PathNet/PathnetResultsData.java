@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.bc.PathNet;
 
+
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.*;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.*;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -38,8 +39,6 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
-import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
-import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -70,48 +69,29 @@ public class PathnetResultsData {
      */
     // Populates labs for consult request
     public ArrayList<LabResultData> populatePathnetResultsData(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs c = (ConsultDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + c.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         List<Object[]> labsBCP = hl7MsgDao.findByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "BCP");
         return populatePathnetResultsData(attachedLabs, labsBCP, attached);
     }
 
     public ArrayList<LabResultData> populatePathnetResultsDataEForm(String demographicNo, String fdid, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
-            EFormDocs c = (EFormDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + c.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid)), demographicNo);
         List<Object[]> labsBCP = hl7MsgDao.findByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "BCP");
         return populatePathnetResultsData(attachedLabs, labsBCP, attached);
     }
 
     // Populates labs for consult response
     public ArrayList<LabResultData> populatePathnetResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs c = (ConsultDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + c.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         List<Object[]> labsBCP = hl7MsgDao.findByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "BCP");
         return populatePathnetResultsData(attachedLabs, labsBCP, attached);
     }
 
     // Populates labs private shared method
-    private ArrayList<LabResultData> populatePathnetResultsData(List<LabResultData> attachedLabs, List<Object[]> labsBCP, boolean attached) {
+    private ArrayList<LabResultData> populatePathnetResultsData(java.util.Set<String> attachedLabs, List<Object[]> labsBCP, boolean attached) {
         ArrayList<LabResultData> labResults = new ArrayList<LabResultData>();
         try {
             LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            LabResultData.CompareId c = lbData.getComparatorId();
 
             for (Object[] o : labsBCP) {
                 Hl7Message m = (Hl7Message) o[0];
@@ -123,13 +103,13 @@ public class PathnetResultsData {
                 lbData.dateTime = findPathnetObservationDate(lbData.segmentID);
                 lbData.discipline = findPathnetDisipline(lbData.segmentID);
 
-                if (attached && Collections.binarySearch(attachedLabs, lbData, c) >= 0) labResults.add(lbData);
-                else if (!attached && Collections.binarySearch(attachedLabs, lbData, c) < 0) labResults.add(lbData);
+                if (attached && attachedLabs.contains(LabResultData.labKey(lbData.labType, lbData.segmentID))) labResults.add(lbData);
+                else if (!attached && !attachedLabs.contains(LabResultData.labKey(lbData.labType, lbData.segmentID))) labResults.add(lbData);
 
                 lbData = new LabResultData(LabResultData.EXCELLERIS);
             }
         } catch (Exception e) {
-            logger.error("exception in CMLPopulate:", e);
+            logger.error("exception in CMLPopulate: ({})", e.getClass().getSimpleName());
         }
         return labResults;
     }
@@ -174,7 +154,6 @@ public class PathnetResultsData {
 				Hl7Msh msh = o.getHl7Msh();
 				Hl7Pid pid = o.getHl7Pid();
 				Hl7Orc orc = o.getHl7Orc();
-				Long stat = o.getMinResultStatus();
 
 				String providerLabRoutingStatus = null;
 				if (Objects.nonNull(o.getProviderLabRouting())) {
@@ -206,18 +185,13 @@ public class PathnetResultsData {
                 //priority
                 lbData.priority = "----";
                 lbData.requestingClient = justGetDocName(orc.getOrderingProvider());
-                lbData.reportStatus = "" + stat;
-
-                if (lbData.reportStatus != null && lbData.reportStatus.equals("F")) {
-                    lbData.finalRes = true;
-                } else {
-                    lbData.finalRes = false;
-                }
+                lbData.reportStatus = o.getMinResultStatus();
+                lbData.finalRes = "F".equals(lbData.reportStatus);
 
                 labResults.add(lbData);
             }
         } catch (Exception e) {
-            logger.error("exception in pathnetPopulate", e);
+            logger.error("exception in pathnetPopulate ({})", e.getClass().getSimpleName());
         }
         return labResults;
     }
@@ -246,58 +220,75 @@ public class PathnetResultsData {
         return false;
     }
 
+    /**
+     * Extracts the accession from known legacy version suffixes; preserves ordinary identifiers.
+     * @param s String the filler identifier, possibly null or empty
+     * @return String the accession, or an empty string when no identifier is supplied
+     */
     public String justGetAccessionNumber(String s) {
-        String[] nums = s.split("-");
+        if (s == null || s.isBlank()) return "";
+        String[] nums = s.split("-", -1);
         if (nums.length == 3) {
             return nums[0];
         } else if (nums.length == 5) {
             return nums[0] + "-" + nums[1] + "-" + nums[2];
         } else {
-            return nums[1];
+            return s;
         }
     }
 
+    /**
+     * Finds the accession's report versions within the legacy four-month date window.
+     * @param labId reviewed PathNet message identifier
+     * @return comma-separated matching message identifiers, or labId when no accession/date
+     *         is available or lookup fails
+     */
     public String getMatchingLabs(String labId) {
-        String ret = "";
-        String accessionNum = "";
-        String labDate = "";
-        int monthsBetween = 0;
+        return getMatchingLabs(labId, false);
+    }
 
+    /**
+     * Resolves a source version chain, optionally propagating lookup failures for atomic mutations.
+     * @param labId selected report identifier
+     * @param failOnLookupError true when fallback to only the selected version would hide a partial operation
+     * @return versions in clinical order
+     */
+    public String getMatchingLabs(String labId, boolean failOnLookupError) {
         try {
-            // find the accession number
-            for (Object[] o : hl7OrcDao.findFillerAndStatusChageByMessageId(ConversionUtils.fromIntString(labDate))) {
-                String fillerOrderNumber = String.valueOf(o[0]);
-                Date date = (Date) o[1];
-                accessionNum = justGetAccessionNumber(fillerOrderNumber);
-                labDate = ConversionUtils.toDateString(date);
+            List<Object[]> source = hl7OrcDao.findFillerAndStatusChageByMessageId(ConversionUtils.fromIntString(labId));
+            // Multiple distinct fillers do not establish one unambiguous version accession.
+            if (source.size() != 1) return labId;
+            String accessionNum = justGetAccessionNumber((String) source.get(0)[0]);
+            Date labDate = (Date) source.get(0)[1];
+
+            // No matching lab/accession means no version chain, not a wildcard search.
+            if (accessionNum.isBlank() || labDate == null) {
+                return labId;
             }
 
             Hl7PidDao pidDao = SpringUtils.getBean(Hl7PidDao.class);
-
+            Set<String> versions = new LinkedHashSet<>();
             for (Object[] o : pidDao.findByFillerOrderNumber("%" + accessionNum + "%")) {
-                String messageId = String.valueOf(o[0]);
-                Date resultsReportStatusChange = (Date) o[1];
-
-                Date dateA = resultsReportStatusChange;
-                Date dateB = UtilDateUtilities.StringToDate(labDate, "yyyy-MM-dd HH:mm:ss");
-                if (dateA.before(dateB)) {
-                    monthsBetween = UtilDateUtilities.getNumMonths(dateA, dateB);
-                } else {
-                    monthsBetween = UtilDateUtilities.getNumMonths(dateB, dateA);
-                }
-
-                if (monthsBetween < 4) {
-
-                    if (ret.equals("")) ret = messageId;
-                    else ret = ret + "," + messageId;
-
+                // LIKE is only a prefilter: substring and wildcard hits are never version identity.
+                if (accessionNum.equals(justGetAccessionNumber((String) o[2]))
+                        && withinVersionWindow((Date) o[1], labDate)) {
+                    versions.add(String.valueOf(o[0]));
                 }
             }
+            versions.add(labId);
+            return String.join(",", versions);
         } catch (Exception e) {
-            logger.error("exception in PathnetResultsData", e);
+            if (failOnLookupError) throw new IllegalStateException("Lab version lookup failed", e);
+            logger.error("exception in PathnetResultsData ({})", e.getClass().getSimpleName());
             return labId;
         }
-        return ret;
+    }
+
+    private static boolean withinVersionWindow(Date candidate, Date reviewed) {
+        if (candidate == null) return false;
+        return candidate.before(reviewed)
+                ? UtilDateUtilities.getNumMonths(candidate, reviewed) < 4
+                : UtilDateUtilities.getNumMonths(reviewed, candidate) < 4;
     }
 
     public String justGetDocName(String s) {
@@ -341,7 +332,7 @@ public class PathnetResultsData {
             }
 
         } catch (Exception e) {
-            logger.error("exception in MDSResultsData", e);
+            logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
         }
         return ret.toString();
     }

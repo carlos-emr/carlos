@@ -62,6 +62,11 @@
 	if(!authed) {
 		return;
 	}
+	// The template to open pre-loaded (/eform/visualEformEditor?fid=<id>, #3166). The gate,
+	// ViewVisualEFormEditor2Action, has already validated the id and confirmed the form exists;
+	// only its parsed integer reaches the page, and 0 opens the editor blank for a new eForm.
+	Object visualEditorInitialFidAttr = request.getAttribute("visualEditorInitialFid");
+	int visualEditorInitialFid = (visualEditorInitialFidAttr instanceof Integer) ? (Integer) visualEditorInitialFidAttr : 0;
 %>
 <!DOCTYPE html>
 <html>
@@ -255,6 +260,9 @@ FOR STAND ALONE USE
 <c:set var="i18n_dialogUpdateEform"><fmt:message key="eform.visual.editor.dialog.updateEform"/></c:set>
 <c:set var="i18n_alertSaveSuccessful"><fmt:message key="eform.visual.editor.alert.saveSuccessful"/></c:set>
 <c:set var="i18n_alertSaveFailure"><fmt:message key="eform.visual.editor.alert.saveFailure"/></c:set>
+<c:set var="i18n_alertLoadFailure"><fmt:message key="eform.visual.editor.alert.loadFailure"/></c:set>
+<c:set var="i18n_alertConvertedForm"><fmt:message key="eform.visual.editor.alert.convertedForm"/></c:set>
+<c:set var="i18n_alertLoadPending"><fmt:message key="eform.visual.editor.alert.loadPending"/></c:set>
 <c:set var="i18n_alertOnlyOneMasterBox"><fmt:message key="eform.visual.editor.alert.onlyOneMasterBox"/></c:set>
 <c:set var="i18n_alertSelectMasterCheckbox"><fmt:message key="eform.visual.editor.alert.selectMasterCheckbox"/></c:set>
 <c:set var="i18n_alertWouldSubmitEform"><fmt:message key="eform.visual.editor.alert.wouldSubmitEform"/></c:set>
@@ -270,8 +278,11 @@ FOR STAND ALONE USE
 <c:set var="i18n_textCheckbox"><fmt:message key="eform.visual.editor.text.checkbox"/></c:set>
 <c:set var="i18n_textTrash"><fmt:message key="eform.visual.editor.text.trash"/></c:set>
 <c:set var="i18n_textAddWetSignature"><fmt:message key="eform.visual.editor.text.addWetSignature"/></c:set>
+<c:set var="i18n_textWetSignatureSignHint"><fmt:message key="eform.visual.editor.text.wetSignatureSignHint"/></c:set>
+<c:set var="i18n_textNoSignatureStamp"><fmt:message key="eform.visual.editor.text.noSignatureStamp"/></c:set>
 <c:set var="i18n_textControls"><fmt:message key="eform.visual.editor.text.controls"/></c:set>
 <c:set var="i18n_textGuideOptions"><fmt:message key="eform.visual.editor.text.guideOptions"/></c:set>
+<c:set var="i18n_imageOrientation"><fmt:message key="eFormGenerator.imageOrientation"/></c:set>
 <script>
 /* i18n strings for Visual eForm Editor - populated server-side, OWASP JS-encoded */
 var EFORM_I18N = {
@@ -358,6 +369,9 @@ var EFORM_I18N = {
     dialogUpdateEform: '${carlos:forJavaScript(i18n_dialogUpdateEform)}',
     alertSaveSuccessful: '${carlos:forJavaScript(i18n_alertSaveSuccessful)}',
     alertSaveFailure: '${carlos:forJavaScript(i18n_alertSaveFailure)}',
+    alertLoadFailure: '${carlos:forJavaScript(i18n_alertLoadFailure)}',
+    alertConvertedForm: '${carlos:forJavaScript(i18n_alertConvertedForm)}',
+    alertLoadPending: '${carlos:forJavaScript(i18n_alertLoadPending)}',
     alertOnlyOneMasterBox: '${carlos:forJavaScript(i18n_alertOnlyOneMasterBox)}',
     alertSelectMasterCheckbox: '${carlos:forJavaScript(i18n_alertSelectMasterCheckbox)}',
     alertWouldSubmitEform: '${carlos:forJavaScript(i18n_alertWouldSubmitEform)}',
@@ -373,8 +387,11 @@ var EFORM_I18N = {
     textCheckbox: '${carlos:forJavaScript(i18n_textCheckbox)}',
     textTrash: '${carlos:forJavaScript(i18n_textTrash)}',
     textAddWetSignature: '${carlos:forJavaScript(i18n_textAddWetSignature)}',
+    textWetSignatureSignHint: '${carlos:forJavaScript(i18n_textWetSignatureSignHint)}',
+    textNoSignatureStamp: '${carlos:forJavaScript(i18n_textNoSignatureStamp)}',
     textControls: '${carlos:forJavaScript(i18n_textControls)}',
-    textGuideOptions: '${carlos:forJavaScript(i18n_textGuideOptions)}'
+    textGuideOptions: '${carlos:forJavaScript(i18n_textGuideOptions)}',
+    imageOrientation: '${carlos:forJavaScript(i18n_imageOrientation)}'           
 };
 </script>
 
@@ -698,7 +715,7 @@ var EFORM_I18N = {
 
         function myextrastep(vthis) {
             x = vthis
-            y = vthis.childNodes[0]
+            y = vthis.firstElementChild
             x.title = "Click here to set all no"
             if (y.id.indexOf("gen_input") > -1) {
                 y.id = "Gen_ButtonId"
@@ -723,7 +740,7 @@ var EFORM_I18N = {
             $('#inputE').show();
             document.getElementById('inputD').style.backgroundColor = "yellow";
             document.getElementById('inputE').style.backgroundColor = "red";
-            y = vthis.childNodes[0].id
+            y = vthis.firstElementChild.id
             if (y.indexOf("gen_input") > -1) {
                 x = document.getElementById(vthis.id).id
                 document.getElementById(y).style.backgroundColor = "yellow";
@@ -735,6 +752,10 @@ var EFORM_I18N = {
             }
         }
 
+        // The widget handlers below read the widget's input as vthis.firstElementChild, not
+        // childNodes[0]: a form re-opened from its saved source has a whitespace text node first
+        // (the generator puts a newline between every tag), and reading .id or .className off that
+        // threw on every double-click once the library opened saved forms here (#3166).
         function mydclick2(vthis) {
             Rad = []
             if ($('#ui-id-11').css('color') == "rgb(255, 255, 255)") { // on finalization tab
@@ -758,7 +779,7 @@ var EFORM_I18N = {
                 document.getElementById('control_menu_1-placement-tabs-1').append(input3);
             }
 
-            var y = (vthis.childNodes[0])
+            var y = (vthis.firstElementChild)
 
             if (y.className.indexOf("only-one-radio") > -1) { // 2020-May-25
                 RadMain[RadMain.length] = y
@@ -883,7 +904,7 @@ var EFORM_I18N = {
                 document.getElementById('inputC').style.backgroundColor = "lightgreen";
 
                 //*************combination radio box and linkbox*********  2020-May-25
-                var z = (vthis.childNodes[0])
+                var z = (vthis.firstElementChild)
                 //alert(Rad)
                 if (z.getAttribute('onclick') == 'myupdate(this);LinkXBoxfunction(this)' && Rad.length == 0) {
                     //alert("combination box")
@@ -898,7 +919,7 @@ var EFORM_I18N = {
                     return
                 }
                 //********************
-                y = vthis.childNodes[0].id
+                y = vthis.firstElementChild.id
                 vthis.title = y
                 x = document.getElementById(y)
                 if (!Rad.includes(x.id)) { //setup array of dblclicked elements no duplicates
@@ -970,6 +991,27 @@ var EFORM_I18N = {
         .flexH {
             display: flex;
             flex-direction: row;
+        }
+
+        .gen-editingBanner {
+            margin: 0 0 8px 0;
+            padding: 6px 10px;
+            background: #ffffff;
+            border-left: 4px solid #8198c3;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 16px;
+            align-items: baseline;
+        }
+
+        .gen-editingBanner[hidden], .gen-editingBanner [hidden] {
+            display: none;
+        }
+
+        .gen-editingBanner p {
+            flex-basis: 100%;
+            margin: 0;
+            color: #8a4b00;
         }
 
         #control {
@@ -1461,12 +1503,6 @@ var EFORM_I18N = {
     </style>
     <script>
         /** GLOBAL SCOPE CONSTANTS */
-        var CONFIRM_PAGE_REMOVE_TITLE = "Confirm Page Removal";
-        var CONFIRM_PAGE_REMOVE_MESSAGE = "You are about the remove a page from the eform. " +
-            "This will delete any work on the page and cannot be undone. Are you sure you want to delete the page?";
-
-        var OSCAR_SAVE_MESSAGE_NEW = "Save As New Eform";
-        var OSCAR_SAVE_MESSAGE_UPDATE = "Update Eform";
 
         // make sure .page_container css matches this when modifying
         var eFormPageWidthPortrait = 800; //850 //800
@@ -1510,15 +1546,17 @@ var EFORM_I18N = {
         var GENDER_PRECHECK_CLASS_SELECTOR = "[class*=gender_precheck_]";
 
         var OSCAR_DISPLAY_IMG_SRC = "../eform/displayImage?imagefile=";
+        var OSCAR_PROVIDER_SIGNATURE_IMG_SRC = "../provider/providerSignatureImage";
         var OSCAR_EFORM_ENTITY_URL = "../ws/rs/eform/";
         var OSCAR_EFORM_SEARCH_URL = "../ws/rs/eforms/";
+        var OSCAR_EFORM_HTML_EDITOR_URL = "../eform/efmformmanageredit?fid=";
 
         /** GLOBAL SCOPE VARIABLES */
         var groupTitle
         var linkTo
         var setSideBar
         var eformName = "Untitled eForm";
-		var defaultFaxNo = "";
+		    var defaultFaxNo = "";
         var textBordersVisibleState = 1;
         var xboxBordersVisibleState = 0;
         var orientationIndex = 0; //portrait 0 vs landscape 1 vs custom 2
@@ -1527,7 +1565,7 @@ var EFORM_I18N = {
         var RadMain = []
         var AllNoSetflag = "off";
         var newTitle = "";
-		var myunique = "";
+		    var myunique = "";
 
         var checkboxSize = defaultCheckboxSize;
         var textBoxWidth = defaultTextBoxWidth;
@@ -1543,6 +1581,23 @@ var EFORM_I18N = {
         // stores the current eform id. 0 if new eform.
         var eFormFid = 0;
 
+        // The stored template this page was opened for, loaded once init() has built the editor.
+        // 0 when the editor was opened to create a new eForm.
+        var INITIAL_EFORM_FID = <%= visualEditorInitialFid %>;
+
+        // The marker every template saved here carries, so the eForm Library can route its Edit
+        // action to this editor only for forms it wrote and nobody has changed since (#3166). Must
+        // match EFormEditorResolver.VISUAL_EDITOR_MARKER_NAME / VISUAL_EDITOR_MARKER_CONTENT.
+        var VISUAL_EDITOR_MARKER_NAME = "carlos-eform-editor";
+        var VISUAL_EDITOR_MARKER_CONTENT = "visual";
+
+        // Sequence number of the latest stored-form load, so a slower, older response cannot
+        // replace the canvas (or the attached id) of a load the user started after it.
+        var eformLoadSeq = 0;
+        // True while a stored form is being fetched: saving then would POST a new copy, because
+        // the editor is not attached to the stored form until the load completes.
+        var eformLoadPending = false;
+
         // store the list of images on the oscar server so only one load is needed.
         var eFormImageList = [];
 
@@ -1550,95 +1605,53 @@ var EFORM_I18N = {
 
         var measureArray = [
         "02", "024UA", "24UR", "5DAA", "A1C", "AACP", "ACOS", "ACR", "ACS", "AEDR", "AELV", "AENC", "AHGM", "AIDU", "ALC", "ALPA", "ALT", "Ang", "ANR", "ANSY",
-		"AORA", "ARAD", "ARDT", "ARMA", "ASAU", "ASPR", "AST", "ASTA", "ASWA", "ASYM", "BCTR", "BG", "BMED", "BMI", "BP", "BP", "BP", "CASA", "CD4", "CD4P",
-		"CDMP", "CEDE", "CEDM", "CEDS", "CEDW", "CERV", "CGSD", "CIMF", "CMVI", "CODC", "COPE", "COPM", "COPS", "COUM", "CRCL", "CVD", "CXR", "DARB",
-		"DEPR", "DESM", "DiaC", "DIER", "DIET", "DIFB", "DIGT", "DM", "DMED", "DMME", "DMSM", "DOLE", "DpSc", "DRCO", "DRPW", "DT1", "DT2", "DTYP",
-		"ECG", "EDC", "EDDD", "EDF", "EDGI", "EDND", "EDNL", "EGFR", "EPR", "EXE", "ExeC", "Exer", "EYEE", "FAHS", "FBPC", "FBS", "FEET", "FEET",
-		"FEET", "FEET", "FEET", "FEV1", "FGLC", "FICO", "FLUF", "FOBF", "FRAM", "FTE", "FTEx", "FTIn", "FTIs", "FTLS", "FTNe", "FTOt", "FTRe",
-		"FTST", "FTUl", "G", "GAD7", "G6PD", "Hb", "HIP", "Hchl", "HDL", "HEAD", "HFCG", "HFCS", "HFMD", "HFMH", "HFMO", "HFMS", "HFMT", "HIVG",
-		"HLA", "HpAI", "HpBA", "HPBC", "HPBP", "HpBS", "HpCA", "HPCG", "HPCP", "HR", "HRMS", "HSMC", "HSMG", "HT", "HTN", "HYPE", "HYPM", "IART",
-		"iDia", "iEx", "iHyp", "INR", "INSL", "iOth", "iRef", "JVPE", "Kpl", "LcCt", "LDL", "LEFP", "LETH", "LHAD", "LMED", "LMP", "LUCR", "MACA",
-		"MACC", "MAMF", "MCCE", "MCCN", "MCCO", "MCCS", "MedA", "MedG", "MedN", "MedR", "MI", "Napl", "NDIP", "NDIS", "NOSK", "NOVS", "NtrC", "NYHA",
-		"OSWP", "OSWS", "OTCO", "OthC", "OUTR", "P", "PANE", "PAPF", "PEDE", "PEFR", "PHIN", "PIDU", "PPD", "PRRF", "PSPA", "PSSC", "PsyC", "PVD", "QDSH",
-		"RABG", "REBG", "RESP", "RETI", "RPHR", "RPPT", "RVTN", "SCR", "SEXF", "SKST", "SMBG", "SmCC", "SMCD", "SMCP", "SMCS", "SMK", "SmkA", "SmkC",
-		"SmkD", "SmkF", "SmkP", "SmkS", "SODI", "SOHF", "SPIR", "SSEX", "STRE", "StSc", "SUAB", "SUO2", "TCHD", "TCHL", "TEMP", "TG", "TOXP", "TRIG",
-		"TSH", "TUG", "UAIP", "UALB", "UDUS", "UHTP", "URBH", "USSH", "VB12", "VDRL", "VLOA", "WAIS", "WHR", "WT", "ALB", "ALP", "BILC", "BILT", "BILU",
-		"CK", "Clpl", "UA", "ALC", "ALPA", "BP", "DMSM", "POSK", "KEEL", "PSQS", "PTSD", "PHQS", "PHQ9", "DNFS", "NERF", "BPI", "BPII", "BPIS", "IBPL",
-		"FAS", "COGA", "HPNP", "SBLT", "SDET", "SUNP", "BTFP", "FLOS", "DILY", "ABO", "AFP", "ALB", "ALP", "ANA", "APOB", "BILI", "BUN", "Clpl", "CK",
-		"CRP", "CA", "C125", "C153", "C199", "CEA", "CHLM", "C3", "CMBS", "DIG", "DIL", "ENA", "ESR", "Fer", "FIT", "FOBT", "FT3", "FT4", "GBS", "GC",
-		"GGT", "GCT", "GT1", "GT2", "HCO3", "HBEB", "HBEG", "HBVD", "HPYL", "LITH", "MG", "MCV", "PB19", "PHOS", "PLT", "PROT", "PSA", "iPTH", "RF",
-		"Rh", "RUB", "TSAT", "URIC", "VZV", "WBC", "OPAE", "OPAB", "OPUS", "DMOE", "02SA", "SKD", "ORSK", "ECHK", "HCON", "BTFT", "HCVA", "HCGA",
-		"CIRR", "FIBM", "FIBS", "APRI", "FIB4", "USND", "TXHX", "HCPC", "HAIM", "HBIM", "NEUT", "HIV", "HEPB", "AUDI", "OUDI", "SUDI", "STDI", "TUDI",
-		"PSUP", "BARR", "DINC", "UMS", "FEV1BF", "FVCBF", "FEV1PCBF", "FEV1PRE", "FVCPRE", "FEV1PCPRE", "FEV1PCOFPREBF", "FVCRTBF", "FEV1FVCRTBF",
-		"PEFRBF", "FEV1AFT", "FVCAFT", "FEV1PCAFT", "FEV1PCOFPREAFT", "FVCRTAFT", "FEV1FVCRTAFT", "PEFRAFT", "ANELV", "CNOLE", "WHE", "HFMR", "ASWAN",
-		"HFSFT", "HFSDZ", "HFSSC", "HFSDE", "HFSDR", "HFSON", "HFSDP", "SPIRT", "COPDC", "RABG2", "EPR2", "ACOSY", "ACTSY", "ADYSY", "AWHSY",
-		"CTDPW", "DYDPW", "WHDPW", "COPDC", "ACOSY", "ACTSY", "ADYSY", "AWHSY"
+    		"AORA", "ARAD", "ARDT", "ARMA", "ASAU", "ASPR", "AST", "ASTA", "ASWA", "ASYM", "BCTR", "BG", "BMED", "BMI", "BP", "BP", "BP", "CASA", "CD4", "CD4P",
+    		"CDMP", "CEDE", "CEDM", "CEDS", "CEDW", "CERV", "CGSD", "CIMF", "CMVI", "CODC", "COPE", "COPM", "COPS", "COUM", "CRCL", "CVD", "CXR", "DARB",
+    		"DEPR", "DESM", "DiaC", "DIER", "DIET", "DIFB", "DIGT", "DM", "DMED", "DMME", "DMSM", "DOLE", "DpSc", "DRCO", "DRPW", "DT1", "DT2", "DTYP",
+    		"ECG", "EDC", "EDDD", "EDF", "EDGI", "EDND", "EDNL", "EGFR", "EPR", "EXE", "ExeC", "Exer", "EYEE", "FAHS", "FBPC", "FBS", "FEET", "FEET",
+    		"FEET", "FEET", "FEET", "FEV1", "FGLC", "FICO", "FLUF", "FOBF", "FRAM", "FTE", "FTEx", "FTIn", "FTIs", "FTLS", "FTNe", "FTOt", "FTRe",
+    		"FTST", "FTUl", "G", "GAD7", "G6PD", "Hb", "HIP", "Hchl", "HDL", "HEAD", "HFCG", "HFCS", "HFMD", "HFMH", "HFMO", "HFMS", "HFMT", "HIVG",
+    		"HLA", "HpAI", "HpBA", "HPBC", "HPBP", "HpBS", "HpCA", "HPCG", "HPCP", "HR", "HRMS", "HSMC", "HSMG", "HT", "HTN", "HYPE", "HYPM", "IART",
+    		"iDia", "iEx", "iHyp", "INR", "INSL", "iOth", "iRef", "JVPE", "Kpl", "LcCt", "LDL", "LEFP", "LETH", "LHAD", "LMED", "LMP", "LUCR", "MACA",
+    		"MACC", "MAMF", "MCCE", "MCCN", "MCCO", "MCCS", "MedA", "MedG", "MedN", "MedR", "MI", "Napl", "NDIP", "NDIS", "NOSK", "NOVS", "NtrC", "NYHA",
+    		"OSWP", "OSWS", "OTCO", "OthC", "OUTR", "P", "PANE", "PAPF", "PEDE", "PEFR", "PHIN", "PIDU", "PPD", "PRRF", "PSPA", "PSSC", "PsyC", "PVD", "QDSH",
+    		"RABG", "REBG", "RESP", "RETI", "RPHR", "RPPT", "RVTN", "SCR", "SEXF", "SKST", "SMBG", "SmCC", "SMCD", "SMCP", "SMCS", "SMK", "SmkA", "SmkC",
+    		"SmkD", "SmkF", "SmkP", "SmkS", "SODI", "SOHF", "SPIR", "SSEX", "STRE", "StSc", "SUAB", "SUO2", "TCHD", "TCHL", "TEMP", "TG", "TOXP", "TRIG",
+    		"TSH", "TUG", "UAIP", "UALB", "UDUS", "UHTP", "URBH", "USSH", "VB12", "VDRL", "VLOA", "WAIS", "WHR", "WT", "ALB", "ALP", "BILC", "BILT", "BILU",
+    		"CK", "Clpl", "UA", "ALC", "ALPA", "BP", "DMSM", "POSK", "KEEL", "PSQS", "PTSD", "PHQS", "PHQ9", "DNFS", "NERF", "BPI", "BPII", "BPIS", "IBPL",
+    		"FAS", "COGA", "HPNP", "SBLT", "SDET", "SUNP", "BTFP", "FLOS", "DILY", "ABO", "AFP", "ALB", "ALP", "ANA", "APOB", "BILI", "BUN", "Clpl", "CK",
+    		"CRP", "CA", "C125", "C153", "C199", "CEA", "CHLM", "C3", "CMBS", "DIG", "DIL", "ENA", "ESR", "Fer", "FIT", "FOBT", "FT3", "FT4", "GBS", "GC",
+    		"GGT", "GCT", "GT1", "GT2", "HCO3", "HBEB", "HBEG", "HBVD", "HPYL", "LITH", "MG", "MCV", "PB19", "PHOS", "PLT", "PROT", "PSA", "iPTH", "RF",
+    		"Rh", "RUB", "TSAT", "URIC", "VZV", "WBC", "OPAE", "OPAB", "OPUS", "DMOE", "02SA", "SKD", "ORSK", "ECHK", "HCON", "BTFT", "HCVA", "HCGA",
+    		"CIRR", "FIBM", "FIBS", "APRI", "FIB4", "USND", "TXHX", "HCPC", "HAIM", "HBIM", "NEUT", "HIV", "HEPB", "AUDI", "OUDI", "SUDI", "STDI", "TUDI",
+    		"PSUP", "BARR", "DINC", "UMS", "FEV1BF", "FVCBF", "FEV1PCBF", "FEV1PRE", "FVCPRE", "FEV1PCPRE", "FEV1PCOFPREBF", "FVCRTBF", "FEV1FVCRTBF",
+    		"PEFRBF", "FEV1AFT", "FVCAFT", "FEV1PCAFT", "FEV1PCOFPREAFT", "FVCRTAFT", "FEV1FVCRTAFT", "PEFRAFT", "ANELV", "CNOLE", "WHE", "HFMR", "ASWAN",
+    		"HFSFT", "HFSDZ", "HFSSC", "HFSDE", "HFSDR", "HFSON", "HFSDP", "SPIRT", "COPDC", "RABG2", "EPR2", "ACOSY", "ACTSY", "ADYSY", "AWHSY",
+    		"CTDPW", "DYDPW", "WHDPW", "COPDC", "ACOSY", "ACTSY", "ADYSY", "AWHSY"
         ];
 
-		var oscarDatabaseTags = [
-		"time", "today", "appt_date", "current_form_id", "current_form_data_id", "current_user", "current_user_fname", "current_user_lname",
-		"current_user_fname_lname", "current_user_ohip_no", "current_user_specialty_code", "current_user_specialty", "current_user_cpsid", "current_user_id",
-		"current_user_address", "current_user_work_phone", "current_user_email", "current_user_fax", "current_user_team", "current_user_signature",
-		"patient_name", "first_last_name", "patient_nameL", "patient_nameF", "patient_nameM", "patient_alias", "patient_title", "patient_id", "label",
-		"residential_address", "address", "addressline", "address_street_number_and_name", "province", "city", "postal", "dob", "dobc", "dobc2", "dobc3",
-		"dob_MONTH-dd-yyyy", "dob_year", "dob_month", "dob_day", "NameAddress", "hin", "hinc", "hinversion", "hc_type", "hc_renew_date", "chartno", "phone",
-		"phone2", "cell", "phone_extension", "phone2_extension", "age", "age_in_months", "ageComplex", "ageComplex2", "sex", "She_He", "him_her", "his_her ",
-		"sin", "date_joined", "partner_nameL", "partner_nameF", "partner_dob", "partner_dob2", "partner_hin ", "partner_phone ", "medical_history",
-		"medical_history_ext", "other_medications_history", "other_medications_history_ext", "social_family_history", "social_family_history_ext",
-		"ongoingconcerns", "ongoingconcerns_ext", "riskfactors", "riskfactors_ext", "reminders", "reminders_ext ", "risk_factors_json",
-		"family_history_json", "dxregistry", "OHIPdxCode", "allergies_des", "allergies_des_no_archived", "recent_rx", "today_rx", "current_rx",
-		"current_rx_lt", "druglist_generic", "druglist_trade", "druglist_line", "latest_echart_note", "todays_notes", "todays_notes_ext",
-		"document_list", "onGTPAL", "onEDB ", "bcGTPAL ", "bcEDD", "doctor", "doctor_provider_no", "doctor_ohip_no", "doctor_specialty_code",
-		"doctor_cpsid", "doctor_title", "provider_name", "provider_name_first_init", "doctor_work_phone", "doctor_signature", "appt_provider_name",
-		"appt_provider_id", "appt_no", "appt_date", "appt_time", "appt_end_time", "appt_provider_ohip_no", "appt_provider_cpsid", "next_appt_provider_id",
-		"next_appt_provider_name", "next_appt_date", "next_appt_time", "nextf_appt_date", "referral_name", "referral_Last_name", "referral_first_name",
-		"referral_address", "dr_referral_name", "referral_no", "referral_phone", "referral_fax", "bc_referral_name ", "bc_referral_address", "bc_referral_phone",
-		"bc_referral_fax ", "bc_referral_no", "clinic_name", "clinic_phone", "clinic_fax", "clinic_label", "clinic_addressLine", "clinic_addressLineFull",
-		"clinic_address", "clinic_city", "clinic_province", "clinic_postal", "dtap_immunization_date", "flu_immunization_date"
-		];
-	/* Juno list
-        var oscarDatabaseTags = [
-            "today", "time", "appt_date", "appt_start_time", "appt_end_time", "appt_location",
-            "next_appt_date", "next_appt_time", "nextf_appt_date", "next_appt_location", "current_form_id", "current_form_data_id",
-            "current_user", "current_user_fname_lname", "current_user_ohip_no", "current_user_specialty", "current_user_specialty_code",
-            "current_user_cpsid", "current_user_id", "current_user_signature", "current_logged_in_user", "current_logged_in_user_address",
-            "current_logged_in_user_fax", "current_logged_in_user_work_phone", "current_logged_in_user_roles", "current_logged_in_user_type",
-            "current_logged_in_user_id", "current_user_takno", "current_logged_in_user_takno", "patient_name", "first_last_name",
-            "patient_nameL", "patient_nameF", "patient_alias", "patient_id", "label", "address", "addressline", "address_street_number_and_name",
-            "province", "city", "postal", "dob", "dobc", "dobc2", "dobc3", "dob_year", "dob_month", "dob_day", "NameAddress",
-            "hin", "hinc", "hinversion", "hc_type", "hc_renew_date", "chartno", "phone", "phone2", "cell", "phone_extension",
-            "phone2_extension", "age", "age_in_months", "ageComplex", "ageComplex2", "sex", "sin", "licensed_producer_by_demographic",
-
-            "licensed_producer2_by_demographic", "licensed_producer_address_name", "licensed_producer_address_name_list",
-            "licensed_producer_full_address", "licensed_producer_full_address_list", "multisite_name_list", "multisite_fax_list",
-            "multisite_phone_list", "multisite_full_address_list", "multisite_address_list", "multisite_city_list", "multisite_province_list",
-            "multisite_postal_list", "medical_history", "other_medications_history", "social_family_history", "ongoingconcerns",
-
-            "reminders", "risk_factors", "family_history", "risk_factors_json", "family_history_json", "dxregistry", "OHIPdxCode",
-            "allergies_des", "allergies_des_no_archived", "recent_rx", "today_rx", "druglist_generic", "druglist_trade",
-            "druglist_line", "latest_echart_note", "onGTPAL", "onEDB", "bcGTPAL", "bcEDD", "doctor", "doctor_provider_no",
-            "doctor_ohip_no", "doctor_specialty_code", "doctor_cpsid", "appt_provider_cpsid", "appt_provider_specialty",
-            "doctor_title", "provider_name", "provider_name_first_init", "provider_specialty", "doctor_work_phone", "doctor_fax",
-            "doctor_signature", "appt_provider_name", "appt_provider_ohip_no", "appt_provider_id", "appt_no", "referral_name",
-
-            "referral_address", "referral_phone", "referral_fax", "referral_no", "bc_referral_name", "bc_referral_address",
-            "bc_referral_phone", "bc_referral_fax", "bc_referral_no", "clinic_name", "clinic_phone", "clinic_fax", "clinic_label",
-            "clinic_addressLine", "clinic_addressLineFull", "clinic_address", "clinic_city", "clinic_province", "clinic_postal",
-            "clinic_multi_phone", "clinic_multi_fax", "_eform_values_first", "_eform_values_last", "_eform_values_first_all_json",
-            "_eform_values_last_all_json", "_eform_values_count", "_eform_values_countname", "_eform_values_count_ref",
-            "_eform_values_countname_ref", "_eform_values_count_refname", "_eform_values_countname_refname", "_other_id",
-            "dtap_immunization_date", "flu_immunization_date", "fobt_immunization_date", "mammogram_immunization_date",
-            "pap_immunization_date", "cytology_no", "guardian_label", "guardian_label2", "email", "service_date", "practitioner",
-
-            "ref_doctor", "fee_total", "payment_total", "refund_total", "balance_owing", "bill_item_number", "bill_item_description",
-            "bill_item_service_code", "bill_item_qty", "bill_item_dx", "bill_item_amount", "urine_tox_test_json", "methadone_induction_assessment_json",
-            "who_measurements", "family_doctor_name", "family_doctor_last_name", "family_doctor_address", "family_doctor_phone",
-
-            "family_doctor_fax", "family_doctor_no", "bc_family_doctor_name", "bc_family_doctor_address", "bc_family_doctor_phone",
-            "bc_family_doctor_fax", "bc_family_doctor_no", "roster_status"
-        ];
-	*/
-
+    		var oscarDatabaseTags = [
+    		"time", "today", "appt_date", "current_form_id", "current_form_data_id", "current_user", "current_user_fname", "current_user_lname",
+    		"current_user_fname_lname", "current_user_ohip_no", "current_user_specialty_code", "current_user_specialty", "current_user_cpsid", "current_user_id",
+    		"current_user_address", "current_user_work_phone", "current_user_email", "current_user_fax", "current_user_team", "current_user_signature",
+    		"patient_name", "first_last_name", "patient_nameL", "patient_nameF", "patient_nameM", "patient_alias", "patient_title", "patient_id", "label",
+    		"residential_address", "address", "addressline", "address_street_number_and_name", "province", "city", "postal", "dob", "dobc", "dobc2", "dobc3",
+    		"dob_MONTH-dd-yyyy", "dob_year", "dob_month", "dob_day", "NameAddress", "hin", "hinc", "hinversion", "hc_type", "hc_renew_date", "chartno", "phone",
+    		"phone2", "cell", "phone_extension", "phone2_extension", "age", "age_in_months", "ageComplex", "ageComplex2", "sex", "She_He", "him_her", "his_her ",
+    		"sin", "date_joined", "partner_nameL", "partner_nameF", "partner_dob", "partner_dob2", "partner_hin ", "partner_phone ", "medical_history",
+    		"medical_history_ext", "other_medications_history", "other_medications_history_ext", "social_family_history", "social_family_history_ext",
+    		"ongoingconcerns", "ongoingconcerns_ext", "riskfactors", "riskfactors_ext", "reminders", "reminders_ext ", "risk_factors_json",
+    		"family_history_json", "dxregistry", "OHIPdxCode", "allergies_des", "allergies_des_no_archived", "recent_rx", "today_rx", "current_rx",
+    		"current_rx_lt", "druglist_generic", "druglist_trade", "druglist_line", "latest_echart_note", "todays_notes", "todays_notes_ext",
+    		"document_list", "onGTPAL", "onEDB ", "bcGTPAL ", "bcEDD", "doctor", "doctor_provider_no", "doctor_ohip_no", "doctor_specialty_code",
+    		"doctor_cpsid", "doctor_title", "provider_name", "provider_name_first_init", "doctor_work_phone", "doctor_signature", "appt_provider_name",
+    		"appt_provider_id", "appt_no", "appt_date", "appt_time", "appt_end_time", "appt_provider_ohip_no", "appt_provider_cpsid", "next_appt_provider_id",
+    		"next_appt_provider_name", "next_appt_date", "next_appt_time", "nextf_appt_date", "referral_name", "referral_Last_name", "referral_first_name",
+    		"referral_address", "dr_referral_name", "referral_no", "referral_phone", "referral_fax", "bc_referral_name ", "bc_referral_address", "bc_referral_phone",
+    		"bc_referral_fax ", "bc_referral_no", "clinic_name", "clinic_phone", "clinic_fax", "clinic_label", "clinic_addressLine", "clinic_addressLineFull",
+    		"clinic_address", "clinic_city", "clinic_province", "clinic_postal", "dtap_immunization_date", "flu_immunization_date"
+    		];
+	
         var $globalSelectedElement = null;
         var $mouseTargetElement = null;
         var currentMousePos = {
@@ -2049,6 +2062,8 @@ var EFORM_I18N = {
             source += "</div></body></html>";
             source = addOscarImagePath(source);
             source = source.replace(/>\s*</g, ">\n<");
+            // Last, over the finished markup: the marker's fingerprint covers every other byte.
+            source = stampVisualEditorMarker(source);
             //now we need to escape the html special chars
             if (escapeHtml) {
                 var htmlChars = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
@@ -2111,6 +2126,11 @@ var EFORM_I18N = {
 
         /** Save the eform html as a new eform */
         function saveToOscarEforms(include_fax) {
+            if (eformLoadPending) {
+                // Not attached to the stored form yet: saving now would create a copy of it.
+                custom_alert(EFORM_I18N.alertLoadPending);
+                return;
+            }
             var eformCode = generate_eform_source_html(false, include_fax);
             var url = OSCAR_EFORM_ENTITY_URL + ((eFormFid > 0) ? eFormFid + "/" : "") + "json";
             var type = (eFormFid > 0) ? "PUT" : "POST";
@@ -2132,6 +2152,8 @@ var EFORM_I18N = {
                     if (status === "SUCCESS") {
                         custom_alert(EFORM_I18N.alertSaveSuccessful);
                         setEformId(data.body.id);
+                        // Saved here, so it now carries the marker: no longer a converted form.
+                        showEditingBanner(data.body.id, false);
                     } else {
                         custom_alert(data.error.message);
                     }
@@ -2345,17 +2367,21 @@ var EFORM_I18N = {
         function addDraggableStamp($parent, widgetId, width, height, src, customClasses) {  // May 1, 2024  TO DO buggy on resize/drag
             var $widget = createBasicDraggableDiv(widgetId, width, height, customClasses + " gen-layer3");
             var imgClass = "";
-            $widget.append($("<img>", {
+            var $img = $("<img>", {
                 src: src,
                 alt: "stamp",
                 width: "100%",
                 height: "100%",
                 class: "stamp",
                 onclick: "toggleMe(this);"
-            }));
+            });
+            /* No onerror fallback here: when the provider signature image 404s, the caller
+               (initSignatureTemplateTab) hides the whole stamp frame and shows a warning. The
+               <img> stays in the DOM so nothing broken is placeable/serializable onto an eForm. */
+            $widget.append($img);
             $parent.append($widget);
             makeDraggable($widget, true, ".gen-layer1, .gen-layer2");
-			console.log("created widget "+widgetId);
+			  console.log("created widget "+widgetId);
             return $widget;
         }
 
@@ -2369,7 +2395,7 @@ var EFORM_I18N = {
             });
             var $clearBtn = $("<button>", {
                 type: "button",
-                text: "clear",
+                text: EFORM_I18N.buttonClear,
                 class: "clearBtn DoNotPrint"
             });
             var $flex = $("<div>", {
@@ -2627,63 +2653,53 @@ var EFORM_I18N = {
             }));
         }
 
+    		function cleanOscarTags(data) {
+    		//  noborderPrint" title="age" oscardb="age" placeholder="
+    		//  noborderPrint" title="age" oscardb="" "age"="" placeholder="
+    			const regex = /oscarDB=([0-9#$a-z_\-]+)/gi;
+    			const replaceStr = 'oscarDB="$1"';
+    			data = data.replace(regex, replaceStr);
+    			return data;
+    		}
 
-		function cleanOscarTags(data) {
-		//  noborderPrint" title="age" oscardb="age" placeholder="
-		//  noborderPrint" title="age" oscardb="" "age"="" placeholder="
-			const regex = /oscarDB=([a-z_]+)/gi;
-			const replaceStr = 'oscarDB="$1"';
-			data = data.replace(regex, replaceStr);
-			return data;
-		}
-		function loadPages($div) {
-			// Build a DocumentFragment of wrapper divs whose children are moved
-			// from the parsed $div nodes — avoids the .html() read→write roundtrip
-			// that CodeQL flags as DOM text reinterpreted as HTML (js/xss-through-dom).
-			var fragment = document.createDocumentFragment();
-			var pageNo = 1;
-			while ($div.find('#page' + pageNo).length) {
-				var $page = $div.find('#page' + pageNo);
-				var wrapper = document.createElement('div');
-				wrapper.id = 'page_' + pageNo;
-				wrapper.className = 'page_container ui-droppable';
-				wrapper.setAttribute('style', 'width: 800px; height: 1000px;');
-				// Move all child nodes (including text/comment nodes) using DOM
-				// node-moving rather than serialising to HTML strings.
-				// .contents() intentionally includes non-Element nodes to preserve
-				// whitespace and avoid re-parsing; this is the correct behaviour.
-				$page.contents().each(function() {
-					wrapper.appendChild(this);
-				});
-				fragment.appendChild(wrapper);
-				pageNo++;
-			}
-			return fragment;
-		}
+    		function loadPages($div) {
+    			// Build a DocumentFragment of wrapper divs whose children are moved
+    			// from the parsed $div nodes — avoids the .html() read→write roundtrip
+    			// that CodeQL flags as DOM text reinterpreted as HTML (js/xss-through-dom).
+    			var fragment = document.createDocumentFragment();
+    			var pageNo = 1;
+    			while ($div.find('#page' + pageNo).length) {
+    				var $page = $div.find('#page' + pageNo);
+    				var wrapper = document.createElement('div');
+    				wrapper.id = 'page_' + pageNo;
+    				wrapper.className = 'page_container ui-droppable';
+    				wrapper.setAttribute('style', 'width: ' + eFormPageWidthPortrait + 'px; height: ' + eFormPageHeightPortrait + 'px;');
+    				// Move all child nodes (including text/comment nodes) using DOM
+    				// node-moving rather than serialising to HTML strings.
+    				// .contents() intentionally includes non-Element nodes to preserve
+    				// whitespace and avoid re-parsing; this is the correct behaviour.
+    				$page.contents().each(function() {
+    					wrapper.appendChild(this);
+    				});
+    				fragment.appendChild(wrapper);
+    				pageNo++;
+    			}
+    			return fragment;
+    		}
 
+        /**
+         * Replaces the canvas with the given eForm template.
+         *
+         * Returns true once the template is on the canvas, false when it cannot be converted. A
+         * refusal happens before anything on the page changes (name, fax number, tickler option,
+         * canvas), so the editor keeps showing, and saving to, whatever it held before; callers must
+         * attach the editor to the stored form's id only on true, or "Update Eform" would overwrite
+         * that form with the unrelated canvas (#3166).
+         */
         function loadEformData(data) {
-
-            // remove oscar image paths in incoming data
-            data = removeOscarImagePath(data);
-			//use regex to sanitize foreign imported oscarDb tags
-			data = cleanOscarTags(data);
-
-			// import the default fax number if present
-			const regex = /name="fax_no"\svalue="([\d-]*)"/
-			if (regex.test(data)) {
-				var matches = data.match(regex);
-				defaultFaxNo = matches[1];
-				$("#defaultFaxNo").val(defaultFaxNo);
-			}
-			const regex2 = /tickler_send_to/
-			if (regex2.test(data)) {
-				//$("#setTickler").prop('checked', true);
-				$("#setTickler").click();
-			}
-
-            // import the eform name
-            eformName = $($.parseHTML(data)).filter('title').text();
-            $("#eformNameInput").val(eformName);
+            // Inspect the incoming template before replacing the current canvas or its settings.
+            data = cleanOscarTags(removeOscarImagePath(data));
+            var importedName = $($.parseHTML(data)).filter('title').text();
 
             // convert checkboxes to Xbox
             const re = /class=""\stype="checkbox"/g
@@ -2697,20 +2713,45 @@ var EFORM_I18N = {
             }
 
             var $div = $(data);
-
-			var $importedInputForm = $div.find("#inputForm");
-			//May-01-2024 Peter Hutten-Czapski
+            var $importedInputForm = $div.find("#inputForm");
             var ferengi = ($importedInputForm.length === 0);
+            if (!ferengi && $importedInputForm.find(".page_container").length === 0) {
+                // An #inputForm without this editor's pages is not one of its forms; taking its
+                // contents as the canvas would let "Update Eform" overwrite it with whatever they hold.
+                custom_alert("We are currently unable to convert eform "+importedName+" as it lacks a recognisable page structure.");
+                return false;
+            }
             if (ferengi) {
                 if ( typeof($div.find("[id^='BGImage']").html() ) == "undefined" ){
-                    custom_alert("We are currently unable to convert eform "+eformName+" as it lacks any recognisable background images.");
-                    return;
+                    custom_alert("We are currently unable to convert eform "+importedName+" as it lacks any recognisable background images.");
+                    return false;
                 }
                 if ( typeof($div.find("#page1").html() ) == "undefined"){
-                    custom_alert("We are currently unable to convert eform "+eformName+" as it lacks a recognisable page structure.");
-                    return;
+                    custom_alert("We are currently unable to convert eform "+importedName+" as it lacks a recognisable page structure.");
+                    return false;
                 }
             }
+
+            defaultFaxNo = "";
+            $("#defaultFaxNo").val("");
+            $("#setTickler").prop("checked", false);
+            $("#tickle_dialog").remove();
+
+			// import the default fax number if present
+			const regex = /name="fax_no"\svalue="([\d-]*)"/
+			if (regex.test(data)) {
+				var matches = data.match(regex);
+				defaultFaxNo = matches[1];
+				$("#defaultFaxNo").val(defaultFaxNo);
+			}
+			const regex2 = /tickler_send_to/
+			if (regex2.test(data) && !$("#setTickler").is(':checked')) {
+				$("#setTickler").click();
+			}
+
+            // import the eform name
+            eformName = importedName;
+            $("#eformNameInput").val(eformName);
 
             var $inputForm = $("#inputForm");
             if (ferengi) {
@@ -2728,19 +2769,16 @@ var EFORM_I18N = {
                 $(this).removeAttr('checked');
             });
 
-			//May-01-2024 Peter Hutten-Czapski
             if (ferengi) {
+      				// import the default fax number if present
+      				const regex = /"otherFaxInput"\)\.value="([\d-]*)"/
+      				if (regex.test(data)) {
+      					var matches = data.match(regex);
+      					defaultFaxNo = matches[1];
+      				}
 
-				// import the default fax number if present
-				const regex = /"otherFaxInput"\)\.value="([\d-]*)"/
-				if (regex.test(data)) {
-					var matches = data.match(regex);
-					defaultFaxNo = matches[1];
-				}
-
-                $("[id^='BGImage']").addClass("gen-layer1");
-				$("[id^='BGImage']").attr( "alt", "background" );
-				$("[id^='BGImage']").addClass( "gen-layer1" );
+      				$("[id^='BGImage']").addClass("gen-layer1");
+      				$("[id^='BGImage']").attr( "alt", "background" );
 
 				$("#BottomButtons").remove();
 				var pageNo = 1;
@@ -2816,11 +2854,17 @@ var EFORM_I18N = {
 						$(this).removeClass("noborder");
 					}
 					if ($(this).is('#Stamp')){
-                        if (runStandaloneVersion){
-						    $(this).attr("src", "BNK.png");
-                        } else {
-						    $(this).attr("src", "../eform/displayImage?imagefile=BNK.png");
-                        }
+                        $(this).attr("src", getSignatureStampPreviewSrc());
+                        /* A stamp already placed on a saved eForm keeps the blank-stamp
+                           fallback (rather than the hide/warn behaviour used for the palette
+                           template in addDraggableStamp): a placed stamp is meant to resolve
+                           to the signing provider's signature at render time, so the <img>
+                           must stay in the form and must not be hidden or warned on here. */
+                        $(this).on("error", function() {
+                            if (this.src.indexOf("BNK.png") === -1) {
+                                this.src = getBlankSignatureStampSrc();
+                            }
+                        });
 						$(this).attr("onclick", "toggleMe(this);");
 						$(this).attr("alt", "stamp");
 						var wrap_width= $(this).attr("width");
@@ -2857,7 +2901,6 @@ var EFORM_I18N = {
 				console.log(i + " input elements transformed from a "+pageNo+" page Ferengi eform with scaling of "+scaleX+", "+scaleY);
             }
 
-			//console.log($inputForm.html());
 			$('#defaultFaxNo').val(defaultFaxNo);
             // inputForm content was already set above (via DOM node movement for standard forms,
             // or via loadPages for Ferengi forms). The original redundant re-read and re-injection
@@ -2865,7 +2908,6 @@ var EFORM_I18N = {
 
             // TODO -- combine with generic makeDraggables and addNewPage
             var $input_elements = $(".input_elements");
-			// however check if this is a foreign conversion
 
             var $pages = $(".page_container");
             $pages.droppable({
@@ -2912,6 +2954,126 @@ var EFORM_I18N = {
             return true;
         }
 
+        /**
+         * 32-bit FNV-1a over the UTF-16 code units of the text, as eight lower-case hex digits.
+         * Must match EFormEditorResolver.fingerprint(...) in Java. It detects change, not tampering.
+         */
+        function eformFingerprint(text) {
+            var hash = 0x811c9dc5;
+            for (var i = 0; i < text.length; i++) {
+                hash ^= text.charCodeAt(i);
+                hash = Math.imul(hash, 0x01000193) >>> 0;
+            }
+            return ("0000000" + (hash >>> 0).toString(16)).slice(-8);
+        }
+
+        function visualEditorMarkerTag(fingerprint) {
+            return "<meta name='" + VISUAL_EDITOR_MARKER_NAME + "' content='" + VISUAL_EDITOR_MARKER_CONTENT
+                + "' data-fingerprint='" + fingerprint + "'>";
+        }
+
+        /**
+         * Stamps the marker into generated source, just before its <title>. The fingerprint is taken
+         * over the source as it is now, so removing the marker again yields exactly what was hashed.
+         */
+        function stampVisualEditorMarker(source) {
+            var tag = visualEditorMarkerTag(eformFingerprint(source));
+            var at = source.indexOf("<title>");
+            return (at < 0) ? tag + source : source.slice(0, at) + tag + source.slice(at);
+        }
+
+        /**
+         * Whether a stored template was saved by this editor and has not been changed anywhere else
+         * since: its marker is present and the fingerprint still matches the rest of the markup.
+         * Mirrors EFormEditorResolver.resolve(...) == VISUAL, which decides where the eForm Library's
+         * Edit action goes; keep the two in step.
+         */
+        function isVisualEditorAuthored(html) {
+            if (!html) {
+                return false;
+            }
+            var match = /<meta name='([a-z-]+)' content='([a-z]+)' data-fingerprint='([0-9a-f]{8})'>/.exec(html);
+            if (!match || match[1] !== VISUAL_EDITOR_MARKER_NAME || match[2] !== VISUAL_EDITOR_MARKER_CONTENT) {
+                return false;
+            }
+            var unmarked = html.slice(0, match.index) + html.slice(match.index + match[0].length);
+            return eformFingerprint(unmarked) === match[3];
+        }
+
+        /**
+         * Loads a stored template onto the canvas and, only if it converted, attaches the editor to
+         * it so "Update Eform" saves back to the same form (PUT .../{fid}/json) instead of creating a
+         * copy. A form this editor did not write is converted: its own scripts are replaced on save,
+         * so the reader is told so, and pointed at the HTML source editor that keeps them.
+         */
+        function loadEformById(id) {
+            var seq = ++eformLoadSeq;
+            eformLoadPending = true;
+            $.ajax({
+                type: "GET",
+                url: OSCAR_EFORM_ENTITY_URL + encodeURIComponent(id),
+                dataType: 'json',
+                async: true,
+                complete: function() {
+                    if (seq === eformLoadSeq) {
+                        eformLoadPending = false;
+                    }
+                },
+                success: function(data) {
+                    if (seq !== eformLoadSeq) {
+                        return; // superseded by a later load
+                    }
+                    if (data.status !== "SUCCESS") {
+                        custom_alert(data.error ? data.error.message : EFORM_I18N.alertLoadFailure);
+                        return;
+                    }
+                    var formHtml = data.body.formHtml;
+                    var authored = isVisualEditorAuthored(formHtml);
+                    var loaded = false;
+                    try {
+                        loaded = (loadEformData(formHtml) === true);
+                    } catch (err) {
+                        // The conversion failed part-way, so the canvas may already be partly
+                        // replaced. Detach rather than leave it attached to the previous form,
+                        // which "Update Eform" would then overwrite with the partial canvas.
+                        console.error("Failed to convert eForm:", err);
+                        setEformId(0);
+                        showEditingBanner(0, false);
+                        custom_alert(EFORM_I18N.alertLoadFailure);
+                    }
+                    if (!loaded) {
+                        return;
+                    }
+                    setEformId(data.body.id);
+                    showEditingBanner(data.body.id, !authored);
+                    if (!authored) {
+                        custom_alert(EFORM_I18N.alertConvertedForm);
+                    }
+                    console.info("EForm Loaded from Server");
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    if (seq !== eformLoadSeq) {
+                        return;
+                    }
+                    console.error("Failed to load eForm:", textStatus, errorThrown);
+                    custom_alert(EFORM_I18N.alertLoadFailure);
+                }
+            });
+        }
+
+        /** Shows which stored form the canvas belongs to, with the way out to its HTML source. */
+        function showEditingBanner(id, converted) {
+            var asInt = parseInt(id, 10);
+            if (!(Number.isInteger(asInt) && asInt > 0)) {
+                $("#gen-editingBanner").prop("hidden", true);
+                return;
+            }
+            $("#gen-editingFid").text(asInt);
+            $("#gen-editHtmlSourceLink").attr("href", OSCAR_EFORM_HTML_EDITOR_URL + asInt);
+            $("#gen-convertedNotice").prop("hidden", !converted);
+            $("#gen-editingBanner").prop("hidden", false);
+        }
+
         function init_form_load($element) {
 
             if (!runStandaloneVersion) {
@@ -2936,34 +3098,13 @@ var EFORM_I18N = {
                             var $root = $("<div>", {
                                 class: "page_control_item"
                             }).appendTo($element);
-                            var $eFormSelect = addSelectMenu($root, "eFormSelect", "Select EForm", options, values);
+                            var $eFormSelect = addSelectMenu($root, "eFormSelect", EFORM_I18N.labelSelectEForm, options, values);
                             $eFormSelect.selectmenu();
                             var $loadButton = $("<button>", {
-                                text: "Load Selected EForm"
+                                text: EFORM_I18N.buttonLoadEForm
                             }).button().click(function(event) {
                                 if (selectedId > 0) {
-                                    // load the selected eform from the html by id
-                                    $.ajax({
-                                        type: "GET",
-                                        url: OSCAR_EFORM_ENTITY_URL + selectedId,
-                                        dataType: 'json',
-                                        async: true,
-                                        success: function(data) {
-                                            var status = data.status;
-                                            if (status === "SUCCESS") {
-                                                // setup the generator with the existing eform data
-                                                loadEformData(data.body.formHtml);
-                                                setEformId(data.body.id);
-                                                console.info("EForm Loaded from Server");
-                                            } else {
-                                                custom_alert(data.error.message);
-                                            }
-                                        },
-                                        error: function(jqXHR, textStatus, errorThrown) {
-                                            console.error("Failed to load eForm:", textStatus, errorThrown);
-                                            custom_alert(EFORM_I18N.alertSaveFailure);
-                                        }
-                                    });
+                                    loadEformById(selectedId);
                                 }
                                 event.preventDefault();
                             }).appendTo($root);
@@ -3060,7 +3201,7 @@ var EFORM_I18N = {
             }
 
             var $clearButton = $("<button>", {
-                text: "Clear"
+                text: EFORM_I18N.buttonClear
             }).button().click(function(event) {
                 if ($img != null) {
                     $img.remove();
@@ -3070,24 +3211,24 @@ var EFORM_I18N = {
             });
 
             var $removePageButton = $("<button>", {
-                text: "Remove Page"
+                text: EFORM_I18N.buttonRemovePage
             }).button({
                 icon: "ui-icon-circle-minus",
                 showLabel: false
             }).click(function(event) {
-                var $confirm = createConfirmationDialogueElements(CONFIRM_PAGE_REMOVE_TITLE, CONFIRM_PAGE_REMOVE_MESSAGE);
+                var $confirm = createConfirmationDialogueElements(EFORM_I18N.dialogConfirmPageRemoval, EFORM_I18N.dialogConfirmPageRemovalMsg);
                 $confirm.dialog({
                     resizable: false,
                     height: "auto",
                     width: 400,
                     modal: true,
                     buttons: {
-                        "Delete": function() {
+                        [EFORM_I18N.buttonDelete]: function() {
                             $pageDiv.remove();
                             $root.remove();
                             $(this).dialog("close");
                         },
-                        "Cancel": function() {
+                        [EFORM_I18N.buttonCancel]: function() {
                             $(this).dialog("close");
                         }
                     },
@@ -3106,7 +3247,7 @@ var EFORM_I18N = {
                     options.push(eFormImageList[i]);
                 }
 
-                $fileSelector = addSelectMenu($root, "imageSelect", "Select Background Image", options);
+                $fileSelector = addSelectMenu($root, "imageSelect", EFORM_I18N.labelSelectBgImage, options);
                 $fileSelector.selectmenu();
 
                 $fileSelector.on("selectmenuchange", (function(event, data) {
@@ -3167,10 +3308,10 @@ var EFORM_I18N = {
             var $saveBtn = $("#saveToOscarButton")
             if (Number.isInteger(asInt) && asInt > 0) {
                 eFormFid = asInt;
-                $saveBtn.button('option', 'label', OSCAR_SAVE_MESSAGE_UPDATE);
+                $saveBtn.button('option', 'label', EFORM_I18N.dialogUpdateEform);
             } else {
                 eFormFid = 0;
-                $saveBtn.button('option', 'label', OSCAR_SAVE_MESSAGE_NEW);
+                $saveBtn.button('option', 'label', EFORM_I18N.dialogSaveAsNewEform);
             }
         }
 
@@ -3230,11 +3371,10 @@ var EFORM_I18N = {
                 });
             }
 
-
             var $pagesControlgroup = createFieldset("pagesControlGroup", "Pages");
             var $addPageButtonControlGroup = createFieldset("addPagesControlGroup", null);
             var $addPageButton = $("<button>", {
-                text: "Add Page"
+                text: EFORM_I18N.buttonAddPage
             }).button({
                 icon: "ui-icon-circle-plus"
                 //showLabel: false
@@ -3245,7 +3385,7 @@ var EFORM_I18N = {
             });
 
             var $custDimensionX = $("<div>").append($("<label>", {
-                text: "Width:",
+                text: EFORM_I18N.labelWidth,
                 for: "gen-setPageWidth"
             })).append($("<input>", {
                 id: "gen-setPageWidth",
@@ -3253,7 +3393,7 @@ var EFORM_I18N = {
                 value: eFormPageWidth
             }));
             var $custDimensionY = $("<div>").append($("<label>", {
-                text: "Height:",
+                text: EFORM_I18N.labelHeight,
                 for: "gen-setPageHeight"
             })).append($("<input>", {
                 id: "gen-setPageHeight",
@@ -3264,9 +3404,9 @@ var EFORM_I18N = {
                 class: "flexH"
             }).append($custDimensionX).append($custDimensionY);
 
-            var labels = ["Portrait", "Landscape", "Custom"];
-            var $orinetationRadioGroup = addRadioGroup($element, "gen-orientation", "Orientation", labels);
-            $orinetationRadioGroup.on("change", function(e) {
+            var labels = [EFORM_I18N.optPortrait, EFORM_I18N.optLandscape, EFORM_I18N.optCustom];
+            var $orientationRadioGroup = addRadioGroup($element, "gen-orientation", EFORM_I18N.imageOrientation, labels);
+            $orientationRadioGroup.on("change", function(e) {
                 var value = parseInt($(e.target).val());
                 setPageOrientation(value);
             });
@@ -3278,8 +3418,8 @@ var EFORM_I18N = {
             $addPageButtonControlGroup.append($pagesControlgroup);
             $("<div>").append($("<label>", {
                 id: "gen-orientationLabel",
-                text: "Page Dimensions: " + eFormPageWidthPortrait + "x" + eFormPageHeightPortrait +
-                    " (Landscape: " + eFormPageWidthLandscape + "x" + eFormPageHeightLandscape + ")"
+                text: EFORM_I18N.labelPageDimensions + eFormPageWidthPortrait + "x" + eFormPageHeightPortrait +
+                    " (" + EFORM_I18N.optLandscape + eFormPageWidthLandscape + "x" + eFormPageHeightLandscape + ")"
             })).appendTo($dimensionInputs);
 
             return $pagesControlgroup;
@@ -3330,13 +3470,13 @@ var EFORM_I18N = {
             customTitle.css("font-size", "12");
             linkTitle.css("font-size", "12");
             $xBoxTemplate.after(customTitle);
-			$xBoxTemplate.before('&nbsp;');
-            var $label = $("<label>").text('  Custom Title: ');
+            $xBoxTemplate.before('&nbsp;');
+            var $label = $("<label>").text('  ' + EFORM_I18N.labelCustomTitle);
             $label.css("fontSize", 12);
             $label.attr('id', "theLabel");
             customTitle.before($label);
             customTitle.after(linkTitle);
-            var $label2 = $("<label>").text(' LinkTo:');
+            var $label2 = $("<label>").text(' ' + EFORM_I18N.labelLinkTo);
             $label2.css("fontSize", 12);
             $label2.attr('id', "theLabel2");
             linkTitle.before($label2);
@@ -3372,10 +3512,10 @@ var EFORM_I18N = {
             //$rBoxTemplateInput.addClass("cradio").attr('autocomplete', 'off');
             $rBoxTemplateInput.addClass("cradio").attr('onclick', 'myupdate(this)'); //newwork
 
-            $bBoxTemplateInput.addClass("all-no-button2").attr('value', 'All No');
-			$bBoxTemplateInput.attr('onclick', 'allno();');
+            $bBoxTemplateInput.addClass("all-no-button2").attr('value', EFORM_I18N.buttonAllNo);
+            $bBoxTemplateInput.attr('onclick', 'allno();');
             $bBoxTemplateInput.removeClass("gen_input")
-			$bBoxTemplate.hide();
+            $bBoxTemplate.hide();
             //$bBoxTemplateInput.removeClass("cradio")
 
             var $checkboxSizeSpinner = createSpinnerElem("checkboxSizeSpinner", "Template Size:", checkboxSize);
@@ -3448,33 +3588,33 @@ var EFORM_I18N = {
             $tab.append($dragFrame0);
             $options_menu0.append($checkboxSizeSpinner);
             $options_menu0.append($("<div>").append($("<label>", {
-                text: "Pre-Check:",
+                text: EFORM_I18N.labelPreCheck,
                 for: "gen-precheckCheckboxId"
             })).append($preCheckCheckbox));
             $options_menu0.append($("<div>").append($("<label>", {
                 for: "gen-all-no",
-                text: "All No function"
+                text: EFORM_I18N.labelAllNoFunction
             })).append($allNoChkbox));
             $options_menu0.append($("<div>").append($("<label>", {
                 for: "gen-precheckByGender",
-                text: "Pre-Check by Gender"
+                text: EFORM_I18N.labelPreCheckByGender
             })).append($checkByGenderChkbox));
             var $div01 = $("<div>").appendTo($options_menu0);
-            var $gender_select = addSelectMenu($div01, "genderSelect0", "Check When", ["M", "F", "T", "O", "U"]);
+            var $gender_select = addSelectMenu($div01, "genderSelect0", EFORM_I18N.labelCheckWhen, ["M", "F", "T", "O", "U"]);
             $gender_select.selectmenu("disable");
             var removeGenderPrecheckClasses = function(index, curclass) {
                 return (curclass.match(/(^|\s)gender_precheck_\S+/g) || []).join(' ');
             };
             $gender_select.on("selectmenuchange", (function(event, data) {
                 $checkBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
-				$rBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
+                $rBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
                 $xBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
             }));
             $checkByGenderChkbox.on('change', function() {
                 if ($(this).is(':checked')) {
                     $gender_select.selectmenu("enable");
                     $checkBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
-					$rBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
+                    $rBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
                     $xBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
                     if ($preCheckCheckbox.is(':checked')) {
                         $preCheckCheckbox.prop('checked', false);
@@ -3483,7 +3623,7 @@ var EFORM_I18N = {
                 } else {
                     $gender_select.selectmenu("disable");
                     $checkBoxTemplateInput.removeClass(removeGenderPrecheckClasses);
-					$rBoxTemplateInput.removeClass(removeGenderPrecheckClasses);
+                    $rBoxTemplateInput.removeClass(removeGenderPrecheckClasses);
                     $xBoxTemplateInput.removeClass(removeGenderPrecheckClasses);
                 }
             });
@@ -3495,7 +3635,7 @@ var EFORM_I18N = {
                 type: 'checkbox'
             });
             var $oscarCheckbox2label = $('<label>', {
-                text: 'Add function',
+                text: EFORM_I18N.labelAddFunction,
                 for: 'toggleCheckbox2'
             });
 
@@ -3504,7 +3644,7 @@ var EFORM_I18N = {
                 type: 'checkbox'
             });
             var $oscarCheckbox22label = $('<label>', {
-                text: 'Add SideBar',
+                text: EFORM_I18N.labelAddSideBar,
                 for: 'toggleCheckbox22'
             });
 
@@ -3788,12 +3928,12 @@ var EFORM_I18N = {
             $db_tag_select.on('selectmenuchange', (function(event, data) {
 
                 $textBoxTemplate.find(':input').attr('oscarDB', $db_tag_select.val());
-                $('#someName').val($db_tag_select.val()); //2020-May-01
+                $('#someName').val($db_tag_select.val());
                 $textAreaTemplate.find('textarea').attr('oscarDB', $db_tag_select.val());
-				$textBoxTemplate.find(':input').attr('placeholder', $db_tag_select.val()); //2024-May-01
-				$textAreaTemplate.find('textarea').attr('placeholder', $db_tag_select.val()); //2024-May-01
-                $textBoxTemplate.find(':input').attr('title', $db_tag_select.val()); //2019-Feb-14
-                $textAreaTemplate.find('textarea').attr('title', $db_tag_select.val()); //2019-Feb-14
+                $textBoxTemplate.find(':input').attr('placeholder', $db_tag_select.val());
+                $textAreaTemplate.find('textarea').attr('placeholder', $db_tag_select.val());
+                $textBoxTemplate.find(':input').attr('title', $db_tag_select.val());
+                $textAreaTemplate.find('textarea').attr('title', $db_tag_select.val());
 
             }));
             $('#oscarDbTagSelect-button').hide() //???????????
@@ -3984,8 +4124,8 @@ var EFORM_I18N = {
                     $db_tag_select.selectmenu('disable');
                     $textBoxTemplate.find(':input').removeAttr('oscarDB');
                     $textAreaTemplate.find('textarea').removeAttr('oscarDB');
-					$textBoxTemplate.find(':input').removeAttr('placeholder'); //2024-May-01
-					$textAreaTemplate.find('textarea').removeAttr('placeholder'); //2024-May-01 invalid pseudo
+                    $textBoxTemplate.find(':input').removeAttr('placeholder'); //2024-May-01
+                    $textAreaTemplate.find('textarea').removeAttr('placeholder'); //2024-May-01 invalid pseudo
                     //$('#someName').remove();  //2020-May-01
                     //$('#theLabel').remove();  //2020-May-01
                     $('#someName').val(""); // 2020-May-03
@@ -4158,14 +4298,63 @@ var EFORM_I18N = {
 
 
             var $dragFrame51 = createStitchFrame();
-            var src = "BNK.png";
-            if (!runStandaloneVersion){ src = OSCAR_DISPLAY_IMG_SRC + src;}
+            var src = getSignatureStampPreviewSrc();
             addDraggableStamp($dragFrame51, "signatureStamp", 255, 50, src, "signatureStamp");
             $tab.append($dragFrame51);
-            var $label = $("<label>").text('  Add Signature Stamp: ');
-            $label.css("fontSize", 12);
-            $label.attr('id', "stampLabel");
-            $dragFrame51.before($label);
+            var $stampLabel = $("<label>").text('  Add Signature Stamp: ');
+            $stampLabel.css("fontSize", 12);
+            $stampLabel.attr('id', "stampLabel");
+            $dragFrame51.before($stampLabel);
+            /* The stamp is only usable once its provider-signature image has loaded. Keep the
+               stamp label/frame hidden until the load result is known so it cannot be dragged
+               onto a form while still loading — a dropped clone would otherwise show a broken
+               image if the provider signature then 404s. Reveal it on success; on failure keep
+               it hidden and show a warning at the BOTTOM of the tab (in the palette, never
+               inside a draggable/serialized widget). Guard the warning against a duplicate if
+               the tab is initialised more than once. */
+            $stampLabel.hide();
+            $dragFrame51.hide();
+            var showSignatureStamp = function() {
+                $stampLabel.show();
+                $dragFrame51.show();
+            };
+            var showNoSignatureStampWarning = function() {
+                $stampLabel.hide();
+                $dragFrame51.hide();
+                if ($tab.find(".noSignatureStampWarning").length === 0) {
+                    $tab.append($("<div>", {
+                        text: EFORM_I18N.textNoSignatureStamp,
+                        class: "noSignatureStampWarning",
+                        // role=alert so screen readers announce this dynamically inserted warning
+                        role: "alert",
+                        style: 'font-size:14px; color:#b00; margin-top:6px;'
+                    }));
+                }
+            };
+            var $stampImg = $dragFrame51.find("img.stamp");
+            /* Capture the provider-signature endpoint up front: toggleMe() rewrites img.src to a
+               blank placeholder when a loaded stamp is clicked, so img.src is not reliable later. */
+            var stampSrc = $stampImg.attr("src");
+            /* The <img> "error" event carries no HTTP status, so a transient/permission/server
+               failure (401/403/500) is indistinguishable from a missing signature (404). Probe
+               the provider-signature endpoint to classify: only a 404 means "no signature on
+               file" — for any other failure leave the stamp hidden without the misleading
+               message. Checking stampSrc (not the current img.src) also means a click that
+               toggles the stamp to a missing blank placeholder never reverts a real signature
+               to the warning. */
+            var warnIfMissingSignature = function() {
+                fetch(stampSrc, { credentials: "same-origin" })
+                    .then(function(resp) {
+                        if (resp.status === 404) {
+                            showNoSignatureStampWarning();
+                        }
+                    })
+                    .catch(function() {
+                        /* network/CSP error: leave the stamp hidden, do not guess a reason */
+                    });
+            };
+            $stampImg.on("load", showSignatureStamp);
+            $stampImg.on("error", warnIfMissingSignature);
 
             if (!signaturePadLoaded) {
                 $tab.append($("<span>", {
@@ -4177,11 +4366,40 @@ var EFORM_I18N = {
                 var $dragFrame52 = createStitchFrame();
                 addDraggableSignaturePad($dragFrame52, "signaturePad", 255, 50, "signaturePad");
                 $tab.append($dragFrame52);
-                $label = $("<label>").text('  Add Wet Signature: ');
-                $label.css("fontSize", 12);
-                $label.attr('id', "padLabel");
-                $dragFrame52.before($label);
+                var $padLabel = $("<label>").text('  Add Wet Signature: ');
+                $padLabel.css("fontSize", 12);
+                $padLabel.attr('id', "padLabel");
+                $dragFrame52.before($padLabel);
+                /* The wet-signature pad can only be drawn on in interact mode. While the
+                   Form Building panel is open the editor is in drag/build mode (widgets carry
+                   a transparent overlay so they can be positioned), which blocks drawing.
+                   Tell the user to open another panel to actually sign. Guard against a
+                   duplicate id if the tab is ever initialised more than once. */
+                if ($tab.find("#padSignHint").length === 0) {
+                    $tab.append($("<div>", {
+                        text: EFORM_I18N.textWetSignatureSignHint,
+                        id: "padSignHint",
+                        style: 'font-size:14px; color:#555; margin-top:4px;'
+                    }));
+                }
             }
+
+            /* addDraggableStamp set the src before the load/error handlers above were attached,
+               so the image may have already resolved (e.g. a cached response) and fired its
+               event before we were listening. Apply the outcome explicitly. Run last — AFTER
+               the wet-signature hint — so a synchronous warning is still appended below the
+               hint, matching the async error-event ordering. Both branches are idempotent
+               (show is a no-op if already shown; the warning is de-duplicated). */
+            $stampImg.each(function() {
+                if (!this.getAttribute("src") || !this.complete) {
+                    return;
+                }
+                if (this.naturalWidth === 0) {
+                    warnIfMissingSignature();
+                } else {
+                    showSignatureStamp();
+                }
+            });
         }
 
         function init_input_controls($element) {
@@ -4216,9 +4434,9 @@ var EFORM_I18N = {
                 .append($("<div>")).append($("<label>", {
                     text: EFORM_I18N.helpCtrlCVCopy
                 }));
-            var $control_fieldset = createFieldset("grid-guide_options", "Guide Options");
+            var $control_fieldset = createFieldset("grid-guide_options", EFORM_I18N.textGuideOptions);
             var $trash_box = createTrashFrame();
-            $trash_box.append("<span class='ui-icon ui-icon-trash' style='-webkit-transform: scale(2);'></span> Trash");
+            $trash_box.append("<span class='ui-icon ui-icon-trash' style='-webkit-transform: scale(2);'>"+EFORM_I18N.textTrash+"</span>");
             $trash_box.droppable({
                 accept: ".ui-draggable",
                 hoverClass: "gen-trashHover",
@@ -4298,8 +4516,8 @@ var EFORM_I18N = {
 
         function init_style_controls($element) {
 
-            var visibilityLables = ["Always Visible", "Invisible on Print", "Always Invisible"];
-            var $textHideOptions = addRadioGroup($element, "gen-text-border-radio", "Text Borders", visibilityLables);
+            var visibilityLables = [EFORM_I18N.optAlwaysVisible, EFORM_I18N.optInvisibleOnPrint, EFORM_I18N.optAlwaysInvisible];
+            var $textHideOptions = addRadioGroup($element, "gen-text-border-radio", EFORM_I18N.labelTextBorders, visibilityLables);
             $textHideOptions.on("change", function(e) {
                 var value = parseInt($(e.target).val());
                 var $selector = $(".input_elements").find(TEXT_INPUT_SELECTOR);
@@ -4309,7 +4527,7 @@ var EFORM_I18N = {
             // set inital value index
             $textHideOptions.find("input").filter("[value='" + textBordersVisibleState + "']").prop("checked", true).button("refresh");
 
-            var $xboxHideOptions = addRadioGroup($element, "gen-xbox-border-radio", "xBox Borders", visibilityLables);
+            var $xboxHideOptions = addRadioGroup($element, "gen-xbox-border-radio", EFORM_I18N.labelXboxBorders, visibilityLables);
             $xboxHideOptions.on("change", function(e) {
                 var value = parseInt($(e.target).val());
                 var $selector = $(".input_elements").find(XBOX_INPUT_SELECTOR);
@@ -4352,7 +4570,7 @@ var EFORM_I18N = {
             })
 
             $options_menu.append($("<div>").append($("<label>", {
-                text: "Eform Name",
+                text: EFORM_I18N.labelEformName,
                 for: "eformNameInput"
             })).append($("<input>", {
                 id: "eformNameInput",
@@ -4367,12 +4585,12 @@ var EFORM_I18N = {
                 }
             })));
             $options_menu.append($("<div>").append($("<label>", {
-                text: "Include Fax Controls",
+                text: EFORM_I18N.labelIncludeFaxControls,
                 for: "toggleFaxControls"
             })).append($toggleFaxControls));
 
             $options_menu.append($("<div>").append($("<label>", {
-                text: "Default Fax No",
+                text: EFORM_I18N.labelDefaultFaxNo,
                 for: "defaultFaxNo"
             })).append($("<input>", {
                 id: "defaultFaxNo",
@@ -4387,12 +4605,12 @@ var EFORM_I18N = {
                 }
             })));
             $options_menu.append($("<div>").append($("<label>", {
-                text: "Include Set Tickler",
+                text: EFORM_I18N.labelIncludeSetTickler,
                 for: "setTickler"
             })).append($toggleTickler));
 
             $options_menu.append($("<div>").append($("<label>", {
-                text: "Stand alone testing",
+                text: EFORM_I18N.labelStandAloneTesting,
                 for: "standAlone"
             })).append($("<input>", {
                 id: "standAlone",
@@ -4436,7 +4654,7 @@ var EFORM_I18N = {
             if (!runStandaloneVersion) {
                 $element.append($('<button>', {
                     id: "saveToOscarButton",
-                    text: OSCAR_SAVE_MESSAGE_NEW,
+                    text: EFORM_I18N.dialogSaveAsNewEform,
                     click: function(event) {
                         saveToOscarEforms($toggleFaxControls.is(':checked'));
                         event.preventDefault();
@@ -4691,6 +4909,11 @@ var EFORM_I18N = {
                 currentMousePos.x = event.pageX;
                 currentMousePos.y = event.pageY;
             });
+
+            // Opened from the eForm Library's Edit action: pre-load that form (#3166).
+            if (INITIAL_EFORM_FID > 0) {
+                loadEformById(INITIAL_EFORM_FID);
+            }
         }
     </script>
 
@@ -4818,12 +5041,20 @@ var EFORM_I18N = {
 	<script id="stamp_script" class="toSource">
     <!-- functions to support signature stamps -->
 
+        function getBlankSignatureStampSrc(){
+            return runStandaloneVersion ? "BNK.png" : OSCAR_DISPLAY_IMG_SRC + "BNK.png";
+        }
+
+        function getSignatureStampPreviewSrc(){
+            return runStandaloneVersion ? getBlankSignatureStampSrc() : OSCAR_PROVIDER_SIGNATURE_IMG_SRC;
+        }
+
         /** this function toggles visibility of the individual stamp. */
         function toggleMe(el){
 	        if (el.src.indexOf("BNK.png")>-1){
 		        sign(el);
 	        } else {
-		        el.src = "../eform/displayImage?imagefile=BNK.png";
+		        el.src = getBlankSignatureStampSrc();
 	        }
         }
         /** this function stamp by delegation model */
@@ -5357,7 +5588,7 @@ var EFORM_I18N = {
                 <form id="inputForm" action="get">
                     <div id="BottomButtons" class="DoNotPrint">
                         <!-- Form Control Buttons -->
-						<label for="subject"><fmt:message key="eform.visual.editor.label.subject"/></label>
+                        <label for="subject"><fmt:message key="eform.visual.editor.label.subject"/></label>
                         <input id="subject" name="subject" style="width: 220px;" type="text">
                         <input id="SubmitButton" name="SubmitButton" onclick="onEformSubmit();" type="button" value="<fmt:message key="eform.visual.editor.button.submit"/>">
                         <input id="PrintButton" name="PrintButton" onclick="onEformPrint()" type="button" value="<fmt:message key="eform.visual.editor.button.print"/>">
@@ -5367,6 +5598,12 @@ var EFORM_I18N = {
             </div>
         </div>
         <div id="control">
+            <%-- Which stored form the canvas is attached to, once one is loaded or saved (#3166). --%>
+            <div id="gen-editingBanner" class="gen-editingBanner DoNotPrint" role="status" hidden>
+                <span><fmt:message key="eform.visual.editor.banner.editing"/> #<span id="gen-editingFid"></span></span>
+                <a id="gen-editHtmlSourceLink" href="#"><fmt:message key="eform.uploadhtml.editHtmlSource"/></a>
+                <p id="gen-convertedNotice" hidden><fmt:message key="eform.visual.editor.banner.converted"/></p>
+            </div>
             <div id="control_menu_1">
                 <h3><fmt:message key="eform.visual.editor.heading.loadExistingEForm"/></h3>
                 <div id="control_menu_1-load" class="flexV">

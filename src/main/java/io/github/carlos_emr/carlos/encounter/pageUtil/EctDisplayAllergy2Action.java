@@ -38,7 +38,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.util.DateUtils;
@@ -107,18 +107,24 @@ public class EctDisplayAllergy2Action extends EctDisplayAction {
         }
         item.setDate(entryDate);
 
-        String customDescription = description;
+        String customDescription = buildCustomDescription(description, locale, prefsBean, startDate, severityDescription);
+        String encodedDescription = SafeEncode.forHtmlContent(customDescription);
+        item.setTitle(encodedDescription);
+        item.setLinkTitle(encodedDescription);
+        item.setURL("return false;");
+
+        return (item);
+    }
+
+    static String buildCustomDescription(String description, Locale locale, CppPreferencesUIBean prefsBean, Date startDate, String severityDescription) {
+        String customDescription = description != null ? description : "";
         if (prefsBean != null && "on".equals(prefsBean.getAllergyStartDate())) {
             customDescription = customDescription + " Start Date:" + DateUtils.formatDate(startDate, locale);
         }
         if (prefsBean != null && "on".equals(prefsBean.getAllergySeverity())) {
-            customDescription = customDescription + " Severity:" + severityDescription;
+            customDescription = customDescription + " Severity:" + (severityDescription != null ? severityDescription : "");
         }
-        item.setTitle(Encode.forHtml(customDescription));
-        item.setLinkTitle(Encode.forHtml(customDescription));
-        item.setURL("return false;");
-
-        return (item);
+        return customDescription;
     }
 
     public String getCmd() {

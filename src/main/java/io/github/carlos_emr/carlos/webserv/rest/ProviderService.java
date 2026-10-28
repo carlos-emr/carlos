@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.core.MediaType;
@@ -59,8 +60,10 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.OscarLogManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.model.ProviderSettings;
 import io.github.carlos_emr.carlos.utility.JsDateSerializer;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.web.PatientListApptBean;
 import io.github.carlos_emr.carlos.web.PatientListApptItemBean;
@@ -73,7 +76,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 
 /**
  * REST service for provider-related operations using OAuth 1.0a authentication.
@@ -109,6 +111,9 @@ public class ProviderService extends AbstractServiceImpl {
     @Autowired
     DemographicManager demographicManager;
 
+    @Autowired
+    SecurityInfoManager securityInfoManager;
+
 
 
     public ProviderService() {
@@ -130,7 +135,7 @@ public class ProviderService extends AbstractServiceImpl {
             OscarSearchResponse<ProviderTransfer> lst = new
                 OscarSearchResponse<ProviderTransfer>();
 
-            for (Provider p : providerDao.getActiveProviders()) {
+            for (Provider p : visible(getLoggedInInfo(), providerDao.getActiveProviders())) {
                 lst.getContent().add(ProviderTransfer.toTransfer(p));
             }
             lst.setTimestamp(new Date());
@@ -158,7 +163,9 @@ public class ProviderService extends AbstractServiceImpl {
             logger.debug("Retrieving active providers as JSON");
 
 
-            List<ProviderTo1> providers = new ProviderConverter().getAllAsTransferObjects(getLoggedInInfo(), providerDao.getActiveProviders());
+            LoggedInInfo loggedInInfo = getLoggedInInfo();
+            List<ProviderTo1> providers = new ProviderConverter().getAllAsTransferObjects(loggedInInfo,
+                    visible(loggedInInfo, providerDao.getActiveProviders()));
 
             AbstractSearchResponse<ProviderTo1> response = new AbstractSearchResponse<ProviderTo1>();
             response.setContent(providers);
@@ -193,7 +200,7 @@ public class ProviderService extends AbstractServiceImpl {
             }
 
             logger.info("Successfully retrieved provider: {}", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            return ProviderTransfer.toTransfer(provider);
+            return ProviderTransfer.toTransfer(visible(getLoggedInInfo(), provider));
         }
 
     /**
@@ -254,7 +261,7 @@ public class ProviderService extends AbstractServiceImpl {
         }
 
         logger.info("Successfully retrieved provider {} as JSON", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-        return objectMapper.valueToTree(provider).toString();
+        return objectMapper.valueToTree(visible(getLoggedInInfo(), provider)).toString();
     }
 
 
@@ -293,7 +300,10 @@ public class ProviderService extends AbstractServiceImpl {
                 if (activeNode.isBoolean()) {
                     active = activeNode.asBoolean();
                 } else if (activeNode.isTextual()) {
-                    String s = activeNode.asText().trim().toLowerCase();
+                    // ASCII-strict on purpose: equalsIgnoreCase() folds Unicode lookalikes,
+                    // so "fal\u017Fe" (LATIN SMALL LETTER LONG S) would be accepted as "false"
+                    // and silently select inactive providers instead of returning 400.
+                    String s = activeNode.asText().trim().toLowerCase(Locale.ROOT);
                     if ("true".equals(s))      active = true;
                     else if ("false".equals(s)) active = false;
                     else throw new WebApplicationException(
@@ -322,13 +332,14 @@ public class ProviderService extends AbstractServiceImpl {
             int count = (itemsToReturn == null ? 5000 : itemsToReturn);
 
             // 4) Delegate to manager/DAO using sanitized inputs
+            LoggedInInfo loggedInInfo = getLoggedInInfo();
             List<Provider> results = providerManager.search(
-                getLoggedInInfo(), term, active, start, count);
+                loggedInInfo, term, active, start, count);
 
             // build response...
             AbstractSearchResponse<ProviderTo1> resp = new AbstractSearchResponse<>();
             resp.setContent(
-                new ProviderConverter().getAllAsTransferObjects(getLoggedInInfo(), results)
+                new ProviderConverter().getAllAsTransferObjects(loggedInInfo, visible(loggedInInfo, results))
             );
             resp.setTotal(resp.getContent().size());
             return resp;
@@ -382,7 +393,12 @@ public class ProviderService extends AbstractServiceImpl {
     @Path("/getActiveTeams")
     @Produces("application/json")
     public AbstractSearchResponse<String> getActiveTeams() {
-        List<String> teams = providerManager.getActiveTeams(getLoggedInInfo());
+        // Team names feed the schedule's team filter; every booking role holds the appointment right.
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
+            throw new WebApplicationException("missing required sec object (_appointment)", Response.Status.FORBIDDEN);
+        }
+        List<String> teams = providerManager.getActiveTeams(loggedInInfo);
 
         AbstractSearchResponse<String> response = new AbstractSearchResponse<String>();
 
@@ -410,8 +426,16 @@ public class ProviderService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public RestResponse<String> saveProviderSettings(ProviderSettings json, @PathParam("providerNo") String providerNo) {
-        MiscUtils.getLogger().warn(json.toString());
-
+        // Prevent horizontal privilege escalation: a provider may only save their OWN settings. Without
+        // this check any authenticated provider could rewrite another provider's preferences by passing
+        // an arbitrary providerNo in the path. The GET sibling (/settings/get) is likewise scoped to the
+        // session provider; cross-provider editing, if ever needed, belongs behind an explicit admin
+        // endpoint. The full settings payload is no longer logged.
+        String sessionProviderNo = getLoggedInInfo().getLoggedInProviderNo();
+        if (providerNo == null || !providerNo.equals(sessionProviderNo)) {
+            throw new WebApplicationException("provider settings may only be saved for the authenticated provider",
+                    Response.Status.FORBIDDEN);
+        }
         providerManager.updateProviderSettings(getLoggedInInfo(), providerNo, json);
         return RestResponse.successResponse(null);
     }
@@ -420,8 +444,12 @@ public class ProviderService extends AbstractServiceImpl {
     @Path("/suggestProviderNo")
     @Produces("application/json")
     public RestResponse<String> suggestProviderNo() {
-
-        List<Provider> providers = providerManager.getProviders(getLoggedInInfo(), null);
+        // A helper for adding a provider, which is an administrative task.
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new WebApplicationException("missing required sec object (_admin)", Response.Status.FORBIDDEN);
+        }
+        List<Provider> providers = providerManager.getProviders(loggedInInfo, null);
         List<Integer> providerList = new ArrayList<Integer>();
         for (Provider h : providers) {
             try {
@@ -443,4 +471,42 @@ public class ProviderService extends AbstractServiceImpl {
         return RestResponse.successResponse(suggestProviderNo);
     }
 
+
+    /**
+     * The providers as this caller may see them: a provider's whole record goes to that provider and
+     * to holders of the administrative read right; everyone else gets {@link #summaryOf(Provider)}.
+     */
+    private List<Provider> visible(LoggedInInfo loggedInInfo, List<Provider> providers) {
+        boolean admin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null);
+        Provider caller = loggedInInfo.getLoggedInProvider();
+        String self = caller == null ? null : caller.getProviderNo();
+        List<Provider> visible = new ArrayList<Provider>(providers.size());
+        for (Provider provider : providers) {
+            visible.add(admin || (self != null && self.equals(provider.getProviderNo())) ? provider : summaryOf(provider));
+        }
+        return visible;
+    }
+
+    private Provider visible(LoggedInInfo loggedInInfo, Provider provider) {
+        return visible(loggedInInfo, List.of(provider)).get(0);
+    }
+
+    /**
+     * What a provider picker or a schedule list shows: number, names, specialty, status, team and
+     * type. Contact, billing, licence and personal details stay with the whole record.
+     */
+    static Provider summaryOf(Provider provider) {
+        Provider summary = new Provider();
+        summary.setProviderNo(provider.getProviderNo());
+        summary.setFirstName(provider.getFirstName());
+        summary.setLastName(provider.getLastName());
+        summary.setSpecialty(provider.getSpecialty());
+        summary.setStatus(provider.getStatus());
+        summary.setTeam(provider.getTeam());
+        summary.setProviderType(provider.getProviderType());
+        // ProviderConverter fills ProviderTo1.providerType from providerActivity.
+        summary.setProviderActivity(provider.getProviderActivity());
+        summary.setLastUpdateDate(null);
+        return summary;
+    }
 }

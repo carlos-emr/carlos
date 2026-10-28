@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.casemgmt.print;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
@@ -79,7 +81,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
 
@@ -129,7 +131,6 @@ public class OscarChartPrinter implements java.io.Closeable {
     private BaseFont bf;
     private Font font, boldFont;
     boolean newPage;
-    private PdfContentByte cb;
 
     private ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
     private DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
@@ -142,7 +143,7 @@ public class OscarChartPrinter implements java.io.Closeable {
 
     /**
      * Creates a new chart printer and initialises the PDF document with Letter page size
-     * and Helvetica fonts.
+     * and embedded Unicode fonts.
      *
      * @param request HttpServletRequest providing session context and patient attributes
      * @param os OutputStream to which the finished PDF will be written
@@ -158,7 +159,7 @@ public class OscarChartPrinter implements java.io.Closeable {
         writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
         document.open();
         //Create the font we are going to print to
-        bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+        bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
         font = new Font(bf, FONTSIZE, Font.NORMAL);
         boldFont = new Font(bf, FONTSIZE, Font.BOLD);
     }
@@ -201,8 +202,7 @@ public class OscarChartPrinter implements java.io.Closeable {
     }
 
     private Paragraph getParagraph(String value) {
-        Paragraph p = new Paragraph(value, font);
-        return p;
+        return PdfFonts.paragraph(value, font);
     }
 
     /**
@@ -264,17 +264,17 @@ public class OscarChartPrinter implements java.io.Closeable {
         }
 
         //Header will be printed at top of every page beginning with p2
-        Phrase headerPhrase = new Phrase(LEADING, title, font);
+        Phrase headerPhrase = PdfFonts.phrase(LEADING, title, font);
         document.addHeader("", headerPhrase.getContent());
 
         getDocument().add(headerPhrase);
         getDocument().add(new Phrase("\n"));
 
-        Paragraph p = new Paragraph("Tel:" + demographic.getPhone(), getFont());
+        Paragraph p = PdfFonts.paragraph("Tel:" + demographic.getPhone(), getFont());
         p.setAlignment(Paragraph.ALIGN_LEFT);
         // getDocument().add(p);
 
-        Paragraph p2 = new Paragraph("Date of Visit: ", getFont());
+        Paragraph p2 = PdfFonts.paragraph("Date of Visit: ", getFont());
         p2.setAlignment(Paragraph.ALIGN_RIGHT);
         // getDocument().add(p);
 
@@ -311,7 +311,7 @@ public class OscarChartPrinter implements java.io.Closeable {
         getDocument().add(table);
 
         //Write title with top and bottom borders on p1
-        cb = writer.getDirectContent();
+        PdfContentByte cb = writer.getDirectContent();
         cb.setColorStroke(Color.BLACK);
         cb.setLineWidth(0.5f);
 
@@ -340,48 +340,48 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         p = new Paragraph();
         p.setAlignment(Paragraph.ALIGN_LEFT);
-        phrase = new Phrase(LEADING, "Patient Information", boldFont);
-        phrase.add("\n");
+        phrase = PdfFonts.phrase(LEADING, "Patient Information", boldFont);
+        PdfFonts.addText(phrase, "\n", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
         p = new Paragraph();
-        phrase = new Phrase(LEADING, "", font);
-        phrase.add("Title: " + demographic.getTitle() + "\n");
-        phrase.add("Last Name: " + demographic.getLastName() + "\n");
-        phrase.add("First Name: " + demographic.getFirstName() + "\n");
-        phrase.add("Gender: " + demographic.getSex() + "\n");
-        phrase.add("Date of Birth: " + demographic.getFormattedDob() + "\n");
-        phrase.add("Offical Language: " + demographic.getOfficialLanguage() + "\n");
-        phrase.add("Spoken Language: " + demographic.getSpokenLanguage() + "\n");
-        phrase.add("\n");
+        phrase = PdfFonts.phrase(LEADING, "", font);
+        PdfFonts.addText(phrase, "Title: " + demographic.getTitle() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Last Name: " + demographic.getLastName() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "First Name: " + demographic.getFirstName() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Gender: " + demographic.getSex() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Date of Birth: " + demographic.getFormattedDob() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Offical Language: " + demographic.getOfficialLanguage() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Spoken Language: " + demographic.getSpokenLanguage() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "\n", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
         p = new Paragraph();
-        phrase = new Phrase(LEADING, "", font);
-        phrase.add("Roster Status: " + demographic.getRosterStatus() + "\n");
-        phrase.add("Date Rostered: " + "\n");
-        phrase.add("Patient Status: " + demographic.getPatientStatus() + "\n");
-        phrase.add("Chart No (MRN): " + demographic.getChartNo() + "\n");
+        phrase = PdfFonts.phrase(LEADING, "", font);
+        PdfFonts.addText(phrase, "Roster Status: " + demographic.getRosterStatus() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Date Rostered: " + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Patient Status: " + demographic.getPatientStatus() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Chart No (MRN): " + demographic.getChartNo() + "\n", phrase.getFont());
         if (demographic.getDateJoined() != null) {
-            phrase.add("Date Joined: " + formatter.format(demographic.getDateJoined()) + "\n");
+            PdfFonts.addText(phrase, "Date Joined: " + formatter.format(demographic.getDateJoined()) + "\n", phrase.getFont());
         }
         if (demographic.getEndDate() != null) {
-            phrase.add("End Date: " + formatter.format(demographic.getEndDate()) + "\n");
+            PdfFonts.addText(phrase, "End Date: " + formatter.format(demographic.getEndDate()) + "\n", phrase.getFont());
         }
-        phrase.add("\n");
+        PdfFonts.addText(phrase, "\n", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
         p = new Paragraph();
-        phrase = new Phrase(LEADING, "", font);
-        phrase.add("Address: " + demographic.getAddress() + "\n");
-        phrase.add("City: " + demographic.getCity() + "\n");
-        phrase.add("Province: " + demographic.getProvince() + "\n");
-        phrase.add("Postal Code: " + demographic.getPostal() + "\n");
-        phrase.add("Email: " + demographic.getEmail() + "\n");
-        phrase.add("Phone: " + demographic.getPhone() + "\n");
+        phrase = PdfFonts.phrase(LEADING, "", font);
+        PdfFonts.addText(phrase, "Address: " + demographic.getAddress() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "City: " + demographic.getCity() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Province: " + demographic.getProvince() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Postal Code: " + demographic.getPostal() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Email: " + demographic.getEmail() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Phone: " + demographic.getPhone() + "\n", phrase.getFont());
 
         List<DemographicExt> exts = demographicExtDao.getDemographicExtByDemographicNo(demographic.getDemographicNo());
         String phoneExt = null;
@@ -395,64 +395,64 @@ public class OscarChartPrinter implements java.io.Closeable {
             }
         }
 
-        phrase.add("Work Phone: " + demographic.getPhone2());
+        PdfFonts.addText(phrase, "Work Phone: " + demographic.getPhone2(), phrase.getFont());
         if (phoneExt != null) {
-            phrase.add(" ext:" + phoneExt + "\n");
+            PdfFonts.addText(phrase, " ext:" + phoneExt + "\n", phrase.getFont());
         } else {
-            phrase.add("\n");
+            PdfFonts.addText(phrase, "\n", phrase.getFont());
         }
 
         if (cell != null) {
-            phrase.add("Cell Phone: " + cell + "\n");
+            PdfFonts.addText(phrase, "Cell Phone: " + cell + "\n", phrase.getFont());
         }
 
-        phrase.add("\n");
+        PdfFonts.addText(phrase, "\n", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
         p = new Paragraph();
-        phrase = new Phrase(LEADING, "", font);
-        phrase.add("Health Insurance #: " + demographic.getHin() + "\n");
-        phrase.add("HC Type: " + demographic.getHcType() + "\n");
+        phrase = PdfFonts.phrase(LEADING, "", font);
+        PdfFonts.addText(phrase, "Health Insurance #: " + demographic.getHin() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "HC Type: " + demographic.getHcType() + "\n", phrase.getFont());
         if (demographic.getEffDate() != null) {
-            phrase.add("Eff Date: " + formatter.format(demographic.getEffDate()) + "\n");
+            PdfFonts.addText(phrase, "Eff Date: " + formatter.format(demographic.getEffDate()) + "\n", phrase.getFont());
         }
-        phrase.add("\n");
+        PdfFonts.addText(phrase, "\n", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
         DemographicCust demographicCust = demographicCustDao.find(demographic.getDemographicNo());
 
         p = new Paragraph();
-        phrase = new Phrase(LEADING, "", font);
-        phrase.add("Physician: " + getProviderName(demographic.getProviderNo()) + "\n");
+        phrase = PdfFonts.phrase(LEADING, "", font);
+        PdfFonts.addText(phrase, "Physician: " + getProviderName(demographic.getProviderNo()) + "\n", phrase.getFont());
         if (demographicCust != null) {
-            phrase.add("Nurse: " + getProviderName(demographicCust.getNurse()) + "\n");
-            phrase.add("Midwife: " + getProviderName(demographicCust.getMidwife()) + "\n");
-            phrase.add("Resident: " + getProviderName(demographicCust.getResident()) + "\n");
+            PdfFonts.addText(phrase, "Nurse: " + getProviderName(demographicCust.getNurse()) + "\n", phrase.getFont());
+            PdfFonts.addText(phrase, "Midwife: " + getProviderName(demographicCust.getMidwife()) + "\n", phrase.getFont());
+            PdfFonts.addText(phrase, "Resident: " + getProviderName(demographicCust.getResident()) + "\n", phrase.getFont());
         }
-        phrase.add("Referral Doctor: " + getReferralDoctor(demographic.getFamilyDoctor()) + "\n");
-        phrase.add("\n");
+        PdfFonts.addText(phrase, "Referral Doctor: " + getReferralDoctor(demographic.getFamilyDoctor()) + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "\n", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
         p = new Paragraph();
-        phrase = new Phrase(LEADING, "", font);
+        phrase = PdfFonts.phrase(LEADING, "", font);
         //alerts & notes
         if (demographicCust != null) {
-            phrase.add("Alerts: " + demographicCust.getAlert() + "\n");
+            PdfFonts.addText(phrase, "Alerts: " + demographicCust.getAlert() + "\n", phrase.getFont());
             if (demographicCust.getNotes().length() > 0) {
-                phrase.add("Notes: " + SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes") + "\n");
+                PdfFonts.addText(phrase, "Notes: " + DemographicXml.userNotesText(demographicCust.getNotes()) + "\n", phrase.getFont());
             }
         }
-        phrase.add("\n");
+        PdfFonts.addText(phrase, "\n", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
 
         //relationships
         p = new Paragraph();
-        phrase = new Phrase(LEADING, "", font);
+        phrase = PdfFonts.phrase(LEADING, "", font);
 
         DemographicRelationship demoRel = new DemographicRelationship();
 
@@ -466,9 +466,9 @@ public class OscarChartPrinter implements java.io.Closeable {
             String emergencyContact = r.get("emergency_contact");
             String notes = r.get("notes");
 
-            phrase.add(relation + " - " + relationDemographic.getFormattedName() + " - " + subDecisionMaker + " - " + emergencyContact + " - " + notes + "\n");
+            PdfFonts.addText(phrase, relation + " - " + relationDemographic.getFormattedName() + " - " + subDecisionMaker + " - " + emergencyContact + " - " + notes + "\n", phrase.getFont());
         }
-        phrase.add("\n");
+        PdfFonts.addText(phrase, "\n", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
@@ -482,7 +482,7 @@ public class OscarChartPrinter implements java.io.Closeable {
      */
     private String getReferralDoctor(String field) {
         if (field != null && field.length() > 0) {
-            return SxmlMisc.getXmlContent(field, "rd");
+            return DemographicXml.referralDoctor(field);
         }
         return "";
     }
@@ -522,12 +522,11 @@ public class OscarChartPrinter implements java.io.Closeable {
         PdfPTable table = new PdfPTable(6);
         table.setWidthPercentage(100f);
         table.getDefaultCell().setBorder(PdfPCell.NO_BORDER);
-        table.addCell("Date");
-        table.addCell("From");
-        table.addCell("To");
-        table.addCell("Reason");
-        table.addCell("Provider");
-        table.addCell("Notes");
+        // Same 12pt size as OpenPDF's default cell font, but embedded like the rest of the chart.
+        Font columnFont = PdfFonts.getFont(BaseFont.HELVETICA, 12);
+        for (String column : new String[]{"Date", "From", "To", "Reason", "Provider", "Notes"}) {
+            table.addCell(PdfFonts.phrase(column, columnFont));
+        }
 
         for (Appointment appt : appts) {
             table.addCell(generalCellForApptHistory(formatter.format(appt.getAppointmentDate())));
@@ -564,15 +563,13 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         p = new Paragraph();
         p.setAlignment(Paragraph.ALIGN_LEFT);
-        phrase = new Phrase(LEADING, heading, obsfont);
+        phrase = PdfFonts.phrase(LEADING, heading, obsfont);
         p.add(phrase);
         document.add(p);
         newPage = false;
         this.printNotes(notes, true);
-
-
-        cb.endText();
-
+        // No text object is open here: the former cb.endText() made OpenPDF throw "unbalanced
+        // begin/end text operators", cutting the chart off after the first CPP section (#5046).
     }
 
 
@@ -590,7 +587,6 @@ public class OscarChartPrinter implements java.io.Closeable {
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
         Paragraph p;
         Phrase phrase;
-        Chunk chunk;
 
         //if( newPage )
         //     document.newPage();
@@ -603,18 +599,17 @@ public class OscarChartPrinter implements java.io.Closeable {
             note = notesIter.next();
             p = new Paragraph();
             //p.setSpacingBefore(font.leading(LINESPACING)*2f);
-            phrase = new Phrase(LEADING, "", font);
+            phrase = PdfFonts.phrase(LEADING, "", font);
 
             if (compact) {
-                phrase.add(new Chunk(formatter.format(note.getObservation_date()) + ":"));
+                PdfFonts.addText(phrase, formatter.format(note.getObservation_date()) + ":", phrase.getFont());
             } else {
-                chunk = new Chunk("Impression/Plan: (" + formatter.format(note.getObservation_date()) + ")\n", obsfont);
-                phrase.add(chunk);
+                PdfFonts.addText(phrase, "Impression/Plan: (" + formatter.format(note.getObservation_date()) + ")\n", obsfont);
             }
             if (compact) {
-                phrase.add(note.getNote() + "\n");
+                PdfFonts.addText(phrase, note.getNote() + "\n", phrase.getFont());
             } else {
-                phrase.add(note.getNote() + "\n\n");
+                PdfFonts.addText(phrase, note.getNote() + "\n\n", phrase.getFont());
             }
             p.add(phrase);
             document.add(p);
@@ -640,7 +635,7 @@ public class OscarChartPrinter implements java.io.Closeable {
      * @return PdfPCell a configured borderless cell
      */
     private PdfPCell generalCellForApptHistory(String text) {
-        Paragraph p = new Paragraph(text, getFont());
+        Paragraph p = PdfFonts.paragraph(text, getFont());
         p.setAlignment(Paragraph.ALIGN_LEFT);
         PdfPCell cell1 = new PdfPCell(p);
         cell1.setBorder(PdfPCell.NO_BORDER);
@@ -662,17 +657,16 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         Paragraph p = new Paragraph();
         p.setAlignment(Paragraph.ALIGN_LEFT);
-        Phrase phrase = new Phrase(LEADING, "\n", getFont());
+        Phrase phrase = PdfFonts.phrase(LEADING, "\n", getFont());
         p.add(phrase);
-        phrase = new Phrase(LEADING, "Allergies", obsfont);
+        phrase = PdfFonts.phrase(LEADING, "Allergies", obsfont);
         p.add(phrase);
         getDocument().add(p);
 
         for (Allergy allergy : allergies) {
             p = new Paragraph();
-            phrase = new Phrase(LEADING, "", getFont());
-            Chunk chunk = new Chunk(allergy.getDescription());
-            phrase.add(chunk);
+            phrase = PdfFonts.phrase(LEADING, "", getFont());
+            PdfFonts.addText(phrase, allergy.getDescription(), phrase.getFont());
             p.add(phrase);
             getDocument().add(p);
         }
@@ -716,9 +710,9 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         Paragraph p = new Paragraph();
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
-        Phrase phrase = new Phrase(LEADING, "", obsfont);
+        Phrase phrase = PdfFonts.phrase(LEADING, "", obsfont);
         p.setAlignment(Paragraph.ALIGN_LEFT);
-        phrase.add("Prescriptions");
+        PdfFonts.addText(phrase, "Prescriptions", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
@@ -732,9 +726,9 @@ public class OscarChartPrinter implements java.io.Closeable {
             p.setAlignment(Paragraph.ALIGN_LEFT);
             if (drug.isCurrent() && !drug.isArchived()) {
                 curFont = normal;
-                phrase = new Phrase(LEADING, "", curFont);
-                phrase.add(formatter.format(drug.getRxDate()) + " - ");
-                phrase.add(drug.getFullOutLine().replaceAll(";", " "));
+                phrase = PdfFonts.phrase(LEADING, "", curFont);
+                PdfFonts.addText(phrase, formatter.format(drug.getRxDate()) + " - ", phrase.getFont());
+                PdfFonts.addText(phrase, drug.getFullOutLine().replace(';', ' '), phrase.getFont());
                 p.add(phrase);
                 document.add(p);
             }
@@ -758,9 +752,9 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         Paragraph p = new Paragraph();
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
-        Phrase phrase = new Phrase(LEADING, "", obsfont);
+        Phrase phrase = PdfFonts.phrase(LEADING, "", obsfont);
         p.setAlignment(Paragraph.ALIGN_LEFT);
-        phrase.add("Preventions");
+        PdfFonts.addText(phrase, "Preventions", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
@@ -769,9 +763,8 @@ public class OscarChartPrinter implements java.io.Closeable {
             Date date = prevention.getPreventionDate();
 
             p = new Paragraph();
-            phrase = new Phrase(LEADING, "", getFont());
-            Chunk chunk = new Chunk(type + " " + formatter.format(date) + "\n");
-            phrase.add(chunk);
+            phrase = PdfFonts.phrase(LEADING, "", getFont());
+            PdfFonts.addText(phrase, type + " " + formatter.format(date) + "\n", phrase.getFont());
             p.add(phrase);
             getDocument().add(p);
         }
@@ -796,9 +789,9 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         Paragraph p = new Paragraph();
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
-        Phrase phrase = new Phrase(LEADING, "", obsfont);
+        Phrase phrase = PdfFonts.phrase(LEADING, "", obsfont);
         p.setAlignment(Paragraph.ALIGN_LEFT);
-        phrase.add("Ticklers");
+        PdfFonts.addText(phrase, "Ticklers", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
@@ -812,19 +805,13 @@ public class OscarChartPrinter implements java.io.Closeable {
 
 
             p = new Paragraph();
-            phrase = new Phrase(LEADING, "", getFont());
-            Chunk chunk = new Chunk("Provider:" + providerName + "\n");
-            phrase.add(chunk);
-            chunk = new Chunk("Assignee:" + assigneeName + "\n");
-            phrase.add(chunk);
-            chunk = new Chunk("Service Date:" + serviceDate + "\n");
-            phrase.add(chunk);
-            chunk = new Chunk("Priority:" + priority + "\n");
-            phrase.add(chunk);
-            chunk = new Chunk("Status:" + status + "\n");
-            phrase.add(chunk);
-            chunk = new Chunk("Message:" + message + "\n\n");
-            phrase.add(chunk);
+            phrase = PdfFonts.phrase(LEADING, "", getFont());
+            PdfFonts.addText(phrase, "Provider:" + providerName + "\n", phrase.getFont());
+            PdfFonts.addText(phrase, "Assignee:" + assigneeName + "\n", phrase.getFont());
+            PdfFonts.addText(phrase, "Service Date:" + serviceDate + "\n", phrase.getFont());
+            PdfFonts.addText(phrase, "Priority:" + priority + "\n", phrase.getFont());
+            PdfFonts.addText(phrase, "Status:" + status + "\n", phrase.getFont());
+            PdfFonts.addText(phrase, "Message:" + message + "\n\n", phrase.getFont());
 
             p.add(phrase);
             getDocument().add(p);
@@ -850,9 +837,9 @@ public class OscarChartPrinter implements java.io.Closeable {
         }
         Paragraph p = new Paragraph();
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
-        Phrase phrase = new Phrase(LEADING, "", obsfont);
+        Phrase phrase = PdfFonts.phrase(LEADING, "", obsfont);
         p.setAlignment(Paragraph.ALIGN_LEFT);
-        phrase.add("Disease Registry");
+        PdfFonts.addText(phrase, "Disease Registry", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
@@ -866,18 +853,14 @@ public class OscarChartPrinter implements java.io.Closeable {
 
 
             p = new Paragraph();
-            phrase = new Phrase(LEADING, "", getFont());
-            Chunk chunk = new Chunk("Start Date:" + formatter.format(startDate) + "\n");
-            phrase.add(chunk);
+            phrase = PdfFonts.phrase(LEADING, "", getFont());
+            PdfFonts.addText(phrase, "Start Date:" + formatter.format(startDate) + "\n", phrase.getFont());
             if (issue != null) {
-                chunk = new Chunk("Issue:" + issue.getDescription() + "\n");
-                phrase.add(chunk);
+                PdfFonts.addText(phrase, "Issue:" + issue.getDescription() + "\n", phrase.getFont());
             } else {
-                chunk = new Chunk("Issue: <Unknown>" + "\n");
-                phrase.add(chunk);
+                PdfFonts.addText(phrase, "Issue: <Unknown>" + "\n", phrase.getFont());
             }
-            chunk = new Chunk("Status:" + status + "\n\n");
-            phrase.add(chunk);
+            PdfFonts.addText(phrase, "Status:" + status + "\n\n", phrase.getFont());
 
             p.add(phrase);
             getDocument().add(p);
@@ -902,9 +885,9 @@ public class OscarChartPrinter implements java.io.Closeable {
         }
         Paragraph p = new Paragraph();
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
-        Phrase phrase = new Phrase(LEADING, "", obsfont);
+        Phrase phrase = PdfFonts.phrase(LEADING, "", obsfont);
         p.setAlignment(Paragraph.ALIGN_LEFT);
-        phrase.add("Current Admissions");
+        PdfFonts.addText(phrase, "Current Admissions", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
@@ -916,11 +899,9 @@ public class OscarChartPrinter implements java.io.Closeable {
             String providerName = providerDao.getProvider(admission.getProviderNo()).getFormattedName();
 
             p = new Paragraph();
-            phrase = new Phrase(LEADING, "", getFont());
-            Chunk chunk = new Chunk("Summary:" + programName + "(" + programType + ")" + " by " + providerName + " on " + admissionDate + "\n");
-            phrase.add(chunk);
-            chunk = new Chunk("Admission Notes:" + admissionNotes + "\n\n");
-            phrase.add(chunk);
+            phrase = PdfFonts.phrase(LEADING, "", getFont());
+            PdfFonts.addText(phrase, "Summary:" + programName + "(" + programType + ")" + " by " + providerName + " on " + admissionDate + "\n", phrase.getFont());
+            PdfFonts.addText(phrase, "Admission Notes:" + admissionNotes + "\n\n", phrase.getFont());
 
             p.add(phrase);
             getDocument().add(p);
@@ -947,9 +928,9 @@ public class OscarChartPrinter implements java.io.Closeable {
         }
         Paragraph p = new Paragraph();
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
-        Phrase phrase = new Phrase(LEADING, "", obsfont);
+        Phrase phrase = PdfFonts.phrase(LEADING, "", obsfont);
         p.setAlignment(Paragraph.ALIGN_LEFT);
-        phrase.add("Past Admissions");
+        PdfFonts.addText(phrase, "Past Admissions", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
@@ -963,13 +944,10 @@ public class OscarChartPrinter implements java.io.Closeable {
             String dischargeNotes = admission.getDischargeNotes();
 
             p = new Paragraph();
-            phrase = new Phrase(LEADING, "", getFont());
-            Chunk chunk = new Chunk("Summary:" + programName + "(" + programType + ")" + " by " + providerName + " on " + admissionDate + "\n");
-            phrase.add(chunk);
-            chunk = new Chunk("Admission Notes:" + admissionNotes + "\n\n");
-            phrase.add(chunk);
-            chunk = new Chunk("Discharged on " + dischargeDate + ", Notes:" + dischargeNotes + "\n\n");
-            phrase.add(chunk);
+            phrase = PdfFonts.phrase(LEADING, "", getFont());
+            PdfFonts.addText(phrase, "Summary:" + programName + "(" + programType + ")" + " by " + providerName + " on " + admissionDate + "\n", phrase.getFont());
+            PdfFonts.addText(phrase, "Admission Notes:" + admissionNotes + "\n\n", phrase.getFont());
+            PdfFonts.addText(phrase, "Discharged on " + dischargeDate + ", Notes:" + dischargeNotes + "\n\n", phrase.getFont());
 
             p.add(phrase);
             getDocument().add(p);
@@ -989,9 +967,9 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         Paragraph p = new Paragraph();
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
-        Phrase phrase = new Phrase(LEADING, "", obsfont);
+        Phrase phrase = PdfFonts.phrase(LEADING, "", obsfont);
         p.setAlignment(Paragraph.ALIGN_LEFT);
-        phrase.add("Current Issues");
+        PdfFonts.addText(phrase, "Current Issues", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
@@ -999,9 +977,8 @@ public class OscarChartPrinter implements java.io.Closeable {
             String description = issue.getIssue().getDescription();
 
             p = new Paragraph();
-            phrase = new Phrase(LEADING, "", getFont());
-            Chunk chunk = new Chunk(description + "\n\n");
-            phrase.add(chunk);
+            phrase = PdfFonts.phrase(LEADING, "", getFont());
+            PdfFonts.addText(phrase, description + "\n\n", phrase.getFont());
 
             p.add(phrase);
             getDocument().add(p);

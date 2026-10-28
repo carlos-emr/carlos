@@ -31,6 +31,8 @@
 
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteSaveResult;
+
 import io.github.carlos_emr.carlos.PMmodule.model.*;
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
@@ -228,73 +230,81 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public String saveNote(CaseManagementCPP cpp, CaseManagementNote note, String cproviderNo, String userName,
                            String lastStr, String roleName) {
-
         try {
-            if (note == null) {
-                throw new NullPointerException("Note is null");
-            }
-
-            String noteStr = note.getNote();
-            String noteHistory = note.getHistory();
-
-            if (noteStr == null) {
-                throw new NullPointerException("Note string is null");
-            }
-
-            noteStr = noteStr.replaceAll("\r\n", "\n");
-            noteStr = noteStr.replaceAll("\r", "\n");
-
-            if (noteHistory == null) {
-                noteHistory = noteStr;
-            } else {
-                noteHistory = noteStr + "\n" + "   ----------------History Record----------------   \n" + noteHistory + "\n";
-            }
-
-            // note.setNote(noteStr);
-            note.setHistory(noteHistory);
-
-            if (caseManagementNoteDAO == null) {
-                throw new NullPointerException("caseManagementNoteDAO is null");
-            }
-
-            caseManagementNoteDAO.saveNote(note);
-
-            // if note is signed we hash it and save hash
-            if (note.isSigned()) {
-                if (note.getId() == null) {
-                    throw new NullPointerException("Note ID is null");
-                }
-                HashAudit hashAudit = new HashAudit();
-                hashAudit.setType(HashAudit.NOTE);
-                hashAudit.setId2(note.getId().toString());
-
-                if (note.getNote() == null) {
-                    throw new NullPointerException("Note string for hashing is null");
-                }
-                hashAudit.makeHash(note.getNote().getBytes());
-
-                if (hashAuditDao == null) {
-                    throw new NullPointerException("hashAuditDao is null");
-                }
-                hashAuditDao.persist(hashAudit);
-            }
-
-            CarlosProperties properties = CarlosProperties.getInstance();
-            if (properties == null) {
-                throw new NullPointerException("CarlosProperties instance is null");
-            }
-
-            if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
-                if (eChartDao == null) {
-                    throw new NullPointerException("eChartDao is null");
-                }
-                return eChartDao.saveEchart(note, cpp, userName, lastStr);
-            }
-
-            return "";
+            return persistNote(cpp, note, userName, lastStr);
         } catch (NullPointerException e) {
             logger.error("Note is null", e);
             return "Note is null";
+        }
+    }
+
+    private String persistNote(CaseManagementCPP cpp, CaseManagementNote note,
+            String userName, String lastStr) {
+        if (note == null) {
+            throw new NullPointerException("Note is null");
+        }
+
+        String noteStr = note.getNote();
+        String noteHistory = note.getHistory();
+
+        if (noteStr == null) {
+            throw new NullPointerException("Note string is null");
+        }
+
+        noteStr = noteStr.replaceAll("\r\n", "\n");
+        noteStr = noteStr.replaceAll("\r", "\n");
+
+        if (noteHistory == null) {
+            noteHistory = noteStr;
+        } else {
+            noteHistory = noteStr + "\n" + "   ----------------History Record----------------   \n" + noteHistory + "\n";
+        }
+
+        // note.setNote(noteStr);
+        note.setHistory(noteHistory);
+
+        if (caseManagementNoteDAO == null) {
+            throw new NullPointerException("caseManagementNoteDAO is null");
+        }
+
+        caseManagementNoteDAO.saveNote(note);
+
+        auditSignedNote(note);
+
+        CarlosProperties properties = CarlosProperties.getInstance();
+        if (properties == null) {
+            throw new NullPointerException("CarlosProperties instance is null");
+        }
+
+        if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
+            if (eChartDao == null) {
+                throw new NullPointerException("eChartDao is null");
+            }
+            return eChartDao.saveEchart(note, cpp, userName, lastStr);
+        }
+
+        return "";
+    }
+
+    private void auditSignedNote(CaseManagementNote note) {
+        // if note is signed we hash it and save hash
+        if (note.isSigned()) {
+            if (note.getId() == null) {
+                throw new NullPointerException("Note ID is null");
+            }
+            HashAudit hashAudit = new HashAudit();
+            hashAudit.setType(HashAudit.NOTE);
+            hashAudit.setId2(note.getId().toString());
+
+            if (note.getNote() == null) {
+                throw new NullPointerException("Note string for hashing is null");
+            }
+            hashAudit.makeHash(note.getNote().getBytes());
+
+            if (hashAuditDao == null) {
+                throw new NullPointerException("hashAuditDao is null");
+            }
+            hashAuditDao.persist(hashAudit);
         }
 
     }
@@ -1021,7 +1031,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         if (progList.isEmpty()) {
-            return null;
+            return Collections.emptyList();
         }
 
         List<AccessType> rt = new ArrayList<AccessType>();
@@ -1169,6 +1179,13 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
+    public String getDemoProviderNo(String demoNo) {
+        Demographic dg = demographicDao.getClientByDemographicNo(Integer.valueOf(demoNo));
+        if (dg == null || dg.getProviderNo() == null) return "";
+        return dg.getProviderNo();
+    }
+
+    @Override
     public String getCaisiRoleById(String id) {
         // return providerCaisiRoleDAO.getCaisiRoleById(id);
         return roleManager.getRole(id).getName();
@@ -1205,6 +1222,14 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         tmp.setNote(note);
         tmp.setUpdateDate(new Date());
         caseManagementTmpSaveDao.persist(tmp);
+    }
+
+    @Override
+    public void replaceTmpSave(String providerNo, String demographicNo, String programId, String noteId, String note) {
+        // The public manager transaction owns both operations. Calling the delete and insert
+        // separately from an action committed the deletion even when the replacement failed.
+        deleteTmpSave(providerNo, demographicNo, programId);
+        tmpSave(providerNo, demographicNo, programId, noteId, note);
     }
 
     @Override
@@ -1259,9 +1284,22 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
     }
 
-    // we want to load a temp saved note only if it's more recent than date
+    /**
+     * Restores a temporary note saved more recently than the supplied date.
+     *
+     * @param providerNo String identifying the provider who saved the draft
+     * @param demographicNo String containing the numeric patient identifier
+     * @param programId String containing the numeric program identifier
+     * @param date Date used as the lower bound for the saved draft
+     * @return CaseManagementTmpSave matching the context and date, or null when
+     *         patient or program context is missing or nonnumeric, or no draft matches
+     */
     @Override
     public CaseManagementTmpSave restoreTmpSave(String providerNo, String demographicNo, String programId, Date date) {
+        if (demographicNo == null || demographicNo.isEmpty() || !StringUtils.isNumeric(demographicNo)
+                || programId == null || programId.isEmpty() || !StringUtils.isNumeric(programId)) {
+            return null;
+        }
         CaseManagementTmpSave obj = caseManagementTmpSaveDao.find(providerNo, Integer.valueOf(demographicNo),
                 Integer.valueOf(programId), date);
         return obj;
@@ -1306,6 +1344,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         ProgramProvider pp = (ProgramProvider) ppList.get(0);
         Secrole role = pp.getRole();
+        if (role == null || role.getId() == null) {
+            return filteredNotes;
+        }
 
         Map programAccessMap = ProgramAccessCache.getAccessMap(Long.valueOf(programId));
         // Load up access list from program
@@ -1317,8 +1358,11 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // iterate through the issue list
         for (CaseManagementNote cmNote : notes) {
+            if (cmNote == null) continue;
             String noteRole = cmNote.getReporter_caisi_role();
-            String noteRoleName = RoleCache.getRole(Long.valueOf(noteRole)).getName().toLowerCase();
+            String noteRoleName = safeGetRoleName(noteRole);
+            if (noteRoleName.isEmpty()) continue;
+            long noteRoleId = Long.parseLong(noteRole);
             ProgramAccess pa = null;
             boolean add = false;
 
@@ -1333,7 +1377,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                 }
             } else {
                 logger.debug(noteRoleName + " is null");
-                if (Long.parseLong(noteRole) == role.getId().longValue()) {
+                if (noteRoleId == role.getId().longValue()) {
                     // default
                     logger.debug("noteRole " + noteRole + " = Provider Role from secRole " + role.getId());
                     add = true;
@@ -1342,7 +1386,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
             // apply defaults
             if (!add) {
-                if (Long.parseLong(noteRole) == role.getId().longValue()) {
+                if (noteRoleId == role.getId().longValue()) {
                     logger.debug("noteRole " + noteRole + " = Provider Role from secRole " + role.getId());
                     add = true;
                 }
@@ -1494,11 +1538,39 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return map;
     }
 
+    /**
+     * Parses the positive Long identifiers accepted by the program access DAOs.
+     *
+     * @param programId String containing the program identifier
+     * @return Long identifier, or null for missing, non-positive or out-of-range values
+     */
+    private static Long positiveProgramId(String programId) {
+        if (programId == null) return null;
+        try {
+            long value = Long.parseLong(programId);
+            return value > 0 ? value : null;
+        } catch (NumberFormatException invalidProgram) {
+            return null;
+        }
+    }
+
+    /**
+     * Counts matching issues visible through the provider's program role.
+     *
+     * @param providerNo String identifying the provider
+     * @param programId String containing a positive Long program identifier
+     * @param search String containing the issue search text
+     * @return Integer match count, or zero for invalid program context or absent membership
+     */
     @Override
     public Integer searchIssuesCount(String providerNo, String programId, String search) {
+        // No selected program is an empty issue search, not an invalid numeric query.
+        Long programKey = positiveProgramId(programId);
+        if (programKey == null) return 0;
+
         // Get Role - if no ProgramProvider record found, show no issues.
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
-                Long.valueOf(programId));
+                programKey);
         if (ppList == null || ppList.isEmpty()) {
             return 0;
         }
@@ -1507,7 +1579,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // get program accesses... program allows either all roles or not all roles
         // (does this mean no roles?)
-        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
+        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(programKey);
         Map<String, ProgramAccess> paMap = convertProgramAccessListToMap(paList);
 
         // get all roles
@@ -1536,15 +1608,29 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return issueDAO.searchCount(search, allowableSearchRoles);
     }
 
+    /**
+     * Searches the first page of issues visible through the provider's program role.
+     *
+     * @param providerNo String identifying the provider
+     * @param programId String containing a positive Long program identifier
+     * @param search String containing the issue search text
+     * @return {@code List<Issue>} results, empty for invalid program context or absent membership
+     */
     @Override
     public List<Issue> searchIssues(String providerNo, String programId, String search) {
         return searchIssues(providerNo, programId, search, 0, AbstractDao.MAX_LIST_RETURN_SIZE);
     }
 
     /**
-     * @param providerNo
-     * @param programId
-     * @param search
+     * Searches a page of issues visible through the provider's program role.
+     *
+     * @param providerNo String identifying the provider
+     * @param programId String containing a positive Long program identifier
+     * @param search String containing the issue search text
+     * @param startIndex int offset into the matching results
+     * @param numToReturn int maximum number of matching issues to return
+     * @return {@code List<Issue>} results, empty for invalid program context or absent membership
+     * @throws IllegalArgumentException if numToReturn exceeds the DAO result limit
      */
     @Override
     public List<Issue> searchIssues(String providerNo, String programId, String search, int startIndex,
@@ -1555,9 +1641,13 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                     "Can only return a maximum of " + AbstractDao.MAX_LIST_RETURN_SIZE + " results");
         }
 
+        // No selected program is an empty issue search, not an invalid numeric query.
+        Long programKey = positiveProgramId(programId);
+        if (programKey == null) return new ArrayList<>();
+
         // Get Role - if no ProgramProvider record found, show no issues.
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
-                Long.valueOf(programId));
+                programKey);
         if (ppList == null || ppList.isEmpty()) {
             return new ArrayList<Issue>();
         }
@@ -1566,7 +1656,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // get program accesses... program allows either all roles or not all roles
         // (does this mean no roles?)
-        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
+        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(programKey);
         Map<String, ProgramAccess> paMap = convertProgramAccessListToMap(paList);
 
         // get all roles
@@ -1606,7 +1696,14 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     /**
-     * Filters a list of CaseManagementIssue objects based on role.
+     * Filters a list of CaseManagementIssue objects based on the provider's program role.
+     *
+     * @param loggedInInfo LoggedInInfo containing the caller's authenticated context
+     * @param providerNo String identifying the provider
+     * @param issues {@code List<CaseManagementIssue>} objects to filter
+     * @param programId String containing a positive Long program identifier
+     * @return {@code List<CaseManagementIssue>} objects visible to the role, empty for invalid
+     *         program context or absent membership
      */
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
@@ -1620,9 +1717,13 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             return issues;
         }
 
+        // No selected program is an empty issue search, not an invalid numeric query.
+        Long programKey = positiveProgramId(programId);
+        if (programKey == null) return new ArrayList<>();
+
         // Get Role - if no ProgramProvider record found, show no issues.
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
-                Long.valueOf(programId));
+                programKey);
         if (ppList == null || ppList.isEmpty()) {
             return new ArrayList<CaseManagementIssue>();
         }
@@ -1631,7 +1732,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         Secrole role = pp.getRole();
 
         // Load up access list from program
-        List<ProgramAccess> programAccessList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
+        List<ProgramAccess> programAccessList = programAccessDAO.getAccessListByProgramId(programKey);
         Map<String, ProgramAccess> programAccessMap = convertProgramAccessListToMap(programAccessList);
 
         // iterate through the issue list
@@ -1738,6 +1839,251 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
+    public CaseManagementNoteSaveResult saveNoteRevision(CaseManagementCPP cpp, CaseManagementNote note,
+            String providerNo, String userName, String lastStr, String roleName) {
+        CaseManagementNote previous = previousRevision(note);
+        // Keep generated note/issue identities off the submitted draft so rollback is retryable.
+        CaseManagementNote revision = note.copyForRevision();
+        revision.setIssues(persistPendingRevisionIssues(note));
+        if (previous != null) revision.setUuid(previous.getUuid());
+        String savedText = persistNote(cpp, revision, userName, lastStr);
+        if (revision.getId() == null) {
+            throw new IllegalStateException("Note revision was not saved");
+        }
+        copyRevisionMetadata(previous == null ? null : previous.getId(), revision);
+        return new CaseManagementNoteSaveResult(revision, savedText);
+    }
+
+    private Set<CaseManagementIssue> persistPendingRevisionIssues(CaseManagementNote note) {
+        List<CaseManagementIssue> issues = new ArrayList<>();
+        List<CaseManagementIssue> pending = new ArrayList<>();
+        for (CaseManagementIssue submitted : note.getIssues()) {
+            CaseManagementIssue issue = submitted;
+            if (submitted.getId() == null) {
+                if (!Objects.equals(String.valueOf(submitted.getDemographic_no()), note.getDemographic_no())) {
+                    throw new SecurityException("Issue belongs to a different demographic");
+                }
+                issue = new CaseManagementIssue(submitted);
+                issue.setId(null);
+                issue.setProgram_id(submitted.getProgram_id());
+                issue.setNotes(new HashSet<>());
+                pending.add(issue);
+            }
+            issues.add(issue);
+        }
+        if (!pending.isEmpty()) caseManagementIssueDAO.saveAndUpdateCaseIssues(pending);
+        // Identity assignment changes CaseManagementIssue.hashCode(). Rehash after persistence.
+        return new LinkedHashSet<>(issues);
+    }
+
+    @Override
+    public CaseManagementNoteSaveResult saveCppNoteRevision(CaseManagementNote note, String userName,
+            String lastStr, Map<Long, Integer> notePositions, List<CaseManagementNoteExt> submittedExtensions) {
+        CaseManagementCPP cpp = getCPP(note.getDemographic_no());
+        if (cpp == null) cpp = new CaseManagementCPP();
+        cpp.setDemographic_no(note.getDemographic_no());
+        copyNoteToCpp(cpp, note);
+        CaseManagementNoteSaveResult saved = saveNoteRevision(cpp, note, note.getProviderNo(), userName, lastStr, null);
+        saveCPP(cpp, note.getProviderNo());
+        saveCppNotePositions(note, notePositions);
+        saveSubmittedCppExtensions(saved.note(), submittedExtensions);
+        return saved;
+    }
+
+    private void copyNoteToCpp(CaseManagementCPP cpp, CaseManagementNote note) {
+        String separator = "\n-----[[" + new Date() + "]]-----\n";
+        for (CaseManagementIssue issue : note.getIssues()) {
+            if (appendCppProjection(cpp, issue.getIssue().getCode(), separator + note.getNote())) break;
+        }
+    }
+
+    private boolean appendCppProjection(CaseManagementCPP cpp, String code, String text) {
+        // Preserve the legacy first-matching-issue mapping, including OMeds -> familyHistory.
+        switch (code) {
+            case "OMeds", "FamHistory" -> cpp.setFamilyHistory(cpp.getFamilyHistory() + text);
+            case "SocHistory" -> cpp.setSocialHistory(cpp.getSocialHistory() + text);
+            case "MedHistory" -> cpp.setMedicalHistory(cpp.getMedicalHistory() + text);
+            case "Concerns" -> cpp.setOngoingConcerns(cpp.getOngoingConcerns() + text);
+            case "Reminders" -> cpp.setReminders(cpp.getReminders() + text);
+            case "RiskFactors" -> cpp.setRiskFactors(cpp.getRiskFactors() + text);
+            default -> { return false; }
+        }
+        return true;
+    }
+
+    private void saveCppNotePositions(CaseManagementNote submitted, Map<Long, Integer> positions) {
+        for (Map.Entry<Long, Integer> entry : new TreeMap<>(positions).entrySet()) {
+            // The submitted row is historical now; its new position is already on the revision.
+            if (Objects.equals(entry.getKey(), submitted.getId())) continue;
+            CaseManagementNote sibling = caseManagementNoteDAO.getNoteForUpdate(entry.getKey());
+            if (sibling == null) throw new StaleNoteRevisionException();
+            if (!Objects.equals(sibling.getDemographic_no(), submitted.getDemographic_no())) {
+                throw new SecurityException("Note position belongs to a different demographic");
+            }
+            // Dirty-check only this field on a locked database row; updateNote also rewrites time.
+            sibling.setPosition(entry.getValue());
+        }
+    }
+
+    private void saveSubmittedCppExtensions(CaseManagementNote revision, List<CaseManagementNoteExt> submitted) {
+        Map<String, List<CaseManagementNoteExt>> byKey = new HashMap<>();
+        for (CaseManagementNoteExt extension : caseManagementNoteExtDAO.getExtByNoteForUpdate(revision.getId())) {
+            byKey.computeIfAbsent(extension.getKeyVal(), key -> new ArrayList<>()).add(extension);
+        }
+        for (CaseManagementNoteExt carrier : submitted) {
+            List<CaseManagementNoteExt> matches = byKey.computeIfAbsent(carrier.getKeyVal(), key -> new ArrayList<>());
+            if (matches.isEmpty()) {
+                CaseManagementNoteExt extension = new CaseManagementNoteExt();
+                extension.setNoteId(revision.getId());
+                extension.setKeyVal(carrier.getKeyVal());
+                copySubmittedExtensionValue(carrier, extension);
+                saveNoteExt(extension);
+                matches.add(extension);
+                revision.getExtend().add(extension);
+            } else {
+                for (CaseManagementNoteExt extension : matches) {
+                    copySubmittedExtensionValue(carrier, extension);
+                    updateNoteExt(extension);
+                }
+            }
+        }
+    }
+
+    private void copySubmittedExtensionValue(CaseManagementNoteExt source, CaseManagementNoteExt target) {
+        target.setValue(source.getValue());
+        target.setDateValue(source.getDateValue() == null ? null : new Date(source.getDateValue().getTime()));
+    }
+
+    @Override
+    public CaseManagementNote saveNoteRevisionSimple(CaseManagementNote note) {
+        CaseManagementNote previous = previousRevision(note);
+        CaseManagementNote revision = previous == null ? note : note.copyForRevision();
+        if (previous != null) revision.setUuid(previous.getUuid());
+        caseManagementNoteDAO.saveNote(revision);
+        auditSignedNote(revision);
+        copyRevisionMetadata(previous == null ? null : previous.getId(), revision);
+        return revision;
+    }
+
+    @Override
+    public CompactSaveResult saveCompactNoteRevision(LoggedInInfo login, CaseManagementNote submitted,
+            List<CaseManagementIssue> submittedIssues, String originatingProgram) {
+        if (login == null || !Objects.equals(login.getLoggedInProviderNo(), submitted.getProviderNo())) {
+            throw new SecurityException("Compact note writer does not match the login");
+        }
+        // Lock and validate the revision before issue writes. Keep the submitted note
+        // and issue identities untouched so the same editor can retry a failed commit.
+        CaseManagementNote previous = previousRevision(submitted);
+        CaseManagementNote note = submitted.copyForRevision();
+        note.setId(submitted.getId());
+        note.setRevision(revisionAfter(previous));
+        ProgramManager programs = SpringUtils.getBean(ProgramManager.class);
+        if (isPositiveProgram(originatingProgram)) {
+            note.setReporter_caisi_role(writerRoleForChart(programs, note.getProviderNo(),
+                    note.getProgram_no(), originatingProgram).getId().toString());
+        } else {
+            try {
+                note.setReporter_caisi_role(programs.getProgramProvider(note.getProviderNo(),
+                        note.getProgram_no()).getRole().getId().toString());
+            } catch (Exception missingLegacyRole) {
+                note.setReporter_caisi_role("0");
+            }
+        }
+        Map<CaseManagementIssue, CaseManagementIssue> copies = new IdentityHashMap<>();
+        List<CaseManagementIssue> issues = new ArrayList<>();
+        for (CaseManagementIssue source : submittedIssues) {
+            if (!Objects.equals(String.valueOf(source.getDemographic_no()), note.getDemographic_no())) {
+                throw new SecurityException("Issue belongs to a different demographic");
+            }
+            CaseManagementIssue copy = new CaseManagementIssue(source);
+            copy.setId(source.getId() != null && source.getId() > 0 ? source.getId() : null);
+            copy.setProgram_id(source.getProgram_id());
+            copy.setNotes(new HashSet<>());
+            copies.put(source, copy);
+            issues.add(copy);
+        }
+        List<CaseManagementIssue> selected = new ArrayList<>();
+        for (CaseManagementIssue source : submitted.getIssues()) {
+            CaseManagementIssue copy = copies.get(source);
+            if (copy == null) throw new IllegalArgumentException("Selected issue is missing from the compact form");
+            selected.add(copy);
+        }
+        saveAndUpdateCaseIssues(issues);
+        // New issue IDs affect hashing; assemble the selected set after persistence.
+        note.setIssues(new LinkedHashSet<>(selected));
+        note = saveNoteRevisionSimple(note);
+        if (originatingProgram != null) {
+            deleteTmpSave(note.getProviderNo(), note.getDemographic_no(), originatingProgram);
+        }
+        return new CompactSaveResult(note, List.copyOf(issues));
+    }
+
+    private CaseManagementNote previousRevision(CaseManagementNote note) {
+        String uuid = note.getUuid();
+        if (uuid == null || uuid.isBlank()) {
+            if (note.getId() == null) return null;
+            CaseManagementNote original = getLegacyNoteForUpdate(note);
+            uuid = original.getUuid();
+            if (uuid == null || uuid.isBlank()) {
+                uuid = UUID.randomUUID().toString();
+                // Only initialize the chain identity on the locked historical row. Do not call
+                // updateNote/saveNote: those also update timestamps or merge submitted edits.
+                original.setUuid(uuid);
+                return original;
+            }
+            // A competing legacy edit may have initialized this row while we waited for its lock.
+        }
+        CaseManagementNote latest = caseManagementNoteDAO.getMostRecentNoteForUpdate(uuid);
+        if (latest == null) {
+            if (note.getId() != null) throw new StaleNoteRevisionException();
+            return null;
+        }
+        if (!Objects.equals(latest.getDemographic_no(), note.getDemographic_no())) {
+            throw new SecurityException("Note UUID belongs to a different demographic");
+        }
+        if (note.getId() != null && !note.getId().equals(latest.getId())) {
+            throw new StaleNoteRevisionException();
+        }
+        // REST annotation clients send a UUID without an ID; retain their existing links too.
+        return latest;
+    }
+
+    private CaseManagementNote getLegacyNoteForUpdate(CaseManagementNote submitted) {
+        CaseManagementNote original = caseManagementNoteDAO.getNoteForUpdate(submitted.getId());
+        if (original == null) throw new StaleNoteRevisionException();
+        if (!Objects.equals(original.getDemographic_no(), submitted.getDemographic_no())) {
+            throw new SecurityException("Note belongs to a different demographic");
+        }
+        return original;
+    }
+
+    private void copyRevisionMetadata(Long previousId, CaseManagementNote revision) {
+        if (previousId == null) return;
+        // Preserve duplicate legacy keys and their ordering; CPP edits update only the new rows.
+        // The chain lock may see a revision committed after this transaction's first read.
+        // Its metadata must also use locking reads, rather than the older repeatable-read snapshot.
+        List<CaseManagementNoteExt> extensions = caseManagementNoteExtDAO.getExtByNoteForUpdate(previousId);
+        for (CaseManagementNoteExt old : extensions.reversed()) {
+            CaseManagementNoteExt copy = new CaseManagementNoteExt();
+            copy.setNoteId(revision.getId());
+            copy.setKeyVal(old.getKeyVal());
+            copy.setValue(old.getValue());
+            copy.setDateValue(old.getDateValue() == null ? null : new Date(old.getDateValue().getTime()));
+            saveNoteExt(copy);
+            revision.getExtend().add(copy);
+        }
+        List<CaseManagementNoteLink> previousLinks = caseManagementNoteLinkDAO.getLinkByNoteForUpdate(previousId);
+        for (CaseManagementNoteLink old : previousLinks) {
+            CaseManagementNoteLink copy = new CaseManagementNoteLink();
+            copy.setNoteId(revision.getId());
+            copy.setTableName(old.getTableName());
+            copy.setTableId(old.getTableId());
+            copy.setOtherId(old.getOtherId());
+            saveNoteLink(copy);
+        }
+    }
+
+    @Override
     public void saveNoteSimple(CaseManagementNote note) {
         this.caseManagementNoteDAO.saveNote(note);
 
@@ -1816,16 +2162,21 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
     @Override
     public boolean isClientReferredInProgramDomain(String providerNo, String demographicNo) {
-        boolean referred = false;
-        List providerPrograms = programProviderDao.getProgramProviderByProviderNo(providerNo);
+        List<ProgramProvider> providerPrograms = programProviderDao.getProgramProviderByProviderNo(providerNo);
+        return isClientReferredInProgramDomain(providerPrograms, demographicNo);
+    }
+
+    @Override
+    public boolean isClientReferredInProgramDomain(List<ProgramProvider> providerPrograms, String demographicNo) {
         for (int x = 0; x < providerPrograms.size(); x++) {
-            ProgramProvider pp = (ProgramProvider) providerPrograms.get(x);
+            ProgramProvider pp = providerPrograms.get(x);
             long programId = pp.getProgramId().longValue();
             ProgramQueue queue = programQueueDao.getActiveProgramQueue(programId, Long.valueOf(demographicNo));
-            if (queue != null)
-                referred = true;
+            if (queue != null) {
+                return true;
+            }
         }
-        return referred;
+        return false;
     }
 
     @Override
@@ -2129,7 +2480,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     /**
      * Gets all the notes.
      * Caisi - filter notes.
-     * Grab the last one, where I am providers, and it's not signed.
+     * Grab the last unsigned note by this provider in the requested program.
+     * Cross-program read permission does not make another program's note an editor or append target.
      *
      * @param programId the program ID
      * @param demono the demographic number
@@ -2166,12 +2518,16 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         if (programId == null || programId.length() == 0) {
             programId = "0";
         }
+        long requestedProgramId = Long.parseLong(programId);
 
         entries = filterNotes1(providerNo, entries, programId);
 
         Collections.sort(entries, EChartNoteEntry.getDateComparatorDesc());
 
         for (EChartNoteEntry entry : entries) {
+            if (entry.getProgramId() != requestedProgramId) {
+                continue;
+            }
             CaseManagementNote n = getNote(String.valueOf(entry.getId()));
             if (n.getProviderNo().equals(providerNo)) {
                 return n;
@@ -2271,16 +2627,74 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
                                                      Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString) throws Exception {
+        // Preserve the historical contract for REST and other integrations whose
+        // originating program is the note's program.
+        return saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, locale,
+                now, userName, user, remoteAddr, lastSavedNoteString, note.getProgram_no(), false, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram) throws Exception {
+        return saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, locale,
+                now, userName, user, remoteAddr, lastSavedNoteString, draftProgram, true, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram, CaseManagementIssue removedIssue) throws Exception {
+        if (removedIssue == null || removedIssue.getId() == null || removedIssue.getId() <= 0
+                || !Objects.equals(note.getDemographic_no(), String.valueOf(removedIssue.getDemographic_no()))) {
+            throw new SecurityException("Issue deletion does not belong to the note patient");
+        }
+        return saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, locale,
+                now, userName, user, remoteAddr, lastSavedNoteString, draftProgram, true, removedIssue);
+    }
+
+    private CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram, boolean explicitChartOrigin,
+                                                     CaseManagementIssue removedIssue) throws Exception {
+        // A failed transaction leaves the editor's submitted object available for retry.
+        // Do not retain a failed attempt's added signature or revision counter on it.
+        CaseManagementNote submitted = note;
+        note = submitted.copyForRevision();
+        note.setId(submitted.getId());
         ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
         AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
 
         Long old_note_id = note.getId();
 
         boolean inCaisi = CarlosProperties.getInstance().isCaisiLoaded();
+
+        if (removedIssue != null) {
+            // Lock the source revision before removing its issue. CPP medical history below
+            // must be derived after the deletion, and all later failures roll it back.
+            previousRevision(note);
+            CaseManagementIssue storedIssue = caseManagementIssueDAO.findById(removedIssue.getId());
+            if (storedIssue == null
+                    || !Objects.equals(note.getDemographic_no(), String.valueOf(storedIssue.getDemographic_no()))
+                    || removedIssue.getIssue_id() != storedIssue.getIssue_id()) {
+                throw new StaleNoteRevisionException();
+            }
+            // The native editor offers Delete only for unused issues. Recheck the
+            // stored links: a stale form must never delete historical note associations.
+            if (!storedIssue.getNotes().isEmpty()) throw new StaleNoteRevisionException();
+            deleteIssueById(storedIssue);
+            if (inCaisi) removeIssueFromCPP(note.getDemographic_no(), storedIssue);
+        }
 
         String role = null;
         String team = null;
@@ -2291,11 +2705,22 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             newNote = true;
         }
 
-        try {
-            role = String.valueOf(
-                    (programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
-        } catch (Exception e) {
-            role = "0";
+        String roleName;
+        if (explicitChartOrigin && isPositiveProgram(draftProgram)) {
+            // Preserve the writer's existing role in the stored note's program.
+            // A shared-note editor may instead belong only to the originating chart.
+            Secrole writerRole = writerRoleForChart(programManager, note.getProviderNo(), note.getProgram_no(), draftProgram);
+            role = writerRole.getId().toString();
+            roleName = writerRole.getRoleName();
+        } else {
+            // Legacy integrations and the global program retain their historical policy.
+            try {
+                role = String.valueOf(
+                        (programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
+            } catch (Exception e) {
+                role = "0";
+            }
+            roleName = getRoleName(note.getProviderNo(), note.getProgram_no());
         }
         /*
          * if (!"true".equals(session.getAttribute("archiveView")))
@@ -2323,23 +2748,20 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
         note.setReporter_program_team(team);
 
-        /* save all issue changes for demographic */
-        saveAndUpdateCaseIssues(issuelist);
-        if (inCaisi)
-            cpp.setOngoingConcerns(ongoing); // << Check on this one???
-
         OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
 
-        String roleName = getRoleName(note.getProviderNo(), note.getProgram_no());
-
-        Appointment appointment = null;
-
-        try {
-            appointment = appointmentDao.find(note.getAppointmentNo());
-        } catch (Exception e) {
-            logger.debug("Appointment number error", e);
+        // Keep the version being archived stable through the note and appointment commit.
+        // A lookup/lock failure must roll back, rather than masquerading as no appointment.
+        Appointment appointment = note.getAppointmentNo() > 0
+                ? appointmentDao.findForUpdate(note.getAppointmentNo()) : null;
+        if (appointment != null
+                && !Objects.equals(note.getDemographic_no(), String.valueOf(appointment.getDemographicNo()))) {
+            throw new SecurityException("Appointment does not belong to this note's patient");
         }
-        logger.debug("note.getAppointmentNo() " + note.getAppointmentNo() + " --- " + appointment);
+        /* save all issue changes for demographic after appointment ownership is checked */
+        saveAndUpdateCaseIssues(issuelist);
+        if (inCaisi) cpp.setOngoingConcerns(ongoing);
+        String appointmentStatus = null;
 
         if (verify) {
             try {
@@ -2350,7 +2772,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
                     // only update appt if there is one
                     if (appointment != null) {
-                        appointment.setStatus(updateApptStatus(appointment.getStatus(), "verify"));
+                        appointmentStatus = updateApptStatus(appointment.getStatus(), "verify");
                     }
                 } else {
                     logger.warn("Provider number is null for verification");
@@ -2369,7 +2791,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
                     // only update appt if there is one
                     if (appointment != null) {
-                        appointment.setStatus(updateApptStatus(appointment.getStatus(), "sign"));
+                        appointmentStatus = updateApptStatus(appointment.getStatus(), "sign");
                     }
                 } else {
                     logger.warn("Provider number is null for signing");
@@ -2378,12 +2800,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                 logger.error("Error while getting signature for signing: " + e.getMessage());
                 // Handle exception: either log it, return a default message, or rethrow as needed
             }
-        }
-
-        if (appointment != null) {
-            appointmentArchiveDao.archiveAppointment(appointment);
-            appointment.setLastUpdateUser(note.getProviderNo());
-            appointmentDao.merge(appointment);
         }
 
         // PLACEHOLDER FOR DX CHECK
@@ -2419,24 +2835,28 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             saveCPP(cpp, note.getProviderNo());
         }
 
-        int revision;
-
-        if (note.getRevision() != null) {
-            revision = Integer.parseInt(note.getRevision());
-            ++revision;
-        } else
-            revision = 1;
-
-        note.setRevision(String.valueOf(revision));
+        // Derive the published count from the locked database row. A legacy
+        // UUID-null source reports zero until its first revision initializes the chain.
+        note.setRevision(revisionAfter(previousRevision(note)));
 
         /* save note including add signature */
-        String savedStr = saveNote(cpp, note, note.getProviderNo(), userName, lastSavedNoteString, roleName);
-        addNewNoteLink(note.getId());
+        note = saveNoteRevision(cpp, note, note.getProviderNo(), userName, lastSavedNoteString, roleName).note();
 
-        try {
-            this.deleteTmpSave(note.getProviderNo(), note.getDemographic_no(), note.getProgram_no());
-        } catch (Exception e) {
-            logger.warn("warn", e);
+        // A rejected revision must leave even the managed appointment unchanged. Archive
+        // the old values only after the note succeeds, before changing status or audit data.
+        if (appointment != null) {
+            appointmentArchiveDao.archiveAppointment(appointment);
+            if (appointmentStatus != null) appointment.setStatus(appointmentStatus);
+            appointment.setLastUpdateUser(note.getProviderNo());
+            appointmentDao.merge(appointment);
+        }
+
+        if (draftProgram != null) {
+            // A shared note keeps its original program, while the draft belongs
+            // to the chart that submitted it. Both writes share this transaction.
+            // A cleanup failure must roll back the revision, rather than report a
+            // successful save while a stale draft is still available to restore.
+            this.deleteTmpSave(note.getProviderNo(), note.getDemographic_no(), draftProgram);
         }
 
         if (old_note_id != null) {
@@ -2471,6 +2891,40 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                 note.getDemographic_no(), note.getAuditString());
 
         return note;
+    }
+
+    private static boolean isPositiveProgram(String program) {
+        if (program == null) return false;
+        try {
+            return Long.parseLong(program) > 0;
+        } catch (NumberFormatException invalidProgram) {
+            return false;
+        }
+    }
+
+    private static String revisionAfter(CaseManagementNote previous) {
+        if (previous == null) return "1";
+        int baseline;
+        try { baseline = Math.max(1, Integer.parseInt(previous.getRevision())); }
+        catch (NumberFormatException legacyCounter) { baseline = 1; }
+        return Integer.toString(Math.addExact(baseline, 1));
+    }
+
+    private static Secrole writerRoleInProgram(ProgramManager programs, String provider, String program) {
+        if (!isPositiveProgram(program)) return null;
+        ProgramProvider membership = programs.getProgramProvider(provider, program);
+        Secrole role = membership == null ? null : membership.getRole();
+        return role != null && role.getId() != null && role.getId() > 0
+                && StringUtils.isNotBlank(role.getRoleName()) ? role : null;
+    }
+
+    private static Secrole writerRoleForChart(ProgramManager programs, String provider, String storedProgram, String originatingProgram) {
+        Secrole role = writerRoleInProgram(programs, provider, storedProgram);
+        if (role == null && !Objects.equals(storedProgram, originatingProgram)) {
+            role = writerRoleInProgram(programs, provider, originatingProgram);
+        }
+        if (role == null) throw new SecurityException("No writer role for the chart program");
+        return role;
     }
 
     @Override
@@ -2542,7 +2996,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             Long roleId = Long.valueOf(roleIdStr);
             logger.debug("Looking up role ID: " + roleId);
             Secrole secrole = RoleCache.getRole(roleId);
-            if (secrole != null) {
+            if (secrole != null && StringUtils.isNotBlank(secrole.getName())) {
                 String name = secrole.getName().toLowerCase();
                 logger.debug("Found role: " + name + " for ID: " + roleId);
                 return name;

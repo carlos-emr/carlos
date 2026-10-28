@@ -93,7 +93,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             this.scope = scope;
             this.providerNo = providerNo;
             this.isClinicScope = "clinic".equals(scope);
-            this.isPatientScope = demographicNo != null && !"0".equals(demographicNo);
+            this.isPatientScope = demographicNo != null && !demographicNo.isBlank() && !"0".equals(demographicNo);
         }
 
         /**
@@ -118,7 +118,8 @@ public class FlowSheetCustom2Action extends ActionSupport {
         String demographicNo;
         String providerNo;
         boolean isClinicScope = "clinic".equals(scope);
-        boolean isPatientScope = !isClinicScope && demographicNoParam != null && !"0".equals(demographicNoParam);
+        boolean isPatientScope = !isClinicScope && demographicNoParam != null
+                && !demographicNoParam.isBlank() && !"0".equals(demographicNoParam);
 
         if (isClinicScope) {
             demographicNo = "0";
@@ -140,8 +141,22 @@ public class FlowSheetCustom2Action extends ActionSupport {
      * @param ctx the scope context containing flowsheet and demographic info
      */
     private void setResponseAttributes(ScopeContext ctx) {
-        request.setAttribute("demographic", ctx.demographicNo);
-        request.setAttribute("flowsheet", ctx.flowsheet);
+        setResponseAttributes(ctx.flowsheet, ctx.demographicNo);
+    }
+
+    /**
+     * Sets response attributes without turning the provider/clinic sentinel
+     * demographic number into a patient-scoped editor request.
+     *
+     * @param flowsheet flowsheet identifier to render
+     * @param demographicNo patient demographic number, or {@code 0}/{@code null}
+     *     for provider and clinic scopes
+     */
+    private void setResponseAttributes(String flowsheet, String demographicNo) {
+        if (demographicNo != null && !"0".equals(demographicNo)) {
+            request.setAttribute("demographic", demographicNo);
+        }
+        request.setAttribute("flowsheet", flowsheet);
     }
 
     /**
@@ -225,8 +240,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 LogSafe.sanitize(String.valueOf(method)),
                 LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
         request.setAttribute("errorMessage", "Unknown flowsheet customization method.");
-        request.setAttribute("demographic", Optional.ofNullable(request.getParameter("demographic")).orElse("0"));
-        request.setAttribute("flowsheet", request.getParameter("flowsheet"));
+        setResponseAttributes(request.getParameter("flowsheet"), request.getParameter("demographic"));
         return ERROR;
     }
 
@@ -243,8 +257,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                     LogSafe.sanitize(String.valueOf(flowsheet)),
                     LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             request.setAttribute("errorMessage", "Measurement is required to save a flowsheet customization.");
-            request.setAttribute("demographic", demographicNo);
-            request.setAttribute("flowsheet", flowsheet);
+            setResponseAttributes(flowsheet, demographicNo);
             return ERROR;
         }
 
@@ -304,8 +317,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                         LogSafe.sanitize(measurementType), LogSafe.sanitize(cascadeResult.getBlockingLevel()));
                     request.setAttribute("errorMessage",
                         "Cannot add measurement: blocked at " + Encode.forHtml(cascadeResult.getBlockingLevel()) + " level");
-                    request.setAttribute("demographic", demographicNo);
-                    request.setAttribute("flowsheet", flowsheet);
+                    setResponseAttributes(flowsheet, demographicNo);
                     return ERROR;
                 }
 
@@ -331,8 +343,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
             }
         }
-        request.setAttribute("demographic", demographicNo);
-        request.setAttribute("flowsheet", flowsheet);
+        setResponseAttributes(flowsheet, demographicNo);
         return SUCCESS;
     }
 
@@ -458,8 +469,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             flowSheetCustomizationDao.persist(cust);
 
         }
-        request.setAttribute("demographic", demographicNo);
-        request.setAttribute("flowsheet", flowsheet);
+        setResponseAttributes(flowsheet, demographicNo);
         return SUCCESS;
     }
 
@@ -589,8 +599,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                     LogSafe.sanitize(id), LogSafe.sanitize(canArchive.getBlockingLevel()));
                 request.setAttribute("errorMessage",
                     "Cannot remove customization: created at " + Encode.forHtml(canArchive.getBlockingLevel()) + " level");
-                request.setAttribute("demographic", demographicNo);
-                request.setAttribute("flowsheet", flowsheet);
+                setResponseAttributes(flowsheet, demographicNo);
                 return ERROR;
             }
 
@@ -600,8 +609,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
         }
         logger.debug("archiveMod {}", LogSafe.sanitizeObject(cust)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
 
-        request.setAttribute("demographic", demographicNo);
-        request.setAttribute("flowsheet", flowsheet);
+        setResponseAttributes(flowsheet, demographicNo);
         return SUCCESS;
     }
 

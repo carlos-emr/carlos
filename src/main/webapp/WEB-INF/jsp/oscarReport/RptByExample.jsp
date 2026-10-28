@@ -34,7 +34,9 @@
     ================
     Purpose: Query-by-example report entry page. Allows authorized providers
              to enter or select a saved SQL query and execute it against the
-             database, viewing results inline.
+             database, viewing results inline. Queries run as the read-only
+             reporting database account, never the application account
+             (docs/query-by-example-least-privilege.md).
 
     Features:
     - Bootstrap 5 / HTML5 compliant layout
@@ -47,9 +49,13 @@
     Parameters (set by backing Action):
     - favorites   — Collection of favourite query objects (query property)
     - results     — HTML string of query results (rendered unescaped; backend-generated)
+    - queryReportingUnavailable — the reporting account is not provisioned or was refused;
+                                  shown on open and after a submission that did not run
+    - queryAccessDenied         — the database refused a table or column the reporting
+                                  account is not granted (restricted, hidden or unclassified)
 
     Security:
-    - Requires _report or _admin.reporting read privilege
+    - Requires _report or _admin read privilege
     - CSRF token auto-injected by CsrfGuardScriptInjectionFilter
 
     @since 2001-2002
@@ -68,9 +74,9 @@
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
 %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -98,7 +104,7 @@
         // Copies the selected favourite query into the SQL textarea.
         function write2TextArea() {
             const form = document.getElementById('queryForm');
-            const select = form.selectedRecentSearch;
+            const select = document.getElementById('selectedRecentSearch');
             const selectedValue = select.options[select.selectedIndex].value;
             form.sql.value = selectedValue;
         }
@@ -161,8 +167,47 @@
                             <fmt:message key="oscarReport.RptByExample.MsgEnterAQuery"/>
                         </label>
                         <textarea id="sql" name="sql" rows="4"
-                                  class="form-control form-control-sm"></textarea>
+                                  class="form-control form-control-sm">${carlos:forHtmlContent(submittedSql)}</textarea>
                     </div>
+
+                    <c:if test="${queryDisabled}">
+                        <div class="alert alert-warning" role="alert">
+                            <fmt:message key="oscarReport.RptByExample.MsgDisabled"/>
+                        </div>
+                    </c:if>
+                    <%-- Queries run as the read-only reporting database account (issue #3372). --%>
+                    <c:if test="${queryReportingUnavailable}">
+                        <div class="alert alert-warning" role="alert" id="queryReportingUnavailable">
+                            <fmt:message key="oscarReport.RptByExample.MsgReportingUnavailable"/>
+                        </div>
+                    </c:if>
+                    <c:if test="${queryValidationError}">
+                        <div class="alert alert-danger" role="alert">
+                            <fmt:message key="oscarReport.RptByExample.MsgValidationError"/>
+                        </div>
+                    </c:if>
+                    <c:if test="${queryAccessDenied}">
+                        <div class="alert alert-danger" role="alert" id="queryAccessDenied">
+                            <fmt:message key="oscarReport.RptByExample.MsgAccessDenied"/>
+                        </div>
+                    </c:if>
+                    <c:if test="${queryTimeout}">
+                        <div class="alert alert-danger" role="alert">
+                            <fmt:message key="oscarReport.RptByExample.MsgTimeout">
+                                <fmt:param value="${queryTimeoutSeconds}"/>
+                            </fmt:message>
+                        </div>
+                    </c:if>
+                    <c:if test="${queryExecutionError}">
+                        <div class="alert alert-danger" role="alert">
+                            <fmt:message key="oscarReport.RptByExample.MsgExecutionError"/>
+                        </div>
+                    </c:if>
+                    <c:if test="${queryHistoryError}">
+                        <div class="alert alert-warning" role="alert">
+                            <fmt:message key="oscarReport.RptByExample.MsgHistoryError"/>
+                        </div>
+                    </c:if>
 
                     <!-- OR divider -->
                     <div class="mb-2">
@@ -177,8 +222,10 @@
                             <fmt:message key="oscarReport.RptByExample.MsgSelectFromMyFavorites"/>
                         </label>
                         <div class="d-flex gap-2 align-items-center">
+                            <%-- No name: the picker only fills the textarea above. Posting it would
+                                 send the stored SQL a second time, as an argument the action never
+                                 reads and the packaged WAF exclusion (ARGS:sql only) does not cover. --%>
                             <select id="selectedRecentSearch"
-                                    name="selectedRecentSearch"
                                     class="form-select form-select-sm">
                                 <option value="" disabled="disabled" selected="selected">
                                     <fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/>
@@ -211,6 +258,26 @@
                     <!-- Query results — rendered as backend-generated HTML -->
                     <c:if test="${not empty results}">
                         <div class="mt-3">
+                            <p class="text-muted small">
+                                <fmt:message key="oscarReport.RptByExample.MsgResultLimit">
+                                    <fmt:param value="${resultRowCount}"/>
+                                    <fmt:param value="${resultLimit}"/>
+                                </fmt:message>
+                            </p>
+                            <c:if test="${resultTruncated}">
+                                <div class="alert alert-warning" role="alert">
+                                    <fmt:message key="oscarReport.RptByExample.MsgOutputTruncated">
+                                        <fmt:param value="${resultCharacterLimit}"/>
+                                    </fmt:message>
+                                </div>
+                            </c:if>
+                            <c:if test="${resultRowLimitReached}">
+                                <div class="alert alert-warning" role="alert">
+                                    <fmt:message key="oscarReport.RptByExample.MsgRowLimitReached">
+                                        <fmt:param value="${resultLimit}"/>
+                                    </fmt:message>
+                                </div>
+                            </c:if>
                             ${results}
                         </div>
                     </c:if>

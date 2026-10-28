@@ -54,6 +54,8 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -245,6 +247,9 @@
         }
     </style>
 
+<style>
+    .link-button { background: none; border: 0; color: var(--bs-link-color, #0000EE); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+</style>
 </head>
 
 <body>
@@ -371,11 +376,15 @@
                     <div class="mb-3">
 
                         <% String billTypes = request.getParameter("billTypes");
-                            if (billTypes == null) {
-                                billTypes = MSPReconcile.REJECTED;
-                            }
                             if ("true".equals(readonly)) {
-                                billTypes = "%";
+                                // The Master Record's Invoice List opens on all of the patient's bills, and a blank
+                                // status keeps All; a status picked from the radios then filters them, as on the
+                                // clinic-wide page.
+                                if (billTypes == null || billTypes.isBlank()) {
+                                    billTypes = "%";
+                                }
+                            } else if (billTypes == null) {
+                                billTypes = MSPReconcile.REJECTED;
                             }
 
                         %>
@@ -483,7 +492,8 @@
     </div><!-- row well-->
 
 
-    <form name="ReProcessBillingForm" method="post" action="reprocessBill">
+    <%-- Absolute: this page sets <base href> to the context root, so a relative action posted to /reprocessBill (404). --%>
+    <form name="ReProcessBillingForm" method="post" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill">
 
         <input type="hidden" id="hiddenFilterType" name="hiddenFilterType"
                value="<carlos:encode value='<%= request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
@@ -524,6 +534,7 @@
                 String demoNo = request.getParameter("demographicNo");
 
                 MSPReconcile.BillSearch bSearch = msp.getBills(billTypes, providerview, dateBegin, dateEnd, demoNo, !showWCB, !showMSP, !showPRIV, !showICBC);
+                Map<Integer, BillingHistoryDao.PaymentTotals> paymentTotals = msp.getPaymentHistoryTotals(bSearch);
 
                 Properties p2 = bSearch.getCurrentErrorMessages();
                 Properties p = msp.currentC12Records();
@@ -536,6 +547,8 @@
                     incorrectVal = false;
                     paidinCorrectval = false;
                     MSPReconcile.Bill b = (MSPReconcile.Bill) bSearch.list.get(i);
+                    BillingHistoryDao.PaymentTotals historyTotals = paymentTotals.getOrDefault(
+                            Integer.valueOf(b.billMasterNo), BillingHistoryDao.PaymentTotals.ZERO);
 
                     bodd = currentBillingNo.equals(b.billing_no) ? !bodd : bodd; //for the color of rows
                     nItems++; //to calculate if it is the end of records
@@ -549,7 +562,7 @@
                         incorrectVal = true;
                     }
                     total = total.add(valueToAdd);
-                    double pAmount = msp.getAmountPaid(b.billMasterNo, b.billingtype);
+                    double pAmount = msp.getAmountPaid(b.billMasterNo, b.billingtype, historyTotals);
                     BigDecimal valueToPaidAdd = new BigDecimal("0.00");
                     try {
                         valueToPaidAdd = new BigDecimal(pAmount).setScale(2, BigDecimal.ROUND_HALF_UP);
@@ -570,7 +583,7 @@
                 </td>
                 <td>
                     <%if ("Pri".equals(b.billingtype)) {%>
-                    <a href="javascript:popupPage(800,800, '<%=request.getContextPath()%>/billing/CA/BC/billingView?billing_no=<%=b.billing_no%>&receipt=yes')"><%=b.billing_no%>
+                    <a href="<%=request.getContextPath()%>/billing/CA/BC/billingView?billing_no=<%=SafeEncode.forUriComponent(b.billing_no)%>&amp;receipt=yes" onclick="popupPage(800,800, this.href); return false;"><%=b.billing_no%>
                     </a>
                     <%
                     } else {
@@ -589,12 +602,13 @@
                 <%
                     if (!"true".equals(readonly)) {
                 %>
-                <td><a href="javascript: setDemographic('<%=b.demoNo%>');"><%=b.demoName%>
-                </a></td>
+                <td><button type="button" class="link-button" onclick="setDemographic('<%=SafeEncode.forJavaScriptAttribute(b.demoNo)%>');"><%=SafeEncode.forHtml(b.demoName)%>
+                </button></td>
                 <%}%>
-                <td><%=b.providerLastName%>,<%=b.providerFirstName%>
+                <td><%=SafeEncode.forHtml(b.providerLastName)%>,<%=SafeEncode.forHtml(b.providerFirstName)%>
                 </td>
-                <td title="<%=msp.getStatusDesc(b.reason)%>"><%=msp.getStatusDesc(b.reason) == null ? "&nbsp" : msp.getStatusDesc(b.reason)%>
+                <% String statusDesc = msp.getStatusDesc(b.reason); %>
+                <td title="<%=SafeEncode.forHtmlAttribute(statusDesc)%>"><%=statusDesc == null ? "&nbsp;" : SafeEncode.forHtml(statusDesc)%>
                 </td>
 
 
@@ -607,7 +621,7 @@
                 <td><%=nf.format(pAmount)%>
                 </td>
                 <%
-                    double dblAmtOwed = msp.getAmountOwing(b.billMasterNo, b.amount, b.billingtype);
+                    double dblAmtOwed = msp.getAmountOwing(b.billMasterNo, b.amount, b.billingtype, historyTotals);
                     BigDecimal amtOwed = new BigDecimal(dblAmtOwed).setScale(2, BigDecimal.ROUND_HALF_UP);
                     owedTotal = owedTotal.add(amtOwed);
 
@@ -619,7 +633,7 @@
 
                 <td>
                     <% if (adminAccess) { %>
-                    <a href="javascript: popupPage(700,1000,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<%=b.billMasterNo%>&invoiceNo=<%=b.billing_no%>')">Edit </a>
+                    <a href="<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<%=SafeEncode.forUriComponent(b.billMasterNo)%>&amp;invoiceNo=<%=SafeEncode.forUriComponent(b.billing_no)%>" onclick="popupPage(700,1000,this.href); return false;">Edit </a>
                     <% } %>
 
 

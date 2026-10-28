@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
@@ -50,6 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.AllergyAtcClass" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -74,13 +76,18 @@
     PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 %>
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
 <c:if test="${empty RxSessionBean}">
     <% response.sendRedirect("error.html"); %>
 </c:if>
-<c:if test="${not empty sessionScope.RxSessionBean}">
+<c:if test="${not empty pageScope.RxSessionBean}">
     <%
         // Directly access the RxSessionBean from the session
-        bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+        bean = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r");
         if (bean != null && !bean.isValid()) {
             response.sendRedirect("error.html");
             return; // Ensure no further JSP processing
@@ -88,7 +95,7 @@
     %>
 </c:if>
 <%
-    RxPatientData.Patient patient = (RxPatientData.Patient) session.getAttribute("Patient");
+    RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
     request.setAttribute("patient", patient);
     SecurityManager securityManager = new SecurityManager();
 %>
@@ -99,6 +106,12 @@
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+        <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-patient-context.js" data-demographic-no="<%= patient == null ? "" : String.valueOf(patient.getDemographicNo()) %>"
+                data-chart-context="<carlos:encode value='<%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) %>' context="htmlAttribute"/>"></script>
+        <%-- Shows failed dialogue requests and saves in the page, keeping the entered values (#3355, #3488). --%>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-allergy-dialog.js"></script>
+        <%@ include file="allergyDialog.jspf" %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/allergies.css">
         <style type="text/css">
@@ -135,19 +148,12 @@
                     //--> unbind first to avoid multiple binds.
                     $(".deleteAllergyLink").unbind("click");
                     $(".modifyAllergyLink").unbind("click");
-                    $("#searchResultsContainer a").unbind("click");
                     $(".DivContentSectionHead a img").unbind("click");
 
-                    //--> action for selecting from search results.
-                    $("#searchResultsContainer div[id $= '_content'] a").on("click", function (event) {
-                        event.preventDefault();
-                        // override the old addReaction with the new addReaction2
-                        var path = "${ pageContext.servletContext.contextPath }/rx/addReaction2"
-                        var param = this.href.split("?")[1];
-
-                        sendSearchRequest(path, param, "#addAllergyDialogue");
-                        $("#searchResultsContainer").html("");
-                    });
+                    <%-- Selecting a search result is handled by the inline onclick="submitAddReaction(...)"
+                         carried on the anchors that ChooseAllergy2.jsp renders, not by a delegated handler
+                         here. Those anchors are href="javascript:void(0)" with the drugref id/type/description
+                         in data- attributes, so there is no query string left on this.href to parse. --%>
 
                     //--> delete allergy.
                     $(".deleteAllergyLink").on("click", function (event) {
@@ -285,10 +291,62 @@
 
             }); //--> end document ready
 
+            <%--
+                Entry point for the anchors in the AJAX-loaded search results.
+
+                ChooseAllergy2.jsp is rendered both as a standalone page and, here, as an HTML
+                fragment: renderSearchResults() lifts only its #searchResultsContainer element out
+                of the response, so ChooseAllergy2's own <script> block and its hidden
+                #addReactionForm never reach this DOM. The anchors' onclick therefore resolves
+                against THIS page, and without a definition here every click on a search result
+                died with "submitAddReaction is not defined" and the allergy could not be added.
+
+                The full-page copy in ChooseAllergy2.jsp posts a form; this copy keeps the user on
+                the allergy page and loads the reaction dialogue over AJAX instead.
+            --%>
+            function submitAddReaction(actionUrl, id, type, name) {
+                $(".highLightButton").removeClass("highLightButton");
+                // The fragment's anchors still point at the legacy /rx/addReaction route; this page
+                // has always driven the addReaction2 dialogue, so normalize onto it.
+                var path = (actionUrl || "").replace(/\/rx\/addReaction$/, "/rx/addReaction2");
+                if (path.indexOf("/rx/addReaction2") < 0) {
+                    path = "${ pageContext.servletContext.contextPath }/rx/addReaction2";
+                }
+                var param = "ID=" + encodeURIComponent(id)
+                    + "&type=" + encodeURIComponent(type)
+                    + "&name=" + encodeURIComponent(name);
+
+                sendSearchRequest(path, param, "#addAllergyDialogue");
+                $("#searchResultsContainer").html("");
+            }
+
+            <%-- The NKDA guard has to see through encodeURIComponent(): submitAddReaction() and
+                 addCustomAllergy() percent-encode the name, while the NKDA button passes paramNKDA
+                 verbatim. Decode before matching so both spellings are caught. --%>
+            function paramHasNKDA(param) {
+                const raw = String(param);
+                if (raw.indexOf(paramNKDA) >= 0) {
+                    return true;
+                }
+                // Only decode when the payload actually looks URL-encoded; other requests
+                // (e.g., jsonData=...) may legitimately contain a literal '%'.
+                if (!/%[0-9A-Fa-f]{2}|\+/.test(raw)) {
+                    return false;
+                }
+                try {
+                    return decodeURIComponent(raw.replace(/\+/g, " ")).indexOf(paramNKDA) >= 0;
+                } catch (e) {
+                    return false;
+                }
+            }
+
             //--> AJAX the data to the server.
             function sendSearchRequest(path, param, target) {
+                if (param === undefined || param === null) {
+                    return;
+                }
                 var iNKDA = document.forms.searchAllergy2.iNKDA.value;
-                if (param.indexOf(paramNKDA) >= 0) {
+                if (paramHasNKDA(param)) {
                     var hasDrugAllergy = document.forms.searchAllergy2.hasDrugAllergy.value;
                     if (hasDrugAllergy === "true") {
                         alert("Active drug allergy exists!");
@@ -311,26 +369,70 @@
                     data: param,
                     dataType: 'html',
                     success: function (data) {
-                        renderSearchResults(data, target);
+                        if (!renderSearchResults(data, target, path)) {
+                            return;
+                        }
                         if (path.indexOf("deleteAllergy") >= 0) location.reload();
+                    },
+                    <%-- A refused request (#3355: a 403 from CSRFGuard) used to leave the spinner
+                         turning with nothing said. Say which step failed instead. --%>
+                    error: function (xhr) {
+                        reportAllergyRequestFailure(path, xhr ? xhr.status : 0);
                     }
                 });
             }
 
-            //--> Render response html
-            function renderSearchResults(html, id) {
-
-                if (id instanceof Array) {
-                    $.each(id, function (i, val) {
-                        $(val).replaceWith(jQuery(val, html));
-                    });
+            //--> Tell the clinician, in the page, that an allergy request failed.
+            function reportAllergyRequestFailure(path, status) {
+                $('.ajax-loader').removeClass('ajax-loader');
+                if (window.CarlosAllergyDialog) {
+                    CarlosAllergyDialog.reportRequestFailure(path, status);
                 } else {
-                    $(id).replaceWith(jQuery(id, html));
+                    alert((window.CarlosAllergyDialogMessages || {}).msgRequestFailedReload
+                        || "The allergy request did not complete. Reload this page before trying again.");
                 }
+            }
+
+            //--> Render response html. Returns false, rendering nothing, when the answer lacks a
+            //--> target: replaceWith() would otherwise swap the page's container for nothing (the
+            //--> login page after the session ended), leaving later clicks nowhere to render.
+            function renderSearchResults(html, id, path) {
+                var targets = id instanceof Array ? id : [id];
+                var replacements = [];
+                for (var i = 0; i < targets.length; i++) {
+                    var found = jQuery(targets[i], html);
+                    if (found.length === 0) {
+                        reportAllergyRequestFailure(path, 200);
+                        return false;
+                    }
+                    replacements.push([targets[i], found]);
+                }
+                $.each(replacements, function (i, replacement) {
+                    $(replacement[0]).replaceWith(replacement[1]);
+                });
 
                 $('.ajax-loader').removeClass('ajax-loader');
-                // CSRF tokens for dynamically loaded forms auto-injected by CSRFGuard MutationObserver
+                if (window.CarlosAllergyDialog) {
+                    CarlosAllergyDialog.clearRequestFailure();
+                }
+                // The injected reaction form carries its own server-rendered CSRF token; CSRFGuard's
+                // MutationObserver and submit hook keep it current.
                 $().bindActionEvents();
+                return true;
+            }
+
+            <%-- The Penicillin and Sulfa shortcuts record an ATC class allergen (#4576): type 8 (ATC
+                 Class), no DrugRef id, and the class code, which RxAddReaction2Action carries onto the
+                 dialogue form. They used to post fixed DrugRef ids, which name other products in
+                 current DrugRef data. ID is sent empty, never 0: sendSearchRequest() reads ID=0 as a
+                 free-text allergen and would not archive an active NKDA entry for it. --%>
+            function addAtcClassAllergy(name, atc, buttonValue) {
+                $(".highLightButton").removeClass("highLightButton");
+                var param = "ID=&type=8&name=" + encodeURIComponent(name) + "&atc=" + encodeURIComponent(atc);
+
+                sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
+                    param, "#addAllergyDialogue");
+                $("input[value='" + buttonValue + "']").addClass("highLightButton");
             }
 
             //--> Check if search field is empty.
@@ -378,29 +480,22 @@
                 var name = document.getElementById('searchString').value;
                 if (isEmpty() == true) {
                     name = name.toUpperCase();
-                    confirm("Adding custom allergy: " + name);
-                    sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
-                        "ID=0&type=0&name=" + encodeURIComponent(name), "#addAllergyDialogue");
-                    $("input[value='Custom Allergy']").addClass("highLightButton");
+                    if (confirm("Adding custom allergy: " + name)) {
+                        sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
+                            "ID=0&type=0&name=" + encodeURIComponent(name), "#addAllergyDialogue");
+                        $("input[value='Custom Allergy']").addClass("highLightButton");
+                    }
                 }
             }
 
             function addPenicillinAllergy() {
-                $(".highLightButton").removeClass("highLightButton");
-                var param = "ID=44452&name=PENICILLINS&type=10";
-
-                sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
-                    param, "#addAllergyDialogue");
-                $("input[value='Penicillin']").addClass("highLightButton");
+                addAtcClassAllergy('<carlos:encode value='<%= AllergyAtcClass.Shortcut.PENICILLINS.allergen() %>' context="javaScript"/>',
+                    '<carlos:encode value='<%= AllergyAtcClass.Shortcut.PENICILLINS.atcClass() %>' context="javaScript"/>', 'Penicillin');
             }
 
             function addSulfonamideAllergy() {
-                $(".highLightButton").removeClass("highLightButton");
-                var param = "ID=44159&name=SULFONAMIDES&type=10";
-
-                sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
-                    param, "#addAllergyDialogue");
-                $("input[value='Sulfa']").addClass("highLightButton");
+                addAtcClassAllergy('<carlos:encode value='<%= AllergyAtcClass.Shortcut.SULFONAMIDES.allergen() %>' context="javaScript"/>',
+                    '<carlos:encode value='<%= AllergyAtcClass.Shortcut.SULFONAMIDES.atcClass() %>' context="javaScript"/>', 'Sulfa');
             }
 
             var paramNKDA = "name=No Known Drug Allergies";
@@ -439,7 +534,7 @@
                 <table>
                     <tr class="DivCCBreadCrumbs">
                         <td>
-                            <a href="${pageContext.request.contextPath}/rx/searchDrug"><fmt:message key="SearchDrug.title"/></a>
+                            <a href="${pageContext.request.contextPath}/rx/searchDrug?demographicNo=<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>"><fmt:message key="SearchDrug.title"/></a>
                             &nbsp;&gt;&nbsp;
                             <b><fmt:message key="EditAllergies.title"/></b>
                         </td>
@@ -457,7 +552,7 @@
                                 <tr>
                                     <td>
                                         <b><fmt:message key="SearchDrug.nameText"/></b>
-                                        ${patient.getSurname() }, ${patient.getFirstName() }<br/>
+                                        <c:out value="${patient.getSurname()}"/>, <c:out value="${patient.getFirstName()}"/><br/>
                                     </td>
                                     <td>&nbsp;</td>
                                     <td><b>Age:</b>
@@ -473,17 +568,12 @@
                             <span class="view_menu">View:
 <%
 
-    String demoNo = request.getParameter("demographicNo");
-
-    if (demoNo == null) {
-        demoNo = (String) session.getAttribute("demographicNo");
-    } else {
-        session.setAttribute("demographicNo", demoNo);
-    }
-
-    if (demoNo == null || demoNo.equals("null")) {
-        demoNo = String.valueOf(bean.getDemographicNo());
-    }
+    // The patient whose allergies this page shows: the bean authorised for this request above.
+    // It used to come from the parameter or, when absent, from session "demographicNo" (the patient
+    // of the last waiting-list, registry or allergy page in any window), and this page wrote that
+    // session value too, so the view links and Inactivate/Reactivate could name another patient
+    // (issue #4673).
+    String demoNo = bean == null ? "" : String.valueOf(bean.getDemographicNo());
 
     String strView = request.getParameter("view");
     if (strView == null) {strView = "Active";}
@@ -637,17 +727,21 @@
                                                 <td>
                                                     <%
                                                         if (securityManager.hasDeleteAccess("_allergies", roleName$)) {
-                                                            if (intArchived == 0) {
                                                     %>
+                                                    <%-- Inactivate for an active row, Reactivate (action=activate) for an inactive
+                                                         one. Reactivate must not be the amendment dialogue: an amendment of an
+                                                         archived allergy is refused as stale (#4410). --%>
                                                     <a href="#" class="deleteAllergyLink"
                                                        id="deleteAllergy:<%= labelAction %>_ID=<%=allergy.getAllergyId() %>&demographicNo=<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>&action=<%=actionPath %>">
                                                         <%=labelAction%>
-                                                    </a> |
-                                                    <% } %>
+                                                    </a>
+                                                    <% if (intArchived == 0) { %>
+                                                    |
                                                     <a href="#" class="modifyAllergyLink"
                                                        id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<carlos:encode value='<%= allergy.getDescription() %>' context="htmlAttribute"/>&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
-                                                        <%=intArchived == 0 ? "Modify" : labelAction%>
+                                                        Modify
                                                     </a>
+                                                    <% } %>
                                                     <% } %>
                                                 </td>
                                             </tr>
@@ -685,6 +779,20 @@
                                             <input type=button class="ControlPushButton"
                                                    onclick="addSulfonamideAllergy();" value="Sulfa"/>
                                         </td>
+                                    </tr>
+                                    <%-- Set by RxAddAllergy2Action when a brand allergen was saved without its DrugRef
+                                         identifiers (#4435). Only the literal "true" shows it; no request text is echoed. --%>
+                                    <c:if test="${param.identifiersUnresolved eq 'true'}">
+                                    <tr>
+                                        <td><div id="allergyIdentifiersNotice" class="allergyRequestStatus" role="alert">
+                                            <fmt:message key="rx.showAllergies.identifiersUnresolved"/></div></td>
+                                    </tr>
+                                    </c:if>
+                                    <tr>
+                                        <%-- Filled by rx-allergy-dialog.js when a dialogue request fails;
+                                             present from load so the alert is announced reliably. --%>
+                                        <td><div id="allergyRequestStatus" class="allergyRequestStatus" role="alert"
+                                                 aria-live="assertive" style="display:none"></div></td>
                                     </tr>
                                     <tr>
                                         <td id="addAllergyDialogue"></td>

@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.utility.CppUtils;
@@ -55,12 +57,16 @@ public class EctDisplayIssues2Action extends EctDisplayAction {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        // set lefthand module heading and link
+        // Left heading is a static label, not a click action (issue #3444):
+        // clicking it used to only clear the legacy check_issue field and
+        // resubmit the form, which is a no-op under the normal unfiltered
+        // state. Individual issue items below remain the real filter controls.
         navBarDisplayDAO.setLeftHeading(getText("encounter.NavBar.unresolvedIssues"));
 
-        navBarDisplayDAO.setLeftURL("$('check_issue').value='';document.caseManagementViewForm.submit();");
-
-        // set righthand link to same as left so we have visual consistency with other modules
+        // Right heading keeps the "+" affordance other panels use for visual
+        // consistency, but it's a deliberate no-op here: there is no quick-add
+        // action for issues from this navbar (the left heading above is now
+        // static too, per issue #3444).
         String url = "return false;";
         navBarDisplayDAO.setRightURL(url);
         navBarDisplayDAO.setRightHeadingID(cmd); // no menu so set div id to unique id for this action
@@ -69,7 +75,7 @@ public class EctDisplayIssues2Action extends EctDisplayAction {
         List<CaseManagementIssue> issues = null;
         int demographicId = Integer.parseInt(bean.getDemographicNo());
         issues = caseManagementMgr.getIssues(demographicId);
-        String programId = (String) request.getSession().getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         issues = caseManagementMgr.filterIssues(loggedInInfo, providerNo, issues, programId);
 
         List<CaseManagementIssue> issues_unr = new ArrayList<CaseManagementIssue>();

@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
 import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
 import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteSaveResult;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -120,6 +121,14 @@ public interface CaseManagementManager {
 
     public List<CaseManagementNote> getNotesWithLimit(String demographic_no, Integer offset, Integer numToReturn);
 
+    /**
+     * Finds latest note versions observed at or after startDate and strictly before endDate.
+     *
+     * @param demographic_no patient identifier
+     * @param startDate inclusive observation timestamp
+     * @param endDate exclusive observation timestamp
+     * @return matching note versions
+     */
     public List<CaseManagementNote> getNotesInDateRange(String demographic_no, Date startDate, Date endDate);
 
     public List<CaseManagementNote> getActiveNotes(String demographic_no, String[] issues);
@@ -254,6 +263,14 @@ public interface CaseManagementManager {
 
     public String getDemoDOB(String demoNo);
 
+    /**
+     * Returns the patient's most responsible provider number ({@code demographic.provider_no}).
+     *
+     * @param demoNo the patient's demographic number
+     * @return the provider number, or an empty string when the patient or the MRP is absent
+     */
+    public String getDemoProviderNo(String demoNo);
+
     public String getCaisiRoleById(String id);
 
     public List<CaseManagementNote> search(CaseManagementSearchBean searchBean);
@@ -261,6 +278,18 @@ public interface CaseManagementManager {
     public List<CaseManagementNote> filterNotesByAccess(List<CaseManagementNote> notes, String providerNo);
 
     public void tmpSave(String providerNo, String demographicNo, String programId, String noteId, String note);
+
+    /**
+     * Atomically replaces the draft for one provider, patient and program. A failed replacement
+     * rolls back deletion of the previous draft.
+     *
+     * @param providerNo String identifying the provider who owns the draft
+     * @param demographicNo String containing the patient identifier
+     * @param programId String containing the program identifier
+     * @param noteId String containing the note identifier, or null/empty for a new note
+     * @param note String containing the draft text
+     */
+    void replaceTmpSave(String providerNo, String demographicNo, String programId, String noteId, String note);
 
     public void deleteTmpSave(String providerNo, String demographicNo, String programId);
 
@@ -297,6 +326,41 @@ public interface CaseManagementManager {
 
     public void updateNote(CaseManagementNote note);
 
+    /** Saves a chart edit as a new row, retaining the previous revision and its metadata. */
+    CaseManagementNoteSaveResult saveNoteRevision(CaseManagementCPP cpp, CaseManagementNote note,
+            String providerNo, String userName, String lastStr, String roleName);
+
+    /**
+     * Saves a CPP revision, projection, issues, extensions and sibling positions atomically.
+     * The returned note owns persisted issue identities; submitted carriers remain retryable.
+     *
+     * @since 2026-10-15
+     */
+    CaseManagementNoteSaveResult saveCppNoteRevision(CaseManagementNote note, String userName, String lastStr,
+            Map<Long, Integer> notePositions, List<CaseManagementNoteExt> submittedExtensions);
+
+    /** Saves an edit whose history text has already been prepared by the caller. */
+    CaseManagementNote saveNoteRevisionSimple(CaseManagementNote note);
+
+    /** The compact editor publishes its issue selection only after the complete save commits. */
+    record CompactSaveResult(CaseManagementNote note, List<CaseManagementIssue> issues) { }
+
+    /**
+     * Saves the compact editor's revision, issue changes and originating draft deletion atomically.
+     * Submitted carriers remain unchanged so the same editor can retry a failed transaction.
+     *
+     * @param login authenticated context whose provider must match the submitted writer
+     * @param note submitted note with its selected issue instances
+     * @param issues ordered form issues, including the selected instances from {@code note}
+     * @param originatingProgram chart program owning the draft; null leaves drafts unchanged
+     * @return persisted revision and issues in their submitted order, published after commit
+     * @throws StaleNoteRevisionException when the selected source is no longer current
+     * @throws SecurityException when the writer, issue patient or chart role is invalid
+     * @since 2026-10-24
+     */
+    CompactSaveResult saveCompactNoteRevision(LoggedInInfo login, CaseManagementNote note,
+            List<CaseManagementIssue> issues, String originatingProgram);
+
     public void saveNoteSimple(CaseManagementNote note);
 
     public Long saveNoteSimpleReturnID(CaseManagementNote note);
@@ -310,6 +374,8 @@ public interface CaseManagementManager {
     public boolean isClientInProgramDomain(List<ProgramProvider> providerPrograms, List<Admission> allAdmissions);
 
     public boolean isClientReferredInProgramDomain(String providerNo, String demographicNo);
+
+    public boolean isClientReferredInProgramDomain(List<ProgramProvider> providerPrograms, String demographicNo);
 
     public void updateIssue(String demographicNo, Long originalIssueId, Long newIssueId);
 
@@ -377,6 +443,60 @@ public interface CaseManagementManager {
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
                                                      Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString) throws Exception;
+
+    /**
+     * Saves a revision and clears only the draft belonging to the originating chart program.
+     * The note retains its own program when an authorized chart edits a shared note.
+     * For a positive chart origin, a writer without a role in the stored program uses
+     * their origin program's role for the revision and signature; missing both refuses the save.
+     * A null draft program leaves drafts intact. The original overload retains its
+     * note-program cleanup for integrations that do not supply a separate chart context.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context
+     * @param note CaseManagementNote the note revision to save
+     * @param issuelist List&lt;CaseManagementIssue&gt; issues associated with the revision
+     * @param cpp CaseManagementCPP the patient's CPP entry
+     * @param ongoing String the ongoing-concerns text
+     * @param verify boolean whether to verify the revision
+     * @param locale Locale used to format the saved note
+     * @param now Date the save timestamp
+     * @param userName String the saving user's display name
+     * @param user String the saving provider identifier
+     * @param remoteAddr String the client address used for auditing
+     * @param lastSavedNoteString String the previously saved note text
+     * @param draftProgram String the originating chart program; null preserves drafts
+     * @return CaseManagementNote the saved revision
+     * @throws Exception if any part of the transactional note, issue or CPP save fails
+     */
+    public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram) throws Exception;
+
+    /**
+     * Removes an unused chart issue and its CPP entry in the same transaction as the required note revision.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context
+     * @param note CaseManagementNote the required note revision to save
+     * @param issuelist List&lt;CaseManagementIssue&gt; issues associated with the revision
+     * @param cpp CaseManagementCPP the patient's CPP entry
+     * @param ongoing String the ongoing-concerns text
+     * @param verify boolean whether to verify the revision
+     * @param locale Locale used to format the saved note
+     * @param now Date the save timestamp
+     * @param userName String the saving user's display name
+     * @param user String the saving provider identifier
+     * @param remoteAddr String the client address used for auditing
+     * @param lastSavedNoteString String the previously saved note text
+     * @param draftProgram String the originating chart program; null preserves drafts
+     * @param removedIssue CaseManagementIssue the required persisted, unused issue belonging to the note patient
+     * @return CaseManagementNote the saved revision
+     * @throws Exception if the issue is invalid or any part of the transactional note, issue or CPP update fails
+     */
+    public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram, CaseManagementIssue removedIssue) throws Exception;
 
     public void setCPPMedicalHistory(CaseManagementCPP cpp, String providerNo, List accessRight);
 

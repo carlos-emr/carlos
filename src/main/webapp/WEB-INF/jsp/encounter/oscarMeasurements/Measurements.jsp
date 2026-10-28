@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+  Purpose: Render the clinical measurement-entry popup for an authorized demographic.
+  Features: Displays measurement groups, prior values, validation feedback, and calculator/history links.
+  Parameters: demographicNo (numeric patient identifier); groupName (configured measurement group).
+  @since 2016-06-28
+--%>
 <!DOCTYPE html>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -35,33 +41,45 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
-<%@ page
-        import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBeanHandler, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MeasurementManager" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
-    String demo = request.getParameter("demographicNo"); //bean.getDemographicNo();
+    Object demographicNoSource = request.getAttribute("demographicNo");
+    if (demographicNoSource == null) {
+        demographicNoSource = request.getParameter("demographicNo");
+    }
+    Integer demographicNo = ConversionUtils.fromIntString(demographicNoSource);
+    String demo = demographicNo > 0 ? demographicNo.toString() : "";
+    String patientNameAge = demo.isEmpty()
+            ? ""
+            : DemographicNameAgeString.getInstance().getNameAgeString(
+                    LoggedInInfo.getLoggedInInfoFromSession(session), demographicNo);
     request.setAttribute("demo", demo);
+    request.setAttribute("patientNameAge", patientNameAge);
 
     MeasurementManager measurementManager = SpringUtils.getBean(MeasurementManager.class);
     String groupName = (String) request.getAttribute("groupName");
 %>
+<fmt:message key="encounter.oscarMeasurements.Measurements.msgParentChanged" var="parentChangedMessage">
+    <fmt:param value="${patientNameAge}"/>
+</fmt:message>
 
 <html>
 
     <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/global.js"></script>
         <title><c:if test="${not empty groupName}">
-            ${carlos:forHtml(groupName)}
+            ${carlos:forHtmlContent(groupName)}
         </c:if> <fmt:message key="encounter.Index.measurements"/></title>
 
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <base href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/">
 
 
         <link href="library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
@@ -93,11 +111,11 @@
                 padding: 14px;
             }
         </style>
-        <script src="${ pageContext.request.contextPath }/share/calendar/calendar.js"></script>
-        <script src="${ pageContext.request.contextPath }/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
-        <script src="${ pageContext.request.contextPath }/share/calendar/calendar-setup.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/calendar/calendar.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/calendar/calendar-setup.js"></script>
         <link rel="stylesheet" type="text/css" media="all"
-              href="${ pageContext.request.contextPath }/share/calendar/calendar.css" title="win2k-cold-2"/>
+              href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/calendar/calendar.css" title="win2k-cold-2"/>
 
         <script type="text/javascript">
 
@@ -120,13 +138,29 @@
 
             parentChanged = false;
 
+            // One Submit saves once (issues #4410, #4225): a double click or double Enter used to send
+            // two posts that could both be stored. A second Submit while a save is out is ignored; the
+            // button comes back after validation errors or a failure so a retry is not suppressed.
+            var measurementSaveInFlight = false;
+
+            function setMeasurementSaving(saving) {
+                measurementSaveInFlight = saving;
+                var submit = document.getElementById('measurementSubmit');
+                if (submit) {
+                    submit.disabled = saving;
+                }
+            }
+
             function check() {
+                if (measurementSaveInFlight) {
+                    return;
+                }
                 var ret = true;
 
                 if (parentChanged) {
-                    document.forms[0].elements["value(parentChanged)"].value = "true";
+                    document.forms[0].elements["parentChanged"].value = "true";
 
-                    if (!confirm("<fmt:message key="encounter.oscarMeasurements.Measurements.msgParentChanged"/> <oscar:nameage demographicNo="<%=demo%>"/>"))
+                    if (!confirm("${carlos:forJavaScript(parentChangedMessage)}"))
                         ret = false;
                 }
 
@@ -141,7 +175,8 @@
 
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     var csrfToken = csrfEl ? csrfEl.value : '';
-                    fetch('<%=request.getContextPath()%>/encounter/Measurements?ajax=true&skipCreateNote=true', {
+                    setMeasurementSaving(true);
+                    fetch('${carlos:forJavaScript(pageContext.request.contextPath)}/encounter/Measurements?ajax=true&skipCreateNote=true', {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: {
@@ -151,7 +186,12 @@
                         },
                         body: urlParams.toString()
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error("Measurement submission failed with status " + response.status);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         const errorsList = document.getElementById('errors_list');
                         const errorDiv = document.getElementById('errorDiv');
@@ -159,6 +199,7 @@
                         errorsList.innerHTML = '';
                         
                         if (data.errors && data.errors.length > 0) {
+                            setMeasurementSaving(false);
                             for (let x = 0; x < data.errors.length; x++) {
                                 const li = document.createElement('li');
                                 li.textContent = data.errors[x];
@@ -168,11 +209,14 @@
                             // Scroll to top to show validation errors
                             errorDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         } else {
-                            opener.postMessage(data, "*");
+                            if (window.opener && !window.opener.closed) {
+                                window.opener.postMessage(data, window.location.origin);
+                            }
                             window.close();
                         }
                     })
                     .catch(error => {
+                        setMeasurementSaving(false);
                         console.error('Error submitting form:', error);
                         const errorsList = document.getElementById('errors_list');
                         const errorDiv = document.getElementById('errorDiv');
@@ -190,9 +234,9 @@
         </script>
     </head>
     <body class="BodyStyle" onload="window.focus();">
-    <form action="${pageContext.request.contextPath}/encounter/Measurements" method="post" id="theForm" name="theForm">
+    <form action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/encounter/Measurements" method="post" id="theForm" name="theForm">
         <c:if test="${not empty css}">
-            <link rel="stylesheet" type="text/css" href="${css}">
+            <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(css)}">
         </c:if>
         <c:if test="${empty css}">
             <!--<link rel="stylesheet" type="text/css" href="styles/measurementStyle.css">-->
@@ -200,15 +244,15 @@
 
         <table class="MainTable" id="scrollNumber1">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><h4>
+                <td class="MainTableTopRowLeftColumn">
                     <c:if test="${not empty groupName}">
-                    <h4>${groupName}</h4>
+                        <h4>${carlos:forHtmlContent(groupName)}</h4>
                     </c:if>
                 </td>
                 <td class="MainTableTopRowRightColumn" style="padding:0px">
                     <table class="TopStatusBar" style="width:100%; height:100%;">
                         <tr>
-                            <td class="Header"><h3><oscar:nameage demographicNo="<%=demo%>"/></h3></td>
+                            <td class="Header"><h3>${carlos:forHtmlContent(patientNameAge)}</h3></td>
                         </tr>
                     </table>
                 </td>
@@ -218,13 +262,14 @@
                     <table>
                         <tr>
                             <td><a
-                                    href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/ViewCalculators?demo=<carlos:encode value='<%= demo %>' context="uriComponent"/>'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
+                                    href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/encounter/ViewCalculators?demo=${carlos:forHtmlAttribute(carlos:forUriComponent(demo))}"
+                                    onClick="popupPage(150,200,this.href); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
                         </tr>
                     </table>
                 </td>
                 <td class="MainTableRightColumn">
 
+                    <%-- Trusted clinic decision-support template HTML loaded from the configured allowlisted directory. --%>
                     <%=measurementManager.getDShtml(groupName)%>
                     <div id="errorDiv" style="display:none; margin: 10px 0; padding: 10px; border: 1px solid #dc3545; background-color: #f8d7da; border-radius: 4px;">
                         <strong style="color: #721c24;">Error:</strong>
@@ -267,23 +312,24 @@
                                                     </tr>
                                                     <% int i = 0;%>
                                                     <c:forEach var="measurementType" items="${measurementTypes.measurementTypeVector}" varStatus="ctr">
-                                                        <tr class="data" id="row-${measurementType.type}">
+                                                        <tr class="data" id="row-${carlos:forHtmlAttribute(measurementType.type)}">
                                                             <td>
-                                                                <span title="${measurementType.typeDesc}">${measurementType.typeDisplayName}</span>
+                                                                <span title="${carlos:forHtmlAttribute(measurementType.typeDesc)}">${carlos:forHtmlContent(measurementType.typeDisplayName)}</span>
                                                             </td>
                                                             <td>
                                                                 <c:set var="attributeName" value="mInstrcs${ctr.index}" />
-                                                                <c:forEach var="mInstrc" items="${sessionScope[attributeName].measuringInstructionList}">
-                                                                    <input type="radio" name="inputMInstrc-${ctr.index}" value="${mInstrc.measuringInstrc}" checked />
-                                                                    ${mInstrc.measuringInstrc}<br>
+                                                                <c:forEach var="mInstrc" items="${requestScope[attributeName].measuringInstructionList}" varStatus="instructionStatus">
+                                                                    <input type="radio" name="inputMInstrc-${ctr.index}" id="inputMInstrc-${ctr.index}-${instructionStatus.index}" value="${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}" checked />
+                                                                    <label for="inputMInstrc-${ctr.index}-${instructionStatus.index}">${carlos:forHtmlContent(mInstrc.measuringInstrc)}</label><br>
                                                                 </c:forEach>
                                                             </td>
 
                                                             <c:choose>
                                                                 <c:when test="${measurementType.measuringInstrc.startsWith('Choose radio')}">
                                                                     <td>
-                                                                        <c:forEach var="option" items="${fn:split(measurementType.measuringInstrc.substring(12), ',')}">
-                                                                            <input type="radio" name="inputValue-${ctr.index}" value="${fn:trim(option)}"> ${fn:trim(option)}&nbsp;
+                                                                        <c:forEach var="option" items="${fn:split(measurementType.measuringInstrc.substring(12), ',')}" varStatus="optionStatus">
+                                                                            <input type="radio" name="inputValue-${ctr.index}" id="inputValue-${ctr.index}-${optionStatus.index}" value="${carlos:forHtmlAttribute(fn:trim(option))}">
+                                                                            <label for="inputValue-${ctr.index}-${optionStatus.index}">${carlos:forHtmlContent(fn:trim(option))}</label>&nbsp;
                                                                         </c:forEach>
                                                                     </td>
                                                                 </c:when>
@@ -303,22 +349,22 @@
 
                                                             <td><input type="text" class="form-control" name="comments-${ctr.index}" id="comments-${ctr.index}"/></td>
                                                             <td>
-                                                                <input type="hidden" name="inputType-${ctr.index}" value="${measurementType.type}"/>
-                                                                <input type="hidden" name="inputTypeDisplayName-${ctr.index}" value="${measurementType.typeDisplayName}"/>
-                                                                <input type="hidden" name="validation-${ctr.index}" value="${measurementType.validation}"/>
+                                                                <input type="hidden" name="inputType-${ctr.index}" value="${carlos:forHtmlAttribute(measurementType.type)}"/>
+                                                                <input type="hidden" name="inputTypeDisplayName-${ctr.index}" value="${carlos:forHtmlAttribute(measurementType.typeDisplayName)}"/>
+                                                                <input type="hidden" name="validation-${ctr.index}" value="${carlos:forHtmlAttribute(measurementType.validation)}"/>
                                                             </td>
                                                         </tr>
 
-                                                        <c:if test="${not empty measurementType.lastMInstrc}">
+                                                        <c:if test="${not empty measurementType.lastData}">
                                                             <tr class="note">
                                                                 <td><fmt:message key="oscarEncoutner.oscarMeasurements.msgTheLastValue"/>:</td>
-                                                                <td>&nbsp;${measurementType.lastMInstrc}</td>
-                                                                <td>&nbsp;${measurementType.lastData}</td>
-                                                                <td>&nbsp;${measurementType.lastDateEntered}</td>
-                                                                <td>&nbsp;${measurementType.lastComments}</td>
+                                                                <td>&nbsp;${carlos:forHtmlContent(measurementType.lastMInstrc)}</td>
+                                                                <td>&nbsp;${carlos:forHtmlContent(measurementType.lastData)}</td>
+                                                                <td>&nbsp;${carlos:forHtmlContent(measurementType.lastDateEntered)}</td>
+                                                                <td>&nbsp;${carlos:forHtmlContent(measurementType.lastComments)}</td>
                                                                 <td>
                                                                     <i class="fa-solid fa-clock fa-lg" title="<fmt:message key='encounter.Index.oldMeasurements'/>"
-                                                                       onclick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${measurementType.type}'); return false;">
+                                                                       onclick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forJavaScriptAttribute(carlos:forUriComponent(measurementType.type))}&amp;demographicNo=${carlos:forJavaScriptAttribute(demo)}'); return false;">
                                                                     </i>
                                                                 </td>
                                                             </tr>
@@ -326,13 +372,13 @@
                                                     </c:forEach>
 
                                                     <input type="hidden" name="numType" value="${fn:length(measurementTypes.measurementTypeVector)}"/>
-                                                    <input type="hidden" name="groupName" value="${groupName}"/>
+                                                    <input type="hidden" name="groupName" value="${carlos:forHtmlAttribute(groupName)}"/>
                                                     <input type="hidden" name="parentChanged" value="false"/>
-                                                    <input type="hidden" name="demographicNo" value="${demo}"/>
-                                                    <input type="hidden" name="demographic_no" value="${demo}"/>
+                                                    <input type="hidden" name="demographicNo" value="${carlos:forHtmlAttribute(demo)}"/>
+                                                    <input type="hidden" name="demographic_no" value="${carlos:forHtmlAttribute(demo)}"/>
 
                                                     <c:if test="${not empty css}">
-                                                        <input type="hidden" name="css" value="${css}"/>
+                                                        <input type="hidden" name="css" value="${carlos:forHtmlAttribute(css)}"/>
                                                     </c:if>
                                                     <c:if test="${empty css}">
                                                         <input type="hidden" name="css" value=""/>
@@ -345,7 +391,7 @@
                                                     <td><input type="button" name="Button" class="btn btn-secondary"
                                                                value="<fmt:message key="global.btnCancel"/>"
                                                                onClick="window.close()"></td>
-                                                    <td><input type="button" name="Button" class="btn btn-primary"
+                                                    <td><input type="button" name="Button" id="measurementSubmit" class="btn btn-primary"
                                                                value="<fmt:message key="global.btnSubmit"/>"
                                                                onclick="check();"/></td>
                                                 </tr>
@@ -397,10 +443,48 @@
             }
         }
 
+        // Waist is stored in cm. A double click treats the typed value as inches, with or without
+        // an inch mark (34 or 34"), and converts it once the user confirms, as WT does for pounds.
+        function waistEnglish2Metric(obj) {
+            let val = obj.value.trim();
+            if (val.endsWith('"')) {
+                val = val.substring(0, val.length - 1).trim();
+            }
+            const inch = parsePositiveMeasurement(val);
+            if (inch === null) return;
+            const waistM = Math.round(inch * 2.54 * 10) / 10;
+            if (confirm("Are you sure you want to change " + inch + " inch(es) to " + waistM + "cm?")) {
+                obj.value = waistM;
+            }
+        }
+
+        // A value a calculated measurement may use: a plain positive decimal and nothing else.
+        // parseFloat would accept "80 cm" or 5'5" and let the unit or the feet mark into a division.
+        function parsePositiveMeasurement(text) {
+            const value = String(text == null ? '' : text).trim();
+            if (!/^(\d+\.?\d*|\.\d+)$/.test(value)) return null;
+            const number = Number(value);
+            return Number.isFinite(number) && number > 0 ? number : null;
+        }
+
+        // The row of a clinic-added measurement type, matched without regard to case: type codes
+        // compare case-insensitively in the database, and Add Measurement Type stores them
+        // upper-cased, so a type entered as WHtR is rendered as row-WHTR.
+        function measurementRowAnyCase(type) {
+            return document.querySelector('tr[id="row-' + type + '" i]');
+        }
+
+        // The value input of a measurement row (its third cell), or null when the group has no such row.
+        function measurementValueInput(row) {
+            return row?.querySelectorAll('td')[2]?.querySelector('input') || null;
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             // If WT, HT and BMI exists then allow the link
             const rowWT = document.getElementById('row-WT');
             const rowHT = document.getElementById('row-HT');
+            const rowWAIS = document.getElementById('row-WAIS');
+            const rowWHtR = measurementRowAnyCase('WHtR');
             const rowBMI = document.getElementById('row-BMI');
 
             if (rowWT) {
@@ -425,6 +509,17 @@
                 }
             }
 
+            if (rowWAIS) {
+                const waisInput = rowWAIS.querySelectorAll('td')[2]?.querySelector('input');
+                if (waisInput) {
+                    waisInput.title = "Double click to convert inches to cm";
+                    waisInput.style.backgroundColor = "#d9e6f2";
+                    waisInput.addEventListener('dblclick', function () {
+                        waistEnglish2Metric(this);
+                    });
+                }
+            }
+
             if (rowWT && rowHT && rowBMI) {
                 const wtInput = rowWT.querySelectorAll('td')[2]?.querySelector('input');
                 const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
@@ -440,6 +535,30 @@
                 }
             }
 
+            // WHtR is calculated only where the clinic has added a measurement type coded WHtR (in
+            // any case) to the group alongside HT and WAIS; CARLOS does not ship that type.
+            if (rowWAIS && rowHT && rowWHtR) {
+                const waisInput = rowWAIS.querySelectorAll('td')[2]?.querySelector('input');
+                const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
+                const whtrInput = measurementValueInput(rowWHtR);
+                if (waisInput && htInput && whtrInput) {
+                    const updateWHtR = function () {
+                        calcWHtR(waisInput.value, htInput.value);
+                    };
+                    // Typing in WHtR makes the value the user's own, even when it matches the last
+                    // calculation; a value set by script fires no input event.
+                    whtrInput.addEventListener('input', function () {
+                        delete whtrInput.dataset.calculatedValue;
+                    });
+                    // The dblclick listeners run after the unit conversions registered above, so a
+                    // value converted to cm is used at once rather than on the next blur.
+                    [waisInput, htInput].forEach(function (input) {
+                        input.addEventListener('blur', updateWHtR);
+                        input.addEventListener('dblclick', updateWHtR);
+                    });
+                }
+            }
+
             // Set today's date for all date fields
             const utc = new Date().toJSON().slice(0, 10);
             document.querySelectorAll('[id^="date-"]').forEach(function(elem) {
@@ -449,12 +568,12 @@
 
         function calcBMI(w, h) {
             let b = '';
-
-            if (!isNaN(parseFloat(w)) && !isNaN(parseFloat(h)) && h !== "" && w !== "") {
+            w = parseFloat(w);
+            h = parseFloat(h);
+            if (!isNaN(w) && !isNaN(h)) {
                 if (h > 0) {
                     b = (w / Math.pow(h / 100, 2)).toFixed(1);
                     const bmiInput = document.getElementById('row-BMI')?.querySelectorAll('td')[2]?.querySelector('input');
-                    const rowBMI = document.getElementById('row-BMI');
                     
                     if (bmiInput) {
                         bmiInput.value = b;
@@ -462,6 +581,31 @@
                     }
                 }
             }
+        }
+
+        // Waist-to-height ratio: waist (cm) / height (cm), to two decimals. When either input stops
+        // being a usable number, a ratio this page wrote is cleared, so Submit cannot save a WHtR for
+        // values the form no longer holds; a WHtR the user typed in is left as it is.
+        function calcWHtR(wais, h) {
+            const whtrInput = measurementValueInput(measurementRowAnyCase('WHtR'));
+            if (!whtrInput) return;
+
+            const waist = parsePositiveMeasurement(wais);
+            const height = parsePositiveMeasurement(h);
+            if (waist === null || height === null) {
+                if (whtrInput.dataset.calculatedValue !== undefined
+                        && whtrInput.value === whtrInput.dataset.calculatedValue) {
+                    whtrInput.value = '';
+                    whtrInput.style.backgroundColor = '';
+                }
+                delete whtrInput.dataset.calculatedValue;
+                return;
+            }
+
+            const ratio = (waist / height).toFixed(2);
+            whtrInput.value = ratio;
+            whtrInput.dataset.calculatedValue = ratio;
+            whtrInput.style.backgroundColor = "#d9e6f2";
         }
 
     </script>

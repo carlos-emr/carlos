@@ -30,6 +30,8 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.util.LegacyMeasurementHistory" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormSubmissionGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.EmailComposeManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager"%>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -127,9 +129,36 @@
     thisEForm.setContextPath(request.getContextPath());
     thisEForm.setImagePath(request.getContextPath());
     thisEForm.setDatabaseAPs();
-    thisEForm.setOscarOPEN(request.getRequestURI());
+    thisEForm.setOscarOPEN(request.getContextPath() + "/eform/efmformadd_data", session, provider_no);
     thisEForm.setAction();
     thisEForm.setSource(source);
+    // A NEW (unsaved) form has no saved-instance id, so substitute the ${fdid} marker with an empty
+    // value (same call the admin view makes). Left raw, corpus JS that builds fetch URLs from the
+    // marker (e.g. the Rich Text Letter's attached-files panel: displayAttachedFiles?requestId=${fdid})
+    // sends literal curly braces, which Tomcat's strict HTTP validation rejects with a raw 400 —
+    // surfacing as "Error loading attachments" on every new letter. An empty value instead reaches
+    // the JSP's graceful "No attachments" branch, and corpus marker-guard idioms treat it as unsaved.
+    // ORDER MATTERS: this string-level substitution must run with the other string-phase mutators
+    // (setContextPath/setSource/...), BEFORE any add*() call — those mutate the jsoup document, and
+    // getFormHtml() re-serializes that document at print, discarding later string-level edits.
+    thisEForm.setFdid("");
+
+    // Serve the measurement history to forms that still fetch it from the pre-migration route, the
+    // same way the PDF renderer does. Subject to the ORDER MATTERS rule stated just above: this is a
+    // string-phase edit and must run before the add*() calls below, whose jsoup document
+    // getFormHtml() would otherwise re-serialize over it.
+    // Measurement data reached through an eForm still requires measurement rights: the route this
+    // replaces enforces _measurement, while this page requires only _eform read. Without the check a
+    // user with eForm access alone received the patient's full dated HT/WT/HEAD series.
+    boolean measurementsPermitted = SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(
+            LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", thisEForm.getDemographicNo());
+    thisEForm.setFormHtml(LegacyMeasurementHistory.embed(
+            thisEForm.getFormHtml(), thisEForm, measurementsPermitted));
+
+    // A rendering is a new editing opportunity; a replay of its POST keeps the original identity.
+    if (!"-1".equals(thisEForm.getDemographicNo())) {
+        thisEForm.setSubmissionToken(EFormSubmissionGuard.issue(session, thisEForm.getFid(), thisEForm.getDemographicNo()));
+    }
 
     /*
      * Modifying EForm by directly incorporating libraries and adding hidden fields.
@@ -140,9 +169,20 @@
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.js");
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-3.7.1.min.js");
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-compat.js");
+    // editControl2.js's sanitize gate; see the matching note in efmshowform_data.jsp. Required on
+    // the add page too, because a template-seeded letter takes the same load path.
+    thisEForm.addHeadJavascript(request.getContextPath()+"/library/dompurify/purify.min.js");
 
-    thisEForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
+    // Scoped Bootstrap for the CARLOS chrome only, never the plain stylesheet: see the matching
+    // note in efmshowform_data.jsp (#3944).
+    thisEForm.addCSS(request.getContextPath()+"/eform/eformFloatingToolbar/bootstrap-eform-scoped.min.css", "all");
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
+    thisEForm.addHeadJavascript(request.getContextPath()+"/eform/eform-runtime-compat.js");
+
+    // Load fax compatibility before template ready/onload handlers and before the asynchronous toolbar.
+    thisEForm.addHeadJavascript(request.getContextPath()+"/library/eforms/faxControl.js");
+    thisEForm.addHeadJavascript(request.getContextPath()+"/js/faxRecipientAutocomplete.js");
+    thisEForm.addCSS(request.getContextPath()+"/eform/eformFloatingToolbar/eform_floating_toolbar_custom.css", "all");
 
     thisEForm.addCSS(request.getContextPath()+"/css/oscar_alert.css", "all");
     thisEForm.addCSS(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.css", "all");
@@ -151,8 +191,14 @@
     thisEForm.addHiddenInputElement("context", request.getContextPath());
     thisEForm.addHiddenInputElement("demographicNo", demographic_no);
     thisEForm.addHiddenInputElement("fid", fid);
+    // A new instance has no saved subject. thisEForm was loaded from the catalog, so its
+    // getFormSubject() is the template's catalog description; supplying that would pre-fill
+    // (and save) a subject the clinician never chose. Start templates without a control empty.
+    thisEForm.ensureSubjectInput("");
     thisEForm.addHiddenInputElement("fdid", request.getParameter("fdid"));
-    thisEForm.addHiddenInputElement("newForm", "true");
+    // Preserve the template's value and name: Galaxy forms commonly test for the exact "True"
+    // spelling before initializing signatures and fax numbers, then submit "False" on save.
+    thisEForm.ensureNewFormInput();
 
     // Add email consent properties
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -167,7 +213,8 @@
     // is primarily restricting external script sources to 'self', blocking object/embed
     // via object-src 'none', preventing <base> injection via base-uri 'none', and reducing
     // clickjacking exposure via frame-ancestors 'self'.
-    response.setHeader("Content-Security-Policy", "script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'");
+    // frame-src permits the blob: frames that carry attachment-preview PDFs (attachDocument.jsp).
+    response.setHeader("Content-Security-Policy", "script-src 'self' 'unsafe-inline'; object-src 'none'; frame-src 'self' blob:; base-uri 'none'; frame-ancestors 'self'");
     response.setHeader("X-Content-Type-Options", "nosniff");
     out.print(thisEForm.getFormHtml()); // CodeQL[java/xss] eform HTML is intentionally unencoded
 %>

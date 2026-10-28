@@ -26,6 +26,7 @@
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
+    Modifications by CARLOS Contributors, 2026.
 
 --%>
 
@@ -77,6 +78,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -89,7 +91,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // Retrieve user information from session
-    String providerNo = (String) session.getAttribute("providerNo");
+    String providerNo = (String) request.getAttribute("providerNo");
     String curUser_no = (String) session.getAttribute("user");
     String userrole = (String) session.getAttribute("userrole");
     String roleName$ = (userrole != null ? userrole : "") + "," + (curUser_no != null ? curUser_no : "");
@@ -104,17 +106,26 @@
     if (!authed) {
         return;
     }
-    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
-    String scheduleNavQuerySuffix = showScheduleNav ? "&scheduleNav=1" : "";
-    String scheduleNavFirstQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 %>
+<%@ include file="messengerScheduleNav.jspf" %>
 
 <%
     // bodyTextAsHTML: the message body content retrieved from session for display.
-    String bodyTextAsHTML = (String) session.getAttribute("viewMessageMessage");
+    String bodyTextAsHTML = (String) request.getAttribute("viewMessageMessage");
     if (bodyTextAsHTML == null) {
         bodyTextAsHTML = "";
     }
+    // This message's key for forwarding its chart items: its Attachment window saves the items
+    // ticked under "Save Attachments" under it, and every compose page that its Compose link,
+    // Reply, Reply All or Forward opens starts with a copy of them under a key of its own. The key
+    // is the same on every view of this message in this login, so showing the view again (linking
+    // a patient does) keeps what was saved. The items used to wait on the login-wide messenger
+    // bean, where the next message sent from any compose window, for any patient, took them
+    // (issue #4673).
+    int viewedMessageId = ConversionUtils.fromIntString((String) request.getAttribute("viewMessageId"));
+    String forwardKey = viewedMessageId > 0
+            ? MsgAttachmentStaging.forwardKey(session, viewedMessageId)
+            : MsgAttachmentStaging.newKey();
 %>
 <!DOCTYPE html>
 <html>
@@ -126,6 +137,7 @@
     <script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
     <script src="<%=request.getContextPath() %>/messenger/messenger-common.js"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <!-- css -->
     <link href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
@@ -137,6 +149,12 @@
     <% } %>
 <%
 String boxType = request.getParameter("boxType");
+String mailboxSearch = request.getParameter("searchString");
+if (mailboxSearch == null) mailboxSearch = "";
+String mailboxOrder = request.getParameter("orderby");
+if (mailboxOrder == null) mailboxOrder = "!date";
+String mailboxQuerySuffix = "&amp;searchString=" + SafeEncode.forUriComponent(mailboxSearch)
+        + "&amp;orderby=" + SafeEncode.forUriComponent(mailboxOrder);
 %>
 
 <script>
@@ -189,37 +207,34 @@ function popup(demographicNo, msgId, providerNo, action) {
 
       if ( action == "writeToEncounter") {
           win = window.open("","<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>");
-          if ( win.pasteToEncounterNote && win.demographicNo == demographicNo ) {
+          // A popup blocker leaves win null; fall through to the other paths
+          // (and the POST below) instead of stopping at a TypeError.
+          if ( win && win.pasteToEncounterNote && win.demographicNo == demographicNo ) {
             txt = fmtOscarMsg();
             win.pasteToEncounterNote(txt);
           } else if ( noteEditor != undefined ){
-        	win.close();
+        	if (win) { win.close(); }
         	txt = "\n" + fmtOscarMsg();
         	noteEditor.value = noteEditor.value + txt;
           } else if ( noteEditor == undefined && ngApp != undefined ){
-        	  win.close();
+        	  if (win) { win.close(); }
         	  txt = "\n" + fmtOscarMsg();
         	  var openerRef = window.parent.opener || window.opener;
         	  if (openerRef) {
         	      getAngJsPath = openerRef.location.href;
-        	      newAngJsPath = getAngJsPath.substring(0, getAngJsPath.indexOf('#')+2) + "record/" + demographicNo + "/summary?noteEditorText=" + encodeURI(txt);
+              newAngJsPath = getAngJsPath.substring(0, getAngJsPath.indexOf('#')+2) + "record/" + demographicNo + "/summary?noteEditorText=" + encodeURIComponent(txt);
         	      openerRef.location.href = newAngJsPath;
         	  }
           } else {
-              win.close();
-              var writeForm = document.createElement('form');
-              writeForm.method = 'post';
-              writeForm.action = 'WriteToEncounter';
-              writeForm.target = "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>";
-              var writeFields = {'demographic_no': demographicNo, 'msgId': msgId, 'providerNo': providerNo, 'encType': 'messenger'};
-              for (var k in writeFields) {
-                  var inp = document.createElement('input');
-                  inp.type = 'hidden'; inp.name = k; inp.value = writeFields[k];
-                  writeForm.appendChild(inp);
-              }
-              document.body.appendChild(writeForm);
-              var popUp = window.open('', writeForm.target, windowprops);
-              writeForm.submit();
+              if (win) { win.close(); }
+              var writeTarget = "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>";
+              // Open the popup inside the click handler (popup blockers), then
+              // post into it. carlosPostForm attaches the CSRF token, which
+              // CSRFGuard cannot inject into a runtime-built form in time (#4130).
+              var popUp = window.open('', writeTarget, windowprops);
+              carlosPostForm('WriteToEncounter',
+                  {'demographic_no': demographicNo, 'msgId': msgId, 'providerNo': providerNo, 'encType': 'messenger'},
+                  {target: writeTarget, popup: popUp});
               if (popUp != null) {
                   if (popUp.opener == null) {
                       popUp.opener = self;
@@ -229,17 +244,9 @@ function popup(demographicNo, msgId, providerNo, action) {
           }
       }
       else if ( action == "linkToDemographic"){
-          var linkForm = document.createElement('form');
-          linkForm.method = 'post';
-          linkForm.action = 'ViewMessage';
-          var linkFields = {'linkMsgDemo': 'true', 'demographic_no': demographicNo, 'messageID': msgId, 'providerNo': providerNo};
-          for (var lk in linkFields) {
-              var li = document.createElement('input');
-              li.type = 'hidden'; li.name = lk; li.value = linkFields[lk];
-              linkForm.appendChild(li);
-          }
-          document.body.appendChild(linkForm);
-          linkForm.submit();
+          // carlosPostForm attaches the CSRF token (#4130).
+          carlosPostForm('ViewMessage',
+              {'linkMsgDemo': 'true', 'demographic_no': demographicNo, 'messageID': msgId, 'providerNo': providerNo});
       }
   }
 
@@ -329,6 +336,10 @@ function fmtOscarMsg() {
     <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
 <% } %>
 <form action="<%=request.getContextPath()%>/messenger/HandleMessages" method="post">
+    <input type="hidden" name="chartPatientNo" value="<%=SafeEncode.forHtmlAttribute((String) request.getAttribute("chartPatientNo"))%>">
+    <input type="hidden" name="searchString" value="<%=SafeEncode.forHtmlAttribute(mailboxSearch)%>">
+    <input type="hidden" name="orderby" value="<%=SafeEncode.forHtmlAttribute(mailboxOrder)%>">
+    <input type="hidden" name="boxType" value="<%=SafeEncode.forHtmlAttribute(boxType)%>">
     <% if (showScheduleNav) { %>
     <input type="hidden" name="scheduleNav" value="1">
     <% } %>
@@ -353,12 +364,12 @@ function fmtOscarMsg() {
 					<table>
 						<tr>
 							<!-- dont need this button from the encounter view -->
-							<c:if test="${ empty param.from or not param.from eq 'encounter' }">
+							<c:if test="${ from ne 'encounter' }">
 								<td>
 								<table class=messButtonsA >
 									<tr>
 										<td class="messengerButtonsA">
-									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages<%=scheduleNavFirstQuerySuffix%>"
+									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=0<%=scheduleNavQuerySuffix%><%=mailboxQuerySuffix%>"
 									            class="btn btn-primary">
 									            <fmt:message key="messenger.ViewMessage.btnInbox"/>
 									        </a>
@@ -374,7 +385,7 @@ function fmtOscarMsg() {
 							<table class=messButtonsA >
 								<tr>
 									<td class="messengerButtonsA">
-									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>"
+									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%><%=mailboxQuerySuffix%>"
 									        class="btn btn-primary">
 									        <fmt:message key="messenger.ViewMessage.btnSent"/>
 									    </a>
@@ -385,12 +396,12 @@ function fmtOscarMsg() {
 							<%} %>
 
 							<!-- dont need this button from the encounter view -->
-							<c:if test="${ empty param.from or not param.from eq 'encounter' }">
+							<c:if test="${ from ne 'encounter' }">
 								<td>
 								<table class=messButtonsA>
 									<tr>
 										<td class="messengerButtonsA">
-                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage"
+                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage<%= viewedMessageId > 0 ? "?forwardMessage=" + viewedMessageId + scheduleNavQuerySuffix : scheduleNavFirstQuerySuffix %>"
                                                 class="btn btn-outline-secondary">
                                                 <fmt:message key="messenger.ViewMessage.btnCompose"/>
                                             </a>
@@ -411,6 +422,7 @@ function fmtOscarMsg() {
 							</table>
 							</td>
 
+							<% if (showMessengerExitButton) { %>
 							<td>
 							<table class=messButtonsA >
 								<tr>
@@ -422,6 +434,7 @@ function fmtOscarMsg() {
 								</tr>
 							</table>
 							</td>
+							<% } %>
 						</tr>
 					</table>
 					</td>
@@ -452,27 +465,27 @@ function fmtOscarMsg() {
 							</td>
 						</tr>
 						<%-- Display file and PDF attachments if present in session --%>
-						<%  String attach = (String) session.getAttribute("viewMessageAttach");
-                                    String id = (String) session.getAttribute("viewMessageId");
+						<%  String attach = (String) request.getAttribute("viewMessageAttach");
+                                    String id = (String) request.getAttribute("viewMessageId");
                                     if ( attach != null && attach.equals("1") ){
                                     %>
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewAttach?attachId=<carlos:encode value='<%= id %>' context="javaScript"/>')">
+								href="ViewAttach?attachId=<carlos:encode value='<%= id %>' context="uriComponent"/>&amp;chartPatientNo=<carlos:encode value='<%= (String) request.getAttribute("chartPatientNo") %>' context="uriComponent"/>&amp;attachmentKey=<carlos:encode value='<%= forwardKey %>' context="uriComponent"/>" onclick="popupViewAttach(700,960,this.href);return false;">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
                                     }
                                 %>
 						<%
-                                    String pdfAttach = (String) session.getAttribute("viewMessagePDFAttach");
+                                    String pdfAttach = (String) request.getAttribute("viewMessagePDFAttach");
                                     if ( pdfAttach != null && pdfAttach.equals("1") ){
                                     %>
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewPDFAttach?attachId=<carlos:encode value='<%= id %>' context="javaScript"/>')">
+								href="ViewPDFAttach?attachId=<carlos:encode value='<%= id %>' context="uriComponent"/>&amp;chartPatientNo=<carlos:encode value='<%= (String) request.getAttribute("chartPatientNo") %>' context="uriComponent"/>" onclick="popupViewAttach(700,960,this.href);return false;">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -520,9 +533,12 @@ function fmtOscarMsg() {
 
 											${carlos:forHtml(demoattached.value)} <br />
 
+											<%-- demographic_no: the patient whose message list opened this view
+											     (MsgViewMessage2Action). The message is viewMessageId; nothing set
+											     messageID, so Write to Encounter opened the chart with no message. --%>
 											<c:if test="${ demoattached.key eq demographic_no }">
 												<input
-													onclick="javascript:popup('${ fn:escapeXml(demographic_no) }', '${ fn:escapeXml(messageID) }', '${ fn:escapeXml(providerNo) }');"
+													onclick="popup('${carlos:forJavaScriptAttribute(demographic_no)}', '${carlos:forJavaScriptAttribute(viewMessageId)}', '${carlos:forJavaScriptAttribute(providerNo)}', 'writeToEncounter');"
 													class="btn DoNotPrint" type="button"  name="writeToEncounter"
 													value="<fmt:message key="messenger.ViewMessage.writeToE" />">
 											 </c:if>
@@ -589,8 +605,8 @@ function fmtOscarMsg() {
 
                                             <%
                                                 // Null-safe session attribute retrieval for use in the link button onclick
-                                                String viewMsgId = session.getAttribute("viewMessageId") != null ? (String) session.getAttribute("viewMessageId") : "";
-                                                String viewProvNo = session.getAttribute("providerNo") != null ? (String) session.getAttribute("providerNo") : "";
+                                                String viewMsgId = request.getAttribute("viewMessageId") != null ? (String) request.getAttribute("viewMessageId") : "";
+                                                String viewProvNo = request.getAttribute("providerNo") != null ? (String) request.getAttribute("providerNo") : "";
 
                                                 // Demographic search and link section: looks up a patient by
                                                 // demographic_no from the request and allows associating (linking)
@@ -649,17 +665,18 @@ function fmtOscarMsg() {
 									title="${ fn:escapeXml(demographic.key) }">
                                 <span class="DoNotPrint">
 								<%
-                                    String demoKeyJs = SafeEncode.forJavaScript((String) (pageContext.getAttribute("demographicNumber")+""));
+                                    String demoKeyJs = SafeEncode.forJavaScriptAttribute((String) (pageContext.getAttribute("demographicNumber")+""));
                                     %>
-                                    <a href="javascript:popupViewAttach(700,960,'../demographic/DemographicEdit?demographic_no=<%=demoKeyJs%>')"><fmt:message key="global.M" /></a>
-                                    <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter?demographicNo=<%=demoKeyJs%>&curProviderNo=<carlos:encode value='<%= (String)session.getAttribute("providerNo") %>' context="javaScript"/>');return false;"><fmt:message key="global.E" /></a>
-                                    <a href="javascript:popupViewAttach(700,960,'../rx/choosePatient?providerNo=<carlos:encode value='<%= (String)session.getAttribute("providerNo") %>' context="javaScript"/>&demographicNo=<%=demoKeyJs%>')">Rx</a>
+                                    <a href="../demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= String.valueOf(pageContext.getAttribute("demographicNumber")) %>' context="uriComponent"/>" onclick="popupViewAttach(700,960,this.href);return false;"><fmt:message key="global.M" /></a>
+                                    <a href="<%=request.getContextPath()%>/encounter/IncomingEncounter?demographicNo=<carlos:encode value='<%= String.valueOf(pageContext.getAttribute("demographicNumber")) %>' context="uriComponent"/>&amp;curProviderNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>"
+                                       onclick="popupViewAttach(700,960,this.href);return false;"><fmt:message key="global.E" /></a>
+                                    <a href="../rx/choosePatient?providerNo=<carlos:encode value='<%= (String)request.getAttribute("providerNo") %>' context="uriComponent"/>&amp;demographicNo=<carlos:encode value='<%= String.valueOf(pageContext.getAttribute("demographicNumber")) %>' context="uriComponent"/>" onclick="popupViewAttach(700,960,this.href);return false;">Rx</a>
                                 </span>
 								</td>
 								<td class="DoNotPrint">
 								<button type="button" class="btn btn-secondary"
 									name="writeEncounter"
-                                    onclick="popup( '<%=demoKeyJs%>','<carlos:encode value='<%= (String)session.getAttribute("viewMessageId") %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= (String)session.getAttribute("providerNo") %>' context="javaScriptAttribute"/>','writeToEncounter')" >
+                                    onclick="popup( '<%=demoKeyJs%>','<carlos:encode value='<%= (String)request.getAttribute("viewMessageId") %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= (String)request.getAttribute("providerNo") %>' context="javaScriptAttribute"/>','writeToEncounter')" >
                                     <i class="fa-solid fa-pen-to-square"></i>
                                     <fmt:message key="messenger.ViewMessage.writeToE"/>
 								</button>
@@ -668,7 +685,7 @@ function fmtOscarMsg() {
 							<tr>
 								<td></td>
 								<td><a class="DoNotPrint"
-									href="javascript:popupStart(400,850,'../demographic/DemographicApptHistory?demographic_no=<%=demoKeyJs%>&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
+									href="../demographic/DemographicApptHistory?demographic_no=<carlos:encode value='<%= pageContext.getAttribute("demographicNumber") + "" %>' context="uriComponent"/>&amp;orderby=appointment_date&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25" onclick="popupStart(400,850,this.href,'ApptHist'); return false;"
 									title="<fmt:message key="messenger.ViewMessage.clickApptHx" />"><fmt:message key="encounter.oscarConsultationRequest.consultationFormPrint.msgappDate" />   <oscar:nextAppt demographicNo="${ demographic.key }" /></a></td>
 								<td></td>
 							</tr>

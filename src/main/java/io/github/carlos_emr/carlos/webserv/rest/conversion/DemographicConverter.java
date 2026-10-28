@@ -92,6 +92,7 @@ public class DemographicConverter extends AbstractConverter<Demographic, Demogra
         d.setRosterDate(t.getRosterDate());
         d.setRosterTerminationDate(t.getRosterTerminationDate());
         d.setRosterTerminationReason(t.getRosterTerminationReason());
+        d.setRosterEnrolledTo(t.getRosterEnrolledTo());
         d.setLinks(t.getRosterTerminationReason());
         d.setAlias(t.getAlias());
         d.setPreviousAddress(t.getPreviousAddress().getAddress());
@@ -114,6 +115,11 @@ public class DemographicConverter extends AbstractConverter<Demographic, Demogra
         d.setPronounId(t.getPronounId());
         d.setCellPhone(t.getCellPhone());
         d.setPhoneComment(t.getPhoneComment());
+        // pref_name is NOT NULL and mapped by field, so a patient built here must carry it: the
+        // transfer object has no such field, and without this a REST create (and an update, which
+        // merges this object) writes NULL and fails with HTTP 500. The value follows the Name Used
+        // rule of the Add Demographic form: a copy of the alias, cut to the column, never null.
+        d.setPrefName(Demographic.prefNameForNameUsed(t.getAlias()));
 
         DemographicExt[] exts = new DemographicExt[t.getExtras().size()];
         for (int i = 0; i < t.getExtras().size(); i++) {
@@ -172,6 +178,7 @@ public class DemographicConverter extends AbstractConverter<Demographic, Demogra
         t.setRosterDate(d.getRosterDate());
         t.setRosterTerminationDate(d.getRosterTerminationDate());
         t.setRosterTerminationReason(d.getRosterTerminationReason());
+        t.setRosterEnrolledTo(d.getRosterEnrolledTo());
         t.setLinks(d.getRosterTerminationReason());
         t.setAlias(d.getAlias());
         t.getPreviousAddress().setAddress(d.getPreviousAddress());

@@ -28,6 +28,17 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Episode create/edit form for an authorized patient's care history. Supports
+    coding-system selection, description, status, dates and notes; completion
+    requires an end date, and server-side validation remains authoritative.
+
+    Request attributes: demographicNo (authorized patient), episode (optional
+    stored record), and codingSystems (available diagnosis coding systems).
+    Submits method=save and episode.* fields to the Episode action with CSRF
+    protection. Retains the existing authenticated-session and _admin read gate.
+    @since 2026-09-17
+--%>
 <!DOCTYPE html>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -47,6 +58,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Episode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="java.util.List" %>
 
 <%
@@ -94,12 +106,12 @@
                 $('input[name="episode.codingSystem"]').val($("#search_coding_system").val());
 
                 <%if(episode != null) { %>
-                $("#code").val('<%=episode.getCode()%>');
-                $('input[name="episode.status"]').val('<%=episode.getStatus()%>');
+                $("#code").val('<%=SafeEncode.forJavaScript(episode.getCode())%>');
+                $('input[name="episode.status"]').val('<%=SafeEncode.forJavaScript(episode.getStatus())%>');
                 $('input[name="episode.id"]').val('<%=episode.getId()%>');
-                $("#description").val('<%=episode.getDescription()%>');
-                $('select[name="episode.codingSystem"]').val('<%=episode.getCodingSystem()%>');
-                $('#search_coding_system').val('<%=episode.getCodingSystem()%>');
+                $("#description").val('<%=SafeEncode.forJavaScript(episode.getDescription())%>');
+                $('select[name="episode.codingSystem"]').val('<%=SafeEncode.forJavaScript(episode.getCodingSystem())%>');
+                $('#search_coding_system').val('<%=SafeEncode.forJavaScript(episode.getCodingSystem())%>');
                 $('input[name="episode.demographicNo"]').val('<%=episode.getDemographicNo()%>');
                 $("#startDate").val('<%=episode.getStartDateStr()%>');
                 $("#endDate").val('<%=episode.getEndDateStr()%>');
@@ -120,7 +132,7 @@
                     return false;
                 }
 
-                if ($("#endDate").val().length == 0 && $('select[name="episode.status"]').val() == 'Completed') {
+                if ($("#endDate").val().length == 0 && $('select[name="episode.status"]').val() == 'Complete') {
                     alert("End Date Required");
                     return false;
                 }

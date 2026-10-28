@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.eform;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.EForm;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -32,6 +33,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -61,6 +63,96 @@ class EFormUtilIntegrationTest extends CarlosTestBase {
         HashMap<String, Object> loadedForm = EFormUtil.loadEForm(persistedForm.getId().toString());
 
         assertThat(loadedForm).containsEntry("fid", persistedForm.getId().toString());
+    }
+
+    @Test
+    @DisplayName("should run an AP query whose literals carry backslash escapes")
+    void shouldReturnValues_whenApQueryUsesBackslashEscapeLiteral() throws Exception {
+        // The bundled history, allergy and prescription AP keys join rows with '\n'. The SQL safety
+        // gate in getValuesOrNull refused those literals, so the query never reached JDBC and the
+        // Rich Text Letter inserted nothing for them.
+        EForm persistedForm = new EForm();
+        EntityDataGenerator.generateTestDataForModelClass(persistedForm);
+        persistedForm.setFormName("AP_BACKSLASH_LITERAL");
+        eFormDao.persist(persistedForm);
+        hibernateTemplate.flush();
+
+        ParameterizedSql query = new ParameterizedSql(
+                "SELECT CONCAT(form_name, '\\n') AS joinedName FROM eform WHERE fid = ?",
+                List.of(persistedForm.getId()));
+        List<String> values = EFormUtil.getValuesOrNull(List.of("joinedName"), query);
+
+        assertThat(values).as("a query the safety gate accepts").isNotNull().hasSize(1);
+        assertThat(values.get(0)).startsWith("AP_BACKSLASH_LITERAL");
+    }
+
+    @Test
+    @DisplayName("should refuse an AP query whose literal end depends on the sql_mode")
+    void shouldReturnNull_whenApQueryBackslashCanEscapeClosingQuote() {
+        ParameterizedSql query = new ParameterizedSql(
+                "SELECT 'x\\' AS joinedName FROM eform WHERE fid = ?", List.of(Integer.MAX_VALUE));
+
+        assertThat(EFormUtil.getValuesOrNull(List.of("joinedName"), query)).isNull();
+    }
+
+    @Test
+    @DisplayName("should list each current eForm with the editor its Edit action opens")
+    void shouldListEditorKind_forEachCurrentEForm() throws Exception {
+        String generated = "<html><head><title>v</title></head><body><div id='eform_container'>"
+                + "<form id=\"inputForm\"><div class=\"page_container\"></div></form></div></body></html>";
+        EForm visual = persistForm("EDITOR_KIND_VISUAL", true, "<html><head>"
+                + "<meta name='carlos-eform-editor' content='visual' data-fingerprint='"
+                + EFormEditorResolver.fingerprint(generated) + "'>" + generated.substring("<html><head>".length()));
+        EForm legacyVisual = persistForm("EDITOR_KIND_LEGACY_VISUAL", true, generated);
+        EForm generator = persistForm("EDITOR_KIND_GENERATOR", true,
+                "<html><body><div id=\"page1\" style=\"position:relative;\"><img id=\"BGImage1\" src=\"a.png\">"
+                        + "</div></body></html>");
+        EForm handWritten = persistForm("EDITOR_KIND_HTML", true,
+                "<html><body><form><textarea name='letter'></textarea></form></body></html>");
+        EForm deleted = persistForm("EDITOR_KIND_DELETED", false,
+                "<html><head><meta name='carlos-eform-editor' content='visual'></head><body></body></html>");
+        hibernateTemplate.flush();
+
+        List<HashMap<String, ? extends Object>> listing =
+                EFormUtil.listEFormsWithEditor(EFormUtil.NAME, EFormUtil.CURRENT);
+
+        assertThat(editorKindOf(listing, visual)).isEqualTo(EFormEditorResolver.EditorKind.VISUAL);
+        assertThat(editorKindOf(listing, legacyVisual)).isEqualTo(EFormEditorResolver.EditorKind.CONVERTIBLE);
+        assertThat(editorKindOf(listing, generator)).isEqualTo(EFormEditorResolver.EditorKind.CONVERTIBLE);
+        assertThat(editorKindOf(listing, handWritten)).isEqualTo(EFormEditorResolver.EditorKind.HTML);
+        assertThat(listing).noneMatch(row -> deleted.getId().toString().equals(row.get("fid")));
+    }
+
+    @Test
+    @DisplayName("should leave the plain listing without the editor key")
+    void shouldOmitEditorKind_fromPlainListing() throws Exception {
+        EForm visual = persistForm("EDITOR_KIND_PLAIN_LISTING", true,
+                "<html><head><meta name='carlos-eform-editor' content='visual'></head><body></body></html>");
+        hibernateTemplate.flush();
+
+        List<HashMap<String, ? extends Object>> listing = EFormUtil.listEForms(EFormUtil.NAME, EFormUtil.CURRENT);
+
+        assertThat(listing).filteredOn(row -> visual.getId().toString().equals(row.get("fid")))
+                .singleElement()
+                .satisfies(row -> assertThat(row).doesNotContainKey("editorKind"));
+    }
+
+    private EForm persistForm(String name, boolean current, String formHtml) throws Exception {
+        EForm form = new EForm();
+        EntityDataGenerator.generateTestDataForModelClass(form);
+        form.setFormName(name);
+        form.setCurrent(current);
+        form.setFormHtml(formHtml);
+        eFormDao.persist(form);
+        return form;
+    }
+
+    private static Object editorKindOf(List<HashMap<String, ? extends Object>> listing, EForm form) {
+        return listing.stream()
+                .filter(row -> form.getId().toString().equals(row.get("fid")))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("eForm " + form.getFormName() + " is not listed"))
+                .get("editorKind");
     }
 
     @Test

@@ -30,64 +30,253 @@
 
 package io.github.carlos_emr.carlos.report.data;
 
-import java.util.ArrayList;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.util.Properties;
 
+import org.apache.commons.codec.digest.DigestUtils;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * This classes main function FluReportGenerate collects a group of patients with flu in the last specified date
+ * Validates and executes Query-by-Example SQL for authorized report users.
+ * Queries run read-only with row and timeout limits, and every outcome is audited
+ * without recording the submitted SQL text.
+ *
+ * <p>Two independent boundaries decide what a query may read. The application validator
+ * ({@link QueryByExampleSqlValidator}) rejects anything but one safe {@code SELECT} and names the
+ * restricted tables. The database then runs the query as the read-only reporting account from
+ * {@link ReportingConnectionService}, which MariaDB grants {@code SELECT} only on reportable tables
+ * (issue #3372). A query that the validator lets through but the database refuses ends as
+ * {@link QueryByExampleAccessDeniedException}; there is no fallback to the application account.</p>
  */
 public class RptByExampleData {
-    public static final String DIRECT_SQL_DISABLED_MESSAGE =
-            "Direct SQL execution has been disabled. Use curated report templates instead.";
+    public static final int MAX_ROWS = 1_000;
+    public static final int MAX_OUTPUT_CHARACTERS = 1_000_000;
+    public static final int QUERY_TIMEOUT_SECONDS = 15;
 
-    public ArrayList demoList = null;
-    public String sql = "";
-    public String results = null;
-    public String connect = null;
-    Properties oscarVariables = null;
-
-    public RptByExampleData() {
+    /** Supplies the connection a validated query runs on: the reporting account in production. */
+    @FunctionalInterface
+    interface ConnectionProvider {
+        Connection getConnection(Properties properties) throws SQLException;
     }
 
-    public String exampleTextGenerate(String sql, Properties oscarVariables) {
-        return exampleReportGenerate(sql, oscarVariables);
+    /**
+     * Turns submitted SQL into {@link LegacyJdbcQuery.TrustedSql}. Production uses
+     * {@link QueryByExampleSqlValidator#validate}; the integration tests substitute a validator
+     * without the restricted-table list to show the database boundary holds on its own.
+     */
+    @FunctionalInterface
+    interface QueryValidator {
+        LegacyJdbcQuery.TrustedSql validate(String sql, Properties properties) throws SQLException;
     }
 
-    public String exampleReportGenerate(String sql, Properties oscarVariables) {
-        if (sql == null || sql.trim().isEmpty()) {
-            return "";
+    public record QueryResult(String html, int rowCount, boolean truncated, boolean rowLimitReached,
+            long durationMillis) {
+    }
+
+    private static final class ExecutionProgress {
+        private int rowCount;
+
+        int rowCount() {
+            return rowCount;
         }
 
-        this.sql = sql;
-        this.oscarVariables = oscarVariables;
-
-        // Direct request-submitted SQL is deliberately not executed. A
-        // denylist-validated SELECT can still read tables/columns outside the
-        // user's reporting workflow, so this legacy endpoint now preserves the
-        // page contract while blocking the unsafe database boundary.
-        MiscUtils.getLogger().warn("Blocked direct Query-by-Example SQL execution; queryLength={}", sql.length());
-        results = DIRECT_SQL_DISABLED_MESSAGE;
-        return results;
+        void recordRows(int renderedRows) {
+            rowCount = renderedRows;
+        }
     }
 
-    public static String replaceSQLString
-            (String oldString, String newString, String inputString) {
+    private final ConnectionProvider connectionProvider;
+    private final QueryValidator queryValidator;
 
-        String outputString = "";
-        int i;
-        for (i = 0; i < inputString.length(); i++) {
-            if (!(inputString.regionMatches(true, i, oldString,
-                    0, oldString.length())))
-                outputString += inputString.charAt(i);
-            else {
-                outputString += newString;
-                i += oldString.length() - 1;
+    /** Runs queries as the reporting account configured in carlos.properties. */
+    public RptByExampleData() {
+        this(new ReportingConnectionService()::openConnection);
+    }
+
+    RptByExampleData(ConnectionProvider connectionProvider) {
+        this(connectionProvider, QueryByExampleSqlValidator::validate);
+    }
+
+    RptByExampleData(ConnectionProvider connectionProvider, QueryValidator queryValidator) {
+        this.connectionProvider = connectionProvider;
+        this.queryValidator = queryValidator;
+    }
+
+    /**
+     * Validates and executes one bounded, read-only Query-by-Example submission.
+     * The outcome and elapsed time are audited in all cases; raw SQL text is not
+     * included in the audit event.
+     *
+     * @param sql request-submitted SQL; only one validated {@code SELECT} is permitted
+     * @param properties application properties used to resolve the allowed database schema
+     *        and the reporting account
+     * @param providerNo requesting provider identifier used for audit metadata
+     * @return the encoded, size-bounded query result
+     * @throws QueryByExampleValidationException if the SQL fails structural validation
+     * @throws ReportingAccountUnavailableException if the reporting account is not provisioned,
+     *         is refused, or holds more than reportable {@code SELECT}; the query is not run
+     * @throws QueryByExampleAccessDeniedException if the database refuses the query because it
+     *         reads a table or column the reporting account is not granted
+     * @throws SQLTimeoutException if execution exceeds {@link #QUERY_TIMEOUT_SECONDS}
+     * @throws SQLException if the query or JDBC resource handling fails
+     * @throws RuntimeException if an unexpected validation, execution, or rendering failure occurs
+     */
+    @SuppressFBWarnings(
+            value = "THROWS_METHOD_THROWS_RUNTIMEEXCEPTION",
+            justification = "Runtime failures are audited and handled by the action")
+    public QueryResult execute(String sql, Properties properties, String providerNo) throws SQLException {
+        long startedAt = System.nanoTime();
+        String outcome = "failed";
+        ExecutionProgress progress = new ExecutionProgress();
+        try {
+            LegacyJdbcQuery.TrustedSql trustedSql = queryValidator.validate(sql, properties);
+            RptResultStruct.StructuredResult structured = executeWithConnection(trustedSql, properties, progress);
+            outcome = "success";
+            return new QueryResult(structured.html(), structured.rowCount(), structured.truncated(),
+                    structured.rowLimitReached(), elapsedMillis(startedAt));
+        } catch (QueryByExampleValidationException e) {
+            outcome = "rejected";
+            throw e;
+        } catch (ReportingAccountUnavailableException e) {
+            outcome = "unavailable";
+            logUnavailable(providerNo, e.getMessage());
+            throw e;
+        } catch (SQLTimeoutException e) {
+            outcome = "timeout";
+            throw e;
+        } catch (SQLException e) {
+            if (QueryByExampleAccessDeniedException.isAccessDenied(e)) {
+                // The database boundary refused what the application validator allowed: a restricted
+                // table or column, or a table nobody has classified yet. Worth a warning, not a stack.
+                outcome = "denied";
+                logDenied(providerNo, sql, e.getErrorCode());
+                throw new QueryByExampleAccessDeniedException(e);
+            }
+            logFailure(providerNo, sql, e.getSQLState(), e.getClass().getSimpleName());
+            throw e;
+        } catch (RuntimeException e) {
+            logFailure(providerNo, sql, null, e.getClass().getSimpleName());
+            throw e;
+        } finally {
+            audit(providerNo, sql, elapsedMillis(startedAt), progress.rowCount(), outcome);
+        }
+    }
+
+    @SuppressFBWarnings(
+            value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "This narrow sink accepts only TrustedSql created by structural SELECT validation")
+    private static PreparedStatement prepareValidatedStatement(Connection connection,
+            LegacyJdbcQuery.TrustedSql trustedSql) throws SQLException {
+        // codeql[java/sql-injection] -- TrustedSql is created only after structural SELECT validation.
+        return connection.prepareStatement(trustedSql.sql(), ResultSet.TYPE_FORWARD_ONLY,
+                ResultSet.CONCUR_READ_ONLY); // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- validated TrustedSql boundary
+    }
+
+    private RptResultStruct.StructuredResult executeWithConnection(LegacyJdbcQuery.TrustedSql trustedSql,
+            Properties properties, ExecutionProgress progress)
+            throws SQLException {
+        try (Connection connection = connectionProvider.getConnection(properties)) {
+            return executeValidatedQuery(connection, trustedSql, progress);
+        }
+    }
+
+    private static RptResultStruct.StructuredResult executeValidatedQuery(Connection connection,
+            LegacyJdbcQuery.TrustedSql trustedSql, ExecutionProgress progress) throws SQLException {
+        boolean originalReadOnly = connection.isReadOnly();
+        try {
+            connection.setReadOnly(true);
+        } catch (SQLException | RuntimeException setupFailure) {
+            restoreReadOnlyAfterFailure(connection, originalReadOnly, setupFailure);
+            throw setupFailure;
+        }
+        RptResultStruct.StructuredResult result;
+        try {
+            result = executeStatement(connection, trustedSql, progress);
+        } catch (SQLException | RuntimeException executionFailure) {
+            restoreReadOnlyAfterFailure(connection, originalReadOnly, executionFailure);
+            throw executionFailure;
+        }
+        connection.setReadOnly(originalReadOnly);
+        return result;
+    }
+
+    private static RptResultStruct.StructuredResult executeStatement(Connection connection,
+            LegacyJdbcQuery.TrustedSql trustedSql, ExecutionProgress progress) throws SQLException {
+        try (PreparedStatement statement = prepareValidatedStatement(connection, trustedSql)) {
+            statement.setMaxRows(MAX_ROWS + 1);
+            statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+            return readStatementResult(statement, progress);
+        }
+    }
+
+    private static RptResultStruct.StructuredResult readStatementResult(PreparedStatement statement,
+            ExecutionProgress progress)
+            throws SQLException {
+        try (ResultSet resultSet = statement.executeQuery()) {
+            RptResultStruct.StructuredResult structured = RptResultStruct.getStructureWithCount(
+                    resultSet, MAX_OUTPUT_CHARACTERS, MAX_ROWS);
+            progress.recordRows(structured.rowCount());
+            return structured;
+        }
+    }
+
+    private static void restoreReadOnlyAfterFailure(Connection connection, boolean originalReadOnly,
+            Exception executionFailure) {
+        try {
+            connection.setReadOnly(originalReadOnly);
+        } catch (SQLException | RuntimeException restoreFailure) {
+            if (restoreFailure != executionFailure) {
+                executionFailure.addSuppressed(restoreFailure);
             }
         }
-        return outputString;
     }
 
+    public static void audit(String providerNo, String sql, long durationMillis, int rowCount, String outcome) {
+        String query = sql == null ? "" : sql;
+        String queryHash = queryHash(query);
+        MiscUtils.getLogger().info(
+                "Query-by-Example audit provider={} queryHash={} queryLength={} durationMs={} rowCount={} outcome={}",
+                providerNo, queryHash, query.length(), durationMillis, rowCount, outcome);
+    }
 
-};
+    private static long elapsedMillis(long startedAt) {
+        return (System.nanoTime() - startedAt) / 1_000_000L;
+    }
+
+    private static void logFailure(String providerNo, String sql, String sqlState, String exceptionType) {
+        if (MiscUtils.getLogger().isWarnEnabled()) {
+            MiscUtils.getLogger().warn(
+                    "Query-by-Example failure provider={} queryHash={} sqlState={} exceptionType={}",
+                    providerNo, queryHash(sql), sqlState, exceptionType);
+        }
+    }
+
+    // The reason names a setting or a kind of grant, never a credential (see ReportingConnectionService).
+    private static void logUnavailable(String providerNo, String reason) {
+        if (MiscUtils.getLogger().isWarnEnabled()) {
+            MiscUtils.getLogger().warn(
+                    "Query-by-Example unavailable provider={} reason={}; see docs/query-by-example-least-privilege.md",
+                    LogSafe.sanitize(providerNo), LogSafe.sanitize(reason));
+        }
+    }
+
+    private static void logDenied(String providerNo, String sql, int errorCode) {
+        if (MiscUtils.getLogger().isWarnEnabled()) {
+            MiscUtils.getLogger().warn(
+                    "Query-by-Example refused by reporting account privileges provider={} queryHash={} errorCode={}",
+                    LogSafe.sanitize(providerNo), queryHash(sql), errorCode);
+        }
+    }
+
+    private static String queryHash(String sql) {
+        return DigestUtils.sha256Hex(sql == null ? "" : sql);
+    }
+}

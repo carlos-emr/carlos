@@ -36,7 +36,7 @@
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
+**Stack**: Java 25, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 
@@ -56,7 +56,6 @@ make clean                    # Clean project and remove deployed app
 make install                  # Build and deploy without tests
 make install --run-tests      # Build, test, and deploy (all tests)
 make install --run-modern-tests     # Build and run only modern tests (JUnit 5)
-make install --run-legacy-tests     # Build and run only legacy tests (JUnit 4)
 make install --run-unit-tests       # Build and run only modern unit tests
 make install --run-integration-tests # Build and run only modern integration tests
 server start/stop/restart     # Tomcat management
@@ -200,7 +199,7 @@ The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrate
 **Migration History**:
 - Struts 2.5.33 → 6.8.0 (January 2026, PR #88) — security fix for CVE-2025-64775
 - Struts 6.8.0 → 7.1.1 (March 2026) — Jakarta EE namespace migration, `com.opensymphony.xwork2.*` → `org.apache.struts2.*`
-- Caffeine 3.2.3 cache dependency required by Struts for internal caching
+- Caffeine 3.2.4 cache dependency required by Struts for internal caching
 
 ## Healthcare Domain Context
 
@@ -225,8 +224,7 @@ The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrate
 
 ## Modern Test Framework (JUnit 5)
 **Key Features**:
-- **Dual Structure**: `src/test-modern/` (primary for new tests) and `src/test/` (legacy + permitted for new unit tests using `CarlosUnitTestBase`)
-- **Zero Impact**: Legacy tests unchanged, both suites run automatically
+- **Single Structure**: All JUnit 5 unit and integration tests live under `src/test/java`, with resources under `src/test/resources`. Maven Surefire discovers `*Test` and `*Tests`; JUnit tags select test groups. The old separate test directory and JUnit 4 suite have been removed.
 - **Modern Stack**: JUnit 5, AssertJ, H2 in-memory database, BDD naming
 - **Spring Integration**: Full Spring context with transaction support
 - **Multi-File Architecture**: Component-first naming (`TicklerDao*Test`) for scalability
@@ -280,9 +278,10 @@ When asked to write tests, you MUST:
 3. **Never invent or assume method names** - verify they exist
 4. **Choose the right base class**:
    - `CarlosTestBase` - Integration tests with Spring context and database
+   - Isolated persistence integration tests without the application Spring context may manage a unique H2 database and real JDBC/JPA resources directly (see `FrmDataShortcutLatestIntegrationTest` and `PregnancyTransactionIntegrationTest`). Keep `@Tag("integration")`, exercise actual database behavior and real commits/rollbacks when testing mutations, and guarantee resource/schema cleanup; mocked database behavior is not integration coverage.
    - `CarlosUnitTestBase` - Unit tests with mocked SpringUtils (no database)
    - Domain-specific bases like `DemographicUnitTestBase` - Unit tests with test data builders
-5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for EntityManager (integration tests only)
+5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for Spring-injected EntityManagers in application-context integration tests
 6. **For Manager unit tests**: Register SpringUtils mocks BEFORE creating static mocks (LogAction, etc.)
 
 ### Integration Test Pitfalls (Hibernate/H2)
@@ -439,12 +438,12 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - `TargetColour` / `Recommendation` — generate DRL from flowsheet XML for color indicators and clinical reminders
 - `WorkFlowDS` — wraps `KieBase` for workflow rule execution (e.g., Rh pregnancy management)
 
-**Test Coverage**: Tests in `src/test-modern/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
+**Test Coverage**: Tests in `src/test/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
 
 ## Technology Stack Details
 
 ### Core Technologies
-- **Java 21** with modern language features and Jakarta XML Binding
+- **Java 25** with modern language features and Jakarta XML Binding
 - **Spring Framework 7.0.6**: IoC container, MVC, AOP, Security, transaction management (Jakarta EE 11)
 - **Spring Security 7.0.4**: Crypto module for password hashing
 - **Hibernate 7.2.7**: ORM framework with custom MySQL dialect (`OscarMySQL5Dialect`)
@@ -456,8 +455,8 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Struts 7.1.1**: Modern actions (2Action pattern) using `org.apache.struts2.ActionSupport`
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
   - All 458 *2Action files migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
-  - Requires Caffeine 3.2.3 cache dependency for internal caching
-- **Apache CXF 4.1.5**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
+  - Requires Caffeine 3.2.4 cache dependency for internal caching
+- **Apache CXF 4.1.8**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
 - **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components
@@ -691,7 +690,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 
 ### Docker Setup
 - Development environment runs in Docker containers
-- Tomcat container with Java 21 and debugging enabled
+- Tomcat container with Java 25 and debugging enabled
 - MariaDB database container
 - Maven repository caching for faster builds
 - Port 8080 for web application, 3306 for database
@@ -723,27 +722,28 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 ## Database Schema & Migration System
 
 **Database**: MariaDB/MySQL with comprehensive healthcare schema dating back to 2006
-**Migration Pattern**: Date-based SQL scripts (`update-YYYY-MM-DD-description.sql`)
+**Schema management**: **Flyway** — a consolidated `V1` genesis baseline plus forward-only migrations.
+See [`docs/database-schema-management.md`](docs/database-schema-management.md). The legacy script build
+(`createdatabase_*.sh`, `oscarinit*.sql`, `oscardata*.sql`, `icd*.sql`, `measurementMapData.sql`,
+`caisi/initcaisi*.sql`, `olis/olisinit.sql`, `bc_*.sql`) has been **retired** — recover from git history.
 
 ### Core Database Files (`database/mysql/`)
 ```bash
-# Initial Schema Setup
-oscarinit.sql          # Core database schema
-oscarinit_2025.sql     # Current 2025 schema version
-oscardata.sql          # Initial reference data
-oscarinit_bc.sql       # British Columbia specific
-oscarinit_on.sql       # Ontario specific
+# Flyway migration set (single source of truth) — see migration/README.md
+migration/common/V1__baseline_schema.sql   # province-neutral schema (structure)
+migration/on/V1.0.1__on_schema.sql         # Ontario-only tables
+migration/on/V1.0.2__on_data.sql           # Ontario reference data (incl. carlosdoc seed, ICD, OLIS)
+migration/bc/V1.0.1__bc_schema.sql         # BC-only tables
+migration/bc/V1.0.2__bc_data.sql           # BC reference data (carlosdoc seed, ICD, + billing/specialist/pharmacy catalogs)
+migration/pruned-tables.txt                # dead tables excluded from the baseline
 
-# Medical Coding Systems
-icd9.sql / icd10.sql   # Diagnosis codes (ICD-9/ICD-10)
-measurementMapData.sql # Clinical measurements mapping
-SnomedCore/           # SNOMED CT clinical terminology
-olis/                 # Ontario Labs Information System
+# Forward schema changes: migration/<common|on|bc>/V1.0.N__desc.sql (sequential, next free number; idempotent)
+updates/                # FROZEN legacy dated patches (historical; a few still used for demo seeding)
 
-# Provincial Healthcare Data
-bc_billingServiceCodes.sql     # BC medical service codes
-bc_pharmacies.sql              # BC pharmacy directory
-firstNationCommunities_lu_list.sql # First Nations communities
+# Other
+SnomedCore/             # SNOMED CT clinical terminology (licensed, loaded separately)
+build-demo.sh           # filters the dev demo dataset to the live (pruned) schema; its output
+                        #   development.sql lives at .devcontainer/db/scripts/, not under database/mysql/
 ```
 
 **Development Database**:
@@ -841,7 +841,7 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - **Security**: `SecurityInfoManager.hasPrivilege()` + OWASP encoding required
 - **Actions**: `*2Action.java` pattern for Struts2 migration
 - **Packages**: `io.github.carlos_emr.carlos.*` (new) vs `org.oscarehr.*` (legacy)
-- **Database**: Date-based migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
+- **Database**: Flyway V1 baseline + sequential V1.0.N forward migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
 
 ---
 
@@ -855,8 +855,10 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 3. **Complex Changes**: Ask clarifying questions first, create implementation plan, proceed after approval
 
 ### Branch Protection
-- **Protected Branches**: `develop`, `main`, `experimental` - direct commits prohibited
+- **Protected Branches**: `develop`, `main`, `experimental`, and `release/*` - direct commits prohibited
 - **All changes** must go through pull requests with review
+- **Release policy**: `docs/release-process.md` is authoritative for target branches, CalVer, snapshots, tags, maintenance fixes, and forward merges
+- **Release flow**: Start normal work from and target `develop`. Start a supported fix from and target the oldest affected `release/YYYY.MM`; maintainers then forward-merge it into newer lines while preserving target version/SCM metadata. Target `main` only for current-train release preparation or a necessary, narrowly scoped release-infrastructure correction. Never tag a snapshot, move, delete, or reuse a release tag, or edit a Flyway migration present in a published tag
 - Claude creates feature branches: `claude/issue-<number>-<timestamp>`
 
 ### Security Checklist (Every Code Change)
@@ -867,7 +869,8 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - [ ] No PHI in logs or error messages
 
 ### PR Requirements
-- ✅ Target `develop` branch (not `main`)
+- ✅ Target `develop` for normal work; target `release/YYYY.MM` only for an approved supported-release fix; use `main` only for current-train release preparation or a necessary release-infrastructure correction
+- ✅ Preserve the target branch snapshot/SCM metadata during forward merges; use merge ancestry rather than routine cherry-picks
 - ✅ Include tests for new functionality
 - ✅ Reference related issues (`fixes #123`)
 - ✅ Add "Generated with Claude Code" signature
@@ -993,8 +996,8 @@ src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # 2Action implemen
 
 # Database Configuration
 src/main/resources/OscarDatabaseBase.xml           # Hibernate configuration
-database/mysql/oscarinit_2025.sql                 # Current database schema
-database/mysql/updates/update-2025-*.sql          # Recent migration patterns
+database/mysql/migration/common/V1__baseline_schema.sql  # Flyway V1 genesis schema
+database/mysql/migration/<common|on|bc>/V1.0.N__*.sql # Forward schema migrations (sequential)
 ```
 
 ### Security Implementation Examples
@@ -1054,24 +1057,22 @@ src/main/java/io/github/carlos_emr/carlos/commn/dao/*Dao.java               # DA
 ### Database Schema References
 ```bash
 # Database Structure Examples
-database/mysql/oscardata.sql                      # Reference data examples
-database/mysql/caisi/initcaisi.sql               # Community integration schema
-database/mysql/olis/olisinit.sql                 # Provincial lab integration schema
-database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integration
+database/mysql/migration/on/V1.0.2__on_data.sql   # Reference data (carlosdoc seed, ICD, OLIS, ...)
+database/mysql/migration/common/V1__baseline_schema.sql # Province-neutral schema
+database/mysql/migration/bc/V1.0.2__bc_data.sql   # BC reference data (billing/specialist/pharmacy)
+database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integration (licensed)
 ```
 
 ### Testing Patterns
 ```bash
 # Modern Test Framework (JUnit 5) - ACTIVE AND RECOMMENDED
-src/test-modern/java/io/github/carlos_emr/carlos/            # Primary location for new JUnit 5 tests
-src/test-modern/java/io/github/carlos_emr/carlos/managers/   # Manager unit tests (DemographicManagerUnitTest)
-src/test-modern/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (CarlosUnitTestBase)
-src/test-modern/resources/                        # Modern test configurations
+src/test/java/io/github/carlos_emr/carlos/            # Unit and integration JUnit 5 tests
+src/test/java/io/github/carlos_emr/carlos/managers/   # Manager unit tests (DemographicManagerUnitTest)
+src/test/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (CarlosUnitTestBase)
+src/test/resources/                             # Test configurations
 docs/test/modern-test-framework-complete.md       # Complete test framework documentation
 docs/test/test-writing-guide.md                   # Test writing patterns and static mocking
 
-# src/test/ — acceptable for both legacy (JUnit 4) and new unit tests using CarlosUnitTestBase
-src/test/java/io/github/carlos_emr/carlos/                   # Legacy + permitted for new unit tests
 src/test/resources/over_ride_config.properties    # Test configuration template
 ```
 
@@ -1081,8 +1082,9 @@ src/test/resources/over_ride_config.properties    # Test configuration template
 2. **Test real methods only** - Never make up methods that don't exist in the codebase
 3. **Use actual method signatures** - Match the exact parameters and return types
 4. **Choose the right base class and directory**:
-   - Integration tests: Extend `CarlosTestBase` → place in `src/test-modern/`
-   - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database) → either `src/test-modern/` or `src/test/` is acceptable
+   - Spring integration tests: Extend `CarlosTestBase` (application Spring context + database); use `src/test/java`.
+   - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database); use `src/test/java`.
+   - Isolated persistence integration tests without the application Spring context may manage a unique H2 database and real JDBC/JPA resources directly (see `FrmDataShortcutLatestIntegrationTest` and `PregnancyTransactionIntegrationTest`). Keep `@Tag("integration")`, exercise actual database behavior and real commits/rollbacks when testing mutations, and guarantee resource/schema cleanup; mocked database behavior is not integration coverage.
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
 5. **Follow BDD naming strictly**: `should<Action>_<preposition><Condition>` (camelCase, ONE underscore, e.g. `_when`, `_by`, `_for`, `_with`)
 6. **Check DAO interfaces** - Look at `*Dao.java` files to see available methods before writing tests

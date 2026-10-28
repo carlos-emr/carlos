@@ -38,18 +38,30 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   ADD_LOGIN_SITE_ID=<site id to assign to the seeded provider>
  *   ADD_LOGIN_SCREENSHOT_DIR=/tmp/carlos-add-login-account-playwright
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+// Issue #2689: the form now asks for the first role, with nothing preselected, and
+// the login is created with exactly that role (and the OSCAR program membership the
+// Assign Role page would write), so a fresh login reaches the schedule at once.
+// Issue #3701's denial path is kept for a login whose role is later removed: it is
+// refused with an explanation, and the confirmation's role-assignment link restores
+// access. Cleanup includes the facility/program memberships created by these steps.
+
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const {
+  buildArtifactPath, installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING,
+} = require('./eform-local-playwright-utils');
+const { bundleMessage } = require('./lib/throwaway-login-fixture');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -59,7 +71,7 @@ const testPin = process.env.TEST_PIN || '2026';
 const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const screenshotDir = process.env.ADD_LOGIN_SCREENSHOT_DIR || '/tmp/carlos-add-login-account-playwright';
 const fixturePassword = process.env.ADD_LOGIN_NEW_PASSWORD || 'E2eAccount1!';
 const fixturePin = process.env.ADD_LOGIN_NEW_PIN || '1234';
@@ -69,17 +81,23 @@ let mysqlDefaults = null;
 const badResponses = [];
 const consoleIssues = [];
 
-fs.mkdirSync(screenshotDir, { recursive: true });
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -92,6 +110,16 @@ function playwrightBaseUrl() {
   return `${baseUrl.origin}${pathname}/`;
 }
 
+// A MariaDB option file is NOT a raw key=value format: in a value, '\' starts an
+// escape sequence ('\s' is a space, '\t' a tab) and an unquoted '#' starts a
+// comment that truncates the rest of the line. Writing the password verbatim
+// therefore silently corrupts it and the script dies on "Access denied".
+// Double-quoting the value neutralizes '#' and surrounding whitespace; '\' and
+// '"' still need escaping inside the quotes.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function createMysqlDefaultsFile() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
@@ -99,7 +127,11 @@ function createMysqlDefaultsFile() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-add-login-mysql-'));
   const file = path.join(dir, 'client.cnf');
   try {
-    fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+    fs.writeFileSync(
+      file,
+      `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`,
+      { mode: 0o600 }
+    );
     return { dir, file };
   } catch (error) {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -209,26 +241,87 @@ function sharedSiteId(providerNo) {
   return out || '1';
 }
 
-function seedProvider(providerNo, siteId) {
+async function seedProviderViaUi(page, providerNo, siteId) {
+  // Create the provider through the app's own Add Provider form rather than a
+  // direct SQL INSERT: getActiveProviders() is @Cacheable (ACTIVE_PROVIDERS,
+  // 5-minute TTL), so a provider inserted behind the app's back stays missing
+  // from the add-login dropdown until the cache expires — exactly the failure
+  // this check produced on the packaged (.deb) install, where earlier page
+  // loads had already warmed the cache. saveProvider() evicts that cache, so
+  // creating the provider the way an administrator actually does keeps the
+  // dropdown fresh — and exercises the real add-provider path as a bonus.
   const numericSiteId = Number(siteId);
   assert(Number.isInteger(numericSiteId), `ADD_LOGIN_SITE_ID must be an integer, got ${siteId}`);
-  sql(
-    `INSERT INTO provider`
-      + ` (provider_no, last_name, first_name, provider_type, specialty, sex, status, lastUpdateDate)`
-      + ` VALUES`
-      + ` ('${escapeSql(providerNo)}', 'Playwright', 'Account', 'doctor', 'GP', 'M', '1', NOW())`
+  const uniqueFirstName = `Account${providerNo}`;
+
+  await page.goto('admin/ViewProviderAddARecordHtm', { waitUntil: 'networkidle', timeout: 30000 });
+  const providerNoInput = page.locator('form[name="searchprovider"] input[name="provider_no"]').first();
+  await providerNoInput.waitFor({ state: 'visible', timeout: 15000 });
+  // With provider_no_auto the field is readonly "-new-" and the app assigns
+  // the number; otherwise fill the fixture id. Either way the created row is
+  // recovered below by its unique name stamp.
+  const autoNumbered = (await providerNoInput.getAttribute('readonly')) !== null;
+  if (!autoNumbered) {
+    await providerNoInput.fill(providerNo);
+  }
+  await page.locator('input[name="last_name"]').fill('Playwright');
+  await page.locator('input[name="first_name"]').fill(uniqueFirstName);
+  await page.locator('select[name="provider_type"]').selectOption('doctor');
+  await page.locator('input[name="specialty"]').fill('GP');
+  await page.locator('select[name="sex"]').selectOption('M');
+  await Promise.all([
+    page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {}),
+    page.locator('form[name="searchprovider"] input[type="submit"]').first().click(),
+  ]);
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+  // Newest row first by the audit timestamp, not by provider_no: provider_no is
+  // a VARCHAR, so ordering by it is lexicographic ('9' > '10'), and a stale row
+  // from a prior failed run could otherwise win the tie.
+  const createdNo = sql(
+    `SELECT provider_no FROM provider`
+      + ` WHERE last_name='Playwright' AND first_name='${escapeSql(uniqueFirstName)}'`
+      + ` ORDER BY lastUpdateDate DESC, provider_no DESC LIMIT 1`
   );
-  sql(
-    `INSERT INTO providersite(provider_no, site_id)`
-      + ` VALUES ('${escapeSql(providerNo)}', ${numericSiteId})`
-  );
+  assert(createdNo, `Add Provider form did not create provider ${providerNo} (last page: ${page.url()})`);
+
+  // Multisite installs scope the dropdown by providersite; Add Provider only
+  // writes that row when multisites is enabled, so backfill it if absent.
+  const siteRows = Number(sql(
+    `SELECT COUNT(*) FROM providersite WHERE provider_no='${escapeSql(createdNo)}'`
+  ));
+  if (siteRows === 0) {
+    sql(
+      `INSERT INTO providersite(provider_no, site_id)`
+        + ` VALUES ('${escapeSql(createdNo)}', ${numericSiteId})`
+    );
+  }
+  return createdNo;
 }
 
-function cleanupRows(providerNo, username) {
+function cleanupRows(providerNo, username, firstName) {
+  // Also match the fixture's unique Playwright/<firstName> provider row by NAME,
+  // not just by provider_no: with provider_no_auto the app assigns a number that
+  // differs from the fixture id, so a run that fails mid-seed would otherwise
+  // leave that row (and its providersite) behind — cleanup by the fixture id
+  // alone never matches it. The name is stamped from the fixture id and is
+  // unique per run, so this cannot touch another run's provider. providersite is
+  // cleared before provider (FK), and its name-match resolves the provider_no
+  // via a subquery on the still-present provider row.
+  const nameMatch = firstName
+    ? `last_name='Playwright' AND first_name='${escapeSql(firstName)}'`
+    : null;
+  const ownedProvider = `provider_no='${escapeSql(providerNo)}'`
+    + (nameMatch ? ` OR provider_no IN (SELECT provider_no FROM provider WHERE ${nameMatch})` : '');
   const statements = [
+    `DELETE FROM program_provider WHERE ${ownedProvider}`,
+    `DELETE FROM provider_facility WHERE ${ownedProvider}`,
+    `DELETE FROM secUserRole WHERE ${ownedProvider}`,
     `DELETE FROM security WHERE user_name='${escapeSql(username)}' OR provider_no='${escapeSql(providerNo)}'`,
-    `DELETE FROM providersite WHERE provider_no='${escapeSql(providerNo)}'`,
-    `DELETE FROM provider WHERE provider_no='${escapeSql(providerNo)}'`,
+    `DELETE FROM providersite WHERE provider_no='${escapeSql(providerNo)}'`
+      + (nameMatch ? ` OR provider_no IN (SELECT provider_no FROM provider WHERE ${nameMatch})` : ''),
+    `DELETE FROM provider WHERE provider_no='${escapeSql(providerNo)}'`
+      + (nameMatch ? ` OR (${nameMatch})` : ''),
   ];
 
   const errors = [];
@@ -280,6 +373,55 @@ async function login(page) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 }
 
+/** Exercise an actual new login in a separate session; credentials are never logged. */
+async function verifyNewProviderLogin(browser, username, expectDenied) {
+  const context = await browser.newContext({
+    baseURL: playwrightBaseUrl(), ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
+  });
+  const page = await context.newPage();
+  const pageErrors = [];
+  const httpErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('response', response => {
+    if (response.status() >= 400) httpErrors.push({ status: response.status(), path: new URL(response.url()).pathname });
+  });
+  try {
+    await page.goto('./', { waitUntil: 'domcontentloaded' });
+    await page.locator('#username').fill(username);
+    await page.locator('#password').fill(fixturePassword);
+    await page.locator('#pin').fill(fixturePin);
+    await Promise.all([
+      page.waitForURL(/providercontrol/, { timeout: 30000 }),
+      page.locator('input[type="submit"],button[type="submit"]').first().click(),
+    ]);
+    if (expectDenied) {
+      // Refused, but told why (issue #2689) rather than shown the generic security exception.
+      const reason = page.locator('#noScheduleAccessReason');
+      await reason.waitFor();
+      const noRole = bundleMessage('provider.noScheduleAccess.noRole',
+        'Your account has no role assigned, so it cannot open the schedule or any other part of CARLOS. '
+        + 'Ask a CARLOS administrator to assign your role (Administration, User Management, Assign Role to Provider), '
+        + 'then log in again.');
+      assert((await reason.innerText()).replace(/\s+/g, ' ').trim() === noRole,
+        'A provider without a role must be told the account has no role');
+      assert(httpErrors.length === 1 && httpErrors[0].status === 403
+        && httpErrors[0].path.endsWith('/provider/providercontrol'),
+        `Unassigned provider must be refused at the schedule: ${JSON.stringify(httpErrors)}`);
+      assert(await page.locator('a.adhour').count() === 0, 'Unassigned provider received schedule access');
+    } else {
+      await page.locator('a.adhour').first().waitFor({ state: 'visible', timeout: 30000 });
+      // Let the schedule's tab-count polls finish before the context closes. The caller removes
+      // this login's role next: a poll still running on the server would be judged on its old
+      // role at the gate and its new one inside the count, and answer 500 in the server log.
+      await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+      assert(httpErrors.length === 0, `Assigned provider hit HTTP errors: ${JSON.stringify(httpErrors)}`);
+    }
+    assert(pageErrors.length === 0, `New login raised JavaScript errors: ${JSON.stringify(pageErrors)}`);
+  } finally {
+    await context.close();
+  }
+}
+
 async function providerOptions(page) {
   const select = page.locator('select[name="provider_no"]').first();
   await select.waitFor({ state: 'visible', timeout: 30000 });
@@ -289,9 +431,30 @@ async function providerOptions(page) {
   })));
 }
 
+// Module scope so the SIGINT/SIGTERM handler (issue #3600) can reach the same
+// fixture identity the finally block cleans up.
+let providerNo = null;
+let username = null;
+// Stable across the providerNo reassignment below: seedProviderViaUi names the
+// created row Account<fixture id>, so cleanup can find it by name even after
+// providerNo is replaced with the app-assigned number.
+let fixtureFirstName = null;
+
+// Idempotent. Removes the fixture rows and the cleartext MySQL password file; a
+// finally does not run when the process is killed, so this is also the signal path.
+function cleanupRunFixtures() {
+  try {
+    if (mysqlDefaults && providerNo && username) {
+      cleanupRows(providerNo, username, fixtureFirstName);
+    }
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+}
+
+const signalHandlers = installCleanupSignalHandlers(cleanupRunFixtures);
+
 async function run() {
-  let providerNo = null;
-  let username = null;
   let browser = null;
 
   try {
@@ -304,6 +467,7 @@ async function run() {
     const fixture = chooseFixture();
     providerNo = fixture.providerNo;
     username = fixture.username;
+    fixtureFirstName = `Account${fixture.providerNo}`;
     const result = {
       baseUrl: baseUrl.toString(),
       adminProviderNo: adminNo,
@@ -315,10 +479,9 @@ async function run() {
       steps: [],
     };
 
-    cleanupRows(providerNo, username);
-    seedProvider(providerNo, siteId);
+    cleanupRows(providerNo, username, fixtureFirstName);
 
-    const launchOptions = { headless: true };
+    const launchOptions = { headless: true, ...NO_PLAYWRIGHT_SIGNAL_HANDLING };
     if (chromePath) {
       launchOptions.executablePath = chromePath;
     }
@@ -327,7 +490,7 @@ async function run() {
     const context = await browser.newContext({
       baseURL: playwrightBaseUrl(),
       viewport: { width: 1280, height: 900 },
-      ignoreHTTPSErrors: true,
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
     });
     const page = await context.newPage();
     page.setDefaultTimeout(20000);
@@ -335,6 +498,13 @@ async function run() {
 
     await login(page);
     result.steps.push('logged in as admin');
+
+    // Adopt the number the app actually assigned (differs from the fixture id
+    // when provider_no_auto is on) so the dropdown assertions and cleanup all
+    // target the row that exists.
+    providerNo = await seedProviderViaUi(page, providerNo, siteId);
+    result.providerNo = providerNo;
+    result.steps.push(`created provider ${providerNo} via the Add Provider form`);
 
     await page.goto('admin/ViewSecurityAddARecord', { waitUntil: 'networkidle', timeout: 30000 });
     const initialOptions = await providerOptions(page);
@@ -345,13 +515,23 @@ async function run() {
       `Seeded provider ${providerNo} was not offered before account creation: ${JSON.stringify(initialOptions)}`
     );
 
-    result.screenshots.before = path.join(screenshotDir, 'before-create-account.png');
-    await page.screenshot({ path: result.screenshots.before, fullPage: true });
+    result.screenshots.before = buildArtifactPath(screenshotDir, 'before-create-account');
+    await page.screenshot({ path: result.screenshots.before, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
+
+    // Issue #2689: the first role is an explicit choice; nothing is preselected.
+    const roleSelect = page.locator('select[name="role_name"]');
+    await roleSelect.waitFor({ state: 'visible' });
+    assert(await roleSelect.inputValue() === '', 'Add a Login Record must not preselect a role');
+    result.offeredRoles = await roleSelect.locator('option').evaluateAll(
+      (options) => options.map((option) => option.value).filter(Boolean));
+    assert(result.offeredRoles.includes('doctor'),
+      `Add a Login Record does not offer the doctor role: ${JSON.stringify(result.offeredRoles)}`);
 
     await page.locator('input[name="user_name"]').fill(username);
     await page.locator('input[name="password"]').fill(fixturePassword);
     await page.locator('input[name="conPassword"]').fill(fixturePassword);
     await page.locator('select[name="provider_no"]').selectOption(providerNo);
+    await roleSelect.selectOption('doctor');
 
     const expire = page.locator('input[name="b_ExpireSet"]').first();
     if ((await expire.count()) && (await expire.isChecked())) {
@@ -382,8 +562,8 @@ async function run() {
 
     const heading = await page.locator('h1').first().textContent().catch(() => '');
     result.submitHeading = heading ? heading.trim() : '';
-    result.screenshots.afterSubmit = path.join(screenshotDir, 'after-submit.png');
-    await page.screenshot({ path: result.screenshots.afterSubmit, fullPage: true });
+    result.screenshots.afterSubmit = buildArtifactPath(screenshotDir, 'after-submit');
+    await page.screenshot({ path: result.screenshots.afterSubmit, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
 
     const securityRows = rows(
       `SELECT user_name, provider_no, b_ExpireSet, forcePasswordReset, usingMfa`
@@ -393,6 +573,44 @@ async function run() {
     result.securityRows = securityRows;
     assert(securityRows.length === 1, `Expected one security row for ${username}/${providerNo}, found ${securityRows.length}`);
 
+    const assignedNotice = page.locator('#providerRoleAssigned');
+    await assignedNotice.waitFor({ state: 'visible' });
+    assert(/\bdoctor\b/.test(await assignedNotice.innerText()), 'Login creation must name the role it assigned');
+    const guidance = page.locator('#providerRoleGuidance');
+    await guidance.waitFor({ state: 'visible' });
+    assert(/role assignments/i.test(await guidance.innerText()), 'Login creation must still point to the role assignments');
+    const createdRoles = rows(`SELECT role_name, COALESCE(activeyn, 0) FROM secUserRole WHERE provider_no='${escapeSql(providerNo)}'`);
+    assert(createdRoles.length === 1 && createdRoles[0][0] === 'doctor' && createdRoles[0][1] === '1',
+      `Creating the login must grant exactly the chosen doctor role: ${JSON.stringify(createdRoles)}`);
+    // The same membership Assign Role to Provider writes for new case management.
+    const oscarProgram = sql(`SELECT id FROM program WHERE name='OSCAR' ORDER BY id LIMIT 1`);
+    if (oscarProgram) {
+      const doctorRoleNo = sql(`SELECT role_no FROM secRole WHERE role_name='doctor'`);
+      const membership = rows(`SELECT role_id FROM program_provider`
+        + ` WHERE provider_no='${escapeSql(providerNo)}' AND program_id=${Number(oscarProgram)}`);
+      assert(membership.length === 1 && membership[0][0] === doctorRoleNo,
+        `The new login's OSCAR program membership must carry the doctor role: ${JSON.stringify(membership)}`);
+    }
+    await verifyNewProviderLogin(browser, username, false);
+    result.steps.push('new login created with the explicitly chosen doctor role reached the schedule');
+
+    // A login whose role is removed later (or one created before #2689) is refused with an explanation.
+    sql(`DELETE FROM secUserRole WHERE provider_no='${escapeSql(providerNo)}'`);
+    await verifyNewProviderLogin(browser, username, true);
+
+    await page.locator('#assignProviderRole').click();
+    await page.locator('input[name="keyword"]').first().fill(`Playwright,${fixtureFirstName}`);
+    await page.locator('input[name="search"]').first().click();
+    const roleRow = page.locator('tr', { hasText: providerNo }).first();
+    await roleRow.locator('select[name="roleNew"]').selectOption('doctor');
+    await roleRow.locator('input[name="submit"][value="Add"]').click();
+    const assignedRoles = rows(`SELECT role_name FROM secUserRole WHERE provider_no='${escapeSql(providerNo)}'`);
+    assert(assignedRoles.length === 1 && assignedRoles[0][0] === 'doctor',
+      `Role assignment must grant only doctor: ${JSON.stringify(assignedRoles)}`);
+    await verifyNewProviderLogin(browser, username, false);
+    result.steps.push('login without a role was refused with an explanation; reassigning doctor through the guidance link restored schedule access');
+
+
     await page.goto('admin/ViewSecurityAddARecord', { waitUntil: 'networkidle', timeout: 30000 });
     const afterOptions = await providerOptions(page);
     result.afterOptions = afterOptions;
@@ -401,14 +619,14 @@ async function run() {
       `Provider ${providerNo} was still offered after account creation: ${JSON.stringify(afterOptions)}`
     );
 
-    result.screenshots.afterProviderRemoved = path.join(screenshotDir, 'after-provider-removed.png');
-    await page.screenshot({ path: result.screenshots.afterProviderRemoved, fullPage: true });
+    result.screenshots.afterProviderRemoved = buildArtifactPath(screenshotDir, 'after-provider-removed');
+    await page.screenshot({ path: result.screenshots.afterProviderRemoved, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
     result.steps.push('created security row and verified provider disappeared from dropdown');
 
     assert(badResponses.length === 0, `Unexpected HTTP error responses: ${JSON.stringify(badResponses)}`);
     assert(consoleIssues.length === 0, `Unexpected browser console/page issues: ${JSON.stringify(consoleIssues)}`);
 
-    fs.writeFileSync(path.join(screenshotDir, 'result.json'), JSON.stringify(result, null, 2));
+    fs.writeFileSync(buildArtifactPath(screenshotDir, 'result', '.json'), JSON.stringify(result, null, 2));
     console.log(JSON.stringify(result, null, 2));
   } finally {
     try {
@@ -416,13 +634,9 @@ async function run() {
         await browser.close();
       }
     } finally {
-      try {
-        if (providerNo && username) {
-          cleanupRows(providerNo, username);
-        }
-      } finally {
-        cleanupMysqlDefaultsFile();
-      }
+      cleanupRunFixtures();
+      // Last, so a signal arriving during cleanup still reaches the handler.
+      signalHandlers.dispose();
     }
   }
 }

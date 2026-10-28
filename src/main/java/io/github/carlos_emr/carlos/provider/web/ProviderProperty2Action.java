@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.appointment.AppointmentCardContact;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -119,6 +120,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ProviderProperty2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String TICKLER_DEFAULT = "default";
+    private static final String TICKLER_PROVIDER = "provider";
+    private static final String PROVIDER_CLOSE_LABEL = "providerbtnClose";
 
     /** Shared, thread-safe ObjectMapper (safe after configuration). */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -154,12 +158,31 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     /**
+     * Answers 405 with {@code Allow: POST} unless the request is a POST. Every method in {@link #methodMap}
+     * that writes or removes a preference starts with this, because each one is reached only from its
+     * page's POST form or POST request; the view methods stay open to GET.
+     *
+     * @return {@code true} when the request was refused and the caller must return {@link #NONE}
+     */
+    private boolean refuseUnlessPost() {
+        if ("POST".equals(request.getMethod())) {
+            return false;
+        }
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return true;
+    }
+
+    /**
      * Removes the stale-note-date and stale-format user properties for the logged-in provider.
      *
      * @return {@link #SUCCESS} after deletion, with {@code status} request attribute set to {@code "success"}
      * @throws SecurityException if no valid session is found
      */
     public String remove() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
             throw new SecurityException("No valid session found");
@@ -236,6 +259,9 @@ public class ProviderProperty2Action extends ActionSupport {
      * @throws SecurityException if no valid session is found
      */
     public String save() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
             throw new SecurityException("No valid session found");
@@ -325,6 +351,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveDefaultSex() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -388,6 +417,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveHCType() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
 
         UserProperty prop = this.getDateProperty();
@@ -446,6 +478,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveRxPageSize() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -479,6 +514,9 @@ public class ProviderProperty2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveDefaultDocQueue() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -608,6 +646,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveRxProfileView() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         try {
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -690,6 +731,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveShowPatientDOB() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("rxShowPatientDOBProperty.checked");
 
         UserProperty UShowPatientDOB = this.getRxShowPatientDOBProperty();
@@ -756,6 +800,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveDefaultQuantity() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -821,6 +868,9 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String saveOntarioMDId() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -852,16 +902,20 @@ public class ProviderProperty2Action extends ActionSupport {
             drugrefId2 = UdrugrefId2.getValue();
         }
 
-        UserProperty prop2 = this.userPropertyDAO.getProp(providerNo, UserProperty.ONTARIO_MD_PASSWORD);
+        // The password box always opens empty (the stored password is never sent to the browser), so an empty
+        // box means "keep the stored password": saving only the username must not clear it.
+        if (drugrefId2 != null && !drugrefId2.isEmpty()) {
+            UserProperty prop2 = this.userPropertyDAO.getProp(providerNo, UserProperty.ONTARIO_MD_PASSWORD);
 
-        if (prop2 == null) {
-            prop2 = new UserProperty();
-            prop2.setName(UserProperty.ONTARIO_MD_PASSWORD);
-            prop2.setProviderNo(providerNo);
+            if (prop2 == null) {
+                prop2 = new UserProperty();
+                prop2.setName(UserProperty.ONTARIO_MD_PASSWORD);
+                prop2.setProviderNo(providerNo);
+            }
+            prop2.setValue(drugrefId2);
+
+            this.userPropertyDAO.saveProp(prop2);
         }
-        prop2.setValue(drugrefId2);
-
-        this.userPropertyDAO.saveProp(prop2);
 
 
         request.setAttribute("status", "success");
@@ -904,6 +958,9 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String saveConsultationRequestCuffOffDate() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -985,6 +1042,9 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String saveConsultationRequestTeamWarning() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1067,6 +1127,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveWorkLoadManagement() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1135,6 +1198,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveConsultPasteFmt() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1285,6 +1351,9 @@ public class ProviderProperty2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveFavouriteEformGroup() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1358,6 +1427,9 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String saveUseCppSingleLine() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("cppSingleLineProperty.checked");
 
         UserProperty existingProp = this.getCppSingleLineProperty();
@@ -1433,6 +1505,9 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String saveEDocBrowserInDocumentReport() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("eDocBrowserInDocumentReportProperty.checked");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1507,6 +1582,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveEDocBrowserInMasterFile() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("eDocBrowserInMasterFileProperty.checked");
 
         UserProperty Uprop = this.geteDocBrowserInMasterFileProperty();
@@ -1582,6 +1660,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveCommentLab() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("labAckCommentProperty.checked");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1629,7 +1710,10 @@ public class ProviderProperty2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         UserProperty delegate = this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_DELEGATE);
-        UserProperty subject = this.userPropertyDAO.getProp(providerNo, "labRecallMsgSubject");
+        UserProperty subject = this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_MSG_SUBJECT);
+        if (subject == null) {
+            subject = this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_MSG_SUBJECT_LEGACY);
+        }
         UserProperty ticklerAssignee = this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_TICKLER_ASSIGNEE);
         UserProperty priority = this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_TICKLER_PRIORITY);
 
@@ -1658,7 +1742,7 @@ public class ProviderProperty2Action extends ActionSupport {
         providerList.add(new LabelValueBean("Select", "")); //key, value
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
-        List<Provider> ps = dao.getProviders();
+        List<Provider> ps = dao.getProviders(true);
         Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         try {
             for (Provider p : ps) {
@@ -1689,7 +1773,9 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("providermsgProvider", "provider.setLabRecall.msgProfileView");
         request.setAttribute("providermsgEdit", "provider.setLabRecall.msgEdit");
         request.setAttribute("providerbtnSubmit", "provider.setLabRecall.btnSubmit");
-        request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgSuccess");
+        if (!"error".equals(request.getAttribute("status"))) {
+            request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgSuccess");
+        }     
         request.setAttribute("method", "saveLabRecallPrefs");
 
         this.setLabRecallDelegate(delegate);
@@ -1700,21 +1786,53 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genLabRecallPrefs";
     }
 
+    /**
+     * Saves the authenticated provider's lab recall preferences on POST; the preference form is the only caller.
+     *
+     * @return the preference form, or no view for a rejected method
+     */
     public String saveLabRecallPrefs() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         UserProperty s = this.getLabRecallMsgSubject();
         String subject = s != null ? s.getValue() : "";
 
-        String delegate = request.getParameter("labRecallDelegate.value"); 
+        String delegate = StringUtils.trimToEmpty(request.getParameter("labRecallDelegate.value"));
+
         String priority = request.getParameter("labRecallTicklerPriority.value");
 
         boolean assignee = request.getParameter("labRecallTicklerAssignee.checked") != null;
 
-        boolean delete = false;
-        if (delegate.equals("")) {
-            delete = true;
+        boolean delete = delegate.isEmpty();
+        boolean invalidDelegate = false;
+
+
+        // Validate delegate is an active provider before persisting
+        if (!delete) {
+            ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
+            List<Provider> activeProviders = dao.getProviders(true);
+            boolean validDelegate = activeProviders.stream()
+                .anyMatch(p -> p.getProviderNo().equals(delegate));
+
+            if (!validDelegate) {
+                MiscUtils.getLogger().warn("Invalid or inactive provider selected as lab recall delegate");
+                invalidDelegate = true;
+            }
+        }
+
+        if (invalidDelegate) {
+            request.setAttribute("status", "error");
+            request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgInvalidDelegate");
+            return viewLabRecall();
         }
 
         // Save delegate (dropdown)
@@ -1731,12 +1849,12 @@ public class ProviderProperty2Action extends ActionSupport {
             userPropertyDAO.saveProp(dProperty);
         }
 
-        // Save subject text field
-        UserProperty sProperty = this.userPropertyDAO.getProp(providerNo, "labRecallMsgSubject");
+        // Save subject text field, under the name the messenger reads for a lab Recall message
+        UserProperty sProperty = this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_MSG_SUBJECT);
         if (sProperty == null) {
             sProperty = new UserProperty();
             sProperty.setProviderNo(providerNo);
-            sProperty.setName("labRecallMsgSubject");
+            sProperty.setName(UserProperty.LAB_RECALL_MSG_SUBJECT);
         }
         if (delete) {
             userPropertyDAO.delete(sProperty);
@@ -1744,6 +1862,8 @@ public class ProviderProperty2Action extends ActionSupport {
             sProperty.setValue(subject);
             userPropertyDAO.saveProp(sProperty);
         }
+        // A subject saved before #4720 under the old name is superseded by the row above (or deleted with it).
+        userPropertyDAO.delete(this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_MSG_SUBJECT_LEGACY));
 
         // Save tickler assignee checkbox
         String defaultToDelegate = "no";
@@ -1793,27 +1913,22 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genLabRecallPrefs";
     }
 
+    /**
+     * Loads the current assignee without changing the stored property object.
+     *
+     * @return the preference form
+     */
     public String viewTicklerTaskAssignee() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        UserProperty ticklerTaskAssignee = this.userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
-
-        String defaultTo = "";
-        if (ticklerTaskAssignee == null) {
-            ticklerTaskAssignee = new UserProperty();
-            ticklerTaskAssignee.setValue("default");
-            defaultTo = "default";
-        } else {
-            String value = ticklerTaskAssignee.getValue();
-            if ("default".equals(value) || "mrp".equals(value)) {
-                defaultTo = value;
-            } else {
-                defaultTo = "providers";
-
-                if ("providers".equals(defaultTo)) {
-                    request.setAttribute("selectedProvider", ticklerTaskAssignee.getValue());
-                }
+        UserProperty ticklerTaskAssignee = userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
+        String savedValue = ticklerTaskAssignee == null ? null : ticklerTaskAssignee.getValue();
+        String defaultTo = TICKLER_DEFAULT;
+        if (StringUtils.isNotBlank(savedValue) && !TICKLER_DEFAULT.equals(savedValue)) {
+            defaultTo = "mrp".equals(savedValue) ? "mrp" : TICKLER_PROVIDER;
+            if (TICKLER_PROVIDER.equals(defaultTo)) {
+                request.setAttribute("selectedProvider", savedValue);
             }
         }
 
@@ -1821,7 +1936,7 @@ public class ProviderProperty2Action extends ActionSupport {
         providerList.add(new LabelValueBean("Select", ""));
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
-        List<Provider> ps = dao.getProviders();
+        List<Provider> ps = dao.getProviders(true);
         Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         try {
             for (Provider p : ps) {
@@ -1838,71 +1953,63 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("providerbtnSubmit", "provider.ticklerPreference.btnSubmit"); //=Save
         request.setAttribute("providerbtnCancel", "provider.ticklerPreference.btnCancel"); //=Cancel
         request.setAttribute("method", "saveTicklerTaskAssignee");
-        request.setAttribute("taskAssigneeSelection", ticklerTaskAssignee);
-        this.setTaskAssigneeSelection(ticklerTaskAssignee);
-        this.setTaskAssigneeMRP(ticklerTaskAssignee);
-
         request.setAttribute("providerMsg", "");
         request.setAttribute("taskAssigneeMRPValue", defaultTo);
-
-        UserProperty t = this.getTaskAssigneeMRP();
-        t.setValue(defaultTo);
 
         return SUCCESS;
     }
 
+    /**
+     * Saves the authenticated provider's default tickler assignee on POST.
+     * Default removes the preference; MRP and an active provider store their values.
+     * Invalid choices leave the existing preference unchanged, and persistence
+     * failures propagate instead of displaying a success confirmation.
+     *
+     * @return the preference form, confirmation, or no view for a rejected method
+     */
     public String saveTicklerTaskAssignee() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        String radioValue = request.getParameter("taskAssigneeMRP.value");
-        String providerValue = request.getParameter("taskAssigneeSelection.value");
-
-        UserProperty a = this.getTaskAssigneeSelection();
-
-        if ("provider".equals(radioValue)) {
-            a.setValue(providerValue); // providerNo
-        } else {
-            a.setValue(radioValue); // default or mrp
-        }
-
-        String tickerTaskAssignee = a != null ? a.getValue() : "";
-
-        boolean delete = "".equals(tickerTaskAssignee);
-
-        UserProperty property = this.userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
-        if (property == null) {
-            property = new UserProperty();
-            property.setProviderNo(providerNo);
-            property.setName(UserProperty.TICKLER_TASK_ASSIGNEE);
-        }
-
-        try {
-            if (delete) {
-                if (property.getId() != null) {
-                    userPropertyDAO.delete(property);
-                }
-            } else {
-                property.setValue(tickerTaskAssignee);
-                userPropertyDAO.saveProp(property);
+        String choice = request.getParameter("taskAssigneeMRP.value");
+        String value;
+        if (TICKLER_DEFAULT.equals(choice)) {
+            value = null;
+        } else if ("mrp".equals(choice)) {
+            value = "mrp";
+        } else if (TICKLER_PROVIDER.equals(choice)) {
+            value = request.getParameter("taskAssigneeSelection.value");
+            ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+            Provider assignee = StringUtils.isBlank(value) ? null : providerDao.getProvider(value);
+            if (assignee == null || !"1".equals(assignee.getStatus()) || "-1".equals(value)) {
+                return invalidTicklerAssignee();
             }
-        } catch (Exception e) {
-            // Return to the success page even though the pereference is not changed from default
-            // Avoid the error displays
-            request.setAttribute("status", "success");
-            return "complete";
+        } else {
+            return invalidTicklerAssignee();
         }
 
+        userPropertyDAO.replaceTicklerTaskAssignee(providerNo, value);
         request.setAttribute("status", "success");
-        request.setAttribute("providertitle", "provider.ticklerPreference.title");
-        request.setAttribute("providermsgPrefs", "provider.ticklerPreference.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnSubmit", "provider.ticklerPreference.btnSubmit"); //=Save
-        request.setAttribute("providerbtnCancel", "provider.ticklerPreference.btnCancel"); //=Cancel
-        request.setAttribute("providerbtnClose", "provider.ticklerPreference.providerbtnClose"); //=Close Window
-        request.setAttribute("providerMsg", "provider.ticklerPreference.savedMsg");
-        request.setAttribute("method", "saveTicklerTaskAssignee");
-
         return "complete";
+    }
+
+    /**
+     * Reopens the current preference with a validation error, without writing it.
+     *
+     * @return the configured error view
+     */
+    private String invalidTicklerAssignee() {
+        viewTicklerTaskAssignee();
+        request.setAttribute("ticklerPreferenceError", true);
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        return ERROR;
     }
 
     public String viewEncounterWindowSize() {
@@ -1948,6 +2055,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveEncounterWindowSize() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("encounterWindowMaximize.checked");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -2030,6 +2140,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveQuickChartSize() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2088,6 +2201,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String savePatientNameLength() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2147,6 +2263,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveDisplayDocumentAs() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -2210,6 +2329,9 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String saveHideOldEchartLinkInAppt() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         UserProperty Uprop = this.getHideOldEchartLinkInApptProperty();
@@ -2233,7 +2355,7 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("hideOldEchartLinkInApptProperty", prop);
         request.setAttribute("providertitle", "provider.hideOldEchartLinkInAppt.title"); //=Hide Old Echart Link in Appointment
         request.setAttribute("providermsgPrefs", "provider.hideOldEchartLinkInAppt.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnClose", "provider.hideOldEchartLinkInAppt.btnClose"); //=Close
+        request.setAttribute(PROVIDER_CLOSE_LABEL, "provider.hideOldEchartLinkInAppt.btnClose"); //=Close
         if (checked)
             request.setAttribute("providermsgSuccess", "provider.hideOldEchartLinkInAppt.msgSuccess_selected"); //=Old Echart Link Hidden in Appointment
         else
@@ -2276,6 +2398,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveDashboardPrefs() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("dashboardShareProperty.checked");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -2299,7 +2424,7 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("dashboardShareProperty", prop);
         request.setAttribute("providertitle", "provider.dashboardPrefs.title");
         request.setAttribute("providermsgPrefs", "provider.dashboardPrefs.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnClose", "provider.dashboardPrefs.btnClose"); //=Close
+        request.setAttribute(PROVIDER_CLOSE_LABEL, "provider.dashboardPrefs.btnClose"); //=Close
         if (checked)
             request.setAttribute("providermsgSuccess", "provider.dashboardPrefs.msgSuccess_selected");
         else
@@ -2309,22 +2434,21 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genDashboardPrefs";
     }
 
+    private UserProperty shownCardValue(String provider, AppointmentCardContact.Field field) {
+        UserProperty shown = new UserProperty();
+        shown.setName(field.key());
+        shown.setValue(AppointmentCardContact.shownValue(this.userPropertyDAO, provider, field));
+        return shown;
+    }
+
     public String viewAppointmentCardPrefs() {
         String provider = (String) request.getSession().getAttribute("user");
 
-        UserProperty name = this.userPropertyDAO.getProp(provider, "appointmentCardName");
-        UserProperty phone = this.userPropertyDAO.getProp(provider, "appointmentCardPhone");
-        UserProperty fax = this.userPropertyDAO.getProp(provider, "appointmentCardFax");
-
-        if (name == null) {
-            name = new UserProperty();
-        }
-        if (phone == null) {
-            phone = new UserProperty();
-        }
-        if (fax == null) {
-            fax = new UserProperty();
-        }
+        // The values the card prints, older APPT_CARD_* ones included, so saving the page carries
+        // them into the keys it saves (issue #5134). Fresh objects: the loaded rows stay untouched.
+        UserProperty name = shownCardValue(provider, AppointmentCardContact.Field.NAME);
+        UserProperty phone = shownCardValue(provider, AppointmentCardContact.Field.PHONE);
+        UserProperty fax = shownCardValue(provider, AppointmentCardContact.Field.FAX);
 
         request.setAttribute("name", name);
         request.setAttribute("phone", phone);
@@ -2346,6 +2470,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveAppointmentCardPrefs() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         UserProperty n = this.getAppointmentCardName();
         UserProperty p = this.getAppointmentCardPhone();
         UserProperty f = this.getAppointmentCardFax();
@@ -2466,6 +2593,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String savePreventionPrefs() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -2495,7 +2625,7 @@ public class ProviderProperty2Action extends ActionSupport {
 
         request.setAttribute("providertitle", "provider.preventionPrefs.title");
         request.setAttribute("providermsgPrefs", "provider.preventionPrefs.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnClose", "provider.preventionPrefs.btnClose"); //=Close
+        request.setAttribute(PROVIDER_CLOSE_LABEL, "provider.preventionPrefs.btnClose"); //=Close
 
         request.setAttribute("method", "savePreventionPrefs");
 
@@ -2512,7 +2642,7 @@ public class ProviderProperty2Action extends ActionSupport {
      *
      * Security:
      *     - Requires authenticated provider session (injected via LoggedInInfo)
-     *     - Checks _lab READ privilege via SecurityInfoManager
+     *     - Checks _lab READ privilege via SecurityInfoManager to view macros
      *     - Throws RuntimeException if privilege is missing
      *
      * Flow:
@@ -2587,6 +2717,9 @@ public class ProviderProperty2Action extends ActionSupport {
      * @since 2024-12-06 (JSON validation added 2026-02-17)
      */
     public String saveLabMacroPrefs() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             throw new SecurityException("No valid session found");
@@ -2671,9 +2804,10 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
      public String setOfferFileForOthersPref() {
+        if (!validLabFilingPreferenceRequest()) return NONE;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
-			throw new RuntimeException("missing required security object _lab");
+			throw new SecurityException("missing required sec object (_lab)");
 		}
         
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2683,13 +2817,14 @@ public class ProviderProperty2Action extends ActionSupport {
         Map<String, Object> json = new HashMap<>();
         json.put("status", status);
         writeJsonResponse(response, json);
-        return null;
+        return NONE;
     }
 
     public String setAllowOthersFileForYouPref() {
+        if (!validLabFilingPreferenceRequest()) return NONE;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
-			throw new RuntimeException("missing required security object _lab");
+			throw new SecurityException("missing required sec object (_lab)");
 		}
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2699,7 +2834,22 @@ public class ProviderProperty2Action extends ActionSupport {
         Map<String, Object> json = new HashMap<>();
         json.put("status", status);
         writeJsonResponse(response, json);
-        return null;
+        return NONE;
+    }
+
+    private boolean validLabFilingPreferenceRequest() {
+        response.setHeader("Cache-Control", "no-store");
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return false;
+        }
+        String[] values = request.getParameterValues("value");
+        if (values == null || values.length != 1 || !("true".equals(values[0]) || "false".equals(values[0]))) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return false;
+        }
+        return true;
     }
 
     /**

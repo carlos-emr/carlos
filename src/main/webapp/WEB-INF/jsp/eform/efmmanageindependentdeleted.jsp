@@ -50,6 +50,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
 
@@ -58,7 +59,7 @@
         <title><fmt:message key="eform.showmyform.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
-        <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+<%@ include file="eformBootstrapScript.jspf" %>
 
         <script type="text/javascript">
             function popupPage(varpage, windowname) {
@@ -83,24 +84,17 @@
         </script>
         <script>
             function unRemoveIndependent(fdid) {
-                var form = document.createElement('form');
-                form.method = 'post';
-                form.action = '<%=request.getContextPath()%>/eform/unRemoveEForm';
-                var fields = {callpage: 'independent', fdid: fdid};
-                for (var key in fields) {
-                    var input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = key;
-                    input.value = fields[key];
-                    form.appendChild(input);
-                }
-                document.body.appendChild(form);
-                form.submit();
+                // orderby: sort order the post-restore redirect restores (UnRemEForm2Action#getRedirectTarget).
+                // carlosPostForm attaches the CSRF token, which CSRFGuard cannot
+                // inject into a runtime-built form in time (#4130).
+                carlosPostForm('${carlos:forJavaScript(pageContext.request.contextPath)}/eform/unRemoveEForm', {callpage: 'independent', fdid: fdid,
+                    orderby: '<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(orderByRequest) %>'});
             }
         </script>
     </head>
 
     <body>
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <%@ include file="efmTopNav.jspf" %>
 
 
@@ -155,9 +149,9 @@
                 <td><a href="#"
                        ONCLICK="popupPage('<%=request.getContextPath()%>/eform/efmshowform_data?fdid=<%=curform.get("fdid")%>', '<%="FormP" + i%>'); return false;"
                        TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
-                       onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
+                       onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent((String) curform.get("formName")) %>
                 </a></td>
-                <td><%=curform.get("formSubject")%>
+                <td><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent((String) curform.get("formSubject")) %>
                 </td>
                 <td align='center'><%=providerDao.getProviderNameLastFirst((String) curform.get("providerNo"))%>
                 </td>

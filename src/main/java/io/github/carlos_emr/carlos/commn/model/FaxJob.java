@@ -37,6 +37,8 @@ import io.github.carlos_emr.carlos.commn.model.converter.FaxJobStatusConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -94,6 +96,7 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
     @Column(name = "faxline")
     private String fax_line;
 
+    @Column(length = 32)
     private String destination;
 
     private String recipient;
@@ -108,6 +111,11 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
 
     private String document;
 
+    // Transport-only spool. Never persist or serialize a local filesystem path, or copy it
+    // into the metadata job: the download caller owns and must consume/delete this file.
+    @Transient
+    private transient java.nio.file.Path documentPath;
+
     @Column(name = "jobId")
     private Long jobId;
 
@@ -120,7 +128,10 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
     @Transient
     private String senderEmail;
 
-    @Transient
+    // Persisted so the queue view can distinguish inbound from outbound faxes reliably instead
+    // of guessing the transaction type from filename substrings (see manageFaxes.jsp / faxStatusResults.jspf).
+    @Enumerated(EnumType.STRING)
+    @Column(name = "direction", length = 3)
     private Direction direction;
 
     @Transient
@@ -216,6 +227,16 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
      */
     public void setDocument(String document) {
         this.document = document;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @jakarta.xml.bind.annotation.XmlTransient
+    public java.nio.file.Path getDocumentPath() {
+        return documentPath;
+    }
+
+    public void setDocumentPath(java.nio.file.Path documentPath) {
+        this.documentPath = documentPath;
     }
 
     /**

@@ -46,7 +46,6 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
@@ -62,14 +61,17 @@
             </tr>
         </table>
 
-        <%-- Waiting list removal prompt --%>
-        <c:if test="${not empty waitingListName}">
+        <%-- Waiting list removal prompt, only for a list the booked patient is on. Read from the
+             request: the waiting-list page leaves the list it last showed in the session under
+             the same name, which offered to remove this patient from a list they are not on
+             (issue #4673). --%>
+        <c:if test="${not empty requestScope.waitingListName}">
             <form name="updateWLFrm" method="post"
                   action="${pageContext.request.contextPath}/waitinglist/RemoveFromWaitingList">
-                <input type="hidden" name="listId" value="${carlos:forHtmlAttribute(waitingListId)}"/>
-                <input type="hidden" name="demographicNo" value="${carlos:forHtmlAttribute(waitingListDemographicNo)}"/>
+                <input type="hidden" name="listId" value="${carlos:forHtmlAttribute(requestScope.waitingListId)}"/>
+                <input type="hidden" name="demographicNo" value="${carlos:forHtmlAttribute(requestScope.waitingListDemographicNo)}"/>
                 <script language="JavaScript">
-                    var removeList = confirm("Click OK to remove patient from the waiting list: ${carlos:forJavaScript(waitingListName)}");
+                    var removeList = confirm("Click OK to remove patient from the waiting list: ${carlos:forJavaScript(requestScope.waitingListName)}");
                     if (removeList) {
                         document.forms[0].submit();
                     }

@@ -91,6 +91,12 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
 
     public static final String LAB_RECALL_DELEGATE = "lab_recall_delegate";
     public static final String LAB_RECALL_MSG_SUBJECT = "lab_recall_msg_subject";
+    /**
+     * The name the Lab Recall Settings page stored the message subject under before issue #4720.
+     * Read only as a fallback, so a subject saved before the fix keeps working; a save moves it to
+     * {@link #LAB_RECALL_MSG_SUBJECT}.
+     */
+    public static final String LAB_RECALL_MSG_SUBJECT_LEGACY = "labRecallMsgSubject";
     public static final String LAB_RECALL_TICKLER_ASSIGNEE = "lab_recall_tickler_assignee";
     public static final String LAB_RECALL_TICKLER_PRIORITY = "lab_recall_tickler_priority";
 
@@ -169,6 +175,9 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
 
     public static final String EMAIL_COMMUNICATION = "email_communication";
 
+    /** Names the consent type outbound SMS is checked against; unset means SMS consent is not configured. */
+    public static final String SMS_COMMUNICATION = "sms_communication";
+
     public static final String SCHEDULE_WEEK_VIEW_WEEKENDS = "schedule.week_view_weekends";
 
 
@@ -176,6 +185,9 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     private String name;
+    // TEXT since the email footer migration (V1.0.79): formatted email footers live here. The length
+    // mirrors it so the H2 test schema, built from the entities, holds what MariaDB holds.
+    @Column(length = 65535)
     private String value;
     @Column(name = "provider_no")
     private String providerNo;

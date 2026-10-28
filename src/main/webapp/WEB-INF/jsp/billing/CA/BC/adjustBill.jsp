@@ -67,6 +67,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.util.DemographicXml" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
@@ -228,10 +229,10 @@
 
         function ScriptAttach(elementName) {
             var d = elementName;
-            t0 = escape(document.forms['reprocessBilling'].elements[d].value);
-            t1 = escape("");
-            t2 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingDigNewSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formElement=' + d + '&formName=reprocessBilling', 820, 660, 1);
+            var t0 = encodeURIComponent(document.forms['reprocessBilling'].elements[d].value);
+            var t1 = encodeURIComponent("");
+            var t2 = encodeURIComponent("");
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingDigNewSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formElement=' + encodeURIComponent(d) + '&formName=reprocessBilling', 820, 660, 1);
             awnd.focus();
         }
 
@@ -239,37 +240,41 @@
             var code = codeElementName;
             var form = formName;
             var price = priceElementName;
-            t0 = escape(document.forms[form].elements[code].value);
-            t1 = escape("");
-            t2 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingGetPriceCode"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formElementCode=' + t0 + '&formName=' + form + '&formElementPrice=' + price + '&formNothing=blank', 820, 660, 1);
+            var t0 = encodeURIComponent(document.forms[form].elements[code].value);
+            var t1 = encodeURIComponent("");
+            var t2 = encodeURIComponent("");
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingGetPriceCode" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formElementCode=' + t0 + '&formName=' + encodeURIComponent(form) + '&formElementPrice=' + encodeURIComponent(price) + '&formNothing=blank', 820, 660, 1);
             awnd.focus();
         }
 
         function OtherScriptAttach() {
-            t0 = escape(document.forms['reprocessBilling'].service_code.value);
-            t1 = escape("");
-            t2 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formName=reprocessBilling&formElement=service_code', 820, 660, 1);
+            var t0 = encodeURIComponent(document.forms['reprocessBilling'].service_code.value);
+            var t1 = encodeURIComponent("");
+            var t2 = encodeURIComponent("");
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formName=reprocessBilling&formElement=service_code', 820, 660, 1);
             awnd.focus();
         }
 
         function ReferralScriptAttach(elementName) {
             var d = elementName;
-            t0 = escape(document.forms['reprocessBilling'].elements[d].value);
-            t1 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + d + '&formName=reprocessBilling', 600, 600, 1);
+            var t0 = encodeURIComponent(document.forms['reprocessBilling'].elements[d].value);
+            var t1 = encodeURIComponent("");
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + encodeURIComponent(d) + '&formName=reprocessBilling', 600, 600, 1);
             awnd.focus();
         }
 
 
         //
+        // #4427: some of these blocks (the submit button of an unsettled bill) are not rendered for every
+        // bill; a missing one used to throw here and stop the page's onLoad handlers after it.
         function HideElementById(ele) {
-            document.getElementById(ele).style.display = 'none';
+            var el = document.getElementById(ele);
+            if (el) el.style.display = 'none';
         }
 
         function ShowElementById(ele) {
-            document.getElementById(ele).style.display = '';
+            var el = document.getElementById(ele);
+            if (el) el.style.display = '';
         }
 
 
@@ -356,7 +361,13 @@
             var serviceDate = document.getElementById('serviceDate').value;
             var str = document.forms[form].elements[field].value;
             var providerNo = document.getElementById('providerNo').value;
-            var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem"/>' + '?form=' + form + '&field=' + field + '&feeField=billingAmount&corrections=1&searchStr=' + str + '&serviceDate=' + serviceDate + '&providerNo=' + providerNo;
+            var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem" context="javaScriptBlock"/>'
+                + '?form=' + encodeURIComponent(form)
+                + '&field=' + encodeURIComponent(field)
+                + '&feeField=billingAmount&corrections=1'
+                + '&searchStr=' + encodeURIComponent(str)
+                + '&serviceDate=' + encodeURIComponent(serviceDate)
+                + '&providerNo=' + encodeURIComponent(providerNo);
             var windowName = field;
             popup(height, width, url, windowName);
         }
@@ -524,8 +535,8 @@
             r_doctor = "N/A";
             r_doctor_ohip = "000000";
         } else {
-            r_doctor = SxmlMisc.getXmlContent(d.getFamilyDoctor(), "rd") == null ? "" : SxmlMisc.getXmlContent(d.getFamilyDoctor(), "rd");
-            r_doctor_ohip = SxmlMisc.getXmlContent(d.getFamilyDoctor(), "rdohip") == null ? "" : SxmlMisc.getXmlContent(d.getFamilyDoctor(), "rdohip");
+            r_doctor = DemographicXml.referralDoctor(d.getFamilyDoctor()) == null ? "" : DemographicXml.referralDoctor(d.getFamilyDoctor());
+            r_doctor_ohip = DemographicXml.referralDoctorOhip(d.getFamilyDoctor()) == null ? "" : DemographicXml.referralDoctorOhip(d.getFamilyDoctor());
         }
 
         HCTYPE = d.getHcType() == null ? "" : d.getHcType();
@@ -984,13 +995,13 @@
                 </select>
             </td>
         </tr>
-        <!--<tr>
+        <%--<tr>
             <td>Service Date</td><%/*SERVICE-DATE*/%>
             <td><input type="text" name="serviceDate" value="<%=allFields.getProperty("serviceDate")%>"/></td>
             <td>Service to Day</td><%/*SERVICE-TO-DAY*/%>
             <td<input type="text" name="serviceToDay" value="<%=allFields.getProperty("serviceToDay")%>"/></td>
-       </tr>-->
-        <!--
+       </tr>--%>
+        <%--
        <tr>
             <td>Time Call Received</td><%!/*TIME-CALL-RECVD-SRV*/%>
             <td><input type="text" name="timeCallRec" value="<%=allFields.getProperty("timeCall")%>" size="4"/></td>
@@ -1006,7 +1017,7 @@
             <td><input type="text" name="finishTime" value="<%=allFields.getProperty("serviceEndTime")%>" size="4"</td>
 
        </tr>
-       -->
+       --%>
 
         <tr>
             <td class="bCellData" colspan="4">
@@ -1076,7 +1087,7 @@
             <td>
                 <table width="100%">
                     <tr bgcolor="#CCCCFF">
-                        <td class="bCellData">Billing Notes</td>
+                        <td class="bCellData"><label for="messageNotes">Billing Notes</label></td>
                     </tr>
                     <tr>
 
@@ -1084,8 +1095,10 @@
                         <td colspan="3">
                             <c:set var="__enc_3"><carlos:encode value='<%= String.valueOf(bill.getDemographicNo()) %>' context="uriComponent"/></c:set>
                             <c:set var="__enc_4"><carlos:encode value='<%= allFields.getProperty("billingCode", "") %>' context="uriComponent"/></c:set>
-                            <textarea cols="60" rows="5" name="messageNotes"><carlos:encode value="            
-<%= StringUtils.noNull(messageNotes) %>" context="html"/></textarea>
+                            <%-- The scriptlet expression must be the whole attribute value. With text in front
+                                 of it, Jasper passes the code itself to the tag as a literal string, and saving
+                                 would store that text as the note. --%>
+                            <textarea cols="60" rows="5" id="messageNotes" name="messageNotes"><carlos:encode value='<%= StringUtils.noNull(messageNotes) %>' context="html"/></textarea>
                         </td>
                         <td></td>
 
@@ -1137,20 +1150,20 @@
     <div id="wcbForms"></div>
 
 
-    <!--<tr>
+    <%--<tr>
     <td>Facility Num</td><%! /*FACILITY-NUM*/ %>
     <td><input type="text" name="facilityNum" value="<%=allFields.getProperty("facilityNo")%>" size="5"/></td>
     <td>Facility Sub Num</td><%! /*FACILITY-SUB-NUM*/%>
     <td><input type="text" name="facilitySubNum" value="<%=allFields.getProperty("facilitySubNo")%>" size="5"/></td>
-    </tr>-->
+    </tr>--%>
 
-    <!--<tr>
+    <%--<tr>
 
 
     <td>Registration Num</td><%!/*OIN-REGISTRATION-NUM*/%>
     <td><input type="text" name="registrationNum" value="<%=allFields.getProperty("oinRegistrationNo")%>" size="12"/></td>
-    </tr>-->
-    <!--
+    </tr>--%>
+    <%--
     <tr>
     <td>First Name</td><%/*OIN-FIRST-NAME*/%>
     <td><input type="text" name="firstName" value="<%=allFields.getProperty("oinFirstName")%>" size="12"/></td>
@@ -1185,7 +1198,7 @@
     <td>Postal Code</td><%/*OIN-POSTAL-CODE*/%>
     <td colspan="3"><input type="text" name="postalCode" value="<%=allFields.getProperty("oinPostalcode")%>" size="6"/></td>
     </tr>
-    -->
+    --%>
 
 
     <input type="hidden" value="0" name="saveandclose"/>
@@ -1195,20 +1208,21 @@
     %>
     <tr>
         <td colspan="4" class="bCellData">
-            <input type="submit" name="submit" value="<fmt:message key='billing.billingCorrection.btnReprocessBill'/>">
-            <input type="submit" name="submit" value="<fmt:message key='billing.billingCorrection.btnResubmitBill'/>">
-            <input type="submit" name="submit" id="reprocessAndReSubmitBill" value="<fmt:message key='billing.billingCorrection.btnReprocessAndResubmitBill'/>">
-            <input type="submit" name="submit" value="<fmt:message key='billing.billingCorrection.btnSettleBill'/>">
+            <%-- Each button posts a fixed value that BillingReProcessBill2Action recognises; only its text is translated. --%>
+            <button type="submit" name="submit" value="Reprocess Bill"><fmt:message key='billing.billingCorrection.btnReprocessBill'/></button>
+            <button type="submit" name="submit" value="Resubmit Bill"><fmt:message key='billing.billingCorrection.btnResubmitBill'/></button>
+            <button type="submit" name="submit" id="reprocessAndReSubmitBill" value="Reprocess and Resubmit Bill"><fmt:message key='billing.billingCorrection.btnReprocessAndResubmitBill'/></button>
+            <button type="submit" name="submit" value="Settle Bill"><fmt:message key='billing.billingCorrection.btnSettleBill'/></button>
 
         </td>
     </tr>
     <%} else {%>
     <tr>
         <td colspan="4" class="bCellData">
-            <input type="submit" name="submit" id="submitButton" style="display:none;"
-                   value="<fmt:message key='billing.billingCorrection.btnReprocessAndResubmitBill'/>">
+            <button type="submit" name="submit" id="submitButton" style="display:none;"
+                    value="Reprocess and Resubmit Bill"><fmt:message key='billing.billingCorrection.btnReprocessAndResubmitBill'/></button>
             <% if (!bill.getBillingtype().equals("Pri")) { %>
-            <input type="submit" name="submit" value="<fmt:message key='billing.billingCorrection.btnRevertToPWE'/>">
+            <button type="submit" name="submit" value="Revert to PWE"><fmt:message key='billing.billingCorrection.btnRevertToPWE'/></button>
             <% } %>
         </td>
     </tr>

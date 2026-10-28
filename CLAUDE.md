@@ -36,17 +36,96 @@
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
+**Stack**: Java 25, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 
 ## Fax Provider Feature Context (AI + Dev)
 
 - Provider-specific fax transport is now selected by `FaxConfig.providerType` (`MIDDLEWARE` or `SRFAX`).
+  SRFax is the supported provider and the default; the admin UI shows and uses SRFax only.
+  `MIDDLEWARE` is hidden from the UI but its transport code/enum are retained and remain
+  selectable only via direct configuration/DB for legacy relay deployments.
 - Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
+  `FaxConfig.faxUser` is the numeric SRFax **account number** (`access_id`; UI label "SRFax
+  Account Number", never the login email); `senderEmail` is the notification address only. The
+  page's **Test SRFax connection** button posts `method=testConnection` (POST-only, read-only
+  `Get_Fax_Inbox` probe via `FaxProviderClient.verifyConnection`) so bad credentials are
+  reported before saving. Browser check: `scripts/fax-configure-playwright-checks.js`.
 - Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
 - SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
 - See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
+
+## eForm Chrome Styling
+
+- eForm pages must not receive a global stylesheet: the renderers (`efmshowform_data.jsp`,
+  `efmformadd_data.jsp`) and the PDF render surface (`EFormRenderPdfHtmlComposer`) never add the
+  plain `bootstrap.min.css`, whose reboot moves legacy eForm fields on screen and in print (#3944).
+- The toolbar, save alert and attachment picker use
+  `eform/eformFloatingToolbar/bootstrap-eform-scoped.min.css`, generated (never hand-edited) by
+  `scripts/build-eform-scoped-bootstrap.js`; new chrome goes inside an element with
+  `class="carlos-eform-ui"`. See `docs/eform-chrome-bootstrap-scope.md`.
+
+## eForm Signature Data URIs and the WAF
+
+- Signature pads store data URIs in author-named eForm fields, which the packaged WAF cannot name.
+  `eform_floating_toolbar.js` moves each image data URI into the fixed `carlos-data-uri` argument
+  while the save request is built (leaving `carlos-data-uri:<nonce>:<n>` in the field, with a
+  per-submission nonce in `carlos-data-uri-nonce` so typed text is never taken for a reference), and
+  `AddEForm2Action` restores it through `EFormDataUriCarrier` before anything is stored (#3552).
+- WAF rule 1040 exempts only `ARGS:carlos-data-uri`; never return to a request-wide
+  `ruleRemoveById`. `EFormDataUriCarrier` is the boundary: it accepts only padded Base64
+  PNG/JPEG/GIF/WebP (file signature checked) and jSignature base30, never SVG. The page and server
+  rules must stay identical: `scripts/fixtures/eform/data-uri-carrier-cases.json` drives both sides'
+  tests, and `scripts/waf/check-clinical-policy.py` (`data-uri-*`) pins the real-engine behaviour.
+
+## Query by Example Reporting Account
+
+- Query by Example runs every query as the read-only database account `carlos_report`
+  (`db_reporting_username` / `db_reporting_password`), never as `db_username`, and refuses to run
+  without it (issue #3372). There is no fallback to the application account.
+- `src/main/resources/db/reporting/carlos_report_grants.sql` lists every table as `reportable` or
+  `restricted` and rebuilds the account's grants. A migration that creates a table must add its
+  row there; `QueryByExampleReportingClassificationUnitTest` fails the build until it does, and
+  when the restricted rows differ from `QueryByExampleSqlValidator.SECURITY_SENSITIVE_TABLES`.
+- The application reads the same file from the WAR (`ReportingGrantList`) and refuses an account
+  whose `SHOW GRANTS` reach past it, so keep its one-row-per-line format: a row the reader cannot
+  parse closes Query by Example rather than being skipped.
+- Provisioning: `carlos-ctl db-users` / `db-migrate` on packaged installs; `populate_db.sh` and
+  the `qbe-reporting-account` helper in the devcontainer. See
+  `docs/query-by-example-least-privilege.md`.
+
+## PDF and Report Fonts
+
+- Never let a host font decide what prints (#5046). Jasper templates name a bundled DejaVu family
+  or nothing: `src/main/resources/jasperreports.properties` makes DejaVu Sans the default, and
+  `fonts/carlos-jasper-fonts.xml` maps Java's logical names to bundled faces. A fixed-height Jasper
+  text box must fit one line of its face, or Jasper prints nothing; `JasperTemplateFontPolicyUnitTest`
+  fails the build otherwise.
+- OpenPDF record text goes through `PdfFonts.phrase`/`paragraph`/`addText`/`showTextAligned`, which
+  fall back to bundled CJK and symbol faces. Not `new Phrase(text, font)`, `Phrase.add(String)`,
+  font-less chunks, `addCell(String)`, `PdfContentByte.showText*` or OpenPDF's default font.
+- `bash scripts/check-report-fonts.sh` re-runs the report tests under other host fonts in fresh
+  JVMs. See `docs/pdf-font-policy.md`.
+
+## Debian Packaging and carlos-ctl
+
+The single-host deployment is three Debian packages (plus a transitional one):
+`carlos-emr` and `carlos-emr-drugref` are built from this repository
+(`debian/`); the `carlos-ctl` administration command is its **own repository
+and package**, `github.com/carlos-emr/carlos-ctl`, which `carlos-emr` depends
+on (`debian/control`, `Depends: carlos-ctl (>= ...)`). Through
+2026.08.0-alpha15 (developer build 2026.09.0~snapshot24) the CLI lived here
+under `debian/assets/carlos_ctl`; do not recreate it. What this repository keeps for the CLI: the OSCAR 19 import
+manifests it reads (`debian/assets/o19-manifest/*.json`, generated by
+`scripts/migration/o19/generate_manifests.py` and installed under
+`/usr/share/carlos-emr/o19-manifest/`), the pin of the `carlos-ctl` release a
+CARLOS release ships (`debian/carlos-ctl.pin`, fetched by
+`debian/fetch-carlos-ctl.sh`), the packaging-contract tests
+(`debian/assets/tests/`), the generator tests (`scripts/migration/o19/tests/`)
+and the CI job that runs the pinned CLI's suite against this tree
+(`.github/workflows/debian-python-tests.yml`, `CARLOS_SRC`). A postinst that
+starts using a new `carlos-ctl` verb or flag must raise the `Depends` floor.
 
 ## Essential Commands
 
@@ -103,7 +182,7 @@ For login/password-reset work, keep documentation aligned with these invariants:
   Devcontainer-only defaults are `TEST_USER=carlosdoc`, `TEST_PASSWORD=carlos2026`, and
   `TEST_PIN=2026`; these are not production defaults. Use the dev database password from
   `.devcontainer/development/config/shared/local.env` and the seeded `carlosdoc` hash from
-  `database/mysql/oscardata.sql` for `TEST_PASSWORD_HASH`.
+  `database/mysql/migration/on/V1.0.2__on_data.sql` (the `security` table seed) for `TEST_PASSWORD_HASH`.
 
 **What counts as PHI vs. internal identifiers:**
 - **PHI** (treat as sensitive): HIN/health card number, patient name, DOB, address, phone, diagnosis text, clinical notes, lab values, medication details — anything that identifies a real person or their care.
@@ -137,6 +216,7 @@ CARLOS provides null-safe wrappers around OWASP Encoder. **Use the CARLOS wrappe
 | CSS string | `<carlos:encode value="${v}" context="cssString"/>` | `${carlos:forCssString(v)}` | `SafeEncode.forCssString(v)` |
 | URL path | `<carlos:encode value="${v}" context="uri"/>` | `${carlos:forUri(v)}` | `SafeEncode.forUri(v)` |
 | URL parameter | `<carlos:encode value="${v}" context="uriComponent"/>` | `${carlos:forUriComponent(v)}` | `SafeEncode.forUriComponent(v)` |
+| HL7 lab text (`<br />` markers) | `<carlos:encode value="${v}" context="htmlWithBreakMarkers"/>` | `${carlos:forHtmlContentWithBreakMarkers(v)}` | `SafeEncode.forHtmlContentWithBreakMarkers(v)` |
 
 `<carlos:encode>` supports the full OWASP context set. Default `context="html"` (forHtmlContent). See `src/main/webapp/WEB-INF/carlos-tag.tld` for the complete list.
 
@@ -178,11 +258,40 @@ CSRFGuard's client script only injects the hidden `<input name="CSRF-TOKEN">` in
 Don't rely on the "empty placeholder form" anti-pattern `<form id="csrfForm" style="display:none;"></form>` — CSRFGuard skips action-less forms, so the input never gets populated. Note also how CSRFGuard 4.5 (configured with `org.owasp.csrfguard.Ajax=true`, see `Owasp.CsrfGuard.properties`) validates tokens:
 
 - **AJAX / XHR requests** carrying `X-Requested-With: XMLHttpRequest` are validated via the `CSRF-TOKEN` request header. XHRs hijacked by CSRFGuard's injected client script get this header set automatically; `fetch()` calls are **not** hijacked and must set `CSRF-TOKEN` explicitly (e.g. reading it from the hidden `input[name="CSRF-TOKEN"]`).
+  - **Server-side, never compare `X-Requested-With` with `equals`.** CSRFGuard's hijack calls `setRequestHeader` a second time, and the XHR spec combines repeated values, so a jQuery `$.ajax` POST arrives as `X-Requested-With: XMLHttpRequest, OWASP CSRFGuard Project` and a `carlos-ajax.js` request carries the marker alone. Use `RequestNegotiation.isAjax(request)`. See `docs/csrf-protection-architecture.md` → "`X-Requested-With` is a LIST, not a single value".
 - **Classic form POSTs** (non-AJAX) are validated via the `CSRF-TOKEN` form-body parameter injected by CSRFGuard into the `<form>`.
 
 Header validation takes precedence over body-parameter validation when both are present.
 
+**Forms built in script and forms in inserted HTML** need no hand-rolled token. CARLOS serves a
+patched CSRFGuard client (`src/main/resources/csrfguard/carlos-csrfguard.js`, issue #4130). It
+adds the token when a same-origin POST form is submitted, through `form.submit()` or a submit
+event, and it reaches forms nested in HTML inserted after load (the Administration panel). It
+also survives numerically named controls. Give such forms `method="post"` and a real
+same-origin `action`. Before upgrading CSRFGuard, read
+`docs/csrf-protection-architecture.md` → "CARLOS patches to the client template".
+
+**Content-Security-Policy interaction.** The bootstrap fragment is an *inline* `<script>`. A page
+that sets its own `script-src` without `'unsafe-inline'` silently gets no token: the input stays
+empty, every POST is rejected with an HTML error page, and nothing is reported except a console
+message the user never sees. Such a page must generate a per-response nonce, include
+`'nonce-<value>'` in its `script-src`, and publish the same value as the `cspNonce` **request
+attribute before the include**. `csrf-token.jspf` and `LogoutBroadcastFilter` both read that
+attribute and emit a matching `nonce` on their inline blocks; pages that publish nothing are
+unaffected and render exactly as before. Prefer a nonce over `'unsafe-inline'` — the latter also
+admits injected script, which is the thing the policy exists to stop. Reference implementation:
+`src/main/webapp/WEB-INF/jsp/documentManager/annotateDocument.jsp`. Because the failure is
+invisible in the DOM, assert it in a browser check: the header is present, it carries a nonce, the
+inline blocks actually executed, and the console logged no CSP violation.
+
 Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp:564,939` and `src/main/webapp/WEB-INF/jsp/documentManager/showDocument.jsp:919,1169`.
+
+**`carlosCsrfForm.js`.** On top of the patched client, `share/javascript/carlosCsrfForm.js`
+offers `carlosPostForm(action, fields, {target})` and `carlosSubmitForm(form)`: they fetch a
+token when the page has none yet and, if none can be had, refuse to send the POST and alert the
+user instead of letting it fail as a silent 403. The runtime-built call sites converted in #4130
+use it. Still do not name form controls with bare numbers. See
+`docs/csrf-protection-architecture.md` → "Runtime-built and injected forms".
 
 ### PathValidationUtils - File Path Security
 
@@ -276,7 +385,7 @@ Any `*2Action` that performs a mutation MUST reject `GET`/`HEAD` before any
 side-effect fires (DAO persist, manager call, event publish, file write).
 The aggregated contract test that pins this for the in-scope slices is:
 
-`src/test/java/io/github/carlos_emr/carlos/app/contract/MutatorActionGetRejectionContractTest.java`
+`src/test/java/io/github/carlos_emr/carlos/app/contract/MutatorActionGetRejectionContractUnitTest.java`
 
 **When you add a new mutator 2Action**, the contract test's discovery scan
 will fail the build until you register the class in one of three lists at
@@ -291,6 +400,13 @@ the top of that file:
   `verifyNoInteractions(...)` on the mutation dependency.
 - `NON_MUTATOR_GATES` — a read-scope gate that permits GET and only 405s
   on truly unsupported methods like DELETE/PUT.
+
+`HttpMethodGuardFilter` only infers a write from the route name or the
+`method` value. When a route picks its write from another parameter
+(`buttonUpdate`, `delete`, `forward`, ...), the action must refuse the GET
+itself; also list the route in the filter's
+`MUTATION_INTENT_PARAMS_BY_ROUTE`, and the contract test drives every entry
+there against its action (issue #3394).
 
 **When a new slice is migrated**, extend `IN_SCOPE_PACKAGE_PREFIXES` with
 the slice's package prefix only after the existing guarded actions in that
@@ -311,7 +427,7 @@ default for new code.
 **Migration History**:
 - Struts 2.5.33 → 6.8.0 (January 2026, PR #88) — security fix for CVE-2025-64775
 - Struts 6.8.0 → 7.1.1 (March 2026) — Jakarta EE namespace migration, `com.opensymphony.xwork2.*` → `org.apache.struts2.*`
-- Caffeine 3.2.3 cache dependency required by Struts for internal caching
+- Caffeine 3.2.4 cache dependency required by Struts for internal caching
 
 ### Direct Response Actions
 
@@ -346,6 +462,18 @@ result. PR #2043 showed this surfaces in CARLOS as `CARLOS Error: 0` because
 
 Track broader cleanup of legacy mixed direct-response actions in
 GitHub issue #2064.
+
+### Duplicate Submissions and Stale Edits
+
+A create form that a double click, a slow-response re-click or a reload of its POST result page
+can repeat must save once per rendering: use `FormSubmissionGuard` (issue #4225). Render its
+token into the form and claim it in the action before validation. Answer a repeat of a saved
+rendering with the first save's own result page, and map `submissionRefused` to
+`/WEB-INF/jsp/common/formSubmissionRefused.jsp` for the 409 cases. An edit form that posts every
+field must refuse a form rendered from an older version rather than overwrite the newer record;
+`DemographicEditVersion` with `DemographicDao.findForUpdate()` is the reference. Browser checks
+that deliberately replay a captured POST must drop `carlosFormSubmission` and
+`demographicVersion`. See `docs/form-submission-guard.md`.
 
 ## Layer Names — class naming policy
 
@@ -437,9 +565,10 @@ When asked to write tests, you MUST:
 3. **Never invent or assume method names** - verify they exist
 4. **Choose the right base class**:
    - `CarlosTestBase` - Integration tests with Spring context and database
+   - Isolated persistence integration tests without the application Spring context may manage a unique H2 database and real JDBC/JPA resources directly (see `FrmDataShortcutLatestIntegrationTest` and `PregnancyTransactionIntegrationTest`). Keep `@Tag("integration")`, exercise actual database behavior and real commits/rollbacks when testing mutations, and guarantee resource/schema cleanup; mocked database behavior is not integration coverage.
    - `CarlosUnitTestBase` - Unit tests with mocked SpringUtils (no database)
    - Domain-specific bases like `DemographicUnitTestBase` - Unit tests with test data builders
-5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for EntityManager (integration tests only)
+5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for Spring-injected EntityManagers in application-context integration tests
 6. **For Manager unit tests**: Register SpringUtils mocks BEFORE creating static mocks (LogAction, etc.)
 
 ### Integration Test Pitfalls (Hibernate/H2)
@@ -592,7 +721,7 @@ public Example2Action(SomeManager someManager) {
 ## Technology Stack Details
 
 ### Core Technologies
-- **Java 21** with modern language features and Jakarta XML Binding
+- **Java 25** with modern language features and Jakarta XML Binding
 - **Spring Framework 7.0.6**: IoC container, MVC, AOP, Security, transaction management (Jakarta EE 11)
 - **Spring Security 7.0.4**: Crypto module for password hashing
 - **Hibernate 7.2.7**: ORM framework with custom MySQL dialect (`OscarMySQL5Dialect`)
@@ -604,8 +733,8 @@ public Example2Action(SomeManager someManager) {
 - **Struts 7.1.1**: Modern actions (2Action pattern) using `org.apache.struts2.ActionSupport`
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
   - `*2Action` classes migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
-  - Requires Caffeine 3.2.3 cache dependency for internal caching
-- **Apache CXF 4.1.5**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
+  - Requires Caffeine 3.2.4 cache dependency for internal caching
+- **Apache CXF 4.1.8**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
 - **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components
@@ -847,7 +976,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 - **Struts Configuration** (modular split):
   - `struts.xml` - Parent config with global constants and `<include>` directives for 17 module files
   - `struts-{admin,billing,clinical,demographic,document,eform,encounter,form,integration,lab,login,messenger,pmmodule,prescription,provider,report,scheduling}.xml` - Domain-specific action mappings
-  - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="struts-default"`
+  - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="carlos-default"` (the abstract parent in `struts.xml`: `struts-default` plus exception logging; name `carlosDefaultStack` / `carlosBasicStack`, never `defaultStack` / `basicStack`, in an action-level `<interceptor-ref>`)
   - New actions should be added to the appropriate domain-specific module file, not to `struts.xml`
   - Canonical action routes are extensionless (`struts.action.extension=""`)
   - Static assets are excluded from Struts by `struts.action.excludePattern`
@@ -865,7 +994,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 
 ### Docker Setup
 - Development environment runs in Docker containers
-- Tomcat container with Java 21 and debugging enabled
+- Tomcat container with Java 25 and debugging enabled
 - MariaDB database container
 - Maven repository caching for faster builds
 - Port 8080 for web application, 3306 for database
@@ -897,28 +1026,34 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 ## Database Schema & Migration System
 
 **Database**: MariaDB/MySQL with comprehensive healthcare schema dating back to 2006
-**Migration Pattern**: Date-based SQL scripts (`update-YYYY-MM-DD-description.sql`)
+**Schema management**: **Flyway** — a consolidated `V1` genesis baseline plus forward-only migrations.
+See [`docs/database-schema-management.md`](docs/database-schema-management.md). The legacy script build
+(`createdatabase_*.sh`, `oscarinit*.sql`, `oscardata*.sql`, `icd*.sql`, `measurementMapData.sql`,
+`caisi/initcaisi*.sql`, `olis/olisinit.sql`, `bc_*.sql`) has been **retired** — recover from git history.
 
 ### Core Database Files (`database/mysql/`)
 ```bash
-# Initial Schema Setup
-oscarinit.sql          # Core database schema
-oscarinit_2025.sql     # Current 2025 schema version
-oscardata.sql          # Initial reference data
-oscarinit_bc.sql       # British Columbia specific
-oscarinit_on.sql       # Ontario specific
+# Flyway migration set (single source of truth) — see migration/README.md
+migration/common/V1__baseline_schema.sql   # province-neutral schema (structure)
+migration/on/V1.0.1__on_schema.sql         # Ontario-only tables
+migration/on/V1.0.2__on_data.sql           # Ontario reference data (incl. carlosdoc seed, ICD, OLIS)
+migration/bc/V1.0.1__bc_schema.sql         # BC-only tables
+migration/bc/V1.0.2__bc_data.sql           # BC reference data (carlosdoc seed, ICD, + billing/specialist/pharmacy catalogs)
+migration/pruned-tables.txt                # dead tables excluded from the baseline
 
-# Medical Coding Systems
-icd9.sql / icd10.sql   # Diagnosis codes (ICD-9/ICD-10)
-measurementMapData.sql # Clinical measurements mapping
-SnomedCore/           # SNOMED CT clinical terminology
-olis/                 # Ontario Labs Information System
+# Forward schema changes: migration/<common|on|bc>/V1.0.N__desc.sql (sequential, next free number; idempotent)
+updates/                # FROZEN legacy dated patches (historical; a few still used for demo seeding)
 
-# Provincial Healthcare Data
-bc_billingServiceCodes.sql     # BC medical service codes
-bc_pharmacies.sql              # BC pharmacy directory
-firstNationCommunities_lu_list.sql # First Nations communities
+# Other
+SnomedCore/             # SNOMED CT clinical terminology (licensed, loaded separately)
+build-demo.sh           # filters the dev demo dataset to the live (pruned) schema; its output
+                        #   development.sql lives at .devcontainer/db/scripts/, not under database/mysql/
 ```
+
+**Demo/dev data companions** (all outside `database/`):
+- `.devcontainer/db/scripts/demo-name-sanitization.sql` (+ `-on.sql`) — FAKE- name sanitization v2 across all person-name tables; idempotent, exempts functional accounts (`-1`, `999998` carlosdoc)
+- `.devcontainer/db/scripts/demo-specialists.sql` — 60 clearly-fake referral specialists (specIds 9001–9060) for both ON and BC demo sets; never load a real provincial specialist directory into demo/dev. Also owns the `serviceSpecialists` consultation links, including a trailing block that gives each of the dev snapshot's six fictional consultation services a distinct slice of the roster (a no-op against either province's Flyway service catalog); pinned by `ConsultationSpecialistDemoSeedRegressionTest`
+- `scripts/build-demo-additive.sh` + `demo-additive-exclude.txt` + `check-demo-additive.sh` — build-time transform of development.sql into the ADDITIVE per-province artifact the deb's optional `carlos-ctl demo-data` load uses (INSERT IGNORE only; Flyway data always wins)
 
 **Development Database**:
 - Container: `db-connect` alias → MariaDB as root user
@@ -1015,7 +1150,7 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - **Security**: `SecurityInfoManager.hasPrivilege()` + OWASP encoding required
 - **Actions**: `*2Action.java` pattern for Struts2 migration
 - **Packages**: `io.github.carlos_emr.carlos.*` (new) vs `org.oscarehr.*` (legacy)
-- **Database**: Date-based migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
+- **Database**: Flyway V1 baseline + sequential V1.0.N forward migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
 
 ---
 
@@ -1029,8 +1164,10 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 3. **Complex Changes**: Ask clarifying questions first, create implementation plan, proceed after approval
 
 ### Branch Protection
-- **Protected Branches**: `develop`, `main`, `experimental` - direct commits prohibited
+- **Protected Branches**: `develop`, `main`, `experimental`, and `release/*` - direct commits prohibited
 - **All changes** must go through pull requests with review
+- **Release policy**: `docs/release-process.md` is authoritative for target branches, CalVer, snapshots, tags, maintenance fixes, and forward merges
+- **Release flow**: Start normal work from and target `develop`. Start a supported fix from and target the oldest affected `release/YYYY.MM`; maintainers then forward-merge it into newer lines while preserving target version/SCM metadata. Target `main` only for current-train release preparation or a necessary, narrowly scoped release-infrastructure correction. Never tag a snapshot, move, delete, or reuse a release tag, or edit a Flyway migration present in a published tag
 - Claude creates feature branches: `claude/issue-<number>-<timestamp>`
 
 ### Security Checklist (Every Code Change)
@@ -1041,7 +1178,8 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - [ ] No PHI in logs or error messages
 
 ### PR Requirements
-- ✅ Target `develop` branch (not `main`)
+- ✅ Target `develop` for normal work; target `release/YYYY.MM` only for an approved supported-release fix; use `main` only for current-train release preparation or a necessary release-infrastructure correction
+- ✅ Preserve the target branch snapshot/SCM metadata during forward merges; use merge ancestry rather than routine cherry-picks
 - ✅ Include tests for new functionality
 - ✅ Reference related issues (`fixes #123`)
 - ✅ Add "Generated with Claude Code" signature
@@ -1105,7 +1243,7 @@ Commands in the ASK tier include:
 
 **Safety Guardrails:**
 - **Repository scoped** - Operations run within the checked-out `carlos-emr/carlos` repository context
-- Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`
+- Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`, and `release/*`
 - All PRs require human review before merge
 - Destructive operations are blocked:
   - File deletion: `rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`
@@ -1167,8 +1305,8 @@ src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # 2Action implemen
 
 # Database Configuration
 src/main/resources/OscarDatabaseBase.xml           # Hibernate configuration
-database/mysql/oscarinit_2025.sql                 # Current database schema
-database/mysql/updates/update-2025-*.sql          # Recent migration patterns
+database/mysql/migration/common/V1__baseline_schema.sql  # Flyway V1 genesis schema
+database/mysql/migration/<common|on|bc>/V1.0.N__*.sql # Forward schema migrations (sequential)
 ```
 
 ### Security Implementation Examples
@@ -1229,10 +1367,10 @@ src/main/java/io/github/carlos_emr/carlos/commn/dao/*Dao.java               # DA
 ### Database Schema References
 ```bash
 # Database Structure Examples
-database/mysql/oscardata.sql                      # Reference data examples
-database/mysql/caisi/initcaisi.sql               # Community integration schema
-database/mysql/olis/olisinit.sql                 # Provincial lab integration schema
-database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integration
+database/mysql/migration/on/V1.0.2__on_data.sql   # Reference data (carlosdoc seed, ICD, OLIS, ...)
+database/mysql/migration/common/V1__baseline_schema.sql # Province-neutral schema
+database/mysql/migration/bc/V1.0.2__bc_data.sql   # BC reference data (billing/specialist/pharmacy)
+database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integration (licensed)
 ```
 
 ### Testing Patterns
@@ -1253,7 +1391,8 @@ docs/test/test-writing-guide.md                       # Test writing patterns an
 2. **Test real methods only** - Never make up methods that don't exist in the codebase
 3. **Use actual method signatures** - Match the exact parameters and return types
 4. **Choose the right base class**:
-   - Integration tests: Extend `CarlosTestBase` (Spring context + H2 database)
+   - Spring integration tests: Extend `CarlosTestBase` (Spring context + H2 database).
+   - Isolated persistence integration tests without the application Spring context may manage a unique H2 database and real JDBC/JPA resources directly (see `FrmDataShortcutLatestIntegrationTest` and `PregnancyTransactionIntegrationTest`). Keep `@Tag("integration")`, exercise actual database behavior and real commits/rollbacks when testing mutations, and guarantee resource/schema cleanup; mocked database behavior is not integration coverage.
    - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database)
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
 5. **Follow BDD naming strictly**: `should<Action>_<prepositionOrContext><Condition>` (camelCase, exactly ONE underscore, suffix starts lowercase; e.g. `_when`, `_by`, `_for`, `_with`). Do not use zero-underscore or multi-underscore variants.
@@ -1345,6 +1484,7 @@ make install --run-unit-tests     # Only unit tests (fast, no database)
 docs/Password_System.md                           # Security architecture details
 docs/struts-actions-detailed.md                   # Action mapping documentation
 docs/struts-web-endpoints.md                      # Current Struts route + WEB-INF JSP guidance
+docs/build-identity.md                            # Build stamp (About page, REST headers, HL7 SFT; never the login page): carlos-build.properties + BuildInfo, not carlos.properties
 pom.xml                                            # Complete dependency list with versions
 README.md                                          # Project setup and overview
 ```

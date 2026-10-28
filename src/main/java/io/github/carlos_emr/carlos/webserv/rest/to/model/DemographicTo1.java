@@ -34,7 +34,11 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import io.github.carlos_emr.carlos.webserv.rest.util.DateOnlySerializer;
 
 @XmlRootElement
 public class DemographicTo1 implements Serializable {
@@ -71,6 +75,7 @@ public class DemographicTo1 implements Serializable {
     private Date rosterDate;
     private Date rosterTerminationDate;
     private String rosterTerminationReason;
+    private String rosterEnrolledTo;
     private String links;
     private String alias;
     private AddressTo1 previousAddress = new AddressTo1();
@@ -85,6 +90,7 @@ public class DemographicTo1 implements Serializable {
     private String displayName;
     private ProviderTo1 provider;
     private String lastUpdateUser;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdateDate;
     private String title;
     private String officialLanguage;
@@ -97,6 +103,7 @@ public class DemographicTo1 implements Serializable {
     private String notes;
     private Integer waitingListID;
     private String waitingListNote;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date onWaitingListSinceDate;
     private AgeTo1 age;
     private Integer admissionProgramId;
@@ -194,6 +201,8 @@ public class DemographicTo1 implements Serializable {
         this.ver = ver;
     }
 
+    // A birth date remains a date even on the epoch day or a DST midnight gap.
+    @JsonSerialize(using = DateOnlySerializer.class)
     public Date getDateOfBirth() {
         return dateOfBirth;
     }
@@ -352,6 +361,27 @@ public class DemographicTo1 implements Serializable {
 
     public void setRosterTerminationReason(String rosterTerminationReason) {
         this.rosterTerminationReason = rosterTerminationReason;
+    }
+
+    /**
+     * Provider number ({@code demographic.roster_enrolled_to}) the patient is rostered/enrolled to.
+     * Exposed as the raw provider number, not a resolved provider object.
+     *
+     * @return the enrolled-to provider number, or {@code null} when the patient is not enrolled to
+     *         a provider (or the field was not supplied)
+     */
+    public String getRosterEnrolledTo() {
+        return rosterEnrolledTo;
+    }
+
+    /**
+     * Sets the provider number the patient is rostered/enrolled to. The value is stored as given:
+     * no provider lookup or validation happens here, and {@code null} is accepted and clears it.
+     *
+     * @param rosterEnrolledTo the enrolled-to provider number, or {@code null}
+     */
+    public void setRosterEnrolledTo(String rosterEnrolledTo) {
+        this.rosterEnrolledTo = rosterEnrolledTo;
     }
 
     public String getLinks() {

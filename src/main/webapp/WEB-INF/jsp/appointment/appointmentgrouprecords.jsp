@@ -78,12 +78,10 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 
@@ -199,7 +197,10 @@
                     appointmentArchiveDao.archiveAppointment(appt);
                     if (appt != null) {
                         appt.setStatus("C");
-                        appt.setLastUpdateUser(userName);
+                        // appointment.lastupdateuser is varchar(6) and holds a provider number everywhere else. The display
+                        // name used to go here: a permissive sql_mode cut it to six characters of "Last, First", and a strict
+                        // one refused the update, so Group Cancel failed (issue #3151).
+                        appt.setLastUpdateUser((String) session.getAttribute("user"));
                         appointmentDao.merge(appt);
                         rowsAffected = 1;
                     }

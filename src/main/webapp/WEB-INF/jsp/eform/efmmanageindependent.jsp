@@ -84,7 +84,7 @@
         </script>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+<%@ include file="eformBootstrapScript.jspf" %>
     </head>
 
     <body>
@@ -146,9 +146,9 @@
                 <td><a href="#"
                        ONCLICK="openEform('<%= request.getContextPath() %>/eform/efmshowform_data?fdid=<%=curform.get("fdid")%>', '<%="FormP" + i%>'); return false;"
                        TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
-                       onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
+                       onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent((String) curform.get("formName")) %>
                 </a></td>
-                <td><%=curform.get("formSubject")%>
+                <td><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent((String) curform.get("formSubject")) %>
                 </td>
                 <td align='center'><%=providerDao.getProviderNameLastFirst((String) curform.get("providerNo"))%>
                 </td>
@@ -158,7 +158,13 @@
                     <form method="post" action="<%= request.getContextPath() %>/eform/removeEForm" style="display:inline;">
                         <input type="hidden" name="callpage" value="independent"/>
                         <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
-                        <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}"
+                        <%-- Sort order the post-delete redirect restores (RemEForm2Action#getRedirectTarget). --%>
+                        <input type="hidden" name="orderby" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(orderByRequest) %>"/>
+                        <%-- carlosSubmitForm (efmFooter.jspf loads it): in the Administration
+                             panel this form arrives by .load(), and a native .submit() fires no
+                             submit event, so it would post without waiting for the token (#4130).
+                             Without the helper the POST would only be refused, so say so instead. --%>
+                        <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){if(window.carlosSubmitForm){carlosSubmitForm(this.closest('form'));}else{alert('This page did not finish loading. Please reload it and try again.');}}"
                            class="contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></a>
                     </form>
                 </td>

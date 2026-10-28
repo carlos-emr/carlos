@@ -35,6 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import io.github.carlos_emr.carlos.model.BaseObject;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
@@ -65,6 +67,7 @@ public class CaseManagementIssue extends BaseObject {
     // protected boolean active;
     protected boolean resolved;
     protected String type;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     protected Date update_date = new Date();
     protected Set notes = new HashSet();
     protected Issue issue;

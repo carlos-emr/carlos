@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
+import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
@@ -80,6 +81,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
 
     DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
+    AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
     ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
     ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
     AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
@@ -139,8 +141,10 @@ public class PhsStarHandler extends BasePhsStarHandler {
                 logger.debug("Found demographic:" + records.get(0).getDemographicNo());
                 return records.get(0).getDemographicNo();
             } else if (records.size() > 1) {
-                logger.debug("Found multiple demographics with health card " + hc.getId() + " " + hc.getAuthority());
-                throw new HL7Exception("Found multiple records with same HC!!!! - " + hc.getId() + " " + hc.getAuthority());
+                // Do NOT log or embed the health card number / authority (PHI) — including in the
+                // exception message, which propagates into logs and error surfaces.
+                logger.debug("Found multiple demographics matching the provided health card");
+                throw new HL7Exception("Found multiple demographic records matching the provided health card");
             }
         }
 
@@ -460,6 +464,23 @@ public class PhsStarHandler extends BasePhsStarHandler {
             throw new HL7Exception("Unable to match providers..cannot make appointment - " + getApptPractitionerNo());
         }
 
+        logger.info("resource unit = " + getApptResourceUnit());
+        logger.info("procedure = " + getProcedureName());
+//		String programId = findProgram(getApptResourceUnit(),getProcedureName());
+        // Resolve and validate the program first: its HL7Exception must fire before anything is
+        // archived or changed, or the archive would gain a version that was never replaced.
+        String programId = findProgram2();
+        Program p = null;
+        if (programId != null) {
+            p = programDao.getProgram(Integer.parseInt(programId));
+            if (p == null) {
+                throw new HL7Exception("System not configured to accept messages for runit " + getApptResourceUnit());
+            }
+        }
+
+        // Keep the replaced version in appointmentArchive before moving the appointment (issue #4589).
+        appointmentArchiveDao.archiveAppointment(appt);
+
         appt.setProviderNo(provider.getProviderNo());
         appt.setAppointmentDate(getApptStartDate());
         appt.setStartTime(getApptStartDate());
@@ -467,19 +488,8 @@ public class PhsStarHandler extends BasePhsStarHandler {
         appt.setLocation(getApptLocation());
         appt.setType(getApptType());
         appt.setReason(getApptReason());
-
-        logger.info("resource unit = " + getApptResourceUnit());
-        logger.info("procedure = " + getProcedureName());
-//		String programId = findProgram(getApptResourceUnit(),getProcedureName());
-        String programId = findProgram2();
-        Program p = null;
-        if (programId != null) {
-            p = programDao.getProgram(Integer.parseInt(programId));
-            if (p != null) {
-                appt.setProgramId(p.getId());
-            } else {
-                throw new HL7Exception("System not configured to accept messages for runit " + getApptResourceUnit());
-            }
+        if (p != null) {
+            appt.setProgramId(p.getId());
         }
         //TODO: fix the bug in schedule
         appt.setProgramId(0);
@@ -541,6 +551,8 @@ public class PhsStarHandler extends BasePhsStarHandler {
             return;
         }
 
+        // Archive the version being replaced, before the status changes (issue #4589).
+        appointmentArchiveDao.archiveAppointment(appt);
         appt.setStatus(newStatus);
 
         appointmentDao.merge(appt);
