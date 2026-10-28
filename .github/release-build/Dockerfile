@@ -20,7 +20,7 @@
 # License:
 # This file is part of the CARLOS EMR project and is subject to the licensing
 # terms outlined in the repository's LICENSE file.
-FROM tomcat:11.0.27-jdk25-temurin@sha256:5f639b0943621fabc57de055c8789a2813692f3b25322379900ffac00958baea
+FROM tomcat:11.0.27-jdk25-temurin-noble@sha256:317b75f81d274ed68fd42417b29481915af7949f9e550879314afb3994152cce
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8

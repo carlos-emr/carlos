@@ -1,4 +1,6 @@
-FROM tomcat:11.0.27-jdk25-temurin@sha256:5f639b0943621fabc57de055c8789a2813692f3b25322379900ffac00958baea
+# Pin Ubuntu 24.04 (Noble): Playwright 1.60.0 does not support the Ubuntu 26.04
+# base selected by the unqualified Temurin tag. Keep both image references aligned.
+FROM tomcat:11.0.27-jdk25-temurin-noble@sha256:317b75f81d274ed68fd42417b29481915af7949f9e550879314afb3994152cce
 
 # bash with pipefail, not the default /bin/sh (dash), for EVERY RUN below.
 #
@@ -29,7 +31,7 @@ ENV JPDA_ADDRESS=8000
 ENV JPDA_TRANSPORT=dt_socket
 
 # Copy Tomcat installation from the official Tomcat image
-COPY --from=tomcat:11.0.27-jdk25-temurin@sha256:5f639b0943621fabc57de055c8789a2813692f3b25322379900ffac00958baea /usr/local/tomcat $CATALINA_HOME
+COPY --from=tomcat:11.0.27-jdk25-temurin-noble@sha256:317b75f81d274ed68fd42417b29481915af7949f9e550879314afb3994152cce /usr/local/tomcat $CATALINA_HOME
 
 # Labels
 LABEL author="CARLOS EMR Project" \
@@ -210,7 +212,7 @@ RUN mkdir -p /usr/local/tomcat/webapps/ROOT
 # NOTE: DrugRef2 runs in a separate container (see .devcontainer/drugref/).
 # It is a separate container because it is a separate webapp with its own
 # lifecycle, NOT because it needs a different JDK: since the Java 25 migration
-# both images are built from the same tomcat:11.0.27-jdk25-temurin base.
+# both images are built from the same tomcat:11.0.27-jdk25-temurin-noble base.
 # DrugRef's own sources still COMPILE at a Java 21 language level, which is a
 # floor on its pom, not a constraint on the runtime here.
 
