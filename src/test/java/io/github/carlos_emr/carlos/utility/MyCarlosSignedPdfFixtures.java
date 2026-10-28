@@ -228,7 +228,13 @@ final class MyCarlosSignedPdfFixtures {
                 MessageDigest.getInstance("SHA-256").digest(p256FromSeed(seed).getPublic().getEncoded()));
     }
 
-    /** An RSA-2048 key generated from a seeded SHA1PRNG, so no key is ever stored. */
+    /**
+     * An RSA-2048 key generated from a seeded SHA1PRNG, so no key is ever stored. Unlike the P-256
+     * keys, which follow from their seed by a fixed formula, this one is only reproducible on the
+     * same JDK and provider: how RSA key generation draws from the random source is not specified.
+     * Regenerating the fixtures elsewhere may give {@code refuse-rsa-signer.pdf} a different key
+     * and kid, which is fine, because its test only checks that the signer is RSA.
+     */
     static KeyPair rsaFromSeed(String seed) throws Exception {
         SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
         random.setSeed(MessageDigest.getInstance("SHA-256").digest(seed.getBytes(StandardCharsets.UTF_8)));
