@@ -30,7 +30,7 @@
 # - tests (parallel, does not wait for build):
 #   - Restores Maven dependencies from cache (graceful fallback if miss)
 #   - Runs tests (JUnit 5) using H2 in-memory database
-#   - Does NOT require the database container
+#   - Runs the patient-match SQL regressions against a physical MariaDB service
 #
 # - jspc (parallel, does not wait for build):
 #   - Restores Maven dependencies from cache (graceful fallback if miss)
@@ -136,6 +136,16 @@ jobs:
     permissions:
       contents: read
       packages: read
+    services:
+      mariadb:
+        image: mariadb:11.8.8
+        env:
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: '1'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -148,6 +158,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           maven-cache: restore
+          extra-run-args: --add-host=host.docker.internal:host-gateway
 
       - name: Run tests
         run: |
@@ -157,6 +168,19 @@ jobs:
             echo '========================================='
             make install --run-tests
           "
+
+      - name: Verify patient matching against MariaDB
+        run: |
+          docker exec -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
+            carlos-tomcat-dev mvn --batch-mode --no-transfer-progress test \
+            -Dtest=MeasurementPatientMatchMariaDbIntegrationTest -Dtest.forkCount=1
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          report = ET.parse('target/surefire-reports/TEST-io.github.carlos_emr.carlos.commn.dao.MeasurementPatientMatchMariaDbIntegrationTest.xml').getroot()
+          assert int(report.get('tests', '0')) > 0, 'MariaDB suite did not run'
+          for field in ('failures', 'errors', 'skipped'):
+              assert int(report.get(field, '-1')) == 0, f'MariaDB suite has {field}'
+          PY
 
       - name: Verify demographic dates in non-UTC JVMs
         run: |
