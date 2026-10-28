@@ -139,9 +139,9 @@
         <!-- Slf4j Version -->
         <slf4j.version>2.0.20</slf4j.version>
         <!-- Hapi Fhir Version -->
-        <hapifhir.version>8.4.0</hapifhir.version>
+        <hapifhir.version>8.4.3</hapifhir.version>
         <!-- Apache CXF Version -->
-        <cxf.version>4.1.8</cxf.version>
+        <cxf.version>4.1.9</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
         <netty.version>4.1.139.Final</netty.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
@@ -224,6 +224,18 @@
         <repository>
             <id>central</id>
             <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+        <!-- CXF 4.1.9 / WSS4J 4.0.2 requires OpenSAML 5.2.3, which is
+             published in Shibboleth's release repository rather than Central. -->
+        <repository>
+            <id>shibboleth-releases</id>
+            <url>https://build.shibboleth.net/maven/releases/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
     </repositories>
 
@@ -1507,7 +1519,7 @@
         <dependency>
            <groupId>com.sun.xml.ws</groupId>
            <artifactId>jaxws-ri</artifactId>
-           <version>4.0.3</version>
+           <version>4.0.5</version>
            <type>pom</type>
            <exclusions>
                 <!-- Not being used, excluded to avoid triggering security issue -->
