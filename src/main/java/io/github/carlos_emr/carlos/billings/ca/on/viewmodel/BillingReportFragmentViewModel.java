@@ -32,22 +32,22 @@ import java.util.List;
  *
  * <p>The fragments are included from the parent
  * {@code billingReportControl.jsp}. The view model captures the per-fragment
- * row lists plus the totals (billob {@code BigOBTotal}; flu {@code Total1} +
- * {@code Total2}) so each JSPF body receives a complete render model.</p>
+ * row lists plus the totals (billob {@code BigOBTotal}; flu one total and a
+ * count) so each JSPF body receives a complete render model.</p>
  *
  * <p>Each fragment uses only the subset of fields its template renders
  * ({@code billedRows}, {@code unsettledRows}, {@code billobRows} +
- * {@code billobTotal}, {@code fluClinicRows} + {@code fluWalkinRows} +
- * {@code fluTotal1} + {@code fluTotal2}, {@code unbilledRows}). The other
- * fields stay as empty lists / "0.00" defaults — assembling all five shapes
- * from one model keeps the parent-jsp include order intact without forcing
- * five separate request-attribute keys.</p>
+ * {@code billobTotal}, {@code fluRows} + {@code fluTotal} + {@code fluCount}).
+ * The other fields stay as empty
+ * lists / "0.00" defaults — assembling all four shapes from one model
+ * keeps the parent-jsp include order intact without forcing four separate
+ * request-attribute keys.</p>
  *
  * @since 2026-04-26
  */
 public final class BillingReportFragmentViewModel {
 
-    /** Row in billingReport_billed.jspf — a Billing entry filtered by date range. */
+    /** Row in billingReport_billed.jspf — an open Ontario claim in the date range; billingId is the claim's id. */
     public record BilledRow(
             String apptDate,
             String apptTime,
@@ -58,7 +58,7 @@ public final class BillingReportFragmentViewModel {
             String reasonCode,
             String rowBgColor) { }
 
-    /** Row in billingReport_unsettled.jspf — a Billing entry filtered to unsettled status. */
+    /** Row in billingReport_unsettled.jspf — an Ontario claim submitted and not yet settled; billingId is its id. */
     public record UnsettledRow(
             String apptDate,
             String apptTime,
@@ -68,36 +68,24 @@ public final class BillingReportFragmentViewModel {
             String reasonCode,
             String rowBgColor) { }
 
-    /** Row in billingReport_billob.jspf — search_billob row joined with service codes. */
+    /** Row in billingReport_billob.jspf — an Ontario claim with an obstetric service code, and its items' codes. */
     public record BillobRow(
             int billingId,
             String demoName,
             String apptDate,
             List<String> serviceCodes,   // up to 10 entries (legacy param2[0..9])
             String total,                // formatted with decimal point
-            String reasonCode,           // bill status (S/B/X/...)
+            String reasonCode,           // claim status (S/B/X/...)
             String rowBgColor) { }
 
-    /** Row in billingReport_flu.jspf for the clinic-count side (specialty != "flu"). */
-    public record FluClinicRow(
+    /** Row in billingReport_flu.jspf — an Ontario claim with a flu-shot service code; billingId is its id. */
+    public record FluRow(
             int billingId,
             String demoName,
-            String apptDate,
-            String total,
-            String reasonCode,
-            String reasonLabel,        // "Bad Debt" / "Submitted to OHIP" / "Settled" / "" if anchor
-            boolean reasonIsAnchor,    // true when the JSP should render the -B anchor instead of the label
-            String rowBgColor) { }
-
-    /** Row in billingReport_flu.jspf for the walk-in side (specialty == "flu"). */
-    public record FluWalkinRow(
-            int billingId,
-            String demoName,
-            String apptDate,
-            String total,
-            String reasonCode,
-            String reasonLabel,
-            boolean reasonIsAnchor,
+            String apptDate,             // the claim's service date
+            String total,                // the claim's total, with a decimal point
+            String reasonCode,           // claim status (S/B/X/O/...)
+            String statusLabel,          // the status as the list shows it
             String rowBgColor) { }
 
     /** One unbill-history row (open appointments awaiting billing). */
@@ -117,14 +105,10 @@ public final class BillingReportFragmentViewModel {
     private final List<UnsettledRow> unsettledRows;
     private final List<BillobRow> billobRows;
     private final String billobTotal;
-    private final List<FluClinicRow> fluClinicRows;
-    private final List<FluWalkinRow> fluWalkinRows;
-    private final String fluTotal1; // walk-in total (specialty == "flu")
-    private final String fluTotal2; // clinic total (specialty != "flu")
-    private final int fluClinicCount;
-    private final int fluWalkinCount;
+    private final List<FluRow> fluRows;
+    private final String fluTotal;
+    private final int fluCount;
     private final int billobUnreadableTotalCount;
-    private final int fluUnreadableTotalCount;
     private final List<UnbilledRow> unbilledRows;
 
     private BillingReportFragmentViewModel(Builder b) {
@@ -136,14 +120,10 @@ public final class BillingReportFragmentViewModel {
         this.unsettledRows = b.unsettledRows == null ? Collections.emptyList() : b.unsettledRows;
         this.billobRows = b.billobRows == null ? Collections.emptyList() : b.billobRows;
         this.billobTotal = nullToZero(b.billobTotal);
-        this.fluClinicRows = b.fluClinicRows == null ? Collections.emptyList() : b.fluClinicRows;
-        this.fluWalkinRows = b.fluWalkinRows == null ? Collections.emptyList() : b.fluWalkinRows;
-        this.fluTotal1 = nullToZero(b.fluTotal1);
-        this.fluTotal2 = nullToZero(b.fluTotal2);
-        this.fluClinicCount = b.fluClinicCount;
-        this.fluWalkinCount = b.fluWalkinCount;
+        this.fluRows = b.fluRows == null ? Collections.emptyList() : b.fluRows;
+        this.fluTotal = nullToZero(b.fluTotal);
+        this.fluCount = b.fluCount;
         this.billobUnreadableTotalCount = b.billobUnreadableTotalCount;
-        this.fluUnreadableTotalCount = b.fluUnreadableTotalCount;
         this.unbilledRows = b.unbilledRows == null ? Collections.emptyList() : b.unbilledRows;
     }
 
@@ -155,16 +135,11 @@ public final class BillingReportFragmentViewModel {
     public List<UnsettledRow> getUnsettledRows() { return unsettledRows; }
     public List<BillobRow> getBillobRows() { return billobRows; }
     public String getBillobTotal() { return billobTotal; }
-    public List<FluClinicRow> getFluClinicRows() { return fluClinicRows; }
-    public List<FluWalkinRow> getFluWalkinRows() { return fluWalkinRows; }
-    public String getFluTotal1() { return fluTotal1; }
-    public String getFluTotal2() { return fluTotal2; }
-    public int getFluClinicCount() { return fluClinicCount; }
-    public int getFluWalkinCount() { return fluWalkinCount; }
+    public List<FluRow> getFluRows() { return fluRows; }
+    public String getFluTotal() { return fluTotal; }
+    public int getFluCount() { return fluCount; }
     public int getBillobUnreadableTotalCount() { return billobUnreadableTotalCount; }
-    public int getFluUnreadableTotalCount() { return fluUnreadableTotalCount; }
     public boolean isBillobTotalPartial() { return billobUnreadableTotalCount > 0; }
-    public boolean isFluTotalPartial() { return fluUnreadableTotalCount > 0; }
     public List<UnbilledRow> getUnbilledRows() { return unbilledRows; }
 
     public static final class Builder {
@@ -172,28 +147,20 @@ public final class BillingReportFragmentViewModel {
         private List<UnsettledRow> unsettledRows;
         private List<BillobRow> billobRows;
         private String billobTotal;
-        private List<FluClinicRow> fluClinicRows;
-        private List<FluWalkinRow> fluWalkinRows;
-        private String fluTotal1;
-        private String fluTotal2;
-        private int fluClinicCount;
-        private int fluWalkinCount;
+        private List<FluRow> fluRows;
+        private String fluTotal;
+        private int fluCount;
         private int billobUnreadableTotalCount;
-        private int fluUnreadableTotalCount;
         private List<UnbilledRow> unbilledRows;
 
         public Builder billedRows(List<BilledRow> v) { this.billedRows = v == null ? null : List.copyOf(v); return this; }
         public Builder unsettledRows(List<UnsettledRow> v) { this.unsettledRows = v == null ? null : List.copyOf(v); return this; }
         public Builder billobRows(List<BillobRow> v) { this.billobRows = v == null ? null : List.copyOf(v); return this; }
         public Builder billobTotal(String v) { this.billobTotal = v; return this; }
-        public Builder fluClinicRows(List<FluClinicRow> v) { this.fluClinicRows = v == null ? null : List.copyOf(v); return this; }
-        public Builder fluWalkinRows(List<FluWalkinRow> v) { this.fluWalkinRows = v == null ? null : List.copyOf(v); return this; }
-        public Builder fluTotal1(String v) { this.fluTotal1 = v; return this; }
-        public Builder fluTotal2(String v) { this.fluTotal2 = v; return this; }
-        public Builder fluClinicCount(int v) { this.fluClinicCount = v; return this; }
-        public Builder fluWalkinCount(int v) { this.fluWalkinCount = v; return this; }
+        public Builder fluRows(List<FluRow> v) { this.fluRows = v == null ? null : List.copyOf(v); return this; }
+        public Builder fluTotal(String v) { this.fluTotal = v; return this; }
+        public Builder fluCount(int v) { this.fluCount = v; return this; }
         public Builder billobUnreadableTotalCount(int v) { this.billobUnreadableTotalCount = v; return this; }
-        public Builder fluUnreadableTotalCount(int v) { this.fluUnreadableTotalCount = v; return this; }
         public Builder unbilledRows(List<UnbilledRow> v) { this.unbilledRows = v == null ? null : List.copyOf(v); return this; }
 
         public BillingReportFragmentViewModel build() { return new BillingReportFragmentViewModel(this); }

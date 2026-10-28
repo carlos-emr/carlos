@@ -177,8 +177,8 @@ async function workflow(s) {
     B = fixture.addFacility('B');
     C = fixture.addFacility('C');
     // The seeded doctor role in the test login's programs: the Schedule and the chart a clinician gets, so nothing the page
-    // asks for is refused for want of a sec object (a narrower role's Schedule answers HTTP 500 to the tab-alert refresh:
-    // finding 142), and every step below is about the facility.
+    // asks for is refused for want of a sec object (a narrower role's Schedule answered HTTP 500 to the tab-alert refresh
+    // until #4696 fixed finding 142), and every step below is about the facility.
     multi = fixture.addLogin('doctor');
     single = fixture.addLogin('doctor');
     fixture.joinTestLoginPrograms(multi);

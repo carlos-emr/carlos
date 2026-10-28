@@ -99,6 +99,13 @@ jobs:
         if: always() && steps.run_semgrep_carlos.outcome != 'skipped' && hashFiles('semgrep-carlos.sarif') != ''
         run: python3 scripts/filter_suppressed_sarif.py semgrep-carlos.sarif
 
+      # Diagnostics only: retain the existing scanner, filtering and upload outcomes.
+      # Never log finding messages, metavariables, source snippets or the full SARIF.
+      - name: Summarize security finding locations
+        if: always() && (hashFiles('semgrep.sarif') != '' || hashFiles('semgrep-carlos.sarif') != '')
+        continue-on-error: true
+        run: python3 scripts/summarize_security_locations.py semgrep.sarif semgrep-carlos.sarif
+
       - name: Skip Semgrep CI when token is not configured
         if: env.HAS_SEMGREP_TOKEN != 'true'
         run: |

@@ -30,6 +30,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 public class CaseManagementIssueTo1 {
 
     protected Long id;
@@ -40,6 +42,7 @@ public class CaseManagementIssueTo1 {
     protected boolean major;
     protected boolean resolved;
     protected String type;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     protected Date update_date = new Date();
     protected IssueTo1 issue;
     protected Integer program_id = null;

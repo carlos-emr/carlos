@@ -346,7 +346,7 @@ public record PatientPortalSettings(
         }
     }
 
-    private static void validateClinicId(String clinicId) {
+    static void validateClinicId(String clinicId) {
         if (clinicId.length() > MAX_CLINIC_ID_LENGTH
                 || clinicId.chars().anyMatch(character -> !isClinicIdCharacter(character))) {
             throw new PatientPortalConfigurationException(

@@ -229,7 +229,7 @@
             var b = true;
 
             if (document.forms[0].xml_provider.value == "000000") {
-                alert("Please select a providers.");
+                alert("Please select a provider.");
                 b = false;
             }
                 <c:if test="${not formModel.multisite.rmaEnabled}">

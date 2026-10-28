@@ -37,6 +37,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -127,6 +129,29 @@ class DemographicAddRecord2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should refuse a 71-character Name Used with the form's error and save nothing")
+    void shouldReturnValidationError_whenNameUsedExceedsSeventyCharacters() throws Exception {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "Valid");
+        addRequestParameter("first_name", "Valid");
+        addRequestParameter("sex", "F");
+        addRequestParameter("nameUsed", "D".repeat(Demographic.ALIAS_MAX_LENGTH + 1));
+
+        String result = executeAction(action);
+
+        // Issue #5128: over the alias column the save is refused, never a 500.
+        assertThat(result).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        @SuppressWarnings("unchecked")
+        List<String> fieldLengthValidationErrors =
+                (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
+        assertThat(fieldLengthValidationErrors)
+                .containsExactly("Preferred name exceeds maximum length of 70 characters.");
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
+    @Test
     @DisplayName("should return validationError when last name exceeds thirty characters")
     void shouldReturnValidationError_whenLastNameExceedsThirtyCharacters() throws Exception {
         allowPrivilege("_demographic", "w");
@@ -144,4 +169,17 @@ class DemographicAddRecord2ActionUnitTest extends CarlosWebTestBase {
                 .contains("Last name exceeds maximum length of 30 characters.");
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
+    @ParameterizedTest
+    @CsvSource({"nameUsed,71", "pronouns,26", "gender,26"})
+    void shouldRefuseOverlongIdentityFields_beforeChangingPatientData(String field, int length) throws Exception {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "Valid");
+        addRequestParameter("first_name", "Valid");
+        addRequestParameter(field, "X".repeat(length));
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
 }

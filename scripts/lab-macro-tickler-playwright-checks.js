@@ -47,6 +47,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -201,7 +202,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     fixture.macroPropertyBefore = macroProperty();
     stageLabRouting();
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1400, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1400, height: 1100 } });
     await login(context, config, recorder);
 
     // 1. Define the macro in preferences.

@@ -427,7 +427,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @return String the decoded email body content, or empty when the stored value is null
      */
     public String getBody() {
-        return body == null ? "" : new String(Base64.decodeBase64(body), StandardCharsets.UTF_8);
+        return decodeBlob(body);
     }
 
     /**
@@ -521,7 +521,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @return String the decoded encrypted message content, or empty when the stored value is null
      */
     public String getEncryptedMessage() {
-        return encryptedMessage == null ? "" : new String(Base64.decodeBase64(encryptedMessage), StandardCharsets.UTF_8);
+        return decodeBlob(encryptedMessage);
     }
 
     /**
@@ -634,7 +634,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @return String the decoded internal comment, or empty when the stored value is null
      */
     public String getInternalComment() {
-        return internalComment == null ? "" : new String(Base64.decodeBase64(internalComment), StandardCharsets.UTF_8);
+        return decodeBlob(internalComment);
     }
 
     /**
@@ -801,5 +801,17 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     public int compareTo(EmailLog other) {
         // Compare based on the timestamp
         return this.timestamp.compareTo(other.timestamp);
+    }
+
+    /**
+     * Decodes a Base64 BLOB column. The columns are nullable, and rows written outside this
+     * entity (a legacy or adopted database, an import) can hold NULL, which would otherwise throw
+     * and turn a resend or view of that email into a 500. NULL reads as empty text.
+     */
+    private static String decodeBlob(byte[] stored) {
+        if (stored == null) {
+            return "";
+        }
+        return new String(Base64.decodeBase64(stored), StandardCharsets.UTF_8);
     }
 }

@@ -10,6 +10,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.regex.Pattern;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -30,8 +31,10 @@ import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionState;
-import io.github.carlos_emr.carlos.managers.EformDataManager;
+import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -77,7 +80,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @see io.github.carlos_emr.carlos.email.core.EmailData
  */
 public class EmailSend2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final Pattern NUMERIC_ID = Pattern.compile("\\d{1,10}");
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -86,6 +89,7 @@ public class EmailSend2Action extends ActionSupport {
     /** Which address the mail server refused ("RECIPIENT", "SENDER" or "NONE"), for the result page hint. */
     private static final String EMAIL_REFUSAL = "emailRefusal";
     private static final Logger logger = MiscUtils.getLogger();
+    private final SecurityInfoManager securityInfoManager;
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private transient EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
@@ -111,7 +115,6 @@ public class EmailSend2Action extends ActionSupport {
     private static final String PARAM_CONSENT_OVERRIDE_REASON = "consentOverrideReason";
     private transient EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
     private transient PdfPreviewCapabilityService pdfPreviewCapabilityService = SpringUtils.getBean(PdfPreviewCapabilityService.class);
-    private static final int MAXIMUM_MESSAGE_LENGTH = 10_000;
 
     private final transient AttachmentOwnershipService attachmentOwnershipService;
 
@@ -125,7 +128,7 @@ public class EmailSend2Action extends ActionSupport {
     static final String ATTACHMENTS_REFUSED_MESSAGE = "This email was not sent: this window has expired,"
             + " or its attachments do not belong to this patient. Close it and start the email again.";
 
-    /** Struts-created: resolves the ownership check from Spring. */
+    /** Struts-created: resolves the collaborators from Spring. */
     public EmailSend2Action() {
         this(SpringUtils.getBean(AttachmentOwnershipService.class));
     }
@@ -136,6 +139,7 @@ public class EmailSend2Action extends ActionSupport {
      * @param attachmentOwnershipService re-reads each attachment's owning patient before a send
      */
     EmailSend2Action(AttachmentOwnershipService attachmentOwnershipService) {
+        this.securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         this.attachmentOwnershipService = attachmentOwnershipService;
     }
 
@@ -260,7 +264,12 @@ public class EmailSend2Action extends ActionSupport {
                 ensureSendCapable(composeState);
                 ensureTransactionType(composeState, EmailLog.TransactionType.EFORM);
                 verifyAttachmentOwnership(composeState);
-                sendResult = sendEmail(request, composeState);
+                try {
+                    sendResult = sendEmail(request, composeState);
+                } catch (EmailFieldLengthException e) {
+                    prepareRetry(composeState, new EmailLog());
+                    return rejectOverLengthFields(e);
+                }
                 if (!sendResult.isTransportAccepted() && !sendResult.isDeliveryUnconfirmed()) {
                     prepareRetry(composeState, sendResult.getEmailLog());
                 }
@@ -322,7 +331,12 @@ public class EmailSend2Action extends ActionSupport {
                 ensureSendCapable(composeState);
                 ensureTransactionType(composeState, EmailLog.TransactionType.DIRECT);
                 verifyAttachmentOwnership(composeState);
-                sendResult = sendEmail(request, composeState);
+                try {
+                    sendResult = sendEmail(request, composeState);
+                } catch (EmailFieldLengthException e) {
+                    prepareRetry(composeState, new EmailLog());
+                    return rejectOverLengthFields(e);
+                }
                 if (!sendResult.isTransportAccepted() && !sendResult.isDeliveryUnconfirmed()) {
                     prepareRetry(composeState, sendResult.getEmailLog());
                 }
@@ -523,7 +537,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute(PARAM_INTERNAL_COMMENT, request.getParameter(PARAM_INTERNAL_COMMENT));
         request.setAttribute("emailAdditionalParams", request.getParameter("additionalURLParams"));
         request.setAttribute("emailConsentName", request.getParameter("emailConsentName"));
-        EmailConsentStatus consentStatus = emailLog.getConsentStatus() != null
+        EmailConsentStatus consentStatus = emailLog != null && emailLog.getConsentStatus() != null
                 ? emailLog.getConsentStatus()
                 : parseConsentStatus(request.getParameter("emailConsentStatus"));
         request.setAttribute("emailConsentStatus", consentStatus.name());
@@ -565,6 +579,59 @@ public class EmailSend2Action extends ActionSupport {
             EmailConfig failedSender = emailLog.getEmailConfig();
             return failedSender == null ? List.of() : List.of(failedSender);
         }
+    }
+
+    /**
+     * Renders the compose result page with one i18n'd error per over-length field instead of
+     * sending. The compose page checks the same limits before submitting, so this is the
+     * server-side backstop for scripted or tampered submissions and for limits the browser
+     * measured differently.
+     *
+     * @param e the validation failure raised before anything was persisted or sent
+     * @return Struts2 SUCCESS result, which renders the failure panel of the compose page
+     */
+    private String rejectOverLengthFields(EmailFieldLengthException e) {
+        // Sizes and message keys only; the field content is PHI and is never logged.
+        logger.warn("Email rejected before sending: {}", e.getMessage());
+        request.setAttribute("emailLengthViolations", e.getViolations());
+        return SUCCESS;
+    }
+
+    private static String numericOrNull(String value) {
+        return value != null && NUMERIC_ID.matcher(value).matches() ? value : null;
+    }
+
+    /**
+     * Parses a submitted patient number, or returns {@code null} when it is absent, not all
+     * digits, or too large for an {@code int}. Never throws: the value comes from a hidden form
+     * field and may be tampered with or overlong.
+     */
+    static Integer parseDemographicId(String value) {
+        if (numericOrNull(value) == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Whether a submitted {@code demographicId} can be sent on to the routes: absent or blank
+     * (a direct email with no patient), or a parseable patient number.
+     */
+    static boolean isValidDemographicId(String value) {
+        return value == null || value.isEmpty() || parseDemographicId(value) != null;
+    }
+
+    private static TransactionType parseTransactionType(String value) {
+        for (TransactionType type : TransactionType.values()) {
+            if (type.name().equals(value)) {
+                return type;
+            }
+        }
+        return null;
     }
 
     /**
@@ -649,9 +716,6 @@ public class EmailSend2Action extends ActionSupport {
         String message = request.getParameter(PARAM_MESSAGE);
         if (message == null || message.isBlank()) {
             throw new EmailSendValidationException("Message is required");
-        }
-        if (message.length() > MAXIMUM_MESSAGE_LENGTH) {
-            throw new EmailSendValidationException("Message must not exceed 10000 characters");
         }
     }
 

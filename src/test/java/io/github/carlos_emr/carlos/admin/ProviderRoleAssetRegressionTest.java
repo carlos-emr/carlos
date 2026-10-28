@@ -66,6 +66,32 @@ class ProviderRoleAssetRegressionTest {
                 .doesNotContain("secRole.getName().equals(omit)");
     }
 
+    @Test
+    @DisplayName("should write the primary-role script's provider and role values through the JavaScript encoder")
+    void shouldEncodeScriptItemValues_inPrimaryRoleScript() throws IOException {
+        String jsp = readProviderRoleJsp();
+
+        assertThat(jsp)
+                .contains("HELD_ROLES_MAPPER.writeValueAsString(")
+                .contains("data-roles=\"<carlos:encode value='<%= heldRolesJson %>' context=\"htmlAttribute\"/>")
+                .contains("JSON.parse(selectedProvider.dataset.roles)")
+                .doesNotContain("data-roles=\"<%= heldRolesJson %>");
+    }
+
+    @Test
+    @DisplayName("should build the primary-role options with DOM APIs so a role name stays text")
+    void shouldBuildPrimaryRoleOptions_withDomApis() throws IOException {
+        String jsp = readProviderRoleJsp();
+
+        // Parsed held-role names must become text, never HTML.
+        assertThat(jsp)
+                .contains("const option = document.createElement('option');")
+                .contains("option.value = heldRole;")
+                .contains("option.textContent = heldRole;")
+                .contains("roleSelect.appendChild(option);")
+                .doesNotContain("'<option value=\"' + items[i].roleName");
+    }
+
     private static String readProviderRoleJsp() throws IOException {
         return Files.readString(PROVIDER_ROLE_JSP, StandardCharsets.UTF_8);
     }

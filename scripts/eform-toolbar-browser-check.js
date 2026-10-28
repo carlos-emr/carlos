@@ -15,6 +15,7 @@ const toolbar = read('WEB-INF/jsp/eform/eformFloatingToolbar/eform_floating_tool
   .replace(/\$\{[^}]*\}/g, '');
 const errors = [];
 let requests = [];
+let otherRequests = [];
 let searches = [];
 const fallbackInput = '<input type="hidden" name="newForm" value="true" id="newForm" data-carlos-newform-fallback>';
 // Template newForm controls that submit nothing as rendered, each beside the server's fallback.
@@ -32,7 +33,7 @@ const fixture = (owned = false, withList = false, newFormVariant = '', subjectVa
 <script src="/library/eforms/faxControl.js"></script>
 <script src="/library/eforms/faxControl.js"></script>
 <script src="/js/faxRecipientAutocomplete.js"></script>
-<link rel="stylesheet" href="/library/bootstrap/5.3.8/css/bootstrap.min.css">
+<link rel="stylesheet" href="/eform/eformFloatingToolbar/bootstrap-eform-scoped.min.css">
 <link rel="stylesheet" href="/eform/eformFloatingToolbar/eform_floating_toolbar_custom.css">
 </head><body><form name="saveEForm" action="/eform/addEForm" method="post"${newFormVariant === 'named' ? ' data-carlos-newform-default="true"' : ''}>
 <input id="context" value="" type="hidden"><input id="fid" value="1" type="hidden">
@@ -61,6 +62,11 @@ const server = http.createServer((req, res) => {
     searches.push(req.url);
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify([{name:'Example, Specialist', fax:'416-555-0199', badge:'Cardiology', type:'SPECIALIST'}])); return;
+  }
+  if (req.url === '/eform/otherRoute' && req.method === 'POST') {
+    let body=''; req.on('data', chunk => {body += chunk;}); req.on('end', () => {
+      otherRequests.push(new URLSearchParams(body)); res.setHeader('Content-Type', 'text/html'); res.end('Elsewhere');
+    }); return;
   }
   if (req.url === '/eform/addEForm' && req.method === 'POST') {
     let body=''; req.on('data', chunk => {body += chunk;}); req.on('end', () => {
@@ -103,6 +109,60 @@ const server = http.createServer((req, res) => {
       assert.equal(await page.locator('input[name=pdfButton]').isVisible(),false);
       assert.equal(await page.locator('#oscar-spinner-screen').isVisible(),false);
       await page.waitForFunction(() => document.getElementById('toolbarWrapper').getBoundingClientRect().top >= document.getElementById('lastPage').getBoundingClientRect().bottom);
+    }
+    // Signature pads (#3552): a canvas pad writes canvas.toDataURL() into an author-named hidden
+    // field, a jSignature-style field holds base30 strokes and a mirrored pad repeats the PNG. The
+    // save must post each as carlos-data-uri:<nonce>:<n> with the values under carlos-data-uri and
+    // the nonce under carlos-data-uri-nonce, so the WAF exempts one known argument; SVG, ordinary
+    // fields and typed text that reads like a reference post unchanged. Returns the PNG.
+    const JSIGNATURE = 'data:image/jsignature;base30,3E13Z5Y5_1O24Z66';
+    const SVG = 'data:image/svg+xml;base64,PHN2Zz4=';
+    async function addSignaturePads(writeOnSubmit = false) {
+      return page.evaluate(({jsignature, svg, writeOnSubmit}) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal and its arguments are this file's constants, structured-cloned rather than interpolated into page script
+        const form = document.forms[0];
+        const canvas = document.createElement('canvas');
+        canvas.width = 160; canvas.height = 40;
+        const pen = canvas.getContext('2d');
+        pen.beginPath(); pen.moveTo(5, 30); pen.bezierCurveTo(40, 0, 80, 40, 150, 10); pen.stroke();
+        const png = canvas.toDataURL();
+        const block = document.createElement('div');
+        block.id = 'signatureBlock';
+        block.innerHTML = '<img id="sigPreview" alt="signature"><input type="hidden" name="SignatureBox" id="SignatureBox">'
+          + '<input type="hidden" name="StoreSignature1" id="StoreSignature1"><input type="hidden" name="MirrorSignature" id="MirrorSignature">'
+          + '<textarea name="clinicalNote" id="clinicalNote">Routine follow up.</textarea><input type="hidden" name="svgDrawing" id="svgDrawing">'
+          + '<input name="typedNote" id="typedNote" value="carlos-data-uri:0">';
+        block.prepend(canvas);
+        form.prepend(block);
+        document.getElementById('sigPreview').src = png;
+        document.getElementById('StoreSignature1').value = jsignature;
+        document.getElementById('svgDrawing').value = svg;
+        const pads = ['SignatureBox', 'MirrorSignature'].map(id => document.getElementById(id));
+        if (writeOnSubmit) {
+          // Templates commonly copy the pad into its field from their own submit handler.
+          form.addEventListener('submit', () => pads.forEach(pad => { pad.value = png; }));
+        } else {
+          pads.forEach(pad => { pad.value = png; });
+        }
+        return png;
+      }, {jsignature: JSIGNATURE, svg: SVG, writeOnSubmit});
+    }
+    function assertCarriedSignatures(request, png, label) {
+      assert.match(png, /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/, `${label}: canvas wrote a PNG data URI`);
+      const nonces = request.getAll('carlos-data-uri-nonce');
+      assert.equal(nonces.length, 1, `${label}: one nonce`);
+      assert.match(nonces[0], /^[0-9a-f]{32}$/, `${label}: nonce shape`);
+      const ref = index => `carlos-data-uri:${nonces[0]}:${index}`;
+      assert.equal(request.get('SignatureBox'), ref(0), label);
+      assert.equal(request.get('StoreSignature1'), ref(1), label);
+      assert.equal(request.get('MirrorSignature'), ref(0), label);
+      assert.deepEqual(request.getAll('carlos-data-uri'), [png, JSIGNATURE], label);
+      assert.equal(request.get('clinicalNote'), 'Routine follow up.', label);
+      assert.equal(request.get('typedNote'), 'carlos-data-uri:0', `${label}: typed text is never a reference`);
+      assert.equal(request.get('svgDrawing'), SVG, `${label}: SVG is never carried`);
+      for (const [name, value] of request.entries()) {
+        if (name === 'carlos-data-uri' || name === 'carlos-image-link') continue;
+        assert.ok(!/^data:image\/(?:png|jpeg|gif|webp|jsignature);/.test(value), `${label}: ${name} still posts a data URI`);
+      }
     }
     for (const owned of [false,true]) {
       await open(owned);
@@ -752,6 +812,59 @@ const server = http.createServer((req, res) => {
       }, id);
       await page.locator('#'+id+' summary').click();
     }
+    // Every save path carries the signatures; the template's submit handler runs first.
+    for (const path of ['toolbar', 'native', 'form.submit', 'requestSubmit', 'native-onsubmit-writes', 'fields-named-action-method']) {
+      await open();
+      const png = await addSignaturePads(path === 'native-onsubmit-writes');
+      if (path === 'fields-named-action-method') {
+        // Clinic fields named "action" and "method" replace form.action/form.method in the DOM.
+        await page.evaluate(() => document.forms[0].insertAdjacentHTML('beforeend',
+          '<input name="action" value="Follow up"><input name="method" value="Phone">'));
+        assert.equal(await page.evaluate(() => typeof document.forms[0].action), 'object');
+      }
+      if (path === 'toolbar' || path === 'fields-named-action-method') await page.locator('#remoteSubmitButton').click();
+      else if (path === 'form.submit') await page.evaluate(() => document.forms[0].submit());
+      else if (path === 'requestSubmit') await page.evaluate(() => document.forms[0].requestSubmit());
+      else await page.evaluate(() => document.querySelector('input[name=SubmitButton]').click());
+      await page.waitForURL('**/eform/addEForm');
+      assert.equal(requests.length, 1, `signature ${path}`);
+      assertCarriedSignatures(requests[0], png, `signature via ${path}`);
+      if (path === 'toolbar') {
+        // The image placeholder keeps its own channel (WAF 1030) and its JSON value.
+        assert.ok(requests[0].getAll('carlos-image-link').some(value => JSON.parse(value).value === png));
+      }
+    }
+    // A submit button that posts elsewhere keeps the raw values: that destination cannot restore
+    // references. A template handler that cancels it and calls form.submit() saves normally.
+    await open();
+    otherRequests = [];
+    const elsewherePng = await addSignaturePads();
+    await page.evaluate(() => document.forms[0].insertAdjacentHTML('beforeend',
+      '<button id="elsewhereButton" type="submit" formaction="/eform/otherRoute">Elsewhere</button>'));
+    await page.locator('#elsewhereButton').click();
+    await page.waitForURL('**/eform/otherRoute');
+    assert.equal(requests.length, 0);
+    assert.equal(otherRequests.length, 1);
+    assert.equal(otherRequests[0].get('SignatureBox'), elsewherePng, 'formaction elsewhere: raw signature');
+    assert.equal(otherRequests[0].has('carlos-data-uri'), false);
+    await open();
+    const takeoverPng = await addSignaturePads();
+    await page.evaluate(() => {
+      const form = document.forms[0];
+      form.insertAdjacentHTML('beforeend', '<button id="elsewhereButton" type="submit" formaction="/eform/otherRoute">Elsewhere</button>');
+      form.addEventListener('submit', event => { event.preventDefault(); form.submit(); }, {once: true});
+    });
+    await page.locator('#elsewhereButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1, 'form.submit() from the cancelled click saves');
+    assertCarriedSignatures(requests[0], takeoverPng, 'form.submit() inside a cancelled formaction click');
+    // Building the request never touches the page: the fields keep their data URIs.
+    await open();
+    const keptPng = await addSignaturePads();
+    assert.match(await page.evaluate(() => new FormData(document.forms[0]).get('SignatureBox')),
+      /^carlos-data-uri:[0-9a-f]{32}:0$/);
+    assert.equal(await page.locator('#SignatureBox').inputValue(), keptPng);
+    assert.equal(await page.locator('input[name="carlos-data-uri"]').count(), 0);
     await open();
     await page.emulateMedia({media:'print'});
     assert.equal(await page.locator('#toolbarWrapper').isVisible(),false);
@@ -870,8 +983,55 @@ const server = http.createServer((req, res) => {
           `legacy named via ${path}, disabled=${disable}`);
       }
     }
+    // Without the formdata event the same request comes from temporary hidden inputs, for the
+    // toolbar's save, a native submit (after the template's own handler) and form.submit(); a
+    // submission cancelled after them leaves the page exactly as it was on the next task.
+    for (const path of ['toolbar', 'native-onsubmit-writes', 'form.submit']) {
+      await open();
+      assert.equal(await page.evaluate(() => typeof window.FormDataEvent), 'undefined');
+      const png = await addSignaturePads(path === 'native-onsubmit-writes');
+      if (path === 'toolbar') await page.locator('#remoteSubmitButton').click();
+      else if (path === 'form.submit') await page.evaluate(() => document.forms[0].submit());
+      else await page.evaluate(() => document.querySelector('input[name=SubmitButton]').click());
+      await page.waitForURL('**/eform/addEForm');
+      assert.equal(requests.length, 1, `legacy signature ${path}`);
+      assertCarriedSignatures(requests[0], png, `legacy signature via ${path}`);
+    }
+    // A repeated name keeps its value order: the stand-in sits where the signature field was.
+    await open();
+    const sharedPng = await addSignaturePads();
+    await page.evaluate(png => document.forms[0].insertAdjacentHTML('afterbegin', // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- literal page function; the argument is the PNG this page's own canvas produced
+      `<input type="hidden" name="SharedPad" value="${png}"><input name="SharedPad" value="typed second">`), sharedPng);
+    await page.locator('#remoteSubmitButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.match(requests[0].getAll('SharedPad')[0], /^carlos-data-uri:[0-9a-f]{32}:0$/, 'legacy repeated name: signature first');
+    assert.equal(requests[0].getAll('SharedPad')[1], 'typed second', 'legacy repeated name: typed value second');
+    await open();
+    otherRequests = [];
+    const legacyElsewherePng = await addSignaturePads();
+    await page.evaluate(() => document.forms[0].insertAdjacentHTML('beforeend',
+      '<button id="elsewhereButton" type="submit" formaction="/eform/otherRoute">Elsewhere</button>'));
+    await page.locator('#elsewhereButton').click();
+    await page.waitForURL('**/eform/otherRoute');
+    assert.equal(otherRequests.length, 1);
+    assert.equal(otherRequests[0].get('SignatureBox'), legacyElsewherePng, 'legacy formaction elsewhere: raw signature');
+    assert.equal(otherRequests[0].has('carlos-data-uri'), false);
+    await open();
+    const cancelledPng = await addSignaturePads();
+    await page.evaluate(() => {
+      window.addEventListener('submit', event => { event.preventDefault(); window.lateCancel = true; });
+      document.querySelector('input[name=SubmitButton]').click();
+    });
+    await page.waitForFunction(() => window.lateCancel === true);
+    await page.waitForFunction(() => document.querySelectorAll('input[name^="carlos-data-uri"]').length === 0
+      && !document.getElementById('SignatureBox').disabled);
+    assert.equal(requests.length, 0);
+    assert.equal(await page.locator('#SignatureBox').inputValue(), cancelledPng);
+    assert.equal(await page.locator('input[name="SignatureBox"]').count(), 1);
+    assert.equal(await page.locator('#StoreSignature1').inputValue(), JSIGNATURE);
     await page.emulateMedia({media:'print'});
     assert.deepEqual(errors,[]);
-    console.log('PASS toolbar layout, print CSS, hidden subject, early fax initialization, existing input, directory selection and manual recipient POST');
+    console.log('PASS toolbar layout, print CSS, hidden subject, early fax initialization, existing input, directory selection, manual recipient POST and carried signature data URIs');
   } finally {await browser.close(); server.close();}
 })().catch(error => { console.error(error); server.close(); process.exitCode=1; });

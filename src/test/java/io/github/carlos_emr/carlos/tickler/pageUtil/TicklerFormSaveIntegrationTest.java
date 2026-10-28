@@ -64,7 +64,7 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
         tickler.setTaskAssignedTo("999998");
         tickler.setServiceDate(TicklerFormDate.parse("2026-03-04"));
         tickler.setUpdateDate(new Date(1000));
-        when(manager.getTickler(mockLoggedInInfo, 456)).thenReturn(tickler);
+        when(manager.getTicklerForUpdate(mockLoggedInInfo, 456)).thenReturn(tickler);
     }
 
     @ParameterizedTest
@@ -286,7 +286,7 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
             when(manager.updateTickler(any(), any())).thenThrow(new IllegalStateException(privateValue));
         }
         try (LogCapture logs = LogCapture.forLogger(EditTickler2Action.class)) {
-            assertThat(editAction().editTickler()).isEqualTo(invalidIdentifier ? "failure" : "error");
+            assertThat(editAction().editTickler()).isEqualTo(invalidIdentifier ? "failure" : "conflict");
             assertThat(logs.messages()).containsExactly(invalidIdentifier
                     ? "Tickler edit rejected: invalid identifier" : "Tickler update failed: IllegalStateException");
             assertThat(logs.events()).allSatisfy(event -> {
@@ -300,6 +300,8 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
     }
 
     private EditTickler2Action editAction() {
+        // These validation tests submit the current fixture; stale versions have dedicated coverage.
+        mockRequest.setParameter(TicklerEditVersion.PARAMETER, TicklerEditVersion.of(tickler));
         EditTickler2Action action = spy(new EditTickler2Action());
         // CarlosWebTestBase supplies servlet/Spring state; it does not inject Struts' text provider.
         doReturn("tickler.ticklerEdit.arg.error").when(action).getText("tickler.ticklerEdit.arg.error");

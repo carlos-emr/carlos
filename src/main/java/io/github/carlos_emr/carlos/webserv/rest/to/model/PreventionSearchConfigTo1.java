@@ -30,6 +30,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 
 /*
 Data structure to capture this prevention search criteria 
@@ -61,6 +63,7 @@ public class PreventionSearchConfigTo1 {
 
     private String name;
     private int dateCalcType = 0;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date asOfDate;
     private int cutoffTimefromAsOfDate;
     private String cuttoffTimeType = "M";

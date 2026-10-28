@@ -50,10 +50,13 @@ public interface ConsultDocsDao extends AbstractDao<ConsultDocs> {
      * patient-independent eForm, or does not belong to the consultation demographic.
      *
      * <p>It names these attachments to staff, and on save it keeps them attached (the
-     * form cannot list them). It covers eForms and documents, whose attachment queries can
-     * safely validate existence/ownership. Labs are not included: the consult form lists an
-     * unavailable lab itself until its source is selected again. It changes no rows; an audited
-     * cleanup is tracked separately (#4079).</p>
+     * form cannot list them). It covers eForms, documents and HRM reports, whose existence and
+     * patient match can be checked in the database. Labs are not included: the consult form lists
+     * an unavailable lab itself until its source is selected again. An HRM report whose file is
+     * missing or cannot be read is not found here: the file can only be checked on disk, so
+     * {@code DocumentAttachmentManager.getUnavailableConsultAttachmentWarnings} checks it. Form
+     * attachments are not covered. It changes no rows; an audited cleanup is tracked separately
+     * (#4079).</p>
      *
      * @param requestId consultation request id
      * @return active unavailable consultation attachments for the request

@@ -43,6 +43,7 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
 
@@ -104,7 +105,7 @@ public class LoginResourceAction extends HttpServlet {
                     File imagesDir = new File(getImagesDir());
                     image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
                 } catch (SecurityException e) {
-                    log.warn("Path validation rejected for filename: {}", sanitizedFilename);
+                    log.warn("Rejected an invalid login resource path");
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
                     return;
                 }
@@ -137,7 +138,7 @@ public class LoginResourceAction extends HttpServlet {
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Unexpected error in LoginResourceAction", e);
+            log.error("Unexpected error in LoginResourceAction{}", LogSafe.exceptionTrace(e));
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");

@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -30,14 +30,21 @@
 
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import org.apache.commons.codec.binary.Base64;
+
 import java.io.IOException;
-import java.util.Vector;
+import java.util.Arrays;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.ErrorPageMessage;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -50,20 +57,25 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 action for viewing PDF attachments stored in XML format within messages.
- * 
- * <p>This action retrieves and displays PDF attachments that have been stored in an
- * XML structure within the session. It handles PDF files that were attached to messages
- * using the XML-based attachment system where multiple PDF files can be embedded within
- * a single XML document structure with CONTENT tags.</p>
- * 
+ *
+ * <p>This action retrieves and displays one PDF attachment of the message named by
+ * {@code attId}, which the attachment list ({@code ViewPDFAttachment.jsp}) posts with the
+ * file's index. It handles PDF files that were attached to messages using the XML-based
+ * attachment system where multiple PDF files can be embedded within a single XML document
+ * structure with CONTENT tags.</p>
+ *
+ * <p>The list used to be read from the session, where the attachment list last opened in any
+ * window had copied its message's PDFs, so with two viewer windows open a download from one
+ * returned the other message's document, possibly for another patient (issue #4673).</p>
+ *
  * <p>Key functionality:</p>
  * <ul>
  *   <li>Validates read permissions for messaging</li>
- *   <li>Retrieves PDF attachment XML from session</li>
+ *   <li>Retrieves the PDF attachment XML of the message named by {@code attId}</li>
  *   <li>Extracts specific PDF by file ID from XML structure</li>
  *   <li>Streams PDF content directly to browser</li>
  * </ul>
- * 
+ *
  * <p>The PDF attachment storage format:</p>
  * <ul>
  *   <li>PDFs are stored as Base64-encoded strings within XML</li>
@@ -71,14 +83,17 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  *   <li>Each PDF is wrapped in a CONTENT tag</li>
  *   <li>Files are accessed by their index (file_id)</li>
  * </ul>
- * 
+ *
  * <p>Error handling:</p>
  * <ul>
- *   <li>Returns SUCCESS even on errors to prevent error page display</li>
- *   <li>Logs exceptions but doesn't propagate them to user</li>
- *   <li>No validation that file_id is within bounds</li>
+ *   <li>Returns NONE after streaming PDF content directly to the response</li>
+ *   <li>Rejects a missing, non-numeric or out-of-range file_id with HTTP 400</li>
+ *   <li>Answers a named message that holds no PDF attachment with HTTP 404</li>
+ *   <li>Answers unreadable attachment XML, or an attachment that is not a PDF, with HTTP 500</li>
+ *   <li>Shows each refusal on the CARLOS error page with a short translated message saying what to do
+ *       ({@link ErrorPageMessage}); no request value is echoed</li>
  * </ul>
- * 
+ *
  * @version 2.0
  * @since 2003
  * @see Doc2PDF
@@ -87,10 +102,30 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  */
 public class MsgViewPDF2Action extends ActionSupport {
     /**
+     * Message shown on the error page with HTTP 400 when file_id is missing, not a number, or out of range.
+     */
+    static final String INVALID_FILE_ID = "messenger.ViewPDFFile.invalidFileId";
+
+    /**
+     * Message shown on the error page with HTTP 404 when the message holds no PDF attachment to view.
+     */
+    static final String NO_ATTACHMENT = "messenger.ViewPDFFile.noAttachment";
+
+    /**
+     * Message shown on the error page with HTTP 500 when the message attachment cannot be read.
+     */
+    static final String UNREADABLE = "messenger.ViewPDFFile.unreadable";
+
+    /**
+     * Bytes every PDF starts with; checked before anything is written to the response.
+     */
+    private static final byte[] PDF_HEADER = new byte[] {'%', 'P', 'D', 'F', '-'};
+
+    /**
      * HTTP request object for accessing session data.
      */
     HttpServletRequest request = ServletActionContext.getRequest();
-    
+
     /**
      * HTTP response object for streaming PDF content to browser.
      */
@@ -103,25 +138,25 @@ public class MsgViewPDF2Action extends ActionSupport {
 
     /**
      * Executes the PDF viewing workflow.
-     * 
+     *
      * <p>This method performs the following operations:</p>
      * <ol>
      *   <li>Validates that the user has read permissions for messaging</li>
-     *   <li>Retrieves the PDF attachment XML from the session</li>
+     *   <li>Retrieves the PDF attachment XML of the message named by {@code attId}</li>
      *   <li>Parses the XML to extract CONTENT tags containing PDFs</li>
      *   <li>Retrieves the specific PDF by its index (file_id)</li>
-     *   <li>Streams the PDF binary content to the browser</li>
+     *   <li>Checks that it is a PDF, then streams it to the browser</li>
      * </ol>
-     * 
-     * <p>The method expects the PDF attachment data to be stored in the session
-     * under the key "PDFAttachment" as an XML string. The file_id parameter
-     * indicates which PDF to extract from the XML (0-based index).</p>
-     * 
-     * <p>Error handling is minimal - exceptions are logged but the method
-     * returns SUCCESS regardless to prevent error pages from displaying.
-     * This could result in blank responses if the PDF cannot be retrieved.</p>
-     * 
-     * @return SUCCESS constant regardless of whether PDF was successfully displayed
+     *
+     * <p>The PDF attachment XML is read from the message named by {@code attId}; the
+     * file_id parameter indicates which PDF to extract from the XML (0-based index).
+     * Without a message nothing is streamed.</p>
+     *
+     * <p>The action owns its response: it streams the PDF, or answers 400 for a malformed index
+     * and 404 when the message has no such PDF, and always returns {@code NONE}, so no page is
+     * ever rendered after the PDF bytes.</p>
+     *
+     * @return {@link #NONE}, after the response has been written
      * @throws IOException if there's an error writing to response stream
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks read permissions for messaging
@@ -132,44 +167,98 @@ public class MsgViewPDF2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
+        // Validate the index before reading any message or attachment data.
+        int fileId;
         try {
-            // Retrieve PDF attachment XML from session
-            String pdfAttachment = (String) request.getSession().getAttribute("PDFAttachment");
-            String id = this.getFile_id();
-            int fileID = Integer.parseInt(id);
-
-            if (pdfAttachment != null && pdfAttachment.length() != 0) {
-                // Extract all CONTENT tags from XML
-                Vector attVector = Doc2PDF.getXMLTagValue(pdfAttachment, "CONTENT");
-                // Get the specific PDF by index
-                String pdfFile = (String) attVector.elementAt(fileID);
-                // Stream PDF to browser
-                Doc2PDF.PrintPDFFromBin(response, pdfFile);
-            }
-        } catch (Exception e) {
-            // Log error but return SUCCESS to avoid error page
-            MiscUtils.getLogger().error("Error", e);
-            return SUCCESS;
+            fileId = Integer.parseInt(this.getFile_id());
+        } catch (NumberFormatException malformed) {
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_BAD_REQUEST, INVALID_FILE_ID);
+            return NONE;
         }
-
-        return SUCCESS;
+        // Authorize the named message, never the last attachment list opened in this session.
+        int messageId = ConversionUtils.fromIntString(attId);
+        MessageTbl message = messageId > 0
+                ? MsgAttachmentAccess.find(LoggedInInfo.getLoggedInInfoFromSession(request), messageId,
+                        request.getParameter("chartPatientNo")) : null;
+        byte[] attachment = message == null ? null : message.getPdfAttachment();
+        if (attachment == null || attachment.length == 0) {
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_NOT_FOUND, NO_ATTACHMENT);
+            return NONE;
+        }
+        List<?> contents;
+        try {
+            contents = Doc2PDF.getXMLTagValue(new String(attachment, StandardCharsets.UTF_8), "CONTENT");
+        } catch (Exception unreadable) {
+            // No attachment content in the log: the list is a patient's chart.
+            MiscUtils.getLogger().error("A message's PDF attachment list could not be read");
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, UNREADABLE);
+            return NONE;
+        }
+        if (fileId < 0 || fileId >= contents.size()) {
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_BAD_REQUEST, INVALID_FILE_ID);
+            return NONE;
+        }
+        byte[] pdf = Base64.decodeBase64((String) contents.get(fileId));
+        if (!isPdf(pdf)) {
+            MiscUtils.getLogger().warn("A message attachment did not contain a PDF");
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, UNREADABLE);
+            return NONE;
+        }
+        Doc2PDF.PrintPDFFromBytes(response, pdf);
+        return NONE;
     }
+
+    /**
+     * Checks that decoded attachment bytes start with the PDF header.
+     *
+     * @param bytes byte[] the decoded attachment
+     * @return true if the bytes start with {@code %PDF-}
+     */
+    private static boolean isPdf(byte[] bytes) {
+        return bytes.length >= PDF_HEADER.length
+                && Arrays.equals(bytes, 0, PDF_HEADER.length, PDF_HEADER, 0, PDF_HEADER.length);
+    }
+
     /**
      * Attachment parameter, currently not used in implementation.
      */
     String attachment = null;
-    
+
     /**
      * Index of the PDF file to retrieve from the XML structure.
      */
     String file_id = null;
 
     /**
+     * The message whose PDF attachments the file index refers to.
+     */
+    String attId = null;
+
+    /**
+     * Sets the message the attachment belongs to.
+     *
+     * @param attId String the message id posted by the attachment list
+     */
+    @StrutsParameter
+    public void setAttId(String attId) {
+        this.attId = attId;
+    }
+
+    /**
+     * Gets the message the attachment belongs to.
+     *
+     * @return String the message id
+     */
+    public String getAttId() {
+        return attId;
+    }
+
+    /**
      * Sets the attachment parameter.
-     * 
+     *
      * <p>Note: This parameter is not currently used in the execute method.
      * The actual attachment is retrieved from the session.</p>
-     * 
+     *
      * @param attachment String the attachment parameter
      */
     @StrutsParameter
@@ -179,7 +268,7 @@ public class MsgViewPDF2Action extends ActionSupport {
 
     /**
      * Gets the attachment parameter.
-     * 
+     *
      * @return String the attachment parameter
      */
     public String getAttachment() {
@@ -188,7 +277,7 @@ public class MsgViewPDF2Action extends ActionSupport {
 
     /**
      * Sets the file ID index for PDF retrieval.
-     * 
+     *
      * @param file_id String the 0-based index of the PDF to retrieve
      */
     @StrutsParameter
@@ -198,7 +287,7 @@ public class MsgViewPDF2Action extends ActionSupport {
 
     /**
      * Gets the file ID index.
-     * 
+     *
      * @return String the file ID index
      */
     public String getFile_id() {

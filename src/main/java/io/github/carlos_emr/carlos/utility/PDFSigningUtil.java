@@ -285,6 +285,19 @@ public final class PDFSigningUtil {
         }
     }
 
+    /**
+     * Returns only the certificate of the actual configured, validated signing key.
+     * Callers must not treat the configured alias as a complete historical key catalogue.
+     * Existing RSA/EC PDF signing behaviour is unchanged.
+     */
+    public static X509Certificate currentSigningCertificate(PDFSigningConfig config) throws IOException {
+        if (config == null || !config.isEnabled()) {
+            throw new IOException("PDF signing is not enabled");
+        }
+        config.validateEnabled();
+        return loadSigningMaterial(config).signingCertificate();
+    }
+
     /** {@code b64url(SHA-256(SubjectPublicKeyInfo DER))}, the clinic key ID myCarlos pins. */
     static String keyId(X509Certificate certificate) throws IOException {
         try {

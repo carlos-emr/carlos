@@ -1,65 +1,13 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
- * Chart issues: assigning an issue to a note, listing it in the Issues module, filtering the notes by it,
- * getting every note back, resolving it, and the notes filter panel.
- *
- * WHY THIS CHECK EXISTS. A clinician uses an issue to gather the notes of one problem: the note is linked to a
- * patient issue (casemgmt_issue through casemgmt_issue_notes), the Issues module in the chart's right column
- * lists that issue, clicking it narrows the notes area to the notes linked to it, and the module's heading is
- * the way back to every note. Resolving the issue moves it from the Issues module to Resolved Issues. Nothing
- * else in the suite drives any of this: cpp-note-extension-archive and gap-clinical-cpp-boxes save CPP items
- * and read their link to the box's own issue, echart-navbar-modules only looks at the module headings.
- *
- * What the application does, read from the source before asserting:
- *   - Assign: the CPP item editor (the "+" of a CPP box) has an "Assign Issues" text box (#issueAutocompleteCPP,
- *     jQuery UI autocomplete on CaseManagementEntry?method=issueList). The main note editor's own controls
- *     (#issueAutocomplete, #asgnIssues) are driven by newCaseManagementView.js.jsp but no template renders them.
- *   - Issues module (EctDisplayIssues2Action): the patient's unresolved casemgmt_issue rows, minus the CPP
- *     codes. An item runs setIssueCheckbox(<casemgmt_issue.id>); filter(false), an ajax POST of
- *     CaseManagementEntry (method=edit, ajaxview) that replaces the notes area with the linked notes.
- *   - Heading: EctDisplayIssues2Action / EctDisplayResolvedIssues2Action give the heading the statement
- *     $('check_issue').value='';document.caseManagementViewForm.submit(), which LeftNavBarDisplay.jsp writes
- *     into an onclick through the javaScriptAttribute encoder.
- *   - Resolve: the note editor's "Reference Unresolved Issues" checklist (noteIssueList.jsp) holds the
- *     issue's Resolved radio; issueChange saves casemgmt_issue.resolved at once.
- *   - Filter panel: ChartNotes.jsp renders <div id="filter" style="display:none"> with the provider, role,
- *     sort and issue filters; showFilter() is its only revealer.
- *
- * THE CATALOG ISSUE. The brief names "issue 250"; the packaged catalog has no such issue (72 rows: the CPP and
- * system codes and the counsellor and CSW lists). The check assigns catalog row CTCMM1000 "Safety" (role
- * counsellor), which the chart's issue search offers the test provider, read by code so no id is hard-coded.
- *
- * ONE ENTRY PER DEFECT. A script stops at its first failing step, so one run cannot pin two defects. The
- * ECHART_ISSUES_PIN variable picks the entry (the manifest runs the script once per value):
- *   unset    The real assignment path, CPP editor > Assign Issues > Sign & Save. Pinned to finding 225: the box
- *            suggests the issue and takes the pick, and the save links the note to its own CPP issue only.
- *            The steps after the pin (module, filter, heading) are the same functions the seeded entries run.
- *   editor   The main note editor offers an Assign Issues search box and button. Pinned to finding 186.
- *   heading  A SEEDED link (see below), the Issues module lists the issue, clicking it lists only the linked
- *            note, then the heading brings every note back. Pinned to finding 226.
- *   resolve  A SEEDED link, the module lists the issue, then resolving: the clinician's way to the control is
- *            recorded, a control step proves the server side by revealing the hidden checklist with a script
- *            (resolved=1, Resolved Issues lists it, its item filters to the note), and the pin asserts that a
- *            clinician could reach the control. Pinned to finding 227.
- *   panel    A SEEDED link, the filter panel is in the page and closed, a clinician can open it. Pinned to
- *            finding 185.
- *   radios   A SEEDED link; with a FULL-rights login (the test provider) and the checklist revealed by a script, the
- *            Certain, Uncertain, Major and Not Major radios and the role box of the issue are enabled. Pinned to
- *            finding 261: noteIssueList.jsp writes disabled="${disabled}" for them in the unresolved list, which
- *            prints disabled="false", a boolean attribute, so they are disabled whatever the user's rights.
- *
- * SEEDED LINK. Findings 186 and 225 mean no UI route assigns an issue, so the entries that exercise what comes
- * after the assignment write the casemgmt_issue row and its casemgmt_issue_notes link with SQL. That is a
- * fixture, not a UI path, and its step says so. Everything after it is driven through the chart.
- *
- * Fixtures: the workflow's owned FAKE patient; two notes written through the chart's note editor (Sign & Save);
- * in the unset entry one CPP Social History item instead of the first note. Cleanup deletes, by the patient key,
- * every note (with its link, extension and issue rows), the patient's casemgmt_issue rows, the CPP summary, draft,
- * note lock and eChart row, and asserts them all gone. The catalog row is only read. No clinic-wide state changes.
- *
- * Expected: every step passes except the pinned one of each entry (see the manifest); a step named in an
- * expectedFailure contains only the assertion its finding breaks.
+ * Real chart issue assignments and note filters (#4586, #4560, #4587, #4559).
+ * Unset ECHART_ISSUES_PIN drives CPP assignment and form isolation. `editor` assigns to a new
+ * note and an edited saved note, reading the returned latest revision rather than assuming
+ * stable IDs. `heading` clicks both module headings after filtering. `panel` drives opening,
+ * hiding, filtering, and resetting. Existing `resolve` and `radios` pins cover separate defects.
+ * Seeded heading/panel fixtures isolate those controls from assignment failures. Every note,
+ * patient issue, link, extension, draft and lock belongs to the workflow's disposable patient.
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -230,8 +178,8 @@ async function workflow(s) {
       notes.a = (await writeSignedNote(`${marker} note alpha`)).id;
       notes.b = (await writeSignedNote(`${marker} note beta`)).id;
     });
-    // Findings 186 and 225: no UI route assigns the issue, so the link is written with SQL.
-    await s.step('(fixture) the issue is linked to the first note with SQL, because no UI route assigns it (findings 186 and 225)', async () => {
+    // Keep heading/filter checks independent of the assignment workflow.
+    await s.step('(fixture) the issue is linked to the first note with SQL to isolate filtering', async () => {
       const program = sql.value(`SELECT program_no FROM casemgmt_note WHERE note_id=${notes.a}`);
       h.assert(/^\d+$/.test(program), 'The first note has no program');
       const id = sql.value(`INSERT INTO casemgmt_issue (demographic_no, issue_id, acute, certain, major, resolved, program_id, type, update_date)
@@ -239,6 +187,10 @@ async function workflow(s) {
       h.assert(/^[1-9]\d*$/.test(id), 'The casemgmt_issue fixture was not created');
       sql.execute(`INSERT INTO casemgmt_issue_notes (id, note_id) VALUES (${id}, ${notes.a})`);
       h.assert(caseIssue(issueId, notes.a) !== null, 'The seeded link is not readable through casemgmt_issue_notes');
+      if (PIN === 'heading') {
+        // Distinct owned dates make retained ascending sort observable, independent of save timing.
+        sql.execute(`UPDATE casemgmt_note SET observation_date=CASE note_id WHEN ${notes.a} THEN '2026-08-01 10:00:00' ELSE '2026-08-02 10:00:00' END WHERE note_id IN (${notes.a},${notes.b}) AND demographic_no=${patient}`);
+      }
     });
   }
 
@@ -272,8 +224,8 @@ async function workflow(s) {
     });
   }
 
-  async function stepClickFilters() {
-    await s.step('clicking the issue in the Issues module lists only the linked note', async () => {
+  async function stepClickFilters(label = 'clicking the issue in the Issues module lists only the linked note') {
+    await s.step(label, async () => {
       const chart = await s.chart();
       const before = Number(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`));
       const filterPost = candidate => chartSaveRequest('edit')(candidate.request())
@@ -292,11 +244,61 @@ async function workflow(s) {
   }
 
   /** Click the Issues heading; the finding-226 pin when it is the last step of the heading entry. */
-  async function stepHeading() {
-    await s.step(STEP.heading, async () => {
+  async function stepHeading(module = 'unresolvedIssues') {
+    await s.step(module === 'unresolvedIssues' ? STEP.heading : 'clicking the Resolved Issues heading brings every note back', async () => {
       const chart = await s.chart();
-      await chart.locator('#unresolvedIssues .nav-menu-title a').first().click({ timeout: TIMEOUT });
-      await waitForListed(chart, [notes.a, notes.b], 'After the heading was clicked the notes area does not list every note', 8000);
+      if (PIN !== 'heading') {
+        await chart.locator(`#${module} .nav-menu-title button`).first().click({ timeout: TIMEOUT });
+        await waitForListed(chart, [notes.a, notes.b], 'After the heading was clicked the notes area does not list every note', 8000);
+        return;
+      }
+      const link = caseIssue(issueId, notes.a);
+      h.assert(link !== null && /^[1-9]\d*$/.test(link.id), 'The seeded issue link is missing before clearing its heading filter');
+      const [provider, role] = sql.rows(`SELECT provider_no, reporter_caisi_role FROM casemgmt_note WHERE note_id=${notes.a}`)[0];
+      h.assert(/^\d+$/.test(provider) && /^\d+$/.test(role), 'The note fixture has no provider/role filter values');
+      await chart.locator('#notesFilterToggle').click();
+      const retained = { filter_providers: provider, filter_roles: role, note_sort: 'observation_date_asc' };
+      for (const [name, value] of Object.entries(retained)) {
+        await chart.locator(`#filter input[name="${name}"][value="${value}"]`).check();
+      }
+      await chart.locator(`#filter input[name="issues"][value="${link.id}"]`).check();
+      // Exercise the legacy hidden constraint as well as the visible issue checkbox.
+      await chart.locator('#check_issue').evaluate((input, value) => { input.value = value; }, `${link.id}.${issueId}`);
+      const previousFilter = await chart.locator('#filter').elementHandle();
+      const [applied] = await Promise.all([
+        chart.waitForResponse(candidate => chartSaveRequest('edit')(candidate.request())
+          && new URLSearchParams(candidate.request().postData() || '').get('ajaxview') === 'ajaxView', { timeout: TIMEOUT }),
+        chart.locator('#filter input[type="button"][value="Hide"]').click(),
+      ]);
+      h.assert(applied.status() === 200, 'Applying provider/role/sort and issue filters failed');
+      await chart.waitForFunction(element => !element.isConnected, previousFilter, { timeout: TIMEOUT });
+      await previousFilter.dispose();
+      await waitForListed(chart, [notes.a], 'Applying the selected filters did not retain only the issue-linked note');
+      for (const [name, value] of Object.entries({...retained, issues: link.id})) {
+        h.assert(await chart.locator(`#filter input[name="${name}"][value="${value}"]`).isChecked(),
+          `Apply lost the selected ${name} before the heading was clicked`);
+      }
+      h.assert(await chart.locator('#check_issue').inputValue() === `${link.id}.${issueId}`,
+        'Apply lost the legacy issue constraint before the heading was clicked');
+      const [response] = await Promise.all([
+        chart.waitForResponse(candidate => chartSaveRequest('edit')(candidate.request())
+          && new URLSearchParams(candidate.request().postData() || '').get('ajaxview') === 'ajaxView', { timeout: TIMEOUT }),
+        chart.locator(`#${module} .nav-menu-title button`).first().click({ timeout: TIMEOUT }),
+      ]);
+      h.assert(response.status() === 200, 'Clearing the issue filter failed');
+      const data = new URLSearchParams(response.request().postData() || '');
+      h.assert(data.get('resetFilter') === 'false' && data.get('check_issue') === '' && !data.has('issues'),
+        'The heading did not clear both issue controls without resetting every filter');
+      for (const [name, value] of Object.entries(retained)) {
+        h.assert(data.get(name) === value, `The heading discarded the selected ${name}`);
+      }
+      await waitForListed(chart, [notes.a, notes.b], 'After the heading was clicked the notes area does not list both matching notes', 8000);
+      h.assert((await listedIds(chart)).join(',') === [notes.a, notes.b].join(','), 'The heading lost ascending note sort order');
+      const selected = await chart.locator('#filter input:checked').evaluateAll(inputs => inputs.map(input => ({name: input.name, value: input.value})));
+      const missing = Object.entries(retained).filter(([name, value]) => !selected.some(input => input.name === name && input.value === value)).map(([name]) => name);
+      h.assert(missing.length === 0, `The refreshed filter controls lost selections: ${missing.join(', ')}`);
+      h.assert(await chart.locator('#check_issue').inputValue() === '' && selected.every(input => input.name !== 'issues'),
+        'The refreshed filter controls retained an issue constraint');
     });
   }
 
@@ -313,10 +315,16 @@ async function workflow(s) {
       await chart.locator(CPP_DIALOG).waitFor({ state: 'visible', timeout: TIMEOUT });
       await chart.locator('#noteEditTxt').fill(cppText);
       h.assert(await chart.locator('#issueAutocompleteCPP').isVisible(), 'The CPP editor has no visible Assign Issues box');
-      const picked = await ui.typeAutocomplete(chart, '#issueAutocompleteCPP', issueName, {
-        option: issueName, hidden: '#newIssueId', timeout: TIMEOUT });
-      h.assert(picked === issueId, `Picking "${issueName}" registered issue ${picked}, expected ${issueId}`);
-      h.assert(await chart.locator('#issueAutocompleteCPP').inputValue() === issueName, 'The Assign Issues box does not show the picked issue');
+      const noteSelection = await chart.locator('#newIssueId').inputValue();
+      const noteName = await chart.locator('#newIssueName').inputValue();
+      await ui.typeAutocomplete(chart, '#issueAutocompleteCPP', issueName, { option: issueName, timeout: TIMEOUT });
+      const choice = chart.locator(`#frmIssueNotes input[name="issue_id"][value="${issueId}"]`);
+      h.assert(await choice.count() === 1 && await choice.isChecked(), 'The CPP pick did not create a checked issue_id control');
+      h.assert((await choice.locator('..').innerText()).includes(issueName), 'The CPP pick is not shown in the issue list');
+      await ui.typeAutocomplete(chart, '#issueAutocompleteCPP', issueName, { option: issueName, timeout: TIMEOUT });
+      h.assert(await choice.count() === 1, 'Picking the same issue twice duplicated the CPP assignment');
+      h.assert(await chart.locator('#newIssueId').inputValue() === noteSelection
+        && await chart.locator('#newIssueName').inputValue() === noteName, 'CPP selection contaminated the note form');
     });
 
     await s.step('(control) Sign & Save in the CPP editor saves the item and links it to its own CPP issue', async () => {
@@ -360,6 +368,57 @@ async function workflow(s) {
       const button = await chart.locator('#asgnIssues').first().isVisible();
       h.assert(box && button, `The note editor shows no way to search for an issue and assign it (search box ${box ? 'shown' : 'missing'}, Assign button ${button ? 'shown' : 'missing'})`);
     });
+    async function assignFromNote(chart) {
+      await chart.waitForFunction(() => issueUpdatesPending === 0, null, { timeout: TIMEOUT });
+      const cppBefore = await chart.locator('#frmIssueNotes input[name="issue_id"]').evaluateAll(inputs =>
+        inputs.map(input => [input.value, input.checked]));
+      const picked = await ui.typeAutocomplete(chart, '#issueAutocomplete', issueName, {
+        option: issueName, hidden: '#newIssueId', timeout: TIMEOUT });
+      h.assert(picked === issueId, 'The note search selected the wrong catalog issue');
+      const [response] = await Promise.all([
+        chart.waitForResponse(candidate => chartSaveRequest('makeIssue')(candidate.request()), { timeout: TIMEOUT }),
+        chart.locator('#asgnIssues').click(),
+      ]);
+      h.assert(response.status() === 200, `Assign answered HTTP ${response.status()}`);
+      await chart.waitForFunction(() => issueUpdatesPending === 0, null, { timeout: TIMEOUT });
+      h.assert(await chart.locator('#noteIssues input[name$=".checked"]:checked').count() === 1,
+        'Assign did not preserve the selected issue in the replacement note fragment');
+      h.assert(await chart.locator('#issueAutocomplete').isEnabled() && await chart.locator('#asgnIssues').isEnabled(),
+        'The replacement note fragment did not restore working issue controls');
+      const cppAfter = await chart.locator('#frmIssueNotes input[name="issue_id"]').evaluateAll(inputs =>
+        inputs.map(input => [input.value, input.checked]));
+      h.assert(JSON.stringify(cppBefore) === JSON.stringify(cppAfter), 'Note assignment contaminated the CPP form');
+    }
+    await s.step('a new note saves the issue selected through its own Assign control', async () => {
+      const chart = await s.chart();
+      const text = `${marker} assigned new note`;
+      await noteField(chart).fill(text);
+      await assignFromNote(chart);
+      await pressAndExit(chart, SIGN_SAVE);
+      notes.a = (await waitForNote(text, 'Assigned new note was not saved')).id;
+      h.assert(caseIssue(issueId, notes.a) !== null, 'The new note lost the assigned issue on save');
+    });
+    await s.step('a separate new note starts without the preceding note assignment', async () => {
+      notes.b = (await writeSignedNote(`${marker} plain note before edit`)).id;
+      h.assert(caseIssue(issueId, notes.b) === null, 'The new note inherited another note assignment');
+    });
+    await s.step('editing a saved note can assign an issue and saves it on the latest revision', async () => {
+      const chart = await s.chart();
+      const oldId = notes.b;
+      await chart.locator(`#edit${oldId}`).click({ timeout: TIMEOUT });
+      const editor = chart.locator(`#caseNote_note${oldId}`);
+      await editor.waitFor({ state: 'visible', timeout: TIMEOUT });
+      await chart.waitForFunction(() => issueUpdatesPending === 0, null, { timeout: TIMEOUT });
+      await editor.fill(`${await editor.inputValue()}\n${marker} assigned edited revision`);
+      await assignFromNote(chart);
+      await pressAndExit(chart, SIGN_SAVE);
+      notes.b = (await waitForNote(`${marker} assigned edited revision`, 'The edited note was not saved')).id;
+      h.assert(caseIssue(issueId, notes.b) !== null, 'The latest saved revision lost its assigned issue');
+      h.assert(caseIssue(issueId, oldId) === null, 'Assigning the edited note changed the prior revision');
+      const reopened = await s.chart();
+      await waitForListed(reopened, [notes.a, notes.b], 'The chart did not display the latest note revisions');
+      h.assert(await reopened.locator(`#edit${notes.b}`).count() === 1, 'The edit control does not address the latest saved note id');
+    });
     return;
   }
 
@@ -372,6 +431,18 @@ async function workflow(s) {
     await stepClickFilters();
     // Finding 226. The click is the behaviour under test: the heading's handler is a syntax error, so nothing changes.
     await stepHeading();
+    await stepClickFilters('after filter restoration, the sidebar issue still narrows the list to its linked note');
+    await s.step('(fixture) resolving the owned issue exposes its Resolved Issues module link', async () => {
+      const chart = await s.chart();
+      await leaveChart(chart);
+      const link = caseIssue(issueId, notes.a);
+      h.assert(link !== null && /^[1-9]\d*$/.test(link.id), 'The seeded issue link is missing before resolving it');
+      sql.execute(`UPDATE casemgmt_issue SET resolved=1 WHERE id=${link.id} AND demographic_no=${patient}`);
+      const reopened = await s.chart();
+      await reopened.locator('#resolvedIssueslist a.links').first().click({ timeout: TIMEOUT });
+      await waitForListed(reopened, [notes.a], 'The resolved issue did not filter to its linked note');
+    });
+    await stepHeading('resolvedIssues');
     return;
   }
 
@@ -505,6 +576,36 @@ async function workflow(s) {
     h.assert(named.length > 0, 'No visible control in the chart is labelled Filter, so a clinician has no way to open the notes filter panel');
     await chart.locator('[data-pw-filter-opener="0"]').click({ timeout: TIMEOUT });
     h.assert(await chart.locator('#filter').isVisible(), `Clicking the Filter control (${named[0]}) did not open the notes filter panel`);
+    h.assert(await chart.locator('#notesFilterToggle').getAttribute('aria-expanded') === 'true', 'Filter expansion is not announced');
+  });
+  await s.step('the filter can hide and reopen, apply an issue selection, and reset to every note', async () => {
+    const chart = await s.chart();
+    const link = caseIssue(issueId, notes.a);
+    await chart.locator('#notesFilterToggle').click();
+    h.assert(!(await chart.locator('#filter').isVisible()), 'Filter toggle did not hide the panel');
+    await chart.locator('#notesFilterToggle').click();
+    await chart.locator(`#filter input[name="issues"][value="${link.id}"]`).check();
+    const [response] = await Promise.all([
+      chart.waitForResponse(candidate => chartSaveRequest('edit')(candidate.request()), { timeout: TIMEOUT }),
+      chart.locator('#filter input[type="button"][value="Hide"]').click(),
+    ]);
+    h.assert(response.status() === 200, 'Applying the filter failed');
+    await waitForListed(chart, [notes.a], 'The filter did not restrict the list to the linked note');
+    h.assert(!(await chart.locator('#filter').isVisible()), 'The applied filter panel did not close');
+    await chart.locator('#notesFilterToggle').click();
+    await chart.locator(`#filter input[name="issues"][value="${link.id}"]`).check();
+    await chart.locator('#filter input[name="note_sort"]').first().check();
+    const [reset] = await Promise.all([
+      chart.waitForRequest(chartSaveRequest('edit'), { timeout: TIMEOUT }),
+      chart.locator('#filter input[type="button"][onclick="return filter(true);"]').click(),
+    ]);
+    const data = new URLSearchParams(reset.postData() || '');
+    h.assert(data.get('resetFilter') === 'true' && !data.has('issues') && !data.has('note_sort'),
+      'Reset submitted selected issue or sort filters');
+    await waitForListed(chart, [notes.a, notes.b], 'Reset did not restore every note');
+    await chart.locator('#notesFilterToggle').click();
+    h.assert(await chart.locator('#filter').isVisible(), 'The replacement filter panel cannot reopen');
+    h.assert(await chart.locator('#filter input:checked').count() === 0, 'Reset left selected filters behind');
   });
 }
 

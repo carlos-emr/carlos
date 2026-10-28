@@ -66,10 +66,15 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { serverLogFromEnvironment, verifyStorageFailureLog } = require('./lib/server-log');
 
+const { createFaultReceipt, ownedTriggerStatements, observeOwnedTrigger, dropOwnedTrigger, normalize, sha } = require('./lib/lab-rollback-fault-proof');
+
 const contextPathOf = (baseUrl) => new URL(baseUrl).pathname.replace(/\/+$/, '');
 
-/** A minimal CML ORU^R01 v2.3 message for the run's synthetic patient. */
-function syntheticCmlLab(accession, patientLast) {
+/**
+ * A minimal CML ORU^R01 v2.3 message for the run's synthetic patient. A non-empty `hin` is sent
+ * as the alternate patient id (PID-4), where the CML handler reads the health number.
+ */
+function syntheticCmlLab(accession, patientLast, hin = '') {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
   const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`
@@ -78,7 +83,7 @@ function syntheticCmlLab(accession, patientLast) {
     // The backslash is doubled so the template literal emits MSH-2 as the four HL7 encoding
     // characters ^~\&; HAPI rejects anything shorter before the CML handler sees the message.
     `MSH|^~\\&|Reports|CML|||${ts}-500||ORU^R01||1|2.3`,
-    `PID|1|||^^ON|${patientLast}^Workflow||19800102|F`,
+    `PID|1|||${hin}^^ON|${patientLast}^Workflow||19800102|F`,
     `ORC|NW|${accession}|||F|||||||999998^DR. PROBE|||${ts.slice(0, 8)}`,
     `OBR|1|${accession}||ML70^SYNTHETIC PANEL||${ts.slice(0, 8)}|${ts.slice(0, 8)}|||||||||999998^DR. PROBE|||||||||F`,
     'OBX|1|ST|7010^SYNTHETIC RESULT|^^CHEMISTRY|NORMAL|||N|||F||765^1007010||70',
@@ -113,11 +118,12 @@ async function openUploader(session) {
 }
 
 /** Upload one file as a CML lab and return the status text the page reports for it. */
-async function uploadThroughPopup(session, filePath, fileName) {
+async function uploadThroughPopup(session, filePath, fileName, proof, phase) {
   const { inbox, popup } = await openUploader(session);
   try {
     await popup.locator('#importFiles').setInputFiles(filePath);
     await popup.locator('#type').selectOption('CML');
+    if (proof) proof.request(phase, { startedAt: new Date().toISOString() });
     const [response] = await Promise.all([
       popup.waitForResponse((r) => r.request().method() === 'POST'
         && new URL(r.url()).pathname.endsWith('/lab/CA/ALL/insideLabUpload'), { timeout: 60000 }),
@@ -127,7 +133,16 @@ async function uploadThroughPopup(session, filePath, fileName) {
     await popup.waitForLoadState('domcontentloaded');
     const item = popup.locator('#file-list .file-item').filter({ hasText: fileName });
     await item.first().waitFor({ state: 'visible', timeout: 20000 });
-    return (await item.first().locator('.upload-text').innerText()).trim();
+    const outcome = (await item.first().locator('.upload-text').innerText()).trim();
+    if (proof) {
+      const actual = new URL(response.url());
+      h.assert(actual.origin === new URL(session.config.baseUrl).origin
+        && actual.pathname === contextPathOf(session.config.baseUrl) + '/lab/CA/ALL/insideLabUpload'
+        && !actual.search && !actual.hash, 'Rollback receipt must name the actual same-origin upload route');
+      proof.request(phase, {method: response.request().method(), path: '/lab/CA/ALL/insideLabUpload',
+        status: response.status(), outcome, finishedAt: new Date().toISOString()});
+    }
+    return outcome;
   } finally {
     await popup.close().catch(() => {});
     await inbox.close().catch(() => {});
@@ -217,6 +232,21 @@ async function workflow(session, options = {}) {
   let triggerMayExist = false;
   const fileName = `lab-upload-probe-${stamp}.hl7`;
   const content = Buffer.from(syntheticCmlLab(accession, marker), 'latin1');
+  let proof = null;
+  if (options.injectFailure) {
+    h.assert(process.env.LAB_ROLLBACK_FAULT_ARTIFACT_DIR, 'Rollback fault requires explicit private artifact directory');
+    h.assert(process.env.LAB_UPLOAD_DOCUMENT_STORE, 'Rollback fault requires actual installed document store');
+    h.assert(serverLogFromEnvironment().configured, 'Rollback fault requires actual server-log proof');
+    proof = createFaultReceipt(process.env.LAB_ROLLBACK_FAULT_ARTIFACT_DIR, {
+      triggerName: failureTrigger, accession, payloadSha256: sha(content),
+      testSourceSha256: sha(fs.readFileSync(__filename)),
+      wrapperSourceSha256: sha(fs.readFileSync(path.join(__dirname, 'lab-upload-rollback-playwright-checks.js'))),
+      helperSourceSha256: sha(fs.readFileSync(require.resolve('./lib/lab-rollback-fault-proof'))),
+      handlerSourceSha256: sha(fs.readFileSync(path.resolve(__dirname, '../src/main/java/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/CMLHandler.java'))),
+      logTimeZone: new Date().getTimezoneOffset() === 0 ? 'UTC' : 'UNVERIFIED',
+    });
+    cleanup(() => proof.close());
+  }
   // The uploader records the saved file's name (LabUpload.<name>.<millis>), which carries the
   // run's random stamp, so the check finds its own fileUploadCheck row without hashing.
   const ownUpload = `filename LIKE ${h.sqlString(`%${fileName}%`)}`;
@@ -228,7 +258,7 @@ async function workflow(session, options = {}) {
     'A fileUploadCheck row already carries this run\'s stamp');
 
   cleanup(async () => {
-    if (triggerMayExist) sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
+    if (triggerMayExist) dropOwnedTrigger(sql, failureTrigger, accession);
     fs.rmSync(workDir, { recursive: true, force: true });
     const flatLabs = sql.rows(`SELECT id FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)}`)
       .map(([id]) => id).filter((id) => /^\d+$/.test(id));
@@ -269,6 +299,7 @@ async function workflow(session, options = {}) {
       + (SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)})
       + (SELECT COUNT(*) FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)})`) === '0',
     'The synthetic lab rows were not all removed');
+    if (proof) proof.update({cleanupAcknowledged: true});
   });
 
   await session.step('rejected content stays retryable without a checksum', async () => {
@@ -292,19 +323,19 @@ async function workflow(session, options = {}) {
     await session.step('database rejection rolls back the checksum and partial lab', async () => {
       // The trigger applies only to this run's synthetic accession. It rejects metadata after
       // the checksum and raw HL7 message have been inserted, exercising actual MariaDB rollback.
+      h.assert(sql.value(`SELECT COUNT(*) FROM information_schema.TRIGGERS
+        WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME=${h.sqlString(failureTrigger)}`) === '0', 'Owned rollback trigger already exists');
+      proof.update({triggerAbsentBeforeCreate: true});
       triggerMayExist = true;
       try {
-        sql.execute(`DELIMITER //
-          CREATE TRIGGER ${failureTrigger} BEFORE INSERT ON hl7TextInfo FOR EACH ROW
-          BEGIN
-            IF NEW.accessionNum=${h.sqlString(accession)} THEN
-              SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic upload rollback probe';
-            END IF;
-          END//
-          DELIMITER ;`);
+        const {body, sql: triggerSql} = ownedTriggerStatements(failureTrigger, accession);
+        proof.update({triggerSqlSha256: sha(triggerSql), expectedTriggerBodySha256: sha(normalize(body))});
+        sql.execute(triggerSql);
+        proof.update(observeOwnedTrigger(sql, failureTrigger, accession));
         const serverLog = serverLogFromEnvironment();
         const logMark = serverLog.mark();
-        const status = await uploadThroughPopup(session, filePath, fileName);
+        proof.update({logCursorBeforeFault: logMark?.cursor || null, logSource: serverLog.source});
+        const status = await uploadThroughPopup(session, filePath, fileName, proof, 'fault');
         h.assert(['Invalid lab', 'Failed to upload HL7 lab'].includes(status),
           `Injected database failure reported "${status}"`);
         h.assert(sql.value(`SELECT
@@ -313,20 +344,22 @@ async function workflow(session, options = {}) {
           + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})`) === '0',
         'A rejected lab left its checksum or partially stored rows behind');
         expectArchivedUploads(stamp, 0, 'after the rolled-back upload');
+        proof.update({rollbackRows: 0, archivedCopiesAfterFailure: 0});
         // After the rollback, which matters more, so a log failure cannot mask it. #4436: the handler's
         // cleanup used to run in the session the rejected insert had poisoned, so Hibernate logged
         // HHH000099 and the database's own message never reached an ERROR line.
         await verifyStorageFailureLog({ reader: serverLog, mark: logMark,
           databaseMessage: 'Synthetic upload rollback probe', assert: h.assert });
       } finally {
-        sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
+        dropOwnedTrigger(sql, failureTrigger, accession);
         triggerMayExist = false;
+        proof.update({triggerDropAcknowledged: true, triggerAbsentAfterDrop: true});
       }
     });
   }
 
   await session.step('first HL7 upload is filed', async () => {
-    const status = await uploadThroughPopup(session, filePath, fileName);
+    const status = await uploadThroughPopup(session, filePath, fileName, proof, 'retry');
     h.assert(status === 'Uploaded successfully', `First upload reported "${status}"`);
     await expectValue(sql, `SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`, '1',
       'The uploaded lab did not reach hl7TextInfo under its accession');
@@ -342,7 +375,7 @@ async function workflow(session, options = {}) {
   });
 
   await session.step('the same file again is refused as already uploaded', async () => {
-    const status = await uploadThroughPopup(session, filePath, fileName);
+    const status = await uploadThroughPopup(session, filePath, fileName, proof, 'duplicate');
     h.assert(status === 'Already uploaded', `Duplicate upload reported "${status}"`);
     h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '1',
       'The duplicate upload filed a second copy of the lab');
@@ -400,4 +433,4 @@ async function workflow(session, options = {}) {
 }
 
 if (require.main === module) runWorkflow('lab-upload', workflow);
-module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader };
+module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader, uploadThroughPopup, removeArchivedUploads };

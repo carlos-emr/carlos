@@ -34,6 +34,8 @@
     - Optional support contact information from LoginResourceBean
   Parameters:
     - _responseStatus: Existing HTTP error status, or 500 for a successful Struts error forward
+    - carlosErrorMessageKey (request scope, optional): message key set through ErrorPageMessage by an
+      action that knows why it refused the request; its translated text is shown above the status line
     - LoginResourceBean.supportLink: URL for support contact link (optional)
     - LoginResourceBean.supportName: Support contact display name (optional)
     - LoginResourceBean.supportText: Support contact descriptive text or HTML (optional)
@@ -201,6 +203,13 @@
 
 <div id="container">
     <div id="error-code">
+        <%-- Set through ErrorPageMessage by an action that knows why it refused the request: a short
+             translated message saying what to do. Server code chooses the key (request scope only),
+             and the text is encoded; nothing from the request is shown. --%>
+        <c:if test="${not empty requestScope.carlosErrorMessageKey}">
+            <fmt:message key="${requestScope.carlosErrorMessageKey}" var="_carlosErrorMessage"/>
+            <p id="error-message" class="lead">${carlos:forHtml(_carlosErrorMessage)}</p>
+        </c:if>
         <h2><fmt:message key="error.msgException"/>:</h2>
         <p>CARLOS Error: ${carlos:forHtml(_responseStatus)}</p>
         <%-- Set by CarlosExceptionMappingInterceptor when an action's uncaught exception was

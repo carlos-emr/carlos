@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao.forms;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.stereotype.Repository;
+import org.hibernate.Session;
 import io.github.carlos_emr.carlos.form.model.FormBooleanValue;
 import io.github.carlos_emr.carlos.form.model.FormRourke2020;
 
@@ -82,7 +83,16 @@ public class Rourke2020Dao extends AbstractDaoImpl<FormRourke2020> {
             value.getId().setFormName(FormRourke2020.FORM_TABLE);
         }
         FormBooleanValueDao formBooleanValueDao = SpringUtils.getBean(FormBooleanValueDao.class);
-        formBooleanValueDao.batchPersistAtomically(new ArrayList(form.getBooleanValueMap().values()));
+        // A flush every 25 rows alone is not JDBC batching. Scope the batch size to
+        // this save and restore it because the session is shared with other DAOs.
+        Session session = entityManager.unwrap(Session.class);
+        Integer previousBatchSize = session.getJdbcBatchSize();
+        try {
+            session.setJdbcBatchSize(50);
+            formBooleanValueDao.batchPersistAtomically(new ArrayList<>(form.getBooleanValueMap().values()), 50);
+        } finally {
+            session.setJdbcBatchSize(previousBatchSize);
+        }
         return form;
     }
 }

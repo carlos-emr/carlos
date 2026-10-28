@@ -23,18 +23,28 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Validations;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctValidationsBean;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctValidationsBeanHandler;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValidation;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mockStatic;
 
 /**
  * Integration tests for {@link ValidationsDao}.
@@ -53,6 +63,138 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ValidationsDao dao;
+
+    private enum RuleField { REGEX, MINIMUM, MAXIMUM, MIN_LENGTH, MAX_LENGTH, NUMERIC, DATE }
+
+    @Nested
+    @DisplayName("Exact definition reuse")
+    class DefinitionReuse {
+
+        @Test
+        @DisplayName("should create and reuse unbounded Neutrophils rule instead of an existing bounded rule")
+        void shouldNotReuseUpperBound_whenDefinitionOmitsMaximum() {
+            Validations bounded = new Validations();
+            bounded.setName("Existing numeric 0 to 10");
+            bounded.setMinValue(0.0);
+            bounded.setMaxValue(10.0);
+            bounded.setNumeric(true);
+            dao.persist(bounded);
+
+            // hepCFlowsheet.xml declares Neutrophils with numeric=1, minimum=0, no maximum.
+            EctValidationsBean neutrophils = new EctValidationsBean();
+            neutrophils.setName("Neutrophils");
+            neutrophils.setIsNumeric("1");
+            neutrophils.setMinValue("0");
+
+            try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class)) {
+                spring.when(() -> SpringUtils.getBean(ValidationsDao.class)).thenReturn(dao);
+                EctValidationsBeanHandler handler = new EctValidationsBeanHandler();
+                assertThat(handler.findValidation(neutrophils)).isEqualTo(-1);
+                int id = handler.addValidation(neutrophils);
+                Validations created = dao.find(id);
+                assertThat(id).isNotEqualTo(bounded.getId());
+                assertThat(created.getMinValue()).isEqualTo(0.0);
+                assertThat(created.getMaxValue()).isNull();
+                assertThat(created.isNumeric()).isTrue();
+                assertThat(created.isDate()).isNull();
+                assertThat(created.getMaxLength()).isZero();
+                neutrophils.setName("A different descriptive name");
+                assertThat(handler.findValidation(neutrophils)).isEqualTo(id);
+
+                EctValidation validation = new EctValidation();
+                assertThat(validation.isInRange(bounded.getMaxValue(), bounded.getMinValue(), "15")).isFalse();
+                // Measurement actions translate the absent maximum to zero before validating.
+                assertThat(validation.isInRange(0.0, created.getMinValue(), "15")).isTrue();
+                assertThat(validation.isNumeric(created.isNumeric(), "15")).isTrue();
+            }
+        }
+
+        @ParameterizedTest
+        @EnumSource(RuleField.class)
+        @DisplayName("should distinguish every absent rule field while preserving wildcard searches")
+        void shouldMatchNullFieldsExactly_withoutChangingWildcardSearch(RuleField field) {
+            Validations constrained = new Validations();
+            constrained.setName("Constrained " + field);
+            constrained.setMaxLength(null);
+            switch (field) {
+                case REGEX -> constrained.setRegularExp("^[0-9]+$");
+                case MINIMUM -> constrained.setMinValue(2.0);
+                case MAXIMUM -> constrained.setMaxValue(10.0);
+                case MIN_LENGTH -> constrained.setMinLength(1);
+                case MAX_LENGTH -> constrained.setMaxLength(10);
+                case NUMERIC -> constrained.setNumeric(false);
+                case DATE -> constrained.setDate(false);
+            }
+            dao.persist(constrained);
+            Validations absent = new Validations();
+            absent.setName("Absent " + field);
+            absent.setMaxLength(null);
+
+            assertThat(dao.findByDefinition(absent)).isEmpty();
+            // Public search API retains its documented null-as-wildcard behavior.
+            assertThat(dao.findByAll(null, null, null, null, null, null, null))
+                    .extracting(Validations::getId).contains(constrained.getId());
+            dao.persist(absent);
+            assertThat(dao.findByDefinition(absent)).extracting(Validations::getId)
+                    .containsExactly(absent.getId());
+        }
+
+        @ParameterizedTest
+        @NullAndEmptySource
+        @ValueSource(strings = {"0", "1", "false", "true"})
+        @DisplayName("should reuse created rules with consistent absent, empty and explicit defaults")
+        void shouldReuseCreatedRule_withConsistentDefaults(String flag) {
+            EctValidationsBean rule = new EctValidationsBean();
+            rule.setName("Default normalization " + flag);
+            rule.setRegularExp("");
+            rule.setMinValue("");
+            rule.setMaxValue("");
+            rule.setMinLength("");
+            rule.setMaxLength("");
+            rule.setIsNumeric(flag);
+            rule.setIsDate(flag);
+            try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class)) {
+                spring.when(() -> SpringUtils.getBean(ValidationsDao.class)).thenReturn(dao);
+                EctValidationsBeanHandler handler = new EctValidationsBeanHandler();
+                int id = handler.addValidation(rule);
+                Validations created = dao.find(id);
+                Boolean expected = flag == null ? null : "1".equals(flag) || Boolean.parseBoolean(flag);
+                assertThat(created.isNumeric()).isEqualTo(expected);
+                assertThat(created.isDate()).isEqualTo(expected);
+                assertThat(created.getMaxLength()).isZero();
+                assertThat(handler.findValidation(rule)).isEqualTo(id);
+                assertThat(dao.findByName(rule.getName())).hasSize(1);
+            }
+        }
+
+        @Test
+        @DisplayName("should preserve numeric and date checks when reusing and importing exported Boolean flags")
+        void shouldPreserveBooleanConstraints_whenReimportingExportedDefinition() {
+            Validations falseFlags = new Validations();
+            falseFlags.setName("Unconstrained Boolean flags");
+            falseFlags.setNumeric(false);
+            falseFlags.setDate(false);
+            dao.persist(falseFlags);
+            Validations original = new Validations();
+            original.setName("Numeric and date checks");
+            original.setNumeric(true);
+            original.setDate(true);
+            dao.persist(original);
+            EctValidationsBean exported = new EctValidationsBean(original);
+            assertThat(exported.getIsNumeric()).isEqualTo("true");
+            assertThat(exported.getIsDate()).isEqualTo("true");
+
+            try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class)) {
+                spring.when(() -> SpringUtils.getBean(ValidationsDao.class)).thenReturn(dao);
+                EctValidationsBeanHandler handler = new EctValidationsBeanHandler();
+                assertThat(handler.findValidation(exported)).isEqualTo(original.getId());
+                Validations imported = dao.find(handler.addValidation(exported));
+                assertThat(imported.isNumeric()).isTrue();
+                assertThat(imported.isDate()).isTrue();
+                assertThat(new EctValidation().isNumeric(imported.isNumeric(), "not-a-number")).isFalse();
+            }
+        }
+    }
 
     @Nested
     @DisplayName("CRUD operations")

@@ -45,6 +45,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('node:child_process');
 const { randomBytes } = require('node:crypto');
 const fs = require('node:fs');
@@ -604,7 +605,7 @@ installCleanupSignalHandlers(cleanupResources);
     cleanupCreatedRows();
     browser = await chromium.launch(launchOptions);
     browserContext = await browser.newContext({
-      ignoreHTTPSErrors: baseUrlIsLocal,
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1440, height: 1000 },
     });
     await installNavigationGuard(browserContext);

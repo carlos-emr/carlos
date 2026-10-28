@@ -23,8 +23,8 @@ Times are spread across days and across mornings and afternoons. Staff choose th
 schedule to offer from and a window (`offerAfterDays`, `offerWithinDays`, default the next 14 days)
 and how many times (`offerCount`, 1 to 8, default 4) when they create the prompt
 (`PortalBookingPrompt2Action`, `method=create`, `offerFrom=<provider number>`, an active provider).
-This needs the booking prompt and portal account permissions plus schedule write (`_appointment`),
-because the patient's pick becomes a booking. Times stay within 365 days (the portal refuses more than
+This needs the booking prompt permission (with its booking eligibility check) plus schedule write
+(`_appointment`), because the patient's pick becomes a booking. Times stay within 365 days (the portal refuses more than
 366). With no open time in the window the prompt is not sent and staff are told to choose another
 window. A visit longer than one template slot can be offered at each slot it may start at.
 

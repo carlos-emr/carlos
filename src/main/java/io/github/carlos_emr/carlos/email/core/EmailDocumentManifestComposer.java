@@ -28,6 +28,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -36,9 +37,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
@@ -46,11 +49,14 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.managers.FormsManager;
@@ -70,6 +76,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * ({@code EmailNoteUtil}): compose-flow attachments carry generated file names, which say
  * nothing about the document. A form has no service date that is cheap to read, so its
  * {@code service_date} is {@code null}.</p>
+ *
+ * <p>Each attached record must belong to the email's patient, since its manifest names that
+ * patient: a record linked to another patient stops the send. A title longer than
+ * {@value #MAX_TITLE_LENGTH} characters is shortened.</p>
  *
  * <p>{@code recipient_id} is {@code null} for now: CARLOS does not yet hold the patient's
  * portal recipient ID. {@code version} is 1 until corrections are tracked (#37).</p>
@@ -95,6 +105,8 @@ public class EmailDocumentManifestComposer {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final Pattern ISO_DATE_PREFIX = Pattern.compile("\\d{4}-\\d{2}-\\d{2}.*");
+    /** Titles are shortened to this, well inside myCarlos's 16 KB limit for a whole manifest. */
+    static final int MAX_TITLE_LENGTH = 500;
 
     private final ClinicDAO clinicDao;
     private final EFormDataDao eFormDataDao;
@@ -102,22 +114,33 @@ public class EmailDocumentManifestComposer {
     private final Hl7TextInfoDao hl7TextInfoDao;
     private final HRMDocumentDao hrmDocumentDao;
     private final FormsManager formsManager;
+    private final CtlDocumentDao ctlDocumentDao;
+    private final PatientLabRoutingDao patientLabRoutingDao;
+    private final HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
     private final Clock clock;
 
     @Autowired
     public EmailDocumentManifestComposer(ClinicDAO clinicDao, EFormDataDao eFormDataDao, DocumentDao documentDao,
-            Hl7TextInfoDao hl7TextInfoDao, HRMDocumentDao hrmDocumentDao, FormsManager formsManager) {
-        this(clinicDao, eFormDataDao, documentDao, hl7TextInfoDao, hrmDocumentDao, formsManager, Clock.systemUTC());
+            Hl7TextInfoDao hl7TextInfoDao, HRMDocumentDao hrmDocumentDao, FormsManager formsManager,
+            CtlDocumentDao ctlDocumentDao, PatientLabRoutingDao patientLabRoutingDao,
+            HRMDocumentToDemographicDao hrmDocumentToDemographicDao) {
+        this(clinicDao, eFormDataDao, documentDao, hl7TextInfoDao, hrmDocumentDao, formsManager, ctlDocumentDao,
+                patientLabRoutingDao, hrmDocumentToDemographicDao, Clock.systemUTC());
     }
 
     EmailDocumentManifestComposer(ClinicDAO clinicDao, EFormDataDao eFormDataDao, DocumentDao documentDao,
-            Hl7TextInfoDao hl7TextInfoDao, HRMDocumentDao hrmDocumentDao, FormsManager formsManager, Clock clock) {
+            Hl7TextInfoDao hl7TextInfoDao, HRMDocumentDao hrmDocumentDao, FormsManager formsManager,
+            CtlDocumentDao ctlDocumentDao, PatientLabRoutingDao patientLabRoutingDao,
+            HRMDocumentToDemographicDao hrmDocumentToDemographicDao, Clock clock) {
         this.clinicDao = clinicDao;
         this.eFormDataDao = eFormDataDao;
         this.documentDao = documentDao;
         this.hl7TextInfoDao = hl7TextInfoDao;
         this.hrmDocumentDao = hrmDocumentDao;
         this.formsManager = formsManager;
+        this.ctlDocumentDao = ctlDocumentDao;
+        this.patientLabRoutingDao = patientLabRoutingDao;
+        this.hrmDocumentToDemographicDao = hrmDocumentToDemographicDao;
         this.clock = clock;
     }
 
@@ -130,7 +153,8 @@ public class EmailDocumentManifestComposer {
      * @return the send's manifests, or {@link AttachmentManifests#NONE} when
      *         {@value DocumentIdCalculator#SECRET_PROPERTY} is not set
      * @throws IllegalStateException when that setting is set but invalid, so the send stops
-     *         instead of going out without the manifest the clinic asked for
+     *         instead of going out without the manifest the clinic asked for; and, from the
+     *         returned manifests, when an attached record belongs to another patient
      */
     public AttachmentManifests forSend(LoggedInInfo loggedInInfo, EmailLog emailLog) {
         Optional<DocumentIdCalculator> calculator = DocumentIdCalculator.fromCarlosProperties();
@@ -154,6 +178,7 @@ public class EmailDocumentManifestComposer {
             if (type == null || recordId < 1) {
                 return null;
             }
+            requireTheEmailsPatient(type, recordId, demographicNo);
             RecordDetails details = recordDetails(loggedInInfo, type, recordId, demographicNo);
             return new DocumentManifest(
                     documentIds.documentId(documentIdSource(type), String.valueOf(recordId)),
@@ -189,6 +214,51 @@ public class EmailDocumentManifestComposer {
 
     record RecordDetails(String title, String serviceDate) {
         static final RecordDetails UNKNOWN = new RecordDetails(null, null);
+
+        RecordDetails {
+            if (title != null && title.length() > MAX_TITLE_LENGTH) {
+                title = title.substring(0, MAX_TITLE_LENGTH);
+            }
+        }
+    }
+
+    /**
+     * Each attached record must belong to the email's patient: its manifest names that patient, and
+     * myCarlos files the document under them. A record linked to another patient stops the send,
+     * like a manifest that cannot be built. One linked to no patient, or gone, has nothing to
+     * contradict the send. A form needs no check here: its renderer reads it for the email's
+     * patient only.
+     */
+    private void requireTheEmailsPatient(DocumentType type, int recordId, Integer demographicNo) {
+        if (demographicNo == null) {
+            return;
+        }
+        List<Integer> patients = switch (type) {
+            case EFORM -> {
+                EFormData eForm = eFormDataDao.find(recordId);
+                yield eForm == null ? List.of() : listOf(eForm.getDemographicId());
+            }
+            case DOC -> ctlDocumentDao.findByDocumentNoAndModule(recordId, "demographic").stream()
+                    .map(link -> link.getId().getModuleId())
+                    .toList();
+            case LAB -> {
+                PatientLabRouting routing = patientLabRoutingDao.findDemographicByLabId(recordId);
+                yield routing == null ? List.of() : listOf(routing.getDemographicNo());
+            }
+            case HRM -> hrmDocumentToDemographicDao.findByHrmDocumentId(recordId).stream()
+                    .map(HRMDocumentToDemographic::getDemographicNo)
+                    .toList();
+            case FORM -> List.of();
+        };
+        // 0 is an unmatched lab or document, as null is no patient.
+        List<Integer> linked = patients.stream().filter(patient -> patient != null && patient > 0).toList();
+        if (!linked.isEmpty() && !linked.contains(demographicNo)) {
+            throw new IllegalStateException("An attached record does not belong to the email's patient");
+        }
+    }
+
+    private static List<Integer> listOf(Integer value) {
+        return value == null ? List.of() : List.of(value);
     }
 
     private RecordDetails recordDetails(LoggedInInfo loggedInInfo, DocumentType type, int recordId,
@@ -198,7 +268,7 @@ public class EmailDocumentManifestComposer {
             case DOC -> documentDetails(documentDao.find(recordId));
             case LAB -> labDetails(hl7TextInfoDao.findLabId(recordId));
             case HRM -> reportDetails(hrmDocumentDao.find(recordId));
-            case FORM -> formDetails(formsManager.getFormById(loggedInInfo, recordId, demographicNo));
+            case FORM -> formDetails(loggedInInfo, recordId, demographicNo);
         };
     }
 
@@ -223,7 +293,14 @@ public class EmailDocumentManifestComposer {
                         isoDate(report.getReportDate()));
     }
 
-    private static RecordDetails formDetails(PatientForm form) {
+    /** A form whose name cannot be read for this sender (no form privilege, say) gets no title. */
+    private RecordDetails formDetails(LoggedInInfo loggedInInfo, int formId, Integer demographicNo) {
+        PatientForm form;
+        try {
+            form = formsManager.getFormById(loggedInInfo, formId, demographicNo);
+        } catch (SecurityException _) {
+            return RecordDetails.UNKNOWN;
+        }
         return form == null ? RecordDetails.UNKNOWN : new RecordDetails(blankToNull(form.getFormName()), null);
     }
 
@@ -243,7 +320,7 @@ public class EmailDocumentManifestComposer {
         }
         try {
             return PatientPortalSettings.fromCarlosProperties().clinicId();
-        } catch (PatientPortalConfigurationException e) {
+        } catch (PatientPortalConfigurationException _) {
             logger.warn("Patient portal settings are incomplete; signed PDFs carry no portal clinic ID");
             return null;
         }
@@ -269,7 +346,7 @@ public class EmailDocumentManifestComposer {
         }
         try {
             return LocalDate.of(Integer.parseInt(year), Integer.parseInt(month), Integer.parseInt(day)).toString();
-        } catch (NumberFormatException | DateTimeException e) {
+        } catch (NumberFormatException | DateTimeException _) {
             return null;
         }
     }
@@ -290,7 +367,7 @@ public class EmailDocumentManifestComposer {
         String day = date.substring(0, 10);
         try {
             return LocalDate.parse(day).toString();
-        } catch (DateTimeParseException e) {
+        } catch (DateTimeParseException _) {
             return null;
         }
     }

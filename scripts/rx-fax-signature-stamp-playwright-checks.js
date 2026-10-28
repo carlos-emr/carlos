@@ -37,7 +37,7 @@
  * empty parameter, so a stamp-signed script still faxed as "unsigned".
  *
  * Because those bugs live in the page's own JavaScript (sendFax -> onPrint2 ->
- * the scriptId it puts on the createcustomedpdf request), this check drives the
+ * the scriptId it puts on the fax request), this check drives the
  * real controls and asserts on the real DOM and the real network request:
  *
  *   1. Log in through the login form. The login page must NOT disclose the
@@ -49,7 +49,7 @@
  *   3. On that ViewScript2, assert the real #faxButton is ENABLED (not greyed)
  *      with no drawn signature, the signature pad is still offered, the script
  *      persisted a PRESCRIPTION stamp signature, and the preview renders it.
- *   4. Click the real Fax button and capture the createcustomedpdf request: its
+ *   4. Click the real Fax button and capture the fax request: its
  *      scriptId must be the real script number (never "" or "null"), and the
  *      response must not be the unsigned refusal or the old "Signature not
  *      found" alert. A server-side direct POST additionally confirms an
@@ -62,7 +62,7 @@
  * a fax -- holds a per-run unroutable 555 number, restored exactly afterwards
  * (rx-fax-pharmacy-fax-fixture.js; issue #3607), so the Fax click can only ever
  * queue a job to a number the NANP never assigns.
- * Files are NOT removed: the fax servlet writes prescription_<pdfId>.pdf under
+ * Files are NOT removed: the fax action writes prescription_<pdfId>.pdf under
  * DOCUMENT_DIR and prescription_<pdfId>.pdf/.txt under fax_file_location on the
  * install, and this check runs through HTTP and MySQL only. The pdfId is
  * <providerNo><millis>, so each run leaves one small PDF (plus the pair in the
@@ -86,18 +86,24 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
 const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require('./rx-fax-request-guard');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { browserErrorClass } = require('./browser-error-class');
+const { browserErrorClass, createErrorSourceLocator } = require('./browser-error-class');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
 const { validateMysqlHost } = require('./lib/playwright-harness');
 
+// Every fax goes to the POST-only fax action (issue #3108); printing stays on /form/createcustomedpdf.
+const FAX_REQUEST_URL = /\/rx\/faxPrescription(?:\?|$)/;
+
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+// Page frames are trusted only on this application (see browser-error-class.js).
+const errorSourceLocation = createErrorSourceLocator(baseUrl);
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
@@ -113,14 +119,14 @@ const mysqlPassword = process.env.MYSQL_PASSWORD || '';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 // Per-run identifiers so a concurrent (or crashed-then-rerun) invocation of this check is not
 // correlated with — or has its rows deleted by — another run.
-// fax_config.faxNumber/faxReply are varchar(10) and the servlet matches the staged account by exact
+// fax_config.faxNumber/faxReply are varchar(10) and the fax action matches the staged account by exact
 // string equality, so the "from" number MUST be exactly 10 chars: '416' + a 7-digit random keeps it
 // there while giving a 10-million-value space, making a same-number collision between two concurrent
 // runs negligible. The drug name (customName is varchar(60)) carries the full timestamp + suffix.
 const runFaxSuffix = readFaxSuffix(process.env.PR4055_RX_FAX_SUFFIX, 7, randomInt);
 // Destination number staged on the patient's pharmacy. Clicking Fax QUEUES A JOB against this
 // number, so it must be unroutable: NPA 555 is not assignable in the NANP, so 555-xxx-xxxx can
-// never reach a real fax machine. Ten digits after the servlet strips non-digits (it requires at
+// never reach a real fax machine. Ten digits after the fax action strips non-digits (it requires at
 // least seven), and unique per run so cleanup restores only this run's fixture and never one a
 // concurrent run is still using.
 const pharmacyFaxNumber = `555${runFaxSuffix}`;
@@ -282,7 +288,7 @@ async function releaseFixtureLock() {
   try {
     await pharmacyFax.unlock();
   } catch (error) {
-    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(error)}` });
+    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(error)}${errorSourceLocation(error)}` });
   }
 }
 
@@ -299,7 +305,7 @@ function cleanupFixtures() {
     try {
       fn();
     } catch (error) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}${fixtureErrorTag(error)}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}` });
     }
   };
   let ourScriptNos = new Set();
@@ -359,7 +365,7 @@ function sql(query) {
 
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
-    findings.push({ label, type: 'pageerror', text: browserErrorClass(error) });
+    findings.push({ label, type: 'pageerror', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
   });
   page.on('dialog', async (dialog) => {
     // Accept ONLY the one confirm() the custom-drug button legitimately raises, and only while we are
@@ -591,12 +597,12 @@ async function runChecks(context, cancellation) {
       findings.push({ label: 'preview-signature', type: 'not-stored', text: `preview signature is not the stored stamp: ${previewInfo ? previewInfo.src : 'none'}` });
     }
 
-    // Real control: click Fax. Capture the createcustomedpdf request (the JSP puts scriptId on it)
+    // Real control: click Fax. Capture the fax request (the JSP puts scriptId on it)
     // and its response. The fax row it inserts lands on this run's unique faxline and is cleaned up
     // by cleanupFixtures.
     checkPhase = 'fax-signed-prescription';
-    const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: 30000 });
-    const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()) && /__method=oscarRxFax/.test(res.url()), { timeout: 30000 });
+    const faxRequestPromise = page.waitForRequest((req) => FAX_REQUEST_URL.test(req.url()), { timeout: 30000 });
+    const faxResponsePromise = page.waitForResponse((res) => FAX_REQUEST_URL.test(res.url()), { timeout: 30000 });
 
     let faxRequest = null;
     let faxBody = '';
@@ -618,8 +624,8 @@ async function runChecks(context, cancellation) {
       visited.push({ label: 'fax-request', url: new URL(faxRequest.url()).pathname + ' (query redacted)', status: faxStatus });
     } catch (error) {
       // A captured request whose response never came is a different failure from no request at all.
-      if (faxRequest) findings.push({ label: 'fax-click', type: 'no-response', text: browserErrorClass(error) });
-      else findings.push({ label: 'fax-click', type: 'no-request', text: browserErrorClass(error) });
+      if (faxRequest) findings.push({ label: 'fax-click', type: 'no-response', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
+      else findings.push({ label: 'fax-click', type: 'no-request', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
     }
 
     if (faxRequest) {
@@ -635,7 +641,7 @@ async function runChecks(context, cancellation) {
       if (/not signed/i.test(faxBody)) {
         findings.push({ label: 'fax-gate', type: 'signed-refused', text: 'clicking Fax on a stamp-signed script was refused as unsigned' });
       }
-      // The signed fax must SUCCEED: the servlet writes a fax-success banner on success and a
+      // The signed fax must SUCCEED: the fax action writes a fax-success banner on success and a
       // fax-failure banner (or a non-2xx status) on any error. A generic error is a failure of the
       // check, not a note — otherwise a 500 or an unrelated error page would let it pass.
       if (faxStatus < 200 || faxStatus >= 300) {
@@ -680,9 +686,9 @@ async function runChecks(context, cancellation) {
       return { status: resp.status, hadToken: token.length > 0, body: body.slice(0, 400) };
     }, {
       tokenUrl: appUrl('/csrfguard'),
-      postUrl: appUrl('/form/createcustomedpdf'),
+      postUrl: appUrl('/rx/faxPrescription'),
       params: {
-        __title: 'Rx', __method: 'oscarRxFax', scriptId: throwawayUnsignedScriptId,
+        __title: 'Rx', scriptId: throwawayUnsignedScriptId,
         pdfId: 'rxfaxstamp', pharmaFax: pharmacyFaxNumber, clinicFax: faxNumber, pharmaName: 'P',
         demographic_no: demographicNo, rxPageSize: 'PageSize.Letter', rx: 'x', rxDate: '2026-01-01',
       },
@@ -720,7 +726,7 @@ async function runChecks(context, cancellation) {
     // URL parser already strips the [...] brackets, but be defensive) before the check.
     const bypassHost = baseUrl.hostname.toLowerCase().replace(/^\[|\]$/g, '');
     const loopbackTarget = new Set(['localhost', '127.0.0.1', '::1']).has(bypassHost);
-    const context = await browser.newContext({ ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
     const loginPage = await cancellation.run(() => login(context));
     await loginPage.close();
 
@@ -746,7 +752,7 @@ async function runChecks(context, cancellation) {
     }
   }
 })().catch((error) => {
-  console.error(`FAIL rx-fax-signature-stamp: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}`);
+  console.error(`FAIL rx-fax-signature-stamp: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}`);
   removeSecretsDir();
   process.exit(1);
 });

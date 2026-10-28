@@ -35,16 +35,38 @@ test('discontinuation failure keeps the dialog and explains partial persistence 
     const alerts = [];
     const context = {
         ctx: '/carlos', CarlosAjax: {request(url, options) { requests.push(options); }},
-        jsMsg: {discontinueIncomplete: 'review medication and encounter note before retrying'},
         alert: message => alerts.push(message), reportRefusedRequest() {alerts.push('request refused');},
         document: { getElementById() {assert.fail('failure must not hide the dialog or mark the drug discontinued');}},
     };
     vm.runInNewContext(code, context);
     context.Discontinue2('42', 'allergy', 'owned note', 'drug');
-    requests[0].onFailure({status: 500, responseJSON: {error: 'INCOMPLETE_RX_DISCONTINUE'}});
+    // The discontinue and its chart note commit together: a failed or stale request saved nothing.
+    requests[0].onFailure({status: 500, responseJSON: {error: 'RX_DISCONTINUE_FAILED'}});
+    requests[0].onFailure({status: 409});
     requests[0].onFailure({status: 403});
     requests[0].onSuccess({status: 200, responseText: '<html>login</html>'});
     requests[0].onSuccess({status: 200, responseText: '{"id":99}'});
-    assert.deepEqual(alerts, ['review medication and encounter note before retrying',
-        'request refused', 'request refused', 'request refused']);
+    assert.deepEqual(alerts, ['request refused', 'request refused', 'request refused', 'request refused',
+        'request refused']);
+});
+
+test('stale discontinuation shows the reload message while keeping the form and typed comment', () => {
+    const source = fs.readFileSync(path.join(dir, 'SearchDrug3.jsp'), 'utf8');
+    const start = source.indexOf('function Discontinue2(');
+    const code = source.slice(start, source.indexOf('//represcribe long term meds', start))
+        .replace(/<%[\s\S]*?%>/g, '42');
+    let request;
+    const notice = {hidden: true};
+    const context = {
+        ctx: '/carlos', CarlosAjax: {request(url, options) { request = options; }},
+        document: {getElementById(id) {
+            assert.equal(id, 'discontinueChanged', 'The stale refusal must not alter the form or profile');
+            return notice;
+        }},
+        reportRefusedRequest() {assert.fail('A stale conflict needs its specific message');},
+    };
+    vm.runInNewContext(code, context);
+    context.Discontinue2('42', 'allergy', 'Keep my typed comment', 'drug');
+    request.onFailure({status: 409, responseJSON: {error: 'STALE_RX_DISCONTINUE'}});
+    assert.equal(notice.hidden, false);
 });

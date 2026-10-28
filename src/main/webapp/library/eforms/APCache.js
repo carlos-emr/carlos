@@ -305,8 +305,15 @@ function createCache(options) {
                 query += "&key=" + key;
             }
 
-            if (window.location.search.substr(1).indexOf("demographic_no") < 0 && demographicNo !== undefined) {
-                query += "&demographic_no=" + demographicNo;
+            // demographicNo is meant to be a page variable, but the eForm views also carry an element with that
+            // id, which the window's named access returns where no variable is declared: the lookup then sent
+            // demographic_no=[object HTMLInputElement]. Send the element's value instead.
+            var demographicValue = typeof demographicNo === "undefined" ? undefined : demographicNo;
+            if (demographicValue !== null && typeof demographicValue === "object" && "value" in demographicValue) {
+                demographicValue = demographicValue.value;
+            }
+            if (window.location.search.substr(1).indexOf("demographic_no") < 0 && demographicValue !== undefined) {
+                query += "&demographic_no=" + encodeURIComponent(demographicValue);
             }
 
             var rendererEndpointElement = document.getElementById("carlosEformRendererApCacheUrl");

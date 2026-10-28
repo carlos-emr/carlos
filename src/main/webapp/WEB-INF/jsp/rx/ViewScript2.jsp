@@ -58,9 +58,9 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -123,9 +123,9 @@
             ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
 
             /**
-             * The first candidate the fax/print servlet would accept as a script id, or "" when none
-             * qualify. This mirrors FrmCustomedPDFServlet.parsePositiveInt EXACTLY — 1-10 digits that
-             * parse to a positive {@code int} — so a value the servlet rejects (0, or a 10-digit value
+             * The first candidate the fax action and print servlet would accept as a script id, or "" when none
+             * qualify. This mirrors PrescriptionPdfComposer.parsePositiveInt EXACTLY — 1-10 digits that
+             * parse to a positive {@code int} — so a value the server rejects (0, or a 10-digit value
              * above Integer.MAX_VALUE such as 9999999999) can never "win" over a later valid source
              * and reintroduce the unsigned-fax failure this helper prevents. Used to resolve the
              * scriptId across the server-resolved request attribute and displayed stash.
@@ -138,7 +138,7 @@
                                 return candidate;
                             }
                         } catch (NumberFormatException ignored) {
-                            // > Integer.MAX_VALUE: the servlet would reject it, so skip to the next.
+                            // > Integer.MAX_VALUE: the server would reject it, so skip to the next.
                         }
                     }
                 }
@@ -151,6 +151,8 @@
             // names it so the server resolves that patient's bean, not the most recently opened
             // chart's (per-patient Rx state, #3875).
             int viewScriptDemographicNo = bean.getDemographicNo();
+            String viewScriptChartContext = java.util.Objects.toString(
+                    io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request), "");
             Provider provider = providerManager.getProvider(bean.getProviderNo());
             String providerFax = provider.getWorkPhone();
             if (providerFax == null) {
@@ -209,18 +211,18 @@
             Vector vecAddress = null;
             Vector vecAddressPhone = null;
             Vector vecAddressFax = null;
+            // The clinic site of this patient's current visit, preselected in the address list. It
+            // stays on this page: the session's RX_ADDR holds only the address the prescriber last
+            // chose by hand (rx/ViewSetDefaultAddr), so one patient's visit site cannot become the
+            // default for another patient's prescription (issue #4673).
+            String appointmentAddressIndex = null;
             CarlosProperties props = CarlosProperties.getInstance();
             if (bMultisites) {
-                String appt_no = (String) session.getAttribute("cur_appointment_no");
-                String location = null;
-                if (appt_no != null) {
-                    try {
-                        Appointment result = appointmentDao.find(Integer.parseInt(appt_no));
-                        if (result != null) location = result.getLocation();
-                    } catch (NumberFormatException e) {
-                        // Malformed appointment number in session — skip location lookup
-                    }
-                }
+                // The appointment this patient was opened for from the day sheet, never the one last
+                // opened for another patient.
+                Appointment currentAppointment = EncounterPatientContext.currentAppointment(request,
+                        String.valueOf(viewScriptDemographicNo), appointmentDao);
+                String location = currentAppointment == null ? null : currentAppointment.getLocation();
 
                 RxProviderData.Provider rxprovider = new RxProviderData().getProvider(bean.getProviderNo());
                 ProSignatureData sig = new ProSignatureData();
@@ -252,14 +254,14 @@
                 for (int i = 0; i < sites.size(); i++) {
                     Site s = sites.get(i);
                     vecAddressName.add(s.getName());
-                    // One composer for this block on both ends: FrmCustomedPDFServlet parses the
+                    // One composer for this block on both ends: PrescriptionPdfComposer parses the
                     // chosen block back out of scAddress AND recomputes the blocks this prescriber was
                     // offered, so a fax cannot carry a clinic header the request made up.
                     String addressHtml = RxSatelliteClinicAddress.html(encodedDoctorName, s.getName(), s.getAddress(),
                             s.getCity(), s.getProvince(), s.getPostal(), s.getPhone(), s.getFax(), encodedTelLabel, encodedFaxLabel);
                     vecAddress.add(addressHtml);
                     if (s.getName().equals(location))
-                        session.setAttribute("RX_ADDR", String.valueOf(i));
+                        appointmentAddressIndex = String.valueOf(i);
                 }
 
 
@@ -348,6 +350,9 @@
         <script src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/rx-patient-context.js"
+                data-demographic-no="<%= viewScriptDemographicNo %>"
+                data-chart-context="<%= SafeEncode.forHtmlAttribute(viewScriptChartContext) %>"></script>
 
         <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
              in JavaScript string literals using OWASP forJavaScript() encoding --%>
@@ -403,7 +408,7 @@
                             modal.hide();
                         }
                     } else {
-                        window.location.href = "${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>";
+                        window.location.href = RxPatientContext.withPatient("${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>");
                     }
                     return true;
                 }).catch(function() {
@@ -415,7 +420,7 @@
 
             /*
              * The most recent Additional Notes save, so a fax can wait for it. A fax renders
-             * additNotes from the STORED prescription row (FrmCustomedPDFServlet.bindFaxContentToRecord
+             * additNotes from the STORED prescription row (PrescriptionPdfComposer.bindFaxContentToRecord
              * replaces the posted value, deliberately, so a caller cannot print arbitrary text above
              * another prescriber's signature). addNotes() saves that row with a fire-and-forget
              * fetch, and the textarea's own onchange fires as focus leaves it for the Fax button --
@@ -462,7 +467,12 @@
                 }
                 <%}
             }%>
-                let action = "<%= request.getContextPath() %>/form/createcustomedpdf?__title=Rx&__method=" + method + "&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
+                let requestParams = "__title=Rx&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
+                // A fax is a POST-only action of its own (issue #3108); print and preview stay on the
+                // read-only PDF servlet, which refuses fax requests.
+                let action = method === "oscarRxFax"
+                        ? "<%= request.getContextPath() %>/rx/faxPrescription?" + requestParams
+                        : "<%= request.getContextPath() %>/form/createcustomedpdf?__method=" + method + "&" + requestParams;
                 var previewForm = document.getElementById("preview").contentWindow.document.getElementById("preview2Form");
                 if (method === "oscarRxFax") {
                     if (!matchesFaxPreview(previewForm)) {
@@ -786,9 +796,7 @@
                     noteEditor = "noteEditor" + demographicNo;
                     var pasteResult = Promise.resolve(true);
                     if (window.parent.opener) {
-                        if (window.parent.opener.document.forms["caseManagementEntryForm"] != undefined &&
-                            window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo &&
-                            window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo.value === "<%=bean.getDemographicNo()%>") {
+                        if (matchesRxChart(window.parent.opener.document.forms["caseManagementEntryForm"])) {
                             //oscarLog("3");
                             faxPasteCanRetry = false;
                             if (window.parent.opener.pasteToEncounterNote(text) === false) {
@@ -798,16 +806,14 @@
                             if (print) {
                                 printIframe();
                             }
-                        } else if (window.parent.opener.document.encForm != undefined &&
-                            window.parent.opener.document.encForm.demographicNo &&
-                            window.parent.opener.document.encForm.demographicNo.value === "<%=bean.getDemographicNo()%>") {
+                        } else if (matchesRxChart(window.parent.opener.document.encForm)) {
                             //oscarLog("4");
                             faxPasteCanRetry = false;
                             window.parent.opener.document.encForm.enTextarea.value = window.parent.opener.document.encForm.enTextarea.value + text;
                             if (print) {
                                 printIframe();
                             }
-                        } else if (window.parent.opener.document.getElementById(noteEditor) != undefined) {
+                        } else if (<%= viewScriptChartContext.isEmpty() %> && window.parent.opener.document.getElementById(noteEditor) != undefined) {
                             faxPasteCanRetry = false;
                             window.parent.opener.document.getElementById(noteEditor).value = window.parent.opener.document.getElementById(noteEditor).value + text;
                             if (print) {
@@ -830,6 +836,12 @@
 
             }
 
+    function matchesRxChart(form) {
+        return form && form.elements.demographicNo
+            && form.elements.demographicNo.value === '<%= viewScriptDemographicNo %>'
+            && ((form.elements.chartContext && form.elements.chartContext.value) || '')
+                === '<%= SafeEncode.forJavaScript(viewScriptChartContext) %>';
+    }
 	function writeToEncounter(print, text) {
     	try {
 			var url = "<%=request.getContextPath() %>/rx/WriteToEncounter";
@@ -841,6 +853,7 @@
 				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
 						"&expectedDemographicNo=<%= bean.getDemographicNo() %>" +
 						"&demographicNo=<%= bean.getDemographicNo() %>" +
+						"<%= viewScriptChartContext.isEmpty() ? "" : "&chartContext=" + SafeEncode.forUriComponent(viewScriptChartContext) %>" +
 						"&additionalNotes=" +
 						"&body="+ encodeURIComponent(text)
 			};
@@ -878,14 +891,17 @@
                 var windowprops = "height=710,width=1024,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
                 var currentDate = new Date().toISOString().substring(0, 10);
                 var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<carlos:encode value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' context="uriComponent"/>&curDate=" + currentDate;
+                <% if (!viewScriptChartContext.isEmpty()) { %>
+                url += '&chartContext=<%= SafeEncode.forJavaScript(SafeEncode.forUriComponent(viewScriptChartContext)) %>';
+                <% } %>
 
-                if (window.parent.opener && window.parent.opener.document.forms["caseManagementEntryForm"] != undefined) {
+                if (window.parent.opener && matchesRxChart(window.parent.opener.document.forms["caseManagementEntryForm"])) {
                     // redirect if encounter window open
                     window.parent.opener.location = url;
                     return window.parent.opener;
                 }
 
-                return window.open(url, "encounter", windowprops);
+                return window.open(url, 'encounter<%= viewScriptDemographicNo %>_<%= SafeEncode.forJavaScript(viewScriptChartContext) %>', windowprops);
             }
 
             var rxToPaste = null;
@@ -895,11 +911,14 @@
                 encounterWindow.rxToPaste = rxToPaste;
             }
 
-            function addressSelect() {
+            // rememberChoice is true only when the prescriber picks an address. The page-load call
+            // passes false so the address preselected for this patient's visit site is shown
+            // without becoming the remembered default for other patients (issue #4673).
+            function addressSelect(rememberChoice) {
                 if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']) return;
                 <% if(vecAddressName != null) {
                  %>
-                setDefaultAddr();
+                if (rememberChoice) setDefaultAddr();
                 <%      for(int i=0; i<vecAddressName.size(); i++) {%>
                 var clinicAddress = frames['preview'].document.getElementById("clinicAddress");
                 if (clinicAddress && document.getElementById("addressSel").value == "<%=i%>") {
@@ -939,7 +958,7 @@
             signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
             imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
 
-            // Faxing persists a FaxJob, so FrmCustomedPDFServlet requires _rx WRITE for the script's
+            // Faxing persists a FaxJob, so RxFaxPrescription2Action requires _rx WRITE for the script's
             // patient; gate the Fax buttons on the same right so the page never offers a fax the
             // server will refuse (a read-only reprint of a signed script would otherwise show an
             // enabled Fax button and then a refusal).
@@ -955,7 +974,7 @@
             // 500 on the whole print/fax page rather than a disabled button. Any failure leaves the
             // gate false: Fax off, page still renders.
             // BOTH halves of the gate — may-I-fax and is-it-signed — must describe the SAME
-            // prescription, the one scriptIdForFax names, because that is the row the servlet signs
+            // prescription, the one scriptIdForFax names, because that is the row the fax action signs
             // from. Reading the permission from the persisted row and the signature from the session
             // stash would let a stash holding a different script decide whether Fax lights up.
             boolean canFaxScript = false;
@@ -984,13 +1003,13 @@
                 canFaxScript = false;
                 faxTargetSigned = false;
             }
-            // The third condition on the Fax buttons: the servlet refuses a fax whose destination is
+            // The third condition on the Fax buttons: the fax action refuses a fax whose destination is
             // not usable ("Valid fax number not found!"). Computed once here so the server-rendered
             // disabled state and the JavaScript gate cannot drift apart — the initial markup must
             // already reflect it, or the buttons render live until the first signature-pad event
-            // fires and a click in that window submits a fax the servlet rejects.
+            // fires and a click in that window submits a fax the fax action rejects.
             //
-            // Use the same provider-aware validator as the servlet. A destination may be
+            // Use the same provider-aware validator as the fax action. A destination may be
             // dialable through SRFax but not legacy middleware (or the reverse).
             java.util.Set<String> usableFaxSenderNumbers = new java.util.HashSet<>();
             List<FaxConfig> faxConfigs = java.util.Collections.emptyList();
@@ -1296,7 +1315,7 @@
             var hasFaxSenderAccount = <%= hasFaxSenderAccount ? "true" : "false" %>;
             var canFaxScript = <%= canFaxScript ? "true" : "false" %>;
             // The script already carries a stored signature (the prescriber's stamp applied on write,
-            // or a signature saved earlier). The fax servlet signs from it whenever no fresh pad
+            // or a signature saved earlier). The fax action signs from it whenever no fresh pad
             // capture is present, so pad strokes or Clear must not grey out Fax for such a script.
             var hasStoredSignature = <%= faxTargetSigned ? "true" : "false" %>;
             <% } %>
@@ -1423,9 +1442,8 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
     </head>
 
 <body topmargin="0" leftmargin="0" vlink="#0000FF"
-	onload="addressSelect();showFaxWarning();">
+	onload="addressSelect(false);showFaxWarning();">
 
-    <!-- HSFO functionality removed -->
     <div id="bodyView">
         <p id="signatureAssociationError" class="alert alert-danger" role="alert" hidden><fmt:message key="ViewScript.js.signatureAssociationFailed"/></p>
 
@@ -1451,7 +1469,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px onload="setComment()"
-							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/><%= viewScriptChartContext.isEmpty() ? "" : "&amp;chartContext=" + SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(viewScriptChartContext)) %>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                     <p id="selectedPharmacy" role="status" hidden><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/></p>
@@ -1563,10 +1581,11 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <% //vecAddress=null;
                                             if (vecAddress != null) { %>
                                         <tr>
-                                            <td align="left" colspan=2><fmt:message key="ViewScript.msgAddress"/>
-                                                <select name="addressSel" id="addressSel" onChange="addressSelect()"
+                                            <td align="left" colspan=2><label for="addressSel"><fmt:message key="ViewScript.msgAddress"/></label>
+                                                <select name="addressSel" id="addressSel" onChange="addressSelect(true)"
                                                         style="width:200px;">
-                                                    <% String rxAddr = (String) session.getAttribute("RX_ADDR");
+                                                    <% String rxAddr = appointmentAddressIndex != null
+                                                            ? appointmentAddressIndex : (String) session.getAttribute("RX_ADDR");
                                                         for (int i = 0; i < vecAddressName.size(); i++) {
                                                             String te = (String) vecAddressName.get(i);
                                                             String tf = (String) vecAddress.get(i);%>
