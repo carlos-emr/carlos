@@ -292,6 +292,7 @@ public final class PortalMyCarlosStaffApprovalService {
     static final String NO_CONSENT = "no email consent";
     static final String SENDER_INACTIVE = "sender account not active";
     static final String FOOTER_MISSING = "clinic footer missing";
+    static final String RECORD_RESTRICTED = "record access restricted";
 
     /**
      * Sends tried per code request before giving up: each failed send leaves a failed row in the
@@ -565,8 +566,9 @@ public final class PortalMyCarlosStaffApprovalService {
         var codes = new PortalMyCarlosDeviceApprovalCodeDao(factory);
         var challenges = new PortalMyCarlosDeviceApprovalChallengeDao(factory);
         Instant now = codeClock.instant().truncatedTo(ChronoUnit.SECONDS);
+        // Kept only while a request still waits for its code to go out.
         emailRetries.keySet().removeIf(id -> transactions.withApprovalState(() -> codes.findByChallengeForUpdate(id)
-                .map(code -> !now.isBefore(code.expiresAt())).orElse(true)));
+                .map(code -> !code.open() || code.emailedAt() != null || !now.isBefore(code.expiresAt())).orElse(true)));
         var ids = transactions.withApprovalState(() -> codes.recentChallengeIds(binding.clinic, now.minus(FOLLOW_UP_WINDOW), FOLLOW_UP_LIMIT));
         for (var id : ids) {
             fence.run();

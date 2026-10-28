@@ -13,7 +13,9 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
+import io.github.carlos_emr.carlos.managers.DeviceCodeEmailScope;
 import io.github.carlos_emr.carlos.managers.EmailManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.DeamonThreadFactory;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -59,10 +61,13 @@ public class PortalMyCarlosDeviceCodeSyncService {
 
     @Autowired
     public PortalMyCarlosDeviceCodeSyncService(PortalMyCarlosStaffApprovalService approvals, EmailManager emails,
-            EmailConfigDao emailConfigs, DemographicDao demographics, ClinicDAO clinics, ProviderDao providers) {
+            EmailConfigDao emailConfigs, DemographicDao demographics, ClinicDAO clinics, ProviderDao providers,
+            SecurityInfoManager security) {
         this(approvals, PortalMyCarlosDeviceCodeSyncService::switchedOn,
-                () -> SpringUtils.getBean(PatientPortalService.class), PortalMyCarlosApprovalPolicy::fromCarlosProperties,
-                new ChartMail(emails, emailConfigs, demographics, clinics, providers,
+                // Until Spring has finished starting, SpringUtils has no beans: the run waits.
+                () -> SpringUtils.getBeanFactory() == null ? null : SpringUtils.getBean(PatientPortalService.class),
+                PortalMyCarlosApprovalPolicy::fromCarlosProperties,
+                new ChartMail(emails, emailConfigs, demographics, clinics, providers, security,
                         () -> PortalInviteSettings.fromCarlosProperties().senderEmail()));
     }
 
@@ -117,7 +122,10 @@ public class PortalMyCarlosDeviceCodeSyncService {
         }
     }
 
-    /** One bounded run; does nothing while device approval is off. Never inside a transaction. */
+    /**
+     * One bounded run; does nothing while device approval is off or before CARLOS has finished
+     * starting. Never inside a transaction.
+     */
     void runOnce() {
         if (!enabled.getAsBoolean()) {
             return;
@@ -125,7 +133,15 @@ public class PortalMyCarlosDeviceCodeSyncService {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("the device code job must run outside a database transaction");
         }
-        var result = approvals.syncCodes(portal.get(), policy.get(), mail);
+        // D141: no device code email scope may be open on the job's thread between sends.
+        if (DeviceCodeEmailScope.isOpen()) {
+            throw new IllegalStateException("device code email scope is open before a run");
+        }
+        var current = portal.get();
+        if (current == null) {
+            return;
+        }
+        var result = approvals.syncCodes(current, policy.get(), mail);
         if (result.challenged() + result.emailed() + result.matched() + result.wrong() + result.accepted()
                 + result.refused() + result.ended() > 0) {
             LOGGER.info("myCarlos device codes: challenged={} emailed={} matched={} wrong={} accepted={} refused={} ended={}",
@@ -141,15 +157,17 @@ public class PortalMyCarlosDeviceCodeSyncService {
         private final DemographicDao demographics;
         private final ClinicDAO clinics;
         private final ProviderDao providers;
+        private final SecurityInfoManager security;
         private final Supplier<String> senderEmail;
 
         ChartMail(EmailManager emails, EmailConfigDao emailConfigs, DemographicDao demographics, ClinicDAO clinics,
-                ProviderDao providers, Supplier<String> senderEmail) {
+                ProviderDao providers, SecurityInfoManager security, Supplier<String> senderEmail) {
             this.emails = Objects.requireNonNull(emails);
             this.emailConfigs = Objects.requireNonNull(emailConfigs);
             this.demographics = Objects.requireNonNull(demographics);
             this.clinics = Objects.requireNonNull(clinics);
             this.providers = Objects.requireNonNull(providers);
+            this.security = Objects.requireNonNull(security);
             this.senderEmail = Objects.requireNonNull(senderEmail);
         }
 
@@ -182,6 +200,11 @@ public class PortalMyCarlosDeviceCodeSyncService {
             if (emails.clinicFooterMissing()) {
                 return PortalMyCarlosStaffApprovalService.CodeReach.staff(PortalMyCarlosStaffApprovalService.FOOTER_MISSING);
             }
+            // The archive checks the sender's access to the patient's record; a privacy-locked
+            // record would refuse every send, so that request goes to staff now.
+            if (!security.isAllowedAccessToPatientRecord(system(), patient)) {
+                return PortalMyCarlosStaffApprovalService.CodeReach.staff(PortalMyCarlosStaffApprovalService.RECORD_RESTRICTED);
+            }
             String address = chartEmail(demographics.getDemographicById(patient));
             if (address == null) {
                 return PortalMyCarlosStaffApprovalService.CodeReach.staff(PortalMyCarlosStaffApprovalService.NO_USABLE_EMAIL);
@@ -209,7 +232,15 @@ public class PortalMyCarlosDeviceCodeSyncService {
                         Provider.SYSTEM_PROVIDER_NO, PortalMyCarlosDeviceCodeEmailComposer.subject(locale),
                         PortalMyCarlosDeviceCodeEmailComposer.body(locale, clinicName, displayCode, minutes), displayCode);
                 try {
-                    EmailSendResult result = emails.sendEmailWithResult(system(), email);
+                    EmailSendResult result;
+                    // D141: the archive takes this one email as the system provider only inside
+                    // this scope, opened on this thread around this send.
+                    try (var scope = DeviceCodeEmailScope.open(patient)) {
+                        result = emails.sendEmailWithResult(system(), email);
+                    }
+                    if (DeviceCodeEmailScope.isOpen()) {
+                        throw new IllegalStateException("device code email scope is open after a send");
+                    }
                     return result.isTransportAccepted();
                 } finally {
                     email.setBody("");

@@ -35,8 +35,9 @@ Each run, in this order:
    says so once, with a fixed reason and nothing else:
      myCarlos device approval goes to staff: <reason>
    where <reason> is policy staff_only, no usable chart email, no email
-   consent, sender account not active, or clinic footer missing (the clinic
-   email footer is required but not set). A send that fails later logs
+   consent, sender account not active, clinic footer missing (the clinic
+   email footer is required but not set), or record access restricted (the
+   patient's record is privacy-locked against the system provider). A send that fails later logs
    "myCarlos device code email was not sent: <reason>" the same way;
 3. follows up the code requests of the last 15 minutes: a code not yet sent
    is sent again (a failing send waits 30 s, then twice as long each time, at
@@ -68,6 +69,16 @@ is in the patient's spoken or official language when CARLOS has it (English,
 French, Spanish, Polish, Portuguese), else English, and holds no health
 information. The code is redacted from the email archive, and the email log
 keeps only "This myCarlos device code is not kept by CARLOS..." once sent.
+
+Archive (authorization exception, D141)
+Every sent email is archived as a patient eDoc, which normally needs the _edoc
+write right. The system provider has none, and gets none: the archive accepts
+exactly the device code email (type MYCARLOS_CODE, no attachments, for the
+patient the job is sending to) while the device-code job's own send is under
+way on its own thread (DeviceCodeEmailScope). The patient-record access check
+still applies. The log then says "Outbound email archive: myCarlos device code
+email archived for the system device-code job (D141)". Every other email, user
+and caller is unchanged.
 
 Storage
 Migration V1.0.83 (number fixed at merge) lets the approval kind be 'code' and
