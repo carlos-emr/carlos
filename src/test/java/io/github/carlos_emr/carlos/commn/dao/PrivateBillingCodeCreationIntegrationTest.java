@@ -150,7 +150,8 @@ class PrivateBillingCodeCreationIntegrationTest {
             releaseFirst.countDown();
             assertThat(first.get(10, TimeUnit.SECONDS).message()).contains("is added.");
             try {
-                var secondResult = second.get(10, TimeUnit.SECONDS);
+                // Leave headroom above H2's 10-second lock wait, especially after rollback.
+                var secondResult = second.get(20, TimeUnit.SECONDS);
                 assertThat(secondResult.alert()).isEqualTo(rollBackFirst ? "info" : "error");
             } catch (java.util.concurrent.ExecutionException conflict) {
                 if (rollBackFirst || !snapshot) throw conflict;
