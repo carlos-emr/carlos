@@ -21,6 +21,11 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.commn.dao.CdsLaboratoryResultDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.CdsLaboratoryResult;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
@@ -39,7 +44,8 @@ class CdsLaboratoryImportServiceUnitTest {
 
     @Test void shouldReadActualFlagChoice_whenSourceUsesCriticalCode() throws Exception {
         var fields=new CdsFieldParser();
-        var service=new CdsLaboratoryImportService(fields,new CdsClinicalNormalizationService(fields),null,null);
+        var service=new CdsLaboratoryImportService(fields,new CdsClinicalNormalizationService(fields),null,null,
+                null,null,null,null,null);
         var source=CdsClinicalFixture.record(directory,"LaboratoryResults",Map.of(
                 "LaboratoryName","Synthetic lab", "ResultNormalAbnormalFlag/resultNormalAbnormalFlagAsEnum","HH",
                 "CollectionDateTime/YearOnly","2024"));
@@ -188,7 +194,11 @@ class CdsLaboratoryImportServiceUnitTest {
             io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto requisition) throws Exception {
         var preparation=org.mockito.Mockito.mock(CdsNativePreparationService.class);
         var ledger=org.mockito.Mockito.mock(CdsImportLedgerService.class);
-        var em=org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class);
+        var demographics=org.mockito.Mockito.mock(DemographicDao.class);
+        var messages=org.mockito.Mockito.mock(Hl7TextMessageDao.class);
+        var information=org.mockito.Mockito.mock(Hl7TextInfoDao.class);
+        var routing=org.mockito.Mockito.mock(PatientLabRoutingDao.class);
+        var results=org.mockito.Mockito.mock(CdsLaboratoryResultDao.class);
         var command=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand.class);
         var record=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto.class);
         org.mockito.Mockito.when(command.providerNo()).thenReturn("999999");
@@ -200,16 +210,20 @@ class CdsLaboratoryImportServiceUnitTest {
         var unit=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.model.CdsImportUnit.class);
         org.mockito.Mockito.when(unit.getPatientKey()).thenReturn("patient");
         org.mockito.Mockito.when(ledger.unit("run","unit")).thenReturn(unit);
-        org.mockito.Mockito.when(em.find(Demographic.class,999999)).thenReturn(patient());
+        org.mockito.Mockito.when(demographics.getDemographicById(999999)).thenReturn(patient());
         var stored=new java.util.ArrayList<Object>();
-        org.mockito.Mockito.doAnswer(call->{
+        org.mockito.stubbing.Answer<Void> capture=call->{
             Object row=call.getArgument(0); stored.add(row);
             if(!(row instanceof CdsLaboratoryResult)) org.springframework.test.util.ReflectionTestUtils.setField(row,"id",stored.size());
             return null;
-        }).when(em).persist(org.mockito.ArgumentMatchers.any());
+        };
+        org.mockito.Mockito.doAnswer(capture).when(messages).persist(org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.doAnswer(capture).when(information).persist(org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.doAnswer(capture).when(routing).persist(org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.doAnswer(capture).when(results).persist(org.mockito.ArgumentMatchers.any());
         var fields=new CdsFieldParser();
-        var service=new CdsLaboratoryImportService(fields,new CdsClinicalNormalizationService(fields),preparation,ledger);
-        org.springframework.test.util.ReflectionTestUtils.setField(service,"entityManager",em);
+        var service=new CdsLaboratoryImportService(fields,new CdsClinicalNormalizationService(fields),preparation,ledger,
+                demographics,messages,information,routing,results);
         try(var active=org.mockito.Mockito.mockStatic(CdsImportUnitService.class)) {
             service.write("run",1L,"unit",999999,record,command);
         }

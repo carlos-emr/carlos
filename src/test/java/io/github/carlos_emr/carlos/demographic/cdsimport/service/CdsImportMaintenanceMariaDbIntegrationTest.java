@@ -115,6 +115,7 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
     private CdsImportMaintenanceService second;
     private ExecutorService worker;
     private final List<CdsImportMaintenanceService.Owner> owners = new CopyOnWriteArrayList<>();
+    private final List<String> catalogueProbes = new CopyOnWriteArrayList<>();
 
     @BeforeEach
     void setUp() throws Exception {
@@ -157,6 +158,7 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
                 sql.executeUpdate("DELETE FROM cds_import_preparation WHERE id='cds-maintenance-metadata-test'");
                 sql.executeUpdate("DELETE FROM cds_import_patient WHERE id='cds-maintenance-hold-test'");
                 sql.executeUpdate("DELETE FROM cds_import_run WHERE id='cds-maintenance-hold-test'");
+                for (String table : catalogueProbes) sql.execute("DROP TABLE IF EXISTS "+quotePinTarget(table));
                 sql.execute("DROP TABLE IF EXISTS cds_guard_probe");
             }
             nodeOne.close();
@@ -470,6 +472,17 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldRefuseAMissingRequiredTarget_beforeNativeMutation() throws Exception {
+        try (var owner=acquireOnly(first)) {
+            var safety=new CdsImportTargetSafetyService(new CdsImportConfigurationService(new Properties()),
+                    java.util.Set.of("cds_guard_missing_required_target"));
+            assertThatThrownBy(()->safety.verify(owner)).isInstanceOf(CdsImportException.class)
+                    .hasMessage("IMPORT_TARGET_TABLE_MISSING");
+            assertThat(value()).isEqualTo("initial");
+        }
+    }
+
+    @Test
     void shouldRefuseAnUnapprovedTargetTrigger_beforeNativeMutation() throws Exception {
         try (Connection raw=nodeOne.openUnpooledCdsMaintenanceConnection(); Statement sql=raw.createStatement()) {
             sql.execute("CREATE TRIGGER cds_guard_probe_trigger BEFORE UPDATE ON cds_guard_probe FOR EACH ROW SET NEW.probe_value=NEW.probe_value");
@@ -484,19 +497,60 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
 
     @Test
     void shouldPinVerifiedMetadata_untilTheMaintenanceOwnerReleasesIt() throws Exception {
-        var owner=own(first);
-        new CdsImportTargetSafetyService(new CdsImportConfigurationService(new Properties()),java.util.Set.of("cds_guard_probe"))
-                .verify(owner);
-        Future<Integer> alteration=worker.submit(()->{
-            try (Connection raw=nodeTwo.openUnpooledCdsMaintenanceConnection(); Statement sql=raw.createStatement()) {
-                sql.setQueryTimeout(10);
-                return sql.executeUpdate("ALTER TABLE cds_guard_probe ADD COLUMN catalogue_pin_probe INT");
+        worker.shutdown(); worker=Executors.newFixedThreadPool(4);
+        List<String> probes=new java.util.ArrayList<>();
+        for (int index=0; index<62; index++) probes.add("cds_guard_pin_"+String.format(java.util.Locale.ROOT, "%02d", index));
+        probes.add("cds_guard_pin_case"); probes.add("cds_Guard_pin_case"); probes.add("cds_guard_pin_quote`name");
+        try (Connection raw=nodeOne.openUnpooledCdsMaintenanceConnection(); Statement sql=raw.createStatement()) {
+            for (String table : probes) {
+                sql.execute("CREATE TABLE "+quotePinTarget(table)+" (id INT PRIMARY KEY) ENGINE=InnoDB");
+                catalogueProbes.add(table);
             }
-        });
-        assertBlocked(alteration);
-        owner.allowReopen(); owner.close();
-        assertThat(alteration.get(5,TimeUnit.SECONDS)).isZero();
+        }
+        var expected=new java.util.TreeSet<String>();
+        try (Connection raw=nodeOne.openUnpooledCdsMaintenanceConnection(); Statement sql=raw.createStatement();
+                ResultSet tables=sql.executeQuery("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE='BASE TABLE'")) {
+            while (tables.next()) {
+                String table=tables.getString(1);
+                if (probes.contains(table) || table.toLowerCase(java.util.Locale.ROOT).startsWith("cds_import_")) expected.add(table);
+            }
+        }
+        assertThat(expected).containsAll(probes); assertThat(probes).hasSize(65);
+        var required=new java.util.HashSet<>(probes); required.remove("cds_Guard_pin_case");
+        var owner=acquireOnly(first); // No preceding catalogue verification may mask a missing batch pin.
+        try (owner) {
+            new CdsImportTargetSafetyService(new CdsImportConfigurationService(new Properties()), required).verify(owner);
+            List<Future<String>> blocked=new java.util.ArrayList<>();
+            for (String table : expected) blocked.add(worker.submit(()->requireMetadataAlterBlocked(table)));
+            var observed=new java.util.TreeSet<String>();
+            for (Future<String> attempt : blocked) observed.add(attempt.get(90, TimeUnit.SECONDS));
+            assertThat(observed).containsExactlyElementsOf(expected);
+            owner.allowReopen();
+        }
+        assertThat(owner.releaseVerified()).isTrue();
+        try (Connection raw=nodeTwo.openUnpooledCdsMaintenanceConnection(); Statement sql=raw.createStatement()) {
+            sql.setQueryTimeout(5);
+            assertThat(sql.executeUpdate("ALTER TABLE "+quotePinTarget(probes.getFirst())+" ADD COLUMN catalogue_pin_probe INT")).isZero();
+        }
+        assertThat(value()).isEqualTo("initial");
     }
+
+    private String requireMetadataAlterBlocked(String table) throws SQLException {
+        try (Connection raw=nodeTwo.openUnpooledCdsMaintenanceConnection(); Statement sql=raw.createStatement()) {
+            sql.setQueryTimeout(5); sql.execute("SET SESSION lock_wait_timeout=1");
+            try {
+                sql.executeUpdate("ALTER TABLE "+quotePinTarget(table)+" ADD COLUMN cds_mdl_pin_probe INT");
+            } catch (SQLException blocked) {
+                assertThat(blocked.getErrorCode()).as("MDL timeout for %s", table).isEqualTo(1205);
+                return table;
+            }
+            // A missing pin must fail the test without leaving a changed canonical table behind.
+            sql.executeUpdate("ALTER TABLE "+quotePinTarget(table)+" DROP COLUMN cds_mdl_pin_probe");
+            throw new AssertionError("Target metadata was not pinned: "+table);
+        }
+    }
+
+    private static String quotePinTarget(String identifier) { return "`"+identifier.replace("`", "``")+"`"; }
 
     @Test
     void shouldRefuseUnitWrites_whenTheOwnerSkippedNativeCatalogueVerification() throws Exception {

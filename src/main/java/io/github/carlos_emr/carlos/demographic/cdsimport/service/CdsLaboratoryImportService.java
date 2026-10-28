@@ -21,6 +21,11 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.commn.dao.CdsLaboratoryResultDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.CdsLaboratoryResult;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
@@ -32,8 +37,6 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsLaboratoryNativeDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLaboratoryMeaning;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
@@ -61,11 +64,19 @@ public class CdsLaboratoryImportService implements CdsCategoryImportService {
     private final CdsClinicalNormalizationService normalization;
     private final CdsNativePreparationService preparation;
     private final CdsImportLedgerService ledger;
-    @PersistenceContext(unitName="entityManagerFactory") private EntityManager entityManager;
+    private final DemographicDao demographicDao;
+    private final Hl7TextMessageDao messages;
+    private final Hl7TextInfoDao information;
+    private final PatientLabRoutingDao routing;
+    private final CdsLaboratoryResultDao results;
 
     public CdsLaboratoryImportService(CdsFieldParser fields, CdsClinicalNormalizationService normalization,
-            CdsNativePreparationService preparation, CdsImportLedgerService ledger) {
+            CdsNativePreparationService preparation, CdsImportLedgerService ledger,
+            DemographicDao demographicDao, Hl7TextMessageDao messages, Hl7TextInfoDao information,
+            PatientLabRoutingDao routing, CdsLaboratoryResultDao results) {
         this.fields=fields; this.normalization=normalization; this.preparation=preparation; this.ledger=ledger;
+        this.demographicDao=demographicDao; this.messages=messages; this.information=information;
+        this.routing=routing; this.results=results;
     }
     @Override public Set<String> sections() { return Set.of("LaboratoryResults"); }
     @Override public void validate(CdsRecordDto record, CdsImportCommand command, CdsSnapshotDto snapshot, String xmlRelative)
@@ -109,13 +120,14 @@ public class CdsLaboratoryImportService implements CdsCategoryImportService {
         result.setImportedBy(command.providerNo());
         Map<String, String> targets=new LinkedHashMap<>();
         if (!"Y".equals(result.getSourceBlocked())) {
-            Demographic demographic=entityManager.find(Demographic.class, patient);
+            Demographic demographic=demographicDao.getDemographicById(patient);
             if (demographic==null) throw new CdsImportException("PATIENT_TARGET_MISSING");
             Hl7TextMessage message=new Hl7TextMessage(); message.setType("CARLOS-CDS");
             message.setServiceName("CDS import"); message.setFileUploadCheckId(0);
             message.setBase64EncodedeMessage(Base64.getEncoder().encodeToString(
                     message(result, demographic, collection).getBytes(StandardCharsets.UTF_8)));
-            entityManager.persist(message); entityManager.flush();
+            // Reuse participating model DAOs without invoking live upload or inbox workflows.
+            messages.persist(message); messages.flush();
             Hl7TextInfo info=new Hl7TextInfo(); info.setLabNumber(message.getId());
             info.setFirstName(demographic.getFirstName()); info.setLastName(demographic.getLastName());
             info.setHealthNumber(demographic.getHin()); info.setSex(demographic.getSex());
@@ -126,15 +138,15 @@ public class CdsLaboratoryImportService implements CdsCategoryImportService {
             info.setLabel(result.getTestName()!=null?result.getTestName():result.getReportedTestName());
             // LaboratoryName is 120 characters; sending_facility is only50. Do not shorten source identity.
             if (fits(result.getLaboratoryName(), 50)) info.setSendingFacility(result.getLaboratoryName());
-            entityManager.persist(info);
-            PatientLabRouting routing=new PatientLabRouting(message.getId(), "HL7", patient);
-            entityManager.persist(routing); entityManager.flush(); result.setNativeLabNo(message.getId());
+            information.persist(info);
+            PatientLabRouting patientRouting=new PatientLabRouting(message.getId(), "HL7", patient);
+            routing.persist(patientRouting); routing.flush(); result.setNativeLabNo(message.getId());
             targets.put("hl7TextMessage", message.getId().toString()); targets.put("hl7TextInfo", info.getId().toString());
-            targets.put("patientLabRouting", routing.getId().toString());
+            targets.put("patientLabRouting", patientRouting.getId().toString());
         }
         // Blocked results stay fully structured and visible through the explicitly authorized
         // laboratory category view, without unrestricted legacy lab/portal/export/measurement copies.
-        entityManager.persist(result); targets.put("cds_laboratory_result", unit);
+        results.persist(result); targets.put("cds_laboratory_result", unit);
         return targets;
     }
 

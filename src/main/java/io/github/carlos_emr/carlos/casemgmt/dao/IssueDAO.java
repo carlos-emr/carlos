@@ -47,6 +47,14 @@ public interface IssueDAO {
 
     public Issue findIssueByCode(String code);
 
+    /**
+     * Finds at most two catalogue entries so callers can distinguish an exact match from ambiguity.
+     *
+     * @param code exact issue code
+     * @return zero, one or two matching entries, ordered by identifier
+     */
+    List<Issue> findCandidatesByCode(String code);
+
     public Issue findIssueByTypeAndCode(String type, String code);
 
     public void saveIssue(Issue issue);

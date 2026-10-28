@@ -59,6 +59,15 @@ public interface CaseManagementIssueDAO {
      */
     public CaseManagementIssue findById(Long id);
 
+    /**
+     * Finds at most two patient issues without collapsing duplicate catalogue associations.
+     *
+     * @param demographicNo patient demographic number
+     * @param issueId catalogue issue identifier
+     * @return zero, one or two matching patient issues, ordered by identifier
+     */
+    List<CaseManagementIssue> findCandidatesByDemographicAndIssue(int demographicNo, Long issueId);
+
     public CaseManagementIssue getIssuebyIssueCode(String demo, String issueCode);
 
     public void deleteIssueById(CaseManagementIssue issue);

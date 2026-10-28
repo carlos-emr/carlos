@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
@@ -32,9 +35,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +46,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -86,20 +88,27 @@ public class CdsHistoryPersister {
     private final CdsProviderResolver providers;
     private final CdsNativePreparationService preparation;
 
-    @PersistenceContext(unitName = "entityManagerFactory")
-    private EntityManager entityManager;
+    private final CaseManagementNoteDAO notes;
+    private final CaseManagementIssueDAO patientIssues;
+    private final IssueDAO issues;
 
     public CdsHistoryPersister(
             CdsFieldParser fields,
             CdsClinicalNormalizationService normalization,
             CdsImportConfigurationService configuration,
             CdsProviderResolver providers,
-            CdsNativePreparationService preparation) {
+            CdsNativePreparationService preparation,
+            @Qualifier("CaseManagementNoteDAO") CaseManagementNoteDAO notes,
+            @Qualifier("CaseManagementIssueDAO") CaseManagementIssueDAO patientIssues,
+            @Qualifier("IssueDAO") IssueDAO issues) {
         this.fields = fields;
         this.normalization = normalization;
         this.configuration = configuration;
         this.providers = providers;
         this.preparation = preparation;
+        this.notes = Objects.requireNonNull(notes);
+        this.patientIssues = Objects.requireNonNull(patientIssues);
+        this.issues = Objects.requireNonNull(issues);
     }
 
     public void validate(CdsRecordDto record, CdsImportCommand command) {
@@ -272,16 +281,7 @@ public class CdsHistoryPersister {
         Map<String, String> references = new LinkedHashMap<>();
         if (source.issueCode() != null) {
             Issue category = requireIssue(source.issueCode());
-            var existing =
-                    entityManager
-                            .createQuery(
-                                    "select i from CaseManagementIssue i where"
-                                            + " i.demographic_no=:patient and i.issue_id=:issue",
-                                    CaseManagementIssue.class)
-                            .setParameter("patient", patient)
-                            .setParameter("issue", category.getId())
-                            .setMaxResults(2)
-                            .getResultList();
+            var existing = patientIssues.findCandidatesByDemographicAndIssue(patient, category.getId());
             if (existing.size() > 1) throw new CdsImportException("HISTORY_NATIVE_ISSUE_AMBIGUOUS");
             CaseManagementIssue issue =
                     existing.isEmpty() ? new CaseManagementIssue() : existing.get(0);
@@ -289,25 +289,22 @@ public class CdsHistoryPersister {
                 issue.setDemographic_no(patient);
                 issue.setIssue_id(category.getId());
                 issue.setType("general");
-                entityManager.persist(issue);
-                entityManager.flush();
+                patientIssues.saveIssue(issue);
             }
+            if (issue.getId() == null || issue.getId() < 1)
+                throw new CdsImportException("HISTORY_NATIVE_ISSUE_ID_MISSING");
             note.setIssues(Set.of(issue));
             references.put("casemgmt_issue", issue.getId().toString());
         }
-        entityManager.persist(note);
-        entityManager.flush();
+        notes.saveNote(note);
+        if (note.getId() == null || note.getId() < 1)
+            throw new CdsImportException("HISTORY_NATIVE_NOTE_ID_MISSING");
         references.put("casemgmt_note", note.getId().toString());
         return references;
     }
 
     private Issue requireIssue(String code) {
-        var matches =
-                entityManager
-                        .createQuery("select i from Issue i where i.code=:code", Issue.class)
-                        .setParameter("code", code)
-                        .setMaxResults(2)
-                        .getResultList();
+        var matches = issues.findCandidatesByCode(code);
         if (matches.size() != 1)
             throw new CdsImportException("HISTORY_CATEGORY_MAPPING_REQUIRES_REVIEW");
         return matches.get(0);

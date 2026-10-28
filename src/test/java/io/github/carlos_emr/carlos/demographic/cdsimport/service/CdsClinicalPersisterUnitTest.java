@@ -31,11 +31,20 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.commn.model.PreventionExt;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -396,6 +405,72 @@ class CdsClinicalPersisterUnitTest {
                 });
             }
         });
+    }
+
+    @Nested
+    class NativeReceiptMetadataTimeout {
+        private final Connection connection = mock(Connection.class);
+        private final PreparedStatement metadataQuery = mock(PreparedStatement.class);
+        private final PreparedStatement digestQuery = mock(PreparedStatement.class);
+        private final ResultSet metadataRows = mock(ResultSet.class);
+        private final ResultSet digestRows = mock(ResultSet.class);
+        private final ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        private final AtomicBoolean timeoutConfigured = new AtomicBoolean();
+
+        @BeforeEach void jdbcFixture() throws Exception {
+            when(connection.prepareStatement(anyString())).thenReturn(metadataQuery, digestQuery);
+            doAnswer(call -> { timeoutConfigured.set(true); return null; }).when(metadataQuery).setQueryTimeout(30);
+            when(metadataQuery.executeQuery()).thenAnswer(call -> {
+                assertThat(timeoutConfigured.get()).as("metadata deadline configured before driver execution").isTrue();
+                return metadataRows;
+            });
+            when(metadataRows.getMetaData()).thenReturn(metadata);
+            when(metadata.getColumnCount()).thenReturn(1);
+            when(metadata.getColumnName(1)).thenReturn("demographic_no");
+            when(metadata.getColumnTypeName(1)).thenReturn("INT");
+            when(metadata.getPrecision(1)).thenReturn(10);
+            when(digestQuery.executeQuery()).thenReturn(digestRows);
+            when(digestRows.next()).thenReturn(true, false);
+            when(digestRows.getLong(2)).thenReturn(1L);
+            when(digestRows.getString(3)).thenReturn("a".repeat(64));
+        }
+
+        @Test void shouldSetMetadataDeadline_beforeExecutionAndNativeRowHashing() throws Exception {
+            assertThat(CdsTargetReceiptService.rowDigest(connection, "demographic", "1")).matches("[0-9a-f]{64}");
+            var order = inOrder(connection, metadataQuery, metadataRows, digestQuery);
+            order.verify(connection).prepareStatement("SELECT * FROM `demographic` WHERE 1=0");
+            order.verify(metadataQuery).setQueryTimeout(30);
+            order.verify(metadataQuery).executeQuery();
+            order.verify(metadataRows).getMetaData();
+            order.verify(digestQuery).setString(1, "1");
+            order.verify(digestQuery).setMaxRows(2);
+            order.verify(digestQuery).setQueryTimeout(30);
+            order.verify(digestQuery).executeQuery();
+            verify(metadataRows).close(); verify(metadataQuery).close();
+            verify(digestRows).close(); verify(digestQuery).close();
+        }
+
+        @Test void shouldPropagateMetadataTimeout_withoutStartingTheNativeRowQuery() throws Exception {
+            var failure = new SQLTimeoutException("synthetic metadata lock deadline");
+            doThrow(failure).when(metadataQuery).executeQuery();
+            assertThatThrownBy(() -> CdsTargetReceiptService.rowDigest(connection, "demographic", "1")).isSameAs(failure);
+            var order = inOrder(metadataQuery);
+            order.verify(metadataQuery).setQueryTimeout(30);
+            order.verify(metadataQuery).executeQuery();
+            verify(metadataQuery).close();
+            verify(connection, times(1)).prepareStatement(anyString());
+            verifyNoInteractions(digestQuery, digestRows);
+        }
+
+        @Test void shouldRefuseUnsupportedMetadataDeadline_beforeAnyQueryExecution() throws Exception {
+            var failure = new SQLException("synthetic unsupported query timeout");
+            doThrow(failure).when(metadataQuery).setQueryTimeout(30);
+            assertThatThrownBy(() -> CdsTargetReceiptService.rowDigest(connection, "demographic", "1")).isSameAs(failure);
+            verify(metadataQuery, never()).executeQuery();
+            verify(metadataQuery).close();
+            verify(connection, times(1)).prepareStatement(anyString());
+            verifyNoInteractions(metadataRows, digestQuery, digestRows);
+        }
     }
 
     @FunctionalInterface private interface TemporalCheck { void run() throws Exception; }

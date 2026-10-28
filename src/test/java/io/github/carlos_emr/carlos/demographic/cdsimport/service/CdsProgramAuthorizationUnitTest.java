@@ -24,6 +24,9 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderFacilityDao;
+import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Facility;
@@ -32,7 +35,6 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProgramContextDto;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
 import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,14 +49,17 @@ class CdsProgramAuthorizationUnitTest {
     private CdsProgramContextService programs;
     private CdsImportConfigurationService configuration;
     private CdsImportAccessService access;
+    private ProviderFacilityDao memberships;
     @BeforeEach void prepare() {
         em=mock(EntityManager.class);programs=mock(CdsProgramContextService.class);configuration=mock(CdsImportConfigurationService.class);
         var security=mock(SecurityInfoManager.class);
         when(security.hasPrivilegeReadOnly(any(),eq("_demographic"),eq("w"),isNull())).thenReturn(true);
-        access=new CdsImportAccessService(security,configuration,mock(CdsCourseService.class),programs);
+        var providers=mock(ProviderDao.class);memberships=mock(ProviderFacilityDao.class);
+        access=new CdsImportAccessService(security,configuration,mock(CdsCourseService.class),programs,
+                providers,mock(SecurityDao.class),memberships);
         ReflectionTestUtils.setField(access,"entityManager",em);
         var provider=new Provider();provider.setProviderNo("77");provider.setStatus("1");
-        when(em.find(Provider.class,"77")).thenReturn(provider);
+        when(providers.getProvider("77")).thenReturn(provider);
     }
     private CdsImportCommand command(Integer facility, boolean synthetic) {
         return new CdsImportCommand(Path.of("/owned/source.xml"),"submission","77",34,facility,"fixture","omd-5.2",false,false,false,0,synthetic?7:null,synthetic);
@@ -77,9 +82,23 @@ class CdsProgramAuthorizationUnitTest {
     }
     @Test void shouldRefuseCrossFacilityProgram_evenWhenProviderBelongsToRequestedFacility() {
         when(em.find(Facility.class,1)).thenReturn(new Facility());
-        Query query=mock(Query.class,RETURNS_SELF);when(em.createNativeQuery(anyString())).thenReturn(query);when(query.getSingleResult()).thenReturn(1L);
+        when(memberships.countByProviderAndFacility("77",1)).thenReturn(1L);
         when(programs.metadata(34)).thenReturn(new CdsProgramContextDto(34,"Other facility","active",2));
         assertThatThrownBy(()->access.context(actor(1),command(1,false),null)).isInstanceOf(SecurityException.class);
+    }
+    @Test void shouldObserveRevokedFacilityMembership_betweenAuthorizedCalls() {
+        when(em.find(Facility.class,1)).thenReturn(new Facility());
+        when(programs.metadata(34)).thenReturn(new CdsProgramContextDto(34,"Clinic","active",1));
+        when(programs.member("77",34)).thenReturn(true);
+        when(memberships.countByProviderAndFacility("77",1)).thenReturn(1L,0L);
+        access.context(actor(1),command(1,false),null);
+        assertThatThrownBy(()->access.context(actor(1),command(1,false),null)).isInstanceOf(SecurityException.class);
+        verify(memberships,times(2)).countByProviderAndFacility("77",1);
+        verify(em,never()).createNativeQuery(anyString());
+    }
+    @Test void shouldRefuseMissingFacility_beforeConsultingMembership() {
+        assertThatThrownBy(()->access.context(actor(1),command(1,false),null)).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(memberships);
     }
     @Test void shouldValidateSyntheticCourseAndPersonalProgramFromScalars_withExistingRoleChecks() {
         var course=new CdsCourseService(configuration,mock(PlatformTransactionManager.class),programs);

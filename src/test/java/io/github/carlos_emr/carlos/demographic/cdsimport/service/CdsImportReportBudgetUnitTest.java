@@ -101,7 +101,7 @@ class CdsImportReportBudgetUnitTest {
 
     @Test void budgetExpiryAfterReceiptCreationStillRefusesTheFinalSelection() throws Exception {
         Fixture f=new Fixture();AtomicLong summaries=new AtomicLong();
-        when(f.ledger.summary(f.run)).thenAnswer(call->{if(summaries.incrementAndGet()==3)f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100));return f.summary();});
+        when(f.ledger.summary(f.run)).thenAnswer(call->{if(summaries.incrementAndGet()==2)f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100));return f.summary();});
         assertTimeoutFailure(f);
         assertEquals("FAILED",f.reportState.get());
         try(var paths=Files.walk(f.jobRoot)){assertTrue(paths.anyMatch(p->p.getFileName().toString().equals("completion.json")),"Unselected receipt is retained evidence, not delivery");}
@@ -123,6 +123,26 @@ class CdsImportReportBudgetUnitTest {
         CdsImportException failure=assertThrows(CdsImportException.class,()->results.generate(f.run,1));
         assertEquals("IMPORT_REPORT_GENERATION_TIMEOUT",failure.getCode());
         verify(f.selection,never()).select(anyString(),anyLong(),anyLong(),anyString(),anyString(),anyString());
+    }
+
+    @Test void shouldPreserveEveryReportRow_whenSealedOrUnsealedPagesReachShortTails() throws Exception {
+        for (boolean sealed:new boolean[]{false,true}) {
+            Fixture f=new Fixture();
+            when(f.ledger.summary(f.run)).thenAnswer(call->{
+                var value=new java.util.LinkedHashMap<>(f.summary()); value.put("inventoryState",sealed?"SEALED":"UNSEALED"); return value;
+            });
+            when(f.ledger.units(eq(f.run),anyString(),anyString(),eq(100))).thenAnswer(call->{
+                String patient=call.getArgument(1),after=call.getArgument(2);
+                return after.isEmpty()?List.of(new CdsImportUnitDto(patient,io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys.hash(patient),
+                        "ClinicalNotes",1,"a".repeat(64),"/private/spool","COMMITTED",null,"b".repeat(64))):List.of();
+            });
+            f.results.generate(f.run,1);
+            verify(f.ledger,times(sealed?1:2)).patients(eq(f.run),anyString(),eq(100));
+            verify(f.ledger,times(sealed?3:6)).units(eq(f.run),anyString(),anyString(),eq(100));
+            verify(f.ledger,times(2)).summary(f.run); // Current completion projection still follows cleanup.
+            assertEquals(3,Files.readAllLines(f.selected.get().getParent().resolve("units.jsonl")).size());
+            assertEquals(3,Files.readAllLines(f.selected.get().getParent().resolve("ImportEventLog.jsonl")).size());
+        }
     }
 
     private static void assertTimeoutFailure(Fixture f) throws Exception {

@@ -28,6 +28,10 @@ import static org.mockito.Mockito.*;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.DemographicCustDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.AdmissionDaoImpl;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
 
@@ -154,6 +158,13 @@ class CdsDemographicStorageMariaDbIntegrationTest {
                             .thenReturn(
                                     new CdsIdentityDecisionDto(
                                             CdsIdentityDecisionDto.Outcome.NO_MATCH, null));
+                    var demographics = new DemographicDaoImpl();
+                    var custom = new DemographicCustDaoImpl();
+                    var extensions = new DemographicExtDaoImpl();
+                    var admissions = new AdmissionDaoImpl();
+                    for (Object dao : List.of(demographics, custom, extensions, admissions)) {
+                        ReflectionTestUtils.setField(dao, "entityManager", session);
+                    }
                     var writer =
                             new CdsDemographicPersister(
                                     mock(CdsFieldParser.class),
@@ -161,8 +172,11 @@ class CdsDemographicStorageMariaDbIntegrationTest {
                                     mock(CdsProviderResolver.class),
                                     preparation,
                                     mock(CdsDemographicDetailsService.class),
-                                    mock(CdsDemographicRelationsService.class));
-                    ReflectionTestUtils.setField(writer, "entityManager", session);
+                                    mock(CdsDemographicRelationsService.class),
+                                    demographics,
+                                    custom,
+                                    extensions,
+                                    admissions);
                     var targets =
                             writer.write(
                                     "11111111-1111-4111-8111-111111111111",

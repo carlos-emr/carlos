@@ -29,8 +29,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -47,6 +46,7 @@ import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 /** Native single-day slots require exact representable timing; every source-only decision is explicit and retains complete values. */
@@ -58,20 +58,21 @@ public class CdsAppointmentPersister {
     private final CdsProviderResolver providers;
     private final CdsNativePreparationService preparation;
 
-    @PersistenceContext(unitName = "entityManagerFactory")
-    private EntityManager entityManager;
+    private final OscarAppointmentDao appointments;
 
     public CdsAppointmentPersister(
             CdsFieldParser fields,
             CdsClinicalNormalizationService normalization,
             CdsImportConfigurationService configuration,
             CdsProviderResolver providers,
-            CdsNativePreparationService preparation) {
+            CdsNativePreparationService preparation,
+            OscarAppointmentDao appointments) {
         this.fields = fields;
         this.normalization = normalization;
         this.configuration = configuration;
         this.providers = providers;
         this.preparation = preparation;
+        this.appointments = Objects.requireNonNull(appointments);
     }
 
     public void validate(CdsRecordDto record, CdsImportCommand command) throws IOException {
@@ -274,8 +275,10 @@ public class CdsAppointmentPersister {
         appointment.setStatus("");
         appointment.setCreator(command.providerNo());
         appointment.setLastUpdateUser(command.providerNo());
-        entityManager.persist(appointment);
-        entityManager.flush();
+        appointments.persist(appointment);
+        appointments.flush();
+        if (appointment.getId() == null || appointment.getId() < 1)
+            throw new CdsImportException("APPOINTMENT_NATIVE_ID_MISSING");
         return Map.of("appointment", appointment.getId().toString());
     }
 

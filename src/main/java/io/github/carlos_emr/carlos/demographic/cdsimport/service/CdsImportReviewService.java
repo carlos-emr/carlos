@@ -181,13 +181,13 @@ public class CdsImportReviewService {
     }
 
     private Map<String, Object> summaryProjection(String runId) {
-            var rows=reviews.pendingRun(runId, 2); var latest=reviews.latest(runId);
-            long drafts=reviews.inactiveDraftCount(runId);
-            Map<String, Object> value=new LinkedHashMap<>(); value.put("pendingReviewCount", rows.size()); value.put("inactiveDraftCount", drafts);
-            value.put("reviewState", latest==null?"IDLE":latest.getState()); value.put("reviewId", latest==null?null:latest.getId());
-            value.put("reviewErrorCode", latest==null?null:latest.getSafeErrorCode());
-            value.put("unwrittenRevisionApprovalAllowed", rows.isEmpty() && drafts==0 && revisionRequestAllowed(runs.get(runId)));
-            return value;
+        var summary=reviews.summary(runId);
+        Map<String, Object> value=new LinkedHashMap<>(); value.put("pendingReviewCount", Math.toIntExact(summary.pending()));
+        value.put("inactiveDraftCount", summary.inactiveDrafts()); value.put("reviewState", summary.state());
+        value.put("reviewId", summary.id()); value.put("reviewErrorCode", summary.errorCode());
+        value.put("unwrittenRevisionApprovalAllowed", summary.pending()==0 && summary.inactiveDrafts()==0
+                && revisionRequestAllowed(runs.get(runId)));
+        return value;
     }
 
     /** Availability to request review; the worker still validates immutable lineage and evidence under ownership. */

@@ -22,11 +22,33 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.cli;
 
 import io.github.carlos_emr.carlos.commn.dao.AllergyDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.AdmissionDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.CdsLaboratoryResultDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.DemographicCustDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.ProfessionalContactDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.ProviderFacilityDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.SecurityDaoImpl;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAOImpl;
+import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAOImpl;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.CdsLegacyProjectionDao;
 import io.github.carlos_emr.carlos.commn.dao.ContactDaoImpl;
@@ -70,10 +92,25 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
         PreventionExtDaoImpl.class, SecObjPrivilegeDaoImpl.class, SecuserroleDaoImpl.class,
         SecobjprivilegeDaoImpl.class, SecurityInfoManagerImpl.class, ProviderDaoImpl.class,
         CdsLegacyProjectionDao.class, ContactDaoImpl.class, DemographicContactDaoImpl.class,
-        MeasurementDaoImpl.class, MeasurementTypeDaoImpl.class, MeasurementsExtDaoImpl.class})
+        MeasurementDaoImpl.class, MeasurementTypeDaoImpl.class, MeasurementsExtDaoImpl.class,
+        DemographicDaoImpl.class, DemographicCustDaoImpl.class, DemographicExtDaoImpl.class, AdmissionDaoImpl.class,
+        ProfessionalContactDaoImpl.class, PharmacyInfoDaoImpl.class, DemographicPharmacyDaoImpl.class,
+        OscarAppointmentDaoImpl.class, DocumentDaoImpl.class, CtlDocumentDaoImpl.class,
+        Hl7TextMessageDaoImpl.class, Hl7TextInfoDaoImpl.class, PatientLabRoutingDaoImpl.class, CdsLaboratoryResultDao.class,
+        SecurityDaoImpl.class, ProviderFacilityDaoImpl.class})
 public class CdsCliSpringConfiguration {
     @Bean(name="allergyDao")
     public AllergyDaoImpl allergyDao() { return new AllergyDaoImpl(); }
+
+    // Match the established WAR qualifiers without registering its duplicate legacy aliases.
+    @Bean(name="CaseManagementNoteDAO")
+    public CaseManagementNoteDAO caseManagementNoteDao() { return new CaseManagementNoteDAOImpl(); }
+
+    @Bean(name="CaseManagementIssueDAO")
+    public CaseManagementIssueDAO caseManagementIssueDao() { return new CaseManagementIssueDAOImpl(); }
+
+    @Bean(name="IssueDAO")
+    public IssueDAO issueDao() { return new IssueDAOImpl(); }
 
     @Bean(destroyMethod = "close")
     public OscarTrackingBasicDataSource dataSource(@Qualifier("cdsImportProperties") Properties properties) {
@@ -91,6 +128,13 @@ public class CdsCliSpringConfiguration {
         // This dedicated context changes transaction state through JDBC setters,
         // including Spring/Hibernate. Raw SQL must not change that cached state.
         source.addConnectionProperty("useLocalSessionState", "true");
+        // This pool serves only imports. Establish an additive strict baseline once
+        // per physical connection; guarded units still verify and restore sessions.
+        var initialization=new java.util.ArrayList<String>();
+        if (source.getConnectionInitSqls()!=null) initialization.addAll(source.getConnectionInitSqls());
+        initialization.add("SET SESSION sql_mode=IF(FIND_IN_SET('STRICT_ALL_TABLES',@@SESSION.sql_mode)>0,"
+                + "@@SESSION.sql_mode,CONCAT_WS(',',NULLIF(@@SESSION.sql_mode,''),'STRICT_ALL_TABLES'))");
+        source.setConnectionInitSqls(initialization);
         // CLI has one foreground worker and a bounded progress reader, never the
         // web server's full pool or abandoned-transaction recovery heuristics.
         source.setMaxTotal(4); source.setMaxIdle(2); source.setMinIdle(0);

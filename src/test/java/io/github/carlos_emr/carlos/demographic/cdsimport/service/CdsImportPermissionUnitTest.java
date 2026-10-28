@@ -21,15 +21,16 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderFacilityDao;
+import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import jakarta.persistence.EntityManager;
 import java.util.Properties;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -55,18 +56,29 @@ class CdsImportPermissionUnitTest {
         verify(fixture.security()).hasPrivilegeReadOnly(any(), eq("_admin"), eq("w"), isNull());
     }
 
+    @Test void shouldRefuseExpiredAccount_afterAnEarlierOperatorCheck() {
+        var fixture=fixture();
+        when(fixture.security().hasPrivilegeReadOnly(any(),eq("_admin"),eq("w"),isNull())).thenReturn(true);
+        fixture.access().requireOperatorSession(fixture.actor());
+        Security expired=new Security();expired.setSecurityNo(9);expired.setProviderNo("77");
+        expired.setBExpireset(1);expired.setDateExpiredate(new java.util.Date(0));
+        when(fixture.accounts().find(9)).thenReturn(expired);
+        assertThatThrownBy(()->fixture.access().requireOperatorSession(fixture.actor())).isInstanceOf(SecurityException.class);
+        verify(fixture.accounts(),times(2)).find(9);
+    }
+
     private static Fixture fixture() {
         var security = mock(SecurityInfoManager.class);
         when(security.hasPrivilegeReadOnly(any(), eq("_demographic"), eq("w"), isNull())).thenReturn(true);
-        var access = new CdsImportAccessService(security, new CdsImportConfigurationService(new Properties()), mock(CdsCourseService.class),mock(CdsProgramContextService.class));
-        var entities = mock(EntityManager.class);
+        var providers=mock(ProviderDao.class);var accounts=mock(SecurityDao.class);
+        var access = new CdsImportAccessService(security, new CdsImportConfigurationService(new Properties()),
+                mock(CdsCourseService.class),mock(CdsProgramContextService.class),providers,accounts,mock(ProviderFacilityDao.class));
         Security account = new Security(); account.setSecurityNo(9); account.setProviderNo("77");
         Provider provider = new Provider(); provider.setProviderNo("77"); provider.setStatus("1");
-        when(entities.find(Security.class, 9)).thenReturn(account);
-        when(entities.find(Provider.class, "77")).thenReturn(provider);
-        ReflectionTestUtils.setField(access, "entityManager", entities);
+        when(accounts.find(9)).thenReturn(account);
+        when(providers.getProvider("77")).thenReturn(provider);
         LoggedInInfo actor = new LoggedInInfo(); actor.setLoggedInSecurity(account); actor.setLoggedInProvider(provider);
-        return new Fixture(access, security, actor);
+        return new Fixture(access, security, actor, accounts);
     }
-    private record Fixture(CdsImportAccessService access, SecurityInfoManager security, LoggedInInfo actor) { }
+    private record Fixture(CdsImportAccessService access, SecurityInfoManager security, LoggedInInfo actor, SecurityDao accounts) { }
 }

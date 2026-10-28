@@ -21,6 +21,10 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicContactDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDao;
+import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao;
+import io.github.carlos_emr.carlos.commn.dao.ProfessionalContactDao;
 import io.github.carlos_emr.carlos.commn.model.DemographicContact;
 import io.github.carlos_emr.carlos.commn.model.DemographicPharmacy;
 import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
@@ -34,8 +38,6 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsHealthCardAuthority;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPhoneComponents;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Set;
@@ -69,8 +71,19 @@ public class CdsDemographicRelationsService {
             Map.entry("PreferredPharmacy/FaxNumber/extension", 5), Map.entry("PreferredPharmacy/EmailAddress", 100));
     private record Projection(Map<String, String> values, Set<String> unavailable) { }
     private final CdsFieldParser fields;
-    @PersistenceContext(unitName="entityManagerFactory") private EntityManager entityManager;
-    public CdsDemographicRelationsService(CdsFieldParser fields) { this.fields=fields; }
+    private final ProfessionalContactDao contacts;
+    private final DemographicContactDao relations;
+    private final PharmacyInfoDao pharmacies;
+    private final DemographicPharmacyDao preferences;
+
+    public CdsDemographicRelationsService(CdsFieldParser fields, ProfessionalContactDao contacts,
+            DemographicContactDao relations, PharmacyInfoDao pharmacies, DemographicPharmacyDao preferences) {
+        this.fields=fields;
+        this.contacts=java.util.Objects.requireNonNull(contacts);
+        this.relations=java.util.Objects.requireNonNull(relations);
+        this.pharmacies=java.util.Objects.requireNonNull(pharmacies);
+        this.preferences=java.util.Objects.requireNonNull(preferences);
+    }
 
     public CdsDemographicRelationsDto prepare(CdsRecordDto record, CdsImportCommand command) throws IOException {
         if (!"Demographics".equals(record.section())) throw new IllegalArgumentException("Wrong demographic relation section");
@@ -172,12 +185,12 @@ public class CdsDemographicRelationsService {
             row.setName(p.name()); row.setAddress(p.address()); row.setCity(p.city()); row.setProvince(p.province());
             row.setPostalCode(p.postal()); row.setPhone1(p.phone()); row.setFax(p.fax()); row.setEmail(p.email());
             row.setStatus(PharmacyInfo.ACTIVE); row.setAddDate(new Date());
-            entityManager.persist(row); entityManager.flush();
+            pharmacies.persist(row); pharmacies.flush();
             int pharmacyId=requiredId(row.getId());
             DemographicPharmacy association=new DemographicPharmacy(); association.setPharmacyId(pharmacyId);
             association.setDemographicNo(patient); association.setPreferredOrder(1);
             association.setStatus(DemographicPharmacy.ACTIVE); association.setConsentToContact(null); association.setAddDate(new Date());
-            entityManager.persist(association); entityManager.flush();
+            preferences.persist(association); preferences.flush();
             references.put("pharmacyInfo", Integer.toString(pharmacyId));
             references.put("demographicPharmacy", Integer.toString(requiredId(association.getId())));
         }
@@ -186,13 +199,13 @@ public class CdsDemographicRelationsService {
     private void physician(int patient, String provider, int facility, Person person, String role, String key, Map<String, String> references) {
         if (person==null) return;
         ProfessionalContact contact=new ProfessionalContact(); contact.setFirstName(person.firstName()); contact.setLastName(person.lastName());
-        entityManager.persist(contact); entityManager.flush();
+        contacts.persist(contact); contacts.flush();
         int contactId=requiredId(contact.getId());
         DemographicContact relation=new DemographicContact(); relation.setContactId(Integer.toString(contactId));
         relation.setDemographicNo(patient); relation.setCategory(DemographicContact.CATEGORY_PROFESSIONAL);
         relation.setType(DemographicContact.TYPE_CONTACT); relation.setRole(role); relation.setCreator(provider);
         relation.setFacilityId(facility); relation.setConsentToContact((Boolean) null); relation.setCreated(new Date());
-        entityManager.persist(relation); entityManager.flush();
+        relations.persist(relation); relations.flush();
         references.put("Contact#"+key, Integer.toString(contactId));
         references.put("DemographicContact#"+key, Integer.toString(requiredId(relation.getId())));
     }

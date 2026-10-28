@@ -26,9 +26,12 @@ import io.github.carlos_emr.carlos.commn.model.DemographicContact;
 import io.github.carlos_emr.carlos.commn.model.DemographicPharmacy;
 import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalContact;
+import io.github.carlos_emr.carlos.commn.dao.ProfessionalContactDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicContactDao;
+import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDao;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicRelationsDto;
-import jakarta.persistence.EntityManager;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -44,13 +47,21 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class CdsDemographicRelationsServiceUnitTest {
     @TempDir Path directory;
+    private final ProfessionalContactDao contacts=mock(ProfessionalContactDao.class);
+    private final DemographicContactDao relations=mock(DemographicContactDao.class);
+    private final PharmacyInfoDao pharmacies=mock(PharmacyInfoDao.class);
+    private final DemographicPharmacyDao preferences=mock(DemographicPharmacyDao.class);
+
+    private CdsDemographicRelationsService service(CdsFieldParser fields) {
+        return new CdsDemographicRelationsService(fields, contacts, relations, pharmacies, preferences);
+    }
 
     @Test
     void shouldPrepareLiteralExternalPhysicians_withoutMatchingNamesToLocalProviders() throws Exception {
         var source=CdsClinicalFixture.record(directory,"Demographics",Map.of(
                 "FamilyPhysician/FirstName","  Élise ","FamilyPhysician/LastName","李",
                 "ReferredPhysician/FirstName","Sam","ReferredPhysician/LastName","Same"));
-        var prepared=new CdsDemographicRelationsService(new CdsFieldParser()).prepare(source,command());
+        var prepared=service(new CdsFieldParser()).prepare(source,command());
         assertThat(prepared.familyPhysician()).isEqualTo(new CdsDemographicRelationsDto.Person("  Élise ","李"));
         assertThat(prepared.referringPhysician()).isEqualTo(new CdsDemographicRelationsDto.Person("Sam","Same"));
         assertThat(prepared.facilityId()).isEqualTo(42);
@@ -74,7 +85,7 @@ class CdsDemographicRelationsServiceUnitTest {
         values.put("PreferredPharmacy/PhoneNumber/extension","12");
         values.put("PreferredPharmacy/FaxNumber/phoneNumber","+1-613-555-0102");
         values.put("PreferredPharmacy/EmailAddress","fixture@example.invalid");
-        var dto=new CdsDemographicRelationsService(new CdsFieldParser())
+        var dto=service(new CdsFieldParser())
                 .prepare(CdsClinicalFixture.record(directory,"Demographics",values),command());
         var pharmacy=dto.preferredPharmacy();
         assertThat(pharmacy.name()).isEqualTo("  Unicode 藥局 ");
@@ -91,7 +102,7 @@ class CdsDemographicRelationsServiceUnitTest {
     @Test
     void shouldNormalizeOnlyKnownCanadianProvinceAliases_withoutGuessingUnknownOrForeignSubdivisions() throws Exception {
         for(String province:List.of("US-CA","CA-XX","ca-on","CA-ON ","-90")) {
-            var dto=new CdsDemographicRelationsService(new CdsFieldParser()).prepare(
+            var dto=service(new CdsFieldParser()).prepare(
                     CdsClinicalFixture.record(directory,"Demographics",Map.of("PreferredPharmacy/Name","Pharmacy",
                             "PreferredPharmacy/Address/Structured/CountrySubdivisionCode",province)),command());
             assertThat(dto.preferredPharmacy().province()).isEqualTo(province);
@@ -99,7 +110,7 @@ class CdsDemographicRelationsServiceUnitTest {
                     .doesNotContain("CDS_CANADIAN_PROVINCE_NORMALIZED");
         }
         for(String province:io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsHealthCardAuthority.CANADIAN) {
-            var dto=new CdsDemographicRelationsService(new CdsFieldParser()).prepare(
+            var dto=service(new CdsFieldParser()).prepare(
                     CdsClinicalFixture.record(directory,"Demographics",Map.of("PreferredPharmacy/Name","Pharmacy",
                             "PreferredPharmacy/Address/Structured/CountrySubdivisionCode","CA-"+province)),command());
             assertThat(dto.preferredPharmacy().province()).isEqualTo(province);
@@ -109,7 +120,7 @@ class CdsDemographicRelationsServiceUnitTest {
 
     @Test
     void shouldRetainOversizePharmacyFieldsInSource_withoutTruncatingOrGuessingPhoneComponents() throws Exception {
-        var dto=new CdsDemographicRelationsService(new CdsFieldParser()).prepare(
+        var dto=service(new CdsFieldParser()).prepare(
                 CdsClinicalFixture.record(directory,"Demographics",Map.of(
                         "PreferredPharmacy/Name","Pharmacy",
                         "PreferredPharmacy/Address/Formatted","x".repeat(256),
@@ -129,7 +140,7 @@ class CdsDemographicRelationsServiceUnitTest {
 
     @Test
     void shouldKeepAnUnrepresentablePharmacySourceOnly_insteadOfCreatingAnUnnamedCatalogueEntry() throws Exception {
-        var dto=new CdsDemographicRelationsService(new CdsFieldParser()).prepare(
+        var dto=service(new CdsFieldParser()).prepare(
                 CdsClinicalFixture.record(directory,"Demographics",Map.of("PreferredPharmacy/Name","藥".repeat(256))),command());
         assertThat(dto.preferredPharmacy()).isNull();
         assertThat(dto.diagnostics()).anySatisfy(d->{
@@ -140,15 +151,18 @@ class CdsDemographicRelationsServiceUnitTest {
 
     @Test
     void shouldWriteProfessionalRolesAndPersistentPreference_withUnknownContactConsent() throws Exception {
-        var fields=mock(CdsFieldParser.class); var service=new CdsDemographicRelationsService(fields);
-        var em=mock(EntityManager.class); ReflectionTestUtils.setField(service,"entityManager",em);
+        var fields=mock(CdsFieldParser.class); var service=service(fields);
         List<Object> stored=new ArrayList<>();
-        doAnswer(call->{
+        org.mockito.stubbing.Answer<Void> persist=call->{
             Object row=call.getArgument(0); stored.add(row);
             if(row instanceof Contact contact) contact.setId(stored.size());
             else ReflectionTestUtils.setField(row,"id",stored.size());
             return null;
-        }).when(em).persist(any());
+        };
+        doAnswer(persist).when(contacts).persist(any());
+        doAnswer(persist).when(relations).persist(any());
+        doAnswer(persist).when(pharmacies).persist(any());
+        doAnswer(persist).when(preferences).persist(any());
         var dto=new CdsDemographicRelationsDto(new CdsDemographicRelationsDto.Person("Family","Doctor"),
                 new CdsDemographicRelationsDto.Person("Referring","Doctor"),
                 new CdsDemographicRelationsDto.Pharmacy("Pharmacy",null,null,null,null,"613-555-0101",null,null),42,List.of());
@@ -174,27 +188,33 @@ class CdsDemographicRelationsServiceUnitTest {
                 .containsEntry("Contact#referring","3").containsEntry("DemographicContact#referring","4")
                 .containsEntry("pharmacyInfo","5").containsEntry("demographicPharmacy","6");
         verifyNoInteractions(fields);
-        verify(em,never()).createQuery(anyString());
+        var writes=inOrder(contacts,relations,pharmacies,preferences);
+        writes.verify(contacts).persist((ProfessionalContact)stored.get(0));
+        writes.verify(contacts).flush();
+        writes.verify(relations).persist(family); writes.verify(relations).flush();
+        writes.verify(contacts).persist((ProfessionalContact)stored.get(2)); writes.verify(contacts).flush();
+        writes.verify(relations).persist(referring); writes.verify(relations).flush();
+        writes.verify(pharmacies).persist(pharmacy); writes.verify(pharmacies).flush();
+        writes.verify(preferences).persist(preference); writes.verify(preferences).flush();
+        verifyNoMoreInteractions(contacts,relations,pharmacies,preferences);
     }
 
     @Test
     void shouldRequireTheParticipatingImportUnit_beforeWritingAnyRelation() {
-        var em=mock(EntityManager.class); var service=new CdsDemographicRelationsService(new CdsFieldParser());
-        ReflectionTestUtils.setField(service,"entityManager",em);
+        var service=service(new CdsFieldParser());
         assertThatThrownBy(()->service.write(999998,"T099",CdsDemographicRelationsDto.empty()))
                 .isInstanceOf(CdsImportException.class).hasMessage("PARTICIPATING_UNIT_REQUIRED");
-        verifyNoInteractions(em);
+        verifyNoInteractions(contacts,relations,pharmacies,preferences);
     }
 
     @Test
     void shouldRefuseMissingGeneratedIdentity_whenFlushedPharmacyAssociationHasNoId() {
-        var service=new CdsDemographicRelationsService(mock(CdsFieldParser.class));
-        var em=mock(EntityManager.class); ReflectionTestUtils.setField(service,"entityManager",em);
+        var service=service(mock(CdsFieldParser.class));
         doAnswer(call->{
             Object row=call.getArgument(0);
             if (row instanceof PharmacyInfo pharmacy) pharmacy.setId(42);
             return null;
-        }).when(em).persist(any());
+        }).when(pharmacies).persist(any());
         var dto=new CdsDemographicRelationsDto(null,null,
                 new CdsDemographicRelationsDto.Pharmacy("Pharmacy",null,null,null,null,null,null,null),42,List.of());
         try(var unit=mockStatic(CdsImportUnitService.class)) {
@@ -202,13 +222,14 @@ class CdsDemographicRelationsServiceUnitTest {
             assertThatThrownBy(()->service.write(999998,"T099",dto))
                     .isInstanceOf(CdsImportException.class).hasMessage("DEMOGRAPHIC_RELATION_NATIVE_ID_MISSING");
         }
-        verify(em,times(2)).persist(any());
-        verify(em,times(2)).flush();
+        verify(pharmacies).persist(any()); verify(pharmacies).flush();
+        verify(preferences).persist(any()); verify(preferences).flush();
+        verifyNoInteractions(contacts,relations);
     }
 
     @Test
     void shouldCreateNoRelations_whenSourceHasNoContextualAssociations() throws Exception {
-        var dto=new CdsDemographicRelationsService(new CdsFieldParser()).prepare(
+        var dto=service(new CdsFieldParser()).prepare(
                 CdsClinicalFixture.record(directory,"Demographics",Map.of("UniqueVendorIdSequence","fixture")),command());
         assertThat(dto.familyPhysician()).isNull(); assertThat(dto.referringPhysician()).isNull();
         assertThat(dto.preferredPharmacy()).isNull(); assertThat(dto.diagnostics()).isEmpty();
@@ -219,7 +240,7 @@ class CdsDemographicRelationsServiceUnitTest {
         Map<String,String> values=new LinkedHashMap<>();
         for(int index=1;index<=2000;index++) values.put("Extensions/VendorValue["+index+"]","unrelated source value");
         var record=CdsClinicalFixture.record(directory,"Demographics",values);
-        var fields=spy(new CdsFieldParser()); var dto=new CdsDemographicRelationsService(fields).prepare(record,command());
+        var fields=spy(new CdsFieldParser()); var dto=service(fields).prepare(record,command());
         assertThat(dto.familyPhysician()).isNull(); assertThat(dto.preferredPharmacy()).isNull();
         verify(fields,times(1)).forEachField(eq(record),any());
         verify(fields,never()).firstText(any(),anyString(),anyInt());

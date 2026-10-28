@@ -221,14 +221,16 @@ public class CdsTargetReceiptService {
             List<Column> existing = columns.get(table);
             if (existing != null) return existing;
             List<Column> found = new ArrayList<>();
-            try (var statement = connection.prepareStatement("SELECT * FROM `" + table + "` WHERE 1=0");
-                    var result = statement.executeQuery()) {
-                var metadata = result.getMetaData();
-                if (metadata.getColumnCount() > 512) throw new CdsImportException("TARGET_COLUMN_COUNT_REQUIRES_REVIEW");
-                for (int i = 1; i <= metadata.getColumnCount(); i++) {
-                    String name = metadata.getColumnName(i);
-                    if (table.equals("cds_import_file") && name.equalsIgnoreCase("verified_epoch")) continue;
-                    found.add(new Column(name, metadata.getColumnTypeName(i), metadata.getPrecision(i), metadata.getScale(i)));
+            try (var statement = connection.prepareStatement("SELECT * FROM `" + table + "` WHERE 1=0")) {
+                statement.setQueryTimeout(30);
+                try (var result = statement.executeQuery()) {
+                    var metadata = result.getMetaData();
+                    if (metadata.getColumnCount() > 512) throw new CdsImportException("TARGET_COLUMN_COUNT_REQUIRES_REVIEW");
+                    for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                        String name = metadata.getColumnName(i);
+                        if (table.equals("cds_import_file") && name.equalsIgnoreCase("verified_epoch")) continue;
+                        found.add(new Column(name, metadata.getColumnTypeName(i), metadata.getPrecision(i), metadata.getScale(i)));
+                    }
                 }
             }
             if (found.isEmpty()) throw new CdsImportException("TARGET_COLUMNS_MISSING");

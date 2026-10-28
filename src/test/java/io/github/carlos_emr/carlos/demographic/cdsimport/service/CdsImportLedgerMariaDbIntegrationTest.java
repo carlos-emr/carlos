@@ -182,6 +182,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    verifyOwnerRowLock();
    verifyPlanFencing();
    verifySummaryAggregateAccounting();
+   verifyCurrentReadProjections(ctx);
    verifyDryRun();
    verifyReviewedResetAndReplan(jdbc);
    verifyAuthorizationStopAndResume();
@@ -392,6 +393,15 @@ class CdsImportLedgerMariaDbIntegrationTest {
   check(summaryCount(sealed,"committedUnits")==0 && summaryCount(sealed,"alreadyCompleteUnits")==0
     && sql.queryForObject("select count(*) from cds_import_checkpoint c join cds_import_unit u on u.unit_key=c.id where u.run_id=?",Long.class,id)==0,"summary fixture never claims a clinical checkpoint");
   ledger.release(id,epoch);
+ }
+ static void verifyCurrentReadProjections(AnnotationConfigApplicationContext context) {
+  String run=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(),"fixture","999998","fixture","omd-5.2",A,B,C,"/opaque/projection")).id();
+  String other=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(),"fixture","999998","fixture","omd-5.2",A,B,C,"/opaque/foreign-projection")).id();
+  try(var entityManager=context.getBean(EntityManagerFactory.class).createEntityManager()) {
+   entityManager.getTransaction().begin();
+   try { CdsReadProjectionTestFixture.verify(entityManager,run,other); }
+   finally { entityManager.getTransaction().rollback(); }
+  }
  }
  static long summaryCount(Map<?,?> summary,String field) {return ((Number)summary.get(field)).longValue();}
  static void verifyDryRun() {

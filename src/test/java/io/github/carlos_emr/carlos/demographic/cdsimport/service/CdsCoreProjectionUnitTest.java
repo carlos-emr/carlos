@@ -25,7 +25,16 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAOImpl;
+import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAOImpl;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.Issue;
+import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
@@ -34,8 +43,10 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
@@ -63,6 +74,14 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     private CdsAppointmentPersister appointments;
     private CdsImportCommand command;
     private CdsPatientIdentityResolver identity;
+    private DemographicDao demographicDao;
+    private DemographicCustDao customDao;
+    private DemographicExtDao extensionsDao;
+    private AdmissionDao admissionsDao;
+    private CaseManagementNoteDAO notesDao;
+    private CaseManagementIssueDAO patientIssuesDao;
+    private IssueDAO issuesDao;
+    private OscarAppointmentDao appointmentsDao;
 
     @BeforeEach
     void prepare() throws Exception {
@@ -70,6 +89,14 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         preparation = mock(CdsNativePreparationService.class);
         providers = mock(CdsProviderResolver.class);
         identity = mock(CdsPatientIdentityResolver.class);
+        demographicDao = mock(DemographicDao.class);
+        customDao = mock(DemographicCustDao.class);
+        extensionsDao = mock(DemographicExtDao.class);
+        admissionsDao = mock(AdmissionDao.class);
+        notesDao = mock(CaseManagementNoteDAO.class);
+        patientIssuesDao = mock(CaseManagementIssueDAO.class);
+        issuesDao = mock(IssueDAO.class);
+        appointmentsDao = mock(OscarAppointmentDao.class);
         when(providers.resolve(any(), any(), any(), any(), anyBoolean()))
                 .thenReturn(
                         new CdsProviderMatchDto(
@@ -97,13 +124,17 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                         providers,
                         preparation,
                         new CdsDemographicDetailsService(fields, providers),
-                        new CdsDemographicRelationsService(fields));
+                        new CdsDemographicRelationsService(fields, mock(ProfessionalContactDao.class),
+                                mock(DemographicContactDao.class), mock(PharmacyInfoDao.class),
+                                mock(DemographicPharmacyDao.class)),
+                        demographicDao, customDao, extensionsDao, admissionsDao);
         histories =
                 new CdsHistoryPersister(
-                        fields, normalization, configuration, providers, preparation);
+                        fields, normalization, configuration, providers, preparation,
+                        notesDao, patientIssuesDao, issuesDao);
         appointments =
                 new CdsAppointmentPersister(
-                        fields, normalization, configuration, providers, preparation);
+                        fields, normalization, configuration, providers, preparation, appointmentsDao);
         command =
                 new CdsImportCommand(
                         temporary,
@@ -607,7 +638,8 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                         new CdsClinicalNormalizationService(fields),
                         new CdsImportConfigurationService(new Properties()),
                         providers,
-                        preparation);
+                        preparation,
+                        appointmentsDao);
         unconfigured.prepare(
                 "run",
                 1,
@@ -662,19 +694,19 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         when(preparation.load(
                         "run", 1, "unit", record.sha256(), command, CdsAppointmentNativeDto.class))
                 .thenReturn(dto);
-        EntityManager em = mock(EntityManager.class);
         doAnswer(
                         call -> {
                             ((Appointment) call.getArgument(0)).setId(9);
                             return null;
                         })
-                .when(em)
+                .when(appointmentsDao)
                 .persist(any(Appointment.class));
-        ReflectionTestUtils.setField(appointments, "entityManager", em);
         assertThat(appointments.write("run", 1, "unit", 42, record, command, n -> {}))
                 .isEqualTo(java.util.Map.of("appointment", "9"));
         var captor = ArgumentCaptor.forClass(Appointment.class);
-        verify(em).persist(captor.capture());
+        var writes = inOrder(appointmentsDao);
+        writes.verify(appointmentsDao).persist(captor.capture());
+        writes.verify(appointmentsDao).flush();
         assertThat(captor.getValue().getProviderNo()).isEqualTo("77");
         assertThat(captor.getValue().getImportedStatus()).isEqualTo(dto.status());
     }
@@ -710,42 +742,35 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         when(identity.resolve(any(), eq(command)))
                 .thenReturn(
                         new CdsIdentityDecisionDto(CdsIdentityDecisionDto.Outcome.NO_MATCH, null));
-        EntityManager em = mock(EntityManager.class);
         AtomicInteger ids = new AtomicInteger(10);
         doAnswer(
                         call -> {
-                            Object row = call.getArgument(0);
-                            if (row instanceof Demographic patient) patient.setDemographicNo(42);
-                            else if (row instanceof DemographicExt ext)
-                                ext.setId(ids.incrementAndGet());
+                            ((Demographic) call.getArgument(0)).setDemographicNo(42);
                             return null;
                         })
-                .when(em)
-                .persist(any());
-        ReflectionTestUtils.setField(demographics, "entityManager", em);
+                .when(demographicDao).persistImportedDemographic(any());
+        doAnswer(call -> {
+            ((DemographicExt) call.getArgument(0)).setId(ids.incrementAndGet());
+            return null;
+        }).when(extensionsDao).persist(any());
         assertThat(demographics.write("run", 1, "unit", record, command, n -> {}))
                 .hasSize(4)
                 .containsEntry("demographic", "42");
         var patients = ArgumentCaptor.forClass(Demographic.class);
-        verify(em).persist(patients.capture());
+        verify(demographicDao).persistImportedDemographic(patients.capture());
+        verifyNoMoreInteractions(demographicDao);
         assertThat(patients.getValue().getProviderNo()).isEqualTo("77");
         assertThat(patients.getValue().getPhone()).isEqualTo("613-555-0101");
         assertThat(patients.getValue().getMonthOfBirth()).isEqualTo("03");
         assertThat(patients.getValue().getDateOfBirth()).isEqualTo("04");
         assertThat(ReflectionTestUtils.getField(patients.getValue(), "prefName")).isEqualTo("");
         var extensions = ArgumentCaptor.forClass(DemographicExt.class);
-        verify(em, times(3)).persist(extensions.capture());
+        verify(extensionsDao, times(3)).persist(extensions.capture());
+        verify(extensionsDao, times(3)).flush();
         assertThat(extensions.getAllValues())
                 .extracting(DemographicExt::getKey)
                 .containsExactly("hPhoneExt", "wPhoneExt", "demo_cell");
-        doAnswer(
-                        call -> {
-                            if (call.getArgument(0) instanceof Demographic patient)
-                                patient.setDemographicNo(42);
-                            return null;
-                        })
-                .when(em)
-                .persist(any());
+        doNothing().when(extensionsDao).persist(any());
         assertThatThrownBy(() -> demographics.write("run", 1, "unit", record, command, n -> {}))
                 .isInstanceOf(CdsImportException.class)
                 .hasMessage("DEMOGRAPHIC_EXTENSION_NATIVE_ID_MISSING");
@@ -854,25 +879,221 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         when(preparation.load(
                         "run", 1, "unit", record.sha256(), command, CdsHistoryNativeDto.class))
                 .thenReturn(dto);
-        EntityManager em = mock(EntityManager.class);
         doAnswer(
                         call -> {
                             ((CaseManagementNote) call.getArgument(0)).setId(9L);
                             return null;
                         })
-                .when(em)
-                .persist(any(CaseManagementNote.class));
-        ReflectionTestUtils.setField(histories, "entityManager", em);
+                .when(notesDao)
+                .saveNote(any(CaseManagementNote.class));
         assertThat(histories.write("run", 1, "unit", 42, record, command, n -> {}))
                 .containsEntry("casemgmt_note", "9");
         var note = ArgumentCaptor.forClass(CaseManagementNote.class);
-        verify(em).persist(note.capture());
+        verify(notesDao).saveNote(note.capture());
+        verifyNoInteractions(patientIssuesDao, issuesDao);
         assertThat(note.getValue().getProviderNo()).isEqualTo("77");
         assertThat(note.getValue().getSigning_provider_no()).isEmpty();
         assertThat(note.getValue().isSigned()).isFalse();
         assertThat(note.getValue().getCreate_date()).isNull();
         assertThat(note.getValue().getUpdate_date()).isCloseTo(new java.util.Date(), 5000);
         assertThat(note.getValue().getObservation_date()).isNull();
+        assertThat(note.getValue().getUuid()).isNotBlank();
+    }
+
+    @Nested
+    class NativeDaoComposition {
+        @Test
+        void shouldBoundCatalogueCandidatesBeforeLoadingRows_withoutCollapsingAmbiguity() {
+            EntityManager em = mock(EntityManager.class);
+            @SuppressWarnings("unchecked")
+            TypedQuery<Issue> query = mock(TypedQuery.class, RETURNS_SELF);
+            when(em.createQuery(anyString(), eq(Issue.class))).thenReturn(query);
+            var first = new Issue(); first.setId(1L);
+            var second = new Issue(); second.setId(2L);
+            when(query.getResultList()).thenReturn(List.of(first, second));
+            var dao = new IssueDAOImpl();
+            ReflectionTestUtils.setField(dao, "entityManager", em);
+
+            assertThat(dao.findCandidatesByCode("SocHistory")).containsExactly(first, second);
+
+            var reads = inOrder(em, query);
+            reads.verify(em).createQuery("select i from Issue i where i.code=:code order by i.id", Issue.class);
+            reads.verify(query).setParameter("code", "SocHistory");
+            reads.verify(query).setMaxResults(2);
+            reads.verify(query).getResultList();
+            verifyNoMoreInteractions(em, query);
+        }
+
+        @Test
+        void shouldBoundPatientIssueCandidates_withBothPatientAndCatalogueCriteria() {
+            EntityManager em = mock(EntityManager.class);
+            @SuppressWarnings("unchecked")
+            TypedQuery<CaseManagementIssue> query = mock(TypedQuery.class, RETURNS_SELF);
+            when(em.createQuery(anyString(), eq(CaseManagementIssue.class))).thenReturn(query);
+            when(query.getResultList()).thenReturn(List.of());
+            var dao = new CaseManagementIssueDAOImpl();
+            ReflectionTestUtils.setField(dao, "entityManager", em);
+
+            assertThat(dao.findCandidatesByDemographicAndIssue(42, 71L)).isEmpty();
+
+            var reads = inOrder(em, query);
+            reads.verify(em).createQuery("select i from CaseManagementIssue i where"
+                    + " i.demographic_no=:patient and i.issue_id=:issue order by i.id", CaseManagementIssue.class);
+            reads.verify(query).setParameter("patient", 42);
+            reads.verify(query).setParameter("issue", 71L);
+            reads.verify(query).setMaxResults(2);
+            reads.verify(query).getResultList();
+            verifyNoMoreInteractions(em, query);
+        }
+
+        @Test
+        void shouldCreateOnlyTheMissingPatientIssue_andLinkItsExactGeneratedIdentity() throws Exception {
+            var record = preparedHistory("SocHistory");
+            var catalogue = new Issue(); catalogue.setId(71L);
+            when(issuesDao.findCandidatesByCode("SocHistory")).thenReturn(List.of(catalogue));
+            when(patientIssuesDao.findCandidatesByDemographicAndIssue(42, 71L)).thenReturn(List.of());
+            doAnswer(call -> { ((CaseManagementIssue)call.getArgument(0)).setId(72L); return null; })
+                    .when(patientIssuesDao).saveIssue(any());
+            doAnswer(call -> { ((CaseManagementNote)call.getArgument(0)).setId(73L); return null; })
+                    .when(notesDao).saveNote(any());
+
+            assertThat(histories.write("run", 1, "unit", 42, record, command, n -> {}))
+                    .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("casemgmt_issue", "72", "casemgmt_note", "73"));
+
+            var issue = ArgumentCaptor.forClass(CaseManagementIssue.class);
+            var note = ArgumentCaptor.forClass(CaseManagementNote.class);
+            var writes = inOrder(patientIssuesDao, notesDao);
+            writes.verify(patientIssuesDao).findCandidatesByDemographicAndIssue(42, 71L);
+            writes.verify(patientIssuesDao).saveIssue(issue.capture());
+            writes.verify(notesDao).saveNote(note.capture());
+            assertThat(issue.getValue().getDemographic_no()).isEqualTo(42);
+            assertThat(issue.getValue().getIssue_id()).isEqualTo(71L);
+            assertThat(issue.getValue().getType()).isEqualTo("general");
+            assertThat(note.getValue().getIssues()).containsExactly(issue.getValue());
+            assertThat(note.getValue().getObservation_date()).isEqualTo(new java.util.Date(1700000000000L));
+        }
+
+        @Test
+        void shouldReuseAnExistingPatientIssue_withoutResavingOrChangingItsOperationalDate() throws Exception {
+            var record = preparedHistory("SocHistory");
+            var catalogue = new Issue(); catalogue.setId(71L);
+            var existing = new CaseManagementIssue(); existing.setId(72L);
+            var originalDate = new java.util.Date(123456789L); existing.setUpdate_date(originalDate);
+            when(issuesDao.findCandidatesByCode("SocHistory")).thenReturn(List.of(catalogue));
+            when(patientIssuesDao.findCandidatesByDemographicAndIssue(42, 71L)).thenReturn(List.of(existing));
+            doAnswer(call -> { ((CaseManagementNote)call.getArgument(0)).setId(73L); return null; })
+                    .when(notesDao).saveNote(any());
+
+            histories.write("run", 1, "unit", 42, record, command, n -> {});
+
+            verify(patientIssuesDao, never()).saveIssue(any());
+            assertThat(existing.getUpdate_date()).isSameAs(originalDate);
+            var note = ArgumentCaptor.forClass(CaseManagementNote.class);
+            verify(notesDao).saveNote(note.capture());
+            assertThat(note.getValue().getIssues()).containsExactly(existing);
+        }
+
+        @Test
+        void shouldRejectAmbiguousCatalogue_beforeAnyNativeWrite() throws Exception {
+            var record = preparedHistory("SocHistory");
+            when(issuesDao.findCandidatesByCode("SocHistory"))
+                    .thenReturn(List.of(new Issue(), new Issue()));
+
+            assertThatThrownBy(() -> histories.write("run", 1, "unit", 42, record, command, n -> {}))
+                    .isInstanceOf(CdsImportException.class).hasMessage("HISTORY_CATEGORY_MAPPING_REQUIRES_REVIEW");
+            verifyNoInteractions(patientIssuesDao, notesDao);
+        }
+
+        @Test
+        void shouldRejectAmbiguousPatientIssue_beforeAnyNativeWrite() throws Exception {
+            var record = preparedHistory("SocHistory");
+            var catalogue = new Issue(); catalogue.setId(71L);
+            when(issuesDao.findCandidatesByCode("SocHistory")).thenReturn(List.of(catalogue));
+            when(patientIssuesDao.findCandidatesByDemographicAndIssue(42, 71L))
+                    .thenReturn(List.of(new CaseManagementIssue(), new CaseManagementIssue()));
+
+            assertThatThrownBy(() -> histories.write("run", 1, "unit", 42, record, command, n -> {}))
+                    .isInstanceOf(CdsImportException.class).hasMessage("HISTORY_NATIVE_ISSUE_AMBIGUOUS");
+            verify(patientIssuesDao, never()).saveIssue(any());
+            verifyNoInteractions(notesDao);
+        }
+
+        @Test
+        void shouldRefuseMissingPatientIssueIdentity_beforeWritingTheNote() throws Exception {
+            var record = preparedHistory("SocHistory");
+            var catalogue = new Issue(); catalogue.setId(71L);
+            when(issuesDao.findCandidatesByCode("SocHistory")).thenReturn(List.of(catalogue));
+            when(patientIssuesDao.findCandidatesByDemographicAndIssue(42, 71L)).thenReturn(List.of());
+
+            assertThatThrownBy(() -> histories.write("run", 1, "unit", 42, record, command, n -> {}))
+                    .isInstanceOf(CdsImportException.class).hasMessage("HISTORY_NATIVE_ISSUE_ID_MISSING");
+            verifyNoInteractions(notesDao);
+        }
+
+        @Test
+        void shouldRefuseMissingNoteIdentity_afterDaoSave() throws Exception {
+            var record = preparedHistory(null);
+            assertThatThrownBy(() -> histories.write("run", 1, "unit", 42, record, command, n -> {}))
+                    .isInstanceOf(CdsImportException.class).hasMessage("HISTORY_NATIVE_NOTE_ID_MISSING");
+        }
+
+        @Test
+        void shouldPreserveProvidedNoteUuidAndDates_usingTheExistingDaoFlush() {
+            var dao = new CaseManagementNoteDAOImpl();
+            EntityManager em = mock(EntityManager.class);
+            ReflectionTestUtils.setField(dao, "entityManager", em);
+            var note = new CaseManagementNote();
+            var update = new java.util.Date(123456789L);
+            var observation = new java.util.Date(1700000000000L);
+            note.setUuid("source-owned-uuid"); note.setUpdate_date(update); note.setObservation_date(observation);
+
+            dao.saveNote(note);
+
+            var writes = inOrder(em);
+            writes.verify(em).persist(note); writes.verify(em).flush();
+            verifyNoMoreInteractions(em);
+            assertThat(note.getUuid()).isEqualTo("source-owned-uuid");
+            assertThat(note.getUpdate_date()).isSameAs(update);
+            assertThat(note.getObservation_date()).isSameAs(observation);
+        }
+
+        @Test
+        void shouldPropagateExistingNoteDaoFlushFailure_withoutReturningSuccessfulReceipt() throws Exception {
+            var dao = new CaseManagementNoteDAOImpl();
+            EntityManager em = mock(EntityManager.class);
+            ReflectionTestUtils.setField(dao, "entityManager", em);
+            var failure = new jakarta.persistence.PersistenceException("fixture flush refusal");
+            doThrow(failure).when(em).flush();
+            var configuration = new CdsImportConfigurationService(new Properties());
+            var writer = new CdsHistoryPersister(fields, new CdsClinicalNormalizationService(fields),
+                    configuration, providers, preparation, dao, patientIssuesDao, issuesDao);
+            var record = preparedHistory(null);
+
+            assertThatThrownBy(() -> writer.write("run", 1, "unit", 42, record, command, n -> {}))
+                    .isSameAs(failure);
+            verify(em).persist(any(CaseManagementNote.class));
+            verify(em).flush();
+        }
+
+        @Test
+        void shouldRefuseMissingAppointmentIdentity_afterTheExistingDaoFlush() throws Exception {
+            var record = appointment("10:00:00", "30", "<cdsd:FullDate>2026-03-04</cdsd:FullDate>", "");
+            when(preparation.load("run", 1, "unit", record.effectiveSha256(), command, CdsAppointmentNativeDto.class))
+                    .thenReturn(new CdsAppointmentNativeDto("2026-03-04", "10:00", "10:30", null, null, null, null, true, List.of()));
+
+            assertThatThrownBy(() -> appointments.write("run", 1, "unit", 42, record, command, n -> {}))
+                    .isInstanceOf(CdsImportException.class).hasMessage("APPOINTMENT_NATIVE_ID_MISSING");
+            var writes = inOrder(appointmentsDao);
+            writes.verify(appointmentsDao).persist(any(Appointment.class)); writes.verify(appointmentsDao).flush();
+        }
+
+        private CdsRecordDto preparedHistory(String issue) throws Exception {
+            var record = section("ClinicalNotes", "<MyClinicalNotesContent>Complete source note</MyClinicalNotesContent>");
+            when(preparation.load("run", 1, "unit", record.effectiveSha256(), command, CdsHistoryNativeDto.class))
+                    .thenReturn(new CdsHistoryNativeDto("Complete source note", issue, 1700000000000L, null, "77", List.of()));
+            Files.delete(record.fieldsFile()); Files.delete(record.valuesFile());
+            return record;
+        }
     }
 
     @Test

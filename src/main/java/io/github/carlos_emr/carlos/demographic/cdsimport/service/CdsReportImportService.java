@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Document;
@@ -33,9 +35,6 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsBase64ValueParser;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
-
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -74,9 +73,8 @@ public class CdsReportImportService implements CdsCategoryImportService {
     private final CdsNativePreparationService preparation;
     private final CdsImportLedgerService ledger;
     private final CdsReportMediaService mediaInspection;
-
-    @PersistenceContext(unitName = "entityManagerFactory")
-    private EntityManager entityManager;
+    private final DocumentDao documentDao;
+    private final CtlDocumentDao ctlDocumentDao;
 
     public CdsReportImportService(
             CdsFieldParser fields,
@@ -86,7 +84,9 @@ public class CdsReportImportService implements CdsCategoryImportService {
             CdsImportConfigurationService configuration,
             CdsNativePreparationService preparation,
             CdsImportLedgerService ledger,
-            CdsReportMediaService mediaInspection) {
+            CdsReportMediaService mediaInspection,
+            DocumentDao documentDao,
+            CtlDocumentDao ctlDocumentDao) {
         this.fields = fields;
         this.snapshots = snapshots;
         this.publication = publication;
@@ -95,6 +95,8 @@ public class CdsReportImportService implements CdsCategoryImportService {
         this.preparation = preparation;
         this.ledger = ledger;
         this.mediaInspection = mediaInspection;
+        this.documentDao = documentDao;
+        this.ctlDocumentDao = ctlDocumentDao;
     }
 
     @Override
@@ -297,12 +299,12 @@ public class CdsReportImportService implements CdsCategoryImportService {
             document.setObservationdate(observationDay);
             document.setReceivedDate(receivedDay);
             document.setSentDateTime(sentTime);
-            entityManager.persist(document);
-            entityManager.flush();
+            documentDao.persist(document);
+            documentDao.flush();
             CtlDocument link = new CtlDocument();
             link.setId(new CtlDocumentPK("demographic", demographicNo, document.getDocumentNo()));
             link.setStatus("A");
-            entityManager.persist(link);
+            ctlDocumentDao.persist(link);
             targets.put("document#" + index, document.getId().toString());
             targets.put("ctl_document#" + index, demographicNo + "_" + document.getId());
             index++;

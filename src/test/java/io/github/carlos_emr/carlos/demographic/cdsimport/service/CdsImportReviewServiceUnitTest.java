@@ -112,6 +112,7 @@ class CdsImportReviewServiceUnitTest {
         when(ledger.lockReviewAdministrativeOwned(RUN,5L)).thenReturn(run);
         when(coordinator.acquire()).thenReturn(mock(CdsImportCoordinatorService.Owner.class));
         when(reviews.pendingRun(eq(RUN),anyInt())).thenReturn(List.of());
+        when(reviews.summary(RUN)).thenReturn(new CdsImportReviewSummaryDto(null,"IDLE",null,0,0));
         doAnswer(call -> {stored.set(call.getArgument(0));history.put(stored.get().getId(),stored.get());return null;}).when(reviews).persist(any());
         when(reviews.get(anyString())).thenAnswer(call -> history.get(call.getArgument(0)));
         when(reviews.lock(anyString())).thenAnswer(call -> history.get(call.getArgument(0)));
@@ -229,7 +230,7 @@ class CdsImportReviewServiceUnitTest {
     @Test
     void shouldPreserveRejectionStateInOperatorSummary_whenNoPendingReviewRemains() {
         var rejected=new CdsImportReview();rejected.setId(UUID.randomUUID().toString());rejected.setState("REJECTED");rejected.setSafeErrorCode("CDS_XML_SCHEMA_INVALID");
-        when(reviews.latest(RUN)).thenReturn(rejected);
+        when(reviews.summary(RUN)).thenReturn(new CdsImportReviewSummaryDto(rejected.getId(),rejected.getState(),rejected.getSafeErrorCode(),0,0));
         assertThat(service.summary(RUN)).containsEntry("reviewState","REJECTED").containsEntry("pendingReviewCount",0)
                 .containsEntry("reviewErrorCode","CDS_XML_SCHEMA_INVALID");
     }
@@ -237,6 +238,7 @@ class CdsImportReviewServiceUnitTest {
     @Test
     void shouldBlockResumeWithInactiveDrafts_whenNoWorkerRequestIsPending() {
         when(reviews.inactiveDraftCount(RUN)).thenReturn(1L);
+        when(reviews.summary(RUN)).thenReturn(new CdsImportReviewSummaryDto(null,"IDLE",null,0,1));
         assertThat(service.hasPending(RUN)).isTrue();
         assertThat(service.summary(RUN)).containsEntry("inactiveDraftCount",1L);
     }
@@ -277,9 +279,9 @@ class CdsImportReviewServiceUnitTest {
     @Test
     void shouldHideRevisionApproval_whenAReviewOrInactiveDraftAlreadyBlocksExecution() {
         when(diagnostics.hasUnwrittenRevisionContext(RUN)).thenReturn(true);
-        when(reviews.pendingRun(RUN,2)).thenReturn(List.of(new CdsImportReview()));
+        when(reviews.summary(RUN)).thenReturn(new CdsImportReviewSummaryDto("review","REQUESTED",null,1,0));
         assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
-        when(reviews.pendingRun(RUN,2)).thenReturn(List.of());when(reviews.inactiveDraftCount(RUN)).thenReturn(1L);
+        when(reviews.summary(RUN)).thenReturn(new CdsImportReviewSummaryDto("draft","DRAFT_REQUIRES_CORRECTION",null,0,1));
         assertThat(service.summary(RUN)).containsEntry("unwrittenRevisionApprovalAllowed",false);
         verify(diagnostics,never()).hasUnwrittenRevisionContext(anyString());
     }

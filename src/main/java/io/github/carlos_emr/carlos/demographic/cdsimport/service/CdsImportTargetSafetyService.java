@@ -49,6 +49,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsImportTargetSafetyService {
     private static final int MAXIMUM_TARGETS=256;
+    private static final int MAXIMUM_PIN_BATCH_SIZE=16;
     private static final int MAXIMUM_TRIGGERS=1024;
     private static final ObjectMapper JSON=new ObjectMapper(JsonFactory.builder()
             .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build());
@@ -84,10 +85,20 @@ public class CdsImportTargetSafetyService {
             connection.setAutoCommit(false);
             var catalogue=tables(connection);
             Set<String> targets=resolveTargets(catalogue);
-            for (String table:targets) {
+            List<String> orderedTargets=new ArrayList<>(targets);
+            orderedTargets.sort(String::compareTo);
+            // Stay below MariaDB's 61-table join limit; aliases retain case-distinct physical targets.
+            for (int offset=0; offset<orderedTargets.size(); offset+=MAXIMUM_PIN_BATCH_SIZE) {
+                int end=Math.min(offset+MAXIMUM_PIN_BATCH_SIZE, orderedTargets.size());
+                StringBuilder sql=new StringBuilder("SELECT 1 FROM ");
+                for (int index=offset; index<end; index++) {
+                    if (index>offset) sql.append(',');
+                    sql.append(quote(orderedTargets.get(index))).append(" AS ").append(quote("cds_pin_"+(index-offset)));
+                }
+                sql.append(" LIMIT 0");
                 try (var statement=connection.createStatement()) {
                     statement.setQueryTimeout(10);
-                    try (var ignored=statement.executeQuery("SELECT 1 FROM "+quote(table)+" LIMIT 0")) {
+                    try (var ignored=statement.executeQuery(sql.toString())) {
                         // Transaction-duration metadata lock; no patient rows or row locks.
                     }
                 }
@@ -166,9 +177,12 @@ public class CdsImportTargetSafetyService {
     /** An empty TRIGGERS result is proof only when this account can see every target's triggers. */
     private void requireTriggerVisibility(Connection connection, Set<String> targets) throws SQLException {
         String account;
-        try (var query=connection.createStatement(); var rows=query.executeQuery("SELECT CURRENT_USER()")) {
-            if (!rows.next()) throw problem("IMPORT_TARGET_TRIGGER_VISIBILITY_REQUIRED");
-            account=rows.getString(1);
+        try (var query=connection.createStatement()) {
+            query.setQueryTimeout(10);
+            try (var rows=query.executeQuery("SELECT CURRENT_USER()")) {
+                if (!rows.next()) throw problem("IMPORT_TARGET_TRIGGER_VISIBILITY_REQUIRED");
+                account=rows.getString(1);
+            }
         }
         int separator=account.lastIndexOf('@');
         if (separator<0) throw problem("IMPORT_TARGET_TRIGGER_VISIBILITY_REQUIRED");

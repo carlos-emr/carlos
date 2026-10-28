@@ -101,6 +101,8 @@ class CdsHistoricalSnapshotUnitTest {
         });
         when(ledger.status(PRIOR)).thenAnswer(call -> prior.get());
         when(ledger.snapshotLocation(PRIOR)).thenAnswer(call -> accepted.get().snapshotLocation());
+        when(ledger.jobBinding(PRIOR)).thenAnswer(call ->
+                new CdsImportJobBindingDto(prior.get(), accepted.get().snapshotLocation()));
         when(ledger.status(REVIEW)).thenAnswer(call -> status(REVIEW, "a".repeat(64), "b".repeat(64), "c".repeat(64), EPOCH, false));
         Path input = Files.createDirectory(temporary.resolve("input"));
         // Several real chunk receipts prove that the historical upload manifest is not a file digest.

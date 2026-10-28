@@ -25,21 +25,21 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.model.CdsImportUnit;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsReportNativeDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotFileDto;
 
-import jakarta.persistence.EntityManager;
-
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.ArgumentCaptor;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -309,6 +309,8 @@ class CdsReportMediaUnitTest {
         var configuration = mock(CdsImportConfigurationService.class);
         var preparation = mock(CdsNativePreparationService.class);
         var ledger = mock(CdsImportLedgerService.class);
+        var documentDao = mock(DocumentDao.class);
+        var links = mock(CtlDocumentDao.class);
         var service =
                 new CdsReportImportService(
                         fields,
@@ -318,7 +320,9 @@ class CdsReportMediaUnitTest {
                         configuration,
                         preparation,
                         ledger,
-                        media);
+                        media,
+                        documentDao,
+                        links);
         Map<String, String> values = new LinkedHashMap<>();
         values.put("Format", "Text");
         values.put("Class", "DiagnosticImaging");
@@ -360,8 +364,6 @@ class CdsReportMediaUnitTest {
         CdsImportUnit unit = new CdsImportUnit();
         unit.setPatientKey("patient");
         when(ledger.unit("run", "unit")).thenReturn(unit);
-        EntityManager entity = mock(EntityManager.class);
-        ReflectionTestUtils.setField(service, "entityManager", entity);
         List<Document> documents = new ArrayList<>();
         doAnswer(
                         call -> {
@@ -371,13 +373,20 @@ class CdsReportMediaUnitTest {
                             }
                             return null;
                         })
-                .when(entity)
+                .when(documentDao)
                 .persist(any());
         clearInvocations(fields);
         try (var fence = mockStatic(CdsImportUnitService.class)) {
             assertThat(service.write("run", 1, "unit", 42, record, command))
-                    .containsEntry("document#0", "9");
+                    .containsEntry("document#0", "9")
+                    .containsEntry("ctl_document#0", "42_9");
         }
+        var link = ArgumentCaptor.forClass(CtlDocument.class);
+        verify(links).persist(link.capture());
+        assertThat(link.getValue().getId().getModule()).isEqualTo("demographic");
+        assertThat(link.getValue().getId().getModuleId()).isEqualTo(42);
+        assertThat(link.getValue().getId().getDocumentNo()).isEqualTo(9);
+        assertThat(link.getValue().getStatus()).isEqualTo("A");
         verifyNoInteractions(fields);
         assertThat(documents)
                 .singleElement()
@@ -446,8 +455,10 @@ class CdsReportMediaUnitTest {
                 var configuration = new CdsImportConfigurationService(new Properties());
                 var preparation = mock(CdsNativePreparationService.class);
                 var ledger = mock(CdsImportLedgerService.class);
+                var documentDao = mock(DocumentDao.class);
                 var service = new CdsReportImportService(fields, mock(CdsSnapshotService.class), publication,
-                        new CdsClinicalNormalizationService(fields), configuration, preparation, ledger, media);
+                        new CdsClinicalNormalizationService(fields), configuration, preparation, ledger, media,
+                        documentDao, mock(CtlDocumentDao.class));
                 var record = CdsClinicalFixture.record(temp, "Reports", Map.of("Format", "Text",
                         "Content/TextContent", "Complete source report", "EventDateTime/" + choice[0], choice[1]));
                 var command = new CdsImportCommand(temp, "calendar-report", "999998", null, null,
@@ -460,9 +471,8 @@ class CdsReportMediaUnitTest {
                 when(preparation.load("run", 1, "unit", record.effectiveSha256(), command, CdsReportNativeDto.class)).thenReturn(dto);
                 when(publication.reference(anyString(), anyLong(), anyString(), anyString(), anyString(), anyString())).thenReturn("owned.txt");
                 CdsImportUnit unit = new CdsImportUnit();unit.setPatientKey("patient");when(ledger.unit("run", "unit")).thenReturn(unit);
-                EntityManager entity = mock(EntityManager.class);ReflectionTestUtils.setField(service, "entityManager", entity);
                 List<Document> documents = new ArrayList<>();
-                doAnswer(call -> { if (call.getArgument(0) instanceof Document document) { document.setDocumentNo(9);documents.add(document); } return null; }).when(entity).persist(any());
+                doAnswer(call -> { if (call.getArgument(0) instanceof Document document) { document.setDocumentNo(9);documents.add(document); } return null; }).when(documentDao).persist(any());
                 try (var fence = mockStatic(CdsImportUnitService.class)) {
                     assertThat(service.write("run", 1, "unit", 42, record, command)).containsEntry("document#0", "9");
                 }
@@ -494,7 +504,9 @@ class CdsReportMediaUnitTest {
                         mock(CdsImportConfigurationService.class),
                         preparation,
                         mock(CdsImportLedgerService.class),
-                        media);
+                        media,
+                        mock(DocumentDao.class),
+                        mock(CtlDocumentDao.class));
         Path external = Files.writeString(temp.resolve("report.txt"), "A".repeat(40000));
         var snapshot = new CdsSnapshotDto(temp, temp.resolve("manifest"), "snapshot", 2, 1, 40000);
         var file = new CdsSnapshotFileDto("report.txt", external, "digest", 40000, false);

@@ -122,7 +122,12 @@ public class CdsImportExecutionService {
                     else ledger.maintenanceReleaseDeferred(runId, epoch, released.name());
                     ledger.maintenanceReleaseRetryAttempted(runId, epoch);
                 }
-                if (retryRelease || !Boolean.TRUE.equals(ledger.summary(runId).get("reportsDelivered")) || !Boolean.TRUE.equals(ledger.summary(runId).get("cleanupComplete"))) { epoch=ledger.claimReporting(runId); deliver(runId, epoch, coordinator); }
+                boolean deliverReports=retryRelease;
+                if (!deliverReports) {
+                    var reportState=ledger.summary(runId);
+                    deliverReports=!Boolean.TRUE.equals(reportState.get("reportsDelivered")) || !Boolean.TRUE.equals(reportState.get("cleanupComplete"));
+                }
+                if (deliverReports) { epoch=ledger.claimReporting(runId); deliver(runId, epoch, coordinator); }
                 return ledger.status(runId);
             }
             Runnable attemptBudget=attemptBudget();
@@ -185,10 +190,12 @@ public class CdsImportExecutionService {
                                     }
                                     after=unit.unitKey();
                                 }
+                                if (page.size()<100) break; // Execution uses an already sealed unit key set.
                             }
                         }
                         patientAfter=patient.patientKey();
                     }
+                    if (patientPage.size()<100) break;
                 }
                 while (true) {
                     attemptBudget.run();
@@ -226,6 +233,7 @@ public class CdsImportExecutionService {
                         if (!CdsImportLedgerService.FINAL_PATIENT.contains(patient.state())) { attemptBudget.run(); final long finalEpoch=epoch; owner.read(() -> { ledger.finalizePatient(runId, finalEpoch, patient.patientKey(), nativeRecords::verify); return null; }); }
                         after=patient.patientKey();
                     }
+                    if (page.size()<100) break;
                 }
                 ledger.finish(runId, epoch);
                 if ("COMPLETE".equals(ledger.status(runId).state()) && ledger.heldPatients(runId)==0) { completedOwner=owner; owner.allowReopen(); }

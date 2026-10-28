@@ -110,7 +110,8 @@ public class CdsImportResultService {
         manifest.put("manifestDigest", before.manifestDigest());
         Map<String, Object> files=new LinkedHashMap<>();
         boolean inventoryComplete=Boolean.TRUE.equals(entrySummary.get("discoveryComplete"));
-        boolean preview=Boolean.TRUE.equals(ledger.summary(runId).get("dryRun"));
+        boolean preview=Boolean.TRUE.equals(entrySummary.get("dryRun"));
+        boolean sealedInventory="SEALED".equals(entrySummary.get("inventoryState"));
         io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportCleanupDto cleanupResult;
             Path event=directory.resolve("ImportEventLog.jsonl"), error=directory.resolve("ImportErrorLog.jsonl"), unitsFile=directory.resolve("units.jsonl");
             try (OutputStream events=output(event, directory); OutputStream errors=output(error, directory); OutputStream unitRows=output(unitsFile, directory)) {
@@ -145,6 +146,7 @@ public class CdsImportResultService {
                                 }
                                 unitAfter=unit.unitKey();
                             }
+                            if (sealedInventory && unitPage.size()<100) break;
                         }
                         Map<String, Object> receipt=new LinkedHashMap<>(); receipt.put("patientId", patient.sourcePatientId());
                         receipt.put("patientKey", patient.patientKey()); receipt.put("copyKey", patient.copyKey()); receipt.put("outcome", patient.state());
@@ -157,6 +159,7 @@ public class CdsImportResultService {
                         }
                         after=patient.patientKey();
                     }
+                    if (sealedInventory && page.size()<100) break;
                 }
                 long diagnosticAfter=0;
                 while (true) {

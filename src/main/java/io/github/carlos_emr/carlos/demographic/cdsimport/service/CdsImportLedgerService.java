@@ -274,6 +274,7 @@ public class CdsImportLedgerService {
                 });
                 after=patient.key();
             }
+            if (page.size()<200) break; // SEALING freezes the patient key set.
         }
         String expectedDigest=executionDigest(runId);
         write(() -> {
@@ -769,12 +770,12 @@ public class CdsImportLedgerService {
     private Map<String, Object> summaryProjection(String runId) {
         CdsImportRun run=requiredRun(runId, false);
         Map<String, Long> outcomes=new LinkedHashMap<>();
-        List<Object[]> outcomeRows=patients.outcomes(runId, 17);
+        var outcomeRows=patients.summaryOutcomes(runId, 17);
         if (outcomeRows.size()>16) throw new CdsImportException("UNEXPECTED_OUTCOME_CARDINALITY");
         long copyCount=0;
-        for (Object[] row:outcomeRows) {
-            long count=((Number) row[1]).longValue();
-            outcomes.put((String) row[0], count); copyCount=Math.addExact(copyCount, count);
+        for (var row:outcomeRows) {
+            long count=row.copies();
+            outcomes.put(row.state(), count); copyCount=Math.addExact(copyCount, count);
         }
         List<Object[]> categoryRows=units.summaryCategories(runId, 129);
         if (categoryRows.size()>128) throw new CdsImportException("UNEXPECTED_CATEGORY_CARDINALITY");
@@ -796,7 +797,7 @@ public class CdsImportLedgerService {
         value.put("discoveredFiles", fileInventory?run.getDiscoveredFiles():null);
         value.put("patientXmlFiles", fileInventory?run.getPatientXmlFiles():null);
         value.put("sourceBytes", fileInventory?run.getSourceBytes():null);
-        long sourceCount=patients.sourcePatients(runId);
+        long sourceCount=outcomeRows.isEmpty()?0:outcomeRows.getFirst().sourcePatients();
         value.put("sourcePatientsIdentified", sourceCount);
         value.put("sourcePatients", run.isDiscoveryComplete()?sourceCount:null);
         value.put("targetCopiesPlanned", copyCount); value.put("inventoryState", sealed?"SEALED":"UNSEALED");
@@ -825,17 +826,19 @@ public class CdsImportLedgerService {
             categories.add(Map.copyOf(row));
         }
         value.put("categories", List.copyOf(categories)); value.put("committedClinicalOccurrences", committedOccurrences); value.put("alreadyCompleteClinicalOccurrences", priorOccurrences);
-        value.put("unresolvedReviewItems", diagnostics.unresolved(runId, null));
+        var diagnosticSummary=diagnostics.summary(runId, MAINTENANCE_RELEASE_CODE, MAINTENANCE_DEFERRED_CODE, MAINTENANCE_PENDING_CODE);
+        value.put("unresolvedReviewItems", diagnosticSummary.unresolved());
         value.put("cancelRequested", run.isCancelRequested()); value.put("lastCheckpoint", run.getUpdatedAt().toString());
         boolean delivered="DELIVERED".equals(run.getReportState());
-        boolean releasePending=maintenanceReleasePending(run);
+        String releaseState=summaryReleaseState(run, diagnosticSummary);
+        boolean releasePending=!Set.of("NOT_APPLICABLE", "RELEASED").contains(releaseState);
         boolean cleanupComplete="COMPLETE".equals(run.getCleanupState()) && !releasePending;
         boolean clinicalComplete=!run.isDryRun() && "COMPLETE".equals(run.getState());
         boolean validDryRun=run.isDryRun() && "DRY_RUN_COMPLETE".equals(run.getState());
         boolean finalAttempt=Set.of("COMPLETE", "DRY_RUN_COMPLETE", "DRY_RUN_INCOMPLETE", "INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "REVIEW_REQUIRED").contains(run.getState());
         value.put("maintenanceReleasePending", releasePending);
-        value.put("maintenanceReleaseState", maintenanceReleaseState(run));
-        value.put("reportState", run.getReportState()); value.put("cleanupState", releasePending?(maintenanceReleaseFailed(run)?"FAILED":"PENDING"):run.getCleanupState());
+        value.put("maintenanceReleaseState", releaseState);
+        value.put("reportState", run.getReportState()); value.put("cleanupState", releasePending?("REQUIRES_RECONCILIATION".equals(releaseState)?"FAILED":"PENDING"):run.getCleanupState());
         value.put("reportsDelivered", delivered); value.put("cleanupComplete", cleanupComplete);
         value.put("reportDeliveryFailed", "FAILED".equals(run.getReportState()));
         value.put("clinicalComplete", clinicalComplete); value.put("cleanComplete", !run.isResumeRequested() && (clinicalComplete || validDryRun) && delivered && cleanupComplete);
@@ -843,6 +846,14 @@ public class CdsImportLedgerService {
         value.put("reviewVersion", run.getReviewVersion()); value.put("safeErrorCode", run.getSafeErrorCode());
         value.put("reportAvailable", delivered && run.getReportGeneration()>0 && run.getReportDigest()!=null);
         return java.util.Collections.unmodifiableMap(value);
+    }
+
+    private String summaryReleaseState(CdsImportRun run,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticSummaryDto diagnostics) {
+        if (!Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState())) return "NOT_APPLICABLE";
+        if (diagnostics.releaseFailures()>0) return "REQUIRES_RECONCILIATION";
+        if (diagnostics.releaseDeferred()>0) return "RELEASE_DEFERRED";
+        return diagnostics.releasePending()>0?"RELEASE_PENDING":"RELEASED";
     }
 
     public void stage(String runId, String stage) {
@@ -1383,6 +1394,7 @@ public class CdsImportLedgerService {
                 for (String dependency:unit.dependencies()) CdsImportKeys.add(digest, dependency);
                 CdsImportKeys.add(digest, "END_UNIT"); after=unit.key();
             }
+            if (page.size()<200) break; // Sealed units cannot gain new keys during digest verification.
         }
         return HexFormat.of().formatHex(digest.digest());
     }
@@ -1396,6 +1408,7 @@ public class CdsImportLedgerService {
                 CdsImportKeys.add(digest, Objects.requireNonNull(patient.digest())); CdsImportKeys.add(digest, Long.toString(patient.count()));
                 after=patient.key();
             }
+            if (page.size()<200) break; // The seal fixes all patient keys and is checked again by the caller.
         }
         return HexFormat.of().formatHex(digest.digest());
     }

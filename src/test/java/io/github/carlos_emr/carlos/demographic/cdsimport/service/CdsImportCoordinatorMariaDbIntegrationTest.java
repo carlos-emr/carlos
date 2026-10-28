@@ -253,6 +253,92 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
         }
     }
 
+    @Test void shouldAddStrictAllTablesToAnEmptyMode_whenConfiguringCliPool() throws Exception {
+        configureSqlMode("");
+        String global=sqlMode(observer, "GLOBAL");
+        try(Connection unpooled=source.openUnpooledCdsMaintenanceConnection()) {
+            assertThat(sqlModes(unpooled)).isEmpty();
+        }
+        try(Connection connection=source.getConnection()) {
+            assertThat(sqlModes(connection)).containsExactly("STRICT_ALL_TABLES");
+        }
+        assertThat(sqlMode(observer, "GLOBAL")).isEqualTo(global);
+    }
+
+    @Test void shouldPreserveEveryConfiguredMode_whenAddingStrictCliBaseline() throws Exception {
+        configureSqlMode("ANSI_QUOTES,NO_BACKSLASH_ESCAPES,NO_ENGINE_SUBSTITUTION");
+        java.util.Set<String> configured;
+        try(Connection unpooled=source.openUnpooledCdsMaintenanceConnection()) {
+            configured=sqlModes(unpooled);
+            assertThat(configured).containsExactlyInAnyOrder("ANSI_QUOTES", "NO_BACKSLASH_ESCAPES", "NO_ENGINE_SUBSTITUTION");
+        }
+        var expected=new java.util.HashSet<>(configured); expected.add("STRICT_ALL_TABLES");
+        try(Connection connection=source.getConnection()) {
+            assertThat(sqlModes(connection)).containsExactlyInAnyOrderElementsOf(expected);
+        }
+    }
+
+    @Test void shouldKeepAlreadyStrictMode_whenGuardedTruncationRollsBackAndConnectionIsReused() throws Exception {
+        configureSqlMode("STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION,ERROR_FOR_DIVISION_BY_ZERO");
+        java.util.Set<String> configured;
+        try(Connection unpooled=source.openUnpooledCdsMaintenanceConnection()) {configured=sqlModes(unpooled);}
+        source.enableCdsMetadataGuard();
+        long physical;
+        try(Connection connection=source.getConnection()) {
+            physical=scalar(connection,"SELECT CONNECTION_ID()");
+            assertThat(sqlModes(connection)).containsExactlyInAnyOrderElementsOf(configured);
+            connection.setAutoCommit(false);
+            try(var query=connection.prepareStatement("UPDATE cds_import_run SET operator=? WHERE id=?")) {
+                query.setString(1,"x".repeat(129)); query.setString(2,run);
+                assertThatThrownBy(query::executeUpdate).isInstanceOfSatisfying(java.sql.SQLException.class, failure -> {
+                    assertThat(failure.getSQLState()).isEqualTo("22001");
+                    assertThat(failure.getErrorCode()).isEqualTo(1406);
+                });
+            }
+            connection.rollback();
+            assertThat(sqlModes(connection)).containsExactlyInAnyOrderElementsOf(configured);
+        }
+        try(Connection reused=source.getConnection()) {
+            assertThat(scalar(reused,"SELECT CONNECTION_ID()")).isEqualTo(physical);
+            assertThat(sqlModes(reused)).containsExactlyInAnyOrderElementsOf(configured);
+            assertThat(scalar(reused,"SELECT @@SESSION.autocommit")).isEqualTo(1);
+        }
+        try(var query=observer.prepareStatement("SELECT operator FROM cds_import_run WHERE id=?")) {
+            query.setString(1,run);
+            try(var rows=query.executeQuery()) {assertThat(rows.next()).isTrue();assertThat(rows.getString(1)).isEqualTo("control-probe");}
+        }
+        assertNoTransaction(physical);
+    }
+
+    @Test void shouldRefuseBorrow_whenInitializationSqlModeIsRejected() throws Exception {
+        var initialization=new java.util.ArrayList<>(source.getConnectionInitSqls());
+        initialization.add("SET SESSION sql_mode='CDS_INVALID_SQL_MODE'");
+        source.setConnectionInitSqls(initialization);
+        assertThatThrownBy(source::getConnection).isInstanceOf(java.sql.SQLException.class).hasMessageContaining("CDS_INVALID_SQL_MODE");
+        assertThat(source.getNumActive()).isZero(); assertThat(source.getNumIdle()).isZero();
+        assertThat(cancelRequested(observer)).isZero();
+    }
+
+    private void configureSqlMode(String modes) {
+        source.addConnectionProperty("sessionVariables", "sql_mode='"+modes+"'");
+        // The real server must reject truncation even when the driver does not add strictness.
+        source.addConnectionProperty("jdbcCompliantTruncation", "false");
+    }
+    private static java.util.Set<String> sqlModes(Connection connection) throws java.sql.SQLException {
+        String modes=sqlMode(connection, "SESSION");
+        return modes.isEmpty()?java.util.Set.of():java.util.Set.copyOf(java.util.Arrays.asList(modes.split(",")));
+    }
+    private static String sqlMode(Connection connection, String scope) throws java.sql.SQLException {
+        String statement=switch(scope) {
+            case "SESSION" -> "SELECT @@SESSION.sql_mode";
+            case "GLOBAL" -> "SELECT @@GLOBAL.sql_mode";
+            default -> throw new IllegalArgumentException("Unsupported SQL mode scope");
+        };
+        try(var query=connection.createStatement();var rows=query.executeQuery(statement)) {
+            assertThat(rows.next()).isTrue();return rows.getString(1);
+        }
+    }
+
     private int cancelRequested(Connection connection) throws java.sql.SQLException {
         try(var query=connection.prepareStatement("SELECT cancel_requested FROM cds_import_run WHERE id=?")) {
             query.setString(1,run);

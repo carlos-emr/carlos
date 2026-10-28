@@ -24,25 +24,28 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderFacilityDao;
+import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import jakarta.persistence.EntityManager;
 import java.util.Date;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 class CdsClinicalReadAccessUnitTest extends CarlosUnitTestBase {
     private CdsImportAccessService access;private SecurityInfoManager security;private LoggedInInfo actor;private Security account;
+    private ProviderDao providers;private SecurityDao accounts;
     @BeforeEach void prepare(){
         security=mock(SecurityInfoManager.class);actor=mock(LoggedInInfo.class);account=new Security();account.setSecurityNo(42);account.setProviderNo("999998");
         when(actor.getLoggedInSecurity()).thenReturn(account);when(actor.getLoggedInProviderNo()).thenReturn("999998");
-        EntityManager em=mock(EntityManager.class);when(em.find(Security.class,42)).thenReturn(account);
-        Provider provider=new Provider();provider.setProviderNo("999998");provider.setStatus("1");when(em.find(Provider.class,"999998")).thenReturn(provider);
-        access=new CdsImportAccessService(security,mock(CdsImportConfigurationService.class),mock(CdsCourseService.class),mock(CdsProgramContextService.class));ReflectionTestUtils.setField(access,"entityManager",em);
+        accounts=mock(SecurityDao.class);when(accounts.find(42)).thenReturn(account);providers=mock(ProviderDao.class);
+        Provider provider=new Provider();provider.setProviderNo("999998");provider.setStatus("1");when(providers.getProvider("999998")).thenReturn(provider);
+        access=new CdsImportAccessService(security,mock(CdsImportConfigurationService.class),mock(CdsCourseService.class),
+                mock(CdsProgramContextService.class),providers,accounts,mock(ProviderFacilityDao.class));
         when(security.hasPrivilegeReadOnly(any(),eq("_demographic"),eq("r"),eq("123"))).thenReturn(true);
         when(security.hasPrivilegeReadOnly(any(),eq("_rx"),eq("r"),eq("123"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(),eq(123))).thenReturn(true);
@@ -64,5 +67,19 @@ class CdsClinicalReadAccessUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(()->access.requireClinicalRead(actor,123,"MedicationsAndTreatments")).isInstanceOf(SecurityException.class);
         when(actor.getLoggedInProviderNo()).thenReturn("999998");account.setBExpireset(1);account.setDateExpiredate(new Date(0));
         assertThatThrownBy(()->access.requireClinicalRead(actor,123,"MedicationsAndTreatments")).isInstanceOf(SecurityException.class);
+    }
+    @Test void shouldUseCurrentAccountRow_afterAnEarlierAuthorizedRead(){
+        access.requireClinicalRead(actor,123,"MedicationsAndTreatments");
+        Security changed=new Security();changed.setSecurityNo(42);changed.setProviderNo("999997");
+        when(accounts.find(42)).thenReturn(changed);
+        assertThatThrownBy(()->access.requireClinicalRead(actor,123,"MedicationsAndTreatments")).isInstanceOf(SecurityException.class);
+        verify(accounts,times(2)).find(42);
+    }
+    @Test void shouldRefuseInactiveProvider_afterAnEarlierAuthorizedRead(){
+        access.requireClinicalRead(actor,123,"MedicationsAndTreatments");
+        Provider inactive=new Provider();inactive.setProviderNo("999998");inactive.setStatus("0");
+        when(providers.getProvider("999998")).thenReturn(inactive);
+        assertThatThrownBy(()->access.requireClinicalRead(actor,123,"MedicationsAndTreatments")).isInstanceOf(SecurityException.class);
+        verify(providers,times(2)).getProvider("999998");
     }
 }

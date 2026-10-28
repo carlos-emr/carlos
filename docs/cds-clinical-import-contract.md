@@ -4,6 +4,30 @@ This is the implemented clinical component contract for the import engine. It do
 
 `CdsClinicalNormalizationService` reads a bounded occurrence using `CdsFieldParser`. It returns immutable medication, allergy or immunization data without clinical writes or catalogue enrichment. `CdsMedicationPersister`, `CdsAllergyPersister` and `CdsImmunizationPersister` require the caller's real transaction, write native rows and precision/extension rows in that transaction, and return exact table/ID receipts. The owning unit must add its strict audit, field dispositions and source checkpoint before committing.
 
+## Data access and framework integration
+
+The importer composes CARLOS's existing entities and participating DAOs. Category services own the historical interpretation, normalized preparation and source-to-target references. The unit executor owns the transaction that includes native writes, strict audit, evidence and checkpoint. DAO methods join that transaction; independent batch commits, UI actions and request-dependent managers are unsuitable for this boundary.
+
+| Clinical data | Participating persistence operations |
+| --- | --- |
+| New demographics and related rows | `DemographicDao.persistImportedDemographic`, `DemographicCustDao`, `DemographicExtDao`, `AdmissionDao` |
+| Notes and history | `CaseManagementNoteDAO.saveNote`, `CaseManagementIssueDAO.saveIssue`, bounded two-candidate issue/catalogue lookups |
+| Appointments | `OscarAppointmentDao` |
+| Professional contacts and pharmacies | `ProfessionalContactDao`, `DemographicContactDao`, `PharmacyInfoDao`, `DemographicPharmacyDao` |
+| Documents and patient associations | `DocumentDao`, `CtlDocumentDao` |
+| Native laboratory projection | `Hl7TextMessageDao`, `Hl7TextInfoDao`, `PatientLabRoutingDao` |
+| Allergies, medications, immunizations, measurements and contacts | Their existing CARLOS DAOs, including the related partial-date, extension and association DAOs |
+
+The explicit demographic import operation requires the caller's transaction and a new patient identity. It preserves JPA entity callbacks and generated identifiers while suppressing registration events and outbound A04 generation under the migration side-effect policy. Ordinary demographic save behavior retains its existing contract. Prepared related rows use the existing DAO's participating persistence operations. The importer retains its durable audit and checkpoint in the same unit.
+
+Existing API behavior determines reuse. Normal note managers may create revisions or signatures; pharmacy convenience methods can reorder associations; lab upload handlers can independently commit or deduplicate content; document helpers can materialize complete byte arrays or rewrite dates and authors. The importer therefore keeps its bounded preparation, publication and reviewed historical mappings while composing the suitable existing DAO operations. It preserves unknown consent, original precision, explicit UUIDs, immutable HL7 message insertion and model lifecycle callbacks.
+
+Read APIs must also preserve current authorization, issuer-aware identity and bounded candidate counts. Cached program membership, eager directory graphs, active-only identity matching and unbounded lists are unsuitable replacements for the importer's fresh scalar and bounded projections. Provider/security reads and facility membership use appropriate existing DAOs; the small facility primary-key read retains its dedicated path to avoid importing an unrelated cache subsystem into the CLI. The CLI explicitly wires only the required DAO implementations and canonical case-management bean names.
+
+New DAOs serve import bookkeeping and reviewed data-model extensions, including `CdsLaboratoryResult` for structured laboratory meaning and sensitivity that the legacy projection cannot fully express. Physical JDBC remains confined to operations requiring its actual connection: admission and ownership controls, metadata pins, and bounded native-row receipt hashing. These operations preserve parameter binding, fixed catalogues, timeouts and resource ownership. Native receipt hashing keeps full byte verification while avoiding large-value materialization.
+
+These boundaries require the final real-database transaction, rollback, callback, reader and installed-command tests. Focused component results alone do not establish release acceptance.
+
 ## Temporal meaning
 
 `CdsTemporal` interprets the actual YearOnly, YearMonth, FullDate and FullDateTime branches strictly. Year/month values retain their interval and original precision; optional absence remains unknown. Storage anchors are synthetic and require the existing `partial_date` YYYY/YYYY-MM metadata in the same unit. No UNKNOWN tag is introduced. Exact January 1 remains exact unless explicit partial metadata says otherwise.

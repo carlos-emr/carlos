@@ -25,6 +25,10 @@ import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
+import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsClinicalDiagnosticDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicNativeDto;
@@ -37,9 +41,6 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPhoneComponents;
-
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -67,8 +68,10 @@ public class CdsDemographicPersister {
     private final CdsDemographicDetailsService details;
     private final CdsDemographicRelationsService relations;
 
-    @PersistenceContext(unitName = "entityManagerFactory")
-    private EntityManager entityManager;
+    private final DemographicDao demographics;
+    private final DemographicCustDao custom;
+    private final DemographicExtDao extensions;
+    private final AdmissionDao admissions;
 
     public CdsDemographicPersister(
             CdsFieldParser fields,
@@ -76,13 +79,21 @@ public class CdsDemographicPersister {
             CdsProviderResolver providers,
             CdsNativePreparationService preparation,
             CdsDemographicDetailsService details,
-            CdsDemographicRelationsService relations) {
+            CdsDemographicRelationsService relations,
+            DemographicDao demographics,
+            DemographicCustDao custom,
+            DemographicExtDao extensions,
+            AdmissionDao admissions) {
         this.fields = fields;
         this.identity = identity;
         this.providers = providers;
         this.preparation = preparation;
         this.details = details;
         this.relations = relations;
+        this.demographics = Objects.requireNonNull(demographics);
+        this.custom = Objects.requireNonNull(custom);
+        this.extensions = Objects.requireNonNull(extensions);
+        this.admissions = Objects.requireNonNull(admissions);
     }
 
     public void validate(CdsRecordDto record, CdsImportCommand command) throws IOException {
@@ -315,16 +326,15 @@ public class CdsDemographicPersister {
         applyAddress(patient, dto.residential(), true);
         if (dto.home() != null) patient.setPhone(dto.home().number());
         if (dto.work() != null) patient.setPhone2(dto.work().number());
-        entityManager.persist(patient);
-        entityManager.flush();
+        demographics.persistImportedDemographic(patient);
         Map<String, String> result = new LinkedHashMap<>();
         result.put("demographic", patient.getDemographicNo().toString());
         if (dto.details().patientNote() != null) {
-            var custom = new DemographicCust();
-            custom.setId(patient.getDemographicNo());
-            custom.setNotes(DemographicCust.wrapPatientNotes(dto.details().patientNote()));
-            entityManager.persist(custom);
-            entityManager.flush();
+            var patientCustom = new DemographicCust();
+            patientCustom.setId(patient.getDemographicNo());
+            patientCustom.setNotes(DemographicCust.wrapPatientNotes(dto.details().patientNote()));
+            custom.persist(patientCustom);
+            custom.flush();
             result.put("demographiccust", patient.getDemographicNo().toString());
         }
         if (dto.relations().familyPhysician() != null
@@ -351,8 +361,8 @@ public class CdsDemographicPersister {
             admission.setProviderNo(command.providerNo());
             admission.setAdmissionStatus(Admission.STATUS_CURRENT);
             admission.setAdmissionDate(new Date());
-            entityManager.persist(admission);
-            entityManager.flush();
+            admissions.persist(admission);
+            admissions.flush();
             result.put("admission", admission.getId().toString());
         }
         return result;
@@ -375,8 +385,8 @@ public class CdsDemographicPersister {
         row.setKey(key);
         row.setValue(value);
         row.setHidden(false);
-        entityManager.persist(row);
-        entityManager.flush();
+        extensions.persist(row);
+        extensions.flush();
         Integer nativeId=row.getId();
         if (nativeId==null || nativeId<1) throw new CdsImportException("DEMOGRAPHIC_EXTENSION_NATIVE_ID_MISSING");
         references.put("demographicExt#" + references.size(), Integer.toString(nativeId));

@@ -53,6 +53,21 @@ public class CdsImportReviewDao extends AbstractDaoImpl<CdsImportReview> {
     public CdsImportReview latest(String run) {
         var rows=entityManager.createQuery("select r from CdsImportReview r where r.runId=:run order by r.reviewVersion desc", CdsImportReview.class).setParameter("run", run).setMaxResults(1).getResultList(); return rows.isEmpty()?null:rows.get(0);
     }
+    /** Latest review, bounded pending count and inactive-draft count share one statement snapshot. */
+    public io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewSummaryDto summary(String run) {
+        var rows=entityManager.createQuery("select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewSummaryDto("
+                + "r.id,r.state,r.safeErrorCode,"
+                + "(select count(bounded.id) from (select p.id as id from CdsImportReview p where p.runId=:run "
+                + "and p.state in ('REQUESTED','VALIDATING','OVERLAY_PUBLISHED','PATIENT_DECLINED','REVISION_PUBLISHED') order by p.reviewVersion limit 2) bounded),"
+                + "(select count(d) from CdsImportReview d where d.runId=:run and d.state='DRAFT_REQUIRES_CORRECTION' "
+                + "and not exists(select a.id from CdsImportReview a where a.runId=d.runId and a.sourceKey=d.sourceKey "
+                + "and a.reviewVersion>d.reviewVersion and a.state in ('OVERLAY_PUBLISHED','OVERLAY_READY','REVALIDATED')))) "
+                + "from CdsImportReview r where r.runId=:run order by r.reviewVersion desc", io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewSummaryDto.class)
+                .setParameter("run", run).setMaxResults(1).getResultList();
+        return rows.isEmpty() ? new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewSummaryDto(null, "IDLE", null, 0, 0)
+                : rows.getFirst();
+    }
+
     public CdsImportReview latestDraft(String run, String source) {
         var rows=entityManager.createQuery("select r from CdsImportReview r where r.runId=:run and r.sourceKey=:source and r.kind='CORRECT_VALUE' and r.state='DRAFT_REQUIRES_CORRECTION' order by r.reviewVersion desc", CdsImportReview.class).setParameter("run", run).setParameter("source", source).setMaxResults(1).getResultList(); return rows.isEmpty()?null:rows.get(0);
     }

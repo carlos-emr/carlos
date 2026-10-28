@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderFacilityDao;
+import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
@@ -43,13 +46,21 @@ public class CdsImportAccessService {
     private final CdsImportConfigurationService configuration;
     private final CdsCourseService courses;
     private final CdsProgramContextService programs;
+    private final ProviderDao providers;
+    private final SecurityDao accounts;
+    private final ProviderFacilityDao memberships;
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
 
-    public CdsImportAccessService(SecurityInfoManager security, CdsImportConfigurationService configuration, CdsCourseService courses, CdsProgramContextService programs) {
+    public CdsImportAccessService(SecurityInfoManager security, CdsImportConfigurationService configuration,
+            CdsCourseService courses, CdsProgramContextService programs, ProviderDao providers,
+            SecurityDao accounts, ProviderFacilityDao memberships) {
         this.security = security;
         this.configuration = configuration;
         this.courses = courses;
         this.programs = programs;
+        this.providers = Objects.requireNonNull(providers);
+        this.accounts = Objects.requireNonNull(accounts);
+        this.memberships = Objects.requireNonNull(memberships);
     }
 
     @Transactional(readOnly = true)
@@ -167,25 +178,24 @@ public class CdsImportAccessService {
     }
 
     private LoggedInInfo providerContext(String providerNo, Integer facilityId, Security account) {
-        Provider provider = entityManager.find(Provider.class, providerNo);
+        Provider provider = providers.getProvider(providerNo);
         if (provider == null || !"1".equals(provider.getStatus())) deny();
         LoggedInInfo context = new LoggedInInfo();
         context.setLoggedInProvider(provider);
         context.setLoggedInSecurity(account);
         if (facilityId != null) {
+            // FacilityDao's cache infrastructure is outside this minimal CLI context.
+            // Keep this fresh, single-key read without loading cached facility lists.
             Facility facility = entityManager.find(Facility.class, facilityId);
             if (facility == null) deny();
-            Number count = (Number) entityManager.createNativeQuery(
-                    "select count(*) from provider_facility where provider_no=:provider and facility_id=:facility")
-                    .setParameter("provider", providerNo).setParameter("facility", facilityId).getSingleResult();
-            if (count.longValue() == 0) deny();
+            if (memberships.countByProviderAndFacility(providerNo, facilityId) == 0) deny();
             context.setCurrentFacility(facility);
         }
         return context;
     }
 
     private Security activeAccount(Integer securityNo) {
-        Security account = securityNo == null ? null : entityManager.find(Security.class, securityNo);
+        Security account = securityNo == null ? null : accounts.find(securityNo.intValue());
         // Local/remote lock flags configure login PIN checks; they are not account-disable flags.
         if (account == null || (Integer.valueOf(1).equals(account.getBExpireset())
                 && account.getDateExpiredate() != null && account.getDateExpiredate().before(new Date()))) deny();

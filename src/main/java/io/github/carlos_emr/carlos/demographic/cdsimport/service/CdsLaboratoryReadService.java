@@ -21,10 +21,9 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.commn.dao.CdsLaboratoryResultDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,8 +31,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CdsLaboratoryReadService {
     private final SecurityInfoManager security;
-    @PersistenceContext(unitName="entityManagerFactory") private EntityManager entityManager;
-    public CdsLaboratoryReadService(SecurityInfoManager security) { this.security=security; }
+    private final CdsLaboratoryResultDao results;
+    public CdsLaboratoryReadService(SecurityInfoManager security, CdsLaboratoryResultDao results) {
+        this.security=security; this.results=results;
+    }
 
     @Transactional(readOnly=true)
     public void requireSourceFieldsReadable(LoggedInInfo actor, int demographicNo) {
@@ -42,10 +43,8 @@ public class CdsLaboratoryReadService {
                 || !security.isAllowedAccessToPatientRecord(actor, demographicNo)) {
             throw new SecurityException("Laboratory access denied");
         }
-        Long blocked=entityManager.createQuery("select count(l.id) from CdsLaboratoryResult l "
-                + "where l.demographicNo=:patient and l.sourceBlocked='Y'", Long.class)
-                .setParameter("patient", demographicNo).getSingleResult();
-        if (blocked>0 && !security.hasPrivilegeReadOnly(actor, "_lab_sensitive", "r", Integer.toString(demographicNo))) {
+        if (results.hasBlockedResult(demographicNo)
+                && !security.hasPrivilegeReadOnly(actor, "_lab_sensitive", "r", Integer.toString(demographicNo))) {
             throw new SecurityException("Restricted laboratory access requires explicit authorization");
         }
     }
