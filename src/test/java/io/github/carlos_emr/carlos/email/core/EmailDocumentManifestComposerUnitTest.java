@@ -29,7 +29,9 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
@@ -44,6 +46,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.MockedStatic;
+import org.mockito.stubbing.Answer;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
@@ -52,23 +55,21 @@ import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
-import io.github.carlos_emr.carlos.commn.model.CtlDocument;
-import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
-import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
-import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.managers.FormsManager;
@@ -78,6 +79,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -107,10 +110,13 @@ class EmailDocumentManifestComposerUnitTest {
     private final CtlDocumentDao ctlDocumentDao = mock(CtlDocumentDao.class);
     private final PatientLabRoutingDao patientLabRoutingDao = mock(PatientLabRoutingDao.class);
     private final HRMDocumentToDemographicDao hrmDocumentToDemographicDao = mock(HRMDocumentToDemographicDao.class);
+    // The real ownership rule over mocked lookups: the composer must apply the send's own rule.
+    private final AttachmentOwnershipService attachmentOwnership = new AttachmentOwnershipService(ctlDocumentDao,
+            patientLabRoutingDao, eFormDataDao, hrmDocumentToDemographicDao, mock(ConsultationRequestDao.class));
     private final LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
     private final EmailDocumentManifestComposer composer = new EmailDocumentManifestComposer(clinicDao, eFormDataDao,
-            documentDao, hl7TextInfoDao, hrmDocumentDao, formsManager, ctlDocumentDao, patientLabRoutingDao,
-            hrmDocumentToDemographicDao, Clock.fixed(NOW, ZoneOffset.UTC));
+            documentDao, hl7TextInfoDao, hrmDocumentDao, formsManager, attachmentOwnership,
+            Clock.fixed(NOW, ZoneOffset.UTC));
     private MockedStatic<PatientPortalSettings> portal;
 
     @BeforeEach
@@ -121,6 +127,13 @@ class EmailDocumentManifestComposerUnitTest {
         when(clinicDao.getClinic()).thenReturn(clinic);
         portal = mockStatic(PatientPortalSettings.class);
         portal.when(PatientPortalSettings::isConfigured).thenReturn(false);
+        // The email's patient owns every record these tests attach, unless a test links it elsewhere.
+        Answer<List<Integer>> asked = call -> new ArrayList<>(call.<Collection<Integer>>getArgument(1));
+        when(eFormDataDao.findFdidsForDemographic(eq(1001), any())).thenAnswer(asked);
+        when(ctlDocumentDao.findDocumentNosForDemographic(eq(1001), any())).thenAnswer(asked);
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1001), eq(PatientLabRoutingDao.HL7), any()))
+                .thenAnswer(call -> new ArrayList<>(call.<Collection<Integer>>getArgument(2)));
+        when(hrmDocumentToDemographicDao.findHrmIdsForDemographic(eq(1001), any())).thenAnswer(asked);
     }
 
     @AfterEach
@@ -323,16 +336,38 @@ class EmailDocumentManifestComposerUnitTest {
 
     @ParameterizedTest
     @EnumSource(value = DocumentType.class, names = {"EFORM", "DOC", "LAB", "HRM"})
-    @DisplayName("should build the manifest for the email patient's record, or one linked to no patient")
-    void shouldBuildTheManifest_whenTheRecordIsThePatientsOrNoPatients(DocumentType type) {
-        for (Integer patient : new Integer[] {1001, 0, null}) {
-            linkRecord(type, 7, patient);
+    @DisplayName("should stop the send when an attached record is linked to no patient")
+    void shouldStopTheSend_whenARecordIsLinkedToNoPatient(DocumentType type) {
+        linkRecord(type, 7, null);
+        EmailDocumentManifestComposer.AttachmentManifests manifests = composer.forSend(loggedInInfo, fakeEmailLog());
+        EmailAttachment attachment = attachment(type, 7);
 
-            DocumentManifest manifest = composer.forSend(loggedInInfo, fakeEmailLog())
-                    .forAttachment(attachment(type, 7));
+        assertThatThrownBy(() -> manifests.forAttachment(attachment))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("An attached record does not belong to the email's patient");
+    }
 
-            assertThat(manifest).as("record linked to %s", patient).isNotNull();
-        }
+    @ParameterizedTest
+    @EnumSource(value = DocumentType.class, names = {"EFORM", "DOC", "LAB", "HRM"})
+    @DisplayName("should build the manifest for a record of the email's patient")
+    void shouldBuildTheManifest_whenTheRecordIsTheEmailPatients(DocumentType type) {
+        linkRecord(type, 7, 1001);
+
+        DocumentManifest manifest = composer.forSend(loggedInInfo, fakeEmailLog())
+                .forAttachment(attachment(type, 7));
+
+        assertThat(manifest).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should stop the send when the email has no patient to check a record against")
+    void shouldStopTheSend_whenTheEmailHasNoPatient() {
+        EmailLog emailLog = fakeEmailLog();
+        emailLog.setDemographic(null);
+        EmailDocumentManifestComposer.AttachmentManifests manifests = composer.forSend(loggedInInfo, emailLog);
+        EmailAttachment attachment = attachment(DocumentType.EFORM, 42);
+
+        assertThatThrownBy(() -> manifests.forAttachment(attachment)).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -363,30 +398,26 @@ class EmailDocumentManifestComposerUnitTest {
                 .startsWith("FAKE x");
     }
 
-    /** Links the record to {@code patient} the way its own table records it. */
-    private void linkRecord(DocumentType type, int recordId, Integer patient) {
+    /**
+     * Links the record to {@code owner} only, through the lookup the ownership rule uses for its
+     * type: the email's patient (1001) then owns it only when {@code owner} is 1001, and nobody
+     * does when {@code owner} is {@code null}.
+     */
+    private void linkRecord(DocumentType type, int recordId, Integer owner) {
+        ownedBy(type, 1001, List.of());
+        if (owner != null) {
+            ownedBy(type, owner, List.of(recordId));
+        }
+    }
+
+    private void ownedBy(DocumentType type, int patient, List<Integer> owned) {
         switch (type) {
-            case EFORM -> {
-                EFormData eForm = new EFormData();
-                eForm.setDemographicId(patient);
-                when(eFormDataDao.find(recordId)).thenReturn(eForm);
-            }
-            case DOC -> {
-                CtlDocument link = new CtlDocument();
-                link.setId(new CtlDocumentPK("demographic", patient, recordId));
-                when(ctlDocumentDao.findByDocumentNoAndModule(recordId, "demographic")).thenReturn(List.of(link));
-            }
-            case LAB -> {
-                PatientLabRouting routing = new PatientLabRouting();
-                routing.setDemographicNo(patient);
-                when(patientLabRoutingDao.findDemographicByLabId(recordId)).thenReturn(routing);
-            }
-            case HRM -> {
-                HRMDocumentToDemographic link = new HRMDocumentToDemographic();
-                link.setHrmDocumentId(recordId);
-                link.setDemographicNo(patient);
-                when(hrmDocumentToDemographicDao.findByHrmDocumentId(recordId)).thenReturn(List.of(link));
-            }
+            case EFORM -> when(eFormDataDao.findFdidsForDemographic(eq(patient), any())).thenReturn(owned);
+            case DOC -> when(ctlDocumentDao.findDocumentNosForDemographic(eq(patient), any())).thenReturn(owned);
+            case LAB -> when(patientLabRoutingDao.findLabNosForDemographic(eq(patient), eq(PatientLabRoutingDao.HL7),
+                    any())).thenReturn(owned);
+            case HRM -> when(hrmDocumentToDemographicDao.findHrmIdsForDemographic(eq(patient), any()))
+                    .thenReturn(owned);
             case FORM -> throw new IllegalArgumentException("a form is read for the email's patient by its renderer");
         }
     }
