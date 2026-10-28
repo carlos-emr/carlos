@@ -65,6 +65,8 @@ class EctMeasurements2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(MeasurementTypeDao.class, measurementTypeDao);
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "w", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "w", "123")).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
         when(measurementTypeDao.findByTypeAndMeasuringInstruction(any(), any())).thenReturn(List.of());
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);

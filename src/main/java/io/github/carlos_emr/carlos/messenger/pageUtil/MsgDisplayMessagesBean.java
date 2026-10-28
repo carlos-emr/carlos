@@ -519,6 +519,7 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
                     + "from messagelisttbl ml, messagetbl m  "
                     + "where ml.provider_no = :providerNo "
                     + "and status not like 'del' and remoteLocation = :remoteLocation "
+                    + " and (ml.destinationFacilityId IS NULL OR ml.destinationFacilityId < 1) "
                     + " and ml.message = m.messageid "
                     + getSQLSearchFilterParameterized(searchCols)
                     + " order by " + getOrderBy(orderby)
@@ -742,6 +743,7 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
                     + " left outer join msgDemoMap map on (map.messageID = m.messageid) "
                     + " where provider_no = :providerNo"
                     + " and status like 'del' and remoteLocation = :remoteLocation "
+                    + " and (ml.destinationFacilityId IS NULL OR ml.destinationFacilityId < 1) "
                     + " and ml.message = m.messageid "
                     + getSQLSearchFilterParameterized(searchCols)
                     + " order by "

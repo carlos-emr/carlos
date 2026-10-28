@@ -309,6 +309,29 @@ public class EctFormData {
         return (results.toArray(new PatientForm[0]));
     }
 
+    /**
+     * Returns the saved row of a form that the {@code formId=latest} shortcut opens for this patient.
+     *
+     * <p>The shortcut ({@code FrmData.getShortcutFormValue}) resolves "latest" with
+     * {@code ORDER BY formEdited DESC, ID DESC}. A caller that labels a link to that shortcut,
+     * such as the eChart Forms module, must describe the same row, so it selects with
+     * {@link PatientForm#SHORTCUT_LATEST_COMPARATOR} rather than the creation-date order of
+     * {@link #getPatientFormsFromLocalAndRemote(LoggedInInfo, String, String)}. The two orders
+     * disagree for forms whose rows are updated in place (issue #4678).</p>
+     *
+     * <p>The legacy XML {@code form} table is not covered: its shortcut filters by form name and
+     * orders by {@code form_no}, while this lookup reads every XML form of the patient.</p>
+     *
+     * @param demoNo patient demographic number; an invalid value yields {@code null}
+     * @param table registered encounter form table; an unknown or invalid name yields {@code null}
+     * @return the row the latest shortcut opens, or {@code null} when the patient has none
+     */
+    public static PatientForm getShortcutLatestPatientForm(String demoNo, String table) {
+        return getPatientFormsAsArrayList(demoNo, null, table).stream()
+                .min(PatientForm.SHORTCUT_LATEST_COMPARATOR)
+                .orElse(null);
+    }
+
     public static PatientForm[] getPatientFormsFromLocalAndRemote(LoggedInInfo loggedInInfo, String demoNo, String table, Boolean sortByEdited) {
         PatientForm[] results = getPatientFormsFromLocalAndRemote(loggedInInfo, demoNo, table);
 
@@ -362,6 +385,18 @@ public class EctFormData {
                 return (o2.edited.compareTo(o1.edited));
             }
         };
+
+        /**
+         * Orders rows the way {@code FrmData.getShortcutFormValue} resolves {@code formId=latest}:
+         * newest {@code formEdited} first, rows without an edit time last (MySQL and H2 place
+         * NULL last in a descending sort), then the highest ID first when edit times tie.
+         * Timestamps compare with their full precision, as the database does.
+         */
+        public static final Comparator<PatientForm> SHORTCUT_LATEST_COMPARATOR =
+                Comparator.comparing((PatientForm form) -> form.edited,
+                                Comparator.nullsLast(Comparator.<Date>reverseOrder()))
+                        .thenComparing(form -> form.formId,
+                                Comparator.nullsLast(Comparator.<Integer>reverseOrder()));
 
         public Integer formId;
         public Integer demographicId;

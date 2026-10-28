@@ -46,6 +46,8 @@
   
   Request parameters:
   - demographic_no: Patient demographic ID for attachment retrieval
+  - attachmentKey: the key of the compose window that opened the chooser; the chooser posts it
+    so the PDFs are staged for that window's message only (issue #4673)
   
   Error handling:
   - Displays message if no demographic is selected
@@ -55,6 +57,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -68,6 +71,10 @@
         <%
 // Retrieve the patient demographic number from request
 String demographic_no = request.getParameter("demographic_no");
+// The opening compose window's key, passed on only when well formed.
+String attachmentKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER);
+String attachmentKeyQuery = MsgAttachmentStaging.isKey(attachmentKey)
+        ? "&" + MsgAttachmentStaging.KEY_PARAMETER + "=" + SafeEncode.forUriComponent(attachmentKey) : "";
 %>
 
     <title>CARLOS <fmt:message key="messenger.ViewMessage.msgAttachments"/></title>
@@ -81,7 +88,7 @@ String demographic_no = request.getParameter("demographic_no");
     <%-- Main frame: the chooser via the gated Struts action; Preview streams the PDF into it. --%>
     <fmt:message key="messenger.ViewMessage.msgAttachments" var="attachmentsTitle"/>
     <iframe name="main" title="${carlos:forHtmlAttribute(attachmentsTitle)}"
-            src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/messenger/PreviewPDF?demographic_no=<%= SafeEncode.forUriComponent(demographic_no) %>"></iframe>
+            src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/messenger/PreviewPDF?demographic_no=<%= SafeEncode.forUriComponent(demographic_no) %><%= SafeEncode.forHtmlAttribute(attachmentKeyQuery) %>"></iframe>
         <% } else { %>
     <%-- Error message when no demographic selected --%>
     Please select a demographic.

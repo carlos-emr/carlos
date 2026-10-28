@@ -10,11 +10,8 @@
  * for "allergy".
  *
  * Asserted: A's discontinue archives the drug with its reason and files one linked chart note
- * (control); B's stale discontinue is processed (HTTP 200: every 4xx the endpoint sends today is an unrelated
- * refusal, not a stale-write one); afterwards the first reason and date still stand and the chart holds exactly
- * one discontinue note. RxDeleteRx2Action.Discontinue only checks that the drug
- * belongs to the patient, so a stale second discontinue overwrites archived_reason / archived_date and
- * files a second, contradictory chart note. The check fails at the reason / note step.
+ * (control); B's stale discontinue receives the explicit STALE_RX_DISCONTINUE 409, keeps the typed
+ * comment and shows a reload message. The first reason/date and exactly one linked note must remain.
  *
  * Fixtures: one owned custom medication seeded by SQL for the owned FAKE- patient; cleanup removes the
  * drugs row, the discontinue chart notes with their links and asserts nothing remains.
@@ -22,8 +19,9 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { openSecondSession } = require('./lib/concurrency-support');
+const { openSecondSession, failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { clickOpensPopup } = require('./lib/playwright-ui');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const isDiscontinue = response => response.request().method() === 'POST' && h.pathOnly(response.url()).endsWith('/rx/deleteRx')
   && new URL(response.url()).searchParams.get('parameterValue') === 'Discontinue';
@@ -66,7 +64,7 @@ async function workflow(s) {
 
   const b = await openSecondSession(s, { label: 'second-session' });
   const openRx = async (context, master, label) => {
-    const rx = await clickOpensPopup(master, master.locator('a[onclick*="/rx/choosePatient"]').first(), { context, recorder: s.recorder, label, timeout: 20000 });
+    const rx = await clickOpensPopup(master, masterRecordLink(master, '/rx/choosePatient').first(), { context, recorder: s.recorder, label, timeout: 20000 });
     h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
     await rx.locator('#searchString').waitFor({ state: 'visible' });
     await rx.waitForLoadState('networkidle');
@@ -83,19 +81,22 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note n JOIN casemgmt_note_link l ON l.note_id=n.note_id AND l.table_name=2
       AND l.table_id=${drug} WHERE n.demographic_no=${patient}`, '1', 'Session A\'s discontinue did not file exactly one chart note');
   });
+  const firstArchivedDate = sql.value(`SELECT archived_date FROM drugs WHERE drugid=${drug}`);
   let second;
   await s.step('session B discontinues the same medication from its stale profile', async () => {
+    const mark = failureMark(s.recorder);
     second = await discontinue(bRx, drug, 'allergy', `${marker} B`);
-    // RxDeleteRx2Action.Discontinue has no stale-write refusal yet, and every 4xx it sends today means the request never
-    // reached the discontinue logic (400 malformed, 403 another patient's drug / CSRF / privilege, 409 no Rx workspace):
-    // accepting one would let the next step pass on untouched state. Require the processed answer; when a stale-write
-    // refusal is added, pin its specific response here.
-    h.assert(second.status() === 200, `The stale discontinue answered HTTP ${second.status()}, so it was not processed as a discontinue`);
+    h.assert(second.status() === 409, `The stale discontinue must be refused with 409, got HTTP ${second.status()}`);
+    h.assert((await second.json()).error === 'STALE_RX_DISCONTINUE', 'The 409 was not a stale medication refusal');
+    await bRx.locator('#discontinueChanged').waitFor({ state: 'visible' });
+    h.assert(await bRx.locator('#disComment').inputValue() === `${marker} B`, 'The typed comment was lost');
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/rx\/deleteRx$/ });
   });
   await s.step('the first discontinue reason stands and the chart holds one discontinue note', async () => {
     const state = sql.value(archived);
     const notes = notesFor();
-    h.assert(state === '1|doseChange' && notes === '1',
+    const archivedDate = sql.value(`SELECT archived_date FROM drugs WHERE drugid=${drug}`);
+    h.assert(state === '1|doseChange' && notes === '1' && archivedDate === firstArchivedDate,
       `After two sessions discontinued the same drug it is archived as '${state.split('|')[1]}' with ${notes} chart note(s) (expected the first reason, one note). `
       + 'RxDeleteRx2Action.Discontinue only checks the drug belongs to the patient, so the stale second discontinue overwrites archived_reason and archived_date '
       + 'and files a second, contradictory discontinue note.');

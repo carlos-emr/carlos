@@ -29,6 +29,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.ProviderManager2;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.messenger.docxfer.send.MsgSendDocument;
 import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -45,8 +47,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * scriptlet previously in Transfer/PostItems.jsp.
  * <p>
  * Parses {@code item*} checkbox parameters and the Base64-encoded
- * {@code xmlDoc}, builds the attachment XML, writes it onto
- * {@link MsgSessionBean}, and redirects to the compose-message view gate.
+ * {@code xmlDoc}, builds the attachment XML, stages it for a new compose window
+ * ({@link MsgAttachmentStaging}) and redirects to the compose-message view gate
+ * with that window's key. It used to write the XML onto the login-wide
+ * {@link MsgSessionBean}, where whichever compose window sent next took it, for
+ * whatever patient that message was about (issue #4673).
  * <p>
  * POST-only: mutates session state.
  *
@@ -60,8 +65,8 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
 
     /**
      * Parses checkbox selections and the Base64-encoded {@code xmlDoc},
-     * builds the attachment XML, writes it onto the messenger session bean,
-     * and redirects to the compose-message view gate.
+     * builds the attachment XML, stages it under a new compose key, and
+     * redirects to the compose-message view gate with that key.
      *
      * @return {@link #NONE} — the action always redirects or sends an HTTP status code
      * @throws Exception if {@code MsgCommxml} / {@code MsgSendDocument} parsing
@@ -89,17 +94,6 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
                     providerNoOf(loggedInInfo), request.getMethod());
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
-
-        HttpSession session = request.getSession(false);
-        MsgSessionBean bean = session == null
-                ? null
-                : (MsgSessionBean) session.getAttribute("msgSessionBean");
-        if (bean == null || !bean.isValid()) {
-            logger.warn("MsgTransferPostItems2Action: missing/invalid msgSessionBean for provider={}; redirecting to DisplayMessages",
-                    providerNoOf(loggedInInfo));
-            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages");
             return NONE;
         }
 
@@ -148,9 +142,31 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
             return NONE;
         }
 
-        bean.setAttachment(sXML);
+        // A transfer can be the first messaging operation after login. Initialize the
+        // compose identity from the authenticated provider, never the chooser's val1.
+        String providerNo = providerNoOf(loggedInInfo);
+        if (loggedInInfo == null || providerNo == null || providerNo.isEmpty()) {
+            throw new SecurityException("Unable to initialize messaging session: missing provider");
+        }
+        HttpSession session = request.getSession();
+        MsgSessionBean bean = (MsgSessionBean) session.getAttribute("msgSessionBean");
+        if (bean == null || !providerNo.equals(bean.getProviderNo())) {
+            Provider provider = SpringUtils.getBean(ProviderManager2.class).getProvider(loggedInInfo, providerNo);
+            if (provider == null) {
+                throw new SecurityException("Unable to initialize messaging session: provider record not found");
+            }
+            bean = new MsgSessionBean();
+            bean.setProviderNo(providerNo);
+            bean.setUserName(provider.getFirstName() + " " + provider.getLastName());
+            session.setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request -- authenticated provider identity and DAO-loaded name
+        }
 
-        response.sendRedirect(request.getContextPath() + "/messenger/ViewCreateMessage");
+        // A new compose window of its own: the redirect hands it the key the items are staged under.
+        String attachmentKey = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stageItems(session, attachmentKey, sXML);
+
+        response.sendRedirect(request.getContextPath() + "/messenger/ViewCreateMessage?"
+                + MsgAttachmentStaging.KEY_PARAMETER + "=" + attachmentKey);
         return NONE;
     }
 

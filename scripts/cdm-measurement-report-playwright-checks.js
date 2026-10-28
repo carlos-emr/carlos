@@ -38,6 +38,8 @@
  *      (here, text carrying HTML markup) is never offered on any screen, so patient-specific
  *      text cannot be disclosed clinic-wide through the report filter and no script runs
  *      (Copilot review on #3900).
+ *   4. "Patients seen" counts a reading entered at any time on the report's end date (#4549):
+ *      createDate is a timestamp, and the count used to stop at the end date's midnight.
  *
  * The CDM report entry page has no link in the current menus; the check opens its route,
  * /oscarReport/oscarMeasurements/SetupSelectCDMReport, and drives every form from there as
@@ -214,6 +216,34 @@ async function workflow(session) {
       h.assert(text.replace(/\s+/g, ' ').includes(`${numericType} ${instruction} -> From 9 to 11: (1.0/1.0)`.replace(/\s+/g, ' ')),
         `numeric range has incorrect counts for instruction '${instruction}'`);
     }
+    await page.close();
+  });
+
+  // Issue #4549 (finding 161): a measurement's creation time is a timestamp, and the "patients
+  // seen" count compared it with <= the end date at midnight, so a reading entered during the
+  // end date (any time after 00:00) was left out. The window is a day in 2001 that holds no
+  // other data, so the count is exactly the owned patient's afternoon reading.
+  await session.step('"patients seen" counts a reading entered during the report\'s end date', async () => {
+    const day = '2001-02-03';
+    sql.execute(`INSERT INTO measurements (type, demographicNo, providerNo, dataField, measuringInstruction,
+        comments, dateObserved, dateEntered)
+      VALUES ('${numericType}', ${patient}, ${h.sqlString(provider)}, '7', ${h.sqlString(numericInstruction)}, '',
+        '${day}', '${day} 14:30:12')`);
+    const page = await openCdmScreen(session, group, 'patientWhoMetGuideline', 'CDM patients-seen screen');
+    const row = await aacpRow(page, 'measurementType', numericType);
+    await page.locator(`input[name="guidelineCheckbox"][value="${row}"]`).check();
+    await page.locator('input[name="guidelineB"]').nth(Number(row)).fill('9');
+    await page.locator(`input[name="value(aboveBelow${row})"][value=">"]`).check();
+    await page.locator('input[name="startDateA"]').fill(day);
+    await page.locator('input[name="endDateA"]').fill(day);
+    await Promise.all([
+      page.waitForURL(/\/InitializePatientsMetGuidelineCDMReport(?:$|[?#])/),
+      page.locator('input[type="submit"][name="submitBtn"]').click(),
+    ]);
+    await h.assertNotErrorPage(page, 'patients-seen report');
+    const text = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
+    h.assert(text.includes(`There are 1 patients seen from ${day} to ${day}`),
+      `a reading entered at 14:30 on the end date is not counted; the page says: ${text.slice(0, 400)}`);
     await page.close();
   });
 

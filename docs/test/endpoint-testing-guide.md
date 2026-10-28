@@ -64,7 +64,7 @@ class MyServiceEndpointTest extends CarlosRestTestBase {
 - **`request()`**: Returns a fresh CXF `WebClient` copy reset to the base address. Always use `request()` instead of `client` directly to avoid path accumulation across calls.
 - **`mockLoggedInInfo`**: Pre-injected into the CXF message — `AbstractServiceImpl.getLoggedInInfo()` works automatically.
 - **`mockServletRequest`**: Accessible if you need to set custom request headers or parameters.
-- **Jackson ObjectMapper**: Uses the production Jackson/JAXB annotation priority and `SmartDateModule`; XML requests use `JAXBElementProvider`.
+- **Jackson ObjectMapper**: The OAuth `/ws/services` mapper itself, loaded from `applicationContextREST.xml` by `ProductionRestObjectMappers` (Jackson/JAXB annotation priority and `SmartDateModule`), so wire-shape assertions hold for the deployed mapper; XML requests use `JAXBElementProvider`. A `Date` that can carry a time of day must be epoch-shaped; see `RestTransferObjectDateShapeContractUnitTest` (issue #3877).
 
 ### Testing POST/PUT
 

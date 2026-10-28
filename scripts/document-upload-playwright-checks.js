@@ -69,6 +69,8 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors, wireStrictPage, assertStrictPage } = require('./lib/playwright-harness');
+const { isOwnedForwardDialogRequest, acknowledgeOwnedForwardFailure } = require('./lib/document-forward-diagnostics');
 const { releaseChartLocks, closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -87,7 +89,6 @@ const {
   NO_PLAYWRIGHT_SIGNAL_HANDLING,
   screenshot,
   validateBaseUrl,
-  wirePage,
 } = require('./eform-local-playwright-utils');
 const { clickOpensPopup } = require('./lib/playwright-ui');
 const { markDocumentResidue, removeDocumentResidue } = require('./lib/document-residue');
@@ -229,8 +230,19 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
     // A refused dialog request must be visible and recoverable, not another
     // silent Forward click. Only this owned browser request is intercepted.
     const dialogRoute = '**/oscarMDS/ViewSelectProvider';
-    await viewer.route(dialogRoute, route => route.fulfill({ status: 503, body: 'test outage' }));
+    const expectedUrl = new URL('/oscarMDS/ViewSelectProvider', config.baseUrl.href);
+    expectedUrl.pathname = `${config.baseUrl.pathname}/oscarMDS/ViewSelectProvider`.replace(/\/{2,}/g, '/');
+    const beforeFailure = { http: new Set(recorder.badResponses), console: new Set(recorder.consoleIssues) };
+    let failedRequest;
+    let intercepted = 0;
+    await viewer.route(dialogRoute, route => {
+      if (!isOwnedForwardDialogRequest(route.request(), viewer, expectedUrl.href, documentNo)) return route.continue();
+      failedRequest = route.request(); intercepted++;
+      return route.fulfill({ status: 503, body: 'test outage' });
+    });
     try {
+      const failed = viewer.waitForResponse(response => response.request() === failedRequest, { timeout: 30000 });
+      failed.catch(() => {});
       await viewer.locator(`[id="fwdBtn_${documentNo}"]`).click();
       const errorDialog = viewer.getByRole('dialog', { name: 'Error', exact: true });
       await errorDialog.waitFor({ state: 'visible' });
@@ -238,6 +250,11 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
         'Failed dialog request produced no actionable message');
       await errorDialog.getByRole('button', { name: 'Close', exact: true }).last().click();
       assert(routes() === before, 'Failed dialog request changed document routing');
+      const audit = await acknowledgeOwnedForwardFailure(recorder, {
+        page: viewer, expectedUrl: expectedUrl.href, documentNo, request: failedRequest,
+        response: await failed, intercepted, before: beforeFailure,
+      });
+      console.log('CHECK document Forward controlled failure ' + JSON.stringify(audit));
     } finally {
       await viewer.unroute(dialogRoute);
     }
@@ -309,7 +326,7 @@ function writeProbePdf(dir) {
 // Click "Doc Upload" in the Inbox hub and return the popup it opens.
 async function openUploadPopup(context, recorder) {
   const inbox = await context.newPage();
-  wirePage(inbox, 'inbox-hub', recorder);
+  wireStrictPage(inbox, 'inbox-hub', recorder, { baseline: [] });
   await gotoApp(inbox, config.baseUrl, '/web/inboxhub/Inboxhub');
   await inbox.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
@@ -326,7 +343,7 @@ async function openUploadPopup(context, recorder) {
     inbox.waitForEvent('popup', { timeout: 30000 }),
     docUpload.click(),
   ]);
-  wirePage(popup, 'doc-upload-popup', recorder);
+  wireStrictPage(popup, 'doc-upload-popup', recorder, { baseline: [] });
   await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   return { inbox, popup };
 }
@@ -377,7 +394,8 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     residueMark = markDocumentResidue(residueSql);
     const probePdf = writeProbePdf(workDir);
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    context.on('page', page => wireStrictPage(page, 'document-upload', recorder, { baseline: [] }));
     const landing = await login(context, config, recorder);
 
 
@@ -447,7 +465,7 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     //     and fell through to errorpage.jsp as a raw 500.
     const edocsDemo = process.env.PRESCRIPTION_DEMOGRAPHIC_NO || '1';
     const edocsPage = await context.newPage();
-    wirePage(edocsPage, 'edocs-add', recorder);
+    wireStrictPage(edocsPage, 'edocs-add', recorder, { baseline: [] });
     await gotoApp(edocsPage, config.baseUrl,
       `/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=${edocsDemo}&mode=add&parentAjaxId=docs`);
     await edocsPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -560,7 +578,7 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     const emptyPdf = path.join(workDir, `edocs-empty-${stamp}.pdf`);
     fs.writeFileSync(emptyPdf, Buffer.alloc(0));
     const emptyPage = await context.newPage();
-    wirePage(emptyPage, 'edocs-empty', recorder);
+    wireStrictPage(emptyPage, 'edocs-empty', recorder, { baseline: [] });
     await gotoApp(emptyPage, config.baseUrl,
       `/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=${edocsDemo}&mode=add&parentAjaxId=docs`);
     await emptyPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -618,9 +636,11 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     await edocsPage.close();
 
     assertNoPageErrors(recorder);
+    assertStrictPage(recorder);
 
     await releaseChartLocks(context, config.baseUrl);
     await context.close();
+    assertStrictPage(recorder);
 
     console.log(
       `PASS document upload: ${probeName} uploaded through the Inbox hub popup and the eDocs `

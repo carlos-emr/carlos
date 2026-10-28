@@ -33,27 +33,42 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+
+<%--
+    Document description templates: the clinic-wide list (setDefault=true, from Administration) or
+    the signed-in provider's own list (from Preferences). Reached only through
+    admin/DisplayDocumentDescriptionTemplate; this page repeats that gate's rules
+    (DocumentDescriptionTemplateAccess) so it never opens for a user the gate would refuse.
+    Clinic-wide: _admin or _admin.document read to open, write to change (the Add, Update and
+    Delete controls stay hidden without write). Own list: _pref write (issue #5057).
+    Parameters: setDefault=true selects the clinic-wide list.
+    @since 2012
+--%>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@page import="io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplateAccess" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="java.util.ArrayList" %>
 
 <%
     String curProvider_no = (String) session.getAttribute("user");
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
-%>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
-</security:oscarSec>
-<%
-    if (!authed) {
+    SecurityInfoManager templateSecurity = SpringUtils.getBean(SecurityInfoManager.class);
+    LoggedInInfo templateUser = LoggedInInfo.getLoggedInInfoFromSession(request);
+    boolean clinicList = DocumentDescriptionTemplateAccess.isClinicListRequest(request);
+    try {
+        DocumentDescriptionTemplateAccess.requireOpenPage(templateSecurity, templateUser, clinicList);
+    } catch (SecurityException denied) {
+        response.sendRedirect(request.getContextPath() + "/securityError?type=" + (clinicList ? "_admin" : "_pref"));
         return;
     }
+    // The own list needs _pref write to open at all; the clinic-wide list opens for readers too.
+    boolean templatesEditable = !clinicList
+            || DocumentDescriptionTemplateAccess.canEditClinicList(templateSecurity, templateUser);
     ArrayList docTypes = EDocUtil.getDoctypes("demographic");
     UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
     UserProperty uProp = userPropertyDAO.getProp(curProvider_no, UserProperty.DOCUMENT_DESCRIPTION_TEMPLATE);
@@ -74,6 +89,12 @@
 
     <script type="text/javascript">
         var useDocumentDescriptionTemplateType;
+        // A reader of the clinic-wide list without write sees the list but no Add/Update/Delete.
+        var templatesEditable = <%= templatesEditable %>;
+
+        function showEditControl(control, visible) {
+            control.style.visibility = visible && templatesEditable ? 'visible' : 'hidden';
+        }
 
         function reportTemplateError() {
             document.getElementById('templateStatus').textContent =
@@ -179,7 +200,10 @@
             adoc = document.createElement('div');
             docDescriptionList.appendChild(adoc);
             var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
-            var data = 'method=getDocumentDescriptionFromDocType&doctype=' + docType + "&providerNo=" + providerNo + "&useDocumentDescriptionTemplateType=" + useDocumentDescriptionTemplateType;
+            var data = new URLSearchParams({
+                method: 'getDocumentDescriptionFromDocType', doctype: docType, providerNo: providerNo,
+                useDocumentDescriptionTemplateType: useDocumentDescriptionTemplateType
+            }).toString();
             templateRequest(url, data).then(function(responseText) {
                 var json = JSON.parse(responseText);
 
@@ -211,7 +235,7 @@
 
         function getDescriptionAndShortcutFromSelectedList() {
             if (document.getElementById('docDescList').selectedIndex <= 0) {
-                document.docDescriptionForm.addDescription.style.visibility = 'visible';
+                showEditControl(document.docDescriptionForm.addDescription, true);
                 document.docDescriptionForm.updateDescription.style.visibility = 'hidden';
                 document.docDescriptionForm.deleteDescription.style.visibility = 'hidden';
                 document.docDescriptionForm.descriptionId.value = "";
@@ -225,8 +249,8 @@
                     var json = JSON.parse(responseText);
                     if (json != null) {
                         document.docDescriptionForm.addDescription.style.visibility = 'hidden';
-                        document.docDescriptionForm.updateDescription.style.visibility = 'visible';
-                        document.docDescriptionForm.deleteDescription.style.visibility = 'visible';
+                        showEditControl(document.docDescriptionForm.updateDescription, true);
+                        showEditControl(document.docDescriptionForm.deleteDescription, true);
                         document.docDescriptionForm.descriptionId.value = json.documentDescriptionTemplate.id;
                         document.docDescriptionForm.docDescription.value = json.documentDescriptionTemplate.description;
                         document.docDescriptionForm.docDescriptionShortcut.value = json.documentDescriptionTemplate.descriptionShortcut;
@@ -263,10 +287,8 @@
 <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <p id="templateStatus" role="alert"></p>
 <%
-    String providerNo = curProvider_no;
-    if (request.getParameter("setDefault") != null && request.getParameter("setDefault").equals("true")) {
-        providerNo = null;
-    }
+    // The page only ever edits the clinic-wide list or the signed-in provider's own list.
+    String providerNo = clinicList ? null : curProvider_no;
 %>
 <form method="post" name="docDescriptionForm" action="${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate">
     <div id="usefault" style="<%=providerNo==null? "visibility:hidden" : ""%>">
@@ -288,7 +310,7 @@
                         for (int j = 0; j < docTypes.size(); j++) {
                             String docType = (String) docTypes.get(j);
                     %>
-                    <option value="<%= docType%>"><%= docType%>
+                    <option value="<carlos:encode value='<%= docType %>' context="htmlAttribute"/>"><carlos:encode value='<%= docType %>'/>
                     </option>
                     <%}%>
                 </select>
@@ -308,14 +330,14 @@
 
     <table style="visibility:hidden" id="tblDesc">
         <tr>
-            <th align="left"><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionShortcut"/></th>
-            <th align="left"><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/></th>
+            <th align="left"><label for="docDescriptionShortcut"><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionShortcut"/></label></th>
+            <th align="left"><label for="docDescription"><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/></label></th>
         </tr>
         <tr>
-            <td><input type="hidden" name="providerNo" value="<%=(providerNo==null?"null":providerNo)%>"><input
-                    type="hidden" name="descriptionId"><input name="docDescriptionShortcut" maxlength="20" size="20"
-                                                              value=""></td>
-            <td><input name="docDescription" maxlength="255" size="60" value=""></td>
+            <td><input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo == null ? "null" : providerNo %>' context="htmlAttribute"/>"><input
+                    type="hidden" name="descriptionId"><input id="docDescriptionShortcut" name="docDescriptionShortcut" maxlength="20" size="20"
+                                                              value=""<%= templatesEditable ? "" : " readonly" %>></td>
+            <td><input id="docDescription" name="docDescription" maxlength="255" size="60" value=""<%= templatesEditable ? "" : " readonly" %>></td>
         </tr>
         <tr>
             <td colspan="2"><input type="button"

@@ -128,6 +128,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.ProviderBeanResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
@@ -431,7 +432,9 @@
             }
         }
     %>
-    <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<carlos:encode value='<%= ackFunc %>' context="javaScriptAttribute"/>" method="post"
+    <%-- ackFunc is a whole statement whose values are JavaScript-encoded where it is built, so the attribute takes HTML-attribute
+         encoding: JavaScript-string encoding would escape the statement's own quotes and the handler would never run (#3941). --%>
+    <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<carlos:encode value='<%= ackFunc %>' context="htmlAttribute"/>" method="post"
           action="javascript:void(0);">
         <input type="hidden" name="CSRF-TOKEN" value="">
         <input type="hidden" name="segmentID" value="<carlos:encode value='<%= docId %>' context="htmlAttribute"/>">
@@ -772,9 +775,9 @@
                                 <td colspan="2">
                                     <fmt:message key="inboxmanager.document.LinkedProvidersMsg"/>
                                     <%
-                                        Properties p = (Properties) session.getAttribute("providerBean");
+                                        Properties p = ProviderBeanResolver.resolve(session, docId);
                                         List<ProviderInboxItem> routeList = Collections.emptyList();
-                                        if (docId != null) {
+                                        if (docId != null && !docId.trim().isEmpty()) {
                                             routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
                                         }
                                     %>

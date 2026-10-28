@@ -214,6 +214,60 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         verify(action).persistStash(mockLoggedInInfo, bean);
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "rxComment_,false", "comment_,false", "rxComment_,true", "comment_,true"
+    })
+    @DisplayName("Rx comments preserve clinical text and prefer the namespaced field in either order")
+    void shouldSaveExactComment_whenNewOrLegacyFormIsSubmitted(String firstPrefix, boolean both) throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription card = draft(1, "comment draft");
+        RxPrescriptionData.Prescription other = draft(12, "another draft");
+        other.setComment("Keep the other card");
+        bean.getStashList().add(card);
+        bean.getStashList().add(other);
+        String clinical = "Patient's wound <?> — ../../images/ecg.png";
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "Custom medication");
+        submitDraftRevision("1");
+        request.setParameter("drugName_12", "Second medication");
+        submitDraftRevision("12");
+        request.setParameter(firstPrefix + "1", firstPrefix.equals("rxComment_") || !both ? clinical : "Old comment");
+        if (both) {
+            request.setParameter((firstPrefix.equals("rxComment_") ? "comment_" : "rxComment_") + "1",
+                    firstPrefix.equals("rxComment_") ? "Old comment" : clinical);
+        }
+        action = spy(action);
+        doReturn("9001").when(action).persistStash(mockLoggedInInfo, bean);
+
+        assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+
+        assertThat(card.getComment()).isEqualTo(clinical);
+        assertThat(other.getComment()).isEqualTo("Keep the other card");
+        verify(action).persistStash(mockLoggedInInfo, bean);
+    }
+
+    @Test
+    @DisplayName("an intentionally cleared namespaced Rx comment overrides the old field")
+    void shouldClearComment_whenNamespacedValueIsEmpty() throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription card = draft(1, "comment draft");
+        card.setComment("Before editing");
+        bean.getStashList().add(card);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "Custom medication");
+        submitDraftRevision("1");
+        request.setParameter("rxComment_1", "");
+        request.setParameter("comment_1", "Old comment");
+        action = spy(action);
+        doReturn("9001").when(action).persistStash(mockLoggedInInfo, bean);
+
+        assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+
+        assertThat(card.getComment()).isEmpty();
+        verify(action).persistStash(mockLoggedInInfo, bean);
+    }
+
     @Test
     @DisplayName("concurrent close cannot shift a saved card's index onto another medication")
     void shouldSaveSubmittedCards_whenAnotherWindowClosesCardDuringSave() throws Exception {
@@ -577,14 +631,14 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should still re-render through the fallback patient for a non-update action")
-    void shouldRefresh_whenNonUpdateActionNamesNoPatient() throws Exception {
+    @DisplayName("should refuse a render that does not name its patient")
+    void shouldRefuseRefresh_whenNonUpdateActionNamesNoPatient() throws Exception {
         action.setAction("refresh");
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("refresh");
-        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(result).isNull();
+        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
         verifyNoInteractions(stagedCard);
     }
 
@@ -667,7 +721,8 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should still allow a GET re-render that is not an update")
-    void shouldAllowGet_forNonUpdateRender() throws Exception {
+    void shouldAllowGet_whenNonUpdateRenderNamesPatient() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setMethod("GET");
         action.setAction("edit");
 
@@ -1174,6 +1229,35 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
             verify(drugDao).persist(any());
             assertThat(card.getDrugId()).isEqualTo(77);
             assertThat(card.getScript_no()).isEqualTo("9001");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"CHILDREN'S BENADRYL", "ACÉTAMINOPHÈNE", "literal &amp; \\ path", "\"<b>name</b>"})
+    void shouldStageLiteralCatalogueName_whenProductIsSelected(String text) throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("randomId", "12345");
+        request.setParameter("drugId", "17");
+        request.setParameter("text", text);
+        RxSessionBean staging = spy(bean);
+        doReturn(0).when(staging).addStashItem(eq(mockLoggedInInfo), any());
+        RxSessionBeanResolver.register(request.getSession(), staging);
+        var monograph = new io.github.carlos_emr.carlos.prescript.data.RxDrugData().new DrugMonograph();
+        monograph.name = text;
+        RxPrescriptionData.Prescription card = mock(RxPrescriptionData.Prescription.class);
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                     (mock, context) -> when(mock.newPrescription("999998", DEMOGRAPHIC_NO)).thenReturn(card));
+             var drugs = org.mockito.Mockito.mockConstruction(io.github.carlos_emr.carlos.prescript.data.RxDrugData.class,
+                     (mock, context) -> when(mock.getDrug2("17")).thenReturn(monograph));
+             var rxUtil = mockStatic(io.github.carlos_emr.carlos.prescript.util.RxUtil.class)) {
+            rxUtil.when(() -> io.github.carlos_emr.carlos.prescript.util.RxUtil.isRxUniqueInStash(staging, card)).thenReturn(true);
+            assertThat(action.createNewRx()).isEqualTo("newRx");
+            assertThat(request.getAttribute("rxStageError")).isNull();
+            assertThat(request.getAttribute("listRxDrugs")).isEqualTo(java.util.List.of(card));
+            verify(card).setDrugPrescribed(text);
+            verify(card).setBrandName(text);
+            verify(staging).addStashItem(mockLoggedInInfo, card);
+            verify(drugs.constructed().getFirst()).getDrug2("17");
         }
     }
 

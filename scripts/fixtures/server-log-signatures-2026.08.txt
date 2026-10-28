@@ -72,3 +72,9 @@ ERROR actions.DmsInboxManage2Action (DmsInboxManage2Action.java:676) @QueueDaoIm
 ERROR ON.labValuesGraph_jsp (labValuesGraph_jsp.java:524)
 # Added with scripts/mcedt-mailbox-outbox-playwright-checks.js: printed by the audit on the same alpha19 install when that check refuses a Delete Selected list with a path in it.
 ERROR mailbox.Upload2Action (Upload2Action.java:351) @PathValidationUtils.validateStrictFileName :: io.github.carlos_emr.carlos.utility.FileValidationException
+# Issue #3512 Ubuntu 26.04 installed-package validation: deliberate Send without a sender account.
+ERROR pageUtil.EctConsultationFormFax2Action (EctConsultationFormFax2Action.java:235)
+# Added with demographic-rest-create-extras (#5119): deliberate colliding extension key on POST /ws/rs/demographics.
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:366) uri=/carlos/ws/rs/demographics @AbstractDaoImpl.persist :: jakarta.servlet.ServletException org.hibernate.exception.ConstraintViolationException java.sql.SQLIntegrityConstraintViolationException
+ERROR utility.DbConnectionFilter (DbConnectionFilter.java:111) @AbstractDaoImpl.persist :: org.hibernate.exception.ConstraintViolationException java.sql.SQLIntegrityConstraintViolationException
+ERROR interceptor.AbstractFaultChainInitiatorObserver (AbstractFaultChainInitiatorObserver.java:114) @AbstractDaoImpl.persist :: org.hibernate.exception.ConstraintViolationException java.sql.SQLIntegrityConstraintViolationException

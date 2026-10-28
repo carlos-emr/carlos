@@ -318,7 +318,7 @@
                                                             </td>
                                                             <td>
                                                                 <c:set var="attributeName" value="mInstrcs${ctr.index}" />
-                                                                <c:forEach var="mInstrc" items="${sessionScope[attributeName].measuringInstructionList}" varStatus="instructionStatus">
+                                                                <c:forEach var="mInstrc" items="${requestScope[attributeName].measuringInstructionList}" varStatus="instructionStatus">
                                                                     <input type="radio" name="inputMInstrc-${ctr.index}" id="inputMInstrc-${ctr.index}-${instructionStatus.index}" value="${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}" checked />
                                                                     <label for="inputMInstrc-${ctr.index}-${instructionStatus.index}">${carlos:forHtmlContent(mInstrc.measuringInstrc)}</label><br>
                                                                 </c:forEach>
@@ -364,7 +364,7 @@
                                                                 <td>&nbsp;${carlos:forHtmlContent(measurementType.lastComments)}</td>
                                                                 <td>
                                                                     <i class="fa-solid fa-clock fa-lg" title="<fmt:message key='encounter.Index.oldMeasurements'/>"
-                                                                       onclick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forJavaScriptAttribute(carlos:forUriComponent(measurementType.type))}'); return false;">
+                                                                       onclick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forJavaScriptAttribute(carlos:forUriComponent(measurementType.type))}&amp;demographicNo=${carlos:forJavaScriptAttribute(demo)}'); return false;">
                                                                     </i>
                                                                 </td>
                                                             </tr>
@@ -443,10 +443,48 @@
             }
         }
 
+        // Waist is stored in cm. A double click treats the typed value as inches, with or without
+        // an inch mark (34 or 34"), and converts it once the user confirms, as WT does for pounds.
+        function waistEnglish2Metric(obj) {
+            let val = obj.value.trim();
+            if (val.endsWith('"')) {
+                val = val.substring(0, val.length - 1).trim();
+            }
+            const inch = parsePositiveMeasurement(val);
+            if (inch === null) return;
+            const waistM = Math.round(inch * 2.54 * 10) / 10;
+            if (confirm("Are you sure you want to change " + inch + " inch(es) to " + waistM + "cm?")) {
+                obj.value = waistM;
+            }
+        }
+
+        // A value a calculated measurement may use: a plain positive decimal and nothing else.
+        // parseFloat would accept "80 cm" or 5'5" and let the unit or the feet mark into a division.
+        function parsePositiveMeasurement(text) {
+            const value = String(text == null ? '' : text).trim();
+            if (!/^(\d+\.?\d*|\.\d+)$/.test(value)) return null;
+            const number = Number(value);
+            return Number.isFinite(number) && number > 0 ? number : null;
+        }
+
+        // The row of a clinic-added measurement type, matched without regard to case: type codes
+        // compare case-insensitively in the database, and Add Measurement Type stores them
+        // upper-cased, so a type entered as WHtR is rendered as row-WHTR.
+        function measurementRowAnyCase(type) {
+            return document.querySelector('tr[id="row-' + type + '" i]');
+        }
+
+        // The value input of a measurement row (its third cell), or null when the group has no such row.
+        function measurementValueInput(row) {
+            return row?.querySelectorAll('td')[2]?.querySelector('input') || null;
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             // If WT, HT and BMI exists then allow the link
             const rowWT = document.getElementById('row-WT');
             const rowHT = document.getElementById('row-HT');
+            const rowWAIS = document.getElementById('row-WAIS');
+            const rowWHtR = measurementRowAnyCase('WHtR');
             const rowBMI = document.getElementById('row-BMI');
 
             if (rowWT) {
@@ -471,6 +509,17 @@
                 }
             }
 
+            if (rowWAIS) {
+                const waisInput = rowWAIS.querySelectorAll('td')[2]?.querySelector('input');
+                if (waisInput) {
+                    waisInput.title = "Double click to convert inches to cm";
+                    waisInput.style.backgroundColor = "#d9e6f2";
+                    waisInput.addEventListener('dblclick', function () {
+                        waistEnglish2Metric(this);
+                    });
+                }
+            }
+
             if (rowWT && rowHT && rowBMI) {
                 const wtInput = rowWT.querySelectorAll('td')[2]?.querySelector('input');
                 const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
@@ -486,6 +535,30 @@
                 }
             }
 
+            // WHtR is calculated only where the clinic has added a measurement type coded WHtR (in
+            // any case) to the group alongside HT and WAIS; CARLOS does not ship that type.
+            if (rowWAIS && rowHT && rowWHtR) {
+                const waisInput = rowWAIS.querySelectorAll('td')[2]?.querySelector('input');
+                const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
+                const whtrInput = measurementValueInput(rowWHtR);
+                if (waisInput && htInput && whtrInput) {
+                    const updateWHtR = function () {
+                        calcWHtR(waisInput.value, htInput.value);
+                    };
+                    // Typing in WHtR makes the value the user's own, even when it matches the last
+                    // calculation; a value set by script fires no input event.
+                    whtrInput.addEventListener('input', function () {
+                        delete whtrInput.dataset.calculatedValue;
+                    });
+                    // The dblclick listeners run after the unit conversions registered above, so a
+                    // value converted to cm is used at once rather than on the next blur.
+                    [waisInput, htInput].forEach(function (input) {
+                        input.addEventListener('blur', updateWHtR);
+                        input.addEventListener('dblclick', updateWHtR);
+                    });
+                }
+            }
+
             // Set today's date for all date fields
             const utc = new Date().toJSON().slice(0, 10);
             document.querySelectorAll('[id^="date-"]').forEach(function(elem) {
@@ -495,12 +568,12 @@
 
         function calcBMI(w, h) {
             let b = '';
-
-            if (!isNaN(parseFloat(w)) && !isNaN(parseFloat(h)) && h !== "" && w !== "") {
+            w = parseFloat(w);
+            h = parseFloat(h);
+            if (!isNaN(w) && !isNaN(h)) {
                 if (h > 0) {
                     b = (w / Math.pow(h / 100, 2)).toFixed(1);
                     const bmiInput = document.getElementById('row-BMI')?.querySelectorAll('td')[2]?.querySelector('input');
-                    const rowBMI = document.getElementById('row-BMI');
                     
                     if (bmiInput) {
                         bmiInput.value = b;
@@ -508,6 +581,31 @@
                     }
                 }
             }
+        }
+
+        // Waist-to-height ratio: waist (cm) / height (cm), to two decimals. When either input stops
+        // being a usable number, a ratio this page wrote is cleared, so Submit cannot save a WHtR for
+        // values the form no longer holds; a WHtR the user typed in is left as it is.
+        function calcWHtR(wais, h) {
+            const whtrInput = measurementValueInput(measurementRowAnyCase('WHtR'));
+            if (!whtrInput) return;
+
+            const waist = parsePositiveMeasurement(wais);
+            const height = parsePositiveMeasurement(h);
+            if (waist === null || height === null) {
+                if (whtrInput.dataset.calculatedValue !== undefined
+                        && whtrInput.value === whtrInput.dataset.calculatedValue) {
+                    whtrInput.value = '';
+                    whtrInput.style.backgroundColor = '';
+                }
+                delete whtrInput.dataset.calculatedValue;
+                return;
+            }
+
+            const ratio = (waist / height).toFixed(2);
+            whtrInput.value = ratio;
+            whtrInput.dataset.calculatedValue = ratio;
+            whtrInput.style.backgroundColor = "#d9e6f2";
         }
 
     </script>

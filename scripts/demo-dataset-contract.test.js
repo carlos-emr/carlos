@@ -31,8 +31,11 @@ const { execFileSync, spawnSync } = require('node:child_process');
  *     past unread. Flyway migrations are applied in Flyway's version order, and every later one
  *     that changes secObjPrivilege is applied (today: on V1.0.6, common V1.0.9 and V1.0.46, and
  *     bc V1.0.6). The devcontainer replay follows populate_db.sh: development.sql, then the
- *     re-applied reference migrations, then development_privileges.sql, which exists because the
- *     snapshot "replaces secObjPrivilege with its older demo snapshot".
+ *     re-applied reference migrations, then the security migrations reapply_security_migrations.sh
+ *     re-applies (the script itself is run, with a stand-in `mariadb`, so its own discovery picks
+ *     them), then development_privileges.sql, which exists because the snapshot "replaces
+ *     secObjPrivilege with its older demo snapshot". Beyond the named objects, the devcontainer's
+ *     whole table must equal the Ontario seed, so a check written later cannot meet a drift.
  *  2. casemgmt_note_link. No link row of the additive artifact points at a tickler or a document
  *     the artifact does not contain (finding 143).
  *
@@ -50,6 +53,8 @@ const ROOT = path.resolve(__dirname, '..');
 const MIGRATION_DIR = path.join(ROOT, 'database', 'mysql', 'migration');
 const DEV_SQL = path.join(ROOT, '.devcontainer', 'db', 'scripts', 'development.sql');
 const POPULATE_DB = path.join(ROOT, '.devcontainer', 'db', 'scripts', 'populate_db.sh');
+const REAPPLY_SECURITY = path.join(ROOT, '.devcontainer', 'db', 'scripts', 'reapply_security_migrations.sh');
+const SEED_DATA = path.join(ROOT, '.devcontainer', 'development', 'setup', 'seed_data.sh');
 const BUILD_ADDITIVE = path.join(ROOT, 'scripts', 'build-demo-additive.sh');
 const EXCLUDE_FILE = path.join(ROOT, 'scripts', 'demo-additive-exclude.txt');
 const AUTHZ_READ_ROUTES = path.join(ROOT, 'scripts', 'lib', 'authz-read-routes.js');
@@ -283,15 +288,69 @@ function flywayState(province) {
   return { table, applied };
 }
 
+let reapplied = null;
+
+/**
+ * The migrations reapply_security_migrations.sh feeds to `mariadb`, in its order. The script is
+ * run, not re-implemented: a stand-in `mariadb` first on PATH saves each stdin it receives, and
+ * each saved stream is matched to the migration the script names before feeding it, so the
+ * script's own discovery and ordering decide the list.
+ */
+function reappliedSecurityMigrations() {
+  if (reapplied) return reapplied;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-reapply-security-'));
+  try {
+    const bin = path.join(dir, 'bin');
+    const captured = path.join(dir, 'captured');
+    fs.mkdirSync(bin);
+    fs.mkdirSync(captured);
+    fs.writeFileSync(path.join(bin, 'mariadb'),
+      '#!/bin/sh\nn=$(ls "$CAPTURE_DIR" | wc -l)\ncat > "$CAPTURE_DIR/$(printf %05d $((n))).sql"\n', { mode: 0o755 });
+    const stdout = execFileSync('sh', [REAPPLY_SECURITY, MIGRATION_DIR, 'carlos'], {
+      encoding: 'utf8',
+      timeout: 60000,
+      env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, CAPTURE_DIR: captured },
+    });
+    const names = [...stdout.matchAll(/^\s*re-applying (\S+\.sql)\s*$/gm)].map((m) => m[1]);
+    const streams = fs.readdirSync(captured).sort();
+    assert.equal(streams.length, names.length,
+      `reapply_security_migrations.sh fed mariadb ${streams.length} stream(s) but named ${names.length}: ${names.join(', ')}`);
+    reapplied = names.map((name, i) => {
+      const candidates = ['common', 'on'].map((location) => path.join(MIGRATION_DIR, location, name)).filter((file) => fs.existsSync(file));
+      assert.equal(candidates.length, 1, `reapply_security_migrations.sh named ${name}, found in ${candidates.length} of common/ and on/`);
+      assert.equal(fs.readFileSync(path.join(captured, streams[i]), 'utf8'), fs.readFileSync(candidates[0], 'utf8'),
+        `reapply_security_migrations.sh fed mariadb something other than ${name}`);
+      return candidates[0];
+    });
+    return reapplied;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 /**
  * The files populate_db.sh loads into the `carlos` database from development.sql onward, in
- * order: the snapshot, the re-applied reference migrations, and every later seed script.
+ * order: the snapshot, the re-applied reference migrations, the re-applied security migrations,
+ * and every later seed script.
  */
+/**
+ * Where each /scripts/<name> file of the database image comes from in this checkout, read from
+ * the image's own COPY lines, so a script copied from elsewhere in the tree (the Query by Example
+ * grant list ships from src/main/resources) is read from its real source.
+ */
+function imageScriptSources() {
+  const dockerfile = fs.readFileSync(path.join(ROOT, '.devcontainer', 'db', 'Dockerfile'), 'utf8');
+  const sources = new Map();
+  for (const m of dockerfile.matchAll(/^COPY \.\/(\S+) \/scripts\/(\S+)\s*$/gm)) sources.set(m[2], path.join(ROOT, m[1]));
+  return sources;
+}
+
 function devcontainerLoads() {
   const script = fs.readFileSync(POPULATE_DB, 'utf8');
+  const sources = imageScriptSources();
   const found = [];
   for (const m of script.matchAll(/^\$SQL carlos < \/scripts\/(\S+\.sql)\s*$/gm)) {
-    found.push({ at: m.index, file: path.join(ROOT, '.devcontainer', 'db', 'scripts', m[1]) });
+    found.push({ at: m.index, file: sources.get(m[1]) || path.join(ROOT, '.devcontainer', 'db', 'scripts', m[1]) });
   }
   for (const m of script.matchAll(/^\$SQL carlos < \/database\/mysql\/updates\/(\S+\.sql)\s*$/gm)) {
     found.push({ at: m.index, file: path.join(ROOT, 'database', 'mysql', 'updates', m[1]) });
@@ -301,6 +360,10 @@ function devcontainerLoads() {
   for (const m of refs[1].matchAll(/"\$\{MIG\}\/([^"]+\.sql)"/g)) {
     found.push({ at: refs.index + m.index, file: path.join(MIGRATION_DIR, m[1]) });
   }
+  const security = /^sh \/scripts\/reapply_security_migrations\.sh "\$\{MIG\}" carlos\b/m.exec(script);
+  assert.ok(security, 'populate_db.sh no longer runs reapply_security_migrations.sh "${MIG}" carlos; update devcontainerLoads()');
+  // One position for the whole batch: the sort below is stable, so the script's order holds.
+  for (const file of reappliedSecurityMigrations()) found.push({ at: security.index, file });
   found.sort((a, b) => a.at - b.at);
   const first = found.findIndex((entry) => entry.file === DEV_SQL);
   assert.ok(first >= 0, 'populate_db.sh no longer loads development.sql; update devcontainerLoads()');
@@ -319,6 +382,8 @@ function devcontainerState(flywayOn) {
 // ---- the additive artifact ------------------------------------------------------------------
 
 const BASH_AVAILABLE = spawnSync('bash', ['--version'], { stdio: 'ignore' }).status === 0;
+// The devcontainer replay runs reapply_security_migrations.sh under sh.
+const SH_AVAILABLE = spawnSync('sh', ['-c', 'exit 0'], { stdio: 'ignore' }).status === 0;
 let scratch = null;
 const artifacts = {};
 
@@ -396,50 +461,16 @@ function differences(states, objectName) {
 }
 
 /**
- * Differences that exist today and are waiting on a decision (all logged as finding 193). Keyed by object; `diffs` is the
- * exact set pinned (anything beyond it fails), `reason` is the todo text.
+ * Differences that exist today and are waiting on a decision. Keyed by object; `diffs` is the exact set pinned (anything
+ * beyond it fails), `reason` is the todo text. Empty since finding 193 (#4566) was fixed; an entry looks like
+ *   _eform: { reason: 'finding 193: ...', diffs: ['devcontainer|doctor|w/0->x/0'] },
  */
-const OPEN_DIFFERENCES = {
-  '_newCasemgmt.episode': {
-    reason: 'finding 193: maintainers to decide doctor Episodes privilege',
-    diffs: ['devcontainer|doctor|o/0->x/0'],
-  },
-  _episode: {
-    reason: 'finding 193: maintainers to decide doctor Episodes privilege (same decision as _newCasemgmt.episode)',
-    diffs: ['devcontainer|doctor|o/0->x/0'],
-  },
-  _eform: {
-    reason: 'finding 193: development.sql gives doctor _eform x where Flyway gives w (the eForm delete split); '
-      + 'authz-read-admin-objects asserts doctor holds _eform w; maintainers to decide which side moves',
-    diffs: ['devcontainer|doctor|w/0->x/0'],
-  },
-  '_admin.flowsheet': {
-    reason: 'finding 193: the devcontainer gives doctor no _admin.flowsheet where Flyway gives r; admin-role-management relies on the '
-      + 'doctor holding it (the day-sheet Administration link) and development_privileges.sql restores only the admin row; '
-      + 'maintainers to decide how the devcontainer gets it',
-    diffs: ['devcontainer|doctor|r/0->absent'],
-  },
-  '_admin.fieldnote': {
-    reason: 'finding 193: the devcontainer has no admin _admin.fieldnote row (Flyway V1.0.46 adds it); populate_db.sh does not re-apply '
-      + 'V1.0.46 after development.sql truncates secObjPrivilege and development_privileges.sql omits it; '
-      + 'maintainers to decide how the devcontainer gets it',
-    diffs: ['devcontainer|admin|x/0->absent'],
-  },
-  _sms: {
-    reason: 'finding 193: the devcontainer has no admin or doctor _sms row (Flyway V1.0.71 adds them); populate_db.sh re-applies only the '
-      + 'SMS consent migrations after development.sql truncates secObjPrivilege, and development_privileges.sql omits it; '
-      + 'maintainers to decide how the devcontainer gets it',
-    diffs: ['devcontainer|admin|x/0->absent', 'devcontainer|doctor|x/0->absent'],
-  },
-  _msgSMS: {
-    reason: 'finding 193: the devcontainer has no admin or doctor _msgSMS row (Flyway V1.0.67 adds them); populate_db.sh re-applies only the '
-      + 'SMS consent migrations after development.sql truncates secObjPrivilege, and development_privileges.sql omits it; '
-      + 'maintainers to decide how the devcontainer gets it',
-    diffs: ['devcontainer|admin|x/0->absent', 'devcontainer|doctor|x/0->absent'],
-  },
-};
+const OPEN_DIFFERENCES = {};
 
-/** Objects compared although no check names them, because a known difference concerns them. */
+/**
+ * Objects compared although no check names them: finding 193 found the devcontainer granting doctor both Episodes objects
+ * where the seeds deny them, and this keeps them aligned.
+ */
 const PINNED_EXTRAS = ['_newCasemgmt.episode', '_episode'];
 
 // ---------------------------------------------------------------------------------------------
@@ -496,7 +527,7 @@ test('shouldApplyEveryPrivilegeMigration_inFlywayVersionOrder', () => {
   assert.equal(objectPrivileges(on.table, '_admin.schedule.groupCreate').get('999998'), undefined, 'V1.0.9 removes the carlosdoc denial');
 });
 
-test('shouldReplayDevcontainerLoad_inPopulateDbOrder', () => {
+test('shouldReplayDevcontainerLoad_inPopulateDbOrder', { skip: !SH_AVAILABLE && 'sh is not available' }, () => {
   const loads = devcontainerLoads().map((file) => path.relative(ROOT, file));
   assert.equal(loads[0], path.join('.devcontainer', 'db', 'scripts', 'development.sql'));
   const restore = loads.indexOf(path.join('.devcontainer', 'db', 'scripts', 'development_privileges.sql'));
@@ -506,6 +537,24 @@ test('shouldReplayDevcontainerLoad_inPopulateDbOrder', () => {
   assert.ok(dev.applied[0].endsWith('development.sql') && dev.applied.some((file) => file.endsWith('development_privileges.sql')), `replayed: ${dev.applied.join(', ')}`);
   assert.equal(objectPrivileges(dev.table, '_admin.schedule').get('admin'), 'x/0', 'development_privileges.sql restores the admin schedule privilege');
   assert.equal(objectPrivileges(dev.table, '_admin.traceability').size, 0, 'development_privileges.sql removes _admin.traceability');
+  // The security migrations come back after the snapshot and before the privilege restore (issue #4369).
+  const reapply = loads.indexOf(path.join('database', 'mysql', 'migration', 'common', 'V1.0.46__field_note_report_privilege.sql'));
+  assert.ok(reapply > 0 && reapply < restore, `V1.0.46 must be re-applied after the snapshot and before the restore; loads: ${loads.join(', ')}`);
+  assert.ok(dev.applied.includes(path.join('database', 'mysql', 'migration', 'common', 'V1.0.46__field_note_report_privilege.sql')), `replayed: ${dev.applied.join(', ')}`);
+  assert.equal(objectPrivileges(dev.table, '_admin.fieldnote').get('admin'), 'x/0', 'the re-applied V1.0.46 restores admin _admin.fieldnote');
+  // Finding 193 (#4566): the doctor rows the snapshot carried differently from the seeds.
+  for (const [objectName, expected] of [['_eform', 'w/0'], ['_admin.flowsheet', 'r/0'], ['_episode', 'o/0'], ['_newCasemgmt.episode', 'o/0']]) {
+    assert.equal(objectPrivileges(dev.table, objectName).get('doctor'), expected, `development_privileges.sql gives doctor ${objectName} ${expected}`);
+  }
+});
+
+test('shouldRepairExistingVolumes_whenSeedDataRuns', () => {
+  // An existing devcontainer volume never re-runs populate_db.sh; seed_data.sh is what brings it the repairs above.
+  const seed = fs.readFileSync(SEED_DATA, 'utf8');
+  const reapply = seed.search(/^sh \/workspace\/\.devcontainer\/db\/scripts\/reapply_security_migrations\.sh\b/m);
+  const restore = seed.search(/<\s*\/workspace\/\.devcontainer\/db\/scripts\/development_privileges\.sql\s*$/m);
+  assert.ok(reapply >= 0, 'seed_data.sh no longer re-applies the security migrations on an existing volume');
+  assert.ok(restore > reapply, 'seed_data.sh must run development_privileges.sql after reapply_security_migrations.sh');
 });
 
 test('shouldNameSecurityObjects_fromPlaywrightSourcesAndRouteTable', () => {
@@ -576,6 +625,26 @@ test('shouldMatchSecObjPrivilege_acrossSeedsAndDemoData', { skip: !BASH_AVAILABL
   }
 });
 
+test('shouldMatchOntarioSeed_forEveryDevcontainerPrivilege', { skip: !SH_AVAILABLE && 'sh is not available' }, () => {
+  // Wider than the named-object contract: a check written later must not meet a drift waiting in an object no check
+  // names yet. development.sql truncate-reloads the table, so this holds only while the restore keeps up with it.
+  const flyway = flywayState('on').table;
+  const dev = devcontainerState(flyway).table;
+  const describe = (row) => (row ? `${row.privilege}/${row.priority}/${row.provider_no}` : 'absent');
+  const drift = [];
+  for (const key of new Set([...flyway.keys(), ...dev.keys()])) {
+    const seed = flyway.get(key);
+    const actual = dev.get(key);
+    if (describe(seed) !== describe(actual)) {
+      const { roleUserGroup, objectName } = seed || actual;
+      drift.push(`${roleUserGroup}|${objectName}|${describe(seed)}->${describe(actual)}`);
+    }
+  }
+  assert.ok(flyway.size > 400, `the Ontario seed should hold 400+ privilege rows, found ${flyway.size}`);
+  assert.deepEqual(drift.sort(), [], 'the devcontainer secObjPrivilege differs from the Ontario Flyway seed; '
+    + 'add the seed row to .devcontainer/db/scripts/development_privileges.sql');
+});
+
 // ---------------------------------------------------------------------------------------------
 // Tests: contract 2, casemgmt_note_link (finding 143)
 // ---------------------------------------------------------------------------------------------
@@ -636,10 +705,8 @@ test('shouldFindOrphanedLinks_whenTargetRowsAreMissing', () => {
 });
 
 for (const [province, label] of [['on', 'Ontario'], ['bc', 'Bc']]) {
-  // NOT a todo, and the reason the two todos below can be trusted. A todo that passes looks exactly
-  // like a fix, so if a change to build-demo-additive.sh, demo-additive-exclude.txt or development.sql
-  // left the artifact with no link rows, or no tickler / document rows, "no orphans" would hold
-  // vacuously and the pin would quietly read as resolved. This test fails loudly in that case instead.
+  // Ensure removing orphan links never turns the checks into vacuous passes by dropping
+  // all valid links or target rows from either province artifact.
   test(`shouldParseLinkRowsAndTargets_from${label}AdditiveArtifact`, { skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
     const sql = additiveArtifact(province);
     for (const [type, table] of [[LINK_TYPE.TICKLER, 'tickler'], [LINK_TYPE.DOCUMENT, 'document']]) {
@@ -650,13 +717,88 @@ for (const [province, label] of [['on', 'Ontario'], ['bc', 'Bc']]) {
     }
   });
 
-  test(`shouldLinkNoNoteToMissingTickler_in${label}AdditiveArtifact`, { todo: 'finding 143', skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
+  test(`shouldLinkNoNoteToMissingTickler_in${label}AdditiveArtifact`, { skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
     const result = orphanedLinks(additiveArtifact(province), LINK_TYPE.TICKLER, 'tickler');
     assert.ok(result.orphans.size === 0, describeOrphans(result, 'tickler'));
   });
 
-  test(`shouldLinkNoNoteToMissingDocument_in${label}AdditiveArtifact`, { todo: 'finding 143', skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
+  test(`shouldLinkNoNoteToMissingDocument_in${label}AdditiveArtifact`, { skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
     const result = orphanedLinks(additiveArtifact(province), LINK_TYPE.DOCUMENT, 'document');
     assert.ok(result.orphans.size === 0, describeOrphans(result, 'document'));
   });
+}
+
+// The alpha20 fixes use existing security objects; packaged upgrades must not need a
+// development-only privilege repair or expand a report reader into a role administrator.
+for (const province of ['on', 'bc']) {
+  test(`shouldKeepReleaseFixPermissionsCompatible_with${province.toUpperCase()}SeedsAndDemo`,
+    { skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
+      const flyway = flywayState(province);
+      const states = [flyway.table, debDemoState(flyway.table, province).table];
+      if (province === 'on') states.push(devcontainerState(flyway.table).table);
+      const canWrite = value => ['w', 'x'].includes((value || '').split('/')[0]);
+      const canUpdate = value => ['u', 'w', 'x'].includes((value || '').split('/')[0]);
+      for (const state of states) {
+        const roleAdmins = new Set();
+        for (const object of ['_admin', '_admin.userAdmin']) {
+          for (const [role, value] of objectPrivileges(state, object)) if (canWrite(value)) roleAdmins.add(role);
+        }
+        assert.deepEqual([...roleAdmins].sort(), ['admin'], `${province}: role administration belongs to seeded administrators`);
+        assert.deepEqual([...objectPrivileges(state, '_admin.misc')].filter(([, value]) => canWrite(value)).map(([role]) => role).sort(),
+          ['admin'], `${province}: bulk reassignment requires administration write rights`);
+        for (const role of ['doctor', 'nurse', 'locum', 'RN', 'RPN', 'receptionist', 'secretary']) {
+          assert.ok(canWrite(objectPrivileges(state, '_casemgmt.issues').get(role)), `${province}: ${role} can write clinical issues`);
+          assert.ok(canUpdate(objectPrivileges(state, '_demographic').get(role)), `${province}: ${role} can update patient data`);
+          assert.ok(!roleAdmins.has(role), `${province}: ${role} cannot administer security roles`);
+        }
+        assert.ok(!canWrite(objectPrivileges(state, '_admin.misc').get('doctor')), `${province}: report access cannot grant bulk reassignment`);
+        assert.ok(canWrite(objectPrivileges(state, '_report').get('doctor')), `${province}: the doctor report path remains available`);
+      }
+    });
+}
+
+/** Document inbox routing and eForm attachment ownership must have real parent rows. */
+function orphanedDemoReferences(sql) {
+  const documents = new Set(insertedRows(sql, 'document', ['document_no']).map(row => row.document_no));
+  const eforms = new Set(insertedRows(sql, 'eform_data', ['fdid']).map(row => row.fdid));
+  const missing = {};
+  for (const [table, columns] of [
+    ['patientLabRouting', ['demographic_no', 'lab_no', 'lab_type', 'id', 'created', 'dateModified']],
+    ['providerLabRouting', ['provider_no', 'lab_no', 'status', 'comment', 'timestamp', 'lab_type', 'id']],
+  ]) {
+    missing[table] = insertedRows(sql, table, columns)
+      .filter(row => row.lab_type === 'DOC' && !documents.has(row.lab_no));
+  }
+  missing.EFormDocs = insertedRows(sql, 'EFormDocs', ['id', 'fdid', 'document_no', 'doctype', 'deleted', 'attach_date', 'provider_no'])
+    .filter(row => !eforms.has(row.fdid));
+  return missing;
+}
+
+test('shouldDetectOnlyMissingParents_inRoutingAndEformAttachmentFixtures', () => {
+  const sql = "INSERT INTO document VALUES (3);\nINSERT INTO eform_data VALUES (7);\n"
+    + "INSERT INTO patientLabRouting VALUES (1,3,'DOC',1,NULL,NULL),(1,55,'DOC',2,NULL,NULL),(1,55,'HL7',3,NULL,NULL);\n"
+    + "INSERT INTO providerLabRouting VALUES ('999998',3,'N','',NULL,'DOC',1),('999998',55,'N','',NULL,'DOC',2);\n"
+    + "INSERT INTO EFormDocs VALUES (1,7,3,'D',NULL,NULL,'999998'),(2,8,3,'D',NULL,NULL,'999998');\n";
+  const missing = orphanedDemoReferences(sql);
+  assert.deepEqual(missing.patientLabRouting.map(row => row.lab_no), ['55']);
+  assert.deepEqual(missing.providerLabRouting.map(row => row.lab_no), ['55']);
+  assert.deepEqual(missing.EFormDocs.map(row => row.fdid), ['8']);
+});
+
+for (const province of ['on', 'bc']) {
+  test(`shouldKeepOnlyRealDocumentRoutingAndEformAttachmentParents_in${province.toUpperCase()}Demo`,
+    { skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
+      for (const sql of [fs.readFileSync(DEV_SQL, 'utf8'), additiveArtifact(province)]) {
+        for (const [table, rows] of Object.entries(orphanedDemoReferences(sql))) {
+          assert.deepEqual(rows, [], `${province}: ${table} must not attach future IDs to historical demo work`);
+        }
+        // Valid inbox routes remain; the repair must not discard the whole routing table.
+        assert.ok(insertedRows(sql, 'patientLabRouting', ['demographic_no', 'lab_no', 'lab_type', 'id'])
+          .some(row => row.lab_type === 'DOC' && row.lab_no === '3'));
+        // Without this the orphan check could pass vacuously if the hard-coded column list drifted from the INSERT.
+        assert.ok(insertedRows(sql, 'providerLabRouting', ['provider_no', 'lab_no', 'status', 'comment', 'timestamp', 'lab_type', 'id'])
+          .some(row => row.lab_type === 'DOC' && row.lab_no === '3'),
+          `${province}: providerLabRouting must keep its valid document inbox route`);
+      }
+    });
 }

@@ -210,6 +210,26 @@ class ConsultationRequestDaoConsultantFilterIntegrationTest extends CarlosTestBa
         }
     }
 
+    @Test
+    void shouldKeepTiedRowsOnStablePages_whenAllSortKeysAndPrivacyFiltersMatch() {
+        toJonesForA.setProfessionalSpecialist(brianSmith);
+        toSmithForA.setSiteName("Visible");
+        toJonesForA.setSiteName("Visible");
+        hibernateTemplate.flush();
+        for (String orderby : java.util.List.of("1", "2", "3", "4", "5", "6", "7", "8", "9")) {
+            for (String direction : java.util.List.of("0", "1")) {
+                for (int offset = 0; offset < 2; offset++) {
+                    var filter = new ConsultationListFilterDto(team, true, null, null, orderby, direction,
+                            null, offset, 1, brianSmith.getId(), mrpA.getProviderNo(),
+                            java.util.Set.of(mrpA.getProviderNo()), java.util.Set.of("Visible"));
+                    assertThat(consultationRequestDao.getConsults(filter)).extracting(ConsultationRequest::getId)
+                            .as("sort %s, direction %s, page %s", orderby, direction, offset)
+                            .containsExactly(offset == 0 ? toSmithForA.getId() : toJonesForA.getId());
+                }
+            }
+        }
+    }
+
     @Nested
     @DisplayName("getConsults(ConsultationListFilterDto)")
     class ListFilters {

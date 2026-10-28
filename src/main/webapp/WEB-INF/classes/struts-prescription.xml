@@ -161,6 +161,8 @@
         <action name="rx/drugInfo" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDrugInfo2Action">
             <result name="success">/WEB-INF/jsp/rx/DrugInfo.jsp</result>
         </action>
+        <!-- Drug-drug interaction warnings for the staged cards, as JSON (issue #4506). Writes its own response. -->
+        <action name="rx/interactionWarnings" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxInteractionWarnings2Action"/>
         <action name="rx/managePharmacy2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action">
             <result name="success">/WEB-INF/jsp/rx/SelectPharmacy2.jsp</result>
         </action>
@@ -177,6 +179,7 @@
         <action name="rx/WriteToEncounter" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action">
             <result name="success">/WEB-INF/jsp/rx/ViewScript2.jsp</result>
         </action>
+        <action name="rx/faxPrescription" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxFaxPrescription2Action"/>
         <action name="rx/updateDrugrefDB" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateDrugref2Action"/>
         <action name="rx/copyFavorite" class="io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action" method="execute">
             <result name="success">/WEB-INF/jsp/rx/CopyFavorites2.jsp</result>
@@ -241,9 +244,6 @@
         </action>
         <action name="rx/ViewTopLinks" class="io.github.carlos_emr.carlos.prescript.gate.ViewTopLinks2Action">
             <result name="success">/WEB-INF/jsp/rx/TopLinks.jsp</result>
-        </action>
-        <action name="rx/ViewUpdateInteractingDrugs" class="io.github.carlos_emr.carlos.prescript.gate.ViewUpdateInteractingDrugs2Action">
-            <result name="success">/WEB-INF/jsp/rx/UpdateInteractingDrugs.jsp</result>
         </action>
         <action name="rx/ViewViewPharmacy" class="io.github.carlos_emr.carlos.prescript.gate.ViewViewPharmacy2Action">
             <result name="success">/WEB-INF/jsp/rx/ViewPharmacy.jsp</result>

@@ -152,13 +152,20 @@ class AsthmaActionPlanDropdownRegressionTest {
 
         // The legacy option is the only carrier of the value and stays disabled: no hidden
         // inputValue-* re-posts an old reading as new data. Viewing a saved reading is
-        // read-only: every control is disabled and only Delete posts.
+        // read-only: every visible data control is disabled and only Delete posts. The form's
+        // hidden inputs must stay enabled (issue #4715): a disabled control is not submitted, and
+        // the hidden CSRF-TOKEN CSRFGuard adds is one of them, so disabling every element made
+        // Delete fail with HTTP 403.
         assertThat(jsp).doesNotContain("type=\"hidden\" name=\"<%= \"inputValue-\"")
                 .doesNotContain("type=\"hidden\" name=\"<%=\"inputValue-\"")
                 .contains("<span class=\"legacyValueNote\" id=\"<%=\"legacyValueNote-\"+ctr%>\">"
                         + "Recorded under an earlier option list; shown for reference only and not saved again.</span>")
                 .contains("saveAction = \"encounter/oscarMeasurements/DeleteData2\";")
-                .contains("Array.from(f.elements).forEach(function(el) { el.disabled = true; });")
+                .doesNotContain("Array.from(f.elements).forEach(function(el) { el.disabled = true; });")
+                .contains("var isDataControl = /^(input|select|textarea|button)$/i.test(el.tagName) && el.type !== 'hidden';")
+                .contains("if (isDataControl && el.id !== 'deleteButton') { el.disabled = true; }")
+                .contains("<input type=\"hidden\" name=\"deleteCheckbox\" id=\"deleteCheck\"")
+                .contains("<input type=\"hidden\" name=\"demographicNo\"")
                 .contains("<input type=\"submit\" name=\"delete\" value=\"Delete\" id=\"deleteButton\"/>");
     }
 }

@@ -56,6 +56,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -1198,7 +1199,7 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPropagateFailure_whenProviderRoutingDenied() throws Exception {
         doThrow(new SecurityException("missing _edoc")).when(providerInboxRoutingDao)
-                .addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
+                .addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
         Method route = ManageDocument2Action.class.getDeclaredMethod(
                 "routeDocumentToProviders", String[].class, String.class);
         route.setAccessible(true);
@@ -1207,7 +1208,7 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(java.lang.reflect.InvocationTargetException.class)
                 .hasCauseInstanceOf(SecurityException.class);
 
-        verify(providerInboxRoutingDao).addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
+        verify(providerInboxRoutingDao).addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
     }
 
     @Test
@@ -1560,12 +1561,46 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
         request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
         request.setParameter("flagproviders", "999998");
         doThrow(new SecurityException("private denial")).when(providerInboxRoutingDao)
-                .addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
+                .addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
         assertThat(runAddIncomingDocumentWithEdocMock()).isEqualTo("none");
         assertThat(sourceFile).doesNotExist();
         assertThat(listStoredDocuments()).hasSize(1);
         assertThat(response.getContentAsString()).contains("\"accepted\":true", "\"success\":false", "\"retryable\":false")
                 .doesNotContain("private denial");
+        verifyNoInteractions(patientLabRoutingDao, ctlDocumentDao);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true,true", "true,false", "false,true", "false,false"})
+    @DisplayName("Real DAO routing failure reports accepted but unconfirmed filing, never successful delivery")
+    void shouldReportUnconfirmedWhenRealDaoStrictRoutingFails(boolean contract, boolean denied) throws Exception {
+        // Keep the real legacy wrapper: it catches this strict failure. Mocking that
+        // wrapper to throw cannot reproduce the delivery failure seen by this action.
+        var realRouting = spy(new io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDaoImpl());
+        RuntimeException failure = denied ? new SecurityException("private routing denial")
+                : new IllegalStateException("private routing persistence failure");
+        doThrow(failure).when(realRouting).addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
+        registerMock(ProviderInboxRoutingDao.class, realRouting);
+        action = new TestManageDocument2Action();
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "real-routing.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("real-routing.pdf");
+        if (contract) request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        request.setParameter("flagproviders", "999998");
+
+        assertThat(runAddIncomingDocumentWithEdocMock()).isEqualTo("none");
+        assertThat(sourceFile).doesNotExist();
+        assertThat(listStoredDocuments()).hasSize(1);
+        assertThat(Files.readString(listStoredDocuments().get(0))).isEqualTo("source-content");
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).doesNotContain("private routing");
+        if (contract) {
+            assertThat(response.getContentAsString()).contains("\"accepted\":true", "\"success\":false", "\"retryable\":false");
+        } else {
+            assertThat(response.getContentAsString()).contains("could not be confirmed").doesNotContain("Retry saving");
+        }
+        verify(realRouting).addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
+        Mockito.verify(realRouting, Mockito.never()).addToProviderInbox(anyString(), anyInt(), anyString());
         verifyNoInteractions(patientLabRoutingDao, ctlDocumentDao);
     }
 
@@ -1824,4 +1859,132 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
             throw new AssertionError("sendError must not be called for committed responses");
         }
     }
+
+    private Document descriptionCandidate(int number, String description) {
+        Document document = new Document(number); document.setDocdesc(description);
+        document.setRestrictToProgram(false); document.setStatus('A');
+        return document;
+    }
+
+    private void authorizeDescriptionSearch(java.util.Map<Integer, Integer> owners) {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilegeReadOnly(any(), eq("_edoc"), eq("r"), nullable(String.class))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), nullable(String.class)))
+                .thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt()))
+                .thenAnswer(call -> ((Integer) call.getArgument(1)) == 10);
+        when(ctlDocumentDao.findByDocumentNoAndModule(anyInt(), eq("demographic")))
+                .thenAnswer(call -> List.of(patientLink(owners.getOrDefault((Integer) call.getArgument(0), 11))));
+        when(documentDao.find(anyInt())).thenAnswer(call -> descriptionCandidate(call.getArgument(0), "stored"));
+    }
+
+    @Test
+    void descriptionSearchFiltersLockedRowsBeforeDistinctAndAuthorizedOrdering() throws Exception {
+        authorizeDescriptionSearch(java.util.Map.of(200, 11, 199, 10, 198, 10));
+        when(documentDao.findDocumentDescriptionCandidates("%needle%", null, 100)).thenReturn(List.of(
+                descriptionCandidate(200, "Shared"), descriptionCandidate(199, "Open other"),
+                descriptionCandidate(198, "Shared")));
+        when(documentDao.findDocumentDescriptions("%needle%")).thenReturn(List.of("Shared", "Open other"));
+        request.setParameter("term", " needle ");
+        action.searchDocumentDescriptions();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.size()).isEqualTo(2);
+        assertThat(json.get(0).get("label").asText()).isEqualTo("Open other");
+        assertThat(json.get(1).get("label").asText()).isEqualTo("Shared");
+        verify(securityInfoManager).isAllowedAccessToPatientRecord(any(), eq(11));
+    }
+
+    @Test
+    void descriptionSearchContinuesPastOneHundredInaccessibleNewestRows() throws Exception {
+        java.util.Map<Integer, Integer> owners = new java.util.HashMap<>();
+        java.util.List<Document> first = new java.util.ArrayList<>();
+        java.util.List<Document> second = new java.util.ArrayList<>();
+        for (int id = 300; id >= 201; id--) { owners.put(id, 11); first.add(descriptionCandidate(id, "LOCKED-"+id)); }
+        for (int id = 200; id >= 176; id--) { owners.put(id, 10); second.add(descriptionCandidate(id, "Open-"+id)); }
+        authorizeDescriptionSearch(owners);
+        when(documentDao.findDocumentDescriptionCandidates("%", null, 100)).thenReturn(first);
+        when(documentDao.findDocumentDescriptionCandidates("%", 201, 100)).thenReturn(second);
+        when(documentDao.findDocumentDescriptions("%")).thenReturn(first.stream().limit(20).map(Document::getDocdesc).toList());
+        action.searchDocumentDescriptions();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.size()).isEqualTo(20);
+        assertThat(json.get(0).get("label").asText()).isEqualTo("Open-200");
+        assertThat(json.get(19).get("label").asText()).isEqualTo("Open-181");
+        assertThat(response.getContentAsString()).doesNotContain("LOCKED");
+        verify(documentDao).findDocumentDescriptionCandidates("%", 201, 100);
+    }
+
+    @Test
+    void shouldStopScanning_afterTheDescriptionPageLimit() throws Exception {
+        authorizeDescriptionSearch(java.util.Map.of());
+        int pages = ManageDocument2Action.DESCRIPTION_SCAN_PAGES + 3;
+        for (int page = 0; page < pages; page++) {
+            java.util.List<Document> rows = new java.util.ArrayList<>();
+            int newest = 100_000 - page * 100;
+            for (int id = newest; id > newest - 100; id--) rows.add(descriptionCandidate(id, "LOCKED-" + id));
+            when(documentDao.findDocumentDescriptionCandidates("%", page == 0 ? null : newest + 1, 100)).thenReturn(rows);
+        }
+        action.searchDocumentDescriptions();
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString()).size()).isZero();
+        verify(documentDao, Mockito.times(ManageDocument2Action.DESCRIPTION_SCAN_PAGES))
+                .findDocumentDescriptionCandidates(anyString(), any(), anyInt());
+    }
+
+    @Test
+    void shouldAuthorizeEachOfferedDescriptionOnce_whenNewerDocumentsRepeatIt() throws Exception {
+        java.util.Map<Integer, Integer> owners = new java.util.HashMap<>();
+        java.util.List<Document> rows = new java.util.ArrayList<>();
+        for (int id = 200; id > 150; id--) { owners.put(id, 10); rows.add(descriptionCandidate(id, "Repeated")); }
+        authorizeDescriptionSearch(owners);
+        when(documentDao.findDocumentDescriptionCandidates("%", null, 100)).thenReturn(rows);
+        action.searchDocumentDescriptions();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.size()).isEqualTo(1);
+        assertThat(json.get(0).get("label").asText()).isEqualTo("Repeated");
+        // Only the newest document carrying the description is authorized; older repeats are skipped.
+        verify(ctlDocumentDao, Mockito.atLeastOnce()).findByDocumentNoAndModule(eq(200), eq("demographic"));
+        verify(ctlDocumentDao, Mockito.never()).findByDocumentNoAndModule(
+                ArgumentMatchers.intThat(number -> number < 200), eq("demographic"));
+    }
+
+    @Test
+    void descriptionSearchRequiresAccessToEveryActualOwner() throws Exception {
+        authorizeDescriptionSearch(java.util.Map.of(200, 10, 199, 10));
+        when(ctlDocumentDao.findByDocumentNoAndModule(200, "demographic"))
+                .thenReturn(List.of(patientLink(10), patientLink(11)));
+        when(documentDao.findDocumentDescriptionCandidates("%", null, 100)).thenReturn(List.of(
+                descriptionCandidate(200, "Mixed-owner private"), descriptionCandidate(199, "Open")));
+        when(documentDao.findDocumentDescriptions("%")).thenReturn(List.of("Mixed-owner private", "Open"));
+        action.searchDocumentDescriptions();
+        assertThat(response.getContentAsString()).contains("Open").doesNotContain("Mixed-owner private");
+    }
+
+    @Test
+    void descriptionSearchDoesNotTreatReadFailureAsAnEmptyAuthorizedResult() throws Exception {
+        authorizeDescriptionSearch(java.util.Map.of(200, 10));
+        when(documentDao.findDocumentDescriptionCandidates("%", null, 100))
+                .thenReturn(List.of(descriptionCandidate(200, "Private")));
+        when(ctlDocumentDao.findByDocumentNoAndModule(200, "demographic"))
+                .thenThrow(new IllegalStateException("unavailable"));
+        assertThatThrownBy(() -> action.searchDocumentDescriptions()).isInstanceOf(IllegalStateException.class);
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    void descriptionSearchRejectsUnexpectedCandidateOrderBeforeOutput() throws Exception {
+        authorizeDescriptionSearch(java.util.Map.of(200, 10, 201, 10));
+        when(documentDao.findDocumentDescriptionCandidates("%", null, 100)).thenReturn(List.of(
+                descriptionCandidate(200, "First"), descriptionCandidate(201, "Out of order")));
+        assertThatThrownBy(() -> action.searchDocumentDescriptions()).isInstanceOf(IllegalStateException.class);
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    void descriptionSearchRequiresReadAsWellAsWriteWithoutQueryingAnyPatient() throws Exception {
+        authorizeEdocWrite();
+        assertThatThrownBy(() -> action.searchDocumentDescriptions()).isInstanceOf(SecurityException.class);
+        verify(documentDao, Mockito.never()).findDocumentDescriptionCandidates(anyString(), any(), anyInt());
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
 }

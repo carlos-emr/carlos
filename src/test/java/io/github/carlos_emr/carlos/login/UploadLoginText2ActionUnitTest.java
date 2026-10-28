@@ -25,419 +25,457 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-@DisplayName("Upload login text 2Action")
+@DisplayName("UploadLoginText2Action")
 @Tag("unit")
+@Tag("web")
 @Tag("login")
-@Tag("security")
-class UploadLoginText2ActionUnitTest extends CarlosUnitTestBase {
+class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
 
     @TempDir
-    private Path tempDir;
+    private Path documentDir;
 
-    private MockHttpServletRequest request;
-    private MockHttpServletResponse response;
-    private SecurityInfoManager securityInfoManager;
-    private LoggedInInfo loggedInInfo;
-    private CarlosProperties carlosProperties;
-    private PropertyDao propertyDao;
-    private MockedStatic<ServletActionContext> servletActionContext;
-    private MockedStatic<LoggedInInfo> loggedInInfoStatic;
-    private MockedStatic<CarlosProperties> carlosPropertiesStatic;
-    private MockedStatic<AcceptableUseAgreementManager> acceptableUseAgreementManagerStatic;
+    @TempDir
+    private Path uploadDir;
+
+    private String originalDocumentDir;
 
     @BeforeEach
-    void setUp() {
-        request = new MockHttpServletRequest();
-        response = new MockHttpServletResponse();
-        securityInfoManager = mock(SecurityInfoManager.class);
-        loggedInInfo = mock(LoggedInInfo.class);
-        carlosProperties = mock(CarlosProperties.class);
-        propertyDao = mock(PropertyDao.class);
-
-        servletActionContext = mockStatic(ServletActionContext.class);
-        servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
-        servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
-
-        loggedInInfoStatic = mockStatic(LoggedInInfo.class);
-        loggedInInfoStatic.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(loggedInInfo);
-
-        carlosPropertiesStatic = mockStatic(CarlosProperties.class);
-        carlosPropertiesStatic.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
-
-        registerMock(PropertyDao.class, propertyDao);
-        acceptableUseAgreementManagerStatic = mockStatic(AcceptableUseAgreementManager.class);
-        acceptableUseAgreementManagerStatic.when(AcceptableUseAgreementManager::findLatestProperty)
-                .thenReturn(null);
+    void setUpDocumentDir() {
+        getMockRequest().setMethod("POST");
+        originalDocumentDir = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("BASE_DOCUMENT_DIR", documentDir.toString());
+        AcceptableUseAgreementManager.invalidateCache();
     }
 
     @AfterEach
-    void tearDown() {
-        if (acceptableUseAgreementManagerStatic != null) {
-            acceptableUseAgreementManagerStatic.close();
-        }
-        if (carlosPropertiesStatic != null) {
-            carlosPropertiesStatic.close();
-        }
-        if (loggedInInfoStatic != null) {
-            loggedInInfoStatic.close();
-        }
-        if (servletActionContext != null) {
-            servletActionContext.close();
+    void restoreDocumentDir() {
+        AcceptableUseAgreementManager.invalidateCache();
+        if (originalDocumentDir == null) {
+            CarlosProperties.getInstance().remove("BASE_DOCUMENT_DIR");
+        } else {
+            CarlosProperties.getInstance().setProperty("BASE_DOCUMENT_DIR", originalDocumentDir);
         }
     }
 
     @Test
-    @DisplayName("should reject POST when admin write privilege is denied")
-    void shouldRejectPost_whenAdminWriteDenied() {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(false);
-        request.setMethod("POST");
+    @DisplayName("should return success when upload file is missing")
+    void shouldReturnSuccess_whenUploadFileIsMissing() throws Exception {
+        addValidDurationParameters();
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(null);
 
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
+        String result = executeAction(action);
 
-        assertThatThrownBy(action::execute)
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("(_admin)");
-        verify(carlosProperties, never()).getProperty("DOCUMENT_DIR");
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
+        assertThat(documentDir.resolve("login/AcceptableUseAgreement.txt")).doesNotExist();
     }
 
     @Test
-    @DisplayName("should write fixed login text file when POST is authorized")
-    void shouldWriteLoginText_whenPostAuthorized() throws Exception {
-        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
-        Path documentDir = Files.createDirectory(tempDir.resolve("document"));
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
-        request.setMethod("POST");
-        request.addParameter("validForever", "forever");
-        request.addParameter("foreverFrom", "2026-06-10");
-
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
+    @DisplayName("should write login text when upload file is present")
+    void shouldWriteLoginText_whenUploadFileIsPresent() throws Exception {
+        addValidDurationParameters();
+        Path uploadFile = Files.createTempFile(uploadDir, "login-text-", ".txt");
+        Files.writeString(uploadFile, "updated login text", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
         action.setImportFile(uploadFile.toFile());
 
-        String result = action.execute();
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isNull(); // cache the missing-file result
+        String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(request.getAttribute("error")).isEqualTo(false);
-        assertThat(Files.readString(documentDir.resolve("OSCARloginText.txt"))).isEqualTo("welcome");
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
+        assertThat(documentDir.resolve("login/AcceptableUseAgreement.txt"))
+                .hasContent("updated login text");
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("updated login text");
+        assertThat(documentDir.resolve("OSCARloginText.txt")).doesNotExist();
     }
 
     @Test
-    @DisplayName("should set error when DOCUMENT_DIR is misconfigured")
-    void shouldSetError_whenDocumentDirMisconfigured() throws Exception {
-        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(" ");
-        request.setMethod("POST");
-        request.addParameter("validForever", "forever");
-        request.addParameter("foreverFrom", "2026-06-10");
-
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
+    @DisplayName("should set error when configured document directory is invalid")
+    void shouldSetError_whenDocumentDirectoryIsInvalid() throws Exception {
+        addValidDurationParameters();
+        Path invalidDocumentDir = Files.createTempFile(documentDir, "not-a-dir-", ".txt");
+        Files.writeString(invalidDocumentDir, "not a directory", StandardCharsets.UTF_8);
+        CarlosProperties.getInstance().setProperty("BASE_DOCUMENT_DIR", invalidDocumentDir.toString());
+        Path uploadFile = Files.createTempFile(uploadDir, "login-text-", ".txt");
+        Files.writeString(uploadFile, "updated login text", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
         action.setImportFile(uploadFile.toFile());
 
-        String result = action.execute();
+        String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(request.getAttribute("error")).isEqualTo(true);
-
-        assertThat(action.getImportFile()).isEqualTo(uploadFile.toFile().getCanonicalFile());
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"year", "month", "weeks", "days"})
-    @DisplayName("should persist duration property when period is selected")
-    void shouldPersistDurationProperty_whenPeriodSelected(String period) throws Exception {
-        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
-        Path documentDir = Files.createDirectory(tempDir.resolve("document"));
-        Property latestProperty = new Property();
-        latestProperty.setValue("14 days");
-        acceptableUseAgreementManagerStatic.when(AcceptableUseAgreementManager::findLatestProperty)
-                .thenReturn(latestProperty);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
-        request.setMethod("POST");
-        request.addParameter("validForever", "duration");
-        request.addParameter("validDurationNumber", "30");
-        request.addParameter("validDurationPeriod", period);
-
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
-        action.setImportFile(uploadFile.toFile());
-
-        String result = action.execute();
-
-        ArgumentCaptor<Property> propertyCaptor = ArgumentCaptor.forClass(Property.class);
-        verify(propertyDao).persist(propertyCaptor.capture());
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(propertyCaptor.getValue().getName()).isEqualTo("aua_valid_duration");
-        assertThat(propertyCaptor.getValue().getValue()).isEqualTo("30 " + period);
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
+        assertThat(invalidDocumentDir).hasContent("not a directory");
     }
 
     @Test
-    @DisplayName("should skip AUA persist when duration input is invalid")
-    void shouldSkipAuaPersist_whenDurationInvalid() throws Exception {
-        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
-        Path documentDir = Files.createDirectory(tempDir.resolve("document"));
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
-        request.setMethod("POST");
-        request.addParameter("validDurationNumber", "not-number");
-
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
-        action.setImportFile(uploadFile.toFile());
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(request.getAttribute("error")).isEqualTo(false);
-        verify(propertyDao, never()).persist(any(Property.class));
-    }
-
-    @Test
-    @DisplayName("should skip AUA persist when duration period is unsupported")
-    void shouldSkipAuaPersist_whenDurationPeriodUnsupported() throws Exception {
-        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
-        Path documentDir = Files.createDirectory(tempDir.resolve("document"));
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
-        request.setMethod("POST");
-        request.addParameter("validDurationNumber", "30");
-        request.addParameter("validDurationPeriod", "fortnight");
-
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
-        action.setImportFile(uploadFile.toFile());
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(request.getAttribute("error")).isEqualTo(false);
-        verify(propertyDao, never()).persist(any(Property.class));
-    }
-
-    @Test
-    @DisplayName("should skip AUA persist when duration period is missing")
-    void shouldSkipAuaPersist_whenDurationPeriodMissing() throws Exception {
-        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
-        Path documentDir = Files.createDirectory(tempDir.resolve("document"));
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
-        request.setMethod("POST");
-        request.addParameter("validDurationNumber", "30");
-
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
-        action.setImportFile(uploadFile.toFile());
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(request.getAttribute("error")).isEqualTo(false);
-        verify(propertyDao, never()).persist(any(Property.class));
-    }
-
-    @Test
-    @DisplayName("should skip AUA persist when latest property is unchanged")
-    void shouldSkipAuaPersist_whenLatestPropertyUnchanged() throws Exception {
-        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
-        Path documentDir = Files.createDirectory(tempDir.resolve("document"));
-        Property latestProperty = new Property();
-        latestProperty.setValue("2026-06-10");
-        acceptableUseAgreementManagerStatic.when(AcceptableUseAgreementManager::findLatestProperty)
-                .thenReturn(latestProperty);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
-        request.setMethod("POST");
-        request.addParameter("validForever", "forever");
-        request.addParameter("foreverFrom", "2026-06-10");
-
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
-        action.setImportFile(uploadFile.toFile());
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verify(propertyDao, never()).persist(any(Property.class));
-    }
-
-    /**
-     * admin/uploadEntryText is dual-purpose: the admin menu and the administration left-nav both
-     * open it with a bare GET to render the upload form. That GET must still render, so the route
-     * is registered in CONDITIONAL_MUTATORS rather than as an unconditional POST-only mutator.
-     */
-    @ParameterizedTest
-    @ValueSource(strings = {"GET", "HEAD"})
-    @DisplayName("should render the upload form when a bare read request arrives")
-    void shouldRenderUploadForm_whenBareReadRequest(String method) throws Exception {
-        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        request.setMethod(method);
-
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
-        action.setImportFile(uploadFile.toFile());
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
-        // The JSP only renders the upload-failure banner when this attribute is present.
-        assertThat(request.getAttribute("error")).isNull();
-        verify(carlosProperties, never()).getProperty("DOCUMENT_DIR");
-        verify(propertyDao, never()).persist(any(Property.class));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"validForever", "foreverFrom", "validDurationNumber", "validDurationPeriod"})
-    @DisplayName("should reject GET carrying agreement mutation intent before side effects")
-    void shouldRejectGet_whenAgreementMutationIntentPresent(String mutationParam) throws Exception {
-        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        request.setMethod("GET");
-        request.addParameter(mutationParam, "forever");
-
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
-        action.setImportFile(uploadFile.toFile());
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        assertThat(response.getHeader("Allow")).isEqualTo("POST");
-        verify(carlosProperties, never()).getProperty("DOCUMENT_DIR");
-        verify(propertyDao, never()).persist(any(Property.class));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"PUT", "DELETE", "PATCH"})
-    @DisplayName("should reject unsupported methods before file side effects")
-    void shouldRejectUnsupportedMethod_beforeFileSideEffects(String method) throws Exception {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        request.setMethod(method);
-
-        String result = new UploadLoginText2Action(securityInfoManager).execute();
-
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        assertThat(response.getHeader("Allow")).isEqualTo("GET, HEAD, POST");
-        verify(carlosProperties, never()).getProperty("DOCUMENT_DIR");
-        verify(propertyDao, never()).persist(any(Property.class));
-    }
-
-    @Test
-    @DisplayName("should return success when import file is missing")
-    void shouldReturnSuccess_whenImportFileMissing() throws Exception {
-        Property latestProperty = new Property();
-        latestProperty.setValue("2026-06-10");
-        acceptableUseAgreementManagerStatic.when(AcceptableUseAgreementManager::findLatestProperty)
-                .thenReturn(latestProperty);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        request.setMethod("POST");
-        request.addParameter("validForever", "forever");
-        request.addParameter("foreverFrom", "2026-06-10");
-
-        String result = new UploadLoginText2Action(securityInfoManager).execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(request.getAttribute("error")).isEqualTo(false);
-        verify(carlosProperties, never()).getProperty("DOCUMENT_DIR");
-        verify(propertyDao, never()).persist(any(Property.class));
-    }
-
-    @Test
-    @DisplayName("should preserve login text when upload read fails")
+    @DisplayName("should preserve existing login text when upload read fails")
     void shouldPreserveLoginText_whenUploadReadFails() throws Exception {
-        Path documentDir = Files.createDirectory(tempDir.resolve("document"));
-        Path existingLoginText = documentDir.resolve("OSCARloginText.txt");
-        Files.writeString(existingLoginText, "existing login text");
-        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "updated login text");
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
-        request.setMethod("POST");
-        request.addParameter("validDurationNumber", "1");
-        request.addParameter("validDurationPeriod", "year");
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
+        addValidDurationParameters();
+        Path existingLoginText = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(existingLoginText.getParent());
+        Files.writeString(existingLoginText, "existing login text", StandardCharsets.UTF_8);
+        Path uploadFile = Files.createTempFile(uploadDir, "login-text-", ".txt");
+        Files.writeString(uploadFile, "updated login text", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
         action.setImportFile(uploadFile.toFile());
         Files.delete(uploadFile);
 
-        String result = action.execute();
+        String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(request.getAttribute("error")).isEqualTo(true);
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
         assertThat(existingLoginText).hasContent("existing login text");
-        try (Stream<Path> documentFiles = Files.list(documentDir)) {
+        try (Stream<Path> documentFiles = Files.list(existingLoginText.getParent())) {
             assertThat(documentFiles)
                     .extracting(path -> path.getFileName().toString())
-                    .containsExactly("OSCARloginText.txt");
+                    .containsExactly("AcceptableUseAgreement.txt");
         }
     }
 
     @Test
-    @DisplayName("should accept uploaded file content from Struts binding")
-    void shouldAcceptUploadedFileContent_whenUploadedFilesProvided() throws Exception {
-        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
-        UploadedFile uploadedFile = mock(UploadedFile.class);
-        when(uploadedFile.getContent()).thenReturn(uploadFile.toFile());
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
+    void shouldRejectMalformedUtf8_beforeReplacingActiveAgreement() throws Exception {
+        addValidDurationParameters();
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Existing agreement", StandardCharsets.UTF_8);
+        String originalPolicy = CarlosProperties.getInstance().getProperty("show_aua");
+        CarlosProperties.getInstance().setProperty("show_aua", "true");
+        try {
+            assertThat(AcceptableUseAgreementManager.hasAUA()).isTrue();
+            Path upload = Files.write(uploadDir.resolve("malformed.txt"), new byte[] {(byte) 0xC3, 0x28});
+            UploadLoginText2Action action = new UploadLoginText2Action();
+            action.setImportFile(upload.toFile());
 
-        action.withUploadedFiles(List.of(uploadedFile));
-
-        assertThat(action.getImportFile()).isEqualTo(uploadFile.toFile().getCanonicalFile());
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
+            assertThat(agreement).hasContent("Existing agreement");
+            assertThat(AcceptableUseAgreementManager.hasAUA()).isTrue();
+            assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("Existing agreement");
+            try (Stream<Path> files = Files.list(agreement.getParent())) {
+                assertThat(files.map(path -> path.getFileName().toString()))
+                        .containsExactly("AcceptableUseAgreement.txt");
+            }
+        } finally {
+            if (originalPolicy == null) CarlosProperties.getInstance().remove("show_aua");
+            else CarlosProperties.getInstance().setProperty("show_aua", originalPolicy);
+        }
     }
 
     @Test
-    @DisplayName("should ignore missing uploaded files")
-    void shouldIgnoreMissingUploadedFiles_whenNoUploadsProvided() {
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
+    void shouldRestorePreviousAgreement_whenValidityLookupFails() throws Exception {
+        addValidDurationParameters();
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Existing agreement", StandardCharsets.UTF_8);
+        Path upload = Files.writeString(uploadDir.resolve("replacement.txt"), "Replacement agreement", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(upload.toFile());
 
-        action.withUploadedFiles(null);
-        action.withUploadedFiles(List.of());
-
-        assertThat(action.getImportFile()).isNull();
+        try (MockedStatic<AcceptableUseAgreementManager> manager =
+                mockStatic(AcceptableUseAgreementManager.class, CALLS_REAL_METHODS)) {
+            manager.when(AcceptableUseAgreementManager::findLatestProperty)
+                    .thenThrow(new IllegalStateException("Synthetic property lookup outage"));
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
+            assertThat(agreement).hasContent("Existing agreement");
+            assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("Existing agreement");
+        }
     }
 
     @Test
-    @DisplayName("should clear import file when setter receives null")
-    void shouldClearImportFile_whenSetterReceivesNull() throws Exception {
-        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
-        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
-        action.setImportFile(uploadFile.toFile());
+    void shouldRemoveNewAgreement_whenValidityPersistenceFailsWithoutPreviousFile() throws Exception {
+        addValidDurationParameters();
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Path upload = Files.writeString(uploadDir.resolve("new.txt"), "New agreement", StandardCharsets.UTF_8);
+        PropertyDao failingDao = mock(PropertyDao.class);
+        doThrow(new IllegalStateException("Synthetic property write outage"))
+                .when(failingDao).persist(any(Property.class));
+        replaceSpringUtilsBean(PropertyDao.class, failingDao);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(upload.toFile());
 
-        action.setImportFile(null);
+        try (MockedStatic<AcceptableUseAgreementManager> manager =
+                mockStatic(AcceptableUseAgreementManager.class, CALLS_REAL_METHODS)) {
+            manager.when(AcceptableUseAgreementManager::findLatestProperty).thenReturn(null);
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
+            assertThat(agreement).doesNotExist();
+            assertThat(AcceptableUseAgreementManager.getAUAText()).isNull();
+        }
+    }
 
-        assertThat(action.getImportFile()).isNull();
+    @Test
+    void shouldRefreshExistingText_withoutEnablingAgreementPolicy() throws Exception {
+        addValidDurationParameters();
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Previous agreement", StandardCharsets.UTF_8);
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("Previous agreement");
+        Path upload = Files.writeString(uploadDir.resolve("replacement.txt"), "Updated café agreement", StandardCharsets.UTF_8);
+        String originalPolicy = CarlosProperties.getInstance().getProperty("show_aua");
+        CarlosProperties.getInstance().setProperty("show_aua", "false");
+        try {
+            UploadLoginText2Action action = new UploadLoginText2Action();
+            action.setImportFile(upload.toFile());
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
+            assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("Updated café agreement");
+            assertThat(AcceptableUseAgreementManager.hasAUA()).isFalse();
+            assertThat(CarlosProperties.getInstance().getProperty("show_aua")).isEqualTo("false");
+        } finally {
+            if (originalPolicy == null) CarlosProperties.getInstance().remove("show_aua");
+            else CarlosProperties.getInstance().setProperty("show_aua", originalPolicy);
+        }
+    }
+
+    @Test
+    void shouldNoticeRestoredAndRemovedText_withoutServingStaleAgreement() throws Exception {
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Original agreement", StandardCharsets.UTF_8);
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("Original agreement");
+        // Change the size too, so reload is deterministic on filesystems with coarse modification times.
+        Files.writeString(agreement, "A replacement agreement with different content", StandardCharsets.UTF_8);
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("A replacement agreement with different content");
+        Files.delete(agreement);
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep the uploaded bytes but display the agreement without script")
+    void shouldDisplaySanitizedAgreement_whileStoringUploadedBytes() throws Exception {
+        addValidDurationParameters();
+        String uploaded = "<h2>Agreement</h2><table><tr><td>Clause</td></tr></table>"
+                + "<div style=\"position:fixed;inset:0\">Overlay</div>"
+                + "<p>Use <b>only</b> for care. <a href=\"https://example.com/terms\" onclick=\"steal()\">Terms</a></p>"
+                + "<script>window.auaInjected = 1;</script><img src=x onerror=\"steal()\">"
+                + "<a href=\"javascript:steal()\">Run</a><iframe src=\"https://example.com\"></iframe>";
+        Path upload = Files.writeString(uploadDir.resolve("formatted.txt"), uploaded, StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(upload.toFile());
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
+        assertThat(documentDir.resolve("login/AcceptableUseAgreement.txt")).hasContent(uploaded);
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo(uploaded);
+        String html = AcceptableUseAgreementManager.getAUAHtml();
+        assertThat(html)
+                .contains("<h2>Agreement</h2>")
+                .contains("<td>Clause</td>")
+                .contains("<div>Overlay</div>")
+                .contains("<p>Use <b>only</b> for care. ")
+                .contains("href=\"https://example.com/terms\"")
+                .contains(">Terms</a>")
+                .doesNotContainIgnoringCase("<script")
+                .doesNotContainIgnoringCase("auaInjected")
+                .doesNotContainIgnoringCase("onerror")
+                .doesNotContainIgnoringCase("onclick")
+                .doesNotContainIgnoringCase("javascript:")
+                .doesNotContainIgnoringCase("<img")
+                .doesNotContainIgnoringCase("<iframe")
+                .doesNotContainIgnoringCase("style=");
+        assertThat(new AcceptableUseAgreementManager().getHtml()).isEqualTo(html);
+    }
+
+    @Test
+    @DisplayName("should display plain-text agreement characters literally")
+    void shouldEscapeMarkupCharacters_forPlainTextAgreement() throws Exception {
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Records & notes: a < b, caf\u00e9.\nSecond line.", StandardCharsets.UTF_8);
+
+        assertThat(AcceptableUseAgreementManager.getAUAHtml())
+                .isEqualTo("Records &amp; notes: a &lt; b, caf\u00e9.\nSecond line.");
+        assertThat(AcceptableUseAgreementManager.getAUAText())
+                .isEqualTo("Records & notes: a < b, caf\u00e9.\nSecond line.");
+    }
+
+    @Test
+    @DisplayName("should stop displaying an agreement once its file is removed")
+    void shouldClearDisplayedAgreement_whenFileIsRemoved() throws Exception {
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "<p>Displayed agreement</p>", StandardCharsets.UTF_8);
+        assertThat(AcceptableUseAgreementManager.getAUAHtml()).isEqualTo("<p>Displayed agreement</p>");
+
+        Files.delete(agreement);
+
+        assertThat(AcceptableUseAgreementManager.getAUAHtml()).isNull();
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"text", "availability", "cutoff", "invalidate"})
+    void shouldCompleteCacheOperation_whenClassMonitorIsHeldExternally(String operation) throws Exception {
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Agreement monitor fixture", StandardCharsets.UTF_8);
+        Callable<Object> access = () -> switch (operation) {
+            case "text" -> AcceptableUseAgreementManager.getAUAText();
+            case "availability" -> AcceptableUseAgreementManager.hasAUA();
+            case "cutoff" -> AcceptableUseAgreementManager.getAgreementCutoffDate();
+            case "invalidate" -> {
+                AcceptableUseAgreementManager.invalidateCache();
+                yield Boolean.TRUE;
+            }
+            default -> throw new IllegalArgumentException(operation);
+        };
+        var executor = Executors.newSingleThreadExecutor();
+        try {
+            // A caller can acquire the public Class monitor. That must not block
+            // cache readers or invalidation on another request thread.
+            synchronized (AcceptableUseAgreementManager.class) {
+                assertThat(executor.submit(access).get(5, TimeUnit.SECONDS)).isNotNull();
+            }
+        } finally {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPublishAgreementToReaders_onlyAfterValidityUpdateCompletes(boolean failPersistence) throws Exception {
+        addValidDurationParameters();
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Original agreement", StandardCharsets.UTF_8);
+        Path upload = Files.writeString(uploadDir.resolve("replacement.txt"), "Replacement agreement", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(upload.toFile());
+        var executor = Executors.newSingleThreadExecutor();
+        var reader = new AtomicReference<Future<String>>();
+        PropertyDao dao = mock(PropertyDao.class);
+        doAnswer(invocation -> {
+            // Publication has happened, but validity has not finished saving.
+            assertThat(agreement).hasContent("Replacement agreement");
+            var started = new CountDownLatch(1);
+            reader.set(executor.submit(() -> {
+                started.countDown();
+                return AcceptableUseAgreementManager.getAUAText();
+            }));
+            assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> reader.get().get(500, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+            if (failPersistence) throw new IllegalStateException("Synthetic validity write outage");
+            return null;
+        }).when(dao).persist(any(Property.class));
+        replaceSpringUtilsBean(PropertyDao.class, dao);
+        try {
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(getMockRequest().getAttribute("error")).isEqualTo(failPersistence);
+            String expected = failPersistence ? "Original agreement" : "Replacement agreement";
+            assertThat(reader.get()).isNotNull();
+            assertThat(reader.get().get(5, TimeUnit.SECONDS)).isEqualTo(expected);
+            assertThat(agreement).hasContent(expected);
+        } finally {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    void shouldRenderReadOnlyGet_withoutAgreementMutation() throws Exception {
+        getMockRequest().setMethod("GET");
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isFalse();
+        assertThat(documentDir.resolve("login/AcceptableUseAgreement.txt")).doesNotExist();
+    }
+
+    @Test
+    void shouldRejectGetWithMutationParameters_beforeChangingAgreement() throws Exception {
+        getMockRequest().setMethod("GET");
+        addValidDurationParameters();
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(405);
+        assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    void shouldRejectInvalidValidity_withoutWritingUploadedFile() throws Exception {
+        getMockRequest().setMethod("POST");
+        addRequestParameter("validDurationNumber", "not-a-number");
+        addRequestParameter("validDurationPeriod", "days");
+        Path upload = Files.writeString(uploadDir.resolve("invalid-policy.txt"), "Must not publish", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(upload.toFile());
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isTrue();
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
+        assertThat(documentDir.resolve("login/AcceptableUseAgreement.txt")).doesNotExist();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "0", "-1", "19", "2147483648"})
+    void shouldRejectDuration_whenOutsideMenuRange(String duration) throws Exception {
+        addRequestParameter("validDurationNumber", duration);
+        addRequestParameter("validDurationPeriod", "days");
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"not-a-date", "2026-02-30 00:00:00", "2026-09-19", "2026-09-19 00:00:00 extra"})
+    void shouldRejectForeverDate_whenNotStrictTimestamp(String date) throws Exception {
+        addRequestParameter("validForever", "forever");
+        addRequestParameter("foreverFrom", date);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isTrue();
+    }
+
+    @Test
+    void shouldAcceptForeverDate_withStrictTimestamp() throws Exception {
+        addRequestParameter("validForever", "forever");
+        addRequestParameter("foreverFrom", "2026-09-19 00:00:00");
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isFalse();
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
+    }
+
+    private void addValidDurationParameters() {
+        addRequestParameter("validDurationNumber", "1");
+        addRequestParameter("validDurationPeriod", "year");
     }
 }

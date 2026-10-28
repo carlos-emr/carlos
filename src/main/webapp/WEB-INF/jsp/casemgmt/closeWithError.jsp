@@ -28,12 +28,28 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Displays an unsuccessful chart close/save. A stale-revision POST, or one whose
+    encounter date the server could not read (observationDateRejected, issue #4711),
+    keeps its submitted note available to copy before reopening the chart.
+    Request attributes: DateError, noteRevisionConflict, observationDateRejected, noteInputRejected and unsavedNoteText.
+    @since 2026-10-14 (revision conflict recovery)
+--%>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<%@ taglib prefix="carlos" uri="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String error = "Your note was not saved as you did not have the exclusive note lock";
 
     if (request.getAttribute("DateError") != null) {
         error = (String) request.getAttribute("DateError");
     }
+    // The page carries clinical text the user just typed; it must never be cached or replayed.
+    response.setHeader("Cache-Control", "no-store");
+    String unsavedNote = (String) request.getAttribute("unsavedNoteText");
+    if (unsavedNote == null) unsavedNote = request.getParameter("caseNote_note");
+    boolean showUnsavedNote = unsavedNote != null && !unsavedNote.isBlank();
 %>
 <html>
 <head>
@@ -49,7 +65,19 @@
 <body>
 
 <h3 style="text-align:center;">
-    <%=error %>
+    <c:choose>
+        <c:when test="${noteRevisionConflict}"><fmt:message key="encounter.noteLockLostError.msg"/></c:when>
+        <c:when test="${observationDateRejected and not empty DateError}"><c:out value="${DateError}"/></c:when>
+        <c:when test="${observationDateRejected}"><fmt:message key="encounter.observationDateUnreadable.msg"/></c:when>
+        <c:when test="${noteInputRejected}"><fmt:message key="encounter.savingNoteError.msg"/></c:when>
+        <c:otherwise><carlos:encode value="<%= error %>"/></c:otherwise>
+    </c:choose>
 </h3>
+<% if (showUnsavedNote) { %>
+<p id="unsavedNoteHint"><fmt:message key="casemgmt.closeWithError.unsavedNoteHint"/></p>
+<label for="unsavedNoteText"><fmt:message key="casemgmt.closeWithError.unsavedNoteLabel"/></label>
+<textarea id="unsavedNoteText" readonly rows="12" style="width:100%;box-sizing:border-box;"
+          aria-describedby="unsavedNoteHint"><carlos:encode value="<%= unsavedNote %>"/></textarea>
+<% } %>
 </body>
 </html>

@@ -95,4 +95,24 @@ class Action2UtilsOutboxUnitTest {
             assertThat(result).extracting(File::getName).contains("claim.txt");
         }
     }
+
+    @Test
+    @DisplayName("should read the last open back from the outbox's own .timestamp file")
+    void shouldReadBackTheLastOpen_fromTheFileItWasWrittenTo() throws Exception {
+        // #4577: the writer appended ".timestamp" to the directory's name (<parent>/outbox.timestamp)
+        // while the reader opened <outbox>/.timestamp, so the copy window was always empty.
+        Path outbox = Files.createDirectories(tempDir.resolve("outbox"));
+        java.util.Date lastOpen = java.util.Date.from(java.time.Instant.parse("2026-10-15T13:41:27.315Z"));
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            CarlosProperties properties = mock(CarlosProperties.class);
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("ONEDT_OUTBOX", "")).thenReturn(outbox + "/");
+
+            Action2Utils.setOutboxTimestamp(lastOpen);
+
+            assertThat(Action2Utils.getOutboxTimestamp()).isEqualTo(lastOpen);
+        }
+        assertThat(outbox.resolve(".timestamp")).hasContent("2026-10-15T13:41:27.315Z");
+        assertThat(tempDir.resolve("outbox.timestamp")).doesNotExist();
+    }
 }

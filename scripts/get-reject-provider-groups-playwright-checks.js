@@ -5,22 +5,22 @@
  * settings icon) ▸ My Group "View groups" (provider/ViewProviderDisplayMyGroup) ▸ tick a
  * member ▸ Delete (confirm), and ▸ New Group/Add a Member ▸ tick a provider ▸ Save.
  *
- * Both buttons POST to provider/providercontrol, the day sheet's dispatcher, which
- * include()s a gate chosen by `displaymode`. Delete includes provider/ViewProviderNewGroup,
- * a plain view gate with no POST check whose JSP (providernewgroup.jsp) deletes every
- * `<group><provider>` parameter when submit_form=Delete. Neither "providercontrol" nor
- * "ViewProviderNewGroup" has a mutator prefix, so HttpMethodGuardFilter passes the GET.
- * Save includes provider/SaveMyGroup, which does require POST; but providercontrol also
- * accepts displaymode=vary&displaymodevariable=<any path> and include()s it unchecked, so
- * /WEB-INF/jsp/provider/providersavemygroup.jsp can be reached directly, bypassing that
- * POST check (and any gate's privilege check).
+ * Both buttons used to POST to provider/providercontrol, the day sheet's dispatcher, which
+ * include()s a gate chosen by `displaymode`. Delete included provider/ViewProviderNewGroup,
+ * a plain view gate with no POST check whose JSP deleted every `<group><provider>`
+ * parameter when submit_form=Delete, so a GET deleted; and a redirect from an include()d
+ * page is ignored, so Save and Delete both left a blank page. Since #4515 Delete posts to
+ * provider/DeleteMyGroupMembers and Save to provider/SaveMyGroup, both POST-only actions
+ * reached directly, and the include routes no longer write.
  *
  * Probes (all against rows this run owns, asserted together in the LAST step):
- *   1. the captured Delete replayed as GET/HEAD for another member (providercontrol);
- *   2. the same Delete sent straight to provider/ViewProviderNewGroup;
- *   3. the captured Save replayed as GET/HEAD for a new member (providercontrol ▸
- *      SaveMyGroup; include() cannot carry a 405, so only "no write" is asserted);
- *   4. that Save replayed through displaymode=vary into providersavemygroup.jsp.
+ *   1. the captured Delete replayed as GET/HEAD for another member (DeleteMyGroupMembers);
+ *   2. the retired Delete routes (providercontrol displaymode=newgroup and
+ *      ViewProviderNewGroup, submit_form=Delete): a view now answers, so only "no write"
+ *      is asserted;
+ *   3. the captured Save replayed as GET/HEAD for a new member (SaveMyGroup);
+ *   4. the retired Save routes through providercontrol (displaymode=savemygroup, and
+ *      displaymode=vary into providersavemygroup.jsp): only "no write" is asserted.
  *
  * Fixtures: one group named from the run marker (10-char limit) seeded by SQL with the
  * test provider and three active demo providers (names copied from `provider`, exactly as
@@ -61,59 +61,79 @@ async function workflow(s) {
   let deleted;
   let saved;
 
-  await s.step('View groups ▸ Delete removes the ticked member of the owned group (POST providercontrol, displaymode=newgroup)', async () => {
+  /** Save and Delete must land back on the group list, not on the blank page of #4515. */
+  const assertOnGroupList = async (groups, after) => {
+    h.assert(new URL(groups.url()).pathname.endsWith('/provider/ViewProviderDisplayMyGroup'),
+      `${after} did not return to the group list (left on ${new URL(groups.url()).pathname})`);
+    await h.assertNotErrorPage(groups, `group list after ${after}`);
+  };
+
+  await s.step('View groups ▸ Delete removes the ticked member of the owned group (POST provider/DeleteMyGroupMembers)', async () => {
     const groups = await openGroups('my-groups-delete');
     const box = groups.locator(`input[name="${groupName}${d1}"]`);
     await box.waitFor({ state: 'attached' });
     await box.check();
     const dialogs = await h.withExpectedDialogs(groups, async () => {
-      deleted = await captureRequest(groups, url => url.pathname.endsWith('/provider/providercontrol'),
+      deleted = await captureRequest(groups, url => url.pathname.endsWith('/provider/DeleteMyGroupMembers'),
         () => clickAndAwaitReload(groups, groups.locator('input[type="submit"].btn-danger'), { label: 'Delete group member' }));
     });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Deleting a member did not ask for confirmation');
-    h.assert(deleted.params.get('displaymode') === 'newgroup' && deleted.params.get('submit_form') === 'Delete',
-      'The Delete button did not post displaymode=newgroup&submit_form=Delete');
     await expectValue(sql, member(d1), '0', 'Delete through the page did not remove the member');
     h.assert(sql.value(member(d2)) === '1' && sql.value(member(d3)) === '1', 'Delete removed an unticked member');
+    await assertOnGroupList(groups, 'Delete');
     await groups.close();
   });
 
-  await s.step('the Delete replayed as GET/HEAD (providercontrol and ViewProviderNewGroup) against other owned members is recorded', async () => {
-    const forMember = p => replayParams(deleted.params, { [`${groupName}${d1}`]: null, [`${groupName}${p}`]: groupName });
-    await ledger.probe(s, { label: 'provider/providercontrol displaymode=newgroup submit_form=Delete',
+  await s.step('the Delete replayed as GET/HEAD (DeleteMyGroupMembers, and the retired providercontrol and ViewProviderNewGroup routes) against other owned members is recorded', async () => {
+    const forMember = (p, extra = {}) => replayParams(deleted.params, { [`${groupName}${d1}`]: null, [`${groupName}${p}`]: groupName, ...extra });
+    await ledger.probe(s, { label: 'provider/DeleteMyGroupMembers',
       path: deleted.path, params: forMember(d2), snapshot: () => sql.value(member(d2)) });
-    await ledger.probe(s, { label: 'provider/ViewProviderNewGroup submit_form=Delete',
-      path: deleted.path.replace(/providercontrol$/, 'ViewProviderNewGroup'), params: forMember(d3),
-      snapshot: () => sql.value(member(d3)) });
+    // The routes the Delete used before #4515. They now render the new-group form (HTTP 200),
+    // so the probe asserts only that nothing is deleted.
+    const retired = { displaymode: 'newgroup', submit_form: 'Delete' };
+    await ledger.probe(s, { label: 'provider/providercontrol displaymode=newgroup submit_form=Delete (retired)',
+      path: deleted.path.replace(/DeleteMyGroupMembers$/, 'providercontrol'), params: forMember(d3, retired),
+      snapshot: () => sql.value(member(d3)), requireStatus: false });
+    await ledger.probe(s, { label: 'provider/ViewProviderNewGroup submit_form=Delete (retired)',
+      path: deleted.path.replace(/DeleteMyGroupMembers$/, 'ViewProviderNewGroup'), params: forMember(d3, retired),
+      snapshot: () => sql.value(member(d3)), requireStatus: false });
   });
 
-  await s.step('New Group/Add a Member ▸ Save adds a provider to the owned group (POST providercontrol, displaymode=savemygroup)', async () => {
+  await s.step('New Group/Add a Member ▸ Save adds a provider to the owned group (POST provider/SaveMyGroup)', async () => {
     const groups = await openGroups('my-groups-add');
-    await clickAndAwaitReload(groups, groups.locator('input[type="submit"].btn-primary'), { label: 'New Group/Add a Member' });
+    await clickAndAwaitReload(groups, groups.locator('a.btn-primary[href$="/provider/ViewProviderNewGroup"]'), { label: 'New Group/Add a Member' });
     await groups.locator('input[name="mygroup_no"]').fill(groupName);
     await groups.locator(`tr:has(input[name^="provider_no"][value="${d4}"]) input.provider-check`).check();
-    saved = await captureRequest(groups, url => url.pathname.endsWith('/provider/providercontrol'),
+    saved = await captureRequest(groups, url => url.pathname.endsWith('/provider/SaveMyGroup'),
       () => clickAndAwaitReload(groups, groups.locator('input[type="submit"].btn-primary'), { label: 'Save group member' }));
-    h.assert(saved.params.get('displaymode') === 'savemygroup', 'Save did not post displaymode=savemygroup');
+    h.assert(!saved.params.has('displaymode'), 'Save still posts a providercontrol displaymode');
     await expectValue(sql, member(d4), '1', 'Save through the page did not add the member');
+    await assertOnGroupList(groups, 'Save');
     await groups.close();
   });
 
-  await s.step('the Save replayed as GET/HEAD, directly and through displaymode=vary, is recorded', async () => {
+  await s.step('the Save replayed as GET/HEAD, directly and through the retired providercontrol routes, is recorded', async () => {
     // Keep only the ticked row's fields: the page posts hidden fields for every provider.
     const index = [...saved.params.keys()].map(k => /^data(\d+)$/.exec(k)).find(Boolean);
     h.assert(index, 'The captured Save carries no ticked dataN field');
     const i = index[1];
     const forMember = (p, extra = {}) => {
       const [last, first] = demos.find(([no]) => no === p).slice(1);
-      return replayParams(new URLSearchParams([['displaymode', saved.params.get('displaymode')], ['mygroup_no', groupName]]),
+      return replayParams(new URLSearchParams([['mygroup_no', groupName]]),
         { [`data${i}`]: i, [`provider_no${i}`]: p, [`last_name${i}`]: last, [`first_name${i}`]: first, ...extra });
     };
-    await ledger.probe(s, { label: 'provider/providercontrol displaymode=savemygroup (include of SaveMyGroup)',
-      path: saved.path, params: forMember(d5), snapshot: () => sql.value(member(d5)), requireStatus: false });
+    await ledger.probe(s, { label: 'provider/SaveMyGroup',
+      path: saved.path, params: forMember(d5), snapshot: () => sql.value(member(d5)) });
+    // The include routes the Save used before #4515 (providercontrol no longer has a
+    // savemygroup mode, and never includes an arbitrary path): only "no write" is asserted.
+    const providerControl = saved.path.replace(/SaveMyGroup$/, 'providercontrol');
+    await ledger.probe(s, { label: 'provider/providercontrol displaymode=savemygroup (retired include of SaveMyGroup)',
+      path: providerControl, params: forMember(d6, { displaymode: 'savemygroup' }),
+      snapshot: () => sql.value(member(d6)), requireStatus: false });
     await ledger.probe(s, { label: 'provider/providercontrol displaymode=vary -> providersavemygroup.jsp',
-      path: saved.path,
+      path: providerControl,
       params: forMember(d6, { displaymode: 'vary', displaymodevariable: '/WEB-INF/jsp/provider/providersavemygroup.jsp' }),
+      // Retired mode: a 404 for every method, so no refusal status is specific to GET/HEAD.
       snapshot: () => sql.value(member(d6)), requireStatus: false });
   });
 

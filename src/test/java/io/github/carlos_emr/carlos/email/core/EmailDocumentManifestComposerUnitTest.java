@@ -21,38 +21,54 @@
  */
 package io.github.carlos_emr.carlos.email.core;
 
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.MockedStatic;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.managers.FormsManager;
@@ -88,9 +104,13 @@ class EmailDocumentManifestComposerUnitTest {
     private final Hl7TextInfoDao hl7TextInfoDao = mock(Hl7TextInfoDao.class);
     private final HRMDocumentDao hrmDocumentDao = mock(HRMDocumentDao.class);
     private final FormsManager formsManager = mock(FormsManager.class);
+    private final CtlDocumentDao ctlDocumentDao = mock(CtlDocumentDao.class);
+    private final PatientLabRoutingDao patientLabRoutingDao = mock(PatientLabRoutingDao.class);
+    private final HRMDocumentToDemographicDao hrmDocumentToDemographicDao = mock(HRMDocumentToDemographicDao.class);
     private final LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
     private final EmailDocumentManifestComposer composer = new EmailDocumentManifestComposer(clinicDao, eFormDataDao,
-            documentDao, hl7TextInfoDao, hrmDocumentDao, formsManager, Clock.fixed(NOW, ZoneOffset.UTC));
+            documentDao, hl7TextInfoDao, hrmDocumentDao, formsManager, ctlDocumentDao, patientLabRoutingDao,
+            hrmDocumentToDemographicDao, Clock.fixed(NOW, ZoneOffset.UTC));
     private MockedStatic<PatientPortalSettings> portal;
 
     @BeforeEach
@@ -128,8 +148,9 @@ class EmailDocumentManifestComposerUnitTest {
     @DisplayName("should stop the send when the document ID secret is invalid")
     void shouldStopTheSend_whenTheSecretIsInvalid() {
         CarlosProperties.getInstance().setProperty(DocumentIdCalculator.SECRET_PROPERTY, "not base64 !!");
+        EmailLog emailLog = fakeEmailLog();
 
-        assertThatThrownBy(() -> composer.forSend(loggedInInfo, fakeEmailLog()))
+        assertThatThrownBy(() -> composer.forSend(loggedInInfo, emailLog))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -139,14 +160,14 @@ class EmailDocumentManifestComposerUnitTest {
         EFormData eForm = new EFormData();
         eForm.setSubject(" ");
         eForm.setFormName("FAKE Intake Form");
-        eForm.setFormDate(localDate(2026, 10, 1));
+        eForm.setFormDate(localDate(2026, Month.OCTOBER, 1));
         when(eFormDataDao.find(42)).thenReturn(eForm);
 
         DocumentManifest manifest = composer.forSend(loggedInInfo, fakeEmailLog())
                 .forAttachment(attachment(DocumentType.EFORM, 42));
 
-        // The known answer of DocumentIdCalculatorUnitTest: the ID hashes "eform:42".
-        assertThat(manifest).isEqualTo(new DocumentManifest("NQP6VEqbRs3qDiu8FfzrbHJT80WWArgyZP7gAbGYPFw", 1,
+        // Computed independently below: the ID hashes "eform:42" under the FAKE secret.
+        assertThat(manifest).isEqualTo(new DocumentManifest(expectedDocumentId("eform", "42"), 1,
                 NOW.getEpochSecond(), null, "FAKE Demo Clinic", "FAKE-Provider, Demo", null,
                 "FAKE-Manifest-Patient, Jo", "1985-06-15", "FAKE Intake Form", "eform", "2026-10-01"));
     }
@@ -157,7 +178,7 @@ class EmailDocumentManifestComposerUnitTest {
         Document document = new Document();
         document.setDocdesc("FAKE Referral Letter");
         // Hibernate returns java.sql.Date here, whose toInstant() throws.
-        document.setObservationdate(java.sql.Date.valueOf(LocalDate.of(2026, 9, 29)));
+        document.setObservationdate(java.sql.Date.valueOf(LocalDate.of(2026, Month.SEPTEMBER, 29)));
         when(documentDao.find(8)).thenReturn(document);
 
         DocumentManifest manifest = composer.forSend(loggedInInfo, fakeEmailLog())
@@ -190,7 +211,7 @@ class EmailDocumentManifestComposerUnitTest {
         HRMDocument report = new HRMDocument();
         report.setDescription("");
         report.setReportType("FAKE Discharge Summary");
-        report.setReportDate(localDate(2026, 9, 28));
+        report.setReportDate(localDate(2026, Month.SEPTEMBER, 28));
         when(hrmDocumentDao.find(3)).thenReturn(report);
 
         DocumentManifest manifest = composer.forSend(loggedInInfo, fakeEmailLog())
@@ -231,7 +252,7 @@ class EmailDocumentManifestComposerUnitTest {
         DocumentManifest manifest = composer.forSend(loggedInInfo, fakeEmailLog())
                 .forAttachment(attachment(DocumentType.EFORM, 42));
 
-        assertThat(manifest.documentId()).isEqualTo("NQP6VEqbRs3qDiu8FfzrbHJT80WWArgyZP7gAbGYPFw");
+        assertThat(manifest.documentId()).isEqualTo(expectedDocumentId("eform", "42"));
         assertThat(manifest.documentTitle()).isNull();
         assertThat(manifest.serviceDate()).isNull();
     }
@@ -287,6 +308,106 @@ class EmailDocumentManifestComposerUnitTest {
         return bytes;
     }
 
+    @ParameterizedTest
+    @EnumSource(value = DocumentType.class, names = {"EFORM", "DOC", "LAB", "HRM"})
+    @DisplayName("should stop the send when an attached record belongs to another patient")
+    void shouldStopTheSend_whenARecordBelongsToAnotherPatient(DocumentType type) {
+        linkRecord(type, 7, 2002);
+        EmailDocumentManifestComposer.AttachmentManifests manifests = composer.forSend(loggedInInfo, fakeEmailLog());
+        EmailAttachment attachment = attachment(type, 7);
+
+        assertThatThrownBy(() -> manifests.forAttachment(attachment))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("An attached record does not belong to the email's patient");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = DocumentType.class, names = {"EFORM", "DOC", "LAB", "HRM"})
+    @DisplayName("should build the manifest for the email patient's record, or one linked to no patient")
+    void shouldBuildTheManifest_whenTheRecordIsThePatientsOrNoPatients(DocumentType type) {
+        for (Integer patient : new Integer[] {1001, 0, null}) {
+            linkRecord(type, 7, patient);
+
+            DocumentManifest manifest = composer.forSend(loggedInInfo, fakeEmailLog())
+                    .forAttachment(attachment(type, 7));
+
+            assertThat(manifest).as("record linked to %s", patient).isNotNull();
+        }
+    }
+
+    @Test
+    @DisplayName("should give a form no title when its name cannot be read for this sender")
+    void shouldGiveTheFormNoTitle_whenItsLookupIsRefused() {
+        when(formsManager.getFormById(loggedInInfo, 9, 1001))
+                .thenThrow(new SecurityException("missing required sec object (_form)"));
+
+        DocumentManifest manifest = composer.forSend(loggedInInfo, fakeEmailLog())
+                .forAttachment(attachment(DocumentType.FORM, 9));
+
+        assertThat(manifest).isNotNull();
+        assertThat(manifest.documentTitle()).isNull();
+    }
+
+    @Test
+    @DisplayName("should shorten a very long title")
+    void shouldShortenTheTitle_whenItIsVeryLong() {
+        Document document = new Document();
+        document.setDocdesc("FAKE " + "x".repeat(EmailDocumentManifestComposer.MAX_TITLE_LENGTH));
+        when(documentDao.find(8)).thenReturn(document);
+
+        DocumentManifest manifest = composer.forSend(loggedInInfo, fakeEmailLog())
+                .forAttachment(attachment(DocumentType.DOC, 8));
+
+        assertThat(manifest.documentTitle())
+                .hasSize(EmailDocumentManifestComposer.MAX_TITLE_LENGTH)
+                .startsWith("FAKE x");
+    }
+
+    /** Links the record to {@code patient} the way its own table records it. */
+    private void linkRecord(DocumentType type, int recordId, Integer patient) {
+        switch (type) {
+            case EFORM -> {
+                EFormData eForm = new EFormData();
+                eForm.setDemographicId(patient);
+                when(eFormDataDao.find(recordId)).thenReturn(eForm);
+            }
+            case DOC -> {
+                CtlDocument link = new CtlDocument();
+                link.setId(new CtlDocumentPK("demographic", patient, recordId));
+                when(ctlDocumentDao.findByDocumentNoAndModule(recordId, "demographic")).thenReturn(List.of(link));
+            }
+            case LAB -> {
+                PatientLabRouting routing = new PatientLabRouting();
+                routing.setDemographicNo(patient);
+                when(patientLabRoutingDao.findDemographicByLabId(recordId)).thenReturn(routing);
+            }
+            case HRM -> {
+                HRMDocumentToDemographic link = new HRMDocumentToDemographic();
+                link.setHrmDocumentId(recordId);
+                link.setDemographicNo(patient);
+                when(hrmDocumentToDemographicDao.findByHrmDocumentId(recordId)).thenReturn(List.of(link));
+            }
+            case FORM -> throw new IllegalArgumentException("a form is read for the email's patient by its renderer");
+        }
+    }
+
+    /**
+     * The document ID the manifest must carry, computed here from the documented formula rather
+     * than by {@link DocumentIdCalculator}: b64url(HMAC-SHA256(secret, label 0x00 "source:id")).
+     */
+    private static String expectedDocumentId(String source, String recordId) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(bytesOneToThirtyTwo(), "HmacSHA256"));
+            mac.update("carlos-emr/document-id/v1".getBytes(StandardCharsets.US_ASCII));
+            mac.update((byte) 0);
+            mac.update((source + ":" + recordId).getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal());
+        } catch (GeneralSecurityException e) {
+            throw new AssertionError("HMAC-SHA256 is unavailable", e);
+        }
+    }
+
     private static EmailLog fakeEmailLog() {
         Demographic patient = new Demographic();
         patient.setDemographicNo(1001);
@@ -308,7 +429,7 @@ class EmailDocumentManifestComposerUnitTest {
         return new EmailAttachment("artifact-1.pdf", "/tmp/artifact-1.pdf", type, recordId);
     }
 
-    private static Date localDate(int year, int month, int day) {
+    private static Date localDate(int year, Month month, int day) {
         return Date.from(LocalDate.of(year, month, day).atStartOfDay(ZoneId.systemDefault()).toInstant());
     }
 }

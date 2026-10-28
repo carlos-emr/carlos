@@ -450,6 +450,26 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Tickler getTicklerForUpdate(LoggedInInfo loggedInInfo, Integer id) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        Tickler tickler = ticklerDao.findForUpdate(id);
+        LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.getTickler",
+                tickler == null ? "" : "id=" + tickler.getId());
+        return tickler;
+    }
+
+    @Override
+    public Integer getTicklerDemographicNo(LoggedInInfo loggedInInfo, Integer id) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        List<Integer> patients = ticklerDao.findDemographicNos(id);
+        // Keep the existing lookup audit, but never load a managed Demographic before authorization.
+        LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.getTickler",
+                !patients.isEmpty() ? "id=" + id : "");
+        return patients.isEmpty() ? null : patients.get(0);
+    }
+
+    @Override
     public void addComment(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String message) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
@@ -499,12 +519,29 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
+    public boolean updateStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
+                                         Tickler.STATUS expectedStatus, Tickler.STATUS status) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
+        if (expectedStatus == null || status == null) return false;
+        Tickler tickler = ticklerDao.findForUpdate(ticklerId);
+        if (tickler == null || tickler.getStatus() != expectedStatus) return false;
+        applyStatus(loggedInInfo, tickler, provider, status);
+        return true;
+    }
+
+    @Override
     public void updateStatus(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, Tickler.STATUS status) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
         Tickler tickler = ticklerDao.find(tickler_id);
-        if (tickler != null && tickler.getStatus() != null && tickler.getStatus() != null
-                && !status.equals(tickler.getStatus())) {
+        applyStatus(loggedInInfo, tickler, provider, status);
+    }
+
+    private void applyStatus(LoggedInInfo loggedInInfo, Tickler tickler, String provider, Tickler.STATUS status) {
+        if (tickler != null && tickler.getStatus() != null && !status.equals(tickler.getStatus())) {
+            Integer tickler_id = tickler.getId();
             tickler.setStatus(status);
             TicklerUpdate update = new TicklerUpdate();
             update.setProviderNo(provider);

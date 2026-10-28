@@ -26,11 +26,12 @@
   Features: lists the year's OHIP disks with their download links, posts
     Create Report to /billing/CA/ON/ViewOngenreport and Regenerate to
     /billing/CA/ON/ViewOnregenreport, and shows the per-provider notices
-    the generation action stashes (skipped providers, invalid group numbers).
+    the generation action stashes (skipped providers, invalid group numbers,
+    OHIP billing numbers or specialty codes that do not fit the batch header).
   Parameters: year (archive year), providers, billcenter, xml_vdate,
     xml_appointment_date, useProviderMOH (the Create Report form fields).
   Expected request model data includes: mriModel, and optionally
-    skippedProviders and ohipInvalidGroupProviders.
+    skippedProviders, ohipInvalidGroupProviders and ohipInvalidProviderFields.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
   @since 2026-08-04
@@ -149,6 +150,21 @@
         <ul>
             <c:forEach var="providerNo" items="${ohipInvalidGroupProviders}">
                 <li>Provider <carlos:encode value="${providerNo}" context="html"/></li>
+            </c:forEach>
+        </ul>
+        <p class="mb-0">No files were generated and no billing records were changed.</p>
+    </div>
+</c:if>
+<c:if test="${not empty ohipInvalidProviderFields}">
+    <div class="alert alert-danger" role="alert" id="ohip-provider-fields-validation">
+        <strong>OHIP file not generated.</strong>
+        <p>The OHIP claim file holds each provider's OHIP billing number as exactly six
+            digits and the specialty code as exactly two. The values stored for the
+            providers below do not fit. Correct them in the provider record
+            (Administration &gt; Provider) and run the report again.</p>
+        <ul>
+            <c:forEach var="problem" items="${ohipInvalidProviderFields}">
+                <li><carlos:encode value="${problem}" context="html"/></li>
             </c:forEach>
         </ul>
         <p class="mb-0">No files were generated and no billing records were changed.</p>

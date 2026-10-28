@@ -64,6 +64,7 @@ public class ProviderInboxItem extends AbstractModel<Integer> {
     @Column(name = "lab_no")
     private int labNo;
     private String status;
+    @Column(name = "comment", columnDefinition = "TEXT")
     private String comment;
     @Column(name = "lab_type")
     private String labType;

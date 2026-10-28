@@ -47,7 +47,9 @@
       'carlos_tickler_refresh_<demographicNo>') so ticklerMain.jsp and
       newEncounterLayout.jsp for the same patient can reload without a full
       page refresh. The channel name is scoped per patient to prevent
-      cross-patient refresh triggers.
+      cross-patient refresh triggers. It also posts to 'carlos_tickler_refresh_all'
+      (a payload-free refresh signal) because the provider-wide task list spans
+      every patient and listens only there (#4993).
 
     Parameters:
     - tickler_no:           ID of the tickler to edit (required)
@@ -74,6 +76,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
+<%@page import="io.github.carlos_emr.carlos.tickler.pageUtil.TicklerEditVersion" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.TicklerComment" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -414,6 +417,14 @@
                             enableSubmitButtons();
                             return;
                         }
+                        var refused = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-edit-refused');
+                        if (refused) {
+                            CarlosTicklerValidation.show(refused.textContent);
+                            document.getElementById('tickler-edit-recovery').hidden =
+                                refused.getAttribute('data-review-available') !== 'true';
+                            enableSubmitButtons();
+                            return;
+                        }
                         // Verify success by checking for sentinel element in the response
                         var saveOk = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-edit-ok');
                         if (!saveOk) {
@@ -432,9 +443,12 @@
                         }
                         try {
                             var demoNo = '<carlos:encode value='<%= String.valueOf(t.getDemographicNo()) %>' context="javaScriptBlock"/>';
-                            var bc = new BroadcastChannel('carlos_tickler_refresh_' + demoNo);
-                            bc.postMessage({ action: 'refresh' });
-                            bc.close();
+                            // Patient-scoped listeners (encounter, patient task list) and the provider-wide list ("all").
+                            ['all', demoNo].forEach(function (scope) {
+                                var bc = new BroadcastChannel('carlos_tickler_refresh_' + scope);
+                                bc.postMessage({ action: 'refresh' });
+                                bc.close();
+                            });
                         } catch (e) {
                             console.error('[ticklerEdit] BroadcastChannel broadcast failed:', e);
                             // Fallback: reload the opener directly so the tickler list stays current
@@ -483,11 +497,16 @@
         <form name="serviceform" action="<%=request.getContextPath()%>/tickler/EditTickler" method="post">
             <input type="hidden" name="method" value="editTickler"/>
             <input type="hidden" name="ticklerNo" value="<%=ticklerNo%>"/>
+            <input type="hidden" name="ticklerEditVersion" value="<carlos:encode value='<%= TicklerEditVersion.of(t) %>' context="htmlAttribute"/>"/>
             <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= request.getParameter("parentAjaxId") != null ? request.getParameter("parentAjaxId") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <div class="page-header-bar">
                 <h2 class="page-header-title"><fmt:message key="tickler.ticklerEdit.title"/></h2>
             </div>
             <div id="error" class="alert alert-danger" style="display:none;" role="alert"></div>
+            <div id="tickler-edit-recovery" class="alert alert-warning" hidden>
+                <a id="reviewCurrentTickler" target="_blank" rel="noopener"
+                   href="<%=request.getContextPath()%>/tickler/ViewTicklerEdit?tickler_no=<%=ticklerNo%>"><fmt:message key="tickler.ticklerEdit.linkReviewCurrent"/></a>
+            </div>
 
             <%-- 1. Compact demographic card --%>
             <div class="demo-card">
