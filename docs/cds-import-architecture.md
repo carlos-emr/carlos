@@ -66,6 +66,8 @@ The browser transfers bounded hashed chunks and receives an owned upload ID. Typ
 
 The foreground CLI prints the durable accepted handle before long execution. The installed command reconstructs the explicit delegated actor and uses the same application services. It has a dedicated bounded context and connection pool; it does not start the complete web application's background workload. Browser and CLI normalization, checkpoints and report semantics remain shared.
 
+Protected job observations separate database lookup, file access and fresh authorization. A bounded scalar binding prefetch belongs in the existing run DAO with explicit `SUPPORTS`, read-only semantics; its service boundary refuses an ambient transaction. It returns an immutable value object rather than a managed run entity. File reading and hashing occur after that lookup scope ends. The subsequent read-only observation transaction rechecks current binding and authorization, and uses its existing managed run for bounded aggregates. The preliminary snapshot never replaces those current checks. See R5 in the final review for the required actual Spring/JPA resource-lifecycle proof.
+
 ## Source and transaction lifecycle
 
 1. **Transfer or preaccept source preservation.** Validate ownership, limits and immutable options. Stream original bytes into protected owned storage. Retain uncertain acceptance rather than guessing rollback.

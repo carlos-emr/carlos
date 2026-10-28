@@ -92,6 +92,20 @@ class NativeEvidenceTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.collect()
 
+    def test_required_spring_prefetch_proof_cannot_be_missing_or_duplicated(self):
+        simple = 'CdsImportCoordinatorMariaDbIntegrationTest'
+        method = 'shouldPrefetchOneImmutableBinding_withoutTransactionOrRetainedConnection'
+        for names, expected in [(['unrelated'], False), ([method], True), ([method, method], False)]:
+            with self.subTest(names=names):
+                body = ''.join('<testcase name="' + name + '"/>' for name in names)
+                path = self.source / ('TEST-example.' + simple + '.xml')
+                path.write_text('<testsuite name="example.' + simple + '" tests="' + str(len(names))
+                                + '" errors="0" failures="0" skipped="0">' + body + '</testsuite>')
+                with redirect_stdout(io.StringIO()):
+                    total, incomplete = NATIVE.collect_reports((simple,), self.source, self.output)
+                self.assertEqual(len(names), total)
+                self.assertEqual(expected, not incomplete)
+
 
 if __name__ == '__main__':
     unittest.main()

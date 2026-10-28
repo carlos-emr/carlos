@@ -190,6 +190,61 @@ class CdsImportLedgerControlUnitTest {
         }
         verifyNoInteractions(manager);
     }
+    @Test void shouldKeepEveryJobField_whenPrefetchDoesNotOpenTransaction() {
+        run.setSnapshotLocation("/opaque/private-job-document");
+        var expected=new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto(
+                CdsImportLedgerService.dto(run),run.getSnapshotLocation());
+        when(runs.readJobBinding("run")).thenAnswer(call->{
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();return expected;
+        });
+        assertThat(ledger.jobBinding("run")).isEqualTo(expected);
+        assertThat(expected.toString()).doesNotContain("private-job-document");
+        verify(runs).readJobBinding("run");verify(runs,never()).get(anyString());verifyNoInteractions(manager);
+    }
+    @Test void shouldPreserveInvalidAndMissingRunErrors_whenPrefetchHasNoTransaction() {
+        for(String invalid:java.util.Arrays.asList(null,""," ","x".repeat(37)))
+            assertThatThrownBy(()->ledger.jobBinding(invalid)).isInstanceOf(IllegalArgumentException.class).hasMessage("Invalid run id");
+        verifyNoInteractions(runs,manager);
+        assertThatThrownBy(()->ledger.jobBinding("missing")).isInstanceOf(CdsImportException.class).hasMessage("RUN_NOT_FOUND");
+        verify(runs).readJobBinding("missing");verify(runs,never()).get(anyString());verifyNoInteractions(manager);
+    }
+    @Test void shouldRefuseAmbientTransaction_whenPrefetchAlsoHasInvalidRunId() {
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            assertThatThrownBy(()->ledger.jobBinding(null)).isInstanceOf(CdsImportException.class).hasMessage("AMBIENT_TRANSACTION_REFUSED");
+            verifyNoInteractions(runs,manager);
+        } finally {TransactionSynchronizationManager.setActualTransactionActive(false);}
+    }
+    @Test void shouldMatchAllBindingScalars_whenRealHqlReadsSealedAndUnsealedRows() {
+        var factory=new org.hibernate.cfg.Configuration().addAnnotatedClass(CdsImportRun.class)
+                .setProperty("jakarta.persistence.jdbc.url","jdbc:h2:mem:job-binding-"+java.util.UUID.randomUUID()+";MODE=MySQL")
+                .setProperty("jakarta.persistence.jdbc.driver","org.h2.Driver")
+                .setProperty("hibernate.generate_statistics","true")
+                .setProperty("hibernate.hbm2ddl.auto","create-drop").buildSessionFactory();
+        try(factory;var actual=factory.createEntityManager()) {
+            var dao=new CdsImportRunDao();org.springframework.test.util.ReflectionTestUtils.setField(dao,"entityManager",actual);
+            for(boolean sealed:List.of(false,true)) {
+                var persisted=row(java.util.UUID.randomUUID().toString(),sealed?"COMPLETE":"ACCEPTED");
+                persisted.setSubmissionKey(java.util.UUID.randomUUID().toString());persisted.setSourceNamespace("registered-source");
+                persisted.setProfile("pcon-2024-02");persisted.setSourceDigest("a".repeat(64));persisted.setOptionsDigest("b".repeat(64));
+                persisted.setRulesetDigest("c".repeat(64));persisted.setSnapshotLocation("/opaque/protected-job");
+                persisted.setExpectedPatients(13);persisted.setExpectedUnits(17);persisted.setOwnerEpoch(7);persisted.setCancelRequested(sealed);
+                persisted.setCreatedAt(Instant.parse("2026-01-15T12:00:00Z"));persisted.setUpdatedAt(Instant.parse("2026-01-15T12:01:00Z"));
+                if(sealed) {persisted.setManifestDigest("d".repeat(64));persisted.setReportGeneration(19);
+                    persisted.setReportLocation("/opaque/reports");persisted.setReportDigest("e".repeat(64));}
+                actual.getTransaction().begin();actual.persist(persisted);actual.getTransaction().commit();actual.clear();
+                factory.getStatistics().clear();
+                var binding=dao.readJobBinding(persisted.getId());
+                assertThat(binding.job()).isEqualTo(CdsImportLedgerService.dto(persisted));
+                assertThat(binding.documentLocation()).isEqualTo(persisted.getSnapshotLocation());
+                assertThat(binding.toString()).isEqualTo("CdsImportJobBindingDto[protected]");
+                assertThat(actual.getTransaction().isActive()).isFalse();
+                assertThat(factory.getStatistics().getPrepareStatementCount()).isEqualTo(1);
+                assertThat(factory.getStatistics().getEntityLoadCount()).isZero();
+            }
+            assertThat(dao.readJobBinding(java.util.UUID.randomUUID().toString())).isNull();
+        }
+    }
     @ParameterizedTest @ValueSource(ints={0,1,199,200,201,400})
     void shouldRetainEveryUnitDigestKey_whenFrozenPagesReachTheirBoundary(int size) {
         var source=new java.util.ArrayList<CdsImportUnit>(); var expected=io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys.digest();

@@ -55,6 +55,12 @@ CLASSES = (
     'CdsImportLedgerMariaDbIntegrationTest', 'CdsTargetReceiptMariaDbIntegrationTest',
 )
 
+REQUIRED_CASES = {
+    'CdsImportCoordinatorMariaDbIntegrationTest': (
+        'shouldPrefetchOneImmutableBinding_withoutTransactionOrRetainedConnection',
+    ),
+}
+
 
 def collect_reports(required, source, destination):
     """Reject missing, skipped or inconsistent physical evidence and strip captured configuration."""
@@ -88,6 +94,9 @@ def collect_reports(required, source, destination):
                     for tag in ('flakyFailure', 'flakyError', 'rerunFailure', 'rerunError'))
         if counts['tests'] < 1 or rerun or any(counts[key] for key in ('errors', 'failures', 'skipped')):
             incomplete.append(simple)
+        for method in REQUIRED_CASES.get(simple, ()):
+            if sum(case.get('name') == method for case in cases) != 1:
+                incomplete.append(simple + ': required case absent or ambiguous')
         total += counts['tests']
         # Config and captured framework output never enter published reports.
         for parent in suite.iter():

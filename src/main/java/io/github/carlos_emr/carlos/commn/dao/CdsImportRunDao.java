@@ -22,9 +22,12 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.CdsImportRun;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /** Data access for one protected CDS import table; orchestration belongs in services. */
 @Repository
@@ -32,6 +35,21 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun> {
     public CdsImportRunDao() { super(CdsImportRun.class); }
     public CdsImportRun lock(String id) { return entityManager.find(CdsImportRun.class, id, LockModeType.PESSIMISTIC_WRITE); }
     public CdsImportRun get(String id) { return entityManager.find(CdsImportRun.class, id); }
+    /** One current scalar statement; no entity or persistence scope escapes before private file I/O. */
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+    public CdsImportJobBindingDto readJobBinding(String runId) {
+        var rows=entityManager.createQuery("""
+                select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto(
+                    r.id,r.operator,r.providerNo,r.sourceNamespace,r.profile,r.state,
+                    r.sourceDigest,r.optionsDigest,r.rulesetDigest,r.manifestDigest,
+                    r.expectedPatients,r.expectedUnits,r.ownerEpoch,r.cancelRequested,
+                    r.createdAt,r.updatedAt,r.reportGeneration,r.reportLocation,r.reportDigest,r.snapshotLocation)
+                from CdsImportRun r where r.id=:run
+                """, CdsImportJobBindingDto.class)
+                .setParameter("run", runId).setMaxResults(1)
+                .setHint("jakarta.persistence.query.timeout", 120_000).getResultList();
+        return rows.isEmpty()?null:rows.getFirst();
+    }
     /** Rechecked under the run lock before any preparation epoch can replace a stopped review. */
     public boolean reviewBlocksExecution(String runId) {
         return !entityManager.createQuery("select r.id from CdsImportRun r where r.id=:run and exists(select q.id from CdsImportReview q where q.runId=r.id and (q.state in ('REQUESTED','VALIDATING','OVERLAY_PUBLISHED','PATIENT_DECLINED','REVISION_PUBLISHED') or (q.state='DRAFT_REQUIRES_CORRECTION' and not exists(select newer.id from CdsImportReview newer where newer.runId=q.runId and newer.sourceKey=q.sourceKey and newer.reviewVersion>q.reviewVersion and newer.state in ('OVERLAY_PUBLISHED','OVERLAY_READY','REVALIDATED')))))", String.class)

@@ -22,12 +22,25 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 
 import java.util.Objects;
+import java.time.Instant;
 
 /** Protected administrative projection; never include its private location in an operator response. */
 public record CdsImportJobBindingDto(CdsImportJobDto job, String documentLocation) {
     public CdsImportJobBindingDto {
         Objects.requireNonNull(job);
         Objects.requireNonNull(documentLocation);
+    }
+
+    /** Typed persistence projection, preserving the complete public job representation. */
+    public CdsImportJobBindingDto(String id, String operator, String providerNo, String sourceNamespace,
+            String profile, String state, String sourceDigest, String optionsDigest, String rulesetDigest,
+            String manifestDigest, long expectedPatients, long expectedUnits, long ownerEpoch,
+            boolean cancelRequested, Instant createdAt, Instant updatedAt, long reportGeneration,
+            String reportLocation, String reportDigest, String documentLocation) {
+        this(new CdsImportJobDto(id, operator, providerNo, sourceNamespace, profile, state,
+                sourceDigest, optionsDigest, rulesetDigest, manifestDigest, expectedPatients, expectedUnits,
+                ownerEpoch, cancelRequested, createdAt, updatedAt, reportGeneration, reportLocation,
+                reportDigest), documentLocation);
     }
 
     @Override public String toString() { return "CdsImportJobBindingDto[protected]"; }

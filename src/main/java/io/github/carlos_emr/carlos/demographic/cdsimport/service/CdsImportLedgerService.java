@@ -744,7 +744,11 @@ public class CdsImportLedgerService {
 
     /** Protected internal request binding; the application facade authorizes before private-path access. */
     public CdsImportJobBindingDto jobBinding(String runId) {
-        return write(() -> jobBindingProjection(runId));
+        requireNoTransaction();
+        CdsImportKeys.required(runId, "run id", 36);
+        CdsImportJobBindingDto binding=runs.readJobBinding(runId);
+        if (binding==null) throw new CdsImportException("RUN_NOT_FOUND");
+        return binding;
     }
 
     CdsImportJobBindingDto jobBindingInReadTransaction(String runId) {
