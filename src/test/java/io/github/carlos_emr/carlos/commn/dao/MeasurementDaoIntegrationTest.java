@@ -771,8 +771,10 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.save(provider);
             hibernateTemplate.flush();
 
+            // Flyway already seeds BP; keep this join fixture independent of reference data.
+            String fixtureType = "F539";
             MeasurementType mt = new MeasurementType();
-            mt.setType("BP");
+            mt.setType(fixtureType);
             mt.setTypeDisplayName("Blood Pressure");
             mt.setTypeDescription("FAKE blood pressure");
             mt.setMeasuringInstruction("FAKE seated");
@@ -780,7 +782,7 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
             entityManager.persist(mt);
             entityManager.flush();
 
-            Measurement m = createAndPersist(DEMO_NO, "BP", "120/80", today);
+            Measurement m = createAndPersist(DEMO_NO, fixtureType, "120/80", today);
 
             // When
             List<Object[]> result = measurementDao.findMeasurementsAndProviders(m.getId());
