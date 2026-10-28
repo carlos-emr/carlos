@@ -20,6 +20,7 @@ class FormsTimedAutosave {
         let boundTimerIncrement = this.timerIncrement.bind(this);
         this.idleInterval = setInterval(boundTimerIncrement, autosaveInterval);
         let boundFormChangedEvent = this.formChangedEvent.bind(this);
+        this.formElement.addEventListener('input', boundFormChangedEvent);
         this.formElement.addEventListener('change', boundFormChangedEvent);
         this.formElement.addEventListener('keydown', boundFormChangedEvent);
 

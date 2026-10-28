@@ -9,6 +9,7 @@ Run from any directory (Python >= 3.10, Node for the shared prose corpus):
   python3 scripts/waf/check-clinical-policy.py
   python3 scripts/waf/check-clinical-policy.py --evidence-dir /tmp/waf-evidence
   python3 scripts/waf/check-clinical-policy.py --check-config
+  python3 scripts/waf/check-clinical-policy.py --check-inventory
   python3 scripts/waf/check-clinical-policy.py --self-test
 
 No root, production listener, service command, application, or database is used.
@@ -600,9 +601,13 @@ def relocate(text, mappings):
     return "".join(lines)
 
 
-def validate_rourke_rule_inventory(repo, crs_dir):
+def validate_rourke_rule_inventory(repo, crs_dir, installed_version=None):
     """Fail on CRS drift before exercising the generated ID-based exclusions."""
     inventory = json.loads((repo / "scripts/waf/rourke-prose-rule-ids.json").read_text())
+    if installed_version is not None:
+        upstream_version = installed_version.split(":")[-1].split("-")[0]
+        if upstream_version != inventory["crs_version"]:
+            raise ValueError("installed CRS version differs from the reviewed Rourke inventory; review before upgrading")
     tags = {"attack-sqli", "attack-rce", "attack-injection-php", "attack-protocol", "attack-lfi", "attack-rfi"}
     if set(inventory["content_attack_tags"]) != tags:
         raise ValueError("Rourke inventory must retain exactly the six existing prose attack families")
@@ -941,7 +946,7 @@ class MechanicsTests(unittest.TestCase):
             rules = root / "crs/rules"
             rules.mkdir(parents=True)
             inventory = root / "scripts/waf/rourke-prose-rule-ids.json"
-            manifest = {"content_attack_tags": ["attack-sqli", "attack-rce", "attack-injection-php",
+            manifest = {"crs_version": "3.3.8", "content_attack_tags": ["attack-sqli", "attack-rce", "attack-injection-php",
                                                "attack-protocol", "attack-lfi", "attack-rfi"],
                         "rules_by_paranoia_level": {"1": [942100], "2": [], "3": [], "4": []}}
             inventory.write_text(json.dumps(manifest))
@@ -950,6 +955,10 @@ class MechanicsTests(unittest.TestCase):
                               "SecRule ARGS \"@rx script\" \"id:941100,tag:'attack-xss'\"\n"
                               "SecRule REQUEST_HEADERS \"@rx protocol\" \"id:920100,tag:'attack-protocol'\"\n")
             self.assertEqual(validate_rourke_rule_inventory(root, root / "crs"), manifest["rules_by_paranoia_level"])
+            self.assertEqual(validate_rourke_rule_inventory(root, root / "crs", "1:3.3.8-1ubuntu1"),
+                             manifest["rules_by_paranoia_level"])
+            with self.assertRaisesRegex(ValueError, "installed CRS version differs"):
+                validate_rourke_rule_inventory(root, root / "crs", "3.3.9-1")
             source.write_text(source.read_text() + "SecRule ARGS \"@rx sql\" \"id:942110,tag:'attack-sqli',tag:'paranoia-level/2'\"\n")
             with self.assertRaisesRegex(ValueError, "differs from installed CRS"):
                 validate_rourke_rule_inventory(root, root / "crs")
@@ -1197,6 +1206,7 @@ def parse_args(argv=None):
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--self-test", action="store_true", help="test harness mechanics without listeners or host dependencies")
     mode.add_argument("--check-config", action="store_true", help="run isolated nginx -t without listeners")
+    mode.add_argument("--check-inventory", action="store_true", help="validate installed CRS version and rule inventory without nginx or Node")
     mode.add_argument("--list-cases", action="store_true", help="list the selected cases without listeners")
     parser.add_argument("--repo", type=Path, default=ROOT)
     parser.add_argument("--nginx", default=shutil.which("nginx") or "/usr/sbin/nginx")
@@ -1225,6 +1235,15 @@ def main(argv=None):
     report = {"results": [], "scope": "nginx/ModSecurity/CRS policy against a fixture upstream; no real application", "filters": args.case}
     exit_code = 2
     try:
+        if args.check_inventory:
+            # Fixed package query, never a shell command or request-derived path.
+            version = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
+                ["dpkg-query", "-W", "-f=${Version}", "modsecurity-crs"],
+                capture_output=True, text=True, timeout=5, check=True, shell=False,
+            ).stdout.strip()
+            validate_rourke_rule_inventory(args.repo, args.crs_dir, version)
+            print("PASS installed CRS version and Rourke rule inventory")
+            return 0
         if args.evidence_dir:
             args.evidence_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
             if any(args.evidence_dir.iterdir()):
