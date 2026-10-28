@@ -291,7 +291,13 @@ public final class PortalMyCarlosStaffApprovalService {
     static final String NO_USABLE_EMAIL = "no usable chart email";
     static final String NO_CONSENT = "no email consent";
     static final String SENDER_INACTIVE = "sender account not active";
+    static final String FOOTER_MISSING = "clinic footer missing";
 
+    /**
+     * Sends tried per code request before giving up: each failed send leaves a failed row in the
+     * patient's email history, so they stay few.
+     */
+    static final int MAX_SENDS = 3;
     /** Failed sends per code request and when to try again: 30 s, then doubling, at most 5 minutes. */
     private final java.util.Map<Bytes, EmailRetry> emailRetries = new java.util.concurrent.ConcurrentHashMap<>();
     private record EmailRetry(int failures, Instant notBefore) {}
@@ -597,7 +603,7 @@ public final class PortalMyCarlosStaffApprovalService {
             if (found.isPresent() && found.get().emailedAt() != null) return found.get();
             if (!locked.pending() || !now.isBefore(locked.expiresAt())) return found.orElse(null);
             var retry = emailRetries.get(challenge.challengeId());
-            if (retry != null && now.isBefore(retry.notBefore())) return found.orElse(null);
+            if (retry != null && (retry.failures() >= MAX_SENDS || now.isBefore(retry.notBefore()))) return found.orElse(null);
             // A request made while codes were on, now under staff_only: no new code is made for it.
             if (found.isEmpty() && !policy.byCode()) return null;
             codeR[0] = PortalMyCarlosClinicCode.newCodeR();
@@ -622,8 +628,18 @@ public final class PortalMyCarlosStaffApprovalService {
             sent = mail.send(challenge.demographicNo(), reach.address(), PortalMyCarlosClinicCode.display(code), minutes);
         }
         if (!sent) {
-            emailRetries.merge(challenge.challengeId(), new EmailRetry(1, now.plusSeconds(30)), (old, first) ->
+            var retry = emailRetries.merge(challenge.challengeId(), new EmailRetry(1, now.plusSeconds(30)), (old, first) ->
                     new EmailRetry(old.failures() + 1, now.plusSeconds(Math.min(300L, 30L << Math.min(old.failures(), 4)))));
+            // Fixed text and a fixed reason only. The request stays unanswered and expires; the
+            // device was never asked for a code.
+            if (retry.failures() >= MAX_SENDS) {
+                LOGGER.info("myCarlos device code email was not sent {} times; no more tries for this request", MAX_SENDS);
+            } else if (reach.address() == null) {
+                // Email stopped being possible after the request was taken.
+                LOGGER.info("myCarlos device code email was not sent: {}", reach.fallback());
+            } else {
+                LOGGER.info("myCarlos device code email was not sent: the send failed; it is tried again later");
+            }
             return row;
         }
         emailRetries.remove(challenge.challengeId());
@@ -643,6 +659,12 @@ public final class PortalMyCarlosStaffApprovalService {
         var codes = new PortalMyCarlosDeviceApprovalCodeDao(factory);
         return row -> codes.findByChallengeForUpdate(row.challengeId())
                 .map(code -> code.matchedAt() != null && policy.equals(code.policy())).orElse(false);
+    }
+
+    private boolean codeEmailed(PortalMyCarlosDeviceApprovalChallenge challenge) {
+        var codes = new PortalMyCarlosDeviceApprovalCodeDao(factory);
+        return transactions.withApprovalState(() -> codes.findByChallengeForUpdate(challenge.challengeId())
+                .map(code -> code.emailedAt() != null).orElse(false));
     }
 
     private boolean staffMayApproveCode(PortalMyCarlosDeviceApprovalChallenge row) {
@@ -790,6 +812,9 @@ public final class PortalMyCarlosStaffApprovalService {
 
     /** Claim a bounded durable lease, then cross HTTP with no database transaction held. */
     private void publish(PortalMyCarlosDeviceApprovalChallenge challenge, String kind, PortalMyCarlosApprovalClient client) {
+        // A device must never be asked for a code nobody received (mycarlos#141): whoever publishes
+        // (staff refresh or the code job), a code challenge goes out only once its code was emailed.
+        if ("challenge".equals(kind) && "code".equals(challenge.kind()) && !codeEmailed(challenge)) return;
         var dao = new PortalMyCarlosDeviceApprovalOutboxDao(factory);
         var claim = transactions.withApprovalState(() -> {
             var prior = dao.findMessageForUpdate(challenge.challengeId(), kind);

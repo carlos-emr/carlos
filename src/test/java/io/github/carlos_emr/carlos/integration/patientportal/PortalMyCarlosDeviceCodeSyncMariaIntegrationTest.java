@@ -214,10 +214,12 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
         int tries;
         boolean reachable = true;
         boolean failing;
+        /** Why the patient can't be emailed, when not reachable. */
+        String reason = PortalMyCarlosStaffApprovalService.NO_USABLE_EMAIL;
         public PortalMyCarlosStaffApprovalService.CodeReach reach(int patient) {
             reached++;
             return reachable && patient == 1 ? PortalMyCarlosStaffApprovalService.CodeReach.to("fake.patient@example.com")
-                    : PortalMyCarlosStaffApprovalService.CodeReach.staff(PortalMyCarlosStaffApprovalService.NO_USABLE_EMAIL);
+                    : PortalMyCarlosStaffApprovalService.CodeReach.staff(reason);
         }
         public boolean send(int patient, String address, String displayCode, long minutes) {
             assertTrue(minutes >= 1 && minutes <= 10);
@@ -240,6 +242,11 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
                 PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN));
         var current = PortalMyCarlosDeviceApprovalService.Current.fromValidated(settings, scope.canonicalPublicBase(), true, true);
         var security = mock(SecurityInfoManager.class);
+        // FAKE staff with every right, for the staff paths; the code job itself never asks.
+        org.mockito.Mockito.when(security.hasPrivilege(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
+        org.mockito.Mockito.when(security.isAllowedAccessToPatientRecord(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
         var key = data.path("keys").path("clinic");
         var signer = new PortalMyCarlosDeviceApprovalService.Signer() {
             public PortalMyCarlosDeviceApprovalService.SigningIdentity currentIdentity() {
@@ -519,6 +526,100 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
         assertEquals(Long.toString(1 + 20L * pages), sql("SELECT value FROM property WHERE name LIKE 'mycarlos.approval.code.requests.%'"));
         assertDoesNotThrow(() -> job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail));
         assertEquals(Long.toString(1 + 40L * pages), sql("SELECT value FROM property WHERE name LIKE 'mycarlos.approval.code.requests.%'"));
+    }
+
+    @Test
+    void shouldIssueNoCode_whenClinicFooterIsMissing() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        mail.reachable = false;
+        mail.reason = PortalMyCarlosStaffApprovalService.FOOTER_MISSING;
+        var job = service(portal);
+        try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(PortalMyCarlosStaffApprovalService.class)) {
+            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+            assertEquals(List.of("myCarlos device approval goes to staff: clinic footer missing"), log.messages());
+        }
+        // No challenge and no code row: the request is left for staff.
+        assertEquals("0", sql("SELECT COUNT(*) FROM mycarlos_device_approval_challenge"));
+        assertEquals("0", sql("SELECT COUNT(*) FROM mycarlos_device_approval_code"));
+        assertTrue(portal.calls.stream().noneMatch(call -> call.endsWith("/challenge")));
+    }
+
+    @Test
+    void shouldSayWhyNoCodeWentOut_whenEmailStopsBeingPossibleOrSendFails() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        mail.failing = true;
+        var job = service(portal);
+        try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(PortalMyCarlosStaffApprovalService.class)) {
+            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+            assertEquals(List.of("myCarlos device code email was not sent: the send failed; it is tried again later"),
+                    log.messages());
+        }
+        mail.failing = false;
+        mail.reachable = false;
+        mail.reason = PortalMyCarlosStaffApprovalService.FOOTER_MISSING;
+        NOW.addAndGet(35);
+        try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(PortalMyCarlosStaffApprovalService.class)) {
+            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+            assertEquals(List.of("myCarlos device code email was not sent: clinic footer missing"), log.messages());
+        }
+        assertTrue(mail.sent.isEmpty());
+        assertTrue(portal.calls.stream().noneMatch(call -> call.endsWith("/challenge")));
+    }
+
+    /** A FAKE staff login with every right (see the security mock). */
+    private static io.github.carlos_emr.carlos.utility.LoggedInInfo staff() {
+        var provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setProviderNo("999998");
+        var identity = new io.github.carlos_emr.carlos.commn.model.Security();
+        identity.setSecurityNo(7);
+        return new io.github.carlos_emr.carlos.utility.LoggedInInfo(null, null, provider, identity, java.util.Locale.ENGLISH);
+    }
+
+    @Test
+    void shouldNotPublishCodeChallengeOnStaffRefresh_beforeItsCodeWasEmailed() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        mail.failing = true;
+        var job = service(portal);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        assertEquals("code", sql("SELECT approval_kind FROM mycarlos_device_approval_challenge"));
+        // Staff refresh the patient's page while the code email is failing.
+        job.refresh(staff(), 1, portalService());
+        assertTrue(portal.calls.stream().noneMatch(call -> call.endsWith("/challenge")),
+                "the device must never be asked for a code nobody received");
+        // Once the code went out, the challenge is published.
+        mail.failing = false;
+        NOW.addAndGet(31);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        assertEquals(1, mail.sent.size());
+        assertTrue(portal.calls.stream().anyMatch(call -> call.endsWith("/challenge")));
+    }
+
+    @Test
+    void shouldStopAfterThreeFailedSends_andSayItOnce() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        mail.failing = true;
+        var job = service(portal);
+        try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(PortalMyCarlosStaffApprovalService.class)) {
+            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+            NOW.addAndGet(31);
+            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+            NOW.addAndGet(61);
+            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+            assertEquals(3, mail.tries);
+            // Long after: no fourth send, so no fourth failed row in the patient's email history.
+            NOW.addAndGet(300);
+            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+            assertEquals(3, mail.tries);
+            assertEquals(List.of(
+                    "myCarlos device code email was not sent: the send failed; it is tried again later",
+                    "myCarlos device code email was not sent: the send failed; it is tried again later",
+                    "myCarlos device code email was not sent 3 times; no more tries for this request"), log.messages());
+        }
+        assertTrue(portal.calls.stream().noneMatch(call -> call.endsWith("/challenge")));
     }
 
     @Test

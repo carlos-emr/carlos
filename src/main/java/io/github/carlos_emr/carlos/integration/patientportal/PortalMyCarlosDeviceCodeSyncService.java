@@ -177,6 +177,11 @@ public class PortalMyCarlosDeviceCodeSyncService {
             if (sender().isEmpty()) {
                 return PortalMyCarlosStaffApprovalService.CodeReach.staff(PortalMyCarlosStaffApprovalService.SENDER_INACTIVE);
             }
+            // A send would be refused for a missing required clinic footer: no code is made that
+            // can't go out (as ClinicEmailFooterService asks of senders that prepare something first).
+            if (emails.clinicFooterMissing()) {
+                return PortalMyCarlosStaffApprovalService.CodeReach.staff(PortalMyCarlosStaffApprovalService.FOOTER_MISSING);
+            }
             String address = chartEmail(demographics.getDemographicById(patient));
             if (address == null) {
                 return PortalMyCarlosStaffApprovalService.CodeReach.staff(PortalMyCarlosStaffApprovalService.NO_USABLE_EMAIL);

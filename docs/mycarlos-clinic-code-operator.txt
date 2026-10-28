@@ -35,11 +35,15 @@ Each run, in this order:
    says so once, with a fixed reason and nothing else:
      myCarlos device approval goes to staff: <reason>
    where <reason> is policy staff_only, no usable chart email, no email
-   consent, or sender account not active;
+   consent, sender account not active, or clinic footer missing (the clinic
+   email footer is required but not set). A send that fails later logs
+   "myCarlos device code email was not sent: <reason>" the same way;
 3. follows up the code requests of the last 15 minutes: a code not yet sent
    is sent again (a failing send waits 30 s, then twice as long each time, at
-   most 5 minutes), and challenges and decisions not yet published are
-   published.
+   most 5 minutes; after 3 failed sends it stops, logs "myCarlos device code
+   email was not sent 3 times; no more tries for this request", and the
+   request expires unanswered), and challenges and decisions not yet
+   published are published.
 Each of the first two passes reads at most 50 pages of 20 per run; a longer
 backlog is read over the next runs, and codes are always settled first. The
 cursors are kept in the property table (mycarlos.approval.code.cursor.* and
@@ -55,7 +59,10 @@ portal.mycarlos.device_approval.codes.consume.
 Email
 Sent through the normal CARLOS email path from the portal invitation sender,
 patient_portal.invite.sender_email, which must match an active email account in
-Administration > Email. The usual consent gate and clinic footer rules apply.
+Administration > Email. Both the sender address and the patient's chart email
+must end in a real top-level domain (example.com works; example.invalid or
+a bare name does not): CARLOS's address check refuses the rest, and the
+request then goes to staff. The usual consent gate and clinic footer rules apply.
 The system provider -1 needs _email rights (the seed data gives them). The text
 is in the patient's spoken or official language when CARLOS has it (English,
 French, Spanish, Polish, Portuguese), else English, and holds no health
