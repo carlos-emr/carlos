@@ -277,31 +277,68 @@ public final class PortalMyCarlosStaffApprovalService {
 
     // ---- Clinic code v1 (mycarlos#141): the unattended device-code job ----------------------------
 
+    private static final org.apache.logging.log4j.Logger LOGGER = io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
     private static final com.fasterxml.jackson.databind.ObjectMapper CLAIMS = new com.fasterxml.jackson.databind.ObjectMapper();
     private static final String CODE_CURSOR = "mycarlos.approval.code.cursor.";
+    private static final String REQUEST_CURSOR = "mycarlos.approval.code.requests.";
+    /** Pages of 20 each pass reads in one run; the rest waits for the next run. */
+    static final int PAGES_PER_RUN = 50;
+    /** How far back the follow-up pass looks for code requests to move on (a request lives 10 minutes). */
+    private static final java.time.Duration FOLLOW_UP_WINDOW = java.time.Duration.ofMinutes(15);
+    private static final int FOLLOW_UP_LIMIT = 200;
+    /** Why a first device goes to staff, as the job's log line says it (no patient or address). */
+    static final String STAFF_ONLY = "policy staff_only";
+    static final String NO_USABLE_EMAIL = "no usable chart email";
+    static final String NO_CONSENT = "no email consent";
+    static final String SENDER_INACTIVE = "sender account not active";
+
+    /** Failed sends per code request and when to try again: 30 s, then doubling, at most 5 minutes. */
+    private final java.util.Map<Bytes, EmailRetry> emailRetries = new java.util.concurrent.ConcurrentHashMap<>();
+    private record EmailRetry(int failures, Instant notBefore) {}
 
     /** What the device-code job needs from CARLOS email. Neither method may log a code. */
     interface CodeMail {
-        /** @return the chart email a code may go to, or empty when there is none or consent blocks email */
-        java.util.Optional<String> usableAddress(int patient);
+        /** Where a code may go for this patient, or why the request goes to staff instead. */
+        CodeReach reach(int patient);
 
         /** @return whether the mail provider accepted the email carrying {@code displayCode} */
         boolean send(int patient, String address, String displayCode, long minutes);
     }
 
+    /** The chart email a code may go to, or the reason (one of the constants above) it may not. */
+    record CodeReach(String address, String fallback) {
+        CodeReach {
+            if ((address == null) == (fallback == null)) throw new IllegalArgumentException("address or fallback");
+        }
+        static CodeReach to(String address) {
+            return new CodeReach(Objects.requireNonNull(address), null);
+        }
+        static CodeReach staff(String reason) {
+            return new CodeReach(null, Objects.requireNonNull(reason));
+        }
+        @Override public String toString() { return "CodeReach[REDACTED]"; }
+    }
+
     /** Counts from one run, for the job's log line: no patient, request or code values. */
-    record CodeSyncResult(int challenged, int emailed, int matched, int wrong, int accepted, int refused) {}
+    record CodeSyncResult(int challenged, int emailed, int matched, int wrong, int accepted, int refused, int ended) {}
 
     /**
-     * One run of the device-code job, with no staff login:
+     * One run of the device-code job, with no staff login, in three passes:
      * <ol>
-     * <li>for each new first-device request of a patient CARLOS can email (when the policy uses codes),
-     * make a {@code code} challenge, email the code, then publish the challenge;</li>
-     * <li>read the codes devices sent after the saved cursor, compare each in constant time, then
-     * accept on a match (policy {@code code}; under {@code code_and_staff} staff approve next), or
-     * refuse with {@code code_attempts} after the fifth wrong code, and mark each code used.</li>
+     * <li>the codes devices sent after the saved code cursor: each is compared in constant time and
+     * counted in the same transaction that moves the cursor past it, so it is never counted twice;
+     * then it is marked used, and the request is accepted on a match (policy {@code code}; under
+     * {@code code_and_staff} staff approve next) or refused with {@code code_attempts} after the
+     * fifth wrong code. Codes come first, so no backlog of new requests can hold them back;</li>
+     * <li>new requests after the saved request cursor: a first device of a patient CARLOS can email
+     * gets a {@code code} challenge, its code is emailed and the challenge published; any other
+     * first device goes to staff, as the log says once;</li>
+     * <li>code requests of the last minutes: a code not yet sent is sent again (backing off a failing
+     * send), challenges and decisions not yet published are published, and a request whose code
+     * was made before this server started ends as {@code expired} ({@code challenge_expired}).</li>
      * </ol>
-     * Callers must not hold a database transaction.
+     * Each pass reads at most {@value #PAGES_PER_RUN} pages per run. Callers must not hold a
+     * database transaction.
      */
     CodeSyncResult syncCodes(PatientPortalService portal, PortalMyCarlosApprovalPolicy policy, CodeMail mail) {
         Objects.requireNonNull(policy);
@@ -314,41 +351,162 @@ public final class PortalMyCarlosStaffApprovalService {
         };
         fence.run();
         var client = client(portal);
-        int[] counts = new int[6];
-        if (policy.byCode()) issueCodes(binding, fence, client, policy, mail, counts);
-        // Codes already sent are still settled after a switch to staff_only.
+        int[] counts = new int[7];
         readCodes(binding, fence, client, counts);
-        return new CodeSyncResult(counts[0], counts[1], counts[2], counts[3], counts[4], counts[5]);
+        readRequests(binding, fence, client, policy, mail, counts);
+        followUp(binding, fence, client, policy, mail, counts);
+        return new CodeSyncResult(counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], counts[6]);
     }
 
-    private void issueCodes(PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence,
+    private void readCodes(PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence,
+            PortalMyCarlosApprovalClient client, int[] counts) {
+        long after = cursor(CODE_CURSOR, binding);
+        for (int pageNo = 0; pageNo < PAGES_PER_RUN; pageNo++) {
+            fence.run();
+            PortalMyCarlosApprovalClient.Page<PortalMyCarlosApprovalClient.Code> page;
+            try { page = client.codes(after); }
+            catch (PortalContractException failure) {
+                throw PatientPortalException.ofMalformedResponse(200, "/internal/carlos/mycarlos/device-approval-codes", failure);
+            } catch (PatientPortalException failure) {
+                if (!resetOnInvalidCursor(failure, CODE_CURSOR, binding, after)) throw failure;
+                return;
+            }
+            fence.run();
+            for (var sent : page.records()) {
+                var challenge = settleCode(binding, sent, after, counts);
+                after = sent.sequence();
+                try {
+                    client.consumed(sent.requestId(), sent.attempt());
+                } catch (PatientPortalException | PortalContractException failure) {
+                    // Already counted, and the cursor is past it, so it is never counted again. The
+                    // portal erases it anyway once the request is decided or expires.
+                }
+                if (challenge != null) finishCode(challenge, fence, client, counts);
+            }
+            if (page.nextCursor() == null) return;
+        }
+    }
+
+    /**
+     * Compares one sent code with its request's stored hash and moves the code cursor past it, in
+     * one transaction.
+     *
+     * @return the code challenge it was sent for, or null when it is not one of this clinic's
+     */
+    private PortalMyCarlosDeviceApprovalChallenge settleCode(PortalMyCarlosDeviceApprovalService.Current binding,
+            PortalMyCarlosApprovalClient.Code sent, long after, int[] counts) {
+        var codes = new PortalMyCarlosDeviceApprovalCodeDao(factory);
+        var challenges = new PortalMyCarlosDeviceApprovalChallengeDao(factory);
+        var key = PortalMyCarlosClinicCode.serverKey();
+        Instant now = codeClock.instant().truncatedTo(ChronoUnit.SECONDS);
+        return transactions.withApprovalState(() -> {
+            PortalMyCarlosDeviceApprovalChallenge result = null;
+            // Challenge first, then its code: the order the accept path locks them in.
+            var found = challenges.findByRequestForUpdate(binding.clinic, sent.requestId());
+            if (found.isPresent() && "code".equals(found.get().kind())
+                    && PortalMyCarlosDeviceApprovalCodec.base64(found.get().challengeId().copy()).equals(sent.challengeId())) {
+                var row = found.get();
+                var code = codes.findByChallengeForUpdate(row.challengeId());
+                if (code.isPresent()) {
+                    result = row;
+                    var current = code.get();
+                    // A code hashed under a key this server no longer has can't be checked, so it is
+                    // not counted as wrong: the follow-up ends that request instead.
+                    if (current.open() && sent.codeR() != null && row.pending() && now.isBefore(row.expiresAt())
+                            && PortalMyCarlosClinicCode.sameKey(key, current.keyId().copy())) {
+                        boolean right = PortalMyCarlosClinicCode.matches(key, current.keyId().copy(),
+                                current.mac().copy(), row.requestId().toString(), sent.codeR());
+                        var next = right ? current.matched(now) : current.wrong(now);
+                        codes.update(current, next);
+                        counts[right ? 2 : 3]++;
+                    }
+                }
+            }
+            writeCursor(CODE_CURSOR, binding, after, sent.sequence());
+            return result;
+        });
+    }
+
+    /**
+     * Moves one code request on as far as it can go now: accept a matched code (policy
+     * {@code code}), refuse after five wrong ones, end one whose code this server can't check, then
+     * publish the queued decision. A lasting refusal (the patient was linked another way, say) leaves
+     * the request as it is; approval switched off or keys unavailable stop the run.
+     */
+    private void finishCode(PortalMyCarlosDeviceApprovalChallenge challenge, Runnable fence,
+            PortalMyCarlosApprovalClient client, int[] counts) {
+        var codes = new PortalMyCarlosDeviceApprovalCodeDao(factory);
+        var challenges = new PortalMyCarlosDeviceApprovalChallengeDao(factory);
+        var code = transactions.withApprovalState(() -> codes.findByChallengeForUpdate(challenge.challengeId()).orElse(null));
+        if (code == null) return;
+        var key = PortalMyCarlosClinicCode.serverKey();
+        int patient = challenge.demographicNo();
+        try {
+            var core = core(systemSource(patient, fence));
+            if (code.matchedAt() != null && "code".equals(code.policy())) {
+                if (!core.acceptFromCode(patient, challenge.challengeId(), codeMatchedFor("code")).historical()) {
+                    counts[4]++;
+                    auditCode("code.accepted", challenge);
+                }
+            } else if (code.refusedAt() != null) {
+                if (core.endCodeChallenge(patient, challenge.challengeId(), "code_attempts")) {
+                    counts[5]++;
+                    auditCode("code.refused", challenge);
+                }
+            } else if (code.open() && code.emailedAt() != null && !PortalMyCarlosClinicCode.sameKey(key, code.keyId().copy())) {
+                if (core.endCodeChallenge(patient, challenge.challengeId(), "challenge_expired")) {
+                    counts[6]++;
+                    auditCode("code.expired", challenge);
+                }
+            }
+        } catch (PortalMyCarlosDeviceApprovalService.Refusal refusal) {
+            if ("approval_unavailable".equals(refusal.code)) throw refusal;
+            return;
+        }
+        var latest = transactions.withApprovalState(() -> challenges.findByChallengeForUpdate(challenge.challengeId()).orElseThrow());
+        try {
+            publish(latest, "decision", client);
+        } catch (PatientPortalException | PublicationPending failure) {
+            // The decision stays queued here; the follow-up pass publishes it again.
+        }
+    }
+
+    private void readRequests(PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence,
             PortalMyCarlosApprovalClient client, PortalMyCarlosApprovalPolicy policy, CodeMail mail, int[] counts) {
-        long after = 0;
-        for (int pageNo = 0; pageNo < 50; pageNo++) {
+        long after = cursor(REQUEST_CURSOR, binding);
+        for (int pageNo = 0; pageNo < PAGES_PER_RUN; pageNo++) {
             fence.run();
             PortalMyCarlosApprovalClient.Page<PortalMyCarlosApprovalClient.Request> page;
             try { page = client.requests(after); }
             catch (PortalContractException failure) {
                 throw PatientPortalException.ofMalformedResponse(200, "/internal/carlos/mycarlos/device-approval-requests", failure);
+            } catch (PatientPortalException failure) {
+                if (!resetOnInvalidCursor(failure, REQUEST_CURSOR, binding, after)) throw failure;
+                return;
             }
             fence.run();
             for (var request : page.records()) {
                 try {
                     issueCode(binding, fence, client, policy, mail, request, counts);
-                } catch (PublicationPending pending) {
-                    // Its lease or retry time has not come; the next run publishes it.
                 } catch (PatientPortalException failure) {
-                    if (!retainPublicationRefusal(request, failure, binding, fence)) throw failure;
+                    // Only publishing a challenge reaches the portal here. An expired one is recorded;
+                    // anything else is published again by the follow-up pass.
+                    retainPublicationRefusal(request, failure, binding, fence);
                 } catch (PortalMyCarlosDeviceApprovalService.Refusal refusal) {
                     // One request that can no longer go ahead (its patient was linked another way, say)
-                    // must not stop the others or the codes; staff see it on the patient's page.
+                    // must not stop the others; staff see it on the patient's page.
                     if ("approval_unavailable".equals(refusal.code)) throw refusal;
                 }
+                // Looked at once: what it still needs is the follow-up pass's.
+                long previous = after;
+                transactions.withApprovalState(() -> {
+                    writeCursor(REQUEST_CURSOR, binding, previous, request.sequence());
+                    return null;
+                });
+                after = request.sequence();
             }
             if (page.nextCursor() == null) return;
-            after = page.nextCursor();
         }
-        throw new IllegalStateException("approval request polling limit reached");
     }
 
     private void issueCode(PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence,
@@ -360,8 +518,14 @@ public final class PortalMyCarlosStaffApprovalService {
         if (journal.publication(binding, request, null) != null) return;
         String saved = journal.record(binding, request, null);
         if (saved != null && !"prepared".equals(saved)) return;
-        // A patient CARLOS cannot email is left for staff to approve, as before.
-        if (saved == null && mail.usableAddress(patient).isEmpty()) return;
+        if (saved == null) {
+            String fallback = policy.byCode() ? mail.reach(patient).fallback() : STAFF_ONLY;
+            if (fallback != null) {
+                // Fixed text and a fixed reason only: no address, patient or request.
+                LOGGER.info("myCarlos device approval goes to staff: {}", fallback);
+                return;
+            }
+        }
         PortalMyCarlosDeviceApprovalChallenge challenge;
         try {
             challenge = core(systemSource(patient, fence)).createOrReadExactChallenge(patient, request.intent(), true);
@@ -379,11 +543,47 @@ public final class PortalMyCarlosStaffApprovalService {
         var code = emailCode(challenge, policy, mail, counts);
         // The device is asked for the code only once it was sent.
         if (code == null || code.emailedAt() == null) return;
-        publish(challenge, "challenge", client);
-        publish(challenge, "decision", client);
+        try {
+            publish(challenge, "challenge", client);
+        } catch (PublicationPending pending) {
+            // The follow-up pass publishes it once its retry time comes.
+        }
     }
 
-    /** @return the challenge's code row once emailed, or as far as it got (null: none could be made) */
+    /**
+     * Code requests of the last minutes, oldest first: send a code not yet sent (after its backoff),
+     * publish an emailed request's challenge, then finish what its code decided.
+     */
+    private void followUp(PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence,
+            PortalMyCarlosApprovalClient client, PortalMyCarlosApprovalPolicy policy, CodeMail mail, int[] counts) {
+        var codes = new PortalMyCarlosDeviceApprovalCodeDao(factory);
+        var challenges = new PortalMyCarlosDeviceApprovalChallengeDao(factory);
+        Instant now = codeClock.instant().truncatedTo(ChronoUnit.SECONDS);
+        emailRetries.keySet().removeIf(id -> transactions.withApprovalState(() -> codes.findByChallengeForUpdate(id)
+                .map(code -> !now.isBefore(code.expiresAt())).orElse(true)));
+        var ids = transactions.withApprovalState(() -> codes.recentChallengeIds(binding.clinic, now.minus(FOLLOW_UP_WINDOW), FOLLOW_UP_LIMIT));
+        for (var id : ids) {
+            fence.run();
+            var challenge = transactions.withApprovalState(() -> challenges.findByChallengeForUpdate(id).orElse(null));
+            if (challenge == null) continue;
+            try {
+                if (challenge.pending()) {
+                    var code = emailCode(challenge, policy, mail, counts);
+                    if (code != null && code.emailedAt() != null) publish(challenge, "challenge", client);
+                }
+            } catch (PatientPortalException | PublicationPending failure) {
+                // Tried again by the next run.
+            }
+            finishCode(challenge, fence, client, counts);
+        }
+    }
+
+    /**
+     * Makes sure an open code request's code was emailed: a code never emailed is replaced by a new
+     * one (its value lived only in a run that ended) and sent, unless a failing send is backing off.
+     *
+     * @return the code row as far as it got, or null when none could be made
+     */
     private PortalMyCarlosDeviceApprovalCode emailCode(PortalMyCarlosDeviceApprovalChallenge challenge,
             PortalMyCarlosApprovalPolicy policy, CodeMail mail, int[] counts) {
         var codes = new PortalMyCarlosDeviceApprovalCodeDao(factory);
@@ -396,6 +596,10 @@ public final class PortalMyCarlosStaffApprovalService {
             var found = codes.findByChallengeForUpdate(challenge.challengeId());
             if (found.isPresent() && found.get().emailedAt() != null) return found.get();
             if (!locked.pending() || !now.isBefore(locked.expiresAt())) return found.orElse(null);
+            var retry = emailRetries.get(challenge.challengeId());
+            if (retry != null && now.isBefore(retry.notBefore())) return found.orElse(null);
+            // A request made while codes were on, now under staff_only: no new code is made for it.
+            if (found.isEmpty() && !policy.byCode()) return null;
             codeR[0] = PortalMyCarlosClinicCode.newCodeR();
             var mac = new Bytes(PortalMyCarlosClinicCode.mac(key, locked.requestId().toString(), codeR[0]));
             if (found.isPresent()) {
@@ -409,12 +613,20 @@ public final class PortalMyCarlosStaffApprovalService {
             return created;
         });
         if (row == null || row.emailedAt() != null || codeR[0] == null) return row;
-        var address = mail.usableAddress(challenge.demographicNo());
-        if (address.isEmpty()) return row;
-        String code = PortalMyCarlosClinicCode.code(signingKid(challenge.signedChallenge()), challenge.candidateKid(),
-                challenge.requestId().toString(), codeR[0]);
-        long minutes = (java.time.Duration.between(now, challenge.expiresAt()).getSeconds() + 59) / 60;
-        if (!mail.send(challenge.demographicNo(), address.get(), PortalMyCarlosClinicCode.display(code), minutes)) return row;
+        var reach = mail.reach(challenge.demographicNo());
+        boolean sent = false;
+        if (reach.address() != null) {
+            String code = PortalMyCarlosClinicCode.code(signingKid(challenge.signedChallenge()), challenge.candidateKid(),
+                    challenge.requestId().toString(), codeR[0]);
+            long minutes = (java.time.Duration.between(now, challenge.expiresAt()).getSeconds() + 59) / 60;
+            sent = mail.send(challenge.demographicNo(), reach.address(), PortalMyCarlosClinicCode.display(code), minutes);
+        }
+        if (!sent) {
+            emailRetries.merge(challenge.challengeId(), new EmailRetry(1, now.plusSeconds(30)), (old, first) ->
+                    new EmailRetry(old.failures() + 1, now.plusSeconds(Math.min(300L, 30L << Math.min(old.failures(), 4)))));
+            return row;
+        }
+        emailRetries.remove(challenge.challengeId());
         counts[1]++;
         auditCode("code.emailed", challenge);
         return transactions.withApprovalState(() -> {
@@ -424,101 +636,6 @@ public final class PortalMyCarlosStaffApprovalService {
             codes.update(latest, next);
             return next;
         });
-    }
-
-    private void readCodes(PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence,
-            PortalMyCarlosApprovalClient client, int[] counts) {
-        long after = codeCursor(binding);
-        for (int pageNo = 0; pageNo < 50; pageNo++) {
-            fence.run();
-            PortalMyCarlosApprovalClient.Page<PortalMyCarlosApprovalClient.Code> page;
-            try { page = client.codes(after); }
-            catch (PortalContractException failure) {
-                throw PatientPortalException.ofMalformedResponse(200, "/internal/carlos/mycarlos/device-approval-codes", failure);
-            } catch (PatientPortalException failure) {
-                // The portal no longer has codes up to the saved cursor (its database was replaced):
-                // read again from the start. Codes are matched by request, so a repeat changes nothing.
-                if (failure.statusCode() != 400 || !"invalid_cursor".equals(failure.detail()) || after == 0) throw failure;
-                saveCodeCursor(binding, after, 0);
-                return;
-            }
-            fence.run();
-            for (var sent : page.records()) {
-                try {
-                    settleCode(binding, fence, client, sent, counts);
-                } catch (PublicationPending pending) {
-                    // The decision is stored; its publication is retried by the next run.
-                }
-                client.consumed(sent.requestId(), sent.attempt());
-                saveCodeCursor(binding, after, sent.sequence());
-                after = sent.sequence();
-            }
-            if (page.nextCursor() == null) return;
-        }
-        throw new IllegalStateException("approval code polling limit reached");
-    }
-
-    private void settleCode(PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence,
-            PortalMyCarlosApprovalClient client, PortalMyCarlosApprovalClient.Code sent, int[] counts) {
-        var codes = new PortalMyCarlosDeviceApprovalCodeDao(factory);
-        var challenges = new PortalMyCarlosDeviceApprovalChallengeDao(factory);
-        var key = PortalMyCarlosClinicCode.serverKey();
-        Instant now = codeClock.instant().truncatedTo(ChronoUnit.SECONDS);
-        record Settled(PortalMyCarlosDeviceApprovalChallenge challenge, PortalMyCarlosDeviceApprovalCode code) {}
-        var settled = transactions.withApprovalState(() -> {
-            // Challenge first, then its code: the order the accept path locks them in.
-            var found = challenges.findByRequestForUpdate(binding.clinic, sent.requestId());
-            if (found.isEmpty() || !"code".equals(found.get().kind())) return null;
-            var row = found.get();
-            if (!PortalMyCarlosDeviceApprovalCodec.base64(row.challengeId().copy()).equals(sent.challengeId())) return null;
-            var code = codes.findByChallengeForUpdate(row.challengeId());
-            if (code.isEmpty()) return null;
-            var current = code.get();
-            if (current.open() && sent.codeR() != null && row.pending() && now.isBefore(row.expiresAt())) {
-                boolean right = PortalMyCarlosClinicCode.matches(key, current.keyId().copy(), current.mac().copy(),
-                        row.requestId().toString(), sent.codeR());
-                var next = right ? current.matched(now) : current.wrong(now);
-                codes.update(current, next);
-                counts[right ? 2 : 3]++;
-                current = next;
-            }
-            return new Settled(row, current);
-        });
-        if (settled == null) return;
-        var challenge = settled.challenge();
-        var code = settled.code();
-        int patient = challenge.demographicNo();
-        try {
-            if (code.matchedAt() != null && "code".equals(code.policy())) {
-                var decision = core(systemSource(patient, fence)).acceptFromCode(patient, challenge.challengeId(),
-                        codeMatchedFor("code"));
-                if (!decision.historical()) {
-                    counts[4]++;
-                    auditCode("code.accepted", challenge);
-                }
-            } else if (code.refusedAt() != null) {
-                if (core(systemSource(patient, fence)).refuseCodeAttempts(patient, challenge.challengeId())) {
-                    counts[5]++;
-                    auditCode("code.refused", challenge);
-                }
-            } else {
-                // Wrong but not yet five, still open, or matched under code_and_staff (staff approve next).
-                return;
-            }
-        } catch (PortalMyCarlosDeviceApprovalService.Refusal refusal) {
-            // A lasting refusal (the patient was linked another way meanwhile, or the request was
-            // already decided) settles this code: it must not hold back the codes after it. Approval
-            // switched off or keys unavailable is passing, so the run stops and the code is read again.
-            if ("approval_unavailable".equals(refusal.code)) throw refusal;
-            return;
-        }
-        var latest = transactions.withApprovalState(() -> challenges.findByChallengeForUpdate(challenge.challengeId()).orElseThrow());
-        try {
-            publish(latest, "decision", client);
-        } catch (PatientPortalException failure) {
-            // The decision stays queued here; the request pass publishes it again while the portal
-            // still lists the request. Later codes are not held back.
-        }
     }
 
     /** Read under the challenge's lock: whether its code matched and was issued under {@code policy}. */
@@ -565,44 +682,54 @@ public final class PortalMyCarlosStaffApprovalService {
         }
     }
 
-    private long codeCursor(PortalMyCarlosDeviceApprovalService.Current cfg) {
+    /** The portal no longer has rows up to a saved cursor (its database was replaced): start over. */
+    private boolean resetOnInvalidCursor(PatientPortalException failure, String prefix,
+            PortalMyCarlosDeviceApprovalService.Current cfg, long after) {
+        if (failure.statusCode() != 400 || !"invalid_cursor".equals(failure.detail()) || after == 0) return false;
+        transactions.withApprovalState(() -> {
+            writeCursor(prefix, cfg, after, 0);
+            return null;
+        });
+        return true;
+    }
+
+    private long cursor(String prefix, PortalMyCarlosDeviceApprovalService.Current cfg) {
         return transactions.withApprovalState(() -> {
-            var rows = cursorRows(cfg);
+            var rows = cursorRows(prefix, cfg);
             if (rows.isEmpty()) return 0L;
             String value = rows.getFirst().getValue();
-            if (value == null || !value.matches("0|[1-9][0-9]{0,18}")) throw new IllegalStateException("invalid approval code cursor");
+            if (value == null || !value.matches("0|[1-9][0-9]{0,18}")) throw new IllegalStateException("invalid approval job cursor");
             return Long.parseLong(value);
         });
     }
 
-    private void saveCodeCursor(PortalMyCarlosDeviceApprovalService.Current cfg, long expected, long next) {
-        transactions.withApprovalState(() -> {
-            var rows = cursorRows(cfg);
-            if (rows.isEmpty()) {
-                if (expected != 0) throw new IllegalStateException("approval code cursor changed");
-                var row = new io.github.carlos_emr.carlos.commn.model.Property(cursorKey(cfg));
-                row.setValue(Long.toString(next));
-                properties.persist(row);
-            } else {
-                var row = rows.getFirst();
-                if (!Long.toString(expected).equals(row.getValue())) throw new IllegalStateException("approval code cursor changed");
-                row.setValue(Long.toString(next));
-                properties.merge(row);
-            }
-            return null;
-        });
+    /** Moves a cursor inside the caller's approval transaction, only from the value it was read at. */
+    private void writeCursor(String prefix, PortalMyCarlosDeviceApprovalService.Current cfg, long expected, long next) {
+        var rows = cursorRows(prefix, cfg);
+        if (rows.isEmpty()) {
+            if (expected != 0) throw new IllegalStateException("approval job cursor changed");
+            var row = new io.github.carlos_emr.carlos.commn.model.Property(cursorKey(prefix, cfg));
+            row.setValue(Long.toString(next));
+            properties.persist(row);
+            return;
+        }
+        var row = rows.getFirst();
+        if (!Long.toString(expected).equals(row.getValue())) throw new IllegalStateException("approval job cursor changed");
+        row.setValue(Long.toString(next));
+        properties.merge(row);
     }
 
-    private List<io.github.carlos_emr.carlos.commn.model.Property> cursorRows(PortalMyCarlosDeviceApprovalService.Current cfg) {
-        var rows = properties.findByNameForUpdate(cursorKey(cfg)).stream()
+    private List<io.github.carlos_emr.carlos.commn.model.Property> cursorRows(String prefix,
+            PortalMyCarlosDeviceApprovalService.Current cfg) {
+        var rows = properties.findByNameForUpdate(cursorKey(prefix, cfg)).stream()
                 .filter(row -> row.getProviderNo() == null || row.getProviderNo().isBlank()).toList();
-        if (rows.size() > 1) throw new IllegalStateException("ambiguous approval code cursor");
+        if (rows.size() > 1) throw new IllegalStateException("ambiguous approval job cursor");
         return rows;
     }
 
-    /** One cursor per clinic and portal configuration: a new portal starts from its first code. */
-    private static String cursorKey(PortalMyCarlosDeviceApprovalService.Current cfg) {
-        return CODE_CURSOR + PortalMyCarlosDeviceApprovalCrypto.sha256(cfg.hash().copy());
+    /** One cursor per clinic and portal configuration: a new portal starts from its first row. */
+    private static String cursorKey(String prefix, PortalMyCarlosDeviceApprovalService.Current cfg) {
+        return prefix + PortalMyCarlosDeviceApprovalCrypto.sha256(cfg.hash().copy());
     }
 
     /** One audit row as the system provider; the request id only, never a code or device key. */

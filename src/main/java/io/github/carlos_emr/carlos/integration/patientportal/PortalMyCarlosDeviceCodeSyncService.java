@@ -127,10 +127,10 @@ public class PortalMyCarlosDeviceCodeSyncService {
         }
         var result = approvals.syncCodes(portal.get(), policy.get(), mail);
         if (result.challenged() + result.emailed() + result.matched() + result.wrong() + result.accepted()
-                + result.refused() > 0) {
-            LOGGER.info("myCarlos device codes: challenged={} emailed={} matched={} wrong={} accepted={} refused={}",
+                + result.refused() + result.ended() > 0) {
+            LOGGER.info("myCarlos device codes: challenged={} emailed={} matched={} wrong={} accepted={} refused={} ended={}",
                     result.challenged(), result.emailed(), result.matched(), result.wrong(), result.accepted(),
-                    result.refused());
+                    result.refused(), result.ended());
         }
     }
 
@@ -173,14 +173,20 @@ public class PortalMyCarlosDeviceCodeSyncService {
         }
 
         @Override
-        public Optional<String> usableAddress(int patient) {
-            if (sender().isEmpty()) return Optional.empty();
+        public PortalMyCarlosStaffApprovalService.CodeReach reach(int patient) {
+            if (sender().isEmpty()) {
+                return PortalMyCarlosStaffApprovalService.CodeReach.staff(PortalMyCarlosStaffApprovalService.SENDER_INACTIVE);
+            }
             String address = chartEmail(demographics.getDemographicById(patient));
-            if (address == null) return Optional.empty();
+            if (address == null) {
+                return PortalMyCarlosStaffApprovalService.CodeReach.staff(PortalMyCarlosStaffApprovalService.NO_USABLE_EMAIL);
+            }
             EmailData probe = new EmailData();
             probe.setDemographicNo(patient);
             probe.setRecipients(new String[] {address});
-            return emails.consentBlockMessage(system(), probe) == null ? Optional.of(address) : Optional.empty();
+            return emails.consentBlockMessage(system(), probe) == null
+                    ? PortalMyCarlosStaffApprovalService.CodeReach.to(address)
+                    : PortalMyCarlosStaffApprovalService.CodeReach.staff(PortalMyCarlosStaffApprovalService.NO_CONSENT);
         }
 
         @Override

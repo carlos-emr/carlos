@@ -72,6 +72,25 @@ final class PortalMyCarlosDeviceApprovalCodeDao {
         });
     }
 
+    /** Challenge ids of this clinic's codes that expire after {@code after}, oldest first. */
+    java.util.List<Bytes> recentChallengeIds(String clinicId, java.time.Instant after, int limit) {
+        Checks.text(clinicId, 256);
+        Checks.require(limit > 0 && limit <= 1000);
+        return owned(c -> {
+            try (var q = c.prepareStatement("SELECT challenge_id FROM mycarlos_device_approval_code"
+                    + " WHERE BINARY clinic_id=BINARY ? AND expires_at>? ORDER BY issued_at, challenge_id LIMIT ?")) {
+                q.setString(1, clinicId);
+                Jdbc.timestamp(q, 2, after);
+                q.setInt(3, limit);
+                var ids = new java.util.ArrayList<Bytes>();
+                try (var rows = q.executeQuery()) {
+                    while (rows.next()) ids.add(Jdbc.bytes(rows.getBytes(1)));
+                }
+                return ids;
+            }
+        });
+    }
+
     private static Optional<PortalMyCarlosDeviceApprovalCode> one(java.sql.PreparedStatement q) throws SQLException {
         try (var rows = q.executeQuery()) {
             if (!rows.next()) return Optional.empty();

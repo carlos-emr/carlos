@@ -153,14 +153,32 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
         final List<String> codes = new ArrayList<>();
         final List<JsonNode> decisions = new ArrayList<>();
         String intent;
+        /** Requests after the first are an endless backlog for patient 2, 20 a page. */
+        boolean backlog;
+        /** "Consumed" answers wrongly, as if the call failed. */
+        boolean failConsumed;
 
         String call(String permission, String method, String path, byte[] body, int status) {
             calls.add(method + " " + path);
             try {
                 if (path.contains("device-approval-requests?")) {
+                    long after = Long.parseLong(path.replaceAll(".*after=([0-9]+).*", "$1"));
                     var page = JSON.createObjectNode();
-                    page.putArray("requests").addObject().put("sequence", "1").put("demographic_no", 1).put("intent", intent);
-                    return page.put("last_sequence", "1").putNull("next_cursor").toString();
+                    var rows = page.putArray("requests");
+                    long last = after;
+                    if (after == 0) {
+                        rows.addObject().put("sequence", "1").put("demographic_no", 1).put("intent", intent);
+                        last = 1;
+                    } else if (backlog) {
+                        for (long sequence = after + 1; sequence <= after + 20; sequence++) {
+                            rows.addObject().put("sequence", Long.toString(sequence)).put("demographic_no", 2)
+                                    .put("intent", intent);
+                            last = sequence;
+                        }
+                    }
+                    page.put("last_sequence", Long.toString(last));
+                    return backlog && last > after ? page.put("next_cursor", Long.toString(last)).toString()
+                            : page.putNull("next_cursor").toString();
                 }
                 if (path.contains("device-approval-codes?")) {
                     long after = Long.parseLong(path.replaceAll(".*after=([0-9]+).*", "$1"));
@@ -174,7 +192,7 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
                     return page.put("last_sequence", Long.toString(last)).putNull("next_cursor").toString();
                 }
                 if (path.endsWith("/decision")) decisions.add(JSON.readTree(body));
-                if (path.endsWith("/consumed")) return "{\"status\":\"consumed\"}";
+                if (path.endsWith("/consumed")) return failConsumed ? "{\"status\":\"not-this\"}" : "{\"status\":\"consumed\"}";
                 return "{\"status\":\"stored\"}";
             } catch (java.io.IOException failure) {
                 throw new IllegalStateException(failure);
@@ -192,12 +210,19 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
     /** Records the one email per code; the address is FAKE. */
     static final class FakeMail implements PortalMyCarlosStaffApprovalService.CodeMail {
         final List<String> sent = new ArrayList<>();
+        int reached;
+        int tries;
         boolean reachable = true;
-        public Optional<String> usableAddress(int patient) {
-            return reachable && patient == 1 ? Optional.of("fake.patient@example.invalid") : Optional.empty();
+        boolean failing;
+        public PortalMyCarlosStaffApprovalService.CodeReach reach(int patient) {
+            reached++;
+            return reachable && patient == 1 ? PortalMyCarlosStaffApprovalService.CodeReach.to("fake.patient@example.com")
+                    : PortalMyCarlosStaffApprovalService.CodeReach.staff(PortalMyCarlosStaffApprovalService.NO_USABLE_EMAIL);
         }
         public boolean send(int patient, String address, String displayCode, long minutes) {
             assertTrue(minutes >= 1 && minutes <= 10);
+            tries++;
+            if (failing) return false;
             sent.add(displayCode);
             return true;
         }
@@ -392,14 +417,130 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
     }
 
     @Test
-    void shouldLeaveRequestForStaff_whenPatientCannotBeEmailedOrPolicyIsStaffOnly() throws Exception {
+    void shouldLeaveRequestForStaffAndSaySoOnce_whenPolicyIsStaffOnly() throws Exception {
         var portal = portal();
         var mail = new FakeMail();
         var job = service(portal);
-        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.STAFF_ONLY, mail);
-        mail.reachable = false;
-        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(PortalMyCarlosStaffApprovalService.class)) {
+            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.STAFF_ONLY, mail);
+            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.STAFF_ONLY, mail);
+            assertEquals(List.of("myCarlos device approval goes to staff: policy staff_only"), log.messages());
+        }
         assertEquals("0", sql("SELECT COUNT(*) FROM mycarlos_device_approval_challenge"));
+        assertEquals(0, mail.reached);
         assertTrue(mail.sent.isEmpty());
+    }
+
+    @Test
+    void shouldLeaveUnreachablePatientForStaff_askingOnlyOnce() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        mail.reachable = false;
+        var job = service(portal);
+        try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(PortalMyCarlosStaffApprovalService.class)) {
+            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+            job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+            // Fixed text and reason only: no address, patient or request in it.
+            assertEquals(List.of("myCarlos device approval goes to staff: no usable chart email"), log.messages());
+        }
+        // The chart and consent are looked at once, not every run.
+        assertEquals(1, mail.reached);
+        assertEquals("0", sql("SELECT COUNT(*) FROM mycarlos_device_approval_challenge"));
+    }
+
+    @Test
+    void shouldEndRequestAsExpiredWithoutCountingCode_whenCodeWasMadeBeforeRestart() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        var job = service(portal);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        String right = mail.sent.getFirst().replace(" ", "").substring(0, 6);
+        // The code was hashed under a key this server no longer has, as after a restart.
+        try (var c = source.getConnection(); var q = c.createStatement()) {
+            q.executeUpdate("UPDATE mycarlos_device_approval_code SET code_key_id=UNHEX(REPEAT('00',16))");
+        }
+        portal.send(request(), challengeId(), right);
+        var run = job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        assertEquals(0, run.wrong());
+        assertEquals(0, run.matched());
+        assertEquals(1, run.ended());
+        assertEquals("0", sql("SELECT wrong_attempts FROM mycarlos_device_approval_code"));
+        assertEquals("challenge_expired", sql("SELECT cancellation_reason FROM mycarlos_device_approval_challenge"));
+        assertEquals("expired", portal.decisions.getLast().path("status").asText());
+        assertEquals("challenge_expired", portal.decisions.getLast().path("reason").asText());
+        assertEquals(1, portal.calls.stream().filter(call -> call.endsWith("/consumed")).count());
+        assertEquals("0", sql("SELECT COUNT(*) FROM mycarlos_accepted_device"));
+    }
+
+    @Test
+    void shouldEndOpenRequestsAfterRestart_beforeAnyCodeIsTyped() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        var job = service(portal);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        try (var c = source.getConnection(); var q = c.createStatement()) {
+            q.executeUpdate("UPDATE mycarlos_device_approval_code SET code_key_id=UNHEX(REPEAT('00',16))");
+        }
+        var run = job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        assertEquals(1, run.ended());
+        assertEquals("expired", portal.decisions.getLast().path("status").asText());
+        assertEquals(1, mail.sent.size());
+    }
+
+    @Test
+    void shouldCountWrongCodeOnce_whenMarkingItUsedFails() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        var job = service(portal);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        String code = mail.sent.getFirst().replace(" ", "").substring(0, 6);
+        portal.send(request(), challengeId(), code.startsWith("000000") ? "000001" : "000000");
+        portal.failConsumed = true;
+        assertEquals(1, job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail).wrong());
+        portal.failConsumed = false;
+        // Read again by a later run (the portal still lists it): not counted again.
+        assertEquals(0, job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail).wrong());
+        assertEquals("1", sql("SELECT wrong_attempts FROM mycarlos_device_approval_code"));
+        assertEquals("1", sql("SELECT value FROM property WHERE name LIKE 'mycarlos.approval.code.cursor.%'"));
+    }
+
+    @Test
+    void shouldSettleCodesFirst_whileRequestBacklogIsReadPageByPage() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        var job = service(portal);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        portal.backlog = true;
+        portal.send(request(), challengeId(), mail.sent.getFirst().replace(" ", "").substring(0, 6));
+        var run = assertDoesNotThrow(() -> job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail));
+        assertEquals(1, run.accepted());
+        int pages = PortalMyCarlosStaffApprovalService.PAGES_PER_RUN;
+        // One run reads its page budget of the backlog, the next run the next part.
+        assertEquals(Long.toString(1 + 20L * pages), sql("SELECT value FROM property WHERE name LIKE 'mycarlos.approval.code.requests.%'"));
+        assertDoesNotThrow(() -> job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail));
+        assertEquals(Long.toString(1 + 40L * pages), sql("SELECT value FROM property WHERE name LIKE 'mycarlos.approval.code.requests.%'"));
+    }
+
+    @Test
+    void shouldBackOffFailingSend_thenSendNewCode() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        mail.failing = true;
+        var job = service(portal);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        assertEquals(1, mail.tries);
+        assertNull(sql("SELECT emailed_at FROM mycarlos_device_approval_code"));
+        // No challenge yet: the device is not asked for a code that never went out.
+        assertTrue(portal.calls.stream().noneMatch(call -> call.endsWith("/challenge")));
+        NOW.addAndGet(10);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        assertEquals(1, mail.tries);
+        mail.failing = false;
+        NOW.addAndGet(25);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        assertEquals(2, mail.tries);
+        assertEquals(1, mail.sent.size());
+        assertNotNull(sql("SELECT emailed_at FROM mycarlos_device_approval_code"));
+        assertTrue(portal.calls.stream().anyMatch(call -> call.endsWith("/challenge")));
     }
 }

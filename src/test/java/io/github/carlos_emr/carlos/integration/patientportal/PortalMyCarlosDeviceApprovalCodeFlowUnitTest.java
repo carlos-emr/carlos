@@ -121,7 +121,7 @@ class PortalMyCarlosDeviceApprovalCodeFlowUnitTest {
     void shouldRefuseWithCodeAttempts_onceAndForGood() throws Exception {
         var f = new Fixture();
         var row = codeChallenge(f);
-        assertTrue(f.service.refuseCodeAttempts(1, row.challengeId()));
+        assertTrue(f.service.endCodeChallenge(1, row.challengeId(), "code_attempts"));
         var cancelled = f.challengeRows.get(row.challengeId());
         assertNotNull(cancelled.cancelledAt());
         assertEquals("code_attempts", cancelled.cancellationReason());
@@ -132,7 +132,7 @@ class PortalMyCarlosDeviceApprovalCodeFlowUnitTest {
 
         // Again: nothing changes. A late right code cannot approve the device any more: the refusal
         // is already queued, as for any decided challenge.
-        assertFalse(f.service.refuseCodeAttempts(1, row.challengeId()));
+        assertFalse(f.service.endCodeChallenge(1, row.challengeId(), "code_attempts"));
         var refusal = assertThrows(PortalMyCarlosDeviceApprovalService.Refusal.class,
                 () -> f.service.acceptFromCode(1, row.challengeId(), challenge -> true));
         assertEquals("approval_conflict", refusal.code);
@@ -140,11 +140,40 @@ class PortalMyCarlosDeviceApprovalCodeFlowUnitTest {
     }
 
     @Test
+    void shouldEndAsExpired_whenCodeCanNoLongerBeChecked() throws Exception {
+        // After a restart the code's hash key is gone: the request ends as expired, so the device
+        // offers a new request; nothing counts as a wrong code.
+        var f = new Fixture();
+        var row = codeChallenge(f);
+        assertTrue(f.service.endCodeChallenge(1, row.challengeId(), "challenge_expired"));
+        var ended = f.challengeRows.get(row.challengeId());
+        assertEquals("challenge_expired", ended.cancellationReason());
+        var body = JSON.readTree(f.outboxRows.get(key(row.challengeId(), "decision")).body().copy());
+        assertEquals("expired", body.path("status").asText());
+        assertEquals("challenge_expired", body.path("reason").asText());
+        assertFalse(f.service.endCodeChallenge(1, row.challengeId(), "challenge_expired"));
+        // Ended one way, it can't be ended the other.
+        var refusal = assertThrows(PortalMyCarlosDeviceApprovalService.Refusal.class,
+                () -> f.service.endCodeChallenge(1, row.challengeId(), "code_attempts"));
+        assertEquals("approval_conflict", refusal.code);
+    }
+
+    @Test
+    void shouldRefuseOtherReasons_forEndingCodeRequest() throws Exception {
+        var f = new Fixture();
+        var row = codeChallenge(f);
+        for (String reason : new String[] {"challenge_cancelled", "staff_required", "", "CODE_ATTEMPTS"}) {
+            assertThrows(IllegalArgumentException.class, () -> f.service.endCodeChallenge(1, row.challengeId(), reason), reason);
+        }
+        assertTrue(f.challengeRows.get(row.challengeId()).pending());
+    }
+
+    @Test
     void shouldNotRefuseWithCodeAttempts_forStaffChallenge() throws Exception {
         var f = new Fixture();
         var row = f.service.createOrReadExactChallenge(1, compact(f.first, "intent"));
         var refusal = assertThrows(PortalMyCarlosDeviceApprovalService.Refusal.class,
-                () -> f.service.refuseCodeAttempts(1, row.challengeId()));
+                () -> f.service.endCodeChallenge(1, row.challengeId(), "code_attempts"));
         assertEquals("approval_conflict", refusal.code);
         assertTrue(f.challengeRows.get(row.challengeId()).pending());
     }

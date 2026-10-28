@@ -150,6 +150,14 @@ final class PortalMyCarlosClinicCode {
     }
 
     /**
+     * Whether a stored code hash was made under this server's key. One made before a restart (or
+     * on another server) can't be checked here: it is neither right nor wrong.
+     */
+    static boolean sameKey(MacKey key, byte[] storedKeyId) {
+        return storedKeyId != null && MessageDigest.isEqual(key.id, storedKeyId);
+    }
+
+    /**
      * Whether a submitted {@code code_r} is the one whose hash was stored. Anything that is not 6
      * ASCII digits, or a hash made under another key, never matches.
      */

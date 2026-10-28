@@ -438,15 +438,17 @@ final class PortalMyCarlosDeviceApprovalService {
     }
 
     /**
-     * After the fifth wrong clinic code the request is refused for good: the challenge is cancelled
-     * and a {@code refused} decision with reason {@code code_attempts} is queued (mycarlos#141).
-     * Repeating it once done changes nothing.
+     * Ends an open clinic code request for good (mycarlos#141): the challenge is cancelled and its
+     * decision queued. {@code code_attempts} after the fifth wrong code ({@code refused});
+     * {@code challenge_expired} when its code can no longer be checked here, as after a restart
+     * ({@code expired}, and the device offers a new request). Repeating it once done changes nothing.
      *
-     * @return whether this call refused the request (false when it already was)
+     * @return whether this call ended the request (false when it already had ended so)
      */
-    boolean refuseCodeAttempts(int patient, Bytes challengeId) {
+    boolean endCodeChallenge(int patient, Bytes challengeId, String reason) {
         standalone();
         Checks.positive(patient);
+        Checks.require("code_attempts".equals(reason) || "challenge_expired".equals(reason));
         current();
         source.requireTrustedSource(patient);
         return transactions.withApprovalState(() -> {
@@ -458,11 +460,11 @@ final class PortalMyCarlosDeviceApprovalService {
             requireEqual(cfg.hash(), current().hash());
             if (!"code".equals(row.kind())) throw refuse("approval_conflict");
             if (!row.pending()) {
-                if ("code_attempts".equals(row.cancellationReason())) return false;
+                if (reason.equals(row.cancellationReason())) return false;
                 throw refuse("approval_conflict");
             }
             if (priorDecision.isPresent()) throw refuse("approval_conflict");
-            cancel(row, now(), "code_attempts", cfg);
+            cancel(row, now(), reason, cfg);
             return true;
         });
     }
