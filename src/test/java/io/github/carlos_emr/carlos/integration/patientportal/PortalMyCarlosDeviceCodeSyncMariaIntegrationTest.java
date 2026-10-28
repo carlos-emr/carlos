@@ -361,7 +361,8 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
             q.setString(1, scope.clinicId());
             q.setString(2, scope.canonicalPublicBase());
             q.setBytes(3, new byte[32]);
-            q.setString(4, "B".repeat(43));
+            // A FAKE device key id: 43 characters that decode to 32 zero bytes.
+            q.setString(4, "A".repeat(43));
             q.executeUpdate();
         }
         portal.send(request(), challengeId(), mail.sent.getFirst().replace(" ", "").substring(0, 6));

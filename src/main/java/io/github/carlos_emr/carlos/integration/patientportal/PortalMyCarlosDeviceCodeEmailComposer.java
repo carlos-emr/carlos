@@ -37,6 +37,10 @@ final class PortalMyCarlosDeviceCodeEmailComposer {
         return official == null ? Locale.ENGLISH : official;
     }
 
+    // IMPROPER_UNICODE: a chart language word is matched without case against a fixed list to pick
+    // the email's language; it is no identity or security decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Case-insensitive match of a chart language word to choose the email language")
     private static Locale known(String language) {
         if (language == null) return null;
         // Chart languages are words such as "French" or "Portuguese"; compared without case.
