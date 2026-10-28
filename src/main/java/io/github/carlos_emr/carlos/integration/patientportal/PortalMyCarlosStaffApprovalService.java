@@ -339,6 +339,10 @@ public final class PortalMyCarlosStaffApprovalService {
                     // Its lease or retry time has not come; the next run publishes it.
                 } catch (PatientPortalException failure) {
                     if (!retainPublicationRefusal(request, failure, binding, fence)) throw failure;
+                } catch (PortalMyCarlosDeviceApprovalService.Refusal refusal) {
+                    // One request that can no longer go ahead (its patient was linked another way, say)
+                    // must not stop the others or the codes; staff see it on the patient's page.
+                    if ("approval_unavailable".equals(refusal.code)) throw refusal;
                 }
             }
             if (page.nextCursor() == null) return;
@@ -484,24 +488,37 @@ public final class PortalMyCarlosStaffApprovalService {
         var challenge = settled.challenge();
         var code = settled.code();
         int patient = challenge.demographicNo();
-        if (code.matchedAt() != null && "code".equals(code.policy())) {
-            var decision = core(systemSource(patient, fence)).acceptFromCode(patient, challenge.challengeId(),
-                    codeMatchedFor("code"));
-            if (!decision.historical()) {
-                counts[4]++;
-                auditCode("code.accepted", challenge);
+        try {
+            if (code.matchedAt() != null && "code".equals(code.policy())) {
+                var decision = core(systemSource(patient, fence)).acceptFromCode(patient, challenge.challengeId(),
+                        codeMatchedFor("code"));
+                if (!decision.historical()) {
+                    counts[4]++;
+                    auditCode("code.accepted", challenge);
+                }
+            } else if (code.refusedAt() != null) {
+                if (core(systemSource(patient, fence)).refuseCodeAttempts(patient, challenge.challengeId())) {
+                    counts[5]++;
+                    auditCode("code.refused", challenge);
+                }
+            } else {
+                // Wrong but not yet five, still open, or matched under code_and_staff (staff approve next).
+                return;
             }
-        } else if (code.refusedAt() != null) {
-            if (core(systemSource(patient, fence)).refuseCodeAttempts(patient, challenge.challengeId())) {
-                counts[5]++;
-                auditCode("code.refused", challenge);
-            }
-        } else {
-            // Wrong but not yet five, still open, or matched under code_and_staff (staff approve next).
+        } catch (PortalMyCarlosDeviceApprovalService.Refusal refusal) {
+            // A lasting refusal (the patient was linked another way meanwhile, or the request was
+            // already decided) settles this code: it must not hold back the codes after it. Approval
+            // switched off or keys unavailable is passing, so the run stops and the code is read again.
+            if ("approval_unavailable".equals(refusal.code)) throw refusal;
             return;
         }
         var latest = transactions.withApprovalState(() -> challenges.findByChallengeForUpdate(challenge.challengeId()).orElseThrow());
-        publish(latest, "decision", client);
+        try {
+            publish(latest, "decision", client);
+        } catch (PatientPortalException failure) {
+            // The decision stays queued here; the request pass publishes it again while the portal
+            // still lists the request. Later codes are not held back.
+        }
     }
 
     /** Read under the challenge's lock: whether its code matched and was issued under {@code policy}. */

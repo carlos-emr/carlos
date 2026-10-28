@@ -348,6 +348,33 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
     }
 
     @Test
+    void shouldSettleCodeAndMoveOn_whenPatientWasLinkedAnotherWayMeanwhile() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        var job = service(portal);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        // Staff linked another device for this patient before the right code came in.
+        try (var c = source.getConnection(); var q = c.prepareStatement("INSERT INTO mycarlos_patient_binding "
+                + "(clinic_id,demographic_no,recipient_id,public_portal_base_url,internal_portal_origin,"
+                + "config_binding_sha256,root_device_key_id,created_at) VALUES (?,1,'FAKE-other-recipient',?,"
+                + "'https://localhost:8455',?,?,'2026-10-28 10:00:00')")) {
+            q.setString(1, scope.clinicId());
+            q.setString(2, scope.canonicalPublicBase());
+            q.setBytes(3, new byte[32]);
+            q.setString(4, "B".repeat(43));
+            q.executeUpdate();
+        }
+        portal.send(request(), challengeId(), mail.sent.getFirst().replace(" ", "").substring(0, 6));
+        var run = assertDoesNotThrow(() -> job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail));
+        assertEquals(1, run.matched());
+        assertEquals(0, run.accepted());
+        assertEquals("0", sql("SELECT COUNT(*) FROM mycarlos_accepted_device"));
+        // The code is marked used and the cursor moves past it, so later codes are not held back.
+        assertEquals(1, portal.calls.stream().filter(call -> call.endsWith("/consumed")).count());
+        assertEquals("1", sql("SELECT value FROM property WHERE name LIKE 'mycarlos.approval.code.cursor.%'"));
+    }
+
+    @Test
     void shouldWaitForStaff_whenPolicyIsCodeAndStaff() throws Exception {
         var portal = portal();
         var mail = new FakeMail();
