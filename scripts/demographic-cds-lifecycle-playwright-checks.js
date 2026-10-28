@@ -287,6 +287,12 @@ function assertAcceptance(response,expected,durableOwner) {
     'Durable acceptance does not match the actual nondefault UI command/operator/source');
 }
 
+function assertSingleUploadAcceptance(sql,owner,uploadId) {
+  h.assert(sql.value('SELECT COUNT(*) FROM cds_import_run WHERE operator=' + q(owner)
+    + " AND submission_key=(SELECT CONCAT(submission_key,'-import') FROM cds_import_upload WHERE id=" + q(uploadId) + ')') === '1',
+    'A lost ACK or reconnect created another accepted run, or its import acceptance is missing');
+}
+
 function assertScopedFault(recorder, fault) {
   if (!fault) {h.assertStrictPage(recorder);return;}
   h.assert(fault.kind==='nginx','Only the genuine Nginx fault has a scoped expectation');
@@ -934,9 +940,7 @@ async function run(env = process.env) {
       WHERE p.run_id=${q(state.runId)} AND personal.programStatus='active' AND personal.facilityId=${options.facilityId}
       AND p.copy_key=CONCAT('course-',${options.courseId},'-student-',pp.provider_no,'-program-',personal.id)`)
       === String(copies),'Synthetic web controls did not create exactly the eligible learner/personal-program copies');
-    h.assert(sql.value('SELECT COUNT(*) FROM cds_import_run WHERE operator=' + q(owner)
-      + ' AND submission_key=(SELECT submission_key FROM cds_import_upload WHERE id=' + q(state.uploadId) + ')') === '1',
-      'A lost ACK or reconnect created another accepted run');
+    assertSingleUploadAcceptance(sql,owner,state.uploadId);
     await assertPrimaryJobStatus(current.page,state.runId);
     const reports = protectedEvidence(sql,state,env);
     for (const [selector,key] of [['eventReport','event'],['errorReport','error'],['receiptReport','completion'],['unitsReport','units']]) {
@@ -971,4 +975,4 @@ async function run(env = process.env) {
 if (require.main === module) run().then(result => { if (result?.outcome === 'NOT_EXECUTED') process.exitCode = 2; })
   .catch(failure => { console.error('FAIL lifecycle gate: '+safeLifecycleFailure(failure)
     +'; accepted state retained; inspect protected artifacts'); process.exitCode = 1; });
-module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertAcceptance,assertScopedFault,expireSession,preflightSession,processProof,hashFile,evidencePath,protectedEvidence,contractApi,requireNativeEnvironment,requiredLifecycleStep,awaitActualProxyTimeout,cleanupLifecycle,boundedLifecycleAction,recordWorkflowFailure,createLifecyclePageCloser,completedLifecycleDownload,startOwnedRelay,awaitRelayReady,assertExpiredSessionDenial,assertNativeNoteHashes};
+module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertAcceptance,assertSingleUploadAcceptance,assertScopedFault,expireSession,preflightSession,processProof,hashFile,evidencePath,protectedEvidence,contractApi,requireNativeEnvironment,requiredLifecycleStep,awaitActualProxyTimeout,cleanupLifecycle,boundedLifecycleAction,recordWorkflowFailure,createLifecyclePageCloser,completedLifecycleDownload,startOwnedRelay,awaitRelayReady,assertExpiredSessionDenial,assertNativeNoteHashes};

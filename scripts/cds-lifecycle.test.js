@@ -746,3 +746,50 @@ test('native per-copy note hashes reject same-count duplication,omission,corrupt
     assert.throws(()=>gate.assertNativeNoteHashes({rows:()=>altered},selected,source,2));
   }
 });
+
+function uploadAcceptanceSql(runs) {
+  const owner='web-129',uploadId='e57b96fc-f7ab-41a9-8836-64023c8ed503',key='upload-lifecycle-source';
+  return {owner,uploadId,key,value(query) {
+    const executed=spawnSync('python3',['-c',
+      "import json,sqlite3,sys\nrequest=json.load(sys.stdin)\ndb=sqlite3.connect(':memory:')\n"
+      + "db.create_function('CONCAT',2,lambda left,right:left+right)\n"
+      + "db.execute('CREATE TABLE cds_import_upload(id TEXT,submission_key TEXT)')\n"
+      + "db.execute('CREATE TABLE cds_import_run(operator TEXT,submission_key TEXT)')\n"
+      + "db.execute('INSERT INTO cds_import_upload VALUES (?,?)',request['upload'])\n"
+      + "db.executemany('INSERT INTO cds_import_run VALUES (?,?)',request['runs'])\n"
+      + "print(db.execute(request['query']).fetchone()[0])"],
+    {input:JSON.stringify({upload:[uploadId,key],runs,query}),encoding:'utf8',timeout:5000,maxBuffer:65536});
+    assert.equal(executed.status,0,executed.stderr);return executed.stdout.trim();
+  }};
+}
+
+test('shouldCountOneAcceptedImport_forTheActualUploadModeKey',()=>{
+  const actual=uploadAcceptanceSql([['web-129','upload-lifecycle-source-import']]);
+  gate.assertSingleUploadAcceptance(actual,actual.owner,actual.uploadId);
+  assert.equal(actual.value("SELECT COUNT(*) FROM cds_import_run WHERE operator='web-129'"
+    + " AND submission_key=(SELECT submission_key FROM cds_import_upload WHERE id='"+actual.uploadId+"')"),'0');
+  const sql=uploadAcceptanceSql([['web-129','upload-lifecycle-source-import'],
+    ['web-129','upload-lifecycle-source'],['web-129','upload-lifecycle-source-dry-run'],
+    ['web-130','upload-lifecycle-source-import'],['web-129','other-upload-import']]);
+  gate.assertSingleUploadAcceptance(sql,sql.owner,sql.uploadId);
+  // This is the old assertion against the same real rows: an unrelated bare key
+  // could make it pass, even when the actual import acceptance is absent.
+  const missing=uploadAcceptanceSql([['web-129','upload-lifecycle-source']]);
+  assert.equal(missing.value("SELECT COUNT(*) FROM cds_import_run WHERE operator='web-129'"
+    + " AND submission_key=(SELECT submission_key FROM cds_import_upload WHERE id='"+missing.uploadId+"')"),'1');
+  assert.throws(()=>gate.assertSingleUploadAcceptance(missing,missing.owner,missing.uploadId),/acceptance is missing/);
+});
+
+test('shouldRejectMissingAcceptance_forZeroMatchingImportModeKeys',()=>{
+  for(const rows of [[],[['web-129','upload-lifecycle-source-dry-run']],
+    [['web-130','upload-lifecycle-source-import']]]) {
+    const sql=uploadAcceptanceSql(rows);
+    assert.throws(()=>gate.assertSingleUploadAcceptance(sql,sql.owner,sql.uploadId),/acceptance is missing/);
+  }
+});
+
+test('shouldRejectDuplicateAcceptance_forTheSameUploadImportModeKey',()=>{
+  const sql=uploadAcceptanceSql([['web-129','upload-lifecycle-source-import'],
+    ['web-129','upload-lifecycle-source-import']]);
+  assert.throws(()=>gate.assertSingleUploadAcceptance(sql,sql.owner,sql.uploadId),/another accepted run/);
+});
