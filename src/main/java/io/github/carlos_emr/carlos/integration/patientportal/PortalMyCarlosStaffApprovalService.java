@@ -365,10 +365,41 @@ public final class PortalMyCarlosStaffApprovalService {
         fence.run();
         var client = client(portal);
         int[] counts = new int[7];
-        readCodes(binding, fence, client, counts);
-        readRequests(binding, fence, client, policy, mail, counts);
+        // A portal call that fails stops only its own pass: a listing the portal can't serve right
+        // now must not hold back codes already on their way (the follow-up pass).
+        portalPass("readCodes", () -> readCodes(binding, fence, client, counts));
+        portalPass("readRequests", () -> readRequests(binding, fence, client, policy, mail, counts));
         followUp(binding, fence, client, policy, mail, counts);
         return new CodeSyncResult(counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], counts[6]);
+    }
+
+    private static void portalPass(String call, Runnable pass) {
+        try {
+            pass.run();
+        } catch (PatientPortalException failure) {
+            logPortalFailure(call, failure);
+        }
+    }
+
+    /**
+     * The one fixed line for a portal call of the device-code job that failed: which call
+     * (readCodes, readRequests, publish, decision, consumed) and the portal's answer. No patient,
+     * request, address or code.
+     */
+    static void logPortalFailure(String call, PatientPortalException failure) {
+        LOGGER.warn("myCarlos device code job: portal call failed; call={} {}", call, portalCause(failure));
+    }
+
+    /**
+     * The failure's kind, HTTP status (0 when none came back) and reason: the portal's allowlisted
+     * refusal code, or a transport failure's fixed category, else "-".
+     */
+    static String portalCause(PatientPortalException failure) {
+        String reason = failure.detail();
+        if (reason == null && failure.kind() == PatientPortalException.Kind.TRANSPORT_FAILURE && failure.getCause() != null) {
+            reason = failure.getCause().getMessage();
+        }
+        return "kind=" + failure.kind() + " status=" + failure.statusCode() + " reason=" + (reason == null ? "-" : reason);
     }
 
     private void readCodes(PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence,
@@ -390,9 +421,13 @@ public final class PortalMyCarlosStaffApprovalService {
                 after = sent.sequence();
                 try {
                     client.consumed(sent.requestId(), sent.attempt());
-                } catch (PatientPortalException | PortalContractException failure) {
+                } catch (PatientPortalException failure) {
                     // Already counted, and the cursor is past it, so it is never counted again. The
                     // portal erases it anyway once the request is decided or expires.
+                    logPortalFailure("consumed", failure);
+                } catch (PortalContractException failure) {
+                    logPortalFailure("consumed", PatientPortalException.ofMalformedResponse(200,
+                            "/internal/carlos/mycarlos/device-approval-requests/{request_id}/codes/{attempt}/consumed", failure));
                 }
                 if (challenge != null) finishCode(challenge, fence, client, counts);
             }
@@ -479,8 +514,11 @@ public final class PortalMyCarlosStaffApprovalService {
         var latest = transactions.withApprovalState(() -> challenges.findByChallengeForUpdate(challenge.challengeId()).orElseThrow());
         try {
             publish(latest, "decision", client);
-        } catch (PatientPortalException | PublicationPending failure) {
+        } catch (PublicationPending failure) {
             // The decision stays queued here; the follow-up pass publishes it again.
+        } catch (PatientPortalException failure) {
+            // The decision stays queued here; the follow-up pass publishes it again.
+            logPortalFailure("decision", failure);
         }
     }
 
@@ -504,7 +542,7 @@ public final class PortalMyCarlosStaffApprovalService {
                 } catch (PatientPortalException failure) {
                     // Only publishing a challenge reaches the portal here. An expired one is recorded;
                     // anything else is published again by the follow-up pass.
-                    retainPublicationRefusal(request, failure, binding, fence);
+                    if (!retainPublicationRefusal(request, failure, binding, fence)) logPortalFailure("publish", failure);
                 } catch (PortalMyCarlosDeviceApprovalService.Refusal refusal) {
                     // One request that can no longer go ahead (its patient was linked another way, say)
                     // must not stop the others; staff see it on the patient's page.
@@ -587,8 +625,11 @@ public final class PortalMyCarlosStaffApprovalService {
                     var code = emailCode(challenge, fence, policy, mail, counts);
                     if (code != null && code.emailedAt() != null) publish(challenge, "challenge", client);
                 }
-            } catch (PatientPortalException | PublicationPending failure) {
-                // Tried again by the next run.
+            } catch (PublicationPending failure) {
+                // Tried again once its retry time comes.
+            } catch (PatientPortalException failure) {
+                // Tried again by a later run.
+                logPortalFailure("publish", failure);
             }
             finishCode(challenge, fence, client, counts);
         }

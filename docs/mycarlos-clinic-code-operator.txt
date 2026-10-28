@@ -53,7 +53,15 @@ Each run, in this order:
    patient's first-device requests go to staff, as for a patient with no
    usable chart email.
 Each of the first two passes reads at most 50 pages of 20 per run; a longer
-backlog is read over the next runs, and codes are always settled first. The
+backlog is read over the next runs, and codes are always settled first.
+A portal call that fails stops only its own pass, so a listing the portal
+can't serve doesn't hold back codes already on their way. Each failed call is
+logged once, with fixed text and no patient, request or code:
+  myCarlos device code job: portal call failed; call=<call> kind=<kind>
+  status=<HTTP status, 0 when none came back> reason=<reason>
+where <call> is readCodes, readRequests, publish, decision or consumed, and
+<reason> is the portal's refusal code, a fixed network category (such as
+"portal transport failed: read timeout"), or "-". The
 cursors are kept in the property table (mycarlos.approval.code.cursor.* and
 mycarlos.approval.code.requests.*).
 It acts as the built-in system provider (-1), with no staff login. Its audit

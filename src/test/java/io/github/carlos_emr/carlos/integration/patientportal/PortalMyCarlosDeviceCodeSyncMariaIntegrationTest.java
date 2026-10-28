@@ -159,9 +159,14 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
         boolean backlog;
         /** "Consumed" answers wrongly, as if the call failed. */
         boolean failConsumed;
+        /** What the code and request listings fail with, as when the portal can't serve them. */
+        PatientPortalException failCodes;
+        PatientPortalException failRequests;
 
         String call(String permission, String method, String path, byte[] body, int status) {
             calls.add(method + " " + path);
+            if (failCodes != null && path.contains("device-approval-codes?")) throw failCodes;
+            if (failRequests != null && path.contains("device-approval-requests?")) throw failRequests;
             try {
                 if (path.contains("device-approval-requests?")) {
                     long after = Long.parseLong(path.replaceAll(".*after=([0-9]+).*", "$1"));
@@ -674,6 +679,59 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
         job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
         assertEquals(1, mail.sent.size());
         assertEquals("2", sql("SELECT COUNT(*) FROM mycarlos_device_approval_challenge WHERE approval_kind='code'"));
+    }
+
+    @Test
+    void shouldKeepSendingCodes_whenPortalListingsFail() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        mail.failing = true;
+        var job = service(portal);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        assertEquals(1, mail.tries);
+        // The portal now can't serve its listings (a status, then a timeout): the code already
+        // on its way still goes out, and each failed call says which it was and why, once.
+        portal.failCodes = PatientPortalException.ofStatus(503, "/internal/carlos/mycarlos/device-approval-codes", null);
+        portal.failRequests = PatientPortalException.ofTransportFailure("/internal/carlos/mycarlos/device-approval-requests",
+                new java.net.SocketTimeoutException("FAKE"));
+        mail.failing = false;
+        NOW.addAndGet(31);
+        try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(PortalMyCarlosStaffApprovalService.class)) {
+            var run = assertDoesNotThrow(() -> job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail));
+            assertEquals(1, run.emailed());
+            assertEquals(List.of(
+                    "myCarlos device code job: portal call failed; call=readCodes kind=UNEXPECTED_STATUS status=503 reason=-",
+                    "myCarlos device code job: portal call failed; call=readRequests kind=TRANSPORT_FAILURE status=0"
+                            + " reason=portal transport failed: read timeout"), log.messages());
+        }
+        assertEquals(1, mail.sent.size());
+        assertTrue(portal.calls.stream().anyMatch(call -> call.endsWith("/challenge")));
+    }
+
+    @Test
+    void shouldMakeNoPortalCallForCancelledUnsentRequest_throughItsPortalLifetime() throws Exception {
+        // A code request cancelled after 3 failed sends (code_not_sent) stays pending at the portal
+        // until it runs out. In that time the job only reads the listings for it: no publish,
+        // decision or "consumed" call, and no run fails, 5 minutes in or just before it runs out.
+        var portal = portal();
+        var mail = new FakeMail();
+        mail.failing = true;
+        var job = service(portal);
+        long requested = NOW.get();
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        NOW.addAndGet(31);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        NOW.addAndGet(61);
+        job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail);
+        assertEquals("code_not_sent", sql("SELECT cancellation_reason FROM mycarlos_device_approval_challenge"));
+        int before = portal.calls.size();
+        for (long age = 300; age <= 565; age += 5) {
+            NOW.set(requested + age);
+            assertDoesNotThrow(() -> job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail));
+        }
+        var later = portal.calls.subList(before, portal.calls.size());
+        assertTrue(later.stream().allMatch(call -> call.startsWith("GET ")), String.valueOf(later));
+        assertEquals(3, mail.tries);
     }
 
     @Test

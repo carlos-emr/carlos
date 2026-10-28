@@ -117,8 +117,11 @@ public class PortalMyCarlosDeviceCodeSyncService {
         try {
             runOnce();
         } catch (RuntimeException failure) {
-            // The class only: a message could carry portal or patient detail.
-            LOGGER.warn("myCarlos device code run failed; exceptionClass={}", failure.getClass().getSimpleName());
+            // Never the message, which could carry portal or patient detail: the class, and for a
+            // portal call its kind, HTTP status and allowlisted reason.
+            LOGGER.warn("myCarlos device code run failed; exceptionClass={}{}", failure.getClass().getSimpleName(),
+                    failure instanceof PatientPortalException portalFailure
+                            ? " " + PortalMyCarlosStaffApprovalService.portalCause(portalFailure) : "");
         }
     }
 
