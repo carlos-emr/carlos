@@ -1,7 +1,7 @@
 # =============================================================================
 # Build stage - contains build tools (git, maven)
 # =============================================================================
-FROM tomcat:11.0.27-jdk25-temurin-noble@sha256:317b75f81d274ed68fd42417b29481915af7949f9e550879314afb3994152cce AS builder
+FROM tomcat:11.0.27-jdk25-temurin@sha256:5f639b0943621fabc57de055c8789a2813692f3b25322379900ffac00958baea AS builder
 
 # Note: DRUGREF_BRANCH accepts branch names or tags, but not commit SHAs
 # (shallow clone with --depth 1 doesn't support checking out by SHA)
@@ -20,7 +20,7 @@ RUN mvn -DskipTests clean package
 # =============================================================================
 # Final stage - minimal runtime image (no build tools)
 # =============================================================================
-FROM tomcat:11.0.27-jdk25-temurin-noble@sha256:317b75f81d274ed68fd42417b29481915af7949f9e550879314afb3994152cce
+FROM tomcat:11.0.27-jdk25-temurin@sha256:5f639b0943621fabc57de055c8789a2813692f3b25322379900ffac00958baea
 
 LABEL author="carlos-emr" \
       version="1.0.0" \
