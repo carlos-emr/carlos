@@ -497,3 +497,53 @@ test('the actual pre-run CLI catch reports a safe missing prerequisite and exit1
   assert.match(child.stderr,/accepted state retained/);assert.ok(child.stderr.length<400);
   for(const privateText of ['synthetic-cli-secret','SELECT','patient','/workspace/protected'])assert.equal(child.stderr.includes(privateText),false);
 });
+
+test('the actual composed proxy timeout and two evidence failures retain all safe reasons through the runner',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-nested-reasons-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const secret='password=synthetic-nested-secret SELECT patient /workspace/protected/nested.json';
+  const innerEvidence=Object.assign(Error(secret),{code:'ENOSPC'}),outerEvidence=Object.assign(Error(secret),{code:'ENOSPC'});
+  const f=proxyTimeoutFixture();f.options.onStage=stage=>{f.stages.push(stage);if(stage.stage==='proxy-response-failed')throw innerEvidence;};
+  const resultFile=path.join(directory,'result.json'),processRef={env:{RESULT_JSON:resultFile}},lines=[];
+  let inner,thrown,cleanups=0;
+  const result=await h.runCheck({name:'nested-proxy-diagnostic-unit',processRef,stdout:{log:line=>lines.push(line)},
+    createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+    async run(){
+      try {await gate.awaitActualProxyTimeout(f.options);} catch(error){
+        inner=error;
+        try {gate.recordWorkflowFailure(inner,{state:state(),save(){throw outerEvidence;},log(){}});}
+        catch(outer){thrown=outer;throw outer;}
+      }
+    },cleanup(){cleanups++;}});
+  assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleanups,1);
+  assert.ok(inner instanceof AggregateError);assert.equal(inner.errors[1],innerEvidence);
+  assert.match(inner.errors[0].message,/exact real-proxy response deadline elapsed/);
+  assert.deepEqual(thrown.errors,[inner,outerEvidence]);assert.equal(f.page.listenerCount('requestfailed'),0);
+  assert.match(result.detail,/primary=\[AGGREGATE_FAILURE: \[PROXY_RESPONSE_TIMEOUT:/);
+  assert.equal((result.detail.match(/ENOSPC: evidence filesystem full/g) || []).length,2);
+  const serialized=fs.readFileSync(resultFile,'utf8');assert.equal(JSON.parse(serialized).detail,result.detail);
+  assert.ok(lines.some(line=>line.includes(result.detail)));assert.equal(result.cleanupFailed,undefined);
+  for(const text of [result.detail,serialized,...lines])for(const privateText of ['synthetic-nested-secret','SELECT','/workspace/protected'])
+    assert.equal(text.includes(privateText),false);
+  t.diagnostic('RETAINED_COMPOSED_RESULT '+JSON.stringify({outcome:result.outcome,detail:result.detail,cleanupFailed:false}));
+});
+
+test('nested aggregate diagnostics have finite cause depth,width and output while retaining original objects',async()=>{
+  const secret='synthetic-aggregate-secret /workspace/protected/aggregate.json SELECT patient';
+  const cyclic=new AggregateError([],secret);cyclic.errors.push(cyclic);
+  const wide=new AggregateError(Array.from({length:20},()=>Error(secret)),secret);
+  const truncated=new AggregateError([wide,wide,wide],secret);
+  const shared=new AggregateError([Object.assign(Error(secret),{code:'ENOSPC'})],secret),aliases=new AggregateError([shared,shared],secret);
+  let deep=Error(secret);for(let index=0;index<10;index++)deep=new AggregateError([deep],secret);
+  for(const [primary,marker] of [[cyclic,'CAUSE_CYCLE'],[wide,'ADDITIONAL_CAUSES_RETAINED'],[deep,'CAUSE_DEPTH_LIMIT'],
+    [aliases,'AGGREGATE_FAILURE'],[truncated,'DIAGNOSTIC_TRUNCATED']]){
+    const secondary=Object.assign(Error(secret),{code:'ENOSPC'}),processRef={env:{}};let thrown,cleaned=false;
+    const result=await h.runCheck({name:'bounded-aggregate-unit',processRef,stdout:{log(){}},
+      createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+      run(){try {gate.recordWorkflowFailure(primary,{state:state(),save(){throw secondary;},log(){}});}
+        catch(error){thrown=error;throw error;}},cleanup(){cleaned=true;}});
+    assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleaned,true);
+    assert.deepEqual(thrown.errors,[primary,secondary]);assert.ok(result.detail.includes(marker));assert.ok(result.detail.length<2300);
+    if(primary===aliases){assert.equal(result.detail.includes('CAUSE_CYCLE'),false);assert.equal((result.detail.match(/ENOSPC:/g) || []).length,3);}
+    for(const privateText of ['synthetic-aggregate-secret','/workspace/protected','SELECT'])assert.equal(result.detail.includes(privateText),false);
+  }
+});

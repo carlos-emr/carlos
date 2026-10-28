@@ -481,9 +481,26 @@ async function requiredLifecycleStep(action) {
     throw failure;
   }
 }
-function safeLifecycleFailure(failure) {
+function safeLifecycleFailure(failure,depth=0,seen=new Set()) {
   let code,message;
-  try {code=failure?.code;message=failure?.message;} catch(_){return 'UNREADABLE_FAILURE: retain state and reconcile owned runtime';}
+  try {
+    if(failure instanceof AggregateError){
+      if(depth>=3)return 'CAUSE_DEPTH_LIMIT: reconcile retained original failures';
+      if(seen.has(failure))return 'CAUSE_CYCLE: reconcile retained original failures';
+      seen.add(failure);
+      try {
+        const errors=failure.errors;
+        if(Array.isArray(errors) && errors.length){
+          const causes=[];
+          for(let index=0;index<Math.min(errors.length,3);index++)causes.push(safeLifecycleFailure(errors[index],depth+1,seen));
+          if(errors.length>3)causes.push('ADDITIONAL_CAUSES_RETAINED');
+          const diagnostic='AGGREGATE_FAILURE: ['+causes.join('; ')+']';
+          return diagnostic.length<=1024?diagnostic:diagnostic.slice(0,1000)+'; DIAGNOSTIC_TRUNCATED';
+        }
+      } finally {seen.delete(failure);}
+    }
+    code=failure?.code;message=failure?.message;
+  } catch(_){return 'UNREADABLE_FAILURE: retain state and reconcile owned runtime';}
   if(message==='The exact real-proxy response deadline elapsed; accepted state retained')
     return 'PROXY_RESPONSE_TIMEOUT: verify owned proxy response evidence and retain accepted job';
   if(message==='The synthetic CDS fixture does not validate against the pinned OntarioMD migration schema')
@@ -611,6 +628,7 @@ async function run(env = process.env) {
       assertRetainedLogin(login,config.baseUrl,closed);
     };
     await authenticate(); current = await open(state.runId);
+    await current.qualify();
     const setOptions = async page => {
       await page.locator('#cdsSource').selectOption(options.sourceNamespace + '|' + options.sourceProfile);
       for (const name of ['providerNo','programId','facilityId']) await page.locator('#' + name).fill(String(options[name]));

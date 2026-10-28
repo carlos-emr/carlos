@@ -65,3 +65,53 @@ test('closed advanced diagnostics cannot qualify another visible job handle',asy
  const{prover,receipt}=fixture({visibleId:'22222222-2222-4222-8222-222222222222'});
  await assert.rejects(prover(receipt),/visible job handle differs/);
 });
+
+function liveUploadPageFixture() {
+ const first='40000000-0000-4000-8000-000000000001',last='80000000-0000-4000-8000-000000000002';
+ const inserted='2cf80000-0000-4000-8000-000000000003';
+ const row=uploadId=>({id:uploadId,state:'OPEN',receivedBytes:32,expectedBytes:64});
+ const stored=new Map([[first,row(first)],[last,row(last)]]);
+ const pageRows=()=>[...stored.values()].sort((a,b)=>a.id.localeCompare(b.id)).slice(0,50).map(value=>({...value}));
+ let visible=pageRows();
+ const frame={locator(selector){return{
+  async getAttribute(name){assert.equal(selector,'#cdsImport');assert.equal(name,'data-owner');return owner;},
+  async evaluateAll(){assert.equal(selector,'#uploadRows tr');return visible.map(value=>[value.id,value.state]);},
+  async innerText(){assert.equal(selector,'#uploadRows');return visible.map(value=>value.id).join('\n');},
+  async count(){assert.equal(selector,'#uploadRows tr');return visible.length;}
+ };}};
+ const sql={
+  value(query){assert.match(query,/^SELECT security_no FROM security WHERE user_name=/);return'77';},
+  rows(query){
+   assert.match(query,/^SELECT id FROM cds_import_upload WHERE operator_key='web-77'/);
+   const selected=[...query.matchAll(/'([0-9a-f-]{36})'/g)].map(match=>match[1]);
+   return selected.filter(uploadId=>stored.has(uploadId)).map(uploadId=>[uploadId]);
+  }
+ };
+ const readApi=async(_frame,route,params)=>{
+  assert.equal(route,'cdsImportStatus');assert.deepEqual(params,{section:'uploads',limit:50,afterKey:''});
+  const rows=pageRows();return{status:200,body:{ok:true,rows,nextCursor:rows.at(-1)?.id ?? null}};
+ };
+ const receipt=()=>{const rows=pageRows();return{owner,uploadIds:rows.map(value=>value.id),
+  page:{section:'uploads',afterKey:'',afterId:0,limit:50,rows,nextCursor:rows.at(-1)?.id ?? null}};};
+ return{prover:createCdsMetadataProver({frame,sql,config:{testUser:'synthetic'},readApi}),receipt,stored,first,inserted,
+  insert(){stored.set(inserted,row(inserted));},refresh(){visible=pageRows();}};
+}
+
+test('a random upload UUID can insert before a previously complete same-cursor page and strict proof rejects the stale page',async()=>{
+ const f=liveUploadPageFixture(),initial=f.receipt();
+ f.insert();f.refresh();
+ assert.equal(f.receipt().page.rows[0].id,f.inserted);
+ await assert.rejects(f.prover(initial),/observed page identities differ from the independent same-cursor page/);
+});
+
+test('strict initial qualification before upload mutation and fresh qualification afterward preserve page ownership and immutable values',async()=>{
+ const f=liveUploadPageFixture(),initial=f.receipt();
+ const before=await f.prover(initial);
+ assert.equal(before.independentVerified,true);assert.equal(before.uiVerified,true);assert.deepEqual(before.uploadIds,initial.uploadIds);
+ f.insert();f.refresh();const current=f.receipt();
+ const after=await f.prover(current);
+ assert.equal(after.independentVerified,true);assert.equal(after.uiVerified,true);assert.deepEqual(after.uploadIds,current.uploadIds);
+ await assert.rejects(f.prover({...current,owner:'web-78'}),/native authenticated operator/);
+ f.stored.get(f.first).expectedBytes++;
+ await assert.rejects(f.prover(current),/Immutable bounded-page content changed/);
+});
