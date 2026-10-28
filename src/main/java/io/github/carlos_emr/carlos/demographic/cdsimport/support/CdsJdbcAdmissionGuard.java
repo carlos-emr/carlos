@@ -489,7 +489,8 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
         }
         String upper = normalized.toUpperCase(Locale.ROOT);
         if (upper.matches("SELECT\\s+(?:1|VERSION\\(\\)|DATABASE\\(\\)|CURRENT_USER\\(\\)|CONNECTION_ID\\(\\)|@@[A-Z0-9_.,@ ]+)")) return new SqlShape(false, true, false);
-        if (upper.matches("(?:DESCRIBE|DESC)\\s+.*")) return new SqlShape(false, true, false);
+        // Consume the prefix once; a failed multiline suffix must not backtrack through every space.
+        if (upper.matches("(?:DESCRIBE|DESC)\\s++.*")) return new SqlShape(false, true, false);
         if (upper.startsWith("SHOW ")) {
             boolean metadata=upper.matches("SHOW\\s+(?:(?:GLOBAL|SESSION|FULL)\\s+)?(?:TABLES|COLUMNS|FIELDS|INDEX|INDEXES|KEYS|VARIABLES|STATUS|ENGINES|COLLATION|CHARACTER SET|CREATE TABLE)\\b.*");
             return new SqlShape(!metadata, true, false); // PROCESSLIST/binlog output can contain patient SQL/data.

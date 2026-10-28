@@ -25,6 +25,7 @@ import java.sql.SQLException;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.time.Duration;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
@@ -33,6 +34,36 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsJdbcAdmissionGuardUnitTest {
+    @Test
+    void shouldPreserveDescribeMetadataReads_whenAsciiWhitespaceVaries() throws Exception {
+        for (String keyword : new String[] {"DESCRIBE", "desc"}) {
+            for (String whitespace : new String[] {" ", "\t", "\n", "\r\n", " \t\r\n "}) {
+                assertThat(CdsJdbcAdmissionGuard.clinical(keyword + whitespace + "demographic")).isFalse();
+            }
+        }
+    }
+
+    @Test
+    void shouldPreserveDescribeRefusals_whenCommentsOrStatementBoundariesChange() throws Exception {
+        for (String sql : new String[] {
+                "DESC demographic\n-- trailing comment", "DESCRIBE demographic /* first\nsecond */"}) {
+            assertThat(CCJSqlParserUtil.parseStatements(sql).getStatements()).hasSize(1);
+            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql)).isInstanceOf(SQLException.class);
+        }
+        for (String sql : new String[] {"DESC demographic; COMMIT", "DESCRIBE demographic; SELECT 1"}) {
+            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql)).isInstanceOf(SQLException.class);
+        }
+    }
+
+    @Test
+    void shouldBoundDescribeRefusalWork_whenLongWhitespacePrecedesAMultilineComment() {
+        String sql = "DESC" + " ".repeat(128 * 1024) + " demographic /* first\nsecond */";
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+            assertThat(CCJSqlParserUtil.parseStatements(sql).getStatements()).hasSize(1);
+            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql)).isInstanceOf(SQLException.class);
+        });
+    }
+
     @Test
     void shouldNormalizeSuffixesInLinearTime_whenLongRunsDoNotTerminateTheStatement() {
         String semicolons = "select id from cds_import_admission" + ";".repeat(200000) + " commit";
