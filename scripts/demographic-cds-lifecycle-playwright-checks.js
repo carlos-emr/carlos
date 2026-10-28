@@ -481,12 +481,35 @@ async function requiredLifecycleStep(action) {
     throw failure;
   }
 }
+function safeLifecycleFailure(failure) {
+  let code,message;
+  try {code=failure?.code;message=failure?.message;} catch(_){return 'UNREADABLE_FAILURE: retain state and reconcile owned runtime';}
+  if(message==='The exact real-proxy response deadline elapsed; accepted state retained')
+    return 'PROXY_RESPONSE_TIMEOUT: verify owned proxy response evidence and retain accepted job';
+  if(message==='The synthetic CDS fixture does not validate against the pinned OntarioMD migration schema')
+    return 'SCHEMA_VALIDATION_FAILED: verify pinned OntarioMD schema bundle and fixture before acceptance';
+  if(message==='Required CDS regression prerequisite missing: xmllint (libxml2-utils)')
+    return 'MISSING_SCHEMA_VALIDATOR: configure xmllint (libxml2-utils) before execution';
+  const prerequisite=typeof message==='string' && /^Required lifecycle native prerequisite missing: (TEST_USER|TEST_PASSWORD|TEST_PIN|MYSQL_PASSWORD) \(no (?:default login or )?skipped proof\)$/.exec(message);
+  if(prerequisite)return 'MISSING_NATIVE_PREREQUISITE: configure '+prerequisite[1]+' before execution';
+  const reasons={ENOSPC:'evidence filesystem full; restore owned free space',EDQUOT:'evidence quota exhausted; restore owned quota',
+    ENOENT:'required local resource missing; verify pinned schema and harness prerequisites',
+    EACCES:'evidence permission denied; verify owned permissions',EPERM:'evidence operation denied; verify owned permissions',
+    EROFS:'evidence filesystem read-only; verify owned writable storage',EIO:'evidence I/O failed; reconcile owned storage',
+    EMFILE:'process descriptor limit exhausted; inspect owned process resources',ENFILE:'descriptor limit exhausted; inspect owned resources',
+    EPIPE:'evidence output closed; restore owned log capture',ETIMEDOUT:'operation timed out; verify owned endpoint'};
+  if(typeof code==='string' && Object.hasOwn(reasons,code))return code+': '+reasons[code];
+  // Unexpected exception text may contain credentials, SQL or protected paths.
+  const prefix=typeof message==='string'?message.slice(0,4096):'[no string message]';
+  return 'UNCLASSIFIED_FAILURE: retain state; message-prefix4096-sha256='+hash(Buffer.from(prefix));
+}
 function recordWorkflowFailure(failure,{state,save,log=console.log}) {
   state.workflowFailure={stage:'workflow-failed',observedAt:Date.now(),acceptedStateRetained:true};
   try {
     save();log('LIFECYCLE_STAGE',JSON.stringify({runId:state.runId || null,...state.workflowFailure}));
   } catch(persistenceFailure) {
-    throw new AggregateError([failure,persistenceFailure],'Lifecycle failure evidence could not be recorded; primary failure and accepted state retained');
+    throw new AggregateError([failure,persistenceFailure],'Lifecycle failure evidence could not be recorded; primary=['
+      +safeLifecycleFailure(failure)+']; evidence=['+safeLifecycleFailure(persistenceFailure)+']; primary failure and accepted state retained');
   }
   throw failure;
 }
@@ -781,5 +804,6 @@ async function run(env = process.env) {
 }
 
 if (require.main === module) run().then(result => { if (result?.outcome === 'NOT_EXECUTED') process.exitCode = 2; })
-  .catch(() => { console.error('FAIL lifecycle gate: accepted state retained; inspect protected artifacts'); process.exitCode = 1; });
+  .catch(failure => { console.error('FAIL lifecycle gate: '+safeLifecycleFailure(failure)
+    +'; accepted state retained; inspect protected artifacts'); process.exitCode = 1; });
 module.exports = {run,optionsFrom,optionsDigest,fixture,readState,writeState,bindState,progress,requirePending,assertCompletion,assertAcceptance,assertScopedFault,expireSession,preflightSession,processProof,hashFile,evidencePath,protectedEvidence,contractApi,requireNativeEnvironment,requiredLifecycleStep,awaitActualProxyTimeout,cleanupLifecycle,boundedLifecycleAction,recordWorkflowFailure};

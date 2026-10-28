@@ -8,6 +8,7 @@ const path = require('node:path');
 const {randomUUID} = require('node:crypto');
 const {createHash} = require('node:crypto');
 const {EventEmitter} = require('node:events');
+const {spawnSync} = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const gate = require('./demographic-cds-lifecycle-playwright-checks');
 const ordinary = () => ({CDS_LIFECYCLE_PROVIDER_NO:'EDU1',CDS_LIFECYCLE_PROGRAM_ID:'7',CDS_LIFECYCLE_FACILITY_ID:'1',
@@ -437,4 +438,62 @@ test('successful workflow failure recording rethrows the exact primary failure a
     log(label,payload){steps.push('logged');assert.equal(label,'LIFECYCLE_STAGE');assert.equal(JSON.parse(payload).acceptedStateRetained,true);}}),
   error=>error===primary);
   assert.deepEqual(steps,['saved','logged']);
+});
+
+test('the actual runner retains both safe workflow and evidence reasons plus cleanup status',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-safe-reasons-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  for(const failedStep of ['save','log']){
+    const primary=Error('The exact real-proxy response deadline elapsed; accepted state retained');
+    const secondary=Object.assign(Error('private evidence details'),{code:failedStep==='save'?'ENOSPC':'EPIPE'});
+    const selected=state(),lines=[],resultFile=path.join(directory,failedStep+'.json'),processRef={env:{RESULT_JSON:resultFile}};let thrown,cleanups=0;
+    const result=await h.runCheck({name:'lifecycle-recording-boundary-unit',processRef,stdout:{log:line=>lines.push(line)},
+      createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+      run(){try {gate.recordWorkflowFailure(primary,{state:selected,save(){if(failedStep==='save')throw secondary;},
+        log(){if(failedStep==='log')throw secondary;}});} catch(error){thrown=error;throw error;}},
+      cleanup(){cleanups++;if(failedStep==='log')throw Error('controlled cleanup pending');}});
+    assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleanups,1);
+    assert.ok(thrown instanceof AggregateError);assert.deepEqual(thrown.errors,[primary,secondary]);
+    assert.match(result.detail,/primary=\[PROXY_RESPONSE_TIMEOUT: verify owned proxy response evidence/);
+    assert.match(result.detail,failedStep==='save'?/evidence=\[ENOSPC: evidence filesystem full; restore owned free space\]/
+      :/evidence=\[EPIPE: evidence output closed; restore owned log capture\]/);
+    assert.equal(result.cleanupFailed,failedStep==='log'?true:undefined);
+    const retained=JSON.parse(fs.readFileSync(resultFile));assert.equal(retained.detail,result.detail);assert.equal(retained.outcome,'FAIL');
+    assert.equal(retained.cleanupFailed,result.cleanupFailed);
+    t.diagnostic('RETAINED_RUNNER_RESULT '+JSON.stringify({case:failedStep,outcome:retained.outcome,
+      detail:retained.detail,cleanupFailed:retained.cleanupFailed || false}));
+    assert.ok(lines.some(line=>line.includes(result.detail)));assert.ok(result.detail.length<600);
+    assert.equal(selected.workflowFailure.acceptedStateRetained,true);
+  }
+});
+
+test('the actual runner redacts unexpected primary and evidence secrets into bounded fingerprints',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-safe-fingerprints-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const sensitive='password=synthetic-secret SELECT diagnosis FROM patient /workspace/protected/clinical.json cookie=private-token\n';
+  const primary=Error(sensitive.repeat(100)),secondary=Object.assign(Error('evidence '+sensitive.repeat(100)),{code:'ENOSPC\n'+sensitive});
+  const lines=[],resultFile=path.join(directory,'result.json'),processRef={env:{RESULT_JSON:resultFile}};let thrown,cleaned=false;
+  const result=await h.runCheck({name:'lifecycle-private-diagnostic-unit',processRef,stdout:{log:line=>lines.push(line)},
+    createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+    run(){try {gate.recordWorkflowFailure(primary,{state:state(),save(){throw secondary;},log(){}});}
+      catch(error){thrown=error;throw error;}},cleanup(){cleaned=true;}});
+  assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleaned,true);
+  assert.deepEqual(thrown.errors,[primary,secondary]);
+  const serialized=fs.readFileSync(resultFile,'utf8');assert.equal(JSON.parse(serialized).detail,result.detail);
+  for(const error of [primary,secondary])assert.ok(result.detail.includes('message-prefix4096-sha256='
+    +createHash('sha256').update(error.message.slice(0,4096)).digest('hex')));
+  for(const secret of ['synthetic-secret','SELECT','diagnosis','/workspace/protected','private-token','\n']){
+    assert.equal(result.detail.includes(secret),false);assert.equal(lines.join('').includes(secret),false);
+    if(secret!=='\n')assert.equal(serialized.includes(secret),false);
+  }
+  assert.ok(result.detail.length<600);assert.ok(lines.every(line=>line.length<700));
+});
+
+test('the actual pre-run CLI catch reports a safe missing prerequisite and exit1 before native work',()=>{
+  const secret='synthetic-cli-secret SELECT patient /workspace/protected/private.json';
+  const child=spawnSync(process.execPath,[path.join(__dirname,'demographic-cds-lifecycle-playwright-checks.js')],
+    {encoding:'utf8',timeout:5000,maxBuffer:8192,env:{...process.env,CDS_LIFECYCLE_EXECUTE:'true',
+      TEST_USER:'',CARLOS_USER:'',TEST_PASSWORD:secret,CARLOS_PASSWORD:secret,MYSQL_PASSWORD:secret}});
+  assert.equal(child.error,undefined);assert.equal(child.signal,null);assert.equal(child.status,1);assert.equal(child.stdout,'');
+  assert.match(child.stderr,/FAIL lifecycle gate: MISSING_NATIVE_PREREQUISITE: configure TEST_USER before execution/);
+  assert.match(child.stderr,/accepted state retained/);assert.ok(child.stderr.length<400);
+  for(const privateText of ['synthetic-cli-secret','SELECT','patient','/workspace/protected'])assert.equal(child.stderr.includes(privateText),false);
 });
