@@ -1,0 +1,68 @@
+You are generating a clinician-facing longitudinal patient summary for an electronic medical record.
+
+TASK:
+Summarize the synthetic source records as of 2026-06-10.
+
+STRICT RULES:
+1. Use only facts explicitly stated in SOURCE_RECORDS.
+2. Do not infer diagnoses, causes, medication status, treatment, urgency, or recommendations.
+3. Preserve dates, doses, units, negations, temporality, and every qualifier such as possible, historical, current, absent, or in sustained remission.
+4. Do not promote suspected, historical, or in-remission conditions to confirmed active problems.
+5. Exclude records explicitly identified as belonging to another patient.
+6. Every factual item must cite one or more source IDs.
+7. Every source ID is a JSON string and must be quoted, for example ["N1", "N6"], never [N1, N6].
+8. If information is missing, use null or an empty array. Do not invent it.
+9. Return exactly one schema-conforming JSON object with no Markdown, code fences, or commentary.
+
+DECISION RULES:
+- Structured clinical facts: Include every dated blood pressure and laboratory result. Do not omit an earlier abnormal value merely because a later value exists.
+- Medication conflicts: If records disagree and the newest status lacks an author or explanation, use status "uncertain". Cite every record needed to show the conflict, including the recent record of the patient taking the medication.
+- Allergy conflicts: Represent the penicillin allergy and "No known drug allergies" assertion in one conflicting allergy object. Do not create an "unknown" allergen.
+- Pending actions: An order is not pending when a later record contains its requested measurement or result. N6 completes N5's repeat blood pressure and basic metabolic panel. Therefore, do not place either in pending_actions. Vitamin B12 testing remains pending.
+- Scheduled events: Future appointments belong only in scheduled_events.
+- Social and accessibility context: Represent every N10 fact in social_context, whether it describes presence or absence. Apply this symmetrically. Wheelchair use is current accessibility information and must not be omitted merely because it is not a diagnosis.
+- Remission: The phrase "in sustained remission" is clinically meaningful. Preserve it in both the fact text and status "in_remission". Do not reduce it to a confirmed active disorder and do not omit the remission qualifier.
+- Duplication: Do not place a social-context fact in active_problems unless a clinical source explicitly lists it as an active problem.
+- Source coverage: Account for every source record N1 through N9 as used, excluded, or intentionally_omitted. When N10 exists, account for N1 through N10.
+
+REQUIRED CONTENT CHECK BEFORE RETURNING JSON:
+- N3 blood pressure 148/86 mmHg is present.
+- N6 blood pressure 132/78 mmHg is present.
+- Only Vitamin B12 testing remains pending.
+- Possible neuropathy remains suspected.
+- Metformin remains uncertain with N3, N5, N6, and N7 cited.
+- Penicillin remains conflicting.
+- N9 is excluded.
+- N10, when present, is represented in social_context with its complete qualifier.
+- All source IDs are quoted strings.
+
+SOURCE_RECORDS:
+
+[N1 | 2025-11-10 | Problem list]
+Patient Evelyn Carter is a 67-year-old woman. Active problems listed: hypertension, type 2 diabetes mellitus, and chronic kidney disease stage 3a.
+
+[N2 | 2026-01-05 | Allergy reconciliation]
+Patient reports a penicillin allergy that caused a rash during childhood. A legacy entry dated 2022 states "No known drug allergies." The discrepancy was not resolved.
+
+[N3 | 2026-05-15 | Primary-care visit]
+Blood pressure 148/86 mmHg. Patient denies chest pain, shortness of breath, and dizziness. Current medications recorded as metformin 500 mg twice daily and lisinopril 10 mg daily. Laboratory results: HbA1c 7.4%, creatinine 1.3 mg/dL, eGFR 45 mL/min/1.73m2, and potassium 5.5 mmol/L. Plan: repeat potassium before making any lisinopril change.
+
+[N4 | 2026-05-18 | Laboratory result]
+Repeat potassium 4.7 mmol/L.
+
+[N5 | 2026-05-20 | Clinician message]
+Increase lisinopril to 20 mg daily. Continue metformin 500 mg twice daily. Repeat blood pressure and basic metabolic panel in two weeks.
+
+[N6 | 2026-06-03 | Follow-up visit]
+Patient reports taking lisinopril 20 mg daily and metformin 500 mg twice daily without adverse effects. Blood pressure 132/78 mmHg. Potassium 4.8 mmol/L, creatinine 1.2 mg/dL, and eGFR 49 mL/min/1.73m2. Patient reports tingling in both toes for two months. Assessment states: "Possible diabetic peripheral neuropathy; diagnosis not confirmed." Vitamin B12 testing ordered; result not yet available.
+
+[N7 | 2026-06-05 | External pharmacy import]
+Metformin 500 mg twice daily is marked "discontinued." No author or reason for discontinuation is provided.
+
+[N8 | 2026-06-06 | Administrative note]
+Screening mammogram appointment moved from June 12 to June 19 at the patient's request.
+
+[N9 | 2026-06-07 | Scanned outside note]
+Document header identifies Edward Carter, a 72-year-old man. Diagnoses include atrial fibrillation. Medication list includes warfarin 5 mg daily. Staff annotation states: "Wrong-patient attachment; do not use in Evelyn Carter's chart."
+
+END SOURCE_RECORDS
