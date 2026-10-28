@@ -158,7 +158,7 @@
         <!-- Version of the provided-scope Tomcat artifacts we compile against. The servlet
              container actually deployed against is a deployment concern (see the Dockerfile
              base image); this property does not constrain the runtime. -->
-        <tomcat.version>11.0.24</tomcat.version>
+        <tomcat.version>11.0.27</tomcat.version>
         <!-- Bouncy Castle -->
         <bouncycastle.version>1.86</bouncycastle.version>
         <!-- JasperReports -->
@@ -1464,7 +1464,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.7.1-jre</version>
+            <version>33.7.2-jre</version>
         </dependency>
 
         <!-- Flying Saucer - HTML/CSS to PDF via OpenPDF 3.0.x (org.openpdf.* namespace) -->

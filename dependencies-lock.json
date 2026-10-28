@@ -354,11 +354,11 @@
   }, {
     "groupId" : "com.google.guava",
     "artifactId" : "guava",
-    "version" : "33.7.1-jre",
+    "version" : "33.7.2-jre",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:tPJ074khi11UHhlAJEMajdvr9Hbzt1N+kJXXiHa1Ha+h7VZ8TCaCLNP0Bi+kQ+wausocuzEm5RKPAwhMOBSRKw=="
+    "integrity" : "sha512:vWY9wC8ik6VS2CgpUYQ1uM/Nd7fHPutjiu+TkY73YTrSqGkAOwnRr7REb6dDCAQdqnpq6oXBvtsX2x9fDCxcCw=="
   }, {
     "groupId" : "com.google.guava",
     "artifactId" : "listenablefuture",
@@ -2181,43 +2181,43 @@
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-coyote",
-    "version" : "11.0.24",
+    "version" : "11.0.27",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:WDxXeJM9ivbw5RKIpmc5LrYfDJWHsMo9Vk7Oa6tqTHq+UXfG0RPjz8NxahkA9Nx3ixF4lxKVk1mU4sy9THHsHg=="
+    "integrity" : "sha512:bbK9BoKhWCDPAPJVkqM7M7xBbvfuHTDb5Ic7XwlibUkuq8wJ0p6oq2LlTbC/3zgAHhzgCWpdQmu+tPDMIwEyrQ=="
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-jni",
-    "version" : "11.0.24",
+    "version" : "11.0.27",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:iiHESlZXs1khIQ2191/hyDqvhCij9D+o6Ff9Gs1oB0Ao6b/TSGrqY+fDGq8QZsmHhxgjJZrBw3QLnMLTvp3mPg=="
+    "integrity" : "sha512:pzxNCSiIO8WkMmIa2ZF8MiTzjmmcRdTJH2Eghix2FtDvq5dYw6R8cDboFNfEIBPcAsojOOLDvuAN089xTNugGw=="
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-juli",
-    "version" : "11.0.24",
+    "version" : "11.0.27",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:cI/DCV5JvTpys2c3AiasUDtoXIrTZUyBScYI+UIfVKOI0f3XyCFSOoM9hEHc4sc7Bf8awsfn3eISS3W/c/Hd0g=="
+    "integrity" : "sha512:oEQ/d5t8TNkaKXt/6lRh48T+wl9RxP9tPAbcQzsuTst0TIEgZ7JAZheVUhBrFvrlLGj7TjGegUqrArLtYVjQfQ=="
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-servlet-api",
-    "version" : "11.0.24",
+    "version" : "11.0.27",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:aBTWrPRqgm+5oDMB1h+BwoV8OIn0IsyaoWCGK1Mx9fE4hf2TxygBMsUAaUIePTyedEjBvWknReKkKJh+vjZ/ug=="
+    "integrity" : "sha512:+WnntJuZXoV/Ja+bH91j7Phap6sc2SEFyXJPEHV53Ui2lxxPoRXIfDrgXFwFuXR9ba8PsnzWEGm7ud6cpRznhg=="
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-util",
-    "version" : "11.0.24",
+    "version" : "11.0.27",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:QUEHB6hQowI0p22lAoXzAEVk291u0zrSQqiOPYjJWbyS3tHjHv4NMuuLUuUqcAsjwNvnGYfVGkp51vKhJNOvGw=="
+    "integrity" : "sha512:o9bVqJgeJQqWlGldFaiZUOJCrlwrMjnB/61xpoAeKdoBPKtOTIXP6gWOsMLhRPgsaDL8tNaNhJDezLN1+vCQgA=="
   }, {
     "groupId" : "org.apache.velocity.tools",
     "artifactId" : "velocity-tools-generic",
