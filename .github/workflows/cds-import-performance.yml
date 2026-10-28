@@ -12,6 +12,8 @@ on:
       - 'database/mysql/migration/**'
       - 'scripts/ci/*cds*performance*'
       - 'scripts/ci/*cds*disk*'
+      - 'scripts/ci/cds_war_manifest.py'
+      - 'scripts/ci/test_cds_war_manifest.py'
       - 'scripts/ci/CdsImportMariaDbBootstrap.java'
       - 'scripts/ci/CdsWorkloadValidator.java'
       - 'scripts/ci/cds-performance-runtime.Dockerfile'
@@ -41,6 +43,8 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
+      - name: Verify bounded WAR content evidence tooling
+        run: python3 scripts/ci/test_cds_war_manifest.py
       - name: Free unused SDKs only on the job's ephemeral hosted runner
         run: |
           test "$RUNNER_ENVIRONMENT" = github-hosted

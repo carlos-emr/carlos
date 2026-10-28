@@ -115,12 +115,12 @@ final class CdsReadProjectionTestFixture {
     private static CdsImportDiagnostic diagnostic(EntityManager manager,String run,String code,boolean blocking,boolean resolved,String patient) {
         var diagnostic=new CdsImportDiagnostic(); diagnostic.setRunId(run); diagnostic.setCode(code); diagnostic.setPatientKey(patient);
         diagnostic.setBlocking(blocking); diagnostic.setResolved(resolved); diagnostic.setSeverity("INFO"); diagnostic.setStage("MAINTENANCE");
-        diagnostic.setSafeSummary("Synthetic projection proof"); diagnostic.setCreatedAt(Instant.EPOCH); manager.persist(diagnostic); return diagnostic;
+        diagnostic.setSafeSummary("Synthetic projection proof"); diagnostic.setCreatedAt(Instant.parse("2026-01-15T12:00:00Z")); manager.persist(diagnostic); return diagnostic;
     }
     private static CdsImportReview review(EntityManager manager,String run,long diagnosticId,long version,String state,String source) {
         var review=new CdsImportReview(); review.setId(UUID.randomUUID().toString()); review.setRunId(run); review.setReviewVersion(version);
         review.setKind("CORRECT_VALUE"); review.setState(state); review.setSourceKey(source); review.setDiagnosticId(diagnosticId);
-        review.setOperator("fixture"); review.setProviderNo("999998"); review.setCreatedAt(Instant.EPOCH);
+        review.setOperator("fixture"); review.setProviderNo("999998"); review.setCreatedAt(Instant.parse("2026-01-15T12:00:00Z"));
         review.setPayload("{}"); review.setPayloadSha256("a".repeat(64)); review.setPlanLocation(""); review.setPlanSha256("");
         manager.persist(review); return review;
     }

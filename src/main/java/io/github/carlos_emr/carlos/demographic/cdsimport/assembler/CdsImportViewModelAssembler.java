@@ -25,7 +25,6 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportConfig
 import io.github.carlos_emr.carlos.demographic.cdsimport.viewmodel.CdsImportViewModel;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsProgramContextService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -41,7 +40,7 @@ public class CdsImportViewModelAssembler {
         this.configuration = configuration; this.programs = programs;
     }
 
-    public CdsImportViewModel assemble(HttpServletRequest request, LoggedInInfo actor) {
+    public CdsImportViewModel assemble(LoggedInInfo actor) {
         String configured = configuration.value("cds.import.sourceNamespaces", "");
         if (configured.length() > 8192) throw new IllegalStateException("IMPORT_SOURCE_REGISTRY_TOO_LARGE");
         Set<String> namespaces = new LinkedHashSet<>();

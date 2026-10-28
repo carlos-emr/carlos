@@ -27,7 +27,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportAdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsUploadDao;
@@ -52,6 +51,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
@@ -61,7 +62,7 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
     private CdsUploadService service;
     private CdsUploadDao uploads;
     private CdsImportAdmission budget;
-    private final Map<String,CdsUpload> stored = new HashMap<>();
+    private final Map<String, CdsUpload> stored = new HashMap<>();
     private static final String OWNER = "web-42";
     private static final int CHUNK = 65536;
 
@@ -214,6 +215,43 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> service.sourceForAcceptedRun(OWNER, upload.id(), actual, previewKey, true))
                 .hasMessage("UPLOAD_RUN_ASSOCIATION_INVALID");
         assertThatThrownBy(() -> service.abandon(OWNER, upload.id())).hasMessage("UPLOAD_ACCEPTANCE_RECONCILIATION_REQUIRED");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"COMPLETE", "SUBMITTING", "SUBMITTED_DRY_RUN", "SUBMITTED", "SNAPSHOT_PUBLISHED", "RETIRED"})
+    void shouldResolveImmutableSourceWithoutClaiming_whenAcceptanceMayAlreadyExist(String state) throws Exception {
+        byte[] bytes = "content".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var upload = service.begin(OWNER, "source.ZIP", bytes.length);
+        service.append(OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes));
+        service.finish(OWNER, upload.id());
+        CdsUpload row = stored.get(upload.id()); row.setState(state);
+        Instant updated = row.getUpdatedAt();
+        Path payload = temporary.resolve("uploads").resolve(upload.id()).resolve("source.zip");
+        Files.delete(payload);
+        org.mockito.Mockito.clearInvocations(uploads);
+        assertThat(service.sourceForSubmission(OWNER, upload.id())).isEqualTo(payload);
+        assertThat(service.status(OWNER, upload.id()).state()).isEqualTo(state);
+        assertThat(row.getUpdatedAt()).isEqualTo(updated);
+        assertThat(payload).doesNotExist();
+        org.mockito.Mockito.verify(uploads, org.mockito.Mockito.never()).merge(any());
+        org.mockito.Mockito.verify(uploads, org.mockito.Mockito.never()).lock(anyString());
+        assertThatThrownBy(() -> service.sourceForSubmission("web-99", upload.id())).hasMessage("UPLOAD_NOT_FOUND");
+    }
+
+    @Test void shouldRefuseUnsealedSourceWithoutChangingState_whenUploadIsOpen() throws Exception {
+        var upload = service.begin(OWNER, "source.xml", 7);
+        assertThatThrownBy(() -> service.sourceForSubmission(OWNER, upload.id())).hasMessage("UPLOAD_NOT_COMPLETE");
+        assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("OPEN");
+    }
+
+    @Test void shouldAvoidCreatingStorage_whenResolvingAReceiptWithMissingRoot() throws Exception {
+        var upload = service.begin(OWNER, "source.xml", 7);
+        stored.get(upload.id()).setState("COMPLETE");
+        Files.delete(temporary.resolve("uploads").resolve(upload.id()));
+        Files.delete(temporary.resolve("uploads"));
+        assertThatThrownBy(() -> service.sourceForSubmission(OWNER, upload.id())).hasMessage("UPLOAD_ROOT_NOT_PRIVATE");
+        assertThat(temporary.resolve("uploads")).doesNotExist();
+        assertThat(stored.get(upload.id()).getState()).isEqualTo("COMPLETE");
     }
 
     @Test void shouldReleaseQuotaOnce_whenUnsubmittedUploadIsAbandonedRepeatedly() throws Exception {

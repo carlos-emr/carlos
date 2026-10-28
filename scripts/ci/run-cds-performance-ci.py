@@ -9,6 +9,7 @@ whitelisted hashes/counts/resource evidence are copied to the public artifact.
 from __future__ import annotations
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -18,6 +19,10 @@ import subprocess
 import time
 import uuid
 import zipfile
+
+_MANIFEST_SPEC = importlib.util.spec_from_file_location("cds_war_manifest", Path(__file__).with_name("cds_war_manifest.py"))
+WAR_MANIFEST = importlib.util.module_from_spec(_MANIFEST_SPEC)
+_MANIFEST_SPEC.loader.exec_module(WAR_MANIFEST)
 
 DATABASE_IMAGE = "mariadb:11.8@sha256:f16d7a344413e519dff518f27bdb221388f84b0d274c97c4fb5f2cb0dc1b34fa"
 
@@ -86,8 +91,11 @@ def main() -> int:
             if len(wars) != 1 or wars[0].is_symlink():
                 raise RuntimeError("one exact packaged candidate WAR is required")
             war = wars[0]
-            with war.open("rb") as original_war:
-                status["warSha256"] = hashlib.file_digest(original_war, "sha256").hexdigest()
+            status["stage"] = "CANDIDATE_WAR_CONTENT_MANIFEST"
+            save()
+            status["warContentManifest"] = WAR_MANIFEST.publish_manifest(war, public / "candidate-war-content-manifest.json")
+            status["warSha256"] = status["warContentManifest"]["warSha256"]
+            save()
             with zipfile.ZipFile(war) as archive:
                 for member in archive.infolist():
                     target = webapp / member.filename
@@ -100,6 +108,7 @@ def main() -> int:
                         with archive.open(member) as source, target.open("xb") as output:
                             shutil.copyfileobj(source, output, 65536)
                         target.chmod(0o644)
+            WAR_MANIFEST.verify_archive_binding(war, status["warSha256"])
             status["productionClasses"] = sum(1 for _ in (webapp / "WEB-INF/classes").rglob("*.class"))
             status["productionJars"] = len(list((webapp / "WEB-INF/lib").glob("*.jar")))
             disk_fault = args.profile.startswith('disk-')
@@ -217,6 +226,9 @@ def main() -> int:
         return 0
     except Exception as failure:
         status["status"],status["failureClass"]="FAILED",type(failure).__name__
+        manifest_code = WAR_MANIFEST.safe_failure_code(failure)
+        if manifest_code is not None:
+            status["warManifestFailureCode"] = manifest_code
         save()
         print("CDS performance CI failed at",status.get("stage","SETUP"),"(",type(failure).__name__,
               "); inspect sanitized harness and prerequisite evidence")

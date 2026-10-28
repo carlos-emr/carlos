@@ -206,6 +206,14 @@ A report-only retry preserves clinical commits and patient publications. Report/
 never overwrites the primary import failure, and a failed delivery terminates polling with an
 explicit failed operational state rather than hanging indefinitely.
 
+Each immutable completion receipt projects delivery of its own selected report generation using
+the fresh completion-time ledger state. A pending Resume observed in that snapshot keeps
+`cleanComplete=false` and `operationTerminal=false`. Requests accepted after that snapshot belong
+to later live status; an immutable prior receipt is historical evidence and is not rewritten.
+Receipt predicates use the base ledger summary. The operator facade additionally suppresses
+terminality for ordinary unresolved review work; consult its live protected status for current
+operator action rather than inferring it from a stopped attempt's receipt.
+
 Restart discovery includes `REVIEW_REQUIRED` and `RECONCILIATION_REQUIRED` when their report is
 still `PENDING`. A pending review permits report delivery only for those stopped states; the
 worker forces the report-only entry and leaves clinical state, seals and native units untouched.

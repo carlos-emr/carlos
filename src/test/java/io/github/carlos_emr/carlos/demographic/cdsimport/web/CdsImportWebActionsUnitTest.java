@@ -22,18 +22,15 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.demographic.cdsimport.assembler.CdsImportViewModelAssembler;
+import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsUploadImportCommand;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadSubmissionService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportConfigurationService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
@@ -87,6 +84,39 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
         var control = new CdsImportControl2Action(access, imports);
         assertThat(control.execute()).isEqualTo(ActionSupport.NONE); assertThat(response.getStatus()).isEqualTo(405);
         verifyNoInteractions(uploads, imports);
+        response = new MockHttpServletResponse(); ActionContext.getContext().withServletResponse(response);
+        var submissions = mock(CdsUploadSubmissionService.class);
+        var submit = new SubmitCdsImport2Action(access, submissions);
+        assertThat(submit.execute()).isEqualTo(ActionSupport.NONE); assertThat(response.getStatus()).isEqualTo(405);
+        verifyNoInteractions(submissions);
+    }
+
+    @Test void shouldDelegateTypedUploadOptions_withoutAcceptingAServerPath() throws Exception {
+        request.setMethod("POST");
+        var submissions = mock(CdsUploadSubmissionService.class);
+        var job = new CdsImportJobDto("11111111-1111-4111-8111-111111111111", "web-42", "999998", "clinic", "omd-5.2",
+                "CLI_ACCEPTED", "a".repeat(64), "b".repeat(64), "c".repeat(64), null, 0, 0, 0, false,
+                Instant.now(), Instant.now(), 0, null, null);
+        when(submissions.submit(org.mockito.ArgumentMatchers.same(actor), org.mockito.ArgumentMatchers.any())).thenReturn(job);
+        var action = new SubmitCdsImport2Action(access, submissions);
+        action.setUploadId("22222222-2222-4222-8222-222222222222");
+        action.setSourceNamespace("clinic"); action.setSourceProfile("omd-5.2"); action.setDryRun(true);
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(202);
+        assertThat(response.getContentAsString()).contains("\"accepted\":true", "\"apiVersion\":2");
+        var options = org.mockito.ArgumentCaptor.forClass(CdsUploadImportCommand.class);
+        org.mockito.Mockito.verify(submissions).submit(org.mockito.ArgumentMatchers.same(actor), options.capture());
+        assertThat(options.getValue()).isEqualTo(new CdsUploadImportCommand(
+                "22222222-2222-4222-8222-222222222222", null, null, null, "clinic", "omd-5.2", false, true, true, 0, null, false));
+        verifyNoInteractions(imports, uploads);
+    }
+
+    @Test void shouldRejectUnknownSubmissionParameters_beforeCallingTheApplicationService() throws Exception {
+        request.setMethod("POST"); request.addParameter("path", "/private/source.xml");
+        var submissions = mock(CdsUploadSubmissionService.class);
+        new SubmitCdsImport2Action(access, submissions).execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(submissions);
     }
 
     @Test void shouldRefuseLegacyPostBeforeAcceptance_whenAnOldTabSubmits() throws Exception {
@@ -95,6 +125,16 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getContentAsString()).contains("IMPORT_CLIENT_REFRESH_REQUIRED");
         verifyNoInteractions(assembler, imports, uploads);
+    }
+
+    @Test void shouldRenderPreparedImportModel_whenAnAuthorizedOperatorOpensThePage() throws Exception {
+        var assembler = mock(CdsImportViewModelAssembler.class);
+        var model = mock(io.github.carlos_emr.carlos.demographic.cdsimport.viewmodel.CdsImportViewModel.class);
+        when(assembler.assemble(actor)).thenReturn(model);
+        assertThat(new ViewCdsImport2Action(access, assembler).execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("model")).isSameAs(model);
+        org.mockito.Mockito.verify(assembler).assemble(actor);
+        verifyNoInteractions(imports, uploads);
     }
 
     @Test void shouldRefuseDuplicateAndUnknownParameters_withoutUploadWrites() throws Exception {
@@ -133,11 +173,11 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
     void shouldStreamTheCompleteItemLog_throughVersionlessAuthorizedReportReads(String method) throws Exception {
         String run="11111111-1111-4111-8111-111111111111";
         byte[] bytes=("{\"unitKey\":\"synthetic-unit\",\"state\":\"COMMITTED\"}\n".repeat(4096)).getBytes(StandardCharsets.UTF_8);
-        Path file=directory.resolve("protected-units.jsonl"); Files.write(file,bytes);
+        Path file=directory.resolve("protected-units.jsonl"); Files.write(file, bytes);
         request.setMethod(method); request.removeParameter(CdsWeb.API_VERSION_PARAMETER);
-        request.addParameter("runId",run); request.addParameter("type","units");
-        when(imports.report(actor,run,"units")).thenReturn(file);
-        var report=new CdsImportReport2Action(access,imports); report.setRunId(run); report.setType("units");
+        request.addParameter("runId", run); request.addParameter("type", "units");
+        when(imports.report(actor, run, "units")).thenReturn(file);
+        var report=new CdsImportReport2Action(access, imports); report.setRunId(run); report.setType("units");
         report.execute();
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentType()).isEqualTo("application/octet-stream");
@@ -148,17 +188,17 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
         assertThat(response.getHeader("Content-Security-Policy")).isEqualTo("sandbox");
         assertThat(response.getContentAsByteArray()).isEqualTo("HEAD".equals(method)?new byte[0]:bytes);
         org.mockito.Mockito.verify(access).requireOperatorSession(actor);
-        org.mockito.Mockito.verify(imports).report(actor,run,"units");
+        org.mockito.Mockito.verify(imports).report(actor, run, "units");
     }
 
     @ParameterizedTest @ValueSource(strings = {"anonymous", "nonoperator", "nonowner"})
     void shouldNeverDeliverTheItemLog_whenFreshAuthorizationOrOwnershipIsRefused(String principal) throws Exception {
         String run="11111111-1111-4111-8111-111111111111";
-        if ("anonymous".equals(principal)) {request.getSession().invalidate();request.setSession(null);}
+        if ("anonymous".equals(principal)) {request.getSession().invalidate(); request.setSession(null); }
         else if ("nonoperator".equals(principal)) org.mockito.Mockito.doThrow(new SecurityException("private access detail"))
                 .when(access).requireOperatorSession(actor);
-        else when(imports.report(actor,run,"units")).thenThrow(new SecurityException("private ownership detail"));
-        var report=new CdsImportReport2Action(access,imports);report.setRunId(run);report.setType("units");report.execute();
+        else when(imports.report(actor, run, "units")).thenThrow(new SecurityException("private ownership detail"));
+        var report=new CdsImportReport2Action(access, imports); report.setRunId(run); report.setType("units"); report.execute();
         assertThat(response.getStatus()).isEqualTo("anonymous".equals(principal)?401:403);
         assertThat(response.getHeader("Content-Disposition")).isNull();
         assertThat(response.getContentAsString()).doesNotContain("private", "unitKey", "Exception");
@@ -167,32 +207,32 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
 
     @Test void shouldDeliverOnlyAuthorizedSafeEvidence_byRunAndDiagnosticIdentity() throws Exception {
         String run="11111111-1111-4111-8111-111111111111";
-        when(imports.diagnosticEvidence(actor,run,7L)).thenReturn(Map.of("version",1,"ownerEpoch",2,
-                "causes",java.util.List.of(Map.of("type","java.sql.SQLException","sqlState","45000","frames",java.util.List.of("Known#method:12")))));
-        var action=new CdsImportDiagnostic2Action(access,imports);action.setRunId(run);action.setDiagnosticId(7L);
+        when(imports.diagnosticEvidence(actor, run, 7L)).thenReturn(Map.of("version", 1, "ownerEpoch", 2,
+                "causes", java.util.List.of(Map.of("type", "java.sql.SQLException", "sqlState", "45000", "frames", java.util.List.of("Known#method:12")))));
+        var action=new CdsImportDiagnostic2Action(access, imports); action.setRunId(run); action.setDiagnosticId(7L);
         action.execute();
         assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(response.getContentAsString()).contains("45000","Known#method:12").doesNotContain("protectedDetailLocation","/private");
+        assertThat(response.getContentAsString()).contains("45000", "Known#method:12").doesNotContain("protectedDetailLocation", "/private");
         org.mockito.Mockito.verify(access).requireOperatorSession(actor);
-        org.mockito.Mockito.verify(imports).diagnosticEvidence(actor,run,7L);
+        org.mockito.Mockito.verify(imports).diagnosticEvidence(actor, run, 7L);
     }
 
     @Test void shouldRefuseEvidencePathInjection_andUnsafeMethodBeforeEvidenceReads() throws Exception {
-        request.addParameter("path","/private/secret");
-        var action=new CdsImportDiagnostic2Action(access,imports);action.setRunId("11111111-1111-4111-8111-111111111111");action.setDiagnosticId(7L);
-        action.execute();assertThat(response.getStatus()).isEqualTo(400);verifyNoInteractions(imports);
-        request.setMethod("POST");response=new MockHttpServletResponse();ActionContext.getContext().withServletResponse(response);
-        action.execute();assertThat(response.getStatus()).isEqualTo(405);verifyNoInteractions(imports);
+        request.addParameter("path", "/private/secret");
+        var action=new CdsImportDiagnostic2Action(access, imports); action.setRunId("11111111-1111-4111-8111-111111111111"); action.setDiagnosticId(7L);
+        action.execute(); assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(imports);
+        request.setMethod("POST"); response=new MockHttpServletResponse(); ActionContext.getContext().withServletResponse(response);
+        action.execute(); assertThat(response.getStatus()).isEqualTo(405); verifyNoInteractions(imports);
     }
 
     @Test void shouldAdvertiseSafeFailureEvidence_withoutLeakingItsPrivateLocation() {
-        var row=new CdsImportDiagnosticDto(7,null,null,"ERROR","NATIVE_FAILURE","EXECUTION",null,"Safe summary",
-                "/private/job/diagnostics/failure-2-11111111-1111-4111-8111-111111111111.json",true,false,Instant.now());
-        assertThat(CdsWeb.diagnostic(row)).containsEntry("hasEvidence",true)
-                .doesNotContainKeys("protectedDetailLocation","location");
+        var row=new CdsImportDiagnosticDto(7, null, null, "ERROR", "NATIVE_FAILURE", "EXECUTION", null, "Safe summary",
+                "/private/job/diagnostics/failure-2-11111111-1111-4111-8111-111111111111.json", true, false, Instant.now());
+        assertThat(CdsWeb.diagnostic(row)).containsEntry("hasEvidence", true)
+                .doesNotContainKeys("protectedDetailLocation", "location");
         assertThat(CdsWeb.diagnostic(row).toString()).doesNotContain("/private");
-        var source=new CdsImportDiagnosticDto(8,null,null,"ERROR","XML_INVALID","PREFLIGHT",null,"Safe summary",
-                "/private/job/source.xml",true,false,Instant.now());
-        assertThat(CdsWeb.diagnostic(source)).containsEntry("hasEvidence",false);
+        var source=new CdsImportDiagnosticDto(8, null, null, "ERROR", "XML_INVALID", "PREFLIGHT", null, "Safe summary",
+                "/private/job/source.xml", true, false, Instant.now());
+        assertThat(CdsWeb.diagnostic(source)).containsEntry("hasEvidence", false);
     }
 }

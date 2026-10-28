@@ -21,10 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
-import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportConfigurationService;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadService;
+import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsUploadImportCommand;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadSubmissionService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,17 +40,14 @@ import org.springframework.stereotype.Component;
 @Component("submitCdsImport2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class SubmitCdsImport2Action extends ActionSupport {
     private final transient CdsImportAccessService access;
-    private final transient CdsImportService imports;
-    private final transient CdsUploadService uploads;
-    private final transient CdsImportConfigurationService configuration;
+    private final transient CdsUploadSubmissionService submissions;
     private String uploadId, providerNo, sourceNamespace, sourceProfile;
     private Integer programId, facilityId, courseId;
     private boolean mergeExisting, dryRun, synthetic;
     private boolean matchProviderNames = true;
     private int timeshiftInDays;
-    public SubmitCdsImport2Action(CdsImportAccessService access, CdsImportService imports,
-            CdsUploadService uploads, CdsImportConfigurationService configuration) {
-        this.access = access; this.imports = imports; this.uploads = uploads; this.configuration = configuration;
+    public SubmitCdsImport2Action(CdsImportAccessService access, CdsUploadSubmissionService submissions) {
+        this.access = access; this.submissions = submissions;
     }
     @Override public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -64,22 +59,9 @@ public class SubmitCdsImport2Action extends ActionSupport {
             var actor = CdsWeb.authorize(request, access);
             CdsWeb.parameters(request, Set.of("uploadId", "providerNo", "programId", "facilityId", "sourceNamespace", "sourceProfile",
                     "mergeExisting", "dryRun", "matchProviderNames", "timeshiftInDays", "courseId", "synthetic"));
-            configuration.requireSource(sourceNamespace, sourceProfile);
-            String operator = CdsWeb.operator(actor);
-            var receipt = uploads.status(operator, uploadId);
-            // Construct/validate options before entering the uncertain acceptance state.
-            var command = new CdsImportCommand(configuration.uploadRoot(), receipt.submissionKey() + (dryRun ? "-dry-run" : "-import"),
-                    providerNo == null ? actor.getLoggedInProviderNo() : providerNo, programId, facilityId,
+            var command = new CdsUploadImportCommand(uploadId, providerNo, programId, facilityId,
                     sourceNamespace, sourceProfile, mergeExisting, dryRun, matchProviderNames, timeshiftInDays, courseId, synthetic);
-            // Reject known authorization/delegation/course failures before fencing bytes as acceptance-uncertain.
-            // The facade rechecks these scopes again at durable acceptance; this precheck grants no capability.
-            access.webActor(actor, command);
-            var input = uploads.claimForSubmission(operator, uploadId);
-            command = new CdsImportCommand(input, command.submissionKey(), command.providerNo(), command.programId(), command.facilityId(),
-                    command.sourceNamespace(), command.sourceProfile(), command.mergeExisting(), command.dryRun(), command.matchProviderNames(),
-                    command.timeshiftDays(), command.courseId(), command.synthetic());
-            var job = imports.submit(actor, command);
-            uploads.submitted(operator, uploadId, job.id(), dryRun);
+            var job = submissions.submit(actor, command);
             CdsWeb.json(response, 202, Map.of("ok", true, "accepted", true, "job", CdsWeb.job(job)));
         } catch (Exception failure) { CdsWeb.failure(response, failure); }
         return NONE;

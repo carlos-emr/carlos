@@ -29,9 +29,9 @@ import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportConfigurationService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadService;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadSubmissionService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -64,7 +64,7 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
         var access = mock(CdsImportAccessService.class);
         var uploads = mock(CdsUploadService.class);
         var imports = mock(CdsImportService.class);
-        var configuration = mock(CdsImportConfigurationService.class);
+        var submissions = mock(CdsUploadSubmissionService.class);
         LoggedInInfo actor = mock(LoggedInInfo.class);
         Security security = new Security(); security.setSecurityNo(42);
         when(actor.getLoggedInSecurity()).thenReturn(security);
@@ -81,7 +81,7 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
             var response = new MockHttpServletResponse();
             ActionContext.of().withServletRequest(request).withServletResponse(response).bind();
             if ("submit".equals(operation)) {
-                new SubmitCdsImport2Action(access, imports, uploads, configuration).execute();
+                new SubmitCdsImport2Action(access, submissions).execute();
             } else if (Set.of("resume", "cancel", "review").contains(operation)) {
                 var action = new CdsImportControl2Action(access, imports); action.setOperation(operation); action.execute();
             } else {
@@ -90,7 +90,7 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).as(operation).isEqualTo(409);
             assertThat(response.getHeader(CdsWeb.API_VERSION_HEADER)).isEqualTo("2");
             assertThat(response.getContentAsString()).contains("IMPORT_CLIENT_REFRESH_REQUIRED", "\"apiVersion\":2");
-            verifyNoInteractions(uploads, imports, configuration);
+            verifyNoInteractions(uploads, imports, submissions);
         }
     }
 

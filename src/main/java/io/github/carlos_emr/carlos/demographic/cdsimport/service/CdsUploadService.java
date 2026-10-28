@@ -263,7 +263,20 @@ public class CdsUploadService {
         });
     }
 
-    /** Claim before calling the job service so a lost job acknowledgement cannot race source deletion. */
+    /**
+     * Resolve an owned immutable source without claiming acceptance or requiring its payload to exist.
+     * Accepted retired retries resolve their durable job before deciding whether source bytes are needed.
+     */
+    public Path sourceForSubmission(String operator, String id) {
+        String payload = write(() -> {
+            CdsUpload row = owned(uploads.get(requireId(id)), operator);
+            if (!IMMUTABLE_STATES.contains(row.getState())) throw problem("UPLOAD_NOT_COMPLETE", 409);
+            return payloadName(row);
+        });
+        return child(directory(root(false), id, false), payload);
+    }
+
+    /** Job acceptance claims under its locks so a lost acknowledgement cannot race source deletion. */
     public Path claimForSubmission(String operator, String id) {
         return write(() -> {
             CdsUpload row = owned(uploads.lock(requireId(id)), operator);
@@ -453,7 +466,11 @@ public class CdsUploadService {
 
     private Path directory(String id, boolean create) {
         requireId(id);
-        Path configured = root();
+        return directory(root(), id, create);
+    }
+
+    private Path directory(Path configured, String id, boolean create) {
+        requireId(id);
         try {
             Path path = child(configured, id);
             if (create && !Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
@@ -466,9 +483,13 @@ public class CdsUploadService {
     }
 
     private Path root() {
+        return root(true);
+    }
+
+    private Path root(boolean create) {
         Path configured = configuration.uploadRoot();
         try {
-            if (!Files.exists(configured, LinkOption.NOFOLLOW_LINKS)) Files.createDirectories(configured,
+            if (create && !Files.exists(configured, LinkOption.NOFOLLOW_LINKS)) Files.createDirectories(configured,
                     PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
             if (Files.isSymbolicLink(configured) || !Files.isDirectory(configured, LinkOption.NOFOLLOW_LINKS)
                     || !PosixFilePermissions.toString(Files.getPosixFilePermissions(configured)).equals("rwx------")) {

@@ -52,6 +52,7 @@ import org.springframework.stereotype.Service;
 public class CdsImportResultService {
     private static final ObjectMapper JSON=new ObjectMapper();
     private static final Set<String> TYPES=Set.of("event", "error", "completion", "units");
+    private static final Set<String> FINAL_ATTEMPT_STATES=Set.of("COMPLETE", "DRY_RUN_COMPLETE", "DRY_RUN_INCOMPLETE", "INCOMPLETE", "RECONCILIATION_REQUIRED", "FAILED_BEFORE_WRITE", "CANCELLED_BEFORE_WRITE", "REVIEW_REQUIRED");
     private static final List<String> SOURCE_CATEGORIES=List.of("Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList", "RiskFactors", "AllergiesAndAdverseReactions", "MedicationsAndTreatments", "Immunizations", "LaboratoryResults", "Appointments", "ClinicalNotes", "ReportsText", "ReportsBinary", "CareElements", "AlertsAndSpecialNeeds", "NewCategory");
     private final CdsImportLedgerService ledger;
     private final CdsImportReportService selection;
@@ -204,8 +205,15 @@ public class CdsImportResultService {
             boolean releasePending=Boolean.TRUE.equals(completion.get("maintenanceReleasePending"));
             completion.put("cleanup", cleanupResult); completion.put("cleanupState", releasePending?completion.get("cleanupState"):cleanupResult.state()); completion.put("cleanupComplete", !releasePending && "COMPLETE".equals(cleanupResult.state()));
             boolean clinical=Boolean.TRUE.equals(completion.get("clinicalComplete"));
-            boolean dryRun=Boolean.TRUE.equals(completion.get("dryRun")) && "DRY_RUN_COMPLETE".equals(before.state());
-            completion.put("cleanComplete", (clinical || dryRun) && !releasePending && "COMPLETE".equals(cleanupResult.state())); completion.put("operationTerminal", true);
+            boolean dryRun=Boolean.TRUE.equals(completion.get("dryRun")) && "DRY_RUN_COMPLETE".equals(completion.get("state"));
+            boolean resumeRequested=Boolean.TRUE.equals(completion.get("resumeRequested"));
+            boolean cleanupComplete=Boolean.TRUE.equals(completion.get("cleanupComplete"));
+            // Project delivery of this generation without turning a newer same-epoch recovery
+            // request or active/replanning state into a terminal outcome. These are the live
+            // ledger summary's completion predicates, with this durable report set delivered.
+            completion.put("cleanComplete", !resumeRequested && (clinical || dryRun) && cleanupComplete);
+            completion.put("operationTerminal", !resumeRequested && FINAL_ATTEMPT_STATES.contains(completion.get("state"))
+                    && (cleanupComplete || releasePending || "FAILED".equals(completion.get("cleanupState"))));
             Path receipt=directory.resolve("completion.json");
             try (OutputStream output=output(receipt, directory)) { line(output, completion); }
             CdsPaths.forceFile(receipt);

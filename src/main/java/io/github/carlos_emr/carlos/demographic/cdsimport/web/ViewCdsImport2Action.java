@@ -51,7 +51,7 @@ public class ViewCdsImport2Action extends ActionSupport {
             return NONE;
         }
         response.setHeader("Cache-Control", "no-store");
-        request.setAttribute("model", assembler.assemble(request, actor));
+        request.setAttribute("model", assembler.assemble(actor));
         return SUCCESS;
     }
 }
