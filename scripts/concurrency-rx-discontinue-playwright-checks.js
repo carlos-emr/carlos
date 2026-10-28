@@ -10,10 +10,8 @@
  * for "allergy".
  *
  * Asserted: A's discontinue archives the drug with its reason and files one linked chart note
- * (control); B's stale discontinue is refused with HTTP 409 and an alert telling the user it could not be
- * completed; afterwards the first reason and date still stand and the chart holds exactly one discontinue
- * note. RxDeleteRx2Action.Discontinue claims the row with a conditional archive (only while it is still
- * active) and files the chart note in the same transaction, so the stale second discontinue writes nothing.
+ * (control); B's stale discontinue receives the explicit STALE_RX_DISCONTINUE 409, keeps the typed
+ * comment and shows a reload message. The first reason/date and exactly one linked note must remain.
  *
  * Fixtures: one owned custom medication seeded by SQL for the owned FAKE- patient; cleanup removes the
  * drugs row, the discontinue chart notes with their links and asserts nothing remains.
@@ -23,6 +21,7 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openSecondSession, failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { clickOpensPopup } = require('./lib/playwright-ui');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const isDiscontinue = response => response.request().method() === 'POST' && h.pathOnly(response.url()).endsWith('/rx/deleteRx')
   && new URL(response.url()).searchParams.get('parameterValue') === 'Discontinue';
@@ -65,7 +64,7 @@ async function workflow(s) {
 
   const b = await openSecondSession(s, { label: 'second-session' });
   const openRx = async (context, master, label) => {
-    const rx = await clickOpensPopup(master, master.locator('.patient-nav a[href*="/rx/choosePatient"], a[onclick*="/rx/choosePatient"]').first(), { context, recorder: s.recorder, label, timeout: 20000 });
+    const rx = await clickOpensPopup(master, masterRecordLink(master, '/rx/choosePatient').first(), { context, recorder: s.recorder, label, timeout: 20000 });
     h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
     await rx.locator('#searchString').waitFor({ state: 'visible' });
     await rx.waitForLoadState('networkidle');
@@ -86,15 +85,11 @@ async function workflow(s) {
   let second;
   await s.step('session B discontinues the same medication from its stale profile', async () => {
     const mark = failureMark(s.recorder);
-    const alerts = await h.withExpectedDialogs(bRx, async () => {
-      second = await discontinue(bRx, drug, 'allergy', `${marker} B`);
-      await bRx.waitForTimeout(500);
-    });
-    h.assert(alerts.length === 1 && alerts[0].type === 'alert' && /could not be completed/i.test(alerts[0].text),
-      'The stale discontinue must tell the user that the request was refused');
-    h.assert(second.status() === 409, `The stale discontinue answered HTTP ${second.status()} instead of 409`);
-    // A 4xx is a valid refusal; consume exactly that one response so the strict page check after the step does not report it
-    // (the next step judges the stored state).
+    second = await discontinue(bRx, drug, 'allergy', `${marker} B`);
+    h.assert(second.status() === 409, `The stale discontinue must be refused with 409, got HTTP ${second.status()}`);
+    h.assert((await second.json()).error === 'STALE_RX_DISCONTINUE', 'The 409 was not a stale medication refusal');
+    await bRx.locator('#discontinueChanged').waitFor({ state: 'visible' });
+    h.assert(await bRx.locator('#disComment').inputValue() === `${marker} B`, 'The typed comment was lost');
     consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/rx\/deleteRx$/ });
   });
   await s.step('the first discontinue reason stands and the chart holds one discontinue note', async () => {

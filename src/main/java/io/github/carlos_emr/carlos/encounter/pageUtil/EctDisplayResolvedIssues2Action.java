@@ -27,6 +27,8 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.utility.CppUtils;
@@ -70,7 +72,7 @@ public class EctDisplayResolvedIssues2Action extends EctDisplayAction {
         List<CaseManagementIssue> issues = null;
         int demographicId = Integer.parseInt(bean.getDemographicNo());
         issues = caseManagementMgr.getIssues(demographicId);
-        String programId = (String) request.getSession().getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         issues = caseManagementMgr.filterIssues(loggedInInfo, providerNo, issues, programId);
 
         List<CaseManagementIssue> issues_unr = new ArrayList<CaseManagementIssue>();

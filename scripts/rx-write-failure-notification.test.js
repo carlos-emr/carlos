@@ -49,3 +49,24 @@ test('discontinuation failure keeps the dialog and explains partial persistence 
     assert.deepEqual(alerts, ['request refused', 'request refused', 'request refused', 'request refused',
         'request refused']);
 });
+
+test('stale discontinuation shows the reload message while keeping the form and typed comment', () => {
+    const source = fs.readFileSync(path.join(dir, 'SearchDrug3.jsp'), 'utf8');
+    const start = source.indexOf('function Discontinue2(');
+    const code = source.slice(start, source.indexOf('//represcribe long term meds', start))
+        .replace(/<%[\s\S]*?%>/g, '42');
+    let request;
+    const notice = {hidden: true};
+    const context = {
+        ctx: '/carlos', CarlosAjax: {request(url, options) { request = options; }},
+        document: {getElementById(id) {
+            assert.equal(id, 'discontinueChanged', 'The stale refusal must not alter the form or profile');
+            return notice;
+        }},
+        reportRefusedRequest() {assert.fail('A stale conflict needs its specific message');},
+    };
+    vm.runInNewContext(code, context);
+    context.Discontinue2('42', 'allergy', 'Keep my typed comment', 'drug');
+    request.onFailure({status: 409, responseJSON: {error: 'STALE_RX_DISCONTINUE'}});
+    assert.equal(notice.hidden, false);
+});

@@ -6,22 +6,24 @@
  *
  * User path: Schedule ▸ Search ▸ Master Record ▸ Billing History (popup) ▸ Edit
  * (billingONCorrection) ▸ bill-to ▸ Save; Correction ▸ Payments List (billingON3rdPayments)
- * ▸ partial then full payment; Billing History ▸ Print (ViewBillingON3rdInv) ▸ Print PDF
- * (BillingInvoicePrint); Schedule ▸ Administration ▸ Billing ▸ Invoice Reports ▸ Bill
- * Patient ▸ tick ▸ Print (BillingInvoiceListPrint); Correction ▸ Payer
- * (ViewOnSearch3rdBillAddr) ▸ Add/Edit Address (OnAddEdit3rdAddr) ▸ Edit; Payer ▸ pick.
+ * ▸ partial then full payment ▸ view (viewPayment_ext); Billing History ▸ Print
+ * (ViewBillingON3rdInv) ▸ Print PDF (BillingInvoicePrint); Schedule ▸ Administration ▸
+ * Billing ▸ Invoice Reports ▸ Bill Patient ▸ tick ▸ Print (BillingInvoiceListPrint);
+ * Correction ▸ Payer (ViewOnSearch3rdBillAddr) ▸ Add/Edit Address (OnAddEdit3rdAddr) ▸
+ * Edit; Payer ▸ pick.
  *
  * Asserts against MariaDB: the bill-to lands in billing_on_ext; each payment writes
  * billing_on_payment / billing_on_item_payment / billing_on_transaction rows and moves
  * billing_on_cheader1.paid and the ext payment key, with the balance the popup and the
- * invoice show; both PDFs are real PDFs whose text carries the invoice number and total,
+ * invoice show; a payment's view popup shows its date, type, amount and paid item and
+ * writes nothing; both PDFs are real PDFs whose text carries the invoice number and total,
  * and printing appends the "Printed" note to comment1; a GET against the payment save is
  * refused and writes nothing; Add/Edit Address loads the owned address; picking it in the
  * Payer search fills and saves the bill-to (last: fails on a known defect, see report).
  *
  * Fixtures: one owned PAT bill (header + one private-code item, comment1 = marker) for
- * the owned FAKE- patient, one owned bill-to address (company = marker), the billing
- * provider's missing site memberships (as billing-on-correction-delete). Cleanup deletes
+ * the owned FAKE- patient, one owned bill-to address (company = marker), a fresh owned billing
+ * physician in an existing operator clinic. Cleanup deletes
  * owned rows by id/marker, the server-side list-print PDFs of the owned invoice, and
  * asserts they are gone. Implements coverage-plan §2.7 billing-on-invoice-third-party.
  */
@@ -33,6 +35,10 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
+const { selectBillingSiteAndProvider, validateBillingContext } = require('./lib/billing-site-context');
+const { selectBillingReportContext } = require('./lib/billing-report-context');
+const { createOwnedBillingPhysician } = require('./lib/owned-billing-physician');
 
 const CORRECTION_FORM = 'form[action$="/billing/CA/ON/UpdateBillingONCorrection"]';
 const PAYMENTS = '/billing/CA/ON/billingON3rdPayments';
@@ -72,7 +78,7 @@ function awaitResponse(context, route, method = 'POST', timeout = 20000) {
  * Shape mirrors BillingOnHeaderCreationService (see billing-on-correction-delete).
  * Returns { headerId, itemId, provider, ohip }.
  */
-function seedOwnedBill(s, { payProgram, status, code, fee, date, dx = '250' }) {
+function seedOwnedBill(s, { payProgram, status, code, fee, date, dx = '250', billingContext = null }) {
   const { sql, patient, marker, provider } = s;
   const owned = { headerIds: new Set() };
   s.cleanup(() => {
@@ -108,13 +114,15 @@ function seedOwnedBill(s, { payProgram, status, code, fee, date, dx = '250' }) {
   });
 
   // The correction page lists only active providers with an OHIP number.
-  const billingProvider = sql.value(`SELECT provider_no FROM provider WHERE status='1' AND ohip_no<>''
+  const boundContext = billingContext ? validateBillingContext(sql, provider, billingContext) : null;
+  const billingProvider = boundContext ? boundContext.providerNo : sql.value(`SELECT provider_no FROM provider WHERE status='1' AND ohip_no<>''
     ORDER BY (provider_no=${h.sqlString(provider)}) DESC, provider_no LIMIT 1`);
   if (!/^-?\d+$/.test(billingProvider)) throw new h.SkipCheck('no active provider with an OHIP number to bill under');
-  const ohip = sql.value(`SELECT ohip_no FROM provider WHERE provider_no=${h.sqlString(billingProvider)}`);
+  const ohip = boundContext ? boundContext.ohipNo : sql.value(`SELECT ohip_no FROM provider WHERE provider_no=${h.sqlString(billingProvider)}`);
   // With _site_access_privacy the correction page edits bills only of providers
   // sharing a site with the operator: add exactly the missing memberships.
-  const addedSites = sql.rows(`SELECT s.site_id FROM providersite s WHERE s.provider_no=${h.sqlString(provider)}
+  // An explicitly offered/validated context uses existing memberships only.
+  const addedSites = boundContext ? [] : sql.rows(`SELECT s.site_id FROM providersite s WHERE s.provider_no=${h.sqlString(provider)}
     AND NOT EXISTS (SELECT 1 FROM providersite p WHERE p.provider_no=${h.sqlString(billingProvider)}
     AND p.site_id=s.site_id)`).map(row => row[0]);
   if (addedSites.length && billingProvider !== provider) {
@@ -137,7 +145,7 @@ function seedOwnedBill(s, { payProgram, status, code, fee, date, dx = '250' }) {
     VALUES (0, 'HE', 'H', '', '', '19800102', ${h.sqlString(payProgram)}, 'P', '', '', '', '', '', '', ${patient},
       ${h.sqlString(billingProvider)}, 0, ${h.sqlString(`${marker},Workflow`)}, '2', 'ON', ${h.sqlString(date)},
       '09:00:00', ${money(fee)}, 0.00, ${h.sqlString(status)}, ${h.sqlString(marker)}, '00', ${h.sqlString(ohip)}, '',
-      '', '', ${h.sqlString(provider)}, NULL); SELECT LAST_INSERT_ID()`);
+      '', '', ${h.sqlString(provider)}, ${boundContext && boundContext.multisites ? h.sqlString(boundContext.clinic) : 'NULL'}); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(headerId), 'The billing header fixture was not created');
   owned.headerIds.add(headerId);
   const itemId = sql.value(`INSERT INTO billing_on_item (ch1_id, transc_id, rec_id, service_code, fee, ser_num,
@@ -150,7 +158,7 @@ function seedOwnedBill(s, { payProgram, status, code, fee, date, dx = '250' }) {
 
 /** Master Record ▸ Billing History: the patient's bill list popup. */
 async function openHistory(s) {
-  const link = s.master.locator('a[onclick*="/billing/CA/ON/ViewBillingONHistory"]').first();
+  const link = masterRecordLink(s.master, '/billing/CA/ON/ViewBillingONHistory').first();
   h.assert(await link.count() === 1, 'The Master Record does not offer the Ontario Billing History link');
   const history = await s.popup(s.master, link, 'billing-history');
   await history.locator('#billingHistoryTable').waitFor({ state: 'visible', timeout: 20000 });
@@ -175,6 +183,31 @@ async function openCorrection(s, history, headerId) {
   return popup;
 }
 
+/** Read the native invoice's exact physician/clinic before writing any claim header. */
+async function captureNativeInvoiceContext(s, physician) {
+  let billingContext;
+  await s.step('the native invoice offers the exact owned billing physician and clinic before claim creation', async () => {
+    const before = s.sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${s.patient}`);
+    const link = s.master.getByRole('link', { name: 'Create Invoice', exact: true }).first();
+    h.assert(await link.count() === 1, 'The Master Record does not offer Create Invoice');
+    const invoice = await s.popup(s.master, link, 'owned-billing-context');
+    try {
+      if (physician.selectClinic) await physician.selectClinic(invoice);
+      billingContext = await selectBillingSiteAndProvider(invoice, physician.providerNo);
+      h.assert(billingContext.providerNo === physician.providerNo && billingContext.ohipNo === physician.ohipNo,
+        'The native invoice did not offer the exact owned billing physician');
+      if (physician.assertContext) physician.assertContext(billingContext);
+      validateBillingContext(s.sql, s.provider, billingContext);
+    } finally {
+      if (!invoice.isClosed()) await invoice.close();
+    }
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${s.patient}`) === before,
+      'Reading the native billing context created or removed a claim');
+  });
+  h.assert(billingContext, 'The native invoice did not produce a billing context');
+  return billingContext;
+}
+
 /** Type an ISO date into a flatpickr (allowInput) field and close its calendar. */
 async function fillDate(frame, selector, value) {
   await frame.locator(selector).fill(value);
@@ -187,7 +220,7 @@ async function fillDate(frame, selector, value) {
  * Schedule ▸ Administration ▸ Billing ▸ Invoice Reports, then run the report for
  * the owned patient, the bill date and one status filter. Returns { admin, frame }.
  */
-async function openInvoiceReport(s, { date, statusId, billingProvider, admin }) {
+async function openInvoiceReport(s, { date, statusId, billingProvider, billingContext, admin }) {
   if (!admin || admin.isClosed()) {
     ({ page: admin } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
       { context: s.context, recorder: s.recorder, label: 'billing-administration', timeout: 20000 }));
@@ -201,20 +234,19 @@ async function openInvoiceReport(s, { date, statusId, billingProvider, admin }) 
   const frame = await (await iframe.elementHandle()).contentFrame();
   h.assert(frame, 'The bill status page did not load in the administration frame');
   await frame.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
-  await runInvoiceReport(admin, frame, { date, statusId, billingProvider, demographic: s.patient });
+  await runInvoiceReport(admin, frame, { date, statusId, billingProvider, billingContext, demographic: s.patient });
   return { admin, frame };
 }
 
 /** Fill the Invoice Reports search and press Create Report inside its frame. */
-async function runInvoiceReport(admin, frame, { date, endDate = date, statusId, billingProvider, demographic = '' }) {
+async function runInvoiceReport(admin, frame, { date, endDate = date, statusId, billingProvider, billingContext, demographic = '' }) {
+  h.assert(billingContext && billingContext.providerNo === billingProvider,
+    'The report provider must match the owned native billing context');
+  await selectBillingReportContext(frame, billingContext);
   await fillDate(frame, '#xml_vdate', date);
   await fillDate(frame, '#xml_appointment_date', endDate);
   await frame.locator('input[name="demographicNo"]').fill(demographic);
   await frame.locator(`#${statusId}`).check();
-  const providers = frame.locator('select[name="providerview"]').last();
-  const offered = await providers.locator('option').evaluateAll(options => options.map(option => option.value));
-  if (offered.includes(billingProvider)) await providers.selectOption(billingProvider);
-  else if (offered.includes('all')) await providers.selectOption('all');
   const navigated = admin.waitForEvent('framenavigated', { predicate: f => f === frame, timeout: 30000 });
   navigated.catch(() => {});
   await frame.locator('input[type="submit"][value="Create Report"]').click();
@@ -240,6 +272,7 @@ async function pdfText(download, label) {
 }
 
 async function workflow(s) {
+  const physician = createOwnedBillingPhysician(s);
   const { sql, marker, context } = s;
   const code = privateCode();
   const date = billDate();
@@ -253,6 +286,7 @@ async function workflow(s) {
   }
   const total = money(fee);
   const rest = money(Number(fee) - Number(partial));
+  const billingContext = await captureNativeInvoiceContext(s, physician);
 
   // Owned bill-to address; the UI-added one (last step) is owned by name too.
   const company = `${marker} Insurer`;
@@ -267,7 +301,7 @@ async function workflow(s) {
       'L0R 4K3', '555-555-0100', ''); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(addressId), 'The bill-to address fixture was not created');
 
-  const bill = seedOwnedBill(s, { payProgram: 'PAT', status: 'P', code, fee, date });
+  const bill = seedOwnedBill(physician.dependentSession, { payProgram: 'PAT', status: 'P', code, fee, date, billingContext });
   const { headerId, itemId } = bill;
   // Server-side copies BillingInvoiceListPrint leaves in INVOICE_DIR for this invoice.
   const invoiceDir = process.env.INVOICE_DIR || '/var/lib/carlos-emr/CarlosDocument/carlos/billing/invoices';
@@ -387,6 +421,39 @@ async function workflow(s) {
     if (!correction.isClosed()) await correction.close();
   });
 
+  await s.step('a payment\'s view popup shows its date, type, amounts and paid item, and changes nothing', async () => {
+    const { correction, payments } = await openPayments();
+    const [paymentId, paymentDate, typeName] = sql.rows(`SELECT p.payment_id, DATE(p.pay_date), IFNULL(t.payment_type, '')
+      FROM billing_on_payment p LEFT JOIN billing_payment_type t ON t.id = p.paymentTypeId
+      WHERE p.billing_no=${headerId} ORDER BY p.payment_id LIMIT 1`)[0];
+    const rowsNow = () => sql.value(`SELECT CONCAT_WS('|',
+      (SELECT COUNT(*) FROM billing_on_payment WHERE billing_no=${headerId}),
+      (SELECT COUNT(*) FROM billing_on_item_payment WHERE ch1_id=${headerId}),
+      (SELECT COUNT(*) FROM billing_on_transaction WHERE ch1_id=${headerId}))`);
+    const before = rowsNow();
+    // Today's link calls onViewPayment(id); develop PR #4479 makes it a real href to the same route, so match both.
+    const link = payments.locator(`a[href*="onViewPayment('${paymentId}')"], `
+      + `a[href*="method=viewPayment_ext"][href$="billPaymentId=${paymentId}"]`);
+    h.assert(await link.count() === 1, 'The payments list offers no view link for the first payment');
+    const view = await s.popup(payments, link, 'third-party-view-payment');
+    await view.locator('text=View payment details').waitFor({ state: 'visible' });
+    const text = (await view.locator('body').innerText()).replace(/\s+/g, ' ');
+    // The first payment is the partial one, paid in cash on the owned bill's one private-code item.
+    h.assert(amountShown(text, 'Date:', paymentDate), `The view popup does not show the payment date ${paymentDate}`);
+    h.assert(typeName !== '' && text.includes(`Payment type: ${typeName}`),
+      `The view popup does not name the payment type ${typeName}`);
+    h.assert(amountShown(text, 'Payment:', partial), `The view popup does not show the ${partial} payment`);
+    const item = (await view.locator('tr', { hasText: code }).first().innerText()).replace(/\s+/g, ' ');
+    h.assert(item.includes(`${marker},Workflow`) && item.includes(String(headerId)) && item.includes(partial),
+      `The view popup's item row does not name the patient, the invoice and the paid ${partial}: ${item}`);
+    h.assert(await view.locator('form, input[type="submit"], button[type="submit"]').count() === 0,
+      'The view popup offers a form, although viewing a payment changes nothing');
+    await view.close();
+    h.assert(rowsNow() === before && headerState() === `P|PAT|${total}|${total}`, 'Viewing a payment changed the bill');
+    await payments.close();
+    if (!correction.isClosed()) await correction.close();
+  });
+
   await s.step('Billing History ▸ Print shows the bill-to, the amounts and a zero balance', async () => {
     if (history.isClosed()) history = await openHistory(s);
     else await history.reload();
@@ -415,7 +482,7 @@ async function workflow(s) {
   });
 
   await s.step('Invoice Reports ▸ Bill Patient lists the bill and its Print action downloads a list PDF', async () => {
-    const { admin, frame } = await openInvoiceReport(s, { date, statusId: 'statusTypeBillPatient', billingProvider: bill.provider });
+    const { admin, frame } = await openInvoiceReport(s, { date, statusId: 'statusTypeBillPatient', billingProvider: bill.provider, billingContext });
     const box = frame.locator(`#invoiceAction${headerId}`);
     h.assert(await box.count() === 1, 'The Bill Patient report offers no print checkbox for the owned 3rd-party bill');
     const row = frame.locator('#bListTable tbody tr').filter({ has: box });
@@ -500,5 +567,5 @@ async function workflow(s) {
 if (require.main === module) runWorkflow('billing-on-invoice-third-party', workflow, { openPatient: true });
 module.exports = {
   workflow, seedOwnedBill, openHistory, historyRow, openCorrection, openInvoiceReport, runInvoiceReport,
-  fillDate, awaitResponse, billDate, money,
+  fillDate, awaitResponse, billDate, money, captureNativeInvoiceContext,
 };

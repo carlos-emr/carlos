@@ -35,10 +35,10 @@
 <%@ page import="java.net.URLEncoder" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%
-    // Check if demographicNo is present and valid
+    // Only a patient number (digits) opens the E-Chart
     String demographicNo = request.getParameter("demographicNo");
-    if (demographicNo == null || demographicNo.trim().isEmpty() || "null".equals(demographicNo)) {
-        // No patient matched - redirect to patient search page
+    if (demographicNo == null || !demographicNo.matches("\\d+")) {
+        // No patient matched, or not a patient number - redirect to patient search page
         String labNo = request.getParameter("labNo");
         String labType = request.getParameter("labType");
         String keyword = request.getParameter("keyword");

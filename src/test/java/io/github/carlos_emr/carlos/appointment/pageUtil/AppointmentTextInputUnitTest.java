@@ -83,16 +83,27 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource({"add,keyword,51", "add,reason,81", "add,notes,256", "add,resources,256",
-            "edit,keyword,51", "edit,reason,81", "edit,notes,256", "edit,resources,256"})
+    @CsvSource({"add,keyword,256", "add,reason,81", "add,notes,256", "add,resources,256",
+            "edit,keyword,256", "edit,reason,81", "edit,notes,256", "edit,resources,256"})
     void oversizedTextIsRefusedBeforeAnyAppointmentArchiveOrEventWrite(String mode, String field, int length) throws Exception {
         request.setParameter(field, "\uD83D\uDE00".repeat(length));
-        String result = "add".equals(mode) ? new AppointmentAddRecord2Action().execute()
-                : new AppointmentUpdateRecord2Action().execute();
+        String result;
+        try (MockedStatic<OtherIdManager> ids = mockStatic(OtherIdManager.class)) {
+            if ("edit".equals(mode)) {
+                Appointment stored = new Appointment();
+                stored.setId(42);
+                when(appointments.findForUpdate(42)).thenReturn(stored);
+                request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(stored, null));
+            }
+            result = "add".equals(mode) ? new AppointmentAddRecord2Action().execute()
+                    : new AppointmentUpdateRecord2Action().execute();
+        }
         assertThat(result).isEqualTo("input");
         assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(request.getAttribute("appointmentValidationErrors").toString()).contains("maximum length");
-        verifyNoInteractions(appointments, archives, events);
+        assertThat(request.getAttribute("appointmentTextMaximum")).isEqualTo(length - 1);
+        verify(appointments, never()).persist(any());
+        verify(appointments, never()).merge(any());
+        verifyNoInteractions(archives, events);
         logActionMock.verifyNoInteractions();
     }
 

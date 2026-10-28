@@ -1,0 +1,11 @@
+{
+  "name": "@carlos/braces-compat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Expose the reviewed braces replacement under its real package identity",
+  "main": "index.js",
+  "license": "GPL-2.0-or-later",
+  "dependencies": {
+    "@dieub/braces-depth-guard": "3.0.3-pn.3"
+  }
+}

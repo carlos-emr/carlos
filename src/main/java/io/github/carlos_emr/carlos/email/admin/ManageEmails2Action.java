@@ -20,6 +20,9 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFailureMessage;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -407,17 +410,19 @@ public class ManageEmails2Action extends ActionSupport {
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
             emailAttachmentList = refreshEmailAttachments(request, response, emailLog, workingDirectory);
-        } catch (PDFGenerationException e) {
+        } catch (SecurityException e) {
             workingDirectory.close();
-            logger.warn("Unable to refresh email attachments during resend");
+            throw e;
+        } catch (PDFGenerationException | RuntimeException e) {
+            workingDirectory.close();
+            String reference = EmailFailureMessage.newReference();
+            logger.error("Unable to prepare attachments to resend an email; causeType={}, reference={}{}",
+                    e.getClass().getName(), reference, LogSafe.exceptionTrace(e));
             EmailCompose2Action.cleanupEmailSessionAttributes(request);
-            request.setAttribute(EMAIL_ERROR_MESSAGE,
-                    "This previously sent email cannot be re-opened for editing/resending. "
-                            + "Please generate a new email instead.");
+            request.setAttribute(EMAIL_ERROR_MESSAGE, EmailFailureMessage.format(LocaleUtils.resolveBundleLocale(request),
+                    EmailFailureMessage.RESEND_ATTACHMENTS_KEY, reference));
             request.setAttribute(IS_EMAIL_ERROR, true);
             return COMPOSE_RESULT;
-        } catch (RuntimeException e) {
-            return resendComposeUnavailable(workingDirectory);
         }
 
         int demographicNo;

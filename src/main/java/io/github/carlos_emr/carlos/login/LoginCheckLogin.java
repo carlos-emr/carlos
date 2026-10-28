@@ -483,26 +483,10 @@ public final class LoginCheckLogin {
      * @see #findLockList for retrieving all currently blocked usernames/IPs
      */
     public boolean unlock(String userName) {
-        boolean bBlock = false;
-
-        // Wait for singleton LoginList to initialize
-        while (llist == null) {
-            llist = LoginList.getLoginListInstance();
-        }
-        String sTemp = null;
-
-        // Search for and remove the username from the block list
-        if (!llist.isEmpty()) {
-            for (Enumeration e = llist.keys(); e.hasMoreElements(); ) {
-                sTemp = (String) e.nextElement();
-                if (sTemp.equals(userName)) {
-                    llist.remove(sTemp);
-                    bBlock = true;
-                }
-            }
-        }
-
-        return bBlock;
+        // Hashtable.remove is
+        // atomic and reports whether it removed anything, so two administrators unlocking the same
+        // entry at once cannot both see success (and both write an unlock audit row).
+        return lockList().remove(userName) != null;
     }
 
     /**

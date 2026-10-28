@@ -210,4 +210,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('gap-provider-preferences-save-all', workflow, { openPatient: true, openMaster: false });
-module.exports = { workflow };
+module.exports = { workflow, submitAndClose };

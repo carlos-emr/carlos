@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.form.pdfservlet;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
@@ -1477,4 +1478,77 @@ class PrescriptionPdfComposerUnitTest extends PrescriptionPdfUnitTestBase {
         reprinted.getStashList().add(row);
         io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace.store(request.getSession(), reprinted, "");
     }
+    @Test
+    @DisplayName("should print Chinese, Japanese and Korean record text in every Rx section, with embedded fonts")
+    void shouldPrintCjkRecordText_inEveryRxSection(@TempDir Path tempDir) throws Exception {
+        // Issue #5046: every section was drawn in DejaVu alone, which has no CJK characters, so a
+        // valid prescription PDF went out with the patient, pharmacy, drug and prescriber names
+        // missing those characters. All values are synthetic.
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
+        io.github.carlos_emr.carlos.commn.model.PharmacyInfo pharmacy =
+                new io.github.carlos_emr.carlos.commn.model.PharmacyInfo();
+        pharmacy.setName("FAKE-药房 Łukasz");
+        pharmacy.setAddress("FAKE 2 さくら通り");
+        pharmacy.setFax("4165551212");
+        io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao pharmacyInfoDao =
+                mock(io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao.class);
+        when(pharmacyInfoDao.getPharmacy(7)).thenReturn(pharmacy);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao.class, pharmacyInfoDao);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDao.class));
+        MockHttpServletRequest request = createFaxRequest();
+        request.addParameter("pharmacyInfo", "7");
+        stubStoredSignature();
+        Prescription prescription = prescriptionDao.find(SCRIPT_ID);
+        prescription.setComments("FAKE-备注 with food");
+        stubRecordDrugs(prescription, drugRow(5, "FAKE-阿莫西林 500 mg\n1 cap PO TID"));
+        ProviderExt signature = new ProviderExt();
+        signature.setSignature("Dr FAKE-김민준");
+        when(providerExtDao.find("999998")).thenReturn(signature);
+        stubActiveFaxConfig();
+        stubRecordDemographic();
+        Demographic patient = demographicManager.getDemographic(null, DEMOGRAPHIC_NO);
+        patient.setLastName("FAKE-陈");
+        patient.setFirstName("小明");
+        patient.setAddress("1 北京路");
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<PrescriptionQrCodeUIBean> qrCodeMock = mockStatic(PrescriptionQrCodeUIBean.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            qrCodeMock.when(() -> PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider("999998"))
+                    .thenReturn(false);
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+
+            PrescriptionPdfComposer composer = newComposer();
+            HttpServletRequest bound = composer.bindFaxContentToRecord(request, prescription);
+            byte[] pdfBytes;
+            try (var output = composer.compose(bound,
+                    composer.resolveSignatureImage(request, loggedInInfo, prescription, true), prescription)) {
+                pdfBytes = output.toByteArray();
+            }
+            try (org.apache.pdfbox.pdmodel.PDDocument pdf = org.apache.pdfbox.Loader.loadPDF(pdfBytes)) {
+                String pdfText = new org.apache.pdfbox.text.PDFTextStripper().getText(pdf);
+                assertThat(pdfText).contains("FAKE-药房 Łukasz", "FAKE 2 さくら通り", "FAKE-陈", "小明", "1 北京路",
+                        "FAKE-阿莫西林 500 mg", "FAKE-备注 with food");
+                // The prescriber heading and the name drawn under the signature line.
+                assertThat(pdfText.split("Dr FAKE-김민준", -1)).as("prescriber name occurrences").hasSizeGreaterThanOrEqualTo(3);
+                var resources = pdf.getPage(0).getResources();
+                for (var name : resources.getFontNames()) {
+                    assertThat(resources.getFont(name).isEmbedded()).as("%s embedded", resources.getFont(name).getName())
+                            .isTrue();
+                }
+            }
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
 }

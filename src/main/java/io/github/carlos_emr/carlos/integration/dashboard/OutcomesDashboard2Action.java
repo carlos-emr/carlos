@@ -98,7 +98,7 @@ public class OutcomesDashboard2Action extends ActionSupport {
             if (indicatorTemplate != null) {
                 OutcomesDashboardUtils.sendProviderIndicatorData(LoggedInInfo.getLoggedInInfoFromSession(request), provider, indicatorTemplate);
             } else {
-                logger.warn("shared indicator not found:" + metricSetName);
+                logger.warn("Requested shared indicator at index {} was not found", x);
             }
         }
 

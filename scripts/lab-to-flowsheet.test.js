@@ -19,8 +19,16 @@ const entries = manifest.checks.filter((entry) => entry.script === 'scripts/lab-
 test('shouldReadTheTargetAsANumber_whateverTheOperatorAndEscaping', () => {
   assert.equal(check.targetOf('fade=[on] header=[A1C] body=[Target &lt;= 7.0%]'), 7);
   assert.equal(check.targetOf('Target <= 7.0%'), 7);
+  assert.equal(check.targetOf('body=[Target &amp;lt;= 7.0%]'), 7, 'the tooltip body is encoded twice in the page HTML');
   assert.equal(check.targetOf('Target < 6.5 %'), 6.5);
   assert.equal(check.targetOf('Target ≤ 8%'), 8);
+});
+
+test('shouldReadTheTarget_whenTheTooltipIsEncodedTwiceAndOpensWithAWarning', () => {
+  // The raw page since #4418: the payload is HTML-encoded, then attribute-encoded; a patient with no A1C gets a warning.
+  assert.equal(check.targetOf("fade=[on] header=[A1C] body=[<span style='color:red'>A1C  has never been reviewed </span> </br>Target &amp;lt;= 7.0%]"), 7);
+  // The same title read from the DOM attribute, one level unfolded by the browser.
+  assert.equal(check.targetOf('fade=[on] header=[A1C] body=[&lt;span style=&#39;color:red&#39;&gt;A1C has never been reviewed&lt;/span&gt; Target &lt;= 6.5%]'), 6.5);
 });
 
 test('shouldReadNoTarget_whenTheGuidelineStatesNone', () => {
@@ -68,20 +76,40 @@ test('shouldPinEachFindingAtItsOwnStep_inItsOwnManifestEntry', () => {
     'lab-to-flowsheet-observed-time', 'lab-to-flowsheet-upload-time']);
   const expected = {
     'lab-to-flowsheet': { pin: undefined, finding: 258, step: check.STEP.link },
-    'lab-to-flowsheet-long-value': { pin: 'value', finding: 256, step: check.STEP.value },
-    'lab-to-flowsheet-fraction': { pin: 'fraction', finding: 257, step: check.STEP.fraction },
-    'lab-to-flowsheet-observed-time': { pin: 'time', finding: 259, step: check.STEP.time },
-    'lab-to-flowsheet-upload-time': { pin: 'seconds', finding: 262, step: check.STEP.seconds },
+    // Finding 256 is fixed (#4613): its entry keeps the value steps but no longer expects them to fail.
+    'lab-to-flowsheet-long-value': { pin: 'value', finding: 256, step: check.STEP.value, fixed: true },
+    // Finding 257 is fixed: its pin step is now a plain assertion, so the entry carries no expectedFailure.
+    'lab-to-flowsheet-fraction': { pin: 'fraction', fixed: true },
+    // Finding 259 is fixed (#4631): its entry keeps the time step but no longer expects it to fail.
+    'lab-to-flowsheet-observed-time': { pin: 'time', finding: 259, step: check.STEP.time, fixed: true },
+    // Finding 262 is fixed (#4619): its entry keeps the pin step but no longer expects it to fail.
+    'lab-to-flowsheet-upload-time': { pin: 'seconds', finding: 262, step: check.STEP.seconds, fixed: true },
   };
-  for (const [name, { pin, finding, step }] of Object.entries(expected)) {
+  for (const [name, { pin, finding, step, fixed }] of Object.entries(expected)) {
     const entry = byName.get(name);
-    assert.deepEqual(entry.expectedFailure, { finding, step }, `${name} pins another finding or step`);
+    if (fixed) {
+      assert.equal(entry.expectedFailure, undefined, `${name} still expects the fixed finding ${finding} to fail`);
+    } else {
+      assert.deepEqual(entry.expectedFailure, { finding, step }, `${name} pins another finding or step`);
+    }
     assert.equal(entry.envSet && entry.envSet.LAB_FLOWSHEET_PIN, pin, `${name} selects another pin`);
     assert.ok(entry.env.includes('LAB_FLOWSHEET_PIN') && entry.env.includes('LAB_UPLOAD_DOCUMENT_STORE'), `${name} must list the variables the script reads`);
     assert.deepEqual(entry.provinces, ['ON'], `${name} is Ontario scope`);
     const alias = pkg.scripts[`test:${name}-playwright`];
     assert.ok(alias, `${name} has no npm alias`);
     assert.equal(/LAB_FLOWSHEET_PIN=(\w+)/.exec(alias)?.[1], pin, `${name}'s npm alias selects another pin`);
+  }
+});
+
+/*
+ * Finding 256 cut every result whose first five characters are digits or + , - . / : ; < = > ? to four. The lab the
+ * value entry files must carry only such results, each a distinct code, so a measurement can be told apart by code.
+ */
+test('shouldFileOnlyResultsTheOldFilterCut_onTheValueEntryLab', () => {
+  const tests = [check.LONG, ...check.LONG_MORE];
+  assert.equal(new Set(tests.map((t) => t.code)).size, tests.length, 'each result has a code of its own');
+  for (const t of tests) {
+    assert.match(t.value, /^[-+,./0-9:;<=>?]{5,}$/, `${t.code} ${t.value} is a result the old filter cut to four characters`);
   }
 });
 

@@ -44,7 +44,16 @@ migration/
            V1.0.53__decode_diagnostic_description_apostrophes.sql
            V1.0.54__allow_dashboard_exclusion_history.sql
            V1.0.55__preserve_remittance_health_number_version.sql
-           # Develop-only migrations, in develop's order, above the release line's V1.0.56. All were
+           V1.0.57__preserve_rourke2020_immunization_notes.sql
+           V1.0.58__preserve_on_behalf_lab_filing_comments.sql
+           V1.0.59__archive_security_mfa_setting.sql
+           V1.0.59.2__remove_patient_encounter_worksheet.sql
+           V1.0.59.5__preserve_full_appointment_names.sql
+           V1.0.59.6__align_clinical_text_and_status_collations.sql
+           V1.0.59.7__reconcile_managed_performance_indexes.sql
+           V1.0.60__portal_booking_prompt_security_object.sql
+           V1.0.61__portal_booking_offer.sql
+           # Develop-only migrations, in develop's order, above the release line's V1.0.59.7. All were
            # renumbered at the 2026.08.0-alpha19 forward merge; "was" names develop's earlier number.
            V1.0.66__add_email_consent_audit.sql  # was V1.0.24
            V1.0.67__add_sms_system_of_record.sql  # was V1.0.25
@@ -74,6 +83,8 @@ migration/
            V1.0.2__bc_data.sql              # British Columbia reference data (rows)
            V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
            V1.0.19__bc_billingmaster_indexes.sql
+           V1.0.59.3__restore_wcb_reference_codes.sql
+           V1.0.59.4__offer_current_bc_antenatal_record.sql
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
@@ -83,7 +94,7 @@ shared by both provinces), so the next free number for ANY location — shared o
 this line reached `V1.0.78`; they must be renumbered above the high-water mark when they merge.
 
 `release/2026.08` and this line allocated versions independently. The 2026.08.0-alpha19 forward merge
-brought the release line's migrations (up to `on/V1.0.56`) here. The release files are published in
+brought the release line's migrations (through `common/V1.0.59.7`) here. The release files are published in
 a tag, so their numbers and checksums are frozen. Every migration that existed only on this line was
 renumbered to `V1.0.66`–`V1.0.78`, in this line's order (see the listing above). Two reasons:
 
@@ -258,8 +269,22 @@ consultation/eForm attachment sources add `common/V1.0.42` and `common/V1.0.43`.
 Consultations list filter indexes (#3976) add `common/V1.0.45`, and the field-note report privilege
 adds `common/V1.0.46`. `common/V1.0.47` aligns the `measurementsDeleted` columns with
 `measurements`. Provider signature identity is enforced by
-`common/V1.0.52__enforce_provider_signature_identity.sql`. The next unallocated version is
-`V1.0.53`. Apply/merge these forward migrations in version order; if their merge
+`common/V1.0.52__enforce_provider_signature_identity.sql`. Rourke 2020 page III/IV
+immunization notes (#4602) add `common/V1.0.57__preserve_rourke2020_immunization_notes.sql`.
+On-behalf lab filing comments keep their full text through
+`common/V1.0.58__preserve_on_behalf_lab_filing_comments.sql`. The security archive keeps each
+record's MFA on/off setting (#5120, not the MFA secret) through
+`common/V1.0.59__archive_security_mfa_setting.sql`; rows archived before it read NULL, meaning
+"not recorded". The Patient Encounter Worksheet's Forms-menu registration is removed by
+`common/V1.0.59.2__remove_patient_encounter_worksheet.sql` (#5089). The BC WCB form's reference lists
+(body parts, natures of injury and sides, #5062) are restored by `bc/V1.0.59.3__restore_wcb_reference_codes.sql`,
+which adds only missing rows, and new BC installs offer BC-AR 2020 instead of BC-AR and BC-AR 2007 in Add Form
+(#5051) through `bc/V1.0.59.4__offer_current_bc_antenatal_record.sql`, which changes nothing once a clinic has
+changed any BC antenatal row in Select Forms. Full linked-patient appointment names (#5067) add
+`common/V1.0.59.5__preserve_full_appointment_names.sql`; it was renumbered from unreleased `V1.0.58`,
+`V1.0.59`, `V1.0.59.1` and `V1.0.59.3` as release migrations merged first. A point version keeps it below
+the `V1.0.60` floor. The collation and index corrections follow at `V1.0.59.6` and `V1.0.59.7`.
+The next unallocated version is `V1.0.59.8`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized

@@ -92,7 +92,6 @@ class RxRequestedPatientAccessUnitTest extends CarlosUnitTestBase {
                 Arguments.of(ViewSideLinksNoEditFavorites22Action.class, "_rx", "r"),
                 Arguments.of(ViewSideLinksNoEditFavorites2Action.class, "_rx", "r"),
                 Arguments.of(ViewStaticScript2Action.class, "_rx", "r"),
-                Arguments.of(ViewUpdateInteractingDrugs2Action.class, "_rx", "r"),
                 Arguments.of(ViewViewPharmacy2Action.class, "_rx", "r"));
     }
 
@@ -126,9 +125,8 @@ class RxRequestedPatientAccessUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("capturing the fallback patient does not cache or bypass patient authorization")
-    void shouldReauthorizeCapturedPatient_whenActivePatientChanges() {
-        request.removeParameter("demographicNo");
+    @DisplayName("a named patient is reauthorized even when another Rx window opens")
+    void shouldReauthorizeNamedPatient_whenAnotherWindowOpensRx() {
         RxSessionBean original = new RxSessionBean();
         original.setDemographicNo(DEMOGRAPHIC_NO);
         RxSessionBeanResolver.register(request.getSession(), original);
@@ -198,12 +196,13 @@ class RxRequestedPatientAccessUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("patientResolvingGates")
-    @DisplayName("should leave a request that names no patient to the page")
-    void shouldSkipPatientCheck_whenNoPatientNamed(Class<? extends ActionSupport> gate, String object,
+    @DisplayName("patient-specific pages refuse requests that name no patient")
+    void shouldRefusePatientPage_whenNoPatientNamed(Class<? extends ActionSupport> gate, String object,
                                                    String privilege) throws Exception {
         request.removeParameter("demographicNo");
 
-        assertThat(run(gate)).isEqualTo(ActionSupport.SUCCESS);
+        if (gate == ViewPrint2Action.class) assertThat(run(gate)).isEqualTo(ActionSupport.SUCCESS);
+        else assertThatThrownBy(() -> run(gate)).isInstanceOf(SecurityException.class);
         verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), anyInt());
     }
 
@@ -226,7 +225,7 @@ class RxRequestedPatientAccessUnitTest extends CarlosUnitTestBase {
             assertThat(RxSessionBeanResolver.find(request.getSession(), DEMOGRAPHIC_NO)).isSameAs(active);
         } else {
             assertThatThrownBy(() -> run(gate)).isInstanceOf(SecurityException.class);
-            verify(securityInfoManager).hasPrivilege(loggedInInfo, object, privilege, DEMOGRAPHIC_NO);
+            verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), anyInt());
         }
     }
 

@@ -220,9 +220,10 @@
                 <br>
                 <input class="btn btn-secondary" type="submit" name="submit" value="Delete" onclick="javascript:return onDelete();">
                 <input type="hidden" name="action" value='<carlos:encode value="${privateCodeModel.action}" context="htmlAttribute"/>'>
-                <input class="btn btn-secondary" type="submit" name="submit"
-                       value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
-                       onclick="javascript:return onSave();">
+                <%-- The posted value stays "Save" in every language: ViewBillingOnEditPrivateCode2Action
+                     compares it. Only the label is translated (issue #5140). --%>
+                <button class="btn btn-secondary" type="submit" name="submit" value="Save"
+                        onclick="javascript:return onSave();"><fmt:message key="admin.resourcebaseurl.btnSave"/></button>
             </form>
         </div><!--edit/add well-->
 

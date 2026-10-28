@@ -382,7 +382,9 @@ async function revealAuditLink(page, link, timeout) {
     const control = page.locator('a, button').nth(index);
     assert(await control.evaluate(element => element.outerHTML) === markup,
       'The menu changed while revealing an audit item; refusing to click a different control');
-    if (hover) await control.hover({ timeout });
+    // Forced, as openFormsMenu (playwright-ui) explains: the chart's hover menus open under the cursor and cover
+    // their own "+", so an unforced hover's actionability re-check is intercepted and never settles.
+    if (hover) await control.hover({ timeout, force: true });
     else await control.click({ timeout });
   }
 }
