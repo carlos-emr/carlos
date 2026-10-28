@@ -6,6 +6,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const {createHash, randomUUID} = require('node:crypto');
+const {fileURLToPath} = require('node:url');
 const {execFileSync,spawn} = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const {assertRetainedLogin} = require('./demographic-cds-retained-recovery-playwright-checks');
@@ -110,6 +111,22 @@ function boundedBytes(file, maximum) {
   } finally { fs.closeSync(descriptor); }
 }
 
+function acceptedDescriptorPath(value) {
+  h.assert(typeof value === 'string' && !/[\u0000\r\n]/.test(value), 'Accepted descriptor path is invalid');
+  if (path.isAbsolute(value)) {
+    h.assert(!value.startsWith('//'), 'Accepted descriptor path must be local');
+    return value;
+  }
+  h.assert(/^file:\/\/\/(?!\/)/.test(value) && !/[\u0000-\u0020?#]/.test(value)
+    && !/%(?:2f|5c)/i.test(value), 'Accepted descriptor file URL must be local and unambiguous');
+  const parsed = new URL(value);
+  h.assert(parsed.protocol === 'file:' && parsed.hostname === '' && parsed.username === '' && parsed.password === '',
+    'Accepted descriptor file URL must have no authority');
+  const decoded = fileURLToPath(parsed);
+  h.assert(path.isAbsolute(decoded) && !/[\u0000\r\n]/.test(decoded), 'Accepted descriptor file URL path is invalid');
+  return decoded;
+}
+
 /** Verify the actual immutable acceptance, retained original, inventory and full report set. */
 function protectedEvidence(sql, state, env) {
   const [row] = sql.rows('SELECT snapshot_location,report_location,report_digest FROM cds_import_run WHERE id=' + q(state.runId));
@@ -129,7 +146,7 @@ function protectedEvidence(sql, state, env) {
   const source = fixture(state.sourceId,state.options.synthetic ? 1 : 256,state.notePadding || 0);
   const [upload] = sql.rows('SELECT expected_bytes,received_bytes,chunk_count,manifest_digest FROM cds_import_upload WHERE id='
     + q(state.uploadId) + ' AND operator_key=' + q(state.owner) + ' AND run_id=' + q(state.runId));
-  const journal = boundedBytes(evidencePath(path.join(path.dirname(command.input),'chunks.bin'),env),52 * 256);
+  const journal = boundedBytes(evidencePath(path.join(path.dirname(acceptedDescriptorPath(command.input)),'chunks.bin'),env),52 * 256);
   h.assert(upload && Number(upload[0]) === source.buffer.length && Number(upload[1]) === source.buffer.length
     && Number(upload[2]) * 52 === journal.length && upload[3] === state.sourceDigest && hash(journal) === state.sourceDigest,
     'The accepted upload journal/source digest is incomplete or changed');
@@ -143,7 +160,7 @@ function protectedEvidence(sql, state, env) {
     offset += bytes;
   }
   h.assert(offset === source.buffer.length, 'The accepted source journal omits original bytes');
-  const snapshotRoot = path.join(document.jobRoot,'snapshot');
+  const snapshotRoot = path.join(acceptedDescriptorPath(document.jobRoot),'snapshot');
   const files = evidencePath(path.join(snapshotRoot,'files.jsonl'),env);
   const inventory = boundedText(files,65536);
   const entries = inventory.trim().split('\n').map(line => JSON.parse(line));

@@ -9,6 +9,7 @@ const {randomUUID} = require('node:crypto');
 const {createHash} = require('node:crypto');
 const {EventEmitter} = require('node:events');
 const {spawnSync} = require('node:child_process');
+const {pathToFileURL} = require('node:url');
 const h = require('./lib/playwright-harness');
 const gate = require('./demographic-cds-lifecycle-playwright-checks');
 const ordinary = () => ({CDS_LIFECYCLE_PROVIDER_NO:'EDU1',CDS_LIFECYCLE_PROGRAM_ID:'7',CDS_LIFECYCLE_FACILITY_ID:'1',
@@ -174,7 +175,7 @@ test('default lifecycle execution makes no acceptance and explicitly reports NOT
   assert.equal((await gate.run({})).outcome,'NOT_EXECUTED');
 });
 
-function privateEvidenceFixture() {
+function privateEvidenceFixture(serializedPaths = true) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(),'cds-lifecycle-evidence-'));
   const selected = state(), source = gate.fixture(selected.sourceId);
   const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -192,6 +193,10 @@ function privateEvidenceFixture() {
   const document = {actor:{operator:selected.owner},uploadId:selected.uploadId,acceptedRulesetDigest:selected.rulesetDigest,
     snapshot:null,jobRoot:serverJob,command:{...options,input:'/server/private/uploads/' + selected.uploadId + '/source.xml',
       timeshiftDays:timeshiftInDays,courseId:null}};
+  if (serializedPaths) {
+    document.command.input = pathToFileURL(document.command.input).href;
+    document.jobRoot = pathToFileURL(document.jobRoot + '/').href;
+  }
   let accepted;
   const saveDocument = () => { const bytes=Buffer.from(JSON.stringify(document));accepted=serverJob + '/job-' + sha(bytes) + '.json';put(accepted,bytes); };
   saveDocument();
@@ -223,7 +228,44 @@ test('web acceptance snapshot remains null while actual worker seal,original sou
     const result = gate.protectedEvidence(fixture.sql,fixture.selected,fixture.env);
     assert.deepEqual(Object.keys(result).sort(),['completion','error','event','units']);
     assert.equal(fixture.document.snapshot,null);
+    assert.ok(fixture.document.command.input.startsWith('file:///') && fixture.document.jobRoot.startsWith('file:///'));
+    for(const [key,entry] of Object.entries(result)) {
+      const expected=Buffer.from(key==='error'?'':'{}\n');
+      assert.equal(entry.bytes,expected.length);assert.equal(entry.sha256,createHash('sha256').update(expected).digest('hex'));
+    }
   } finally {fs.rmSync(fixture.directory,{recursive:true,force:true});}
+});
+
+test('shouldVerifyCompleteProtectedEvidence_withHistoricalAbsoluteDescriptorPaths',()=>{
+  const fixture=privateEvidenceFixture(false);
+  try {
+    const result=gate.protectedEvidence(fixture.sql,fixture.selected,fixture.env);
+    assert.deepEqual(Object.keys(result).sort(),['completion','error','event','units']);
+    for(const [key,entry] of Object.entries(result)) {
+      const expected=Buffer.from(key==='error'?'':'{}\n');
+      assert.equal(entry.bytes,expected.length);
+      assert.equal(entry.sha256,createHash('sha256').update(expected).digest('hex'));
+    }
+  } finally {fs.rmSync(fixture.directory,{recursive:true,force:true});}
+});
+
+test('shouldRejectUnsafeSerializedPaths_inCompleteProtectedEvidence',()=>{
+  const unsafe=['file://localhost/server/private/source.xml','file://remote/server/private/source.xml',
+    'file://user:secret@remote/server/private/source.xml','file:///server/private/source.xml?',
+    'file:///server/private/source.xml#','file:///server/private/%2Fsource.xml',
+    'file:///server/private/%5Csource.xml','file:///server/private/source%00.xml',
+    'file:///server/private/source%0a.xml','file:///server/private/source%0d.xml',
+    'file:///server/private/%zz','file:///server/private/%2e%2e/%2e%2e/outside/source.xml',
+    'file:///server/private/../../outside/source.xml',' file:///server/private/source.xml',
+    'file:/server/private/source.xml','https://example.invalid/source.xml','/outside/source.xml'];
+  for(const field of ['input','jobRoot'])for(const value of unsafe) {
+    const fixture=privateEvidenceFixture();
+    try {
+      if(field==='input')fixture.document.command.input=value;else fixture.document.jobRoot=value;
+      fixture.saveDocument();
+      assert.throws(()=>gate.protectedEvidence(fixture.sql,fixture.selected,fixture.env),undefined,field+': '+value);
+    } finally {fs.rmSync(fixture.directory,{recursive:true,force:true});}
+  }
 });
 
 for (const [name,mutate,match] of [
