@@ -1025,9 +1025,17 @@ public class FaxManagerImpl implements FaxManager {
         File previewSource = (filePath == null || filePath.isBlank()) ? null : new File(filePath);
         int cachePagesRemoved = 0;
         boolean cacheCleared = true;
+        // A refused preview name (FileValidationException, a SecurityException) must still surface to
+        // the caller, but only after the temp artifact below has been deleted, otherwise a refused name
+        // would strand the PHI temp file on disk.
+        SecurityException deferredCacheFailure = null;
         if (previewSource != null && previewSource.getParent() != null) {
             try {
                 cachePagesRemoved = nioFileManager.removeCacheVersions(loggedInInfo, previewSource.getParent(), previewSource.getName());
+            } catch (SecurityException e) {
+                logger.error("Fax preview cache flush refused its preview filename ({})", e.getClass().getSimpleName());
+                cacheCleared = false;
+                deferredCacheFailure = e;
             } catch (IOException e) {
                 // Per-page failures were already logged with their exceptions by removeCacheVersions.
                 logger.error("Fax preview cache flush left cached page image(s) on disk ({})", e.getClass().getSimpleName());
@@ -1082,7 +1090,19 @@ public class FaxManagerImpl implements FaxManager {
             }
         }
         boolean tempExisted = validatedTemp != null && validatedTemp.exists();
-        boolean tempDeleted = tempExisted && nioFileManager.deleteTempFile(validatedTemp.getPath());
+        boolean tempDeleted = false;
+        try {
+            tempDeleted = tempExisted && nioFileManager.deleteTempFile(validatedTemp.getPath());
+        } catch (RuntimeException e) {
+            if (deferredCacheFailure != null) {
+                deferredCacheFailure.addSuppressed(e);
+            } else {
+                throw e;
+            }
+        }
+        if (deferredCacheFailure != null) {
+            throw deferredCacheFailure;
+        }
 
         if (logger.isDebugEnabled()) {
             logger.debug("Fax preview flush: cachePagesRemoved={} cacheCleared={} tempExisted={} tempDeleted={} tempResolutionFailed={}",

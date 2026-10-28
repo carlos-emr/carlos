@@ -64,6 +64,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -238,7 +239,7 @@ public class Util {
 
     static public boolean cleanFile(File file) {
         if (!file.delete()) {
-            logger.error("Error! Cannot delete file [" + file.getPath() + "]");
+            logger.error("Error! Cannot delete file [{}]", LogSafe.sanitize(file.getPath(), 1024));
             return false;
         }
         return true;
@@ -515,7 +516,7 @@ public class Util {
             }
             
             // Sanitize zipFileName to prevent path traversal
-            zipFileName = sanitizeFileName(zipFileName);
+            zipFileName = sanitizeZipFileName(zipFileName);
             if (!StringUtils.filled(zipFileName)) {
                 logger.error("Error! Invalid zip filename after sanitization");
                 return false;
@@ -576,7 +577,7 @@ public class Util {
             }
             
             // Sanitize zipFileName to prevent path traversal
-            zipFileName = sanitizeFileName(zipFileName);
+            zipFileName = sanitizeZipFileName(zipFileName);
             if (!StringUtils.filled(zipFileName)) {
                 logger.error("Error! Invalid zip filename after sanitization");
                 return false;
@@ -842,41 +843,48 @@ public class Util {
     }
     
     /**
-     * Sanitizes a filename to prevent path traversal attacks.
-     * Removes any path separators and parent directory references.
-     * 
-     * @param fileName The filename to sanitize
-     * @return The sanitized filename, or empty string if the input is invalid
+     * Produces a safe, ZIP-specific output filename from a caller-supplied name.
+     *
+     * <p>This helper is intentionally distinct from
+     * {@link PathValidationUtils#validateFileName(String)}: it is ZIP-aware (it defaults the
+     * extension to {@code .zip} when the caller supplied none) and it preserves the legacy
+     * boolean/empty-string failure contract its callers rely on — {@link #zipFiles} aborts the
+     * export when this returns an empty string rather than catching an exception. The single-component
+     * path-safety check is delegated to
+     * {@link PathValidationUtils#validatePathComponent(String, String)} so these ZIP filename rules
+     * cannot drift from the centralized validator (issue #2213).</p>
+     *
+     * @param fileName The caller-supplied base name for the export ZIP
+     * @return A validated single-component filename ending in an extension, or an empty string when
+     *         the input is blank or cannot be reduced to a safe single filename component
      */
-    private static String sanitizeFileName(String fileName) {
+    private static String sanitizeZipFileName(String fileName) {
         if (!StringUtils.filled(fileName)) {
             return "";
         }
-        
-        // Remove any path separators and parent directory references
+
+        // ZIP-specific legacy normalization (preserved): neutralize separators and parent references,
+        // then strip leading dots so the result is never a hidden file.
         String sanitized = fileName.replaceAll("[/\\\\]", "_")  // Replace forward and back slashes
                                    .replaceAll("\\.\\./", "_")     // Replace ../ sequences
                                    .replaceAll("\\.\\.", "_");      // Replace .. sequences
-        
-        // Remove any leading dots to prevent hidden files
         while (sanitized.startsWith(".")) {
             sanitized = sanitized.substring(1);
         }
-        
-        // Ensure the filename has a valid extension for zip files
-        if (!sanitized.toLowerCase().endsWith(".zip")) {
-            // If no .zip extension, add it
-            if (!sanitized.contains(".")) {
-                sanitized = sanitized + ".zip";
-            }
+
+        // ZIP-specific extension handling (preserved): default to .zip only when no extension present.
+        if (!sanitized.contains(".")) {
+            sanitized = sanitized + ".zip";
         }
-        
-        // Final validation - ensure no path traversal characters remain
-        if (sanitized.contains("..") || sanitized.contains("/") || sanitized.contains("\\")) {
-            logger.error("Invalid filename after sanitization: {}", LogSafe.sanitize(fileName));
+
+        // Centralized single-component validation replaces the former hand-rolled ".."/separator
+        // checks, keeping the ZIP filename rules aligned with PathValidationUtils while preserving the
+        // legacy empty-string failure contract the callers depend on.
+        try {
+            return PathValidationUtils.validatePathComponent(sanitized, "zip filename");
+        } catch (FileValidationException e) {
+            logger.error("Invalid zip filename after sanitization: {}", LogSafe.sanitize(fileName));
             return "";
         }
-        
-        return sanitized;
     }
 }
