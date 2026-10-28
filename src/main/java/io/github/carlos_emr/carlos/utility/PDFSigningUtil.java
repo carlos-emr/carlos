@@ -268,9 +268,8 @@ public final class PDFSigningUtil {
         if (config == null || !config.isEnabled()) {
             throw new IllegalStateException("PDF signing is not enabled");
         }
-        config.validateEnabled();
         ensureBouncyCastleProvider();
-        return keyId(loadSigningMaterial(config).signingCertificate());
+        return keyId(currentSigningCertificate(config));
     }
 
     /** SHA-256 of the manifest bytes for the signed attribute, or {@code null} without a manifest. */

@@ -499,12 +499,15 @@ New PDFs carry the new key ID.
 3. Use the audit entries to list the documents signed with that key.
 4. Treat any document signed with it after the exposure as untrusted.
 
-Until then, rotating or revoking does not reach myCarlos by itself:
-- **The planned step:** CARLOS will send the clinic's current public key, planned
-  replacements signed by the old key, and revocations to the patient portal,
-  under Send to myCarlos (carlos-emr/carlos-portal#41).
-- **Until it lands:** documents signed with a new key show in myCarlos as
-  signed, but not verified, for patients whose link pinned the old key.
+Rotating or revoking does not yet reach a myCarlos link by itself:
+- **What has landed:** with Send to myCarlos on, CARLOS publishes the clinic's
+  provisioned public-key catalogue to the patient portal
+  (`PortalMyCarlosKeyPublicationService`).
+- **Still open:** myCarlos does not yet take a replaced key up for an existing
+  link, and replacements signed by the old key and revocations are not sent yet
+  (carlos-emr/carlos-portal#41). Until then, documents signed with a new key show
+  in myCarlos as signed, but not verified, for patients whose link pinned the
+  old key.
 
 `pdf.signing.document_id.secret` is not part of the signing key. Rotating the key
 does not change it, and it must never change.
@@ -520,6 +523,8 @@ the patient's chart number and holds:
 
 The indexed `log.contentId` holds the email log ID. The complete tracing fields
 are stored in `log.data`, so they are not cut off by `contentId`'s 80-character limit.
+Like other audit entries, it is written in the background: if it cannot be
+stored, that is logged and the send still goes out.
 
 There are no names and no document content. The document ID cannot be turned
 back into a record on its own, so the audit entry is how a document ID that

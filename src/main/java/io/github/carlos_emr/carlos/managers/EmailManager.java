@@ -1838,7 +1838,9 @@ public class EmailManager {
     /**
      * Records that CARLOS signed one attachment: the email, the record it came from, the signing
      * key and the embedded document ID and version, if any. The document ID is an opaque HMAC, so
-     * the entry is how a document ID is traced back to its record. No names or content.
+     * the entry is how a document ID is traced back to its record. No names or content. Like
+     * other audit entries it is written in the background ({@link LogAction#addLog}): a failure to
+     * store it is logged and does not stop the send.
      */
     private static void auditSignedAttachment(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailAttachment attachment,
             String keyId, DocumentManifest manifest, boolean encrypted) {
