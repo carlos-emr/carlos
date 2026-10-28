@@ -114,6 +114,24 @@ final class PortalMyCarlosDeviceApprovalChallengeDao {
             }
         });
     }
+    /**
+     * Whether this patient had a clinic code request cancelled after {@code since} because its code
+     * could not be emailed (mycarlos#141): their next first-device request then goes to staff.
+     */
+    boolean codeNotSentSince(String clinic, int patient, java.time.Instant since) {
+        return owned(c -> {
+            try (var q = c.prepareStatement("SELECT 1 FROM mycarlos_device_approval_challenge WHERE BINARY clinic_id=BINARY ?"
+                    + " AND demographic_no=? AND approval_kind='code' AND cancellation_reason=? AND cancelled_at>? LIMIT 1")) {
+                q.setString(1, clinic);
+                q.setInt(2, patient);
+                q.setString(3, PortalMyCarlosDeviceApprovalService.CODE_NOT_SENT);
+                Jdbc.timestamp(q, 4, since);
+                try (var rows = q.executeQuery()) {
+                    return rows.next();
+                }
+            }
+        });
+    }
     Optional<PortalMyCarlosDeviceApprovalChallenge> findByChallengeForUpdate(Bytes challenge) {
         return owned(c -> {
             try (var q = c.prepareStatement(FIND_BY_CHALLENGE)) {

@@ -315,6 +315,21 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldForgetDeviceCodeBody_whenTheSendCompletes() throws Exception {
+        // Clinic code v1 (mycarlos#141): a sent myCarlos device code keeps no body, like an invitation.
+        EmailData email = invitationEmail();
+        email.setTransactionType(TransactionType.MYCARLOS_CODE);
+        email.setBody("Your FAKE Clinic myCarlos code is 482 193 644.");
+        EmailSendResult result;
+        try (MockedConstruction<EmailSender> senders = recordingSenders()) {
+            result = emailManager.sendEmailWithResult(loggedInInfo, email);
+        }
+        assertThat(result.isTransportAccepted()).isTrue();
+        verify(emailLogDao).replaceBody(42, EmailLog.MYCARLOS_CODE_BODY_FORGOTTEN);
+        assertThat(EmailLog.MYCARLOS_CODE_BODY_FORGOTTEN).doesNotContain("482");
+    }
+
+    @Test
     void shouldKeepOrdinaryBody_whenTheSendCompletes() throws Exception {
         try (MockedConstruction<EmailSender> senders = recordingSenders()) {
             emailManager.sendEmailWithResult(loggedInInfo, emailData());

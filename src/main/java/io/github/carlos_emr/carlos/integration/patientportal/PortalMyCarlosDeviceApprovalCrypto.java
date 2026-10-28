@@ -124,7 +124,7 @@ final class PortalMyCarlosDeviceApprovalCrypto {
         if (c.epoch("expires_at") != Math.min(maximumExpiry, i.epoch("exp"))) {
             throw invalid();
         }
-        if ("staff_first".equals(c.text("approval_kind"))) {
+        if ("staff_first".equals(c.text("approval_kind")) || "code".equals(c.text("approval_kind"))) {
             if (approval != null) {
                 throw invalid();
             }

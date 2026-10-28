@@ -146,7 +146,8 @@ final class PortalMyCarlosDeviceApprovalCodec {
             }
             if (kind == Kind.CHALLENGE || kind == Kind.ACCEPTANCE) {
                 String method = claims.text("approval_kind");
-                boolean first = "staff_first".equals(method);
+                // Clinic code v1 (mycarlos#141): "code" has no predecessor, like "staff_first".
+                boolean first = "staff_first".equals(method) || "code".equals(method);
                 if (!(first || "accepted_device".equals(method)) || first != (predecessor == null)) {
                     throw invalid();
                 }

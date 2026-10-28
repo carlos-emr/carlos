@@ -1,0 +1,54 @@
+{
+  "version": "clinic-code-v1",
+  "label": "carlos-mycarlos-clinic-code-check-v1",
+  "input": "UTF-8 of label, clinic_kid, device_key_id, request_id, code_r joined with a single LF (0x0A), no trailing LF",
+  "check_t": "big-endian unsigned 64-bit integer of the first 8 bytes of SHA-256(input), mod 1000, zero-padded to 3 decimal digits",
+  "vectors": [
+    {
+      "clinic_kid": "FAKE-kid-clinic-A-0001",
+      "device_key_id": "FAKE-device-key-0001",
+      "request_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+      "code_r": "000000",
+      "check_t": "267",
+      "code": "000000267",
+      "display": "000 000 267"
+    },
+    {
+      "clinic_kid": "FAKE-kid-clinic-A-0001",
+      "device_key_id": "FAKE-device-key-0001",
+      "request_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+      "code_r": "482193",
+      "check_t": "644",
+      "code": "482193644",
+      "display": "482 193 644"
+    },
+    {
+      "clinic_kid": "FAKE-kid-clinic-A-0001",
+      "device_key_id": "FAKE-device-key-0002",
+      "request_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+      "code_r": "482193",
+      "check_t": "265",
+      "code": "482193265",
+      "display": "482 193 265"
+    },
+    {
+      "clinic_kid": "FAKE-kid-clinic-B-0001",
+      "device_key_id": "FAKE-device-key-0001",
+      "request_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+      "code_r": "482193",
+      "check_t": "712",
+      "code": "482193712",
+      "display": "482 193 712"
+    },
+    {
+      "clinic_kid": "FAKE-kid-clinic-A-0001",
+      "device_key_id": "FAKE-device-key-0001",
+      "request_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "code_r": "999999",
+      "check_t": "148",
+      "code": "999999148",
+      "display": "999 999 148"
+    }
+  ],
+  "note": "No digests are included on purpose (GitGuardian flags 64-hex strings). Tests recompute SHA-256 and compare check_t and code."
+}

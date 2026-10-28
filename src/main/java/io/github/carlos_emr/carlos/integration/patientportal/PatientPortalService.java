@@ -1222,6 +1222,10 @@ public class PatientPortalService implements Closeable {
             case PortalJob.PERMISSION_APPROVAL_DECISIONS_PUBLISH -> PUT.equals(method) && path != null
                     && path.matches(root + "device-approval-requests/" + uuid + "/decision");
             case PortalJob.PERMISSION_APPROVAL_DEVICES_REMOVE -> POST.equals(method) && (root + "device-removals").equals(path);
+            case PortalJob.PERMISSION_APPROVAL_CODES_READ -> GET.equals(method) && path != null
+                    && path.matches(root + "device-approval-codes\\?after=" + cursor + "&limit=(?:[1-9]|1[0-9]|20)");
+            case PortalJob.PERMISSION_APPROVAL_CODES_CONSUME -> PUT.equals(method) && path != null
+                    && path.matches(root + "device-approval-requests/" + uuid + "/codes/[1-5]/consumed");
             case PortalJob.PERMISSION_DELIVERY_UPLOAD -> POST.equals(method) && path != null
                     && path.matches("/internal/carlos/patients/[1-9][0-9]{0,9}/mycarlos/deliveries");
             case PortalJob.PERMISSION_DELIVERY_EVENTS_READ -> GET.equals(method) && path != null

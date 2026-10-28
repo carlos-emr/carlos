@@ -89,8 +89,9 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
     private static final int MAX_CONTENT_TYPE_LENGTH = 100;
-    private static final String DOCUMENT_DOCTYPE = "email";
-    private static final String DOCUMENT_SOURCE = "Outbound Email Archive";
+    static final String DOCUMENT_DOCTYPE = "email";
+    static final String DOCUMENT_CLASS = "EMAIL";
+    static final String DOCUMENT_SOURCE = "Outbound Email Archive";
     private static final String CTL_DOCUMENT_MODULE_DEMOGRAPHIC = "demographic";
     /**
      * Ceiling on a single artifact read. Bounds heap for one call rather than expressing a policy
@@ -244,8 +245,22 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         }
         // Authority check precedes the EmailLog read: a caller with no eDoc write
         // right must not be able to probe emailLog ids through the "not found" message.
-        requireArchiveWriteAuthority(loggedInInfo);
-        EmailLog emailLog = loadEmailLog(requestedEmailLog.getId());
+        // AUTHORIZATION EXCEPTION (D141): the one exception is the myCarlos device code email,
+        // sent by the device-code job as the system provider inside its DeviceCodeEmailScope; only
+        // server code opens that scope, so the read-first order exposes nothing to a caller.
+        EmailLog emailLog;
+        boolean deviceCode = false;
+        if (DeviceCodeEmailScope.isOpen()) {
+            emailLog = loadEmailLog(requestedEmailLog.getId());
+            deviceCode = DeviceCodeEmailScope.coversArchive(loggedInInfo, emailLog,
+                    request.getAttachments() != null && !request.getAttachments().isEmpty());
+            if (!deviceCode) {
+                requireArchiveWriteAuthority(loggedInInfo);
+            }
+        } else {
+            requireArchiveWriteAuthority(loggedInInfo);
+            emailLog = loadEmailLog(requestedEmailLog.getId());
+        }
         String fileName = uniqueArchiveFileName(emailLog, contentType);
         Integer demographicNo = emailLog.getDemographic().getDemographicNo();
         requirePatientRecordAccess(loggedInInfo, demographicNo);
@@ -264,12 +279,19 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         Document document = buildDocument(emailLog, fileName, contentType, providerNo);
         Document savedDocument;
         try {
-            savedDocument = documentManager.createDocument(
-                    loggedInInfo,
-                    document,
-                    demographicNo,
-                    providerNo,
-                    storedBytes);
+            if (deviceCode) {
+                // Fixed reason only: no patient, email or code.
+                MiscUtils.getLogger().info("Outbound email archive: myCarlos device code email archived for the system device-code job (D141)");
+                savedDocument = DeviceCodeEmailScope.archiving(() -> documentManager.createDocument(
+                        loggedInInfo, document, demographicNo, providerNo, storedBytes));
+            } else {
+                savedDocument = documentManager.createDocument(
+                        loggedInInfo,
+                        document,
+                        demographicNo,
+                        providerNo,
+                        storedBytes);
+            }
         } catch (IOException | RuntimeException e) {
             // Only the name DocumentManager assigned can be deleted here. Until it does, the
             // server-generated on-disk name is unknown to this method, and falling back to the
@@ -537,7 +559,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         document.setDocfilename(fileName);
         document.setDocdesc("Outbound email archive " + emailLog.getId());
         document.setDoctype(DOCUMENT_DOCTYPE);
-        document.setDocClass("EMAIL");
+        document.setDocClass(DOCUMENT_CLASS);
         document.setDocSubClass("OUTBOUND");
         document.setDoccreator(providerNo);
         document.setResponsible(providerNo);
