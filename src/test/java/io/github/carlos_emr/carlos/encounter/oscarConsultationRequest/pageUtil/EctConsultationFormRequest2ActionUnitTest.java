@@ -870,6 +870,8 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.execute();
 
+        // The capture check ran against the logged-in user's own session and found nothing.
+        verify(consultationSignatureService).wasManualSignatureCaptured(same(session), eq("sig-request"));
         assertThat(persisted[0]).isNotNull();
         assertThat(persisted[0].getSignatureImg()).isNull();
         // Benign unsigned save: the redirect must NOT carry the warning flag.

@@ -342,6 +342,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * status HTML. Every early {@code return} leaves {@code service} exactly as before, since
      * nothing there follows this branch.
      */
+    // FindSecBugs XSS_SERVLET: writes fixed status HTML and encodes dynamic values (SafeEncode/Encode), as service() did before this branch moved here
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "fax branch writes fixed status HTML and encodes dynamic values; moved unchanged from service()")
     private void sendFax(HttpServletRequest req, HttpServletResponse res, LoggedInInfo loggedInInfo,
             Prescription prescription, ByteArrayOutputStream baosPDF) throws IOException {
         // this fax method shouldn't be here and will be removed in future edits.
@@ -455,6 +457,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     /** The number of pages in a written PDF. */
+    // FindSecBugs PATH_TRAVERSAL_IN: the path is the fax document prepareValidatedFaxFiles resolved and validated with PathValidationUtils
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils in prepareValidatedFaxFiles")
     private static int pageCount(Path pdf) throws IOException {
         try (PdfReader pdfReader = new PdfReader(pdf.toString())) {
             return pdfReader.getNumberOfPages();
@@ -1600,8 +1604,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     /** As {@link #resolveSignatureImage(HttpServletRequest, LoggedInInfo)} with the prescription already loaded. */
-    // null means "no signature": service() refuses to fax it and EndPage leaves the line blank, both by a
-    // null check. An empty array would read as signed there, so null is kept on purpose.
+    // null means "no signature". service()'s fax gate refuses to send an unsigned script by a null check
+    // alone, so an empty array would pass it as signed; null is kept on purpose. (EndPage leaves the
+    // line blank for null or empty.)
     @SuppressWarnings("java:S1168")
     byte[] resolveSignatureImage(HttpServletRequest req, LoggedInInfo loggedInInfo, Prescription prescription) {
         if (loggedInInfo == null || prescription == null) {
