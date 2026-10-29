@@ -7,6 +7,9 @@
 // checks then clicked nothing from the Archived box and failed as an anonymous 20 s
 // waitForResponse timeout. This renders each page's anchors from the real JSP source and
 // asserts the locator's first match is the Inbox, so a changed href fails here, offline.
+// It reads the JSP source, so it does not evaluate JSP conditions: it pins the markup, and
+// the browser checks pin the rendered page. (ViewMessage omits its Inbox button only for
+// from=encounter, a view these checks never open.)
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -17,24 +20,44 @@ const { INBOX_LINK } = require('./messenger-demographic-link-playwright-checks')
 const JSP_DIR = path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/messenger');
 
 // The anchors a browser would see, in document order, with their class list and href.
-// JSP comments, scriptlets and expressions are dropped (an expression only appends
-// query parameters to these hrefs), and EL becomes the context path, so hrefs keep their
-// path and their literal query start. Entities are decoded as getAttribute would.
+// One left-to-right scan: a JSP comment, scriptlet or expression, or an HTML comment, is
+// stepped over whole, so an anchor written inside Java code or a comment is not one. Every
+// other `<a` opens an anchor tag, read to its closing `>` with the JSP inside it left out:
+// an expression or custom tag (an encoded value, which may nest an expression) only fills
+// in a parameter value or a title, and EL other than the context path is dropped. So hrefs
+// keep their path and their literal query start. Entities are decoded as getAttribute would.
+const SKIPPED = /<%--[\s\S]*?--%>|<%[\s\S]*?%>|<!--[\s\S]*?-->/y;
+const CLASS_ATTR = /(?:^|\s)class\s*=\s*("([^"]*)"|'([^']*)')/i;
+const HREF_ATTR = /(?:^|\s)href\s*=\s*("([^"]*)"|'([^']*)')/i;
+const IN_TAG = /<%[\s\S]*?%>|<[a-z]+:(?:<%[\s\S]*?%>|[^<>])*\/>|\$\{[^}]*\}/iy;
+
 function anchors(source) {
-  const html = source
-    .replace(/<%--[\s\S]*?--%>/g, '')
-    .replace(/<%[\s\S]*?%>/g, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/\$\{pageContext\.request\.contextPath\}/g, '/carlos')
-    .replace(/\$\{[^}]*\}/g, '')
-    .replace(/<[a-z]+:[^>]*\/>/gi, '');
-  return [...html.matchAll(/<a\b([^>]*)>/gi)].map(([, attrs]) => {
-    const attr = name => {
-      const m = attrs.match(new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)')`, 'i'));
-      return m ? (m[2] ?? m[3]).replaceAll('&amp;', '&') : null;
-    };
-    return { tag: 'a', classes: new Set((attr('class') || '').split(/\s+/).filter(Boolean)), href: attr('href') };
-  });
+  const found = [];
+  let i = 0;
+  while (i < source.length) {
+    if (source[i] !== '<') { i++; continue; }
+    SKIPPED.lastIndex = i;
+    const skipped = SKIPPED.exec(source);
+    if (skipped) { i += skipped[0].length; continue; }
+    if (!/^<a[\s>]/i.test(source.slice(i, i + 3))) { i++; continue; }
+    let j = i + 2;
+    let attrs = '';
+    while (j < source.length && source[j] !== '>') {
+      IN_TAG.lastIndex = j;
+      const jsp = IN_TAG.exec(source);
+      if (jsp) {
+        if (jsp[0] === '${pageContext.request.contextPath}') attrs += '/carlos';
+        j += jsp[0].length;
+      } else {
+        attrs += source[j++];
+      }
+    }
+    const value = m => (m ? (m[2] ?? m[3]).replaceAll('&amp;', '&') : null);
+    const classes = value(attrs.match(CLASS_ATTR)) || '';
+    found.push({ tag: 'a', classes: new Set(classes.split(/\s+/).filter(Boolean)), href: value(attrs.match(HREF_ATTR)) });
+    i = j + 1;
+  }
+  return found;
 }
 
 // A matcher for exactly the selector forms INBOX_LINK uses: a tag, .class, [attr*="v"],
@@ -103,8 +126,8 @@ test('shouldPickInboxTab_overSentArchivedAndSortLinksOnBoxPage', () => {
   const tabs = elements.filter(el => el.classes.has('nav-link') && /\/messenger\/DisplayMessages\?boxType=\d/.test(el.href || ''));
   assert.deepEqual(tabs.map(el => new URL(el.href, 'https://clinic.test').searchParams.get('boxType')), ['0', '1', '2'],
     'the box page renders Inbox, Sent and Archived tabs');
+  assert.equal(firstMatch(elements), tabs[0], 'INBOX_LINK\'s first match on the box page is the Inbox tab itself');
   const matched = elements.filter(el => matchers.some(match => match(el)));
-  assert.ok(matched.length > 0, 'INBOX_LINK matches no anchor on the box page');
   assert.deepEqual(matched.map(el => isInbox(el.href)), matched.map(() => true),
     'on the box page INBOX_LINK matches only the Inbox tab, never Sent, Archived or a column-sort link');
 });
