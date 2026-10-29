@@ -49,6 +49,8 @@ import ca.uhn.hl7v2.parser.PipeParser;
  * by HAPI 2.x's own segment parser, exactly as {@link PipeParser} would, so values, escaping and
  * repetitions within fields are unchanged; only the names the segments sit under differ. Messages
  * of a defined type are parsed by {@link PipeParser} unchanged.</p>
+ *
+ * @since 2026-10-29
  */
 final class LegacyHl7PipeParser extends PipeParser {
 

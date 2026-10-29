@@ -38,6 +38,8 @@ import ca.uhn.hl7v2.parser.Escaping;
  * is a separate, deliberate change.</p>
  *
  * <p>Stateless and thread-safe.</p>
+ *
+ * @since 2026-10-29
  */
 public final class LegacyHl7Escaping implements Escaping {
 

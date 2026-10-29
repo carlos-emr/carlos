@@ -105,6 +105,9 @@ class Hl7ParsersUnitTest {
         assertThat(legacy.encode(renamed)).isEqualTo(plain.encode(folded));
         assertThat(renamed.getNames()).containsExactly("MSH", "PID", "OBR", "OBX", "OBR2", "OBR3", "OBX2", "ZZZ");
     }
+
+    @Test
+    @DisplayName("should keep values exactly as set when a message is built for encoding")
     void shouldKeepValuesExactlyAsSet_whenMessageIsBuiltForEncoding() throws Exception {
         OMP_O09 message = Hl7Parsers.forBuilding(new OMP_O09());
         message.getMSH().getFieldSeparator().setValue("|");

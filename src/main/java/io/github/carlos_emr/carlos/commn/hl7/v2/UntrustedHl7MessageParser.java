@@ -39,6 +39,8 @@ import ca.uhn.hl7v2.parser.PipeParser;
  * unchecked exactly as before the HAPI upgrade.</p>
  *
  * <p>Instances are cheap and not thread-safe; create one per message.</p>
+ *
+ * @since 2026-10-29
  */
 public final class UntrustedHl7MessageParser {
 

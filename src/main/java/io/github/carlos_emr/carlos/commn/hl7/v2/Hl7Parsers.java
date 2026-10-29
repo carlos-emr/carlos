@@ -50,6 +50,8 @@ import ca.uhn.hl7v2.validation.impl.ValidationContextImpl;
  *
  * <p>XML is never parsed here: use {@link UntrustedHl7MessageParser} or {@link HardenedHl7XmlParser}.
  * The parsers are not thread-safe; create one per message or per thread.</p>
+ *
+ * @since 2026-10-29
  */
 public final class Hl7Parsers {
 

@@ -109,7 +109,11 @@ async function startObserver(markers) {
   return {
     base,
     requests: () => [...requests],
-    close: () => new Promise((resolve) => server.close(() => resolve())),
+    close: () => new Promise((resolve) => {
+      server.close(() => resolve());
+      // close() waits for kept-alive connections; Node 18.2+ can end them now (19+ does for idle ones).
+      server.closeAllConnections?.();
+    }),
   };
 }
 
@@ -232,6 +236,10 @@ async function workflow(session) {
     file: `SYNTHFILEMARKER${crypto.randomBytes(8).toString('hex')}`,
     http: `SYNTHHTTPMARKER${crypto.randomBytes(8).toString('hex')}`,
   };
+  // Checked before anything is created, so a refusal here leaves nothing to clean up.
+  h.assert(sql.value(COUNT_UPLOADS, [ownUploads]) === '0',
+    'A fileUploadCheck row already carries this run\'s stamp');
+
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-lab-xxe-'));
   // Fixed name inside a directory this run just created.
   const markerFile = path.join(workDir, 'synthetic-marker.txt'); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
@@ -239,9 +247,6 @@ async function workflow(session) {
   const observer = await startObserver(markers);
   const contextPath = contextPathOf(config.baseUrl);
   let uploadCount = 0;
-
-  h.assert(sql.value(COUNT_UPLOADS, [ownUploads]) === '0',
-    'A fileUploadCheck row already carries this run\'s stamp');
 
   cleanup(async () => {
     await observer.close();

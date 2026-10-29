@@ -31,6 +31,8 @@ import ca.uhn.hl7v2.HL7Exception;
  * blank or a default. HAPI 2.x wraps that same {@code HL7Exception} in a {@link RuntimeException}.
  * A handler that now catches {@code RuntimeException} calls {@link #rethrowUnlessMissingStructure}
  * first, so a programming error or any other failure still propagates as it did under 1.0.1.</p>
+ *
+ * @since 2026-10-29
  */
 public final class Hl7StructureAccess {
 

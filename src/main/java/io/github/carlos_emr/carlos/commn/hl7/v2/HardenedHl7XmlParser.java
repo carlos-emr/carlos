@@ -53,6 +53,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p>Only the step that turns text into a DOM is replaced; mapping the DOM onto HAPI's message
  * model, and encoding messages as XML, are HAPI's {@link DefaultXMLParser} unchanged. Use
  * {@link UntrustedHl7MessageParser} when a body may be either pipe or XML encoded.</p>
+ *
+ * @since 2026-10-29
  */
 public class HardenedHl7XmlParser extends DefaultXMLParser {
 

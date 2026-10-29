@@ -43,6 +43,8 @@ import ca.uhn.hl7v2.validation.impl.ValidationContextFactory;
  * handling would be a deliberate display change of its own.</p>
  *
  * <p>Thread-safe and immutable; one instance may be shared by any number of parsers.</p>
+ *
+ * @since 2026-10-29
  */
 public final class LegacyHl7NoValidation implements ValidationContext {
 
