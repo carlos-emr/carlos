@@ -46,6 +46,7 @@ import ca.uhn.hl7v2.parser.XMLParser;
 import ca.uhn.hl7v2.util.Terser;
 // import ca.uhn.hl7v2.validation.ValidationContext;
 import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7StructureAccess;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
@@ -353,6 +354,7 @@ public class MEDITECHHandler implements MessageHandler {
             specimen = getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR().getObr15_SpecimenSource().getCm_sps2_Additives().getValue());
         } catch (RuntimeException e) {
             // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
+            Hl7StructureAccess.rethrowUnlessMissingStructure(e);
             return ("");
         }
 
@@ -369,6 +371,7 @@ public class MEDITECHHandler implements MessageHandler {
             specimenDescription = getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR().getObr15_SpecimenSource().getCm_sps3_Freetext().getValue());
         } catch (RuntimeException e) {
             // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
+            Hl7StructureAccess.rethrowUnlessMissingStructure(e);
             return ("");
         }
 
@@ -513,6 +516,7 @@ public class MEDITECHHandler implements MessageHandler {
             count = msg.getRESPONSE().getORDER_OBSERVATION(i).getNTEReps();
         } catch (RuntimeException e) {
             // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
+            Hl7StructureAccess.rethrowUnlessMissingStructure(e);
             //do nothing
         }
         return count;
@@ -534,6 +538,7 @@ public class MEDITECHHandler implements MessageHandler {
             count = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTEReps();
         } catch (RuntimeException e1) {
             // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
+            Hl7StructureAccess.rethrowUnlessMissingStructure(e1);
             // do nothing
         }
         return count;
@@ -955,6 +960,7 @@ public class MEDITECHHandler implements MessageHandler {
             createProviderMap(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getOrderingProvider(), providerMap);
         } catch (RuntimeException e) {
             // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
+            Hl7StructureAccess.rethrowUnlessMissingStructure(e);
             logger.error("Exception while adding ordering providers to map ", e);
         }
 
@@ -962,6 +968,7 @@ public class MEDITECHHandler implements MessageHandler {
             createProviderMap(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getResultCopiesTo(), providerMap);
         } catch (RuntimeException e) {
             // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
+            Hl7StructureAccess.rethrowUnlessMissingStructure(e);
             logger.error("Exception while adding copied to providers to map ", e);
         }
 

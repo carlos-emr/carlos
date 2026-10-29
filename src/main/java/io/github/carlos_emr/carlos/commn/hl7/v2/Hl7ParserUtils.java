@@ -29,7 +29,8 @@
 
 package io.github.carlos_emr.carlos.commn.hl7.v2;
 
-import ca.uhn.hl7v2.parser.PipeParser;
+import ca.uhn.hl7v2.HL7Exception;
+import ca.uhn.hl7v2.model.Message;
 
 /**
  * Shared HL7 parser utilities used across modules that need HL7 v2 message encoding/decoding.
@@ -41,18 +42,22 @@ import ca.uhn.hl7v2.parser.PipeParser;
  */
 public final class Hl7ParserUtils {
 
-    /**
-     * Shared HAPI PipeParser for encoding messages CARLOS builds, such as the prescription QR code.
-     * It applies no validation and HAPI 1.0.1 escaping ({@link Hl7Parsers#newEncodingPipeParser()});
-     * parse received HL7 with {@link Hl7Parsers#newPipeParser()} instead.
-     */
-    public static final PipeParser pipeParser = initialisePipeParser();
-
     private Hl7ParserUtils() {
         // utility class
     }
 
-    private static PipeParser initialisePipeParser() {
-        return Hl7Parsers.newEncodingPipeParser();
+    /**
+     * Encodes a message CARLOS built, such as the prescription QR code, with no validation and
+     * HAPI 1.0.1 escaping ({@link Hl7Parsers#newEncodingPipeParser()}). Each call uses its own
+     * parser: HAPI does not document its parsers as safe to share between threads, and QR codes
+     * are rendered for concurrent requests. Parse received HL7 with
+     * {@link Hl7Parsers#newPipeParser()}.
+     *
+     * @param message a message built with {@link Hl7Parsers#forBuilding(Message)}
+     * @return the pipe-encoded message
+     * @throws HL7Exception if HAPI cannot encode the message
+     */
+    public static String encode(Message message) throws HL7Exception {
+        return Hl7Parsers.newEncodingPipeParser().encode(message);
     }
 }

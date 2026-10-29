@@ -140,6 +140,21 @@ class Hl7ParserBoundaryGuardUnitTest {
     }
 
     @Test
+    @DisplayName("should detect a forbidden construct when a string literal before it contains a comment marker")
+    void shouldDetectForbiddenConstruct_whenStringLiteralBeforeItContainsCommentMarker() {
+        String[] sources = {
+                "class X { String u = \"http://example.invalid\"; Object p = new GenericParser(); }",
+                "class X { String u = \"/*\"; Object p = new GenericParser(); String v = \"*/\"; }",
+                "class X { char c = '\"'; String u = \"//\"; Object p = new GenericParser(); }",
+                "class X { String t = \"\"\"\n  // \\\"\"\" not the end\n  \"\"\"; Object p = new GenericParser(); }"};
+
+        for (String source : sources) {
+            assertThat(RULES.stream().anyMatch(rule -> rule.pattern().matcher(stripComments(source)).find()))
+                    .as(source).isTrue();
+        }
+    }
+
+    @Test
     @DisplayName("should ignore a forbidden construct when it only appears in a comment")
     void shouldIgnoreForbiddenConstruct_whenItOnlyAppearsInComment() {
         String commented = "// Parser p = new GenericParser();\n/* new DefaultXMLParser() */ class X {}";
@@ -147,8 +162,56 @@ class Hl7ParserBoundaryGuardUnitTest {
         assertThat(RULES.stream().anyMatch(rule -> rule.pattern().matcher(stripComments(commented)).find())).isFalse();
     }
 
-    /** Removes block and line comments so documentation that names the old classes is allowed. */
+    /**
+     * Removes block and line comments so documentation that names the old classes is allowed.
+     * String, text block and character literals are kept as they are, so a comment marker inside
+     * one (a URL, say) cannot hide the code that follows it.
+     */
     private static String stripComments(String source) {
-        return source.replaceAll("(?s)/\\*.*?\\*/", " ").replaceAll("(?m)//.*$", " ");
+        StringBuilder code = new StringBuilder(source.length());
+        int length = source.length();
+        int i = 0;
+        while (i < length) {
+            char c = source.charAt(i);
+            if (source.startsWith("//", i)) {
+                int end = source.indexOf('\n', i);
+                i = end < 0 ? length : end;
+                code.append(' ');
+            } else if (source.startsWith("/*", i)) {
+                int end = source.indexOf("*/", i + 2);
+                i = end < 0 ? length : end + 2;
+                code.append(' ');
+            } else if (source.startsWith("\"\"\"", i)) {
+                int end = endOfLiteral(source, i + 3, "\"\"\"", false);
+                code.append(source, i, end);
+                i = end;
+            } else if (c == '"' || c == '\'') {
+                int end = endOfLiteral(source, i + 1, String.valueOf(c), true);
+                code.append(source, i, end);
+                i = end;
+            } else {
+                code.append(c);
+                i++;
+            }
+        }
+        return code.toString();
+    }
+
+    /** Index just past the literal's closing {@code delimiter}, honouring backslash escapes. */
+    private static int endOfLiteral(String source, int from, String delimiter, boolean singleLine) {
+        int i = from;
+        while (i < source.length()) {
+            char c = source.charAt(i);
+            if (c == '\\') {
+                i += 2;
+            } else if (source.startsWith(delimiter, i)) {
+                return i + delimiter.length();
+            } else if (singleLine && c == '\n') {
+                return i;
+            } else {
+                i++;
+            }
+        }
+        return source.length();
     }
 }

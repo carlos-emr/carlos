@@ -43,7 +43,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.xml.sax.SAXParseException;
 
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.Message;
@@ -144,17 +143,40 @@ class HardenedHl7XmlParserUnitTest {
             HardenedHl7XmlParser parser = new HardenedHl7XmlParser();
             assertThatThrownBy(() -> parser.parse(fixture.payload(Attack.EXTERNAL_DTD_SYSTEM)))
                     .isInstanceOf(HL7Exception.class)
-                    .hasRootCauseInstanceOf(SAXParseException.class);
+                    .hasMessageContaining("line 2");
             String truncated = Hl7XmlEntityAttackFixture.benignXml();
             String malformed = truncated.substring(0, truncated.length() - 12);
             assertThatThrownBy(() -> parser.parse(malformed))
                     .isInstanceOf(HL7Exception.class)
-                    .hasRootCauseInstanceOf(SAXParseException.class);
+                    .hasMessageContaining("line");
         } finally {
             System.setErr(originalErr);
         }
 
         assertThat(captured.toString(StandardCharsets.UTF_8)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should keep the parser's diagnostic out of the rejection when a message is malformed")
+    void shouldKeepParserDiagnosticOutOfRejection_whenMessageIsMalformed() {
+        // The platform parser quotes message text in its diagnostics (here an undeclared entity's
+        // name); the upload path logs the rejection with its causes, so none may carry that text.
+        String quoted = Hl7XmlEntityAttackFixture.adtA01Xml("", "&SYNTHQUOTEDTEXT;");
+
+        assertThatThrownBy(() -> new HardenedHl7XmlParser().parse(quoted))
+                .isInstanceOf(HL7Exception.class)
+                .hasNoCause()
+                .hasMessageNotContaining("SYNTHQUOTEDTEXT")
+                .hasMessageContaining("line");
+    }
+
+    @Test
+    @DisplayName("should refuse to build a parser when XInclude cannot be switched off")
+    void shouldRefuseToBuildParser_whenXIncludeCannotBeSwitchedOff() {
+        DocumentBuilderFactory factory = new RefusingFactory(DocumentBuilderFactory.newInstance(), "xinclude");
+
+        assertThatThrownBy(() -> HardenedHl7XmlParser.harden(factory))
+                .isInstanceOf(ParserConfigurationException.class);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -215,6 +237,15 @@ class HardenedHl7XmlParserUnitTest {
             delegate.setXIncludeAware(isXIncludeAware());
             delegate.setExpandEntityReferences(isExpandEntityReferences());
             return delegate.newDocumentBuilder();
+        }
+
+        @Override
+        public void setXIncludeAware(boolean state) {
+            if ("xinclude".equals(refused)) {
+                // What DocumentBuilderFactory's own default does for an implementation without it.
+                throw new UnsupportedOperationException("XInclude is not supported");
+            }
+            super.setXIncludeAware(state);
         }
 
         @Override

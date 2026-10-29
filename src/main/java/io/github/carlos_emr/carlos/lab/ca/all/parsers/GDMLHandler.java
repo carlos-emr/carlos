@@ -66,6 +66,7 @@ import ca.uhn.hl7v2.model.v23.segment.OBX;
 import ca.uhn.hl7v2.parser.Parser;
 import ca.uhn.hl7v2.util.Terser;
 import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7StructureAccess;
 
 /**
  * @author wrighd
@@ -565,6 +566,7 @@ public class GDMLHandler implements MessageHandler {
             }
         } catch (RuntimeException e) {
             // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
+            Hl7StructureAccess.rethrowUnlessMissingStructure(e);
             logger.error("Error", e);
         }
         return (getString(msg.getMSH().getSendingFacility().getNamespaceID().getValue()));

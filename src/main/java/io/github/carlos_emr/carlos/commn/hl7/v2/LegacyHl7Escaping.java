@@ -42,7 +42,7 @@ import ca.uhn.hl7v2.parser.Escaping;
 public final class LegacyHl7Escaping implements Escaping {
 
     /** Escape codes in lookup order; index 4 is the escape character itself. */
-    private static final char[] CODES = {'F', 'S', 'T', 'R', 'E'};
+    private static final String CODES = "FSTRE";
     private static final int ESCAPE_INDEX = 4;
     private static final String CARRIAGE_RETURN_ESCAPE = "\\X000d\\";
 
@@ -146,12 +146,12 @@ public final class LegacyHl7Escaping implements Escaping {
 
     private static String[] encodings(EncodingCharacters encodingCharacters) {
         char escape = encodingCharacters.getEscapeCharacter();
-        String[] encodings = new String[CODES.length + 1];
-        for (int i = 0; i < CODES.length; i++) {
-            encodings[i] = "" + escape + CODES[i] + escape;
+        String[] encodings = new String[CODES.length() + 1];
+        for (int i = 0; i < CODES.length(); i++) {
+            encodings[i] = "" + escape + CODES.charAt(i) + escape;
         }
         // 1.0.1 used a backslash here whatever the message's escape character was.
-        encodings[CODES.length] = CARRIAGE_RETURN_ESCAPE;
+        encodings[CODES.length()] = CARRIAGE_RETURN_ESCAPE;
         return encodings;
     }
 }

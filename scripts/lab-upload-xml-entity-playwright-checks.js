@@ -225,7 +225,9 @@ async function workflow(session) {
   const { sql, config, cleanup } = session;
   const stamp = crypto.randomBytes(4).toString('hex').toUpperCase();
   const controlId = `XXE${stamp}`;
-  const ownUploads = `filename LIKE ${h.sqlString(`%lab-xxe-probe-${stamp}-%`)}`;
+  // Every upload of this run is archived as LabUpload.lab-xxe-probe-<stamp>-<n>.<ext>.<millis>.
+  const ownUploads = `%lab-xxe-probe-${stamp}-%`;
+  const COUNT_UPLOADS = 'SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ?';
   const markers = {
     file: `SYNTHFILEMARKER${crypto.randomBytes(8).toString('hex')}`,
     http: `SYNTHHTTPMARKER${crypto.randomBytes(8).toString('hex')}`,
@@ -238,14 +240,14 @@ async function workflow(session) {
   const contextPath = contextPathOf(config.baseUrl);
   let uploadCount = 0;
 
-  h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUploads}`) === '0',
+  h.assert(sql.value(COUNT_UPLOADS, [ownUploads]) === '0',
     'A fileUploadCheck row already carries this run\'s stamp');
 
   cleanup(async () => {
     await observer.close();
     fs.rmSync(workDir, { recursive: true, force: true });
-    sql.execute(`DELETE FROM fileUploadCheck WHERE ${ownUploads}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUploads}`) === '0',
+    sql.execute('DELETE FROM fileUploadCheck WHERE filename LIKE ?', [ownUploads]);
+    h.assert(sql.value(COUNT_UPLOADS, [ownUploads]) === '0',
       'This run\'s fileUploadCheck rows were not all removed');
     const archived = archivedUploads(stamp);
     if (archived === null) {
@@ -272,7 +274,7 @@ async function workflow(session) {
     }
   }
 
-  const ownRow = (fileName) => sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${h.sqlString(`%${fileName}%`)}`);
+  const ownRow = (fileName) => sql.value(COUNT_UPLOADS, [`%${fileName}%`]);
 
   await session.step('benign PHS messages in pipe and XML encoding are accepted', async () => {
     for (const [extension, content] of [['hl7', adtA01Pipe(`${controlId}P`)], ['xml', adtA01Xml(`${controlId}M`, '', 'SYNTHETIC')]]) {

@@ -83,8 +83,8 @@ public final class PrescriptionQrCodeUIBean {
             List<Drug> drugs = drugDao.findByPrescriptionId(prescription.getId().intValue());
 
             OMP_O09 hl7PrescriptionMessage = OmpO09Builder.makeOmpO09(clinic, provider, demographic, prescription, drugs);
-            String hl7PrescriptionString = Hl7ParserUtils.pipeParser.encode(hl7PrescriptionMessage);
-            logger.debug(hl7PrescriptionString);
+            // Not logged: the message carries the patient's name, health number and prescription.
+            String hl7PrescriptionString = Hl7ParserUtils.encode(hl7PrescriptionMessage);
 
             int qrCodeScale = Integer.valueOf(CarlosProperties.getInstance().getProperty("QR_CODE_IMAGE_SCALE_FACTOR"));
 

@@ -92,7 +92,7 @@ class Hl7MessageEncodingSnapshotUnitTest {
         Drug second = drug("PLACEBOMYCIN", null, "2", null);
         second.setNoSubs(true);
 
-        String encoded = Hl7ParserUtils.pipeParser.encode(
+        String encoded = Hl7ParserUtils.encode(
                 OmpO09Builder.makeOmpO09(clinic, provider, demographic(), prescription, List.of(first, second)));
 
         assertMatchesSnapshot("omp-o09-prescription-qr.txt", maskVolatileFields(encoded));
@@ -117,7 +117,7 @@ class Hl7MessageEncodingSnapshotUnitTest {
         Prescription prescription = new Prescription();
         prescription.setDatePrescribed(new GregorianCalendar(2026, 9, 29, 9, 15, 0).getTime());
 
-        String encoded = Hl7ParserUtils.pipeParser.encode(
+        String encoded = Hl7ParserUtils.encode(
                 OmpO09Builder.makeOmpO09(clinic, provider, demographic(), prescription, List.of(ranged, fraction)));
 
         assertMatchesSnapshot("omp-o09-free-text-dosing.txt", maskVolatileFields(encoded));

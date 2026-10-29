@@ -52,6 +52,7 @@ import ca.uhn.hl7v2.parser.Parser;
 import ca.uhn.hl7v2.parser.XMLParser;
 import ca.uhn.hl7v2.util.Terser;
 import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7StructureAccess;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -524,6 +525,7 @@ public class PATHL7Handler implements MessageHandler {
             return ed.getEncoding().getValue();
         } catch (RuntimeException e) {
             // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
+            Hl7StructureAccess.rethrowUnlessMissingStructure(e);
             logger.warn("Cannot read embedded lab document encoding; using document fallback");
             return null;
         }
@@ -571,6 +573,7 @@ public class PATHL7Handler implements MessageHandler {
                 }
             } catch (RuntimeException e) {
                 // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
+                Hl7StructureAccess.rethrowUnlessMissingStructure(e);
                 logger.error("Error", e);
                 return false;
             }
@@ -628,6 +631,7 @@ public class PATHL7Handler implements MessageHandler {
                     && !StringUtils.isEmpty(ed.getEd1_SourceApplication().getHd1_NamespaceID().getValue());
         } catch (RuntimeException e) {
             // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
+            Hl7StructureAccess.rethrowUnlessMissingStructure(e);
             return false;
         }
     }

@@ -38,6 +38,7 @@ import org.xml.sax.SAXParseException;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.HapiContext;
 import ca.uhn.hl7v2.parser.DefaultXMLParser;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * HAPI's HL7 v2 XML parser with an XML reader CARLOS controls (issue #5414).
@@ -96,6 +97,9 @@ public class HardenedHl7XmlParser extends DefaultXMLParser {
      *                      cannot be applied by the platform XML parser
      */
     @Override
+    // FindSecBugs XXE_DOCUMENT: the builder comes from harden(), which refuses DOCTYPE, turns off
+    // external entities, external DTDs and XInclude, and fails rather than parse unprotected.
+    @SuppressFBWarnings(value = "XXE_DOCUMENT", justification = "DocumentBuilderFactory is configured by harden(): DOCTYPE refused, external entities, DTDs and XInclude off, secure processing on; parsing fails if any protection is unavailable")
     protected synchronized Document parseStringIntoDocument(String message) throws HL7Exception {
         try {
             DocumentBuilder builder = harden(DocumentBuilderFactory.newInstance()).newDocumentBuilder();
@@ -108,10 +112,13 @@ public class HardenedHl7XmlParser extends DefaultXMLParser {
             return builder.parse(new InputSource(new StringReader(message)));
         } catch (ParserConfigurationException e) {
             throw new HL7Exception("HL7 XML parsing is unavailable: the XML parser cannot be secured", e);
+        } catch (SAXParseException e) {
+            // The platform parser's diagnostic can quote message text (patient data), and the
+            // upload path logs a rejection with its causes, so only the position is kept.
+            throw new HL7Exception("HL7 XML message rejected at line " + e.getLineNumber() + ", column "
+                    + e.getColumnNumber() + ": it is not well-formed or it declares a DTD or entities");
         } catch (SAXException | IOException e) {
-            // The cause can quote message text, so it is attached for the log but not repeated
-            // in this message, which callers may show to the uploader.
-            throw new HL7Exception("HL7 XML message rejected: it is not well-formed or it declares a DTD or entities", e);
+            throw new HL7Exception("HL7 XML message rejected: it is not well-formed or it declares a DTD or entities");
         }
     }
 
@@ -127,7 +134,14 @@ public class HardenedHl7XmlParser extends DefaultXMLParser {
         // HAPI's DOM lookups are namespace-qualified (urn:hl7-org:v2xml).
         factory.setNamespaceAware(true);
         factory.setValidating(false);
-        factory.setXIncludeAware(false);
+        try {
+            factory.setXIncludeAware(false);
+        } catch (UnsupportedOperationException e) {
+            ParserConfigurationException failure = new ParserConfigurationException(
+                    "XML parser cannot switch off XInclude");
+            failure.initCause(e);
+            throw failure;
+        }
         factory.setExpandEntityReferences(false);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setFeature("http://xml.org/sax/features/external-general-entities", false);

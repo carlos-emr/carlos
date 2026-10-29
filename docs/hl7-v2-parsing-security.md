@@ -79,18 +79,20 @@ All in `io.github.carlos_emr.carlos.commn.hl7.v2`:
   entity-reference expansion, and installs an entity resolver that refuses every lookup. Any of
   these that the platform parser rejects makes parsing fail with an `HL7Exception`; HAPI's own
   `XMLUtils` would log a warning and parse anyway. A rejected message is reported only through
-  that exception: without its own error handler the platform parser also prints
-  `[Fatal Error] ...` to standard error (Tomcat's `catalina.out`). Mapping the DOM onto HAPI's
-  model and encoding are unchanged.
+  that exception, which names the line and column but carries neither the platform parser's
+  diagnostic nor its exception as a cause: the diagnostic can quote message text, and the PHS
+  upload logs a rejection with its causes. Without its own error handler the platform parser
+  would also print `[Fatal Error] ...` to standard error (Tomcat's `catalina.out`). Mapping the
+  DOM onto HAPI's model and encoding are unchanged.
 - **`UntrustedHl7MessageParser`** replaces `GenericParser`: pipe bodies go to a `PipeParser` from
   `Hl7Parsers`, XML bodies to `HardenedHl7XmlParser`, anything else is refused, as before.
   `PhsStarHandler.init` uses it, and no longer writes the message body (patient demographics) to
   the INFO log.
-- **`Hl7ParserBoundaryGuardUnitTest`** fails the build if production code constructs
-  `GenericParser`, `DefaultXMLParser`, `XMLParser` or `PipeParser`, asks a `HapiContext` for its
-  default parsers, uses HAPI's `XMLUtils` or pre-parser (whose SAX reader has no entity
-  protection), creates `NoValidation`, calls `setValidationContext`, or builds a message without
-  `Hl7Parsers.forBuilding`.
+- **`Hl7ParserBoundaryGuardUnitTest`** fails the build if production code constructs or
+  subclasses `GenericParser`, `DefaultXMLParser`, `XMLParser` or `PipeParser`, asks a
+  `HapiContext` for its default parsers, uses HAPI's `XMLUtils` or pre-parser (whose SAX reader
+  has no entity protection), creates `NoValidation`, calls `setValidationContext`, or builds a
+  message without `Hl7Parsers.forBuilding`.
 
 HL7 v2 XML never needs a DTD, so refusing DOCTYPE rejects no valid message. A refused upload fails
 with an error, as any malformed upload does; nothing is half-imported.
@@ -107,11 +109,14 @@ sends. Each was found by a snapshot test, not assumed:
 | In a message HAPI parses with its generic model (a type the structures jar does not define, such as the `ORU^O01` `IHAHandler` forces, or a version with no structures jar, which the generic handler now receives), a later run of a segment type is folded into repetitions of one numbered name (`OBR2` ×2) instead of one name per segment (`OBR2`, `OBR3`) | Handlers that walk segment names lose a request when two are adjacent and shift every later one; note counts change | `LegacyHl7PipeParser` parses each segment with HAPI 2.x's own segment parser but places it under its 1.0.1 name; the rule matched 1.0.1 on 2,000 random segment sequences |
 | A subcomponent separator inside a single-value OBX-5 stays in the value | Results text changes; handlers that re-join subcomponents print a stray `&` | `Hl7Parsers` sets HAPI's `ca.uhn.hl7v2.model.varies.escape_subcomponent_delim_in_primitive` property to `false` unless an operator set it |
 | A message being built checks numeric and date fields and trims text | A prescription with a dose such as `1-2` or a quantity such as `30 (thirty)` produces no QR code; padded names lose their padding | `Hl7Parsers.forBuilding` attaches a parser with no rules, as 1.0.1 effectively had |
-| Indexed group and field getters throw an unchecked exception instead of `HL7Exception` | A lab page could fail where it used to show a blank | The fourteen narrow `catch (HL7Exception)` blocks this affected now catch `RuntimeException` |
+| Indexed group and field getters throw an unchecked exception (wrapping the `HL7Exception`) instead of `HL7Exception` | A lab page could fail where it used to show a blank | The fourteen narrow `catch (HL7Exception)` blocks this affected now catch `RuntimeException` and pass it to `Hl7StructureAccess`, which rethrows anything that is not HAPI's wrapped `HL7Exception`, so other failures propagate as before |
 | v2.3 PID-5 is a repeating field | Compile errors | Callers read repetition 0, which is what 1.0.1 returned |
 
 `Hl7Parsers.newPipeParser()` is for received HL7; `forBuilding` and `newEncodingPipeParser()` are
-for messages CARLOS builds (prescription QR code, ADT^A04 export).
+for messages CARLOS builds (prescription QR code, ADT^A04 export). The QR code used to be encoded
+by one static parser shared across requests; `Hl7ParserUtils.encode` now creates one per call,
+since HAPI does not document its parsers as safe to share between threads, and the encoded
+prescription (patient name, health number, drugs) is no longer written to the debug log.
 
 ### Behaviour that changes on purpose
 
