@@ -1,0 +1,25 @@
+MSH|^~\&|SYNTHLIS^1.0|SYNTHETIC LAB^9999999^L|CARLOS|SYNTHETIC CLINIC|20260915083000-0500||ORU^R01^ZRU_R01|SYN25-ESC-0001|P|2.5|||AL|NE||UNICODE UTF-8|
+PID|1|9999999901|9999999901^^^ON^JHN~SYN-MRN-0001^^^SYNTHLAB^MR||SYNTHETIC^HÉLÈNE^ÇÔTÉ^^MS||19800214|F|||1 FAKE STREET^^NOWHERE^ON^A0A0A0^CA^H||555-0100~555-0101|555-0199||||SYN-ACCT-0001||||||||||
+PV1|1|O|SYNTH CLINIC^^^SYNTHETIC LAB||||9001^FAKE^DOCTOR^A^^DR^MD|||||||||||SYN-VISIT-0001|
+ORC|RE|SYN-PLC-0001|SYN25-ACC-0001||CM||||20260915070000|||9001^FAKE^DOCTOR^A^^DR^MD|
+OBR|1|SYN-PLC-0001|SYN25-ACC-0001|CBC^Complete Blood Count^L|R|202609150700|20260915073000-0500|||||||202609150745|BLD^Blood^L|9001^FAKE^DOCTOR^A^^DR^MD|555-0100|||||20260915081500+0000||HM|F|||9002^FAKE^CCDOCTOR^B^^DR^MD~9003^SYNTHETIC^COPYDOC^^^DR^MD|
+NTE|1|L|OBR one comment: field \F\ component \S\ subcomponent \T\ repetition \R\ escape \E\ done.|
+NTE|2|L|Second OBR comment for Müller with \H\highlighted\N\ normal text.|
+OBX|1|NM|6690-2^WBC^LN||7.9|10*9/L|4.0-10.0|N|||F|||20260915080000|
+OBX|2|NM|789-8^RBC^LN||3.21|10*12/L|4.20-5.40|L|||F|||202609150800|
+OBX|3|NM|718-7^Hemoglobin^LN||99|g/L|120-160|LL~A|||C|||20260915|
+NTE|1|L|Corrected result: previous value 98 g/L.|
+OBX|4|SN|777-3^Platelets^LN||>^400|10*9/L|150-400|H|||F|||20260915080000+0000|
+OBX|5|ST|SMEAR^Smear review^L||Target cells \F\ few~Tear drops \S\ rare|||A|||P|||
+NTE|1|L|Repeated OBX-5 values above (two repetitions).|
+NTE|2|L|测试 comment in CJK with Çôté.|
+OBR|2|SYN-PLC-0002|SYN25-ACC-0001|CHEM^Chemistry Panel^L|R|202609150700|202609150730|||||||202609150745||9001^FAKE^DOCTOR^A^^DR^MD||||||202609150820||CH|C|
+NTE|1|L|Chemistry comment with hex escape \X0D0A\ inside\.br\and a second line.|
+OBX|1|NM|2951-2^Sodium^LN||140|mmol/L|135-145|N|||F|||202609150800|
+OBX|2|TX|NOTE^Interpretation^L||Line one\.br\Line two for Hélène Çôté\.br\Line three||||||F|||
+OBX|3|FT|COMM^Free text^L||Escapes: pipe \F\ caret \S\ amp \T\ tilde \R\ backslash \E\ \H\bold\N\ hex \X0D0A\ end.||||||F|
+OBX|4|FT|FMT^Formatting^L||Para one\.sp\\.in+4\Indented\.ti-2\temp\.ce\Centred\.fi\fill\.nf\nofill\.sk 2\skip charset \C2842\ multi \M2442\ custom \Zsynth\ end||||||F|
+OBX|5|CE|ABO^Blood group^L||A+^A positive^L~O-^O negative^L||||||F|
+OBX|6|NM|2345-7^Glucose^LN||||3.3-7.7||||X|
+OBX|7|ED|PDF^Report PDF^L||^TEXT^PDF^Base64^JVBERi0xLjQKMSAwIG9iaiA8PCAvVHlwZSAvQ2F0YWxvZyA+PiBlbmRvYmoKdHJhaWxlciA8PCAvUm9vdCAxIDAgUiA+PgolJUVPRgo=||||||F|
+NTE|1|L|Embedded synthetic PDF above.|

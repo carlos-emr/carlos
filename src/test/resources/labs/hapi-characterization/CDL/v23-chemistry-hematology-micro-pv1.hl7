@@ -1,0 +1,25 @@
+MSH|^~\&|SYNTHETIC CDL LAB^CDLAPP|SYNLAB|CARLOS|SYNTHETIC CLINIC|20250610101010||ORU^R01|CDL-0001|P|2.3
+PID|1|SYNEXT-01|SYNMRN-0004~SYNMRN-0005^^^SYNHOSP||SYNTHETIC^PATIENT^CDL||199002281415|F|||22 FAKE RD^^SYNTHETIC CITY^BC^V0V0V0||(555)555-0107~(555)555-0108|(555)555-0109~(555)555-0110|||||9999999905||
+NTE|1|L|Patient note (CDLHandler does not read PID NTE)
+PV1|1|O|SYNTHETIC CLINIC||||7777^FAKE^ATTENDING^^^DR~7778^FAKE^SECONDATT|8888^FAKE^REFERRER|9999^SYNTHETIC^CONSULTANT~9998^FAKE^SECONDCONS||||||||||CDL-ACC-0001|||||||||||||||||||||||||20250609
+OBR|1|PLC-CDL-01|FIL-CDL-01|CHEM^General Chemistry^L|R|202506081200|20250609083000|||||||||7777^FAKE^ATTENDING|||||||||F|||9999^SYNTHETIC^CONSULTANT~9998^FAKE^SECONDCONS
+NTE|1|L|OBR note (getOBRCommentCount always 0)
+OBX|1|NM|NA&SUB1^Sodium^Sodium, serum|CHEMISTRY^ROUTINE^PANEL A|128|mmol/L|135-145|A|||F
+NTE|1|L|Low sodium \T\ repeat advised
+NTE|2|L|Échantillon reçu — Hélène Çôté / Müller / 测试
+OBX|2|NM|K^Potassium^Potassium, serum|CHEMISTRY^ROUTINE^PANEL A|5.8|mmol/L|3.5-5.0|H|||I
+OBX|3|ST|APP^Appearance^Specimen appearance|CHEMISTRY^ROUTINE|Specimen \F\ clotted \S\ partially \T\ haemolysed \R\ recollect \E\ end||||||C|||
+OBX|4|TX|INT^Interpretation^Interpretive comment|CHEMISTRY|Result note line 1\.br\line 2 \H\flagged\N\ normal\X0D0A\after hex||||||F
+NTE|1|L|Comment with \.br\ break
+OBX|5|CE|HCG^hCG Qual^Pregnancy test|SEROLOGY|POS^Positive^L|||A|||X
+OBR|2|PLC-CDL-02|FIL-CDL-02|HEM^Hematology^L|S|20250608080000-0500|20250609||||||||||||||||||P
+OBX|1|NM|WBC^WBC^White cell count|HEMATOLOGY^CBC|45.2|x10E9/L|4.0-11.0|HH|||P
+OBX|2|NM|PLT^Platelets^Platelet count|HEMATOLOGY^CBC|9|x10E9/L|150-400|LL|||F
+OBX|3|FT|HCMT|HIDDEN HEADER|Footnote line 1\.br\line 2||||||F
+OBX|4|ST|MORPH^Morphology^RBC morphology|HEMATOLOGY^SMEAR|Échantillon reçu — Hélène Çôté / Müller / 测试||||||F
+OBR|3|PLC-CDL-03|FIL-CDL-03|MICRO^Microbiology^L||20250608|20250609091500-0500||||||||||||||||||F|
+OBX|1|ST|CULT^Culture^Culture result|MICROBIOLOGY|No growth.||||||F
+OBX|2|NM|COLC^Colony Count^Colony count|MICROBIOLOGY|<1000|CFU/mL||N|||F
+NTE|1|L|First micro note
+NTE|2|L|Second \S\ micro note
+OBX|3|ED|RPT^Report^Embedded report|MICROBIOLOGY|^TEXT^PDF^Base64^JVBERi0xLjQKJcOkw7zDtsOfCg==||||||F

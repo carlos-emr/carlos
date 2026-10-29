@@ -1,0 +1,22 @@
+MSH|^~\&|ALPHA|SYNTHETIC LAB^SYNLAB|CARLOS|SYNTHETIC CLINIC|20250314093015||ORU^R01|ALPHA22-0001|P|2.2
+PID|1|9999999901|SYNREF-0077~SYNMRN-0001^^^SYNLAB||FAKE^ALPHA^Q||19700412|F|||123 FAKE ST^^SYNTHETICVILLE^ON^A0A0A0||(555)555-0100~(555)555-0101||||||9999999902||
+NTE|1|L|Patient note \T\ fasting (v2.2 PID NTE is ignored)
+OBR|1|PLC-0001|ALPHA-ACC-0001|CHEM^Chemistry Panel^L|R|20250313080000|20250313081500||||||||SERUM|1234^FAKE^DOCTOR^A^^DR^MD|(555)555-0102|||||||CHEM|F|||5678^FAKE^COPYDOC^^^DR~9012^SYNTHETIC^CCDOC^^^^MD
+NTE|1|L|Chemistry order note
+OBX|1|NM|GLU^Glucose Random^Glucose Random, full test name||7.9|mmol/L|3.6-6.1^3.6 - 6.1~Fasting reference applies~Repeat \T\ confirm|H|||F
+NTE|1|L|OBX NTE that the v2.2 path does not read
+OBX|2|ST|APP^Appearance^Appearance, full test name||Sample \F\ lipemic \S\ grade 2 \T\ hemolysed \R\ repeat \E\ end||||||F|||
+OBX|3|TX|INT^Interpretation^Interpretation, full test name||Line one\.br\Line two \H\highlighted\N\ normal\X0D0A\after hex||||||C
+OBX|4|NM|K^Potassium^Potassium, full test name||3.1|mmol/L|3.5-5.0^3.5 - 5.0|L|||C
+OBX|5|CE|HCG^Pregnancy Test^Pregnancy Test, full test name||POS^Positive^L|||A|||F
+OBX|6|ST|COM^Specimen Comment^Specimen Comment, full test name||Prélèvement reçu — Hélène Çôté / Müller / 测试||||||F
+OBR|2|PLC-0002|ALPHA-ACC-0002|HEM^Hematology^L|S|202503130800|202503130830|||||||||1234^FAKE^DOCTOR^A^^DR^MD|||||||||P
+OBX|1|NM|WBC^White Cell Count^White Cell Count, full test name||45.2|x10E9/L|4.0-11.0^4.0 - 11.0|HH|||P
+OBX|2|NM|PLT^Platelets^Platelets, full test name||9|x10E9/L|150-400^150 - 400|LL|||P
+OBX|3|NM|HGB^Hemoglobin^Hemoglobin, full test name||101|g/L|120-160^120 - 160|L|||F
+OBX|4|FT|HGB^Hemoglobin Form^L^^^FORM||Form text line 1\.br\Form text line 2||||||F
+OBX|5|ST|MORPH^Morphology^Morphology, full test name||Normocytic||||||X
+OBR|3|PLC-0003|ALPHA-ACC-0003|MICRO^Microbiology^L||20250313|20250313091500-0500||||||||||||||||||F&D
+OBX|1|ST|CULT^Culture^Culture, full test name||No growth at 48 hours.||||||F
+OBX|2|NM|COLC^Colony Count^Colony Count, full test name||<1000|CFU/mL||N|||F
+OBX|3|TX|MREP^Micro Report^Micro Report, full test name||Organism 1:\.br\  none isolated||||||F

@@ -1,0 +1,24 @@
+MSH|^~\&|ALPHA|SYNTHETIC LAB|CARLOS|SYNTHETIC CLINIC|202504021045||ORU^R01|ALPHA23-0001|P|2.3
+PID|1|SYNREQ-2301|9999999903^^^SYNLAB~SYNMRN-0002^^^SYNHOSP||SYNTHETIC^PATIENT^ALPHA^JR||196512250000|M|||1 SYNTHETIC WAY^^FAKETOWN^ON^A0A0A0||(555)555-0103
+NTE|1|L|Patient fasting \T\ hydrated — Hélène
+PV1|1|O|||||4321^FAKE^ATTENDING
+OBR|1|PLC-2301||CHEM^Chemistry^L^CHEMALT^Chemistry Alt^L|R|20250402080000-0500|20250402101530|||||||||1234^FAKE^DOCTOR^A^^DR^MD|||||||||F|||5678^FAKE^COPYDOC^^^DR~9012^SYNTHETIC^CCDOC^^^^MD~3456^FAKE^THIRDCC
+NTE|1|L|Chemistry OBR note (not exposed by AlphaHandler)
+OBX|1|NM|NA^Sodium^Sodium, full test name||128|mmol/L|135-145^135 - 145|L|||F
+NTE|1|L|Haemolysed sample^re-collect advised
+NTE|2|L|Second comment \F\ with pipe and \.br\ break
+OBX|2|ST|APP^Appearance^Appearance, full test name||Sample \F\ lipemic \S\ grade 2 \T\ hemolysed \R\ repeat \E\ end||||||C
+OBX|3|TX|INT^Interpretation^Interpretation, full test name||Line one\.br\Line two \H\highlighted\N\ normal\X0D0A\after hex|||A|||F
+NTE|1|L|Prélèvement reçu — Hélène Çôté / Müller / 测试
+OBX|4|CE|HBSAG^Hepatitis B sAg^Hepatitis B sAg, full test name||NEG^Negative^L||||||F
+OBX|5|FT|FTX^Free Text^Free Text, full test name||Free text\.br\continues here||||||X
+OBR|2|PLC-2302|ALPHA-ACC-2302|MICRO^Microbiology^L^MICROALT|S|20250401|20250402||||||||||||||||||P
+OBX|1|ST|CULT^Culture^Culture, full test name||Pending||||||P
+OBX|2|NM|CRP^C Reactive Protein^C Reactive Protein, full test name||210|mg/L|0-10^<10|HH|||P
+OBX|3|ST|GRAM^Gram Stain^Gram Stain, full test name||Gram positive cocci||||||F
+OBR|3|PLC-2303|ALPHA-ACC-2303|SENS^Sensitivities^L^MICROALT|||20250402113000||||||||||||||||||F|
+OBX|1|ST|AMP^Ampicillin^Ampicillin, full test name||R|||A|||F
+OBX|2|ST|CIP^Ciprofloxacin^Ciprofloxacin, full test name||S||||||F
+OBX|3|NM|MIC^MIC Value^MIC Value, full test name||0.25|ug/mL|^<=1|N|||C
+OBX|4|ED|PDF^Report PDF^Report PDF, full test name||^TEXT^PDF^Base64^JVBERi0xLjQKJcOkw7zDtsOfCg==||||||F
+OBX|5|ED|TXTDOC^Report Text^Report Text, full test name||^TEXT^PLAIN^A^Embedded note\.br\second line||||||F

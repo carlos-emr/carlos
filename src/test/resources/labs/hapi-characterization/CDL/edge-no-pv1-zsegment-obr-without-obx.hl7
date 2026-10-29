@@ -1,0 +1,9 @@
+MSH|^~\&|SYNTHETIC CDL LAB|SYNLAB|CARLOS|SYNTHETIC CLINIC|20250610101010||ORU^R01|CDL-EDGE|P|2.3
+PID|1||||FAKE^CDLEDGE||19900228|F|||||||||||9999999914
+OBR|1||FIL-CDL-EDGE|EDGE^Edge Panel^L|||20250609083000||||||||||||||||||F
+OBX|1|NM|OK^Before Z^Before Z long|EDGE|1.5||||||F
+ZCL|SYNTHETIC|unexpected Z segment
+NTE|1|L|NTE after Z segment
+OBX|2|ST|AFTZ^After Z^After Z long|EDGE|after Z||||||I
+OBR|2||FIL-CDL-EDGE2|NOOBX^No OBX Panel^L|||20250609090000||||||||||||||||||F
+NTE|1|L|OBR with no OBX, only this note

@@ -1,0 +1,14 @@
+MSH|^~\&|SYNTHLIS|SYNTHETIC LAB|CARLOS|SYNTHETIC CLINIC|20260925101500||ORU^R01^ZRU_R01|SYNWRAP-1|P|2.5|||AL|NE|
+PID|1|9999999913|SYN-MRN-0013||WRAPPED^SYNTHETIC||19830303|F|||13 FAKE BEND^^NOWHERE^ON^A0A0A0||555-0116|
+OBR|1|SYN-PLC-W1|SYN-ACC-W1|PATH^Synthetic Pathology^L|R|202609251000|202609251005|||||||202609251010||9021^FAKE^WRAPDOC^^^DR||||||202609251015||PATH|F|
+NTE|1|L|This OBR comment was wrapped by the sender after the word ABCD
+EFGH and continues on a second physical line.|
+OBX|1|TX|DIAG^Diagnosis^L||Synthetic diagnosis line that the sender wrapped mid-word: lymphocy
+tes present, Hélène.||||||F|||
+OBX|2|TX|MICRO^Microscopic^L||Short line||||||F|||
+ OBX|3|TX|LEAD^Leading whitespace segment^L||Segment line starting with a space||||||F|||
+OBX|4|NM|NUM^Numeric^L||42|units|40-50|N|||F|||202609251014|
+OBR|2|SYN-PLC-W2|SYN-ACC-W1|ADD^Addendum^L|R|202609251000|202609251005|||||||202609251010||9021^FAKE^WRAPDOC^^^DR||||||202609251016||PATH|F|
+OBX|1|TX|ADD^Addendum^L||Addendum text||||||F|||
+OBX|2|TX|ADD2^Addendum 2^L||More addendum text||||||F|||
+OBX|3|TX|ADD3^Addendum 3^L||Final addendum text||||||F|||

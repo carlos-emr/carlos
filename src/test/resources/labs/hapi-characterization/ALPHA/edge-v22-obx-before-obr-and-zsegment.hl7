@@ -1,0 +1,7 @@
+MSH|^~\&|ALPHA|SYNTHETIC LAB|CARLOS|SYNTHETIC CLINIC|20250601080000||ORU^R01|ALPHA22-EDGE|P|2.2
+PID|1|9999999909|||FAKE^EDGE||19750505|F
+OBX|1|NM|ORPH^Orphan Result^Orphan result long||1.0||^0-2||||F
+OBR|1||ALPHA-ACC-EDGE|EDGE^Edge Panel^L|||20250601070000||||||||||||||||||F
+ZDS|SYNTHETIC^Z^SEGMENT|should be ignored
+OBX|1|ST|AFTZ^After Z Segment^After Z long||text after Z||||||F
+OBX|2|NM|OK^Normal After Z^Normal long||2.5|U|^1-3||||F

@@ -1,0 +1,22 @@
+MSH|^~\&|SYNTHMICRO|SYNTHETIC LAB|CARLOS|SYNTHETIC CLINIC|20260916101530||ORU^R01^ZRU_R01|SYN231-0001|P|2.3.1|||AL|NE||8859/1|
+PID|1||SYN-MRN-0002^^^SYNTHLAB^MR|9999999902^^^BC^JHN|MÜLLER^SYNTHETIC^Q^JR^MR||197512310000|M|||2 FAKE AVENUE^UNIT 9^NOWHERE^BC^V0V0V0||555-0102^PRN^PH~555-0103^ORN^CP|555-0198^WPN^PH||||SYN-ACCT-0002|||||||||
+PV1|1|O|SYNTH WARD^^^SYNTHETIC LAB||||9004^FAKE^MICRODOC^^^DR|||||||||||SYN-VISIT-0002|
+ORC|RE|SYN-PLC-0003|SYN231-ACC-0002||CM|
+OBR|1|SYN-PLC-0003|SYN231-ACC-0002|UCULT^Urine Culture^L|R|202609151200|202609151230|||||||202609151245|UR^Urine^L|9004^FAKE^MICRODOC^^^DR|555-0100|||||202609161015||MB|P|||9005^SYNTHETIC^CCONE^^^DR~9006^FAKE^CCTWO^C^III^DR^PHD|
+NTE|1|L|Specimen received in synthetic container \F\ midstream.|
+OBX|1|CE|ORG^Organism^L|1|ECOLI^Escherichia coli (synthetic)^L||||||P|||20260916|
+OBX|2|SN|COLCT^Colony count^L|1|>^100^ ^10*6 CFU/L|CFU/L||A|||P|||20260916|
+OBX|3|SN|TITRE^Titre^L|1|^1^:^64||<1:16|H|||F|||202609161000|
+OBX|4|ST|AMP^Ampicillin^L|1|R||S~I~R|R|||C|||202609161000|
+NTE|1|L|Corrected from S to R \.br\ notified FAKE^DOCTOR.|
+OBX|5|ST|SXT^Trimethoprim-Sulfa^L|1|S||S~I~R|N|||F|||202609161000|
+OBX|6|TX|MICRO^Microscopy^L||Gram-negative rods \T\ cocci~Second repetition line~Third repetition \R\ line||||||F|||
+OBX|7|ST|CANC^Cancelled test^L||Test cancelled \E\ no specimen||||||X|||
+OBR|2|SYN-PLC-0004|SYN231-ACC-0002|BCULT^Blood Culture^L|R|20260915|20260915|||||||20260915|BLD^Blood^L|9004^FAKE^MICRODOC^^^DR||||||202609161016||MB|F|
+NTE|1|L|测试 synthetic blood culture comment.|
+OBX|1|ST|BC1^Bottle 1^L||No growth at 5 days||||||F|||20260916|
+OBX|2|ST|BC2^Bottle 2^L||No growth at 5 days||||||F|||20260916|
+OBX|3|NM|TTP^Time to positivity^L||0|h|||||F|||20260916|
+OBX|4|ED|NOTE^Lab note (text)^L||^TEXT^PLAIN^A^Synthetic text payload\.br\second line for Çôté||||||F|||
+NTE|1|L|Text-encoded embedded document above.|
+NTE|2|L|Second comment after the embedded document.|

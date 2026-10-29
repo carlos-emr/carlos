@@ -1,0 +1,29 @@
+MSH|^~\&|BIOTEST|SYNTHETIC BIOTEST LAB|CARLOS|SYNTHETIC CLINIC|20250520143000||ORU^R01|BT-0001|P|2.3
+PID|1|9999999904^^^ON|SYNACC-0001^^^SYNTHETIC BIOTEST LAB~SYNMRN-0003^^^SYNHOSP||FAKE^BIOTEST^M||19820707|M|||1 FAKE AVE^^SYNTHETICTOWN^ON^A0A0A0||(555)555-0104~(555)555-0105|(555)555-0106||
+NTE|1|L|Patient note (BioTestHandler does not read PID NTE)
+OBR|1|PLC-BT-01|FIL-BT-01|BCHEM^Biochemistry^L^BIOCHEMISTRY|R|20250519|202505191030||||||||SERUM|1111^FAKE^DOCTOR^A^JR^DR^MD~2222^SYNTHETIC^ORDERER||||||20250520120000|||F|||3333^FAKE^COPYDOC^^^DR~4444^SYNTHETIC^CCDOC^B^^^MD~1111^FAKE^DOCTOR
+NTE|1|L|OBR note (not read)
+OBX|1|NM|GLU&FAST^Glucose fasting^Glucose, fasting plasma^GLUF||7.4|mmol/L|3.6-6.1|H||F|F
+NTE|1|L|Fasting confirmed \T\ documented
+NTE|2|L|Échantillon reçu — Hélène Çôté / Müller / 测试
+OBX|2|NM|CHOL^Cholesterol^Cholesterol, total||5.9.||<5.2^<5.2 mmol/L|H||F|F
+OBX|3|NM|WBC^White Cells^White cell count||12.5||4.0.-11.0.^x10E9/L|H||C|C
+OBX|4|NM|EGFR^eGFR^Estimated GFR||55|mL/min/1.73m2|>60|L||P|P
+OBX|5|ST|APP^Appearance^Specimen appearance||Specimen \F\ slightly lipemic \S\ grade 1 \T\ icteric \R\ repeat \E\ done.|||||F|F
+OBX|6|FT|CMT^Comment^Lab comment||Comment line one\.br\continues~Second repetition with \T\ ampersand~Échantillon reçu — Hélène Çôté / Müller / 测试|||||F|F
+OBX|7|CE|HBSAG^Hep B sAg^Hepatitis B surface antigen||POS^Positive^L||NEGATIVE^NEGATIVE|A||F|F
+OBR|2|PLC-BT-02|FIL-BT-02|HEM^Hematology^L^HEMATOLOGY|S|20250519080000-0500|20250519103000-0500|||||||||1111^FAKE^DOCTOR^A^JR^DR^MD|||||||||F
+OBX|1|NM|HGB^Hemoglobin^Hemoglobin, blood||62|g/L|120-160|LL||F|F
+OBX|2|NM|PLT^Platelets^Platelet count||980|x10E9/L|150-400|HH||X|X
+OBX|3|TX|SMEAR^Smear^Blood smear review||Interpretation line 1\.br\line 2 \H\flagged\N\ normal\X0D0A\after hex|||A||F|F
+NTE|1|L|Smear reviewed \.br\ by synthetic tech
+OBX|4|ST|MORPH^Morphology^RBC morphology||Échantillon reçu — Hélène Çôté / Müller / 测试||||||F|||
+OBX|5|FT|HCMT^Heme Comment^Hematology comment||Single FT comment|||||F|F
+OBR|3|PLC-BT-03|FIL-BT-03|LYTE^Electrolytes^L^BIOCHEMISTRY|R||20250519|||||||||||||||202505201215|||F|
+OBX|1|NM|NA^Sodium^Sodium, serum||139|mmol/L|135-145|N||F|F
+OBX|2|NM|K^Potassium^Potassium, serum||5.9|mmol/L|3.5-5.0|H||F|F
+OBX|3|NM|CL^Chloride^Chloride, serum||101|mmol/L|98-107|||F|F
+NTE|1|L|First chloride note
+NTE|2|L|Second chloride note
+NTE|3|L|Third \S\ note
+OBX|4|ED|RPT^Report^Embedded report||^TEXT^PDF^Base64^JVBERi0xLjQKJcOkw7zDtsOfCg==|||||F|F

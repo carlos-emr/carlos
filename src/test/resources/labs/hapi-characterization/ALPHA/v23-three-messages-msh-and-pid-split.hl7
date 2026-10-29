@@ -1,0 +1,29 @@
+MSH|^~\&|ALPHA|SYNTHETIC LAB|CARLOS|SYNTHETIC CLINIC|20250501120000||ORU^R01|ALPHA23-0002|P|2.3
+PID|1|9999999906|SYNMRN-0006||FAKE^FIRSTSPLIT||20000101|F|||||(555)555-0111
+OBR|1||ALPHA-ACC-0601|LIP^Lipids^L^LIPALT|||20250501090000||||||||||||||||||F
+OBX|1|NM|CHOL^Cholesterol^L||6.2|mmol/L|^<5.2|H|||F
+OBX|2|NM|HDL^HDL Cholesterol^L||0.9|mmol/L|^>1.0|L|||F
+OBX|3|NM|TRIG^Triglycerides^L||1.4|mmol/L|^<1.7||||F
+OBR|2||ALPHA-ACC-0602|A1C^Hemoglobin A1c^L^A1CALT|||20250501090000||||||||||||||||||F
+OBX|1|NM|HBA1C^Hemoglobin A1c^L||0.071||^<0.060|H|||F
+OBX|2|ST|A1CC^A1c Comment^L||Consistent with diabetes||||||F
+OBX|3|NM|EAG^Estimated Avg Glucose^L||8.8|mmol/L|||||F
+PID|1|9999999907|SYNMRN-0007||FAKE^SECONDSPLIT||19991231|M
+OBR|1||ALPHA-ACC-0701|TSH^Thyroid^L^TSHALT|||20250501091500||||||||||||||||||F
+OBX|1|NM|TSH^TSH^L||4.9|mU/L|^0.32-4.00|H|||F
+OBX|2|NM|FT4^Free T4^L||11|pmol/L|^9-19||||F
+OBX|3|ST|THYC^Thyroid Comment^L||Suggest repeat in 6 weeks||||||F
+OBR|2||ALPHA-ACC-0702|FER^Ferritin^L^FERALT|||20250501091500||||||||||||||||||F
+OBX|1|NM|FERR^Ferritin^L||8|ug/L|^15-200|L|||F
+OBX|2|NM|IRON^Iron^L||6|umol/L|^10-30|L|||F
+OBX|3|NM|TSAT^Transferrin Saturation^L||0.09||^0.20-0.50|L|||F
+MSH|^~\&|ALPHA|SYNTHETIC LAB|CARLOS|SYNTHETIC CLINIC|20250502||ORU^R01|ALPHA23-0003|P|2.3
+PID|1|9999999908|||FAKE^THIRDMSG||19800808|U
+OBR|1||ALPHA-ACC-0801|UA^Urinalysis^L^UAALT|||20250502||||||||||||||||||F
+OBX|1|ST|UCOL^Urine Colour^L||Yellow||||||F
+OBX|2|NM|USG^Specific Gravity^L||1.030||^1.005-1.030||||F
+OBX|3|CE|UPRO^Urine Protein^L||TR^Trace^L|||A|||F
+OBR|2||ALPHA-ACC-0802|UMIC^Urine Microscopy^L^UAALT|||20250502||||||||||||||||||F
+OBX|1|NM|URBC^Urine RBC^L||12|/HPF|^0-2|H|||F
+OBX|2|NM|UWBC^Urine WBC^L||1|/HPF|^0-5||||F
+OBX|3|ST|UCAS^Casts^L||None seen||||||F

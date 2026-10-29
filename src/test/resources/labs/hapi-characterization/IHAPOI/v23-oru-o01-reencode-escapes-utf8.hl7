@@ -1,0 +1,20 @@
+MSH|^~\&|OE^2.0|SYNH|IIM||202610011431||ORU^O01|SYNIHA-OE-0001|D|2.3|
+EVN|O01|202610011431|
+PID|1||0000009920|9999999920^^^BC^PHN|POI^SYNTHETIC^OE 3||19800808|M|||2 FAKE STREET^^NOWHERE^BC^V0V0V0||250-555-0126~250-555-0127|||S||AC009920/26|
+PV1|1||2E^H2E^D^.|U||||||ADMN|||||||SYNFP|IN||SELF|||||||||||||||||||.||ADM IN|||202609291250|
+ORC|1|20261001-0001|||Signed||||202610011430|SYNFP|SYNFP|
+OBR|1|20261001-0001||SYNHREC^Discharge Summary|||202610011430|||||||202610011430||SYNFP^Synthetic^Family^R^^Dr||||||202610011430||||||SYNFP^Synthetic^Family^R^^Dr~SYNCC^Fake^Copy^^^Dr~|
+OBX|1|ST|SYNHREC.01^Patient line^^SYN-0001^Patient identification line^pCLOCD||Name: POI,SYNTHETIC OE 3||||||F|
+OBX|2|ST|SYNHREC.02^Escapes line^^SYN-0002^Escape sequences line^pCLOCD||Escapes: \F\ field \S\ comp \T\ sub \R\ rep \E\ esc||||||F|
+OBX|3|ST|SYNHREC.03^Formatting line^^SYN-0003^Formatting escapes line^pCLOCD||Formatting: \H\bold\N\ hex \X0D0A\ break\.br\after break \.sp\ spaced||||||F|
+OBX|4|ST|SYNHREC.04^Résumé Çôté^^SYN-0004^UTF-8 line 测试^pCLOCD||UTF-8: Hélène Çôté Müller 测试||||||F|
+OBX|5|ST|SYNHREC.05^Repetition line^^SYN-0005^Repeated values line^pCLOCD||First repetition~Second repetition~||||||F|
+OBX|6|ST|||||||||F|
+ZDR|SYNAD^Fake^Admit^G^^Dr^^^^^^^^^ADP|SYNAT^Fake^Attend^W^^Dr^^^^^^^^^ATP|~~~|SYNFP^Synthetic^Family^R^^Dr^^^^^^^^^FAP|
+ORC|2|20261001-0002|||Signed||||202610011432|SYNFP|SYNFP|
+OBR|2|20261001-0002||SYNHADD^Addendum|||20261001143200-0700|||||||20261001||SYNFP^Synthetic^Family^R^^Dr||||||202610011432|||C|||SYNFP^Synthetic^Family^R^^Dr|
+NTE|1||Addendum comment \E\ with escape.|
+OBX|1|ST|SYNHADD.01^Addendum heading^^SYN-0101^Addendum heading line^pCLOCD||ADDENDUM||||||C|
+OBX|2|TX|SYNHADD.02^Addendum text^^SYN-0102^Corrected addendum text^pCLOCD||Corrected text \F\ addendum for Çôté\.br\second line||||||C|
+NTE|1||Comment on corrected addendum text.|
+OBX|3|ST|SYNHADD.03^Signature^^SYN-0103^Signature line^pCLOCD||Electronically signed: SYNTHETIC FAMILY, Dr||||||F|
