@@ -219,9 +219,14 @@ async function workflow(s) {
     // Act straight after the schedule's own heartbeat so it cannot notice first.
     await ctxBeats.next({ page: schedule });
     await endSessionElsewhere(ctx);
+    // No blank-page probe on arrival: the rejected click lands on logout.jsp, which posts /logout
+    // 500 ms later and moves on to /index, so the probe could read the document mid-navigation
+    // (an intermittent "blank page" at /index, seen on release/2026.08 too). onLoginForm and
+    // the #ticklerResults check below assert the outcome that matters.
     const { page } = await clickOpensPopupOrNavigates(schedule, schedule.locator('a:has(#oscar_new_tickler)').first(),
-      { context: ctx, recorder, label: 'expired-tickler', timeout: TIMEOUT });
+      { context: ctx, recorder, label: 'expired-tickler', timeout: TIMEOUT, checkErrorPage: false });
     await onLoginForm(page);
+    await h.assertNotErrorPage(page, 'expired-tickler login form');
     h.assert(await page.locator('#ticklerResults').count() === 0, 'Tickler content was served without a session');
     await ctx.close();
   });
