@@ -176,6 +176,8 @@ public class EpsilonHandler extends DefaultGenericHandler {
         // structured ORU_R01 does not have, so build them from the typed groups instead.
         super.msg = msg;
         terser = new Terser(msg);
+        // The inherited comment and NTE lookups read the segment names built here, not in super.init.
+        segmentNames = GenericSegmentNames.of(terser.getFinder().getRoot());
         obrGroups = new ArrayList<ArrayList<Segment>>();
         ORU_R01_RESPONSE response = msg.getRESPONSE();
         for (int i = 0; i < response.getORDER_OBSERVATIONReps(); i++) {
