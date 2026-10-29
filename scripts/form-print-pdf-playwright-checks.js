@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copyright (c) 2026 CARLOS Contributors.
+ * Modifications by CARLOS Contributors, 2026.
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * This software is published under the GPL GNU General Public License.
@@ -206,7 +207,7 @@ async function formMenuUrl(chartPage, formName, which = 'blank') {
       // asterisks when no lab report is linked to it, so the raw text of that entry reads
       // "*Lab Req 2007*". Strip the decoration before comparing rather than matching the
       // raw text, so the menu's own presentation cannot decide whether this check runs.
-      const label = (anchor.textContent || '').trim().replace(/^\*+|\*+$/g, '');
+      const label = (anchor.getAttribute('data-encounter-form-name') || anchor.textContent || '').trim().replace(/^\*+|\*+$/g, '');
       if (label.startsWith(name)) {
         const match = /popupPage\([^,]+,[^,]+,\s*'[^']*'\s*,\s*'([^']+)'/.exec(anchor.getAttribute('onclick') || '');
         // WHICH OF THE TWO ENTRIES. The same menu lists both: a started form links to
@@ -221,7 +222,10 @@ async function formMenuUrl(chartPage, formName, which = 'blank') {
         // the HTML attribute (&amp;) -- and decoding them in two chained replaces would rescan
         // the output of the first, so a literal "\x26amp;" would come out as a bare "&".
         // Decoded BEFORE the formId test below, or that test reads "\x26formId=0" and never matches.
-        const url = match ? match[1].replace(/\\x26|&amp;/g, '&') : '';
+        // Guarded menu entries expose their URL as data, independently of the
+        // handler's JavaScript encoding and the duplicate-window guard.
+        const url = anchor.getAttribute('data-encounter-form-url')
+          || (match ? match[1].replace(/\\x26|&amp;/g, '&') : '');
         const matches = wanted === 'started'
           ? /[?&]formId=latest(&|$)/.test(url)
           : /[?&]formId=0(&|$)/.test(url);
@@ -292,6 +296,10 @@ async function main() {
     throw new SkipCheck(`this deployment has no ${table}; the lab requisitions are Ontario forms, `
       + 'so there is nothing here to print');
   }
+
+  // Despite its name, hidden is the display order: zero means disabled.
+  const registered = sql.value('SELECT COUNT(*) FROM encounterForm WHERE form_name = ? AND hidden > 0', [formName]);
+  if (registered === '0') throw new SkipCheck(`Enable/register ${formName} in encounterForm (hidden > 0) before running form-print-pdf`);
 
   const recorder = createRecorder();
   let browser;

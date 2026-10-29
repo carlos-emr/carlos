@@ -370,7 +370,6 @@
     "test:echart-lock-lifecycle-playwright": "node scripts/echart-lock-lifecycle-playwright-checks.js",
     "test:tickler-validation-messages-playwright": "node scripts/tickler-validation-messages-playwright-checks.js",
     "test:consultation-response-attachments-playwright": "node scripts/consultation-response-attachments-playwright-checks.js",
-    "test:encounter-legacy-note-soft-wrap-playwright": "node scripts/encounter-legacy-note-soft-wrap-playwright-checks.js",
     "test:patient-search-rest-dob-playwright": "node scripts/patient-search-rest-dob-playwright-checks.js",
     "test:rest-birth-date-playwright": "node scripts/rest-birth-date-playwright-checks.js",
     "test:stored-document-mutations-playwright": "node scripts/stored-document-mutations-playwright-checks.js",
@@ -929,11 +928,12 @@
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "argparse": "file:scripts/npm/argparse-compat",
-    "braces": "file:scripts/npm/braces-compat"
+    "braces": "file:scripts/npm/braces-compat",
+    "@svgr/plugin-svgo": "file:scripts/npm/svgr-plugin-svgo"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.9.2",
-    "playwright": "^1.60.0",
+    "playwright": "1.61.1",
     "xml-js": "1.6.11"
   },
   "browserslist": {
@@ -956,11 +956,11 @@
     "ajv@>=7.0.0-alpha.0 <8.18.0": "8.18.0",
     "ajv@<6.14.0": "6.14.0",
     "minimatch": "10.2.3",
-    "qs": "6.16.0",
+    "qs": "6.16.2",
     "webpack": "5.104.1",
     "lodash": "4.18.1",
     "svgo": "3.3.5",
-    "serialize-javascript": "7.0.5",
+    "serialize-javascript": "7.1.4",
     "picomatch": "2.3.2",
     "path-to-regexp@<0.1.13": "0.1.13",
     "brace-expansion": "5.0.12",
@@ -969,13 +969,13 @@
     "colord": "2.9.4",
     "@babel/core": "7.29.7",
     "@babel/plugin-transform-modules-systemjs": "7.29.4",
-    "body-parser": "1.20.6",
-    "fast-uri": "3.1.8",
+    "body-parser": "1.20.9",
+    "fast-uri": "3.1.9",
     "http-proxy-middleware": "2.0.10",
     "js-yaml@<4.0.0": "3.15.2",
     "js-yaml@>=4.0.0 <5.0.0": "4.3.2",
     "joi": "17.13.8",
-    "launch-editor": "2.14.1",
+    "launch-editor": "2.14.2",
     "nanoid": "3.3.18",
     "postcss": "8.5.23",
     "shell-quote": "1.11.0",
@@ -990,6 +990,8 @@
     "tinypool": "2.1.2",
     "braces": "$braces",
     "argparse": "$argparse",
-    "latest-version": "9.0.0"
+    "latest-version": "9.0.0",
+    "follow-redirects": "1.16.2",
+    "@svgr/plugin-svgo": "$@svgr/plugin-svgo"
   }
 }

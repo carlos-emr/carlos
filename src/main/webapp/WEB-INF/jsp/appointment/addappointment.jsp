@@ -1281,7 +1281,7 @@ Ontario, Canada
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label" for="reasonCode"><fmt:message key="Appointment.formReason"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="reasonCode" id="apptReasonLabel"><fmt:message key="Appointment.formReason"/>:</label>
                             <div class="col-sm-8">
                                 <select name="reasonCode" id="reasonCode" class="form-select form-select-sm">
                                     <c:choose>
@@ -1300,8 +1300,7 @@ Ontario, Canada
                                     </c:choose>
                                 </select>
                                 <fmt:message key="Appointment.formReason" var="formReasonMsg"/>
-                                <label for="reason" class="visually-hidden"><fmt:message key="Appointment.formReason"/></label>
-                                <textarea id="reason" name="reason" class="form-control form-control-sm mt-1" tabindex="2" rows="2"
+                                <textarea id="reason" name="reason" aria-labelledby="apptReasonLabel" class="form-control form-control-sm mt-1" rows="2"
                                           style="resize:none;"
                                           placeholder="${carlos:forHtmlAttribute(formReasonMsg)}"
                                           maxlength="80"><%=bFirstDisp ? "" : (request.getParameter("reason") == null || "".equals(request.getParameter("reason"))) ? "" : SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason")))%></textarea>
@@ -1319,7 +1318,7 @@ Ontario, Canada
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
                         %>
                         <div class="mb-2 row">
-                            <span class="col-sm-4 col-form-label"><fmt:message key="Appointment.formLocation"/>:</span>
+                            <label class="col-sm-4 col-form-label" for="location" id="apptLocationLabel"><fmt:message key="Appointment.formLocation"/>:</label>
                             <div class="col-sm-8">
                                 <% if (bMultisites) { %>
                                 <%
@@ -1327,8 +1326,7 @@ Ontario, Canada
                                     java.util.regex.Pattern cssColorPattern = java.util.regex.Pattern.compile("^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$|^[a-zA-Z]+$");
                                     String safeColoAttr = (colo != null && cssColorPattern.matcher(colo).matches()) ? SafeEncode.forHtmlAttribute(colo) : "";
                                 %>
-                                <label for="location" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
-                                <select tabindex="4" class="form-select form-select-sm" name="location" id="location"
+                                <select id="location" class="form-select form-select-sm" name="location"
                                         style="background-color: <%=safeColoAttr%>"
                                         onchange='locale()'>
                                     <% for (Site s : sites) {
@@ -1341,8 +1339,7 @@ Ontario, Canada
                                     <% } %>
                                 </select>
                                 <% } else if (locationEnabled) { %>
-                                <label for="locationProgram" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
-                                <select name="location" id="locationProgram" class="form-select form-select-sm">
+                                <select id="locationSite" aria-labelledby="apptLocationLabel" name="location" class="form-select form-select-sm">
                                     <%
                                         String sessionLocation = "";
                                         ProgramProvider programProvider = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
@@ -1360,15 +1357,14 @@ Ontario, Canada
                                     %>
                                 </select>
                                 <% } else { %>
-                                <label for="locationText" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
-                                <input type="text" name="location" id="locationText" tabindex="4" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
+                                <input type="text" id="locationText" aria-labelledby="apptLocationLabel" name="location" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
                                 <% } %>
                             </div>
                         </div>
                         <div class="mb-2 row">
                             <label class="col-sm-4 col-form-label" for="user_id"><fmt:message key="Appointment.formCreator"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" name="user_id" id="user_id" class="form-control form-control-sm"
+                                <input type="text" id="user_id" name="user_id" class="form-control form-control-sm"
                                        value='<%=bFirstDisp?(SafeEncode.forHtmlAttribute(userlastname)+", "+SafeEncode.forHtmlAttribute(userfirstname)):(request.getParameter("user_id") == null || "".equals(request.getParameter("user_id")))?"Unknown":SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("user_id")))%>'
                                        readonly="readonly">
                             </div>
@@ -1377,7 +1373,7 @@ Ontario, Canada
                         <div class="mb-2 row">
                             <label class="col-sm-4 col-form-label" for="appt_mc_number"><fmt:message key="Appointment.formMC"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" name="appt_mc_number" id="appt_mc_number" tabindex="5" class="form-control form-control-sm"/>
+                                <input type="text" id="appt_mc_number" name="appt_mc_number" class="form-control form-control-sm"/>
                             </div>
                         </div>
                         <% } %>
@@ -1386,11 +1382,10 @@ Ontario, Canada
                     <%-- Right column: Status, Type, Doctor, Notes, Resources, DateTime, Critical, Email --%>
                     <div class="col-md-6">
                         <div class="mb-2 row">
-                            <span class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStatus"/>:</span>
+                            <label class="col-sm-4 col-form-label" for="status" id="apptStatusLabel"><fmt:message key="Appointment.formStatus"/>:</label>
                             <div class="col-sm-8">
                                 <% if (statusEditable) { %>
-                                <label for="statusSelect" class="visually-hidden"><fmt:message key="Appointment.formStatus"/></label>
-                                <select class="form-select form-select-sm" name="status" id="statusSelect" style="background-color:<carlos:encode value='<%= (allStatus.get(0)).getColor() %>' context="htmlAttribute"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+                                <select id="status" class="form-select form-select-sm" name="status" style="background-color:<carlos:encode value='<%= (allStatus.get(0)).getColor() %>' context="htmlAttribute"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                     <% for (int i = 0; i < allStatus.size(); i++) { %>
                                     <option class="<carlos:encode value='<%= (allStatus.get(i)).getStatus() %>' context="htmlAttribute"/>"
                                             style="background-color:<carlos:encode value='<%= (allStatus.get(i)).getColor() %>' context="htmlAttribute"/>"
@@ -1400,8 +1395,7 @@ Ontario, Canada
                                     <% } %>
                                 </select>
                                 <% } else { %>
-                                <label for="statusText" class="visually-hidden"><fmt:message key="Appointment.formStatus"/></label>
-                                <input type="text" name="status" id="statusText" class="form-control form-control-sm"
+                                <input type="text" id="statusText" aria-labelledby="apptStatusLabel" name="status" class="form-control form-control-sm"
                                        value='<carlos:encode value='<%= bFirstDisp ? "t" : (request.getParameter("status") == null ? "" : request.getParameter("status")) %>' context="htmlAttribute"/>'>
                                 <% } %>
                             </div>
@@ -1438,7 +1432,7 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label" for="notes"><fmt:message key="Appointment.formNotes"/>:</label>
                             <div class="col-sm-8">
                                 <fmt:message key="Appointment.formNotes" var="formNotesMsg"/>
-                                <textarea class="form-control form-control-sm" name="notes" id="notes" tabindex="3" rows="2" style="resize:none;"
+                                <textarea id="notes" class="form-control form-control-sm" name="notes" rows="2" style="resize:none;"
                                           placeholder="${carlos:forHtmlAttribute(formNotesMsg)}"
                                           maxlength="65536" data-max-codepoints="32768"><%=bFirstDisp ? "" : SafeEncode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
                             </div>
@@ -1446,8 +1440,7 @@ Ontario, Canada
                         <div class="mb-2 row">
                             <label class="col-sm-4 col-form-label" for="resources"><fmt:message key="Appointment.formResources"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" name="resources" id="resources" class="form-control form-control-sm"
-                                       tabindex="6"
+                                <input type="text" id="resources" name="resources" class="form-control form-control-sm"
                                        value='<%=bFirstDisp?"":"".equals(request.getParameter("resources"))?"": SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("resources")))%>'>
                             </div>
                         </div>
@@ -1527,7 +1520,6 @@ Ontario, Canada
                     <input type="submit" id="addButton" class="btn btn-primary"
                            formaction="<%=request.getContextPath()%>/appointment/AddRecord"
                            onclick="document.forms['ADDAPPT'].displaymode.value='Add Appointment'"
-                           tabindex="7"
                            value="<% if (isMobileOptimized) { %><fmt:message key="appointment.addappointment.btnAddAppointmentMobile"/>
                    <% } else { %><fmt:message key="appointment.addappointment.btnAddAppointment"/><% } %>"
                             <%=disabled%>>

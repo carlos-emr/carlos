@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -117,27 +115,6 @@ public interface InfectiousDiseaseType extends XmlObject
         public static InfectiousDiseaseType parse(final Node node, final XmlOptions options) throws XmlException {
             return (InfectiousDiseaseType)XmlBeans.getContextTypeLoader().parse(node, InfectiousDiseaseType.type, options);
         }
-        
-        @Deprecated
-        public static InfectiousDiseaseType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (InfectiousDiseaseType)XmlBeans.getContextTypeLoader().parse(xis, InfectiousDiseaseType.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static InfectiousDiseaseType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (InfectiousDiseaseType)XmlBeans.getContextTypeLoader().parse(xis, InfectiousDiseaseType.type, options);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, InfectiousDiseaseType.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, InfectiousDiseaseType.type, options);
-        }
-        
         private Factory() {
         }
     }

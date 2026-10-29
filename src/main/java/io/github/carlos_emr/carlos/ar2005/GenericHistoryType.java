@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -114,27 +112,6 @@ public interface GenericHistoryType extends XmlObject
         public static GenericHistoryType parse(final Node node, final XmlOptions options) throws XmlException {
             return (GenericHistoryType)XmlBeans.getContextTypeLoader().parse(node, GenericHistoryType.type, options);
         }
-        
-        @Deprecated
-        public static GenericHistoryType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (GenericHistoryType)XmlBeans.getContextTypeLoader().parse(xis, GenericHistoryType.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static GenericHistoryType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (GenericHistoryType)XmlBeans.getContextTypeLoader().parse(xis, GenericHistoryType.type, options);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, GenericHistoryType.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, GenericHistoryType.type, options);
-        }
-        
         private Factory() {
         }
     }

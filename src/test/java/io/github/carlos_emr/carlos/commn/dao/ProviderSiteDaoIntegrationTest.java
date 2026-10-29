@@ -73,8 +73,10 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
      * Creates a provider record in the database to satisfy FK constraints on providersite.
      */
     private void ensureProviderExists(String providerNo, String firstName, String lastName, String status) {
-        String sql = "MERGE INTO provider (provider_no, first_name, last_name, provider_type, sex, specialty, status) "
-                + "KEY(provider_no) VALUES (?, ?, ?, 'doctor', 'M', 'GP', ?)";
+        String sql = "INSERT INTO provider (provider_no, first_name, last_name, provider_type, sex, specialty, status) "
+                + "VALUES (?, ?, ?, 'doctor', 'M', 'GP', ?) ON DUPLICATE KEY UPDATE "
+                + "first_name=VALUES(first_name), last_name=VALUES(last_name), provider_type=VALUES(provider_type), "
+                + "sex=VALUES(sex), specialty=VALUES(specialty), status=VALUES(status)";
         entityManager.createNativeQuery(sql)
                 .setParameter(1, providerNo)
                 .setParameter(2, firstName)
@@ -88,7 +90,9 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
      * Creates a site record in the database to satisfy FK constraints on providersite.
      */
     private void ensureSiteExists(int siteId) {
-        String sql = "MERGE INTO site (site_id, name, short_name, bg_color, status) KEY(site_id) VALUES (?, 'Test Site', 'TS', '#FFFFFF', 1)";
+        String sql = "INSERT INTO site (site_id, name, short_name, bg_color, status) VALUES (?, 'Test Site', 'TS', '#FFFFFF', 1) "
+                + "ON DUPLICATE KEY UPDATE name=VALUES(name), short_name=VALUES(short_name), "
+                + "bg_color=VALUES(bg_color), status=VALUES(status)";
         entityManager.createNativeQuery(sql)
                 .setParameter(1, siteId)
                 .executeUpdate();

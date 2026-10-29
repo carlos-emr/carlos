@@ -330,6 +330,7 @@ def contract(info: dict, args: argparse.Namespace) -> tuple[dict, list[str]]:
     ownership(info, args)
     host = info["HostConfig"]
     config = info["Config"]
+    capabilities = host.get("CapAdd")
     command = [info.get("Path"), *info.get("Args", [])]
     require(command in (["/bin/sleep", "infinity"], ["sleep", "infinity"],
                         ["/bin/sh", "-c", "exec /bin/sleep infinity"], ["/bin/sh", "-c", "exec sleep infinity"]),
@@ -340,7 +341,8 @@ def contract(info: dict, args: argparse.Namespace) -> tuple[dict, list[str]]:
                  and host.get("CpuQuota", 0) > 0 and host["CpuQuota"] == host.get("CpuPeriod")), "CGROUP_BUDGET_MISMATCH")
     require(host.get("ReadonlyRootfs") is True and host.get("Privileged") is False and host.get("AutoRemove") is False
             and set(host.get("CapDrop") or []) == {"ALL"}
-            and set(host.get("CapAdd") or []) in (CAPS, {"CAP_" + cap for cap in CAPS})
+            and isinstance(capabilities, list) and len(capabilities) == len(CAPS)
+            and set(capabilities) in (CAPS, {"CAP_" + cap for cap in CAPS})
             and set(host.get("SecurityOpt") or []) in ({"no-new-privileges"}, {"no-new-privileges=true"}), "CONFINEMENT_MISMATCH")
     require(not host.get("Devices") and not host.get("DeviceRequests") and not host.get("PortBindings")
             and not host.get("VolumesFrom") and not host.get("Links") and not host.get("ContainerIDFile")

@@ -204,6 +204,9 @@ class RecoveryProtocolTests(unittest.TestCase):
                 DRIVER.contract(info, arguments())
         for caps in ([], ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID"],
                      ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID", "CAP_SETPCAP", "CAP_SYS_ADMIN"],
+                     ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID", "CAP_SETPCAP", "CAP_CHOWN"],
+                     ["CHOWN", "SETUID", "SETGID", "SETPCAP", "CHOWN"],
+                     {"CAP_CHOWN": True, "CAP_SETUID": True, "CAP_SETGID": True, "CAP_SETPCAP": True},
                      ["CHOWN", "SETUID", "SETGID", "CAP_SETPCAP"],
                      ["cap_chown", "cap_setuid", "cap_setgid", "cap_setpcap"]):
             with self.subTest(caps=caps):

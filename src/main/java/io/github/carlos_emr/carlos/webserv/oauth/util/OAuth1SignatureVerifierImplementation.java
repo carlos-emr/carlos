@@ -99,11 +99,11 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
             if (isAccessEndpoint || hasVerifier) {
                 tokenSecret = dataProvider.getRequestTokenSecret(token);
             } else {
-                tokenSecret = dataProvider.getAccessTokenSecret(token);
+                tokenSecret = dataProvider.getAccessTokenSecret(token, cfg.getConsumerKey());
             }
         }
         if (tokenSecret == null) {
-            throw new IllegalArgumentException("Unknown or expired token: " + token);
+            throw new IllegalArgumentException("Unknown or expired token");
         }
 
         // --- 3) Base URL

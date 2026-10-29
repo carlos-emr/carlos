@@ -2,7 +2,7 @@
  "format": 1,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-4+6ea61c42",
+ "SCHEMA_MAP_VERSION": "o19map-5+9e7bc615",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -768,7 +768,18 @@
    "class": "archive"
   },
   "ServiceAccessToken": {
-   "class": "archive"
+   "class": "copy",
+   "cols": [
+    "id",
+    "clientId",
+    "tokenId",
+    "tokenSecret",
+    "lifetime",
+    "issued",
+    "providerNo",
+    "scopes",
+    "dateCreated"
+   ]
   },
   "ServiceClient": {
    "class": "copy",
@@ -778,7 +789,8 @@
     "clientKey",
     "clientSecret",
     "uri",
-    "dateCreated"
+    "dateCreated",
+    "lifetime"
    ]
   },
   "ServiceRequestToken": {
@@ -13107,6 +13119,17 @@
    "lastUpdateDate",
    "usingMfa"
   ],
+  "ServiceAccessToken": [
+   "id",
+   "clientId",
+   "tokenId",
+   "tokenSecret",
+   "lifetime",
+   "issued",
+   "providerNo",
+   "scopes",
+   "dateCreated"
+  ],
   "ServiceClient": [
    "id",
    "name",
@@ -23023,6 +23046,7 @@
  "SEED_USER_NAME": "carlosdoc",
  "CREDENTIAL_TABLES": [
   "ServiceClient",
+  "ServiceAccessToken",
   "oscarKeys",
   "publicKeys"
  ],
@@ -24740,7 +24764,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-4+a3deefa1",
+   "SCHEMA_MAP_VERSION": "o19map-5+ccf44f43",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -25505,7 +25529,18 @@
      "class": "archive"
     },
     "ServiceAccessToken": {
-     "class": "archive"
+     "class": "copy",
+     "cols": [
+      "id",
+      "clientId",
+      "tokenId",
+      "tokenSecret",
+      "lifetime",
+      "issued",
+      "providerNo",
+      "scopes",
+      "dateCreated"
+     ]
     },
     "ServiceClient": {
      "class": "copy",
@@ -25515,7 +25550,8 @@
       "clientKey",
       "clientSecret",
       "uri",
-      "dateCreated"
+      "dateCreated",
+      "lifetime"
      ]
     },
     "ServiceRequestToken": {
@@ -43137,6 +43173,17 @@
      "lastUpdateUser",
      "lastUpdateDate",
      "usingMfa"
+    ],
+    "ServiceAccessToken": [
+     "id",
+     "clientId",
+     "tokenId",
+     "tokenSecret",
+     "lifetime",
+     "issued",
+     "providerNo",
+     "scopes",
+     "dateCreated"
     ],
     "ServiceClient": [
      "id",

@@ -1743,7 +1743,8 @@
                                             <label for="flipview<%=nProvider%>" class="visually-hidden"><fmt:message key="schedule.scheduleflipview.title"/> — <carlos:encode value='<%= curProviderName[nProvider] %>' context="html"/></label>
                                             <input type='radio' name='flipview' id="flipview<%=nProvider%>" class="noprint"
                                                    onClick="goFilpView('<%=curProvider_no[nProvider]%>')"
-                                                   title="<fmt:message key="schedule.scheduleflipview.title"/>">
+                                                   title="<fmt:message key="schedule.scheduleflipview.title"/>"
+                                                   aria-label="<fmt:message key="schedule.scheduleflipview.title"/>">
                                             <a href=#
                                                onClick="goZoomView('<%=curProvider_no[nProvider]%>','<carlos:encode value='<%= curProviderName[nProvider] %>' context="javaScriptAttribute"/>')"
                                                onDblClick="goFilpView('<%=curProvider_no[nProvider]%>')"
