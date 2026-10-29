@@ -41,10 +41,11 @@ Rules that hold the wall up:
 | Script | Used in | What it does |
 |---|---|---|
 | `make-clean-export.sh` | Step 3a | Copies the committed tree (no `.git`) outside the repo, removes the targets, adds the spec as `CLEANROOM-SPEC.md`, writes `CLEANROOM-MANIFEST.txt`, denies the implementer read access to the original repo and the web, and makes a one-commit git repo so its work is a clean diff. Refuses an unapproved spec. |
-| `audit-transcript.py` | Step 4 | Lists every tool call in the implementer's transcript that touched the original repo, used the web, ran git history or download commands, or ran outside the export. |
+| `audit-transcript.py` | Step 4 | Lists every tool call in the implementer's transcript that touched the original repo, used the web, pulled from another repository, downloaded something, used a file tool outside the export, or ran outside the export. |
 | `cpd-compare.sh` | Step 4 | Runs PMD's copy-paste detector between each original and its replacement, ignoring identifiers and literals, and reports the shared token runs. |
 
-The export is a full copy of the tree (about 1 GB). Delete it after the record is written.
+The export is a full copy of the tree (about 1 GB). The monitor deletes it after the record is
+written, whether the verdict is Pass or Rejected.
 
 ## Evidence Trail
 
@@ -52,7 +53,8 @@ Each replaced component ends up with:
 - `docs/specs/<Name>.md` — the approved spec (with §11 Provenance)
 - `docs/specs/<Name>.record.md` — manifest, transcript hashes, audit findings and judgements,
   similarity results, tests, replaced blobs, verdict, and the monitor's sign-off
-- The implementer transcript(s), archived with the PR
+- The implementer transcript(s), archived privately (they contain account details such as the
+  user's email); the record holds their SHA-256
 
 ## Limits
 

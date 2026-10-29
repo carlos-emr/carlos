@@ -39,8 +39,10 @@ Use TodoWrite for steps 1–7.
 ### 2. Audit the implementer's transcript
 
 Find every transcript of every session that worked in the export. Claude Code keeps them
-under `~/.claude/projects/<export path, each non-alphanumeric character as "-">/*.jsonl`; a
-subagent's transcript is the task output file its parent reported. Then run:
+under `~/.claude/projects/<export path, each non-alphanumeric character as "-">/*.jsonl`. A
+subagent's transcript sits under its parent session's folder, in
+`<session-id>/subagents/agent-<id>.jsonl`; a subagent of a session that read the original
+fails the audit anyway. Then run:
 
 ```bash
 python3 scripts/cleanroom/audit-transcript.py --repo "$(git rev-parse --show-toplevel)" \
@@ -50,9 +52,10 @@ python3 scripts/cleanroom/audit-transcript.py --repo "$(git rev-parse --show-top
 Judge every finding and write the judgement down:
 - **Harmless:** for example `git status` or `git diff` inside the export. Say why.
 - **Contamination:** any read of the original repository or its history, any web search or
-  fetch, or a session that ran outside the export. **The implementation is rejected.**
-  Record the incident, delete the export, and start again with a new export and a new
-  implementer session. Do not salvage parts of it.
+  fetch, or a session that ran outside the export (its deny rules never applied). **The
+  implementation is rejected.** Write the record (step 6) with verdict `Rejected`; the monitor
+  then deletes the export, and the work restarts with a new export and a new implementer
+  session. Do not salvage parts of it.
 
 No transcript, or an exit status of 2, means there is no evidence: stop and tell the user the
 replacement cannot be certified.
@@ -88,8 +91,9 @@ On a feature branch in the repository:
 Save `docs/specs/<SpecFileName>.record.md` containing:
 - Spec path, SHA-256 and approval line
 - The manifest's contents and the export commit
-- Each transcript's path, SHA-256 and session ID; where the transcript is archived (attach it
-  to the PR or store it with the project's records)
+- Each transcript's path, SHA-256 and session ID, and where it is archived. Transcripts carry
+  account details (for example the user's email), so archive them privately with the
+  project's records; never commit them or attach them to a public PR
 - `audit-transcript.py` output with a judgement per finding
 - `cpd-compare.sh` output with the contract justification per match
 - Tests run and their results, in the export and in the repository
