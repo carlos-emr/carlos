@@ -1404,8 +1404,8 @@ Rules from `docs/release-process.md` and `CLAUDE.md`:
 
 - Do not change the `-SNAPSHOT` version or the SCM tag.
 - After each PR merges, a maintainer forward-merges `release/2026.08` into `develop`.
-- **Release fit (decided: stays on `release/2026.08`).** "Normal features and fixes target `develop`. A high-priority bug
-  or security fix for a supported release starts from and targets its `release/YYYY.MM`
+- **Release fit (decided: stays on `release/2026.08`).** "Normal features and fixes
+  target `develop`. A high-priority bug or security fix for a supported release starts from and targets its `release/YYYY.MM`
   branch" (`release-process.md`, lines 38–39; the fix cycle, lines 113–114, covers
   "a high-priority correctness or security fix found in an alpha, beta…"). Since beta1 the
   branch has taken only fixes and dependency patches. This change is a new module, two new
