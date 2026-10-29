@@ -1049,12 +1049,19 @@ eForm print, fax or archive fails
 nginx will not start: port 80 or 443 is already in use
   The nginx journal says "bind() to 0.0.0.0:80 failed (98: Address already in
   use)": another program held the front-door ports when nginx started. Each
-  configure stops any other system service holding them and keeps it from
-  starting again, whatever installed it: a Debian package (apache2, lighttpd,
-  haproxy, ...), a snap (the Nextcloud snap Ubuntu Server's installer offers
-  serves 80/443) or a unit you wrote. It is disabled, or masked when it cannot
-  be disabled, and a note names it; nothing is uninstalled, and the note gives
-  the command that brings it back once it has been moved to other ports.
+  configure looks for any other system service holding them, whatever
+  installed it: a Debian package (apache2, lighttpd, haproxy, ...), a snap (the
+  Nextcloud snap Ubuntu Server's installer offers serves 80/443) or a unit you
+  wrote. An interactive install ASKS first (carlos-emr/stop-port-conflicts,
+  listing each service); a non-interactive one takes the default and goes
+  ahead. Each one stopped is disabled, or masked when it cannot be disabled,
+  and a note names it; nothing is uninstalled, and the note gives the command
+  that brings it back once it has been moved to other ports. What was stopped,
+  or declined, is in the install output, /var/log/apt/term.log and the
+  journal (journalctl -t carlos-emr). To keep every configure hands-off:
+
+      echo 'carlos-emr carlos-emr/stop-port-conflicts boolean false' | sudo debconf-set-selections
+
   Named but left running: containers and the container engines (stopping one
   stops every container), programs started by hand, ssh, systemd and database
   servers. nginx's own setup runs first, so its red "Failed to start" may

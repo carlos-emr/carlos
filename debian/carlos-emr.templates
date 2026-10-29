@@ -168,6 +168,24 @@ Description: CARLOS EMR is installed but is NOT ready to use
  a populated schema that fails validation. Check the result with
  "sudo carlos-ctl check"; follow any separate DrugRef recovery instructions.
 
+Template: carlos-emr/stop-port-conflicts
+Type: boolean
+Default: true
+Description: Stop the other services using ports 80 and 443?
+ CARLOS EMR serves clinicians through nginx on ports 80 and 443. These
+ services on this host already use them, so nginx cannot start:
+ .
+ ${services}
+ .
+ If you agree, each one is stopped and kept from starting again at boot
+ (disabled, or masked when it cannot be disabled). Nothing is uninstalled and
+ no configuration is changed; the next screen shows how to bring each one
+ back after moving it to other ports.
+ .
+ If you decline, nothing is changed and CARLOS EMR is NOT reachable until
+ those ports are free. Free them yourself, then run:
+ sudo carlos-ctl finish-install
+
 Template: carlos-emr/stopped-port-conflicts
 Type: note
 Description: Another web server was stopped to free ports 80 and 443

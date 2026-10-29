@@ -217,10 +217,66 @@ host_conflicts() {
     "${HOST_CONFLICTS}" "$@" 2>/dev/null || true
 }
 
+# One line per item, joined with "; " for a debconf substitution or the marker.
+join_lines() {
+    awk 'NF { printf "%s%s", sep, $0; sep = "; " }'
+}
+
+# The journal as well as apt's term.log: a service this package turned off on
+# someone else's behalf has to be findable later (journalctl -t carlos-emr).
+log_action() {
+    if command -v logger >/dev/null 2>&1; then
+        logger -t carlos-emr -p daemon.notice -- "$1" 2>/dev/null || true
+    fi
+}
+
+# Ports 80 and 443 belong to nginx. Another system service holding them
+# (apache2, a Nextcloud snap, an administrator's own unit, ...) keeps the
+# front door down, so it is stopped and kept off -- after asking, when debconf
+# can ask. carlos-emr/stop-port-conflicts lists exactly what would be stopped;
+# a non-interactive install (or a priority above high) takes the default,
+# true, and goes ahead. Either way every action, and a refusal, goes to stderr
+# and the journal. Declining changes nothing: the nginx step then records
+# what holds the ports, and the install finishes NOT ready. A preseeded false
+# keeps every run hands-off. Sets FRONT_DOOR_FREED to the "stopped:" lines for
+# the closing note.
+free_front_door() {
+    FRONT_DOOR_FREED=""
+    [ -d /run/systemd/system ] || return 0
+    front_door_ip="$(configured_bind_ip)"
+    front_door_plan="$(host_conflicts front-door --plan "${front_door_ip}" | sed -n 's/^will-stop: //p')"
+    [ -n "${front_door_plan}" ] || return 0
+    db_subst carlos-emr/stop-port-conflicts services \
+        "$(printf '%s\n' "${front_door_plan}" | join_lines)" || true
+    # Asked on every configure that finds a conflict, not once: a service
+    # installed after CARLOS is a new decision.
+    db_fset carlos-emr/stop-port-conflicts seen false || true
+    db_input high carlos-emr/stop-port-conflicts || true
+    db_go || true
+    RET=true
+    db_get carlos-emr/stop-port-conflicts || true
+    if [ "${RET}" = false ]; then
+        printf '%s\n' "${front_door_plan}" | while IFS= read -r planned_line; do
+            echo "carlos-emr: NOT stopping (declined): ${planned_line}" >&2
+            log_action "front door: declined to stop ${planned_line}"
+        done
+        return 0
+    fi
+    FRONT_DOOR_FREED="$(host_conflicts front-door "${front_door_ip}" | sed -n 's/^stopped: //p')"
+    [ -n "${FRONT_DOOR_FREED}" ] || return 0
+    printf '%s\n' "${FRONT_DOOR_FREED}" | while IFS= read -r stopped_line; do
+        echo "carlos-emr: ${stopped_line}" >&2
+        log_action "front door: ${stopped_line}"
+    done
+    # nginx's own postinst ran first and printed a red failure for this same
+    # conflict; say that it is handled, not a new fault.
+    echo "carlos-emr: an earlier 'Failed to start' or 'Address already in use' from nginx's own setup was this conflict; nginx is started below." >&2
+}
+
 # The "blocked:" lines of a front-door report, as one sentence for the marker.
 front_door_blockers() {
     host_conflicts front-door --report "$(configured_bind_ip)" |
-        sed -n 's/^blocked: //p' | awk 'NF { printf "%s%s", sep, $0; sep = "; " }'
+        sed -n 's/^blocked: //p' | join_lines
 }
 
 # NGINX has bound the front-door listeners the rendered configuration asks for
@@ -1507,17 +1563,9 @@ OAUTH_ACCESS_DEFAULTS
         # administrator's own unit. Containers, container engines, programs
         # started by hand and database servers are only named, and the nginx
         # step below records them. On a host whose front door already works
-        # this finds nothing and does nothing.
-        FRONT_DOOR_FREED=""
-        if [ -d /run/systemd/system ]; then
-            FRONT_DOOR_FREED="$(host_conflicts front-door "$(configured_bind_ip)" | sed -n 's/^stopped: //p')"
-            if [ -n "${FRONT_DOOR_FREED}" ]; then
-                printf '%s\n' "${FRONT_DOOR_FREED}" | sed 's/^/carlos-emr: /' >&2
-                # nginx's own postinst ran first and printed a red failure for
-                # this same conflict; say that it is handled, not a new fault.
-                echo "carlos-emr: an earlier 'Failed to start' or 'Address already in use' from nginx's own setup was this conflict; nginx is started below." >&2
-            fi
-        fi
+        # this finds nothing, asks nothing and does nothing.
+        # Interactive installs are asked first (see free_front_door).
+        free_front_door
         [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
             carlos-ctl init-config || {
@@ -2211,7 +2259,7 @@ fi
 # says so again.
 if [ "$1" = configure ] && [ -n "${FRONT_DOOR_FREED}" ]; then
     db_subst carlos-emr/stopped-port-conflicts services \
-        "$(printf '%s\n' "${FRONT_DOOR_FREED}" | awk 'NF { printf "%s%s", sep, $0; sep = " " }')" || true
+        "$(printf '%s\n' "${FRONT_DOOR_FREED}" | join_lines)" || true
     db_fset carlos-emr/stopped-port-conflicts seen false || true
     db_input high carlos-emr/stopped-port-conflicts || true
     db_go || true

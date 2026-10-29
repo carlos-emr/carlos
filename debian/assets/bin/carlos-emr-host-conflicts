@@ -10,7 +10,7 @@
 # wrong program (#5439). This names the program, and stops it when that is
 # safe.
 #
-#   front-door [--report] BIND_IP
+#   front-door [--plan | --report] BIND_IP
 #       Ports 80 and 443 belong to nginx.service. Any OTHER system service
 #       listening there on an address that collides with BIND_IP
 #       (CARLOS_BIND_IP) is stopped and disabled, whatever installed it:
@@ -25,7 +25,10 @@
 #       Never stopped, only named: containers and the container engines
 #       (stopping one stops every container on the host), programs started by
 #       hand, ssh, systemd, dbus, network management, database servers and
-#       CARLOS's own units. --report changes nothing.
+#       CARLOS's own units. --plan lists what a run without it would stop
+#       ("will-stop:") and what it would leave ("blocked:"), so the postinst
+#       can ask an interactive operator first; --report names every colliding
+#       listener as "blocked:". Neither changes anything.
 #   mariadb
 #       Why root cannot reach MariaDB over the unix socket: the service is
 #       stopped or failed (and what holds 3306, or its last [ERROR] line), it
@@ -33,6 +36,7 @@
 #       a database server is never stopped from here.
 #
 # Output, one line each:
+#   will-stop: <what a run without --plan would stop>     (--plan only)
 #   stopped: <what was stopped, and how to undo it>
 #   blocked: <a listener left in place, and what to do about it>
 #   cause: <why root cannot reach MariaDB>          (mariadb only)
@@ -54,7 +58,7 @@ say() {
 }
 
 usage() {
-    say "usage: carlos-emr-host-conflicts front-door [--report] BIND_IP | mariadb" >&2
+    say "usage: carlos-emr-host-conflicts front-door [--plan | --report] BIND_IP | mariadb" >&2
     exit 2
 }
 
@@ -296,11 +300,11 @@ stray_nginx_master() {
 }
 
 front_door() {
-    report=0
-    if [ "${1:-}" = --report ]; then
-        report=1
-        shift
-    fi
+    mode=free
+    case "${1:-}" in
+        --plan) mode=plan; shift ;;
+        --report) mode=report; shift ;;
+    esac
     [ $# = 1 ] || usage
     bind_ip="$(printf '%s\n' "$1" | sed 's/^\[\(.*\)\]$/\1/')"
 
@@ -308,7 +312,10 @@ front_door() {
     [ -n "${found}" ] || return 0
 
     acted=0
-    if [ "${report}" = 0 ]; then
+    # name|unit of every owner --plan says it would stop, so its "blocked:"
+    # list holds only what would be left.
+    planned=" "
+    if [ "${mode}" != report ]; then
         stopped_units=" "
         while read -r name pid unit addrs; do
             [ "${name}" != - ] || continue
@@ -317,6 +324,11 @@ front_door() {
                 # than by nginx.service, which cannot start beside it. An
                 # nginx in a container or another service is not this case.
                 master="$(stray_nginx_master "${pid}")" || continue
+                if [ "${mode}" = plan ]; then
+                    planned="${planned}${name}|${unit} "
+                    say "will-stop: an nginx started by hand outside nginx.service (pid ${master}, ${unit}), on ${addrs}"
+                    continue
+                fi
                 if env kill -TERM "${master}" 2>/dev/null || kill -TERM "${master}" 2>/dev/null; then
                     acted=1
                     say "stopped: an nginx started outside nginx.service (pid ${master}, ${unit}) was listening on ${addrs}; it was told to exit so nginx.service can serve the CARLOS front door"
@@ -330,6 +342,12 @@ front_door() {
             protected_unit "${unit}" && continue
             case "${stopped_units}" in *" ${unit} "*) continue ;; esac
             if app="$(snap_app "${unit}")" && command -v snap >/dev/null 2>&1; then
+                if [ "${mode}" = plan ]; then
+                    planned="${planned}${name}|${unit} "
+                    stopped_units="${stopped_units}${unit} "
+                    say "will-stop: the ${app%%.*} snap's ${app} service, on ${addrs}"
+                    continue
+                fi
                 # snapd owns its units: `systemctl disable` would be undone by
                 # the next refresh, `snap stop --disable` is not.
                 snap stop --disable "${app}" >/dev/null 2>&1 || continue
@@ -339,6 +357,12 @@ front_door() {
                 continue
             fi
             origin="$(origin_of "${unit}")"
+            if [ "${mode}" = plan ]; then
+                planned="${planned}${name}|${unit} "
+                stopped_units="${stopped_units}${unit} "
+                say "will-stop: ${unit} (${origin}), on ${addrs}"
+                continue
+            fi
             # A socket-activated service: stop the socket that holds the port
             # and the service it starts, or the next connection restarts it.
             also=""
@@ -374,6 +398,7 @@ EOF
     fi
 
     while read -r name pid unit addrs; do
+        case "${planned}" in *" ${name}|${unit} "*) continue ;; esac
         [ "${unit}" != - ] || unit=""
         say "blocked: $(describe "${name}" "${pid}" "${unit}" "${addrs}"), so nginx cannot serve the CARLOS front door; $(advice "${name}" "${unit}")"
     done <<EOF

@@ -402,6 +402,33 @@ class TestFrontDoor(HostConflictsCase):
         self.assertEqual(r.returncode, 2)
         self.assertEqual(self.stops(), [])
 
+    def test_plan_lists_what_would_stop_and_what_would_be_left(self):
+        r = self.run_script({
+            "listeners": [apache("*:80"),
+                          {"addr": "0.0.0.0:443", "owners": [{"name": "docker-proxy", "pid": 400}]}],
+            "procs": {"100": {"unit": "apache2.service"}, "400": {"unit": "docker.service"}},
+            "units": {"apache2.service": APACHE_UNIT}, "dpkg": APACHE_DPKG,
+        }, "front-door", "--plan", "0.0.0.0")
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(self.stops(), [], "--plan must change nothing")
+        lines = r.stdout.splitlines()
+        self.assertEqual(lines[0], "will-stop: apache2.service (package apache2), on *:80")
+        self.assertEqual(len(lines), 2, r.stdout)
+        self.assertTrue(lines[1].startswith("blocked: docker-proxy (pid 400, docker.service)"))
+
+    def test_plan_names_snaps_and_hand_started_nginx(self):
+        r = self.run_script({
+            "listeners": [{"addr": "*:443", "owners": [{"name": "httpd", "pid": 800}]},
+                          {"addr": "0.0.0.0:80", "owners": [{"name": "nginx", "pid": 200}]}],
+            "procs": {"800": {"unit": "snap.nextcloud.apache.service"},
+                      "200": {"unit": "session-3.scope", "args": "nginx: master process nginx"}},
+        }, "front-door", "--plan", "0.0.0.0")
+        self.assertEqual(self.stops(), [])
+        self.assertIn("will-stop: the nextcloud snap's nextcloud.apache service, on *:443", r.stdout)
+        self.assertIn("will-stop: an nginx started by hand outside nginx.service (pid 200, "
+                      "session-3.scope), on 0.0.0.0:80", r.stdout)
+        self.assertNotIn("blocked:", r.stdout)
+
     def test_free_ports_print_nothing(self):
         r = self.run_script({"listeners": []}, "front-door", "0.0.0.0")
         self.assertEqual((r.returncode, r.stdout, r.stderr), (0, "", ""))
@@ -472,7 +499,7 @@ class TestShippedAndWired(unittest.TestCase):
 
     def test_postinst_frees_the_front_door_before_init_config(self):
         text = POSTINST.read_text()
-        free = text.index('host_conflicts front-door "$(configured_bind_ip)"')
+        free = text.index("\n        free_front_door\n")
         self.assertLess(free, text.index("carlos-ctl init-config ||"))
 
     def test_postinst_names_the_cause_when_mariadb_is_unreachable(self):
@@ -511,6 +538,96 @@ class TestShippedAndWired(unittest.TestCase):
         self.assertIn("Template: carlos-emr/stopped-port-conflicts\nType: note\n", templates)
         self.assertIn("${services}", templates)
         self.assertIn("db_input high carlos-emr/stopped-port-conflicts", POSTINST.read_text())
+
+
+class TestPostinstConfirmation(unittest.TestCase):
+    """free_front_door asks before stopping anything when debconf can ask, and
+    goes ahead -- logged -- when it cannot (a non-interactive install takes
+    the question's default, true)."""
+
+    PLAN = "will-stop: apache2.service (package apache2), on *:80"
+    STOPPED = ("stopped: apache2.service (package apache2) was listening on *:80, which the "
+               "CARLOS front door needs; it is stopped and disabled but still installed")
+
+    def run_block(self, answer, plan=True, shown=True):
+        text = POSTINST.read_text()
+        fns = "\n".join(re.search(r"\n%s\(\) \{.*?\n\}" % name, text, re.S).group(0)
+                        for name in ("join_lines", "log_action", "free_front_door"))
+        with tempfile.TemporaryDirectory() as tmp:
+            systemd = os.path.join(tmp, "systemd")
+            os.mkdir(systemd)
+            log = os.path.join(tmp, "calls")
+            bindir = os.path.join(tmp, "bin")
+            os.mkdir(bindir)
+            with open(os.path.join(bindir, "logger"), "w") as fh:
+                fh.write('#!/bin/sh\necho "logger $*" >> "%s"\n' % log)
+            os.chmod(os.path.join(bindir, "logger"), 0o755)
+            plan_out = self.PLAN if plan else ""
+            script = f"""set -e
+PATH="{bindir}:$PATH"
+call() {{ echo "$*" >> "{log}"; }}
+configured_bind_ip() {{ echo 0.0.0.0; }}
+host_conflicts() {{
+    call "host_conflicts $*"
+    case "$2" in
+        --plan) [ -z "{plan_out}" ] || echo "{plan_out}" ;;
+        *) echo "{self.STOPPED}" ;;
+    esac
+}}
+db_subst() {{ call "db_subst $*"; }}
+db_fset() {{ call "db_fset $*"; }}
+db_input() {{ call "db_input $*"; [ {1 if shown else 0} = 1 ] || return 30; }}
+db_go() {{ call db_go; }}
+db_get() {{ call "db_get $*"; RET="{answer}"; }}
+{fns.replace("/run/systemd/system", systemd)}
+free_front_door
+printf 'FREED=%s\n' "$FRONT_DOOR_FREED"
+"""
+            r = subprocess.run(["sh", "-c", script], capture_output=True, text=True)
+            calls = Path(log).read_text().splitlines() if os.path.exists(log) else []
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r, calls
+
+    def test_interactive_yes_stops_logs_and_reports(self):
+        r, calls = self.run_block("true")
+        self.assertIn("db_input high carlos-emr/stop-port-conflicts", calls)
+        # The question lists exactly what would be stopped.
+        self.assertIn("db_subst carlos-emr/stop-port-conflicts services "
+                      "apache2.service (package apache2), on *:80", calls)
+        self.assertIn("db_fset carlos-emr/stop-port-conflicts seen false", calls)
+        self.assertLess(calls.index("db_input high carlos-emr/stop-port-conflicts"),
+                        calls.index("host_conflicts front-door 0.0.0.0"))
+        self.assertIn("FREED=" + self.STOPPED[len("stopped: "):], r.stdout)
+        self.assertIn("carlos-emr: apache2.service (package apache2) was listening", r.stderr)
+        self.assertTrue(any(c.startswith("logger -t carlos-emr -p daemon.notice -- front door: "
+                                         "apache2.service") for c in calls), calls)
+
+    def test_interactive_no_changes_nothing_and_logs_the_refusal(self):
+        r, calls = self.run_block("false")
+        self.assertNotIn("host_conflicts front-door 0.0.0.0", calls)
+        self.assertIn("FREED=\n", r.stdout)
+        self.assertIn("NOT stopping (declined): apache2.service", r.stderr)
+        self.assertTrue(any("front door: declined to stop apache2.service" in c for c in calls), calls)
+
+    def test_noninteractive_takes_the_default_and_goes_ahead(self):
+        # db_input returns 30 when the question is not shown; db_get then
+        # returns the stored value, which is the template default (true).
+        r, calls = self.run_block("true", shown=False)
+        self.assertIn("host_conflicts front-door 0.0.0.0", calls)
+        self.assertIn("FREED=" + self.STOPPED[len("stopped: "):], r.stdout)
+        self.assertTrue(any(c.startswith("logger ") for c in calls), calls)
+
+    def test_nothing_to_stop_asks_nothing(self):
+        r, calls = self.run_block("true", plan=False)
+        self.assertFalse(any(c.startswith(("db_", "logger")) for c in calls), calls)
+        self.assertNotIn("host_conflicts front-door 0.0.0.0", calls)
+
+    def test_the_question_defaults_to_yes(self):
+        templates = TEMPLATES.read_text()
+        block = templates[templates.index("Template: carlos-emr/stop-port-conflicts\n"):]
+        self.assertTrue(block.startswith("Template: carlos-emr/stop-port-conflicts\n"
+                                         "Type: boolean\nDefault: true\n"), block[:120])
+        self.assertIn("${services}", block.split("\n\n")[0])
 
 
 if __name__ == "__main__":
