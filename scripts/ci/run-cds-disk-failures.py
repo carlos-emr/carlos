@@ -117,7 +117,7 @@ def observe_worker_threads(proc: Path, pid: int, uid: int, observed: dict[int,st
     tasks=proc/str(pid)/'task'
     try:
         selected=list(tasks.iterdir())
-    except FileNotFoundError:
+    except (FileNotFoundError,ProcessLookupError):
         return
     require(len(selected)<=512,'DISK_FAULT_JVM_THREAD_CAPACITY')
     for task in selected:
@@ -125,7 +125,7 @@ def observe_worker_threads(proc: Path, pid: int, uid: int, observed: dict[int,st
         try:
             status=(task/'status').read_text()
             stat=(task/'stat').read_text()
-        except FileNotFoundError:
+        except (FileNotFoundError,ProcessLookupError):
             continue  # A completed task has no usable live attribution; never guess its trace ownership.
         require(len(status)<=65536 and len(stat)<=4096,'DISK_FAULT_JVM_THREAD_IDENTITY_CAPACITY')
         group=re.search(r'^Tgid:\s+([0-9]+)$',status,re.M)
@@ -345,7 +345,7 @@ def main() -> None:
                             result['serviceJvm']={'pid':worker[0],'startTimeTicks':worker[1],'uid':account.pw_uid}
                             save()
                         observe_worker_threads(Path('/proc'),worker[0],sample['uid'],worker_threads)
-                    except FileNotFoundError:
+                    except (FileNotFoundError,ProcessLookupError):
                         continue
                 time.sleep(0.1)
         result['importElapsedSeconds']=time.monotonic()-started

@@ -2,6 +2,9 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Failure proof must reject accepted work, decoded payload traces and missing retained state."""
 import importlib.util
+import ast
+import errno
+import inspect
 import json
 import os
 from pathlib import Path
@@ -11,6 +14,8 @@ import unittest
 import subprocess
 import sys
 import threading
+from types import SimpleNamespace
+from unittest.mock import Mock,patch
 
 SPEC=importlib.util.spec_from_file_location('disk_faults',Path(__file__).with_name('run-cds-disk-failures.py'))
 GATE=importlib.util.module_from_spec(SPEC)
@@ -84,6 +89,104 @@ class DiskFailureEvidenceTest(unittest.TestCase):
             with self.assertRaises(RuntimeError):GATE.observe_worker_threads(proc,100,999,{})
         (task/'status').write_text(status);(task/'stat').write_text(stat(124))
         with self.assertRaises(RuntimeError):GATE.observe_worker_threads(proc,100,999,observed)
+
+    def _thread_identity(self,proc,pid,tid,started):
+        task=proc/str(pid)/'task'/str(tid);task.mkdir(parents=True)
+        (task/'status').write_text(f'Tgid:\t{pid}\nUid:\t999\t999\t999\t999\n')
+        (task/'stat').write_text(f'{tid} (java) S '+'0 '*18+str(started)+'\n')
+        return task
+
+    def test_task_disappearance_only_skips_enoent_esrch_and_never_invents_attribution(self):
+        proc=self.root/'proc';missing=self._thread_identity(proc,100,101,111)
+        live=self._thread_identity(proc,100,102,222)
+        actual_iterdir=Path.iterdir;actual_read=Path.read_text
+        for location in ('tasks','status','stat'):
+            for code in (errno.ENOENT,errno.ESRCH,errno.EACCES,errno.EPERM,errno.EIO,errno.EINVAL):
+                with self.subTest(location=location,errno=code):
+                    failure=OSError(code,'synthetic procfs error');observed={100:'1000'}
+                    def iterdir(path):
+                        if path==proc/'100'/'task':
+                            if location=='tasks':raise failure
+                            return iter((missing,live))
+                        return actual_iterdir(path)
+                    def read(path,*args,**kwargs):
+                        if path==missing/location:raise failure
+                        return actual_read(path,*args,**kwargs)
+                    with patch.object(Path,'iterdir',autospec=True,side_effect=iterdir), \
+                            patch.object(Path,'read_text',autospec=True,side_effect=read):
+                        if code in (errno.ENOENT,errno.ESRCH):
+                            GATE.observe_worker_threads(proc,100,999,observed)
+                            self.assertEqual(observed,{100:'1000'} if location=='tasks' else {100:'1000',102:'222'})
+                        else:
+                            with self.assertRaises(OSError) as caught:GATE.observe_worker_threads(proc,100,999,observed)
+                            self.assertIs(caught.exception,failure)
+                            self.assertEqual(observed,{100:'1000'})
+
+    def _run_actual_process_scan(self,proc,sample,verify,observed,worker=None):
+        # Execute the production loop unchanged, without the unrelated privileged
+        # installation/database/tmpfs setup. A structural mismatch fails visibly.
+        source,line=inspect.getsourcelines(GATE.main)
+        tree=ast.increment_lineno(ast.parse(''.join(source)),line-1)
+        target=ast.dump(ast.parse("Path('/proc').iterdir()",mode='eval').body)
+        loops=[node for node in ast.walk(tree) if isinstance(node,ast.For) and ast.dump(node.iter)==target]
+        self.assertEqual(len(loops),1)
+        account=SimpleNamespace(pw_uid=999,pw_gid=999)
+        scope={**vars(GATE),'Path':lambda value:proc if value=='/proc' else Path(value),
+               'RESOURCE':SimpleNamespace(is_import_command=GATE.RESOURCE.is_import_command,
+                    service_sample=sample,verify_java_identity=verify),
+               'pwd':SimpleNamespace(getpwnam=lambda name:account),'source':Path('/synthetic/source.xml'),
+               'metadata':{'provider':'999998'},'worker':worker,'worker_threads':observed,'result':{},'save':Mock()}
+        exec(compile(ast.Module(body=loops,type_ignores=[]),GATE.__file__,'exec'),scope)
+        return scope
+
+    def _process_command(self,proc,pid):
+        entry=proc/str(pid);entry.mkdir(parents=True,exist_ok=True)
+        (entry/'cmdline').write_bytes(b'/usr/bin/java\0-Xmx512m\0io.github.carlos_emr.carlos.demographic.cdsimport.CdsImport\0'
+                                    b'--operation\0import\0--input\0/synthetic/source.xml\0--provider\0' b'999998\0')
+        return entry
+
+    def test_process_scan_only_skips_disappearance_and_still_verifies_the_next_service_identity(self):
+        proc=self.root/'proc';missing=self._process_command(proc,100);live=self._process_command(proc,200)
+        self._thread_identity(proc,200,200,222)
+        actual_iterdir=Path.iterdir;actual_read=Path.read_bytes
+        for location in ('cmdline','sample'):
+            for code in (errno.ENOENT,errno.ESRCH,errno.EACCES,errno.EPERM,errno.EIO,errno.EINVAL):
+                with self.subTest(location=location,errno=code):
+                    failure=OSError(code,'synthetic procfs error');observed={};verify=Mock()
+                    def iterdir(path):return iter((missing,live)) if path==proc else actual_iterdir(path)
+                    def read(path):
+                        if location=='cmdline' and path==missing/'cmdline':raise failure
+                        return actual_read(path)
+                    def sample(pid):
+                        if location=='sample' and pid==100:raise failure
+                        return {'uid':999,'started':'222'}
+                    with patch.object(Path,'iterdir',autospec=True,side_effect=iterdir), \
+                            patch.object(Path,'read_bytes',autospec=True,side_effect=read):
+                        if code in (errno.ENOENT,errno.ESRCH):
+                            scope=self._run_actual_process_scan(proc,sample,verify,observed)
+                            self.assertEqual(scope['worker'],(200,'222'))
+                            self.assertEqual(scope['result']['serviceJvm'],{'pid':200,'startTimeTicks':'222','uid':999})
+                            self.assertEqual(observed,{200:'222'})
+                            self.assertEqual(verify.call_count,1);self.assertEqual(verify.call_args.args[:3],(200,999,999))
+                            scope['save'].assert_called_once_with()
+                        else:
+                            with self.assertRaises(OSError) as caught:self._run_actual_process_scan(proc,sample,verify,observed)
+                            self.assertIs(caught.exception,failure);self.assertEqual(observed,{})
+                            verify.assert_not_called()
+
+    def test_process_scan_never_attributes_a_foreign_uid_changed_birth_or_unverified_jvm(self):
+        proc=self.root/'proc';self._process_command(proc,100);self._thread_identity(proc,100,100,111)
+        observed={};verify=Mock()
+        scope=self._run_actual_process_scan(proc,lambda pid:{'uid':998,'started':'111'},verify,observed)
+        self.assertIsNone(scope['worker']);self.assertEqual(observed,{})
+        verify.assert_not_called();scope['save'].assert_not_called()
+        with self.assertRaisesRegex(RuntimeError,'DISK_FAULT_MULTIPLE_SERVICE_JVMS'):
+            self._run_actual_process_scan(proc,lambda pid:{'uid':999,'started':'222'},verify,observed,(100,'111'))
+        verify.assert_not_called();self.assertEqual(observed,{})
+        verify=Mock(side_effect=RuntimeError('service executable or birth changed'))
+        with self.assertRaisesRegex(RuntimeError,'service executable or birth changed'):
+            self._run_actual_process_scan(proc,lambda pid:{'uid':999,'started':'111'},verify,observed)
+        self.assertEqual(observed,{})
 
     def test_errno_proof_aggregates_only_attributed_jvm_threads_including_nonleader_main(self):
         prefix=self.root/'failed';(self.root/'failed.100').write_text('')
