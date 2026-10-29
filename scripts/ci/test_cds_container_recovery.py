@@ -67,7 +67,8 @@ def container():
             "Config": {"Image": "mutable:tag", "User": "", "Hostname": "fixed-hostname", "Tty": False,
                        "Env": ["HTTPS_PROXY=secret-value", "OTHER=value"], "Labels": {"io.carlos.cds.task": "recovery-test"}},
             "HostConfig": {"Memory": 768 * DRIVER.MIB, "MemorySwap": 1536 * DRIVER.MIB, "NanoCpus": 1000000000,
-                           "ReadonlyRootfs": True, "Privileged": False, "AutoRemove": False, "CapAdd": sorted(DRIVER.CAPS),
+                           "ReadonlyRootfs": True, "Privileged": False, "AutoRemove": False,
+                           "CapAdd": ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID", "CAP_SETPCAP"],
                            "CapDrop": ["ALL"], "SecurityOpt": ["no-new-privileges"], "IpcMode": "private",
                            "RestartPolicy": {"Name": "no"}, "NetworkMode": args.network,
                            "Tmpfs": {"/carlos-tmp": "uid=10001,gid=10001,mode=700",
@@ -194,6 +195,23 @@ class RecoveryProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "PID1"):
             DRIVER.contract(info, arguments())
 
+    def test_accepts_only_complete_docker_capability_spellings(self):
+        for caps in (["CHOWN", "SETUID", "SETGID", "SETPCAP"],
+                     ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID", "CAP_SETPCAP"]):
+            with self.subTest(caps=caps):
+                info = container()
+                info["HostConfig"]["CapAdd"] = caps
+                DRIVER.contract(info, arguments())
+        for caps in ([], ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID"],
+                     ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID", "CAP_SETPCAP", "CAP_SYS_ADMIN"],
+                     ["CHOWN", "SETUID", "SETGID", "CAP_SETPCAP"],
+                     ["cap_chown", "cap_setuid", "cap_setgid", "cap_setpcap"]):
+            with self.subTest(caps=caps):
+                info = container()
+                info["HostConfig"]["CapAdd"] = caps
+                with self.assertRaisesRegex(RuntimeError, "CONFINEMENT"):
+                    DRIVER.contract(info, arguments())
+
     def test_rejects_changed_source_bind_and_writable_artifact(self):
         for path, replacement in ((DRIVER.SOURCE, {"Source": "/tmp/other"}),
                                   ("/usr/local/tomcat/webapps/carlos/WEB-INF/classes", {"RW": True})):
@@ -248,7 +266,8 @@ class RecoveryProtocolTests(unittest.TestCase):
 
     def test_accepted_job_must_keep_original_options_and_nonce(self):
         args = arguments()
-        command = {"input": args.input, "submissionKey": NONCE, "providerNo": args.provider, "programId": None,
+        command = {"input": "file:///var/lib/carlos-emr/cds-import/source/long.xml", "submissionKey": NONCE,
+                   "providerNo": args.provider, "programId": None,
                    "facilityId": None, "sourceNamespace": args.source_namespace, "sourceProfile": args.source_profile,
                    "mergeExisting": False, "dryRun": False, "matchProviderNames": False, "timeshiftDays": 0,
                    "courseId": None, "synthetic": False}
@@ -256,7 +275,12 @@ class RecoveryProtocolTests(unittest.TestCase):
                     "snapshot": {"sha256": "e" * 64}, "acceptedRulesetDigest": "f" * 64}
         proof = DRIVER.accepted_binding(document, "a" * 64, args, NONCE)
         self.assertEqual(proof["commandSha256"], DRIVER.digest_json(command))
-        for key, value in (("sourceNamespace", "other"), ("matchProviderNames", True), ("submissionKey", RUN)):
+        for key, value in (("sourceNamespace", "other"), ("matchProviderNames", True), ("submissionKey", RUN),
+                           ("timeshiftDays", 1), ("input", args.input),
+                           ("input", "file://localhost/var/lib/carlos-emr/cds-import/source/long.xml"),
+                           ("input", command["input"] + "?other=source"),
+                           ("input", command["input"] + "#other"),
+                           ("input", "file:///var/lib/carlos-emr/cds-import/source/other.xml")):
             changed = copy.deepcopy(document)
             changed["command"][key] = value
             with self.subTest(key=key), self.assertRaisesRegex(RuntimeError, "OPTIONS"):
@@ -313,7 +337,8 @@ class RecoveryProtocolTests(unittest.TestCase):
         replacement["Id"] = "d" * 64
         replacement["Config"]["Image"] = original["Image"]
         replacement["NetworkSettings"]["Networks"][args.network]["Aliases"] = [args.container, "d" * 12]
-        command = {"input": args.input, "submissionKey": NONCE, "providerNo": args.provider, "programId": None,
+        command = {"input": "file:///var/lib/carlos-emr/cds-import/source/long.xml", "submissionKey": NONCE,
+                   "providerNo": args.provider, "programId": None,
                    "facilityId": None, "sourceNamespace": args.source_namespace, "sourceProfile": args.source_profile,
                    "mergeExisting": False, "dryRun": False, "matchProviderNames": False, "timeshiftDays": 0,
                    "courseId": None, "synthetic": False}

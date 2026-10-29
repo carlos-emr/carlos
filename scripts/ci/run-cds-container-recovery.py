@@ -339,7 +339,8 @@ def contract(info: dict, args: argparse.Namespace) -> tuple[dict, list[str]]:
             and (host.get("NanoCpus") == 1000000000 or host.get("NanoCpus", 0) == 0
                  and host.get("CpuQuota", 0) > 0 and host["CpuQuota"] == host.get("CpuPeriod")), "CGROUP_BUDGET_MISMATCH")
     require(host.get("ReadonlyRootfs") is True and host.get("Privileged") is False and host.get("AutoRemove") is False
-            and set(host.get("CapDrop") or []) == {"ALL"} and set(host.get("CapAdd") or []) == CAPS
+            and set(host.get("CapDrop") or []) == {"ALL"}
+            and set(host.get("CapAdd") or []) in (CAPS, {"CAP_" + cap for cap in CAPS})
             and set(host.get("SecurityOpt") or []) in ({"no-new-privileges"}, {"no-new-privileges=true"}), "CONFINEMENT_MISMATCH")
     require(not host.get("Devices") and not host.get("DeviceRequests") and not host.get("PortBindings")
             and not host.get("VolumesFrom") and not host.get("Links") and not host.get("ContainerIDFile")
@@ -553,7 +554,7 @@ def complete(value: dict) -> None:
 
 
 def accepted_binding(document: dict, digest: str, args: argparse.Namespace, submission: str) -> dict:
-    expected = {"input": args.input, "submissionKey": submission, "providerNo": args.provider,
+    expected = {"input": Path(args.input).as_uri(), "submissionKey": submission, "providerNo": args.provider,
                 "programId": None, "facilityId": None, "sourceNamespace": args.source_namespace,
                 "sourceProfile": args.source_profile, "mergeExisting": False, "dryRun": False,
                 "matchProviderNames": False, "timeshiftDays": 0, "courseId": None, "synthetic": False}
