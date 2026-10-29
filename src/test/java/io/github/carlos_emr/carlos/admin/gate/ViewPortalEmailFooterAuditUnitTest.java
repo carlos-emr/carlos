@@ -77,7 +77,7 @@ class ViewPortalEmailFooterAuditUnitTest {
         request.addParameter("portalFooterDate","2026-10-09");
         var row=new PortalEmailFooterAuditPage.Attempt("01791547200000000000-00000000000000000000000000000001",
                 "mfa",java.time.Instant.parse("2026-10-09T01:00:00Z"),"unknown",
-                java.time.Instant.parse("2026-10-09T01:00:01Z"),"a".repeat(64),"FAKE Saved Old Clinic",null);
+                java.time.Instant.parse("2026-10-09T01:00:01Z"),"a".repeat(64),"FAKE Saved Old Clinic",null,null);
         var history=new PortalEmailFooterAuditPage(LocalDate.of(2026,10,9),List.of(row),null);
         when(audit.read(any(),eq(history.date()),isNull())).thenReturn(history);
         assertThat(action().execute()).isEqualTo("success");
@@ -112,6 +112,22 @@ class ViewPortalEmailFooterAuditUnitTest {
         a.execute();
         assertThat(request.getAttribute("portalFooterAuditEnabled")).isNull();
         verifyNoInteractions(audit);
+    }
+    @Test void shouldShowSkippedReasonLabel_insteadOfFooterText() throws Exception {
+        String jsp=Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/portalFooterAudit.jspf"));
+        int start=jsp.indexOf("<c:when test=\"${not empty attempt.footerSkipped}\">");
+        assertThat(start).isPositive();
+        String skipped=jsp.substring(start,jsp.indexOf("</c:when>",start));
+        String otherwise=jsp.substring(jsp.indexOf("<c:otherwise>",start),jsp.indexOf("</c:otherwise>",start));
+        // A send without the footer shows the localized sentence with the reason's localized label,
+        // encoded, and never a footer or the raw reason.
+        assertThat(skipped).contains(
+                "<fmt:message var=\"portalFooterSkippedReason\" key=\"admin.configureEmail.portalFooter.skippedReason.${attempt.footerSkipped}\"/>",
+                "<fmt:message key=\"admin.configureEmail.portalFooter.skipped\"><fmt:param><carlos:encode value=\"${portalFooterSkippedReason}\"/></fmt:param></fmt:message>")
+                .doesNotContain("<pre","footerText","value=\"${attempt.footerSkipped}\"","escapeXml");
+        // Every other attempt shows its saved footer text, encoded, as before.
+        assertThat(otherwise).contains("<pre class=\"mt-2\" style=\"white-space:pre-wrap;\"><carlos:encode value=\"${attempt.footerText}\"/></pre>");
+        assertThat(org.jsoup.Jsoup.parse(jsp).select("pre")).hasSize(1);
     }
     @Test void shouldUseNativeCollapsedDetails_andEscapedSavedPlaintext() throws Exception {
         String jsp=Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/portalFooterAudit.jspf"));

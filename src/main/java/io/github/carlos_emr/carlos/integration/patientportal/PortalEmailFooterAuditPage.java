@@ -41,6 +41,18 @@ public record PortalEmailFooterAuditPage(LocalDate date, List<Attempt> attempts,
     private static final Set<String> KINDS = Set.of("mfa", "password_reset", "contact_change",
             "email_change_confirmation", "email_change_requested", "booking_prompt", "booking_prompt_update");
     private static final Set<String> STATUSES = Set.of("prepared", "accepted", "failed", "unknown");
+    /**
+     * A sign-in code or password reset the Portal prepared WITHOUT the clinic footer while it could
+     * not get one (carlos-portal #27, Ben's decision D138): the usual fields with revision, footer_text
+     * and logo_sha256 all null, plus footer_skipped naming why. Only these two kinds ever go so; the
+     * outcome (prepared, accepted, failed, unknown) is recorded as for any other attempt.
+     */
+    private static final Set<String> SKIPPED_ATTEMPT_FIELDS = Set.of("attempt_id", "kind", "prepared_at",
+            "status", "status_at", "clinic_id", "revision", "footer_text", "logo_sha256", "footer_skipped");
+    private static final Set<String> SKIPPABLE_KINDS = Set.of("mfa", "password_reset");
+    /** Why the footer was skipped; each has a label (admin.configureEmail.portalFooter.skippedReason.*) in every locale. */
+    static final Set<String> SKIP_REASONS = Set.of("config", "transport", "http_status", "response",
+            "unknown_key", "signature", "claims", "freshness", "content");
 
     public PortalEmailFooterAuditPage {
         attempts = List.copyOf(attempts);
@@ -52,9 +64,12 @@ public record PortalEmailFooterAuditPage(LocalDate date, List<Attempt> attempts,
         return "PortalEmailFooterAuditPage[attemptCount=" + attempts.size() + "]";
     }
 
-    /** Display-only plaintext and truthful outcome; no recipient, body, HTML or logo bytes. */
+    /**
+     * Display-only plaintext and truthful outcome; no recipient, body, HTML or logo bytes. A skipped
+     * attempt has no revision, footer text or logo hash, and {@code footerSkipped} names why.
+     */
     public record Attempt(String attemptId, String kind, Instant preparedAt, String status,
-            Instant statusAt, String revision, String footerText, String logoSha256) {
+            Instant statusAt, String revision, String footerText, String logoSha256, String footerSkipped) {
         public String getAttemptId() { return attemptId; }
         public String getKind() { return kind; }
         public Instant getPreparedAt() { return preparedAt; }
@@ -63,6 +78,7 @@ public record PortalEmailFooterAuditPage(LocalDate date, List<Attempt> attempts,
         public String getRevision() { return revision; }
         public String getFooterText() { return footerText; }
         public String getLogoSha256() { return logoSha256; }
+        public String getFooterSkipped() { return footerSkipped; }
         @Override public String toString() { return "PortalEmailFooterAuditAttempt[status=" + status + "]"; }
     }
 
@@ -79,7 +95,8 @@ public record PortalEmailFooterAuditPage(LocalDate date, List<Attempt> attempts,
         List<Attempt> attempts = new ArrayList<>();
         String previous = before;
         for (JsonNode row : rows) {
-            exactFields(row, ATTEMPT_FIELDS);
+            boolean skipped = row != null && row.isObject() && row.has("footer_skipped");
+            exactFields(row, skipped ? SKIPPED_ATTEMPT_FIELDS : ATTEMPT_FIELDS);
             String id = PortalJson.requiredText(row, "attempt_id");
             if (!validCursor(id) || (previous != null && id.compareTo(previous) >= 0)) throw invalid("attempt_id");
             previous = id;
@@ -94,13 +111,22 @@ public record PortalEmailFooterAuditPage(LocalDate date, List<Attempt> attempts,
             Instant statusAt = statusText == null ? null : timestamp(statusText);
             // These saved wall-clock readings can move backwards after a clock correction.
             // Preserve both; the producer contract promises UTC syntax, not monotonic time.
+            if (skipped) {
+                // Without a footer: nothing of a footer may be claimed, only why there was none.
+                String reason = PortalJson.requiredText(row, "footer_skipped");
+                if (!SKIP_REASONS.contains(reason) || !SKIPPABLE_KINDS.contains(kind)
+                        || !row.get("revision").isNull() || !row.get("footer_text").isNull()
+                        || !row.get("logo_sha256").isNull()) throw invalid("footer_skipped");
+                attempts.add(new Attempt(id, kind, prepared, status, statusAt, null, null, null, reason));
+                continue;
+            }
             String revision = PortalJson.requiredText(row, "revision");
             String logoHash = PortalJson.nullableText(row, "logo_sha256");
             if (!hash(revision) || (logoHash != null && !hash(logoHash))) throw invalid("revision/logo_sha256");
             String text = PortalJson.requiredText(row, "footer_text");
             if (text.length() > 2000 || !EmailFooterHtml.hasVisibleText(text)
                     || malformedUnicode(text)) throw invalid("footer_text");
-            attempts.add(new Attempt(id, kind, prepared, status, statusAt, revision, text, logoHash));
+            attempts.add(new Attempt(id, kind, prepared, status, statusAt, revision, text, logoHash, null));
         }
         String next = PortalJson.nullableText(node, "next_before");
         if (next != null && (attempts.isEmpty() || !validCursor(next)
