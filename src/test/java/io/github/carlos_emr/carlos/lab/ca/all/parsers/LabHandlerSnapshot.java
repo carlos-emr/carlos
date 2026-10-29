@@ -167,7 +167,7 @@ final class LabHandlerSnapshot {
         try {
             Integer value = counter.call();
             return value == null ? 0 : Math.max(0, Math.min(value, max));
-        } catch (Exception e) {
+        } catch (Exception _) {
             return 0;
         }
     }

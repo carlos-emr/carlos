@@ -133,7 +133,7 @@ class HardenedHl7XmlParserUnitTest {
 
     @Test
     @DisplayName("should report a rejection only through the exception when parsing fails")
-    void shouldReportRejectionOnlyThroughException_whenParsingFails() throws Exception {
+    void shouldReportRejectionOnlyThroughException_whenParsingFails() {
         // The platform parser's default error handler prints "[Fatal Error] ..." to standard error,
         // which lands in catalina.out outside the application's logging.
         PrintStream originalErr = System.err;

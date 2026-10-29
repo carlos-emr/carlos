@@ -725,7 +725,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
     public void init(String hl7Body) throws HL7Exception {
         // The body comes from a lab upload and may be pipe or XML encoded. XML is parsed with
         // entity and DTD resolution disabled; HAPI's GenericParser must not be used here (#5414).
-        msg = new UntrustedHl7MessageParser().parse(hl7Body.replaceAll("\n", "\r\n"));
+        msg = new UntrustedHl7MessageParser().parse(hl7Body.replace("\n", "\r\n"));
 
         t = new Terser(msg);
         String msgType = t.get("/MSH-9-1");

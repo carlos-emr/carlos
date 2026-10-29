@@ -87,29 +87,37 @@ final class LegacyHl7PipeParser extends PipeParser {
         String previousName = null;
         int repetition = 1;
         for (int i = 0; i < segments.length; i++) {
-            String segment = segments[i];
-            if (segment != null && !segment.isEmpty() && Character.isWhitespace(segment.charAt(0))) {
-                segment = stripLeadingWhitespace(segment);
-            }
+            String segment = withoutLeadingWhitespace(segments[i]);
             if (segment == null || segment.length() < 3) {
                 continue;
             }
-            String name;
             if (i == 0) {
-                name = segment.substring(0, 3);
                 delimiter = segment.charAt(3);
-            } else {
-                int end = segment.indexOf(delimiter);
-                name = end >= 0 ? segment.substring(0, end) : segment;
             }
-            if (name.equals(previousName)) {
-                repetition++;
-            } else {
-                repetition = 1;
-                previousName = name;
-            }
+            String name = segmentName(segment, i == 0, delimiter);
+            repetition = name.equals(previousName) ? repetition + 1 : 1;
+            previousName = name;
             parse(names.next(name), segment, encodingCharacters, repetition);
         }
+    }
+
+    private static String withoutLeadingWhitespace(String segment) {
+        if (segment != null && !segment.isEmpty() && Character.isWhitespace(segment.charAt(0))) {
+            return stripLeadingWhitespace(segment);
+        }
+        return segment;
+    }
+
+    /**
+     * The first segment (MSH) is named by its first three characters, any other by its text up to
+     * the field delimiter.
+     */
+    private static String segmentName(String segment, boolean first, char delimiter) {
+        if (first) {
+            return segment.substring(0, 3);
+        }
+        int end = segment.indexOf(delimiter);
+        return end >= 0 ? segment.substring(0, end) : segment;
     }
 
     /**

@@ -55,31 +55,10 @@ public final class LegacyHl7Escaping implements Escaping {
     public String escape(String text, EncodingCharacters encodingCharacters) {
         char[] characters = characters(encodingCharacters);
         String[] encodings = encodings(encodingCharacters);
-        int length = text.length();
-        StringBuilder result = new StringBuilder(length);
-        for (int i = 0; i < length; i++) {
-            char c = text.charAt(i);
-            boolean replaced = false;
-            for (int j = 0; j < characters.length; j++) {
-                if (c != characters[j]) {
-                    continue;
-                }
-                if (j == ESCAPE_INDEX && i + 1 < length && text.charAt(i + 1) == '.') {
-                    int closing = text.indexOf(characters[j], i + 1);
-                    if (closing > 0) {
-                        result.append(text, i, closing + 1);
-                        i = closing;
-                        replaced = true;
-                        break;
-                    }
-                }
-                result.append(encodings[j]);
-                replaced = true;
-                break;
-            }
-            if (!replaced) {
-                result.append(c);
-            }
+        StringBuilder result = new StringBuilder(text.length());
+        int i = 0;
+        while (i < text.length()) {
+            i = escapeAt(text, i, characters, encodings, result);
         }
         return result.toString();
     }
@@ -97,41 +76,75 @@ public final class LegacyHl7Escaping implements Escaping {
         }
         char[] characters = characters(encodingCharacters);
         String[] encodings = encodings(encodingCharacters);
-        int length = text.length();
-        StringBuilder result = new StringBuilder(length + 20);
+        StringBuilder result = new StringBuilder(text.length() + 20);
         int i = 0;
-        while (i < length) {
-            char c = text.charAt(i);
-            if (c != escape) {
-                result.append(c);
-                i++;
-                continue;
-            }
-            boolean decoded = false;
-            for (int j = 0; j < encodings.length; j++) {
-                String encoding = encodings[j];
-                if (text.startsWith(encoding, i)) {
-                    result.append(characters[j]);
-                    i += encoding.length();
-                    decoded = true;
-                    break;
-                }
-            }
-            if (decoded) {
-                continue;
-            }
-            if (i + 1 < length && text.charAt(i + 1) == '.') {
-                int closing = text.indexOf(escape, i + 1);
-                if (closing > 0) {
-                    result.append(text, i, closing + 1);
-                    i = closing + 1;
-                    continue;
-                }
-            }
-            // 1.0.1 dropped the escape character of any sequence it did not recognise.
-            i++;
+        while (i < text.length()) {
+            i = unescapeAt(text, i, characters, encodings, result);
         }
         return result.toString();
+    }
+
+    /** Appends the encoded form of the character at {@code i}; returns where the next one starts. */
+    private static int escapeAt(String text, int i, char[] characters, String[] encodings, StringBuilder result) {
+        char c = text.charAt(i);
+        int code = indexOf(characters, c);
+        if (code < 0) {
+            result.append(c);
+            return i + 1;
+        }
+        if (code == ESCAPE_INDEX) {
+            int closing = closingOfFormattingCommand(text, i, c);
+            if (closing > 0) {
+                result.append(text, i, closing + 1);
+                return closing + 1;
+            }
+        }
+        result.append(encodings[code]);
+        return i + 1;
+    }
+
+    /** Appends the decoded form of the text at {@code i}; returns where the next part starts. */
+    private static int unescapeAt(String text, int i, char[] characters, String[] encodings, StringBuilder result) {
+        char escape = characters[ESCAPE_INDEX];
+        char c = text.charAt(i);
+        if (c != escape) {
+            result.append(c);
+            return i + 1;
+        }
+        for (int code = 0; code < encodings.length; code++) {
+            if (text.startsWith(encodings[code], i)) {
+                result.append(characters[code]);
+                return i + encodings[code].length();
+            }
+        }
+        int closing = closingOfFormattingCommand(text, i, escape);
+        if (closing > 0) {
+            result.append(text, i, closing + 1);
+            return closing + 1;
+        }
+        // 1.0.1 dropped the escape character of any sequence it did not recognise.
+        return i + 1;
+    }
+
+    /**
+     * Index of the escape character closing a {@code \.xx\} formatting command that opens at
+     * {@code i}, or -1 when no such command starts there.
+     */
+    private static int closingOfFormattingCommand(String text, int i, char escape) {
+        if (i + 1 < text.length() && text.charAt(i + 1) == '.') {
+            return text.indexOf(escape, i + 1);
+        }
+        return -1;
+    }
+
+    /** The first index of {@code c} in {@code characters}, or -1. */
+    private static int indexOf(char[] characters, char c) {
+        for (int code = 0; code < characters.length; code++) {
+            if (characters[code] == c) {
+                return code;
+            }
+        }
+        return -1;
     }
 
     private static char[] characters(EncodingCharacters encodingCharacters) {

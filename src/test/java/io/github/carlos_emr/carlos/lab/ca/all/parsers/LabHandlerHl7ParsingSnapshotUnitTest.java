@@ -311,7 +311,7 @@ class LabHandlerHl7ParsingSnapshotUnitTest {
                     try {
                         type = Class.forName(handler.getAttributeValue("className"), false,
                                 LabHandlerHl7ParsingSnapshotUnitTest.class.getClassLoader());
-                    } catch (ClassNotFoundException e) {
+                    } catch (ClassNotFoundException _) {
                         // Factory.getHandler falls back to DefaultGenericHandler for these too.
                         continue;
                     }

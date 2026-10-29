@@ -65,6 +65,8 @@ public class HardenedHl7XmlParser extends DefaultXMLParser {
     private static final ErrorHandler REJECTING_ERROR_HANDLER = new ErrorHandler() {
         @Override
         public void warning(SAXParseException exception) {
+            // Deliberately empty: a warning never stops the parse, and printing it would put
+            // parser text on standard error, the very output this handler exists to suppress.
         }
 
         @Override
@@ -117,7 +119,7 @@ public class HardenedHl7XmlParser extends DefaultXMLParser {
             // upload path logs a rejection with its causes, so only the position is kept.
             throw new HL7Exception("HL7 XML message rejected at line " + e.getLineNumber() + ", column "
                     + e.getColumnNumber() + ": it is not well-formed or it declares a DTD or entities");
-        } catch (SAXException | IOException e) {
+        } catch (SAXException | IOException _) {
             throw new HL7Exception("HL7 XML message rejected: it is not well-formed or it declares a DTD or entities");
         }
     }
