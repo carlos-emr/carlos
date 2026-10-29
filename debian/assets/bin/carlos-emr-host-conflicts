@@ -11,16 +11,21 @@
 # safe.
 #
 #   front-door [--report] BIND_IP
-#       Ports 80 and 443 belong to nginx.service. A listener there that
-#       collides with BIND_IP (CARLOS_BIND_IP) and belongs to ANOTHER systemd
-#       service shipped by a Debian package (apache2, lighttpd, haproxy, ...)
-#       is stopped and disabled; it stays installed, so the operator can move
-#       it to other ports and enable it again. An nginx started outside
-#       nginx.service (by hand, from a login session) is told to exit, because
-#       nginx.service can never start beside it. Nothing else is touched:
-#       containers, programs in a login session, units an administrator wrote
-#       under /etc/systemd/system, and container engines, ssh, systemd and
-#       database servers are only named. --report changes nothing.
+#       Ports 80 and 443 belong to nginx.service. Any OTHER system service
+#       listening there on an address that collides with BIND_IP
+#       (CARLOS_BIND_IP) is stopped and disabled, whatever installed it:
+#       a Debian package (apache2, lighttpd, haproxy, caddy, ...), a snap
+#       (Ubuntu Server's installer offers the Nextcloud snap, which serves
+#       80/443), or a unit an administrator wrote. A service that cannot be
+#       disabled (no [Install] section, pulled in by another unit) is masked
+#       instead, or the next boot would start it again and race nginx for the
+#       port. Nothing is uninstalled: the operator can move it to other ports
+#       and enable it again. An nginx started by hand outside nginx.service
+#       is told to exit, because nginx.service can never start beside it.
+#       Never stopped, only named: containers and the container engines
+#       (stopping one stops every container on the host), programs started by
+#       hand, ssh, systemd, dbus, network management, database servers and
+#       CARLOS's own units. --report changes nothing.
 #   mariadb
 #       Why root cannot reach MariaDB over the unix socket: the service is
 #       stopped or failed (and what holds 3306, or its last [ERROR] line), it
@@ -137,14 +142,15 @@ package_of() {
     return 1
 }
 
-# Units that are never stopped from here even when a Debian package ships
-# them: the owner of the port itself, the container engines (stopping one
-# stops every container), the things an administrator needs to reach the host,
-# and database servers.
+# Units that are never stopped from here: the owner of the port itself, the
+# container engines (stopping one stops every container on the host, snap
+# builds included), the things an administrator needs to reach the host, and
+# database servers.
 protected_unit() {
     case "$1" in
         nginx.service | init.scope | user@*.service | session-*.scope) return 0 ;;
-        docker.* | docker-*.scope | containerd.* | podman* | libpod-* | crio.* | lxd* | incus* | snap.*) return 0 ;;
+        docker.* | docker-*.scope | containerd.* | podman* | libpod-* | crio.* | lxd* | incus*) return 0 ;;
+        snap.docker.* | snap.lxd.* | snap.microk8s.* | snap.k8s.* | snap.incus.*) return 0 ;;
         ssh.* | sshd.* | systemd-* | dbus.* | NetworkManager* | cockpit*) return 0 ;;
         carlos-emr*) return 0 ;;
         mariadb.* | mysql.* | mysqld.* | postgresql* | redis* | mongod*) return 0 ;;
@@ -159,6 +165,45 @@ hand_started_unit() {
         session-*.scope | user@*.service) return 0 ;;
     esac
     return 1
+}
+
+# The snap application behind unit $1 (snap.nextcloud.apache.service ->
+# nextcloud.apache), or nothing for a unit snapd does not manage.
+snap_app() {
+    case "$1" in
+        snap.*.service) ;;
+        *) return 1 ;;
+    esac
+    app="${1#snap.}"
+    printf '%s\n' "${app%.service}"
+}
+
+# Where unit $1 comes from, for the operator: "package apache2", or its unit
+# file when no package ships it.
+origin_of() {
+    if pkg="$(package_of "$1")"; then
+        printf 'package %s\n' "${pkg}"
+        return
+    fi
+    file="$(systemctl show --property=FragmentPath --value "$1" 2>/dev/null)"
+    printf 'unit file %s\n' "${file:-unknown}"
+}
+
+# Stop service $1 for good (and any units $2.. a socket activates). Prints
+# how it was kept off: "disabled", or "masked" for a unit that cannot be
+# disabled (static, generated, or pulled in by another unit), which would
+# otherwise start again at the next boot and race nginx for the port.
+stop_unit() {
+    systemctl disable --now "$@" >/dev/null 2>&1 || systemctl stop "$@" >/dev/null 2>&1 || return 1
+    case "$(systemctl is-enabled "$1" 2>/dev/null)" in
+        disabled | masked) say disabled ;;
+        *)
+            if systemctl mask "$@" >/dev/null 2>&1; then
+                say masked
+            else
+                say enabled
+            fi ;;
+    esac
 }
 
 # Advice for a listener left in place: $1 name, $2 unit (may be empty).
@@ -284,7 +329,16 @@ front_door() {
             esac
             protected_unit "${unit}" && continue
             case "${stopped_units}" in *" ${unit} "*) continue ;; esac
-            pkg="$(package_of "${unit}")" || continue
+            if app="$(snap_app "${unit}")" && command -v snap >/dev/null 2>&1; then
+                # snapd owns its units: `systemctl disable` would be undone by
+                # the next refresh, `snap stop --disable` is not.
+                snap stop --disable "${app}" >/dev/null 2>&1 || continue
+                stopped_units="${stopped_units}${unit} "
+                acted=1
+                say "stopped: the ${app%%.*} snap's ${app} service was listening on ${addrs}, which the CARLOS front door needs; it is stopped and disabled but still installed (to use it again, move it to other ports, then: sudo snap start --enable ${app})"
+                continue
+            fi
+            origin="$(origin_of "${unit}")"
             # A socket-activated service: stop the socket that holds the port
             # and the service it starts, or the next connection restarts it.
             also=""
@@ -292,11 +346,17 @@ front_door() {
                 also="$(systemctl show --property=Triggers --value "${unit}" 2>/dev/null)"
             fi
             # shellcheck disable=SC2086 # $also is a list of unit names
-            if systemctl disable --now "${unit}" ${also} >/dev/null 2>&1; then
-                stopped_units="${stopped_units}${unit} "
-                acted=1
-                say "stopped: ${unit} (package ${pkg}) was listening on ${addrs}, which the CARLOS front door needs; it is stopped and disabled but still installed (to use it again, move it to other ports, then: sudo systemctl enable --now ${unit})"
-            fi
+            kept_off="$(stop_unit "${unit}" ${also})" || continue
+            stopped_units="${stopped_units}${unit} "
+            acted=1
+            case "${kept_off}" in
+                disabled)
+                    say "stopped: ${unit} (${origin}) was listening on ${addrs}, which the CARLOS front door needs; it is stopped and disabled but still installed (to use it again, move it to other ports, then: sudo systemctl enable --now ${unit})" ;;
+                masked)
+                    say "stopped: ${unit} (${origin}) was listening on ${addrs}, which the CARLOS front door needs; it cannot be disabled, so it is stopped and masked (to use it again, move it to other ports, then: sudo systemctl unmask ${unit} && sudo systemctl start ${unit})" ;;
+                *)
+                    say "stopped: ${unit} (${origin}) was listening on ${addrs}, which the CARLOS front door needs; it is stopped, but could not be disabled or masked and may take the port again at the next boot (keep it off: sudo systemctl mask ${unit})" ;;
+            esac
         done <<EOF
 $(printf '%s\n' "${found}" | grouped)
 EOF
@@ -315,14 +375,7 @@ EOF
 
     while read -r name pid unit addrs; do
         [ "${unit}" != - ] || unit=""
-        line="$(describe "${name}" "${pid}" "${unit}" "${addrs}")"
-        if [ -n "${unit}" ] && [ "${report}" = 0 ] && ! protected_unit "${unit}" &&
-            case "${unit}" in *.service | *.socket) true ;; *) false ;; esac &&
-            ! package_of "${unit}" >/dev/null; then
-            say "blocked: ${line}, so nginx cannot serve the CARLOS front door; ${unit} is not from a Debian package, so the installer left it alone: $(advice "${name}" "${unit}")"
-        else
-            say "blocked: ${line}, so nginx cannot serve the CARLOS front door; $(advice "${name}" "${unit}")"
-        fi
+        say "blocked: $(describe "${name}" "${pid}" "${unit}" "${addrs}"), so nginx cannot serve the CARLOS front door; $(advice "${name}" "${unit}")"
     done <<EOF
 $(printf '%s\n' "${found}" | grouped)
 EOF

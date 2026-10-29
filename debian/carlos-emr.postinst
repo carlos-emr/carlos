@@ -1500,16 +1500,22 @@ OAUTH_ACCESS_DEFAULTS
         # another web server holds them. A beta2 fresh install on an Ubuntu
         # 26.04 VM met exactly that — another program on 0.0.0.0:80, the
         # distribution's nginx failing in its own postinst, and nothing in
-        # this one saying what held the port. Another Debian package's
-        # service holding them (apache2, lighttpd, ...) is stopped and
-        # disabled; anything else (a container, a program started by hand) is
-        # only named, and the nginx step below records it. On a host whose
-        # front door already works this finds nothing and does nothing.
+        # this one saying what held the port. Any other system service
+        # holding them is stopped and disabled (masked if it cannot be
+        # disabled), whatever installed it: a Debian package (apache2,
+        # lighttpd, ...), a snap the OS installer offered (Nextcloud), or an
+        # administrator's own unit. Containers, container engines, programs
+        # started by hand and database servers are only named, and the nginx
+        # step below records them. On a host whose front door already works
+        # this finds nothing and does nothing.
         FRONT_DOOR_FREED=""
         if [ -d /run/systemd/system ]; then
             FRONT_DOOR_FREED="$(host_conflicts front-door "$(configured_bind_ip)" | sed -n 's/^stopped: //p')"
             if [ -n "${FRONT_DOOR_FREED}" ]; then
                 printf '%s\n' "${FRONT_DOOR_FREED}" | sed 's/^/carlos-emr: /' >&2
+                # nginx's own postinst ran first and printed a red failure for
+                # this same conflict; say that it is handled, not a new fault.
+                echo "carlos-emr: an earlier 'Failed to start' or 'Address already in use' from nginx's own setup was this conflict; nginx is started below." >&2
             fi
         fi
         [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1

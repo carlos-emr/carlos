@@ -49,6 +49,14 @@ def save():
 def proc(pid):
     return st.get("procs", {}).get(str(pid), {})
 
+def stop(units):
+    dead = {p for p, info in st.get("procs", {}).items() if info.get("unit") in units}
+    for l in st["listeners"]:
+        l["owners"] = [o for o in l.get("owners", []) if str(o["pid"]) not in dead
+                       and not (o["pid"] == 1 and l.get("socket") in units)]
+    st["listeners"] = [l for l in st["listeners"] if l["owners"]]
+    save()
+
 if cmd == "ss":
     if st.get("ss_fails"):
         sys.exit(1)
@@ -64,17 +72,23 @@ if cmd == "ss":
 elif cmd == "ps":
     field = args[args.index("-o") + 1].rstrip("=")
     print(proc(args[args.index("-p") + 1]).get(field, "-" if field == "unit" else ""))
+elif cmd == "snap":
+    if args[:2] == ["stop", "--disable"]:
+        stop(["snap.%s.service" % args[2]])
 elif cmd == "systemctl":
-    if args[0] == "disable":
+    if args[0] in ("disable", "stop"):
         units = [a for a in args[1:] if not a.startswith("-")]
         if any(st.get("units", {}).get(u, {}).get("stop_fails") for u in units):
             sys.exit(1)
-        dead = {p for p, info in st.get("procs", {}).items() if info.get("unit") in units}
-        for l in st["listeners"]:
-            l["owners"] = [o for o in l.get("owners", []) if str(o["pid"]) not in dead
-                           and not (o["pid"] == 1 and l.get("socket") in units)]
-        st["listeners"] = [l for l in st["listeners"] if l["owners"] or l.get("ownerless")]
-        save()
+        if args[0] == "disable" and any(st.get("units", {}).get(u, {}).get("disable_fails")
+                                        for u in units):
+            sys.exit(1)
+        stop(units)
+    elif args[0] == "is-enabled":
+        print(st.get("units", {}).get(args[-1], {}).get("enabled_after", "disabled"))
+    elif args[0] == "mask":
+        if any(st.get("units", {}).get(u, {}).get("mask_fails") for u in args[1:]):
+            sys.exit(1)
     elif args[0] == "show":
         prop = args[1].split("=", 1)[1]
         print(st.get("units", {}).get(args[-1], {}).get(prop, ""))
@@ -113,7 +127,7 @@ elif cmd == "sleep":
 '''
 
 STUBBED = ("ss", "ps", "systemctl", "dpkg-query", "kill", "journalctl",
-           "timeout", "mariadb", "sleep")
+           "timeout", "mariadb", "sleep", "snap")
 
 APACHE_UNIT = {"FragmentPath": "/usr/lib/systemd/system/apache2.service"}
 APACHE_DPKG = {"/usr/lib/systemd/system/apache2.service": "apache2"}
@@ -155,7 +169,8 @@ class HostConflictsCase(unittest.TestCase):
             return fh.read().splitlines()
 
     def stops(self):
-        return [c for c in self.calls() if c.startswith(("systemctl disable", "kill "))]
+        return [c for c in self.calls() if c.startswith(
+            ("systemctl disable", "systemctl stop", "systemctl mask", "kill ", "snap stop"))]
 
 
 class TestFrontDoor(HostConflictsCase):
@@ -207,16 +222,76 @@ class TestFrontDoor(HostConflictsCase):
         self.assertEqual(self.stops(), [])
         self.assertIn("a Docker container publishes this port", r.stdout)
 
-    def test_administrator_written_unit_is_left_alone(self):
+    def test_service_no_package_ships_is_stopped_too(self):
+        # Whatever installed it, a system service on 80/443 keeps nginx down.
         r = self.run_script({
             "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "myweb", "pid": 500}]}],
             "procs": {"500": {"unit": "myweb.service"}},
             "units": {"myweb.service": {"FragmentPath": "/etc/systemd/system/myweb.service"}},
         }, "front-door", "0.0.0.0")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertEqual(self.stops(), ["systemctl disable --now myweb.service"])
+        self.assertIn("stopped: myweb.service (unit file /etc/systemd/system/myweb.service)",
+                      r.stdout)
+
+    def test_snap_service_is_stopped_through_snapd(self):
+        # Ubuntu Server's installer offers the Nextcloud snap, which serves
+        # 80/443. systemctl disable would be undone by the next snap refresh.
+        r = self.run_script({
+            "listeners": [{"addr": "*:80", "owners": [{"name": "httpd", "pid": 800}]},
+                          {"addr": "*:443", "owners": [{"name": "httpd", "pid": 800}]}],
+            "procs": {"800": {"unit": "snap.nextcloud.apache.service"}},
+        }, "front-door", "0.0.0.0")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.stops(), ["snap stop --disable nextcloud.apache"])
+        self.assertIn("stopped: the nextcloud snap's nextcloud.apache service was listening "
+                      "on *:80, *:443", r.stdout)
+        self.assertIn("sudo snap start --enable nextcloud.apache", r.stdout)
+
+    def test_container_engine_snap_is_never_stopped(self):
+        r = self.run_script({
+            "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "docker-proxy", "pid": 810}]}],
+            "procs": {"810": {"unit": "snap.docker.dockerd.service"}},
+        }, "front-door", "0.0.0.0")
         self.assertEqual(r.returncode, 1)
         self.assertEqual(self.stops(), [])
-        self.assertIn("myweb.service is not from a Debian package, so the installer left it alone",
-                      r.stdout)
+        self.assertIn("Docker container", r.stdout)
+
+    def test_service_that_cannot_be_disabled_is_masked(self):
+        # A static unit has no [Install] section: disable leaves it able to
+        # start at the next boot and take port 80 back from nginx.
+        r = self.run_script({
+            "listeners": [apache("*:80")],
+            "procs": {"100": {"unit": "apache2.service"}},
+            "units": {"apache2.service": dict(APACHE_UNIT, enabled_after="static")},
+            "dpkg": APACHE_DPKG,
+        }, "front-door", "0.0.0.0")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service",
+                                        "systemctl mask apache2.service"])
+        self.assertIn("it cannot be disabled, so it is stopped and masked", r.stdout)
+        self.assertIn("sudo systemctl unmask apache2.service", r.stdout)
+
+    def test_unit_whose_disable_fails_is_still_stopped(self):
+        r = self.run_script({
+            "listeners": [apache("*:80")],
+            "procs": {"100": {"unit": "apache2.service"}},
+            "units": {"apache2.service": dict(APACHE_UNIT, disable_fails=True,
+                                              enabled_after="enabled", mask_fails=True)},
+            "dpkg": APACHE_DPKG,
+        }, "front-door", "0.0.0.0")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertIn("systemctl stop apache2.service", self.stops())
+        self.assertIn("could not be disabled or masked and may take the port again", r.stdout)
+
+    def test_protected_unit_is_named_with_move_advice(self):
+        r = self.run_script({
+            "listeners": [{"addr": "0.0.0.0:443", "owners": [{"name": "mariadbd", "pid": 900}]}],
+            "procs": {"900": {"unit": "mariadb.service"}},
+        }, "front-door", "0.0.0.0")
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(self.stops(), [])
+        self.assertIn("the installer never stops mariadb.service; move it to other ports", r.stdout)
 
     def test_listener_on_another_address_does_not_collide_with_a_lan_bind(self):
         r = self.run_script({

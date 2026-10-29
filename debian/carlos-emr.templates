@@ -173,9 +173,10 @@ Type: note
 Description: Another web server was stopped to free ports 80 and 443
  CARLOS EMR serves clinicians through nginx on ports 80 and 443, and another
  service on this host was already using them, so nginx could not start. The
- installer stopped and disabled it:
+ installer stopped it and kept it from starting again at boot:
  .
  ${services}
  .
  It is still installed, with its configuration untouched. To use it again,
- move it to other ports first, then enable it with the command shown above.
+ move it to other ports first, then bring it back with the command shown
+ above.
