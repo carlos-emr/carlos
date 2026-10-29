@@ -117,7 +117,7 @@ final class EntityIdentifierPaths {
         if (idType != null) {
             try {
                 return type.getId(idType.getJavaType());
-            } catch (IllegalArgumentException typeMismatch) {
+            } catch (IllegalArgumentException _) {
                 // Some providers report a primitive id through its wrapper type and then reject that
                 // wrapper in getId(Class); fall back to the attribute flagged as the id.
             }

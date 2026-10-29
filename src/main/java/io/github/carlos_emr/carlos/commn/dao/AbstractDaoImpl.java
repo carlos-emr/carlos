@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.annotation.Nonnull;
 import jakarta.persistence.EntityManager;
@@ -84,8 +85,8 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
 
     protected Class<T> modelClass;
 
-    /** Identifier attribute paths of {@link #modelClass}, resolved from the metamodel on first use. */
-    private volatile List<String> identifierPaths;
+    /** Identifier attribute paths of {@link #modelClass} (an immutable list), resolved from the metamodel on first use. */
+    private final AtomicReference<List<String>> identifierPaths = new AtomicReference<>();
 
     @PersistenceContext(unitName = "entityManagerFactory")
     protected EntityManager entityManager = null;
@@ -548,7 +549,7 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
     protected final String getIdentifierOrder(String alias) {
         StringBuilder order = new StringBuilder();
         for (String path : getIdentifierPaths()) {
-            if (order.length() > 0) {
+            if (!order.isEmpty()) {
                 order.append(", ");
             }
             order.append(alias).append('.').append(path).append(" ASC");
@@ -557,12 +558,12 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
     }
 
     private List<String> getIdentifierPaths() {
-        List<String> paths = identifierPaths;
+        List<String> paths = identifierPaths.get();
         if (paths == null) {
             // Benign race: concurrent first calls resolve the same immutable list from the
             // metamodel, which does not change after the persistence unit has started.
             paths = EntityIdentifierPaths.resolve(entityManager.getMetamodel(), modelClass);
-            identifierPaths = paths;
+            identifierPaths.compareAndSet(null, paths);
         }
         return paths;
     }
