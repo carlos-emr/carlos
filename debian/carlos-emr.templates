@@ -147,12 +147,15 @@ Description: CARLOS EMR is installed
 Template: carlos-emr/install-incomplete
 Type: error
 Description: CARLOS EMR is installed but is NOT ready to use
- The package could not finish all requested database provisioning steps.
- The schema, administrator credential, database settings or requested demo data
- may be incomplete. The EMR and prescribing lookups may be unavailable.
+ The package could not finish every installation step. The schema,
+ administrator credential, database settings, requested demo data or the
+ nginx front door may be incomplete. The EMR and prescribing lookups may be
+ unavailable.
  .
- Read the installation output for the failed step. When the filesystem is
- writable, it is also recorded in /var/lib/carlos-emr/.install-incomplete.
+ What failed: ${reasons}
+ .
+ The same is recorded in /var/lib/carlos-emr/.install-incomplete when the
+ filesystem is writable, and the installation output has the detail.
  Existing data is preserved; do not delete databases to retry this repair.
  .
  Fix the reported cause, then finish the install with:
@@ -164,3 +167,15 @@ Description: CARLOS EMR is installed but is NOT ready to use
  keeps the install pending. Boot retries require the marker and never migrate
  a populated schema that fails validation. Check the result with
  "sudo carlos-ctl check"; follow any separate DrugRef recovery instructions.
+
+Template: carlos-emr/stopped-port-conflicts
+Type: note
+Description: Another web server was stopped to free ports 80 and 443
+ CARLOS EMR serves clinicians through nginx on ports 80 and 443, and another
+ service on this host was already using them, so nginx could not start. The
+ installer stopped and disabled it:
+ .
+ ${services}
+ .
+ It is still installed, with its configuration untouched. To use it again,
+ move it to other ports first, then enable it with the command shown above.

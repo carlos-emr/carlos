@@ -493,6 +493,24 @@ Administrative access is root@localhost over the unix socket, which on Ubuntu
 authenticates by uid. That is why this package never asks for, and never
 stores, a MariaDB root password.
 
+MariaDB root access. A MariaDB set up before this package (an earlier MariaDB
+or MySQL install, another application's installer) may have given
+root@localhost a password and no unix-socket login. The install then reports
+that root@localhost "refuses the system root user over the unix socket" and
+provisions nothing. Add socket login for root and keep the password: log in
+with that password,
+
+    sudo mariadb -u root -p
+
+and run, with the CURRENT root password in place of the placeholder,
+
+    ALTER USER root@localhost IDENTIFIED VIA unix_socket
+        OR mysql_native_password USING PASSWORD('current-root-password');
+
+`sudo mariadb -e 'SELECT 1'` now answers without a password. Then:
+
+    sudo carlos-ctl finish-install
+
 The schema is managed with Flyway. The application boots with
 `carlos.flyway.onBoot=validate`, so it refuses to start against a schema it was
 not built for rather than failing later with a column-not-found error in the
@@ -1027,6 +1045,34 @@ eForm print, fax or archive fails
   The render browser ships inside carlos-emr. Only a development build made
   with SKIP_EFORM_RENDERER lacks it; the application then says so once at
   startup rather than failing a print later.
+
+nginx will not start: port 80 or 443 is already in use
+  The nginx journal says "bind() to 0.0.0.0:80 failed (98: Address already in
+  use)": another program held the front-door ports when nginx started. Each
+  configure stops and disables another Debian package's web server holding
+  them (apache2, lighttpd, haproxy, ...), shows a note naming it and leaves it
+  installed; once it is moved to other ports,
+  `sudo systemctl enable --now <unit>` brings it back. Anything else is named
+  but left alone: a container, a program started by hand, a unit written under
+  /etc/systemd/system, container engines, ssh and database servers. To see
+  what holds the ports (as root: without sudo the owner column is blank):
+
+      sudo /usr/lib/carlos-emr/carlos-emr-host-conflicts front-door --report 0.0.0.0
+      sudo ss -ltnp '( sport = :80 or sport = :443 )'
+
+  Use CARLOS_BIND_IP from /etc/carlos-emr/carlos-emr.env in place of 0.0.0.0.
+  Stop what it names, then: sudo carlos-ctl finish-install
+
+MariaDB is not reachable as root
+  The install names the cause on the line after "could not reach MariaDB as
+  root over the unix socket", and in /var/lib/carlos-emr/.install-incomplete:
+  the service is stopped or failed (with what holds port 3306, or its last
+  [ERROR] line), it was still starting, or root@localhost has a password (see
+  "MariaDB root access" under section 6). To ask again:
+
+      sudo /usr/lib/carlos-emr/carlos-emr-host-conflicts mariadb
+
+  Fix the cause, then: sudo carlos-ctl finish-install
 
 The application will not start
   Almost always the schema gate or the database. `carlos-ctl db-info` shows the

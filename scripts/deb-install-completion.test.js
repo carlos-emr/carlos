@@ -385,7 +385,10 @@ test('postinst records terminal nginx failures and accepts a successful rebind',
   const end = postinst.indexOf('\n        ;;', start);
   assert.ok(end > start);
   const block = postinst.slice(start, end).replaceAll('/run/systemd/system', '/tmp');
-  for (const [syntax, reload, restart, bound, incomplete] of [
+  // `active` 0: nginx is running and is reloaded. 1: it is down (its own
+  // postinst could not bind port 80 on a beta2 fresh install) and is STARTED,
+  // because systemd refuses to reload a unit that is not running.
+  for (const active of [0, 1]) for (const [syntax, reload, restart, bound, incomplete] of [
     [1, 0, 0, 0, true], [0, 1, 0, 0, true],
     [0, 0, 1, 1, true], [0, 0, 0, 1, true],
     [0, 0, 0, 0, false], [0, 0, 0, 2, false],
@@ -393,24 +396,37 @@ test('postinst records terminal nginx failures and accepts a successful rebind',
   ]) {
     const script = `set -eu
 nginx() { return ${syntax}; }
-sd_invoke() { echo "service:$1"; if [ "$1" = reload ]; then return ${reload}; else return ${restart}; fi; }
+systemctl() { [ "$1" = is-active ] || return 1; return ${active}; }
+sd_invoke() { echo "service:$1"; if [ "$1" = reload ] || [ "$1" = start ]; then return ${reload}; else return ${restart}; fi; }
 calls=0
 front_door_listening() { calls=$((calls + 1)); if [ ${bound} = 2 ]; then [ "$calls" -gt 1 ]; elif [ ${bound} = 3 ]; then return 2; elif [ ${bound} = 4 ]; then if [ "$calls" -gt 1 ]; then return 2; else return 1; fi; else return ${bound}; fi; }
-mark_incomplete() { echo "incomplete:$1"; }
+front_door_blockers() { echo "apache2 (pid 9, apache2.service) is listening on *:80"; }
+mark_incomplete() { echo "incomplete:$1|\${2:-}"; }
 ${block}
 `;
     const result = spawnSync('sh', ['-c', script], { encoding: 'utf8' });
+    const context = JSON.stringify({ active, syntax, reload, restart, bound, result });
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.includes('incomplete:'), incomplete, JSON.stringify({ syntax, reload, restart, bound, result }));
+    assert.equal(result.stdout.includes('incomplete:'), incomplete, context);
+    if (!syntax) {
+      assert.ok(result.stdout.includes(active ? 'service:start' : 'service:reload'), context);
+      assert.ok(!result.stdout.includes(active ? 'service:reload' : 'service:start'), context);
+    }
     if (syntax || reload) assert.ok(!result.stdout.includes('service:restart'));
     if (bound === 2 || bound === 4) assert.ok(result.stdout.includes('service:restart'));
     if (bound === 3) assert.ok(!result.stdout.includes('service:restart'));
     if (bound === 3 || bound === 4) assert.match(result.stdout, /probe error/);
+    // A failed start, reload, restart or bind names what holds the ports in
+    // the recorded reason, not only "see journalctl".
+    if (!syntax && (reload || restart || bound === 1)) {
+      assert.match(result.stdout, /incomplete:[^|]*\|apache2 \(pid 9, apache2\.service\)/, context);
+    }
   }
 });
 
 test('postinst listener proof requires nginx ownership, both ports and the last configured address', () => {
-  const fn = postinst.match(/front_door_listening\(\) \{[\s\S]*?\n\}/)[0];
+  const fn = postinst.match(/configured_bind_ip\(\) \{[\s\S]*?\n\}/)[0] + '\n'
+    + postinst.match(/front_door_listening\(\) \{[\s\S]*?\n\}/)[0];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-listeners-'));
   try {
     const envFile = path.join(root, 'env');

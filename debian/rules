@@ -314,6 +314,10 @@ override_dh_auto_install:
 	# The OSCAR 19 import-in-progress predicate, consulted by the unit's
 	# ExecCondition= and by the postinst (see the file's header).
 	install -m 0755 debian/assets/bin/carlos-emr-o19-guard $(STAGE)/$(LIBDIR)/carlos-emr-o19-guard
+	# Names (and, for another packaged web server, stops) what holds the
+	# front-door ports or keeps MariaDB from answering root; the postinst runs
+	# it on configure (see the file's header).
+	install -m 0755 debian/assets/bin/carlos-emr-host-conflicts $(STAGE)/$(LIBDIR)/carlos-emr-host-conflicts
 	# The OSCAR 19 import manifests, generated from THIS tree's schema by
 	# scripts/migration/o19/generate_manifests.py and read by carlos-ctl's
 	# importer at run time (its loader checks the "format" every file
