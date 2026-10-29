@@ -33,9 +33,11 @@ import io.github.carlos_emr.carlos.commn.dao.CdsImportRunDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportUnitDao;
 import io.github.carlos_emr.carlos.commn.model.CdsImportRun;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
 import io.github.carlos_emr.carlos.demographic.cdsimport.cli.CdsCliSpringConfiguration;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -50,6 +52,7 @@ import java.sql.PreparedStatement;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.hibernate.SessionFactory;
 import org.hibernate.resource.jdbc.spi.StatementInspector;
 import org.junit.jupiter.api.AfterEach;
@@ -351,46 +354,8 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
         BindingStatementProbe probe=new BindingStatementProbe();
         Path metadata=Files.createTempFile("cds-binding-prefetch-", ".json");
         Files.writeString(metadata, "private bounded metadata fixture");
-        try (AnnotationConfigApplicationContext context=new AnnotationConfigApplicationContext()) {
-            context.register(PrefetchJpaConfiguration.class);
-            // This test owns the configured pool; closing the small JPA context must not close it.
-            context.registerBean("dataSource", OscarTrackingBasicDataSource.class, ()-> source,
-                    definition-> definition.setDestroyMethodName(""));
-            context.registerBean("entityManagerFactory", LocalContainerEntityManagerFactoryBean.class, ()-> {
-                var factory=new LocalContainerEntityManagerFactoryBean();
-                factory.setPersistenceUnitName("entityManagerFactory");
-                factory.setDataSource(new DelegatingDataSource(source) {
-                    @Override public Connection getConnection() throws java.sql.SQLException {
-                        return probe.observe(super.getConnection());
-                    }
-                    @Override public Connection getConnection(String username, String password) throws java.sql.SQLException {
-                        return probe.observe(super.getConnection(username, password));
-                    }
-                });
-                factory.setManagedTypes(PersistenceManagedTypes.of(CdsImportRun.class.getName(),
-                        io.github.carlos_emr.carlos.commn.model.CdsImportPatient.class.getName(),
-                        io.github.carlos_emr.carlos.commn.model.CdsImportUnit.class.getName(),
-                        io.github.carlos_emr.carlos.commn.model.CdsImportDiagnostic.class.getName()));
-                factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-                var settings=new HashMap<String, Object>();
-                settings.put("hibernate.hbm2ddl.auto", "none");
-                settings.put("hibernate.dialect", "org.hibernate.dialect.MariaDBDialect");
-                settings.put("hibernate.generate_statistics", "true");
-                settings.put("hibernate.cache.use_second_level_cache", "false");
-                settings.put("hibernate.cache.use_query_cache", "false");
-                settings.put("hibernate.jdbc.time_zone", "UTC");
-                settings.put("hibernate.session_factory.statement_inspector", probe);
-                factory.setJpaPropertyMap(settings); return factory;
-            });
-            context.registerBean("transactionManager", PlatformTransactionManager.class,
-                    ()-> new JpaTransactionManager(context.getBean(EntityManagerFactory.class)));
-            context.registerBean("persistenceAnnotationBeanPostProcessor", PersistenceAnnotationBeanPostProcessor.class);
-            context.register(CdsImportRunDao.class, CdsImportPatientDao.class, CdsImportUnitDao.class,
-                    CdsImportDependencyDao.class, CdsImportLineageDao.class, CdsImportCheckpointDao.class,
-                    CdsImportDiagnosticDao.class, CdsImportAdmissionDao.class, CdsImportEventDao.class,
-                    CdsImportIdentityDao.class, CdsImportLedgerService.class);
-            context.refresh();
-            var factory=context.getBean(EntityManagerFactory.class); probe.factory=factory;
+        try (AnnotationConfigApplicationContext context=realJpaContext(probe)) {
+            var factory=context.getBean(EntityManagerFactory.class);
             var dao=context.getBean(CdsImportRunDao.class);
             var ledger=context.getBean(CdsImportLedgerService.class);
             var manager=context.getBean(PlatformTransactionManager.class);
@@ -552,6 +517,153 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
         } finally {Files.deleteIfExists(metadata); }
     }
 
+    @Test void shouldKeepCompositeStatusCoherent_whenReportDeliveryCommitsBetweenAuthorizationAndAggregates() throws Exception {
+        source.enableCdsMetadataGuard();
+        update("UPDATE cds_import_run SET state='INCOMPLETE',report_generation=1,report_state='PENDING',cleanup_state='PENDING' WHERE id=?", run);
+        BindingStatementProbe probe=new BindingStatementProbe();
+        try (AnnotationConfigApplicationContext context=realJpaContext(probe)) {
+            var factory=context.getBean(EntityManagerFactory.class);
+            var ledger=context.getBean(CdsImportLedgerService.class);
+            var manager=context.getBean(PlatformTransactionManager.class);
+            var statistics=factory.unwrap(SessionFactory.class).getStatistics();
+            var viewer=org.mockito.Mockito.mock(LoggedInInfo.class);
+            var access=org.mockito.Mockito.mock(CdsImportAccessService.class);
+            var reviews=org.mockito.Mockito.mock(CdsImportReviewService.class);
+            var observations=new CdsImportObservationService(ledger, reviews, access, manager);
+            AtomicInteger authorizations=new AtomicInteger();
+            org.mockito.Mockito.when(reviews.summaryInReadTransaction(run)).thenAnswer(call -> {
+                assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                assertThat(authorizations.get()).isBetween(1, 2);
+                return java.util.Map.of();
+            });
+            org.mockito.Mockito.doAnswer(call -> {
+                var job=call.getArgument(1, CdsImportJobDto.class);
+                int attempt=authorizations.incrementAndGet();
+                assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                assertThat(TransactionSynchronizationManager.isCurrentTransactionReadOnly()).isTrue();
+                assertThat(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel())
+                        .isEqualTo(Connection.TRANSACTION_REPEATABLE_READ);
+                assertThat(statistics.getPrepareStatementCount())
+                        .as("Authorization precedes every aggregate; only the current run row has been read").isEqualTo(1);
+                var holder=(EntityManagerHolder) TransactionSynchronizationManager.getResource(factory);
+                assertThat(holder).isNotNull();
+                holder.getEntityManager().unwrap(org.hibernate.Session.class).doWork(connection -> {
+                    assertThat(connection.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_REPEATABLE_READ);
+                    assertThat(isolation(connection)).isEqualTo("REPEATABLE-READ");
+                    assertThat(connection.getAutoCommit()).isFalse();
+                    assertThat(scalar(connection, "SELECT CONNECTION_ID()"))
+                            .as("The committed writer uses a separate physical connection").isNotEqualTo(scalar(observer, "SELECT CONNECTION_ID()"));
+                    if (attempt==1) {
+                        assertThat(job.reportGeneration()).isEqualTo(1);
+                        assertThat(job.cancelRequested()).isFalse();
+                        assertThat(reportGeneration(connection)).isEqualTo(1);
+                        assertThat(observer.getAutoCommit()).isTrue();
+                        update("UPDATE cds_import_run SET report_generation=2,report_state='DELIVERED',cleanup_state='COMPLETE',cancel_requested=1 WHERE id=?", run);
+                        assertThat(reportGeneration(observer)).as("The external delivery really committed").isEqualTo(2);
+                        assertThat(reportGeneration(connection))
+                                .as("A fresh JDBC SELECT, not the first-level entity cache, retains this read's snapshot").isEqualTo(1);
+                        assertThat(cancelRequested(connection)).isZero();
+                    } else {
+                        assertThat(attempt).isEqualTo(2);
+                        assertThat(job.reportGeneration()).isEqualTo(2);
+                        assertThat(job.cancelRequested()).isTrue();
+                        assertThat(reportGeneration(connection)).isEqualTo(2);
+                        assertThat(cancelRequested(connection)).isEqualTo(1);
+                    }
+                });
+                return null;
+            }).when(access).requireView(org.mockito.ArgumentMatchers.same(viewer), org.mockito.ArgumentMatchers.any(CdsImportJobDto.class));
+
+            probe.expectedActualTransaction=true;
+            statistics.clear();
+            var before=observations.status(viewer, run);
+            assertThat(before.job().reportGeneration()).isEqualTo(1);
+            assertThat(before.job().cancelRequested()).isFalse();
+            assertThat(before.summary()).containsEntry("state", "INCOMPLETE")
+                    .containsEntry("reportState", "PENDING").containsEntry("reportsDelivered", false)
+                    .containsEntry("cleanupState", "PENDING").containsEntry("operationTerminal", false)
+                    .containsEntry("resumeRequested", false).containsEntry("cleanComplete", false);
+            assertBindingResourcesRetired(factory, probe);
+            assertReadCommittedPoolBaseline();
+
+            statistics.clear();
+            var after=observations.status(viewer, run);
+            assertThat(after.job().reportGeneration()).isEqualTo(2);
+            assertThat(after.job().cancelRequested()).isTrue();
+            assertThat(after.summary()).containsEntry("state", "INCOMPLETE")
+                    .containsEntry("reportState", "DELIVERED").containsEntry("reportsDelivered", true)
+                    .containsEntry("cleanupState", "COMPLETE").containsEntry("cleanupComplete", true)
+                    .containsEntry("operationTerminal", true).containsEntry("resumeRequested", false)
+                    .containsEntry("clinicalComplete", false).containsEntry("cleanComplete", false);
+            assertThat(before.job().reportGeneration()).as("The earlier protected DTO remains immutable").isEqualTo(1);
+            assertThat(before.summary()).containsEntry("reportsDelivered", false).containsEntry("operationTerminal", false);
+            assertThat(authorizations).hasValue(2);
+            org.mockito.Mockito.verify(access, org.mockito.Mockito.times(2))
+                    .requireView(org.mockito.ArgumentMatchers.same(viewer), org.mockito.ArgumentMatchers.any(CdsImportJobDto.class));
+            org.mockito.Mockito.verify(reviews, org.mockito.Mockito.times(2)).summaryInReadTransaction(run);
+            assertBindingResourcesRetired(factory, probe);
+            assertReadCommittedPoolBaseline();
+        }
+    }
+
+    private AnnotationConfigApplicationContext realJpaContext(BindingStatementProbe probe) {
+        var context=new AnnotationConfigApplicationContext();
+        try {
+            context.register(PrefetchJpaConfiguration.class);
+            // Each test owns the configured pool; closing the small JPA context must not close it.
+            context.registerBean("dataSource", OscarTrackingBasicDataSource.class, ()-> source,
+                    definition-> definition.setDestroyMethodName(""));
+            context.registerBean("entityManagerFactory", LocalContainerEntityManagerFactoryBean.class, ()-> {
+                var factory=new LocalContainerEntityManagerFactoryBean();
+                factory.setPersistenceUnitName("entityManagerFactory");
+                factory.setDataSource(new DelegatingDataSource(source) {
+                    @Override public Connection getConnection() throws java.sql.SQLException {
+                        return probe.observe(super.getConnection());
+                    }
+                    @Override public Connection getConnection(String username, String password) throws java.sql.SQLException {
+                        return probe.observe(super.getConnection(username, password));
+                    }
+                });
+                factory.setManagedTypes(PersistenceManagedTypes.of(CdsImportRun.class.getName(),
+                        io.github.carlos_emr.carlos.commn.model.CdsImportPatient.class.getName(),
+                        io.github.carlos_emr.carlos.commn.model.CdsImportUnit.class.getName(),
+                        io.github.carlos_emr.carlos.commn.model.CdsImportDiagnostic.class.getName()));
+                factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+                var settings=new HashMap<String, Object>();
+                settings.put("hibernate.hbm2ddl.auto", "none");
+                settings.put("hibernate.dialect", "org.hibernate.dialect.MariaDBDialect");
+                settings.put("hibernate.generate_statistics", "true");
+                settings.put("hibernate.cache.use_second_level_cache", "false");
+                settings.put("hibernate.cache.use_query_cache", "false");
+                settings.put("hibernate.jdbc.time_zone", "UTC");
+                settings.put("hibernate.session_factory.statement_inspector", probe);
+                factory.setJpaPropertyMap(settings); return factory;
+            });
+            context.registerBean("transactionManager", PlatformTransactionManager.class,
+                    ()-> new JpaTransactionManager(context.getBean(EntityManagerFactory.class)));
+            context.registerBean("persistenceAnnotationBeanPostProcessor", PersistenceAnnotationBeanPostProcessor.class);
+            context.register(CdsImportRunDao.class, CdsImportPatientDao.class, CdsImportUnitDao.class,
+                    CdsImportDependencyDao.class, CdsImportLineageDao.class, CdsImportCheckpointDao.class,
+                    CdsImportDiagnosticDao.class, CdsImportAdmissionDao.class, CdsImportEventDao.class,
+                    CdsImportIdentityDao.class, CdsImportLedgerService.class);
+            context.refresh();
+            probe.factory=context.getBean(EntityManagerFactory.class);
+            return context;
+        } catch (RuntimeException | Error failure) {
+            context.close(); throw failure;
+        }
+    }
+
+    private void assertReadCommittedPoolBaseline() throws java.sql.SQLException {
+        try (Connection connection=source.getConnection()) {
+            assertThat(connection.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_READ_COMMITTED);
+            assertThat(isolation(connection)).isEqualTo("READ-COMMITTED");
+            assertThat(connection.getAutoCommit()).isTrue();
+            assertThat(connection.isReadOnly()).isFalse();
+        }
+        assertThat(source.getNumActive()).isZero();
+    }
+
     private void assertBindingResourcesRetired(EntityManagerFactory factory, BindingStatementProbe probe) {
         assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
         assertThat(TransactionSynchronizationManager.isSynchronizationActive()).isFalse();
@@ -650,6 +762,12 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
         try (var query=connection.prepareStatement("SELECT cancel_requested FROM cds_import_run WHERE id=?")) {
             query.setString(1, run);
             try (var rows=query.executeQuery()) {assertThat(rows.next()).isTrue(); return rows.getInt(1); }
+        }
+    }
+    private long reportGeneration(Connection connection) throws java.sql.SQLException {
+        try (var query=connection.prepareStatement("SELECT report_generation FROM cds_import_run WHERE id=?")) {
+            query.setString(1, run);
+            try (var rows=query.executeQuery()) {assertThat(rows.next()).isTrue(); return rows.getLong(1); }
         }
     }
     private static String isolation(Connection connection) throws java.sql.SQLException {

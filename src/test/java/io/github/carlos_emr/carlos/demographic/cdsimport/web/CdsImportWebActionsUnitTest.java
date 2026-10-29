@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.assembler.CdsImportView
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsUploadImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadSubmissionService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportStatusDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadService;
@@ -153,6 +154,29 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
                 .isEqualTo(Map.of("lastCheckpoint", "2026-01-01T00:00:00Z"));
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> CdsWeb.summary(Map.of("reportLocation", "/private")))
                 .hasMessage("IMPORT_SUMMARY_INVALID");
+    }
+
+    @ParameterizedTest @ValueSource(strings={"GET", "HEAD"})
+    void shouldRenderOneCoherentStatus_withoutSeparateJobAndSummaryReads(String method) throws Exception {
+        String run="11111111-1111-4111-8111-111111111111";
+        request.setMethod(method); request.addParameter("runId", run);
+        var job=new CdsImportJobDto(run, "web-42", "999998", "clinic", "omd-5.2",
+                "INCOMPLETE", "a".repeat(64), "b".repeat(64), "c".repeat(64), null, 1, 8, 2, true,
+                Instant.EPOCH, Instant.EPOCH, 2, "/private/protected-report.json", "d".repeat(64));
+        when(imports.observe(actor, run)).thenReturn(new CdsImportStatusDto(job,
+                Map.of("operationTerminal", true, "reportsDelivered", true, "cleanComplete", false,
+                        "resumeRequested", false, "reportState", "DELIVERED")));
+        // An adapter that splits these calls can combine an older generation with a terminal summary.
+        when(imports.status(actor, run)).thenThrow(new AssertionError("separate status snapshot"));
+        when(imports.summary(actor, run)).thenThrow(new AssertionError("separate summary snapshot"));
+        var action=new CdsImportStatus2Action(access, imports, uploads); action.setRunId(run);
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("\"apiVersion\":2", "\"reportGeneration\":2",
+                "\"cancelRequested\":true", "\"reportsDelivered\":true", "\"cleanComplete\":false")
+                .doesNotContain("/private", "reportLocation", "documentLocation");
+        org.mockito.Mockito.verify(imports).observe(actor, run);
+        verifyNoInteractions(uploads);
     }
 
     @Test void shouldReturnUnauthorizedWithoutRawExceptionDetails_whenSessionIsAbsent() throws Exception {

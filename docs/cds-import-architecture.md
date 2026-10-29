@@ -48,7 +48,7 @@ The module lives under `io.github.carlos_emr.carlos.demographic.cdsimport`.
 | `CdsImportUnitService` | Own one clinical transaction | Native rows, references, receipt, strict event and checkpoint commit together |
 | Category `*Persister` / `*ImportService` | Persist one reviewed category occurrence | Join the unit transaction through participating DAO operations |
 | `CdsImportLedgerService` and import DAOs | Run, patient, workset, lineage and recovery state | Versioned, locked and bounded operations |
-| `CdsImportObservationService` | Protected current read model | Authorization before aggregates; read-only transaction; bounded projections |
+| `CdsImportObservationService` | Protected current read model and composite browser status | Authorization before aggregates; bounded read-only snapshots; no file I/O |
 | `CdsImportReviewService` | Versioned correction/decline/revalidation publication | Immutable original source; explicit compare-and-set and eligibility proofs |
 | `CdsImportFileService` / publication services | Immutable source/native file generations and references | Proved ownership, publication and adoption; no filesystem/DB pseudo-atomicity |
 | `CdsImportResultService` / `CdsImportReportService` | Generate, select and serve protected reports | Bounded streams, immutable generations and fenced selection |
@@ -67,6 +67,10 @@ The browser transfers bounded hashed chunks and receives an owned upload ID. Typ
 The foreground CLI prints the durable accepted handle before long execution. The installed command reconstructs the explicit delegated actor and uses the same application services. It has a dedicated bounded context and connection pool; it does not start the complete web application's background workload. Browser and CLI normalization, checkpoints and report semantics remain shared.
 
 Protected job observations separate database lookup, file access and fresh authorization. A bounded scalar binding prefetch belongs in the existing run DAO with explicit `SUPPORTS`, read-only semantics; its service boundary refuses an ambient transaction. It returns an immutable value object rather than a managed run entity. File reading and hashing occur after that lookup scope ends. The subsequent read-only observation transaction rechecks current binding and authorization, and uses its existing managed run for bounded aggregates. The preliminary snapshot never replaces those current checks. See R5 in the final review for the required actual Spring/JPA resource-lifecycle proof.
+
+The browser job endpoint uses `CdsImportService.observe` to obtain one `CdsImportStatusDto`. Its current job, bounded counts, review state and terminal predicates share one authorized read-only repeatable-read snapshot in `CdsImportObservationService`; the existing separate summary and CLI APIs keep their read-committed behavior. The snapshot has the existing 120-second transaction bound, ends before response serialization and never spans file I/O. The HTTP adapter applies the established safe projections. Splitting the job and summary into independently committed reads can pair an earlier report generation with a later terminal receipt and stop polling prematurely.
+
+Browser view/request tokens fence asynchronous status success, error and timer effects, including reopening the same run. Bounded patient and diagnostic reads also belong to their current view. These are invocation-local coordination values; durable run IDs, source identity and the database remain authoritative for recovery. A stale response cannot revise a newer confirmed view or suppress a current request's failure.
 
 ## Source and transaction lifecycle
 

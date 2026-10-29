@@ -24,6 +24,8 @@ The primary status view distinguishes source patients from destination patient c
 
 If a status read fails or the session expires, the page displays **Status unknown**, retains the exact job bookmark and clearly marked last confirmed counts, and offers a read-only status refresh. It does not submit a replacement import. Terminal report or cleanup failures ask for attention rather than suggesting that background finalization is still progressing. Detailed JSON remains available under the initially closed **Advanced job details** disclosure.
 
+Each job response contains the job and its summary from one authorized database snapshot. The report generation, cancellation state and terminal predicates therefore belong together. Reopening a job, including the same job, supersedes older status and page requests: delayed responses, errors and polling callbacks cannot overwrite its newer confirmed state. These checks preserve the existing polling interval, request deadlines and bounded pages. The [final review's R10 decision](cds-import-final-review.md#coherent-browser-job-observations) describes the transaction and concurrency regressions.
+
 An administrative upload-cleanup failure and a terminated import worker appear as separate visible alerts. Their safe error codes can be provided to an administrator without copying patient values into an ordinary log.
 
 Where a diagnostic carries verified technical failure evidence, **Technical evidence** displays a bounded run/diagnostic projection after fresh operator authorization. Exception types, SQL state/vendor codes and code locations can identify the failing layer. Source values, exception messages, SQL text, filenames and physical storage paths are excluded; evidence bytes must match the protected registry's size and SHA256. This secondary evidence does not alter clinical outcomes or replace the event/error/completeness reports.
@@ -102,6 +104,7 @@ Use the repository's normal protected browser credential/environment setup, incl
 
 ```sh
 node scripts/cds-import-summary.test.js
+node --test scripts/cds-import-status-concurrency.test.js
 node scripts/appointment-text-bounds.test.js
 node scripts/demographic-cds-import-playwright-checks.js
 CDS_BROWSER_CORPUS=true node scripts/demographic-cds-import-playwright-checks.js

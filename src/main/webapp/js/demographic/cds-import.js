@@ -338,7 +338,19 @@
             secure: 'A secure browser connection is required to verify uploaded bytes. Open CARLOS at its approved HTTPS address.',
         };
         let activeRun = '';
+        let activeView;
+        let statusRead;
+        let patientRead;
+        let diagnosticRead;
         let lastConfirmed = '';
+        // Opening the same run again is a new view. Responses and queued callbacks
+        // from its previous view must not replace its newer durable observation.
+        class StatusReadError extends Error {
+            constructor(error, current) {
+                super(error.message, {cause: error});
+                this.current = current;
+            }
+        }
         const optionalText = (id, value) => { const node = byId(id); if (node && node.textContent !== String(value)) node.textContent = value; };
         function statusUnknown() {
             optionalText('jobConnection', fr ? 'État inconnu. Les dernières valeurs confirmées sont conservées; réessayer ou se reconnecter.' : 'Status unknown. Last confirmed values are retained; retry or sign in again.');
@@ -420,6 +432,7 @@
             }
         }
         function failure(error) {
+            if (error instanceof StatusReadError && !error.current()) return;
             notice(error.message === 'UPLOAD_SECURE_CONTEXT_REQUIRED' ? text.secure
                 : text.failed + ' ' + String(error.message || 'IMPORT_UNAVAILABLE').slice(0, 160), true);
         }
@@ -457,11 +470,13 @@
 
         async function submitUpload(id, options) {
             const response = await request('cdsImportSubmit', {...options, uploadId: id}, {method: 'POST'});
+            let monitoredView;
             const accepted = await monitorAcceptedRun(response, async id => {
                 rememberRun(id); notice(text.accepted + ' ' + id);
-                await openRun(id);
+                const opened = openRun(id); monitoredView = activeView;
+                await opened;
             });
-            if (!accepted.statusAvailable) {
+            if (!accepted.statusAvailable && monitoredView === activeView) {
                 statusUnknown();
                 notice(text.accepted + ' ' + accepted.id + ' ' + text.unavailable, true);
             }
@@ -565,64 +580,78 @@
             if (rows.length) uploadCursor = rows[rows.length - 1].id;
             byId('nextUploads').disabled = rows.length < 50;
         }
-        async function updateStatus(id) {
-            const data = await request('cdsImportStatus', {runId: id});
-            if (id !== activeRun) return;
-            if (!data.job || data.job.id !== id) throw new Error('IMPORT_STATUS_RUN_CONFLICT');
-            latestSummary = data.summary || {};
-            const administrativeAlert = byId('cdsAdministrativeAlert');
-            administrativeAlert.hidden = !latestSummary.administrativeAlert;
-            administrativeAlert.textContent = latestSummary.administrativeAlert
-                ? text.housekeeping + ' ' + String(latestSummary.administrativeAlert).slice(0, 96) : '';
-            const workerAlert = byId('cdsWorkerAlert'); workerAlert.hidden = !latestSummary.workerAlert;
-            workerAlert.textContent = latestSummary.workerAlert
-                ? text.worker + ' ' + String(latestSummary.workerAlert).slice(0, 96) : '';
-            const draftAlert = byId('cdsDraftAlert');
-            draftAlert.hidden = !(Number.isSafeInteger(latestSummary.inactiveDraftCount) && latestSummary.inactiveDraftCount > 0);
-            draftAlert.textContent = draftAlert.hidden ? '' : text.inactiveDrafts + latestSummary.inactiveDraftCount;
-            const operational = [];
-            if (latestSummary.maintenanceReleasePending === true) operational.push(text.release
-                + String(latestSummary.maintenanceReleaseState || 'UNKNOWN').slice(0, 96));
-            const recovery = recoveryControls(latestSummary);
-            if (recovery.resumePending) operational.push(text.resumePending);
-            if (recovery.fatalReview) operational.push(text.reviewFatal);
-            if (latestSummary.supervisorAlert) operational.push(text.supervisor
-                + ' ' + String(latestSummary.supervisorAlert).slice(0, 96));
-            byId('cdsOperationalAlert').hidden = operational.length === 0;
-            byId('cdsOperationalAlert').textContent = operational.join(' ');
-            const presentation = statusPresentation(data.job, latestSummary);
-            if (presentation.state === 'UNAVAILABLE') throw new Error('IMPORT_STATUS_CONTRACT_REFRESH_REQUIRED');
-            const jobView = renderJob(data.job, latestSummary);
-            optionalText('runState', jobView.stage);
-            byId('runState').className = jobView.clean ? 'text-success' : jobView.attention ? 'text-danger' : 'text-body';
-            byId('cancelRun').disabled = false; byId('resumeRun').disabled = false;
-            byId('resumeRun').disabled = recoveryControls(latestSummary).resumeDisabled;
-            const summary = JSON.stringify({job: data.job, summary: latestSummary}, null, 2);
-            byId('runSummary').textContent = summary.length > 32000 ? summary.slice(0, 32000) + '\n' + text.page : summary;
-            for (const [element, type] of [['eventReport', 'event'], ['errorReport', 'error'], ['receiptReport', 'receipt'], ['unitsReport', 'units']]) {
-                const link = byId(element);
-                // Older templates have the original three reports; this additive link must not break them.
-                if (element === 'unitsReport' && !link) continue;
-                link.hidden = !data.job.reportsAvailable;
-                link.href = root.dataset.context + '/form/cdsImportReport?' + new URLSearchParams({runId: id, type});
-            }
-            if (lastRunUpdated !== data.job.updatedAt) {
-                lastRunUpdated = data.job.updatedAt;
-                await Promise.all([loadPatients(), loadDiagnostics()]);
-            }
-            if (id !== activeRun) return;
-            if (!mayStopPolling(latestSummary)) timer = global.setTimeout(() => poll(id), 2000);
-        }
-        async function poll(id) {
-            try { await updateStatus(id); }
-            catch (error) { if (id === activeRun) {
+        async function updateStatus(id, view = activeView) {
+            if (view !== activeView || id !== activeRun) return;
+            const read = {}; statusRead = read;
+            const current = () => view === activeView && read === statusRead;
+            global.clearTimeout(timer);
+            try {
+                const data = await request('cdsImportStatus', {runId: id});
+                if (!current()) return;
+                if (!data.job || data.job.id !== id) throw new Error('IMPORT_STATUS_RUN_CONFLICT');
+                latestSummary = data.summary || {};
+                const administrativeAlert = byId('cdsAdministrativeAlert');
+                administrativeAlert.hidden = !latestSummary.administrativeAlert;
+                administrativeAlert.textContent = latestSummary.administrativeAlert
+                    ? text.housekeeping + ' ' + String(latestSummary.administrativeAlert).slice(0, 96) : '';
+                const workerAlert = byId('cdsWorkerAlert'); workerAlert.hidden = !latestSummary.workerAlert;
+                workerAlert.textContent = latestSummary.workerAlert
+                    ? text.worker + ' ' + String(latestSummary.workerAlert).slice(0, 96) : '';
+                const draftAlert = byId('cdsDraftAlert');
+                draftAlert.hidden = !(Number.isSafeInteger(latestSummary.inactiveDraftCount) && latestSummary.inactiveDraftCount > 0);
+                draftAlert.textContent = draftAlert.hidden ? '' : text.inactiveDrafts + latestSummary.inactiveDraftCount;
+                const operational = [];
+                if (latestSummary.maintenanceReleasePending === true) operational.push(text.release
+                    + String(latestSummary.maintenanceReleaseState || 'UNKNOWN').slice(0, 96));
+                const recovery = recoveryControls(latestSummary);
+                if (recovery.resumePending) operational.push(text.resumePending);
+                if (recovery.fatalReview) operational.push(text.reviewFatal);
+                if (latestSummary.supervisorAlert) operational.push(text.supervisor
+                    + ' ' + String(latestSummary.supervisorAlert).slice(0, 96));
+                byId('cdsOperationalAlert').hidden = operational.length === 0;
+                byId('cdsOperationalAlert').textContent = operational.join(' ');
+                const presentation = statusPresentation(data.job, latestSummary);
+                if (presentation.state === 'UNAVAILABLE') throw new Error('IMPORT_STATUS_CONTRACT_REFRESH_REQUIRED');
+                const jobView = renderJob(data.job, latestSummary);
+                optionalText('runState', jobView.stage);
+                byId('runState').className = jobView.clean ? 'text-success' : jobView.attention ? 'text-danger' : 'text-body';
+                byId('cancelRun').disabled = false; byId('resumeRun').disabled = false;
+                byId('resumeRun').disabled = recoveryControls(latestSummary).resumeDisabled;
+                const summary = JSON.stringify({job: data.job, summary: latestSummary}, null, 2);
+                byId('runSummary').textContent = summary.length > 32000 ? summary.slice(0, 32000) + '\n' + text.page : summary;
+                for (const [element, type] of [['eventReport', 'event'], ['errorReport', 'error'], ['receiptReport', 'receipt'], ['unitsReport', 'units']]) {
+                    const link = byId(element);
+                    // Older templates have the original three reports; this additive link must not break them.
+                    if (element === 'unitsReport' && !link) continue;
+                    link.hidden = !data.job.reportsAvailable;
+                    link.href = root.dataset.context + '/form/cdsImportReport?' + new URLSearchParams({runId: id, type});
+                }
+                if (lastRunUpdated !== data.job.updatedAt) {
+                    await Promise.all([loadPatients(false, view, current), loadDiagnostics(false, view, current)]);
+                    if (!current()) return;
+                    lastRunUpdated = data.job.updatedAt;
+                }
+                if (!current()) return;
+                if (!mayStopPolling(latestSummary)) timer = global.setTimeout(() => {
+                    if (current()) poll(id, view);
+                }, 2000);
+            } catch (error) {
+                if (!current()) return;
                 statusUnknown();
-                byId('cancelRun').disabled = true; byId('resumeRun').disabled = true; failure(error);
-            } }
+                byId('cancelRun').disabled = true; byId('resumeRun').disabled = true;
+                throw new StatusReadError(error, current);
+            }
+        }
+        async function poll(id, view) {
+            if (view !== activeView) return;
+            try { await updateStatus(id, view); }
+            catch (error) { failure(error); }
         }
         async function openRun(id) {
             if (!UUID.test(id || '')) throw new Error('IMPORT_RUN_ID_INVALID');
             global.clearTimeout(timer);
+            const view = {}; activeView = view;
+            statusRead = patientRead = diagnosticRead = undefined;
             if (activeRun !== id) { lastConfirmed=''; optionalText('jobLastConfirmed','—'); for (const name of ['jobPatients','jobSourcePatients','jobRecords','jobImported','jobPrior','jobPending','jobReviews','jobReports','jobCleanup']) optionalText(name,'—'); }
             activeRun = id; byId('runId').value = id;
             const statusUrl=jobStatusUrl(root.dataset.context,id);
@@ -642,61 +671,83 @@
             }
             patientCursor = ''; diagnosticCursor = 0;
             patientPageStart = ''; diagnosticPageStart = 0; lastRunUpdated = '';
-            await readOpenedJobStatus(id, updateStatus, () => activeRun, () => byId('runHeading'));
+            await readOpenedJobStatus(id, () => updateStatus(id, view),
+                () => view === activeView ? activeRun : '', () => byId('runHeading'));
         }
-        async function loadPatients(next = false) {
+        async function loadPatients(next = false, view = activeView, parentCurrent = () => true) {
+            if (view !== activeView || !parentCurrent()) return;
             const run = activeRun;
+            const read = {}; patientRead = read;
+            const current = () => view === activeView && read === patientRead && parentCurrent();
             const start = next ? patientCursor : patientPageStart;
-            const data = await request('cdsImportStatus', {section: 'patients', runId: run, afterKey: start, limit: 50});
-            if (run !== activeRun) return;
-            if (!Array.isArray(data.rows) || data.rows.length > 50) throw new Error('IMPORT_PAGE_LIMIT_VIOLATED');
-            patientPageStart = start;
-            byId('patientRows').replaceChildren(...data.rows.map(patient => {
-                const row = document.createElement('tr'); cell(row, (patient.sourcePatientId || patient.patientKey) + (patient.copyKey ? ' / ' + patient.copyKey : ''));
-                cell(row, patient.state); cell(row, patient.held); cell(row, patient.expectedUnits); return row;
-            }));
-            patientCursor = data.nextCursor || patientCursor;
-            byId('nextPatients').disabled = data.rows.length < 50;
+            try {
+                const data = await request('cdsImportStatus', {section: 'patients', runId: run, afterKey: start, limit: 50});
+                if (!current()) return;
+                if (!Array.isArray(data.rows) || data.rows.length > 50) throw new Error('IMPORT_PAGE_LIMIT_VIOLATED');
+                patientPageStart = start;
+                byId('patientRows').replaceChildren(...data.rows.map(patient => {
+                    const row = document.createElement('tr'); cell(row, (patient.sourcePatientId || patient.patientKey) + (patient.copyKey ? ' / ' + patient.copyKey : ''));
+                    cell(row, patient.state); cell(row, patient.held); cell(row, patient.expectedUnits); return row;
+                }));
+                patientCursor = data.nextCursor || patientCursor;
+                byId('nextPatients').disabled = data.rows.length < 50;
+            } catch (error) {
+                if (current()) throw new StatusReadError(error, current);
+            }
         }
-        async function loadDiagnostics(next = false) {
+        async function loadDiagnostics(next = false, view = activeView, parentCurrent = () => true) {
+            if (view !== activeView || !parentCurrent()) return;
             const run = activeRun;
+            const read = {}; diagnosticRead = read;
+            const pageCurrent = () => view === activeView && read === diagnosticRead;
+            const current = () => pageCurrent() && parentCurrent();
             const start = next ? diagnosticCursor : diagnosticPageStart;
-            const data = await request('cdsImportStatus', {section: 'diagnostics', runId: run, afterId: start, limit: 50});
-            if (run !== activeRun) return;
-            if (!Array.isArray(data.rows) || data.rows.length > 50) throw new Error('IMPORT_PAGE_LIMIT_VIOLATED');
-            diagnosticPageStart = start;
-            byId('diagnosticRows').replaceChildren(...data.rows.map(item => {
-                const row = document.createElement('tr'); cell(row, item.id); cell(row, item.code + ' / ' + item.stage);
-                cell(row, item.summary + (item.sourceXPath ? ' — ' + item.sourceXPath : ''));
-                const actions = cell(row, item.resolved ? 'RESOLVED' : item.severity);
-                if (item.hasEvidence === true) actions.append(button(text.evidence, async () => {
-                    const evidence = await request('cdsImportDiagnostic', {runId: run, diagnosticId: item.id});
-                    if (run !== activeRun) return;
-                    const rendered = JSON.stringify(evidence.evidence, null, 2);
-                    if (rendered.length > 131072) throw new Error('IMPORT_EVIDENCE_CAPACITY_EXCEEDED');
-                    byId('diagnosticEvidence').textContent = rendered;
-                    byId('diagnosticEvidencePanel').hidden = false; byId('diagnosticEvidencePanel').open = true;
+            try {
+                const data = await request('cdsImportStatus', {section: 'diagnostics', runId: run, afterId: start, limit: 50});
+                if (!current()) return;
+                if (!Array.isArray(data.rows) || data.rows.length > 50) throw new Error('IMPORT_PAGE_LIMIT_VIOLATED');
+                diagnosticPageStart = start;
+                byId('diagnosticRows').replaceChildren(...data.rows.map(item => {
+                    const row = document.createElement('tr'); cell(row, item.id); cell(row, item.code + ' / ' + item.stage);
+                    cell(row, item.summary + (item.sourceXPath ? ' — ' + item.sourceXPath : ''));
+                    const actions = cell(row, item.resolved ? 'RESOLVED' : item.severity);
+                    if (item.hasEvidence === true) actions.append(button(text.evidence, async () => {
+                        if (!pageCurrent()) return;
+                        try {
+                            const evidence = await request('cdsImportDiagnostic', {runId: run, diagnosticId: item.id});
+                            if (!pageCurrent()) return;
+                            const rendered = JSON.stringify(evidence.evidence, null, 2);
+                            if (rendered.length > 131072) throw new Error('IMPORT_EVIDENCE_CAPACITY_EXCEEDED');
+                            byId('diagnosticEvidence').textContent = rendered;
+                            byId('diagnosticEvidencePanel').hidden = false; byId('diagnosticEvidencePanel').open = true;
+                        } catch (error) {
+                            if (pageCurrent()) throw new StatusReadError(error, pageCurrent);
+                        }
+                    }));
+                    if (item.blocking && !item.resolved) actions.append(button(text.review, () => {
+                        if (!pageCurrent()) return;
+                        if (!Number.isSafeInteger(latestSummary.reviewVersion) || latestSummary.reviewVersion < 0) throw new Error(text.reviewVersion);
+                        const eligibility = reviewEligibility(item, latestSummary);
+                        byId('reviewDiagnosticId').value = item.id; byId('reviewPatientKey').value = item.patientKey || '';
+                        byId('reviewDiagnosticCode').value = item.code || '';
+                        byId('reviewSourceContext').value = item.sourceXPath || '';
+                        byId('reviewUnitKey').value = item.unitKey || ''; byId('reviewVersion').value = latestSummary.reviewVersion;
+                        byId('reviewKind').value = eligibility.canApproveRevision ? 'APPROVE_UNWRITTEN_REVISION' : 'CORRECT_VALUE';
+                        byId('reviewDeclineOption').disabled = !eligibility.canDecline;
+                        byId('reviewRevisionOption').disabled = !eligibility.canApproveRevision;
+                        byId('reviewPatientHelp').textContent = item.code === 'SOURCE_REVISION_REVIEW_REQUIRED'
+                            && !eligibility.canApproveRevision ? text.revisionUnavailable : eligibility.canDecline ? '' : text.reviewPatient;
+                        byId('reviewXPath').value = eligibility.initialXPath; byId('reviewValue').value = ''; byId('reviewReason').value = '';
+                        updateReviewKind();
+                        byId('cdsReviewForm').hidden = false; byId('reviewReason').focus();
+                    }));
+                    return row;
                 }));
-                if (item.blocking && !item.resolved) actions.append(button(text.review, () => {
-                    if (!Number.isSafeInteger(latestSummary.reviewVersion) || latestSummary.reviewVersion < 0) throw new Error(text.reviewVersion);
-                    const eligibility = reviewEligibility(item, latestSummary);
-                    byId('reviewDiagnosticId').value = item.id; byId('reviewPatientKey').value = item.patientKey || '';
-                    byId('reviewDiagnosticCode').value = item.code || '';
-                    byId('reviewSourceContext').value = item.sourceXPath || '';
-                    byId('reviewUnitKey').value = item.unitKey || ''; byId('reviewVersion').value = latestSummary.reviewVersion;
-                    byId('reviewKind').value = eligibility.canApproveRevision ? 'APPROVE_UNWRITTEN_REVISION' : 'CORRECT_VALUE';
-                    byId('reviewDeclineOption').disabled = !eligibility.canDecline;
-                    byId('reviewRevisionOption').disabled = !eligibility.canApproveRevision;
-                    byId('reviewPatientHelp').textContent = item.code === 'SOURCE_REVISION_REVIEW_REQUIRED'
-                        && !eligibility.canApproveRevision ? text.revisionUnavailable : eligibility.canDecline ? '' : text.reviewPatient;
-                    byId('reviewXPath').value = eligibility.initialXPath; byId('reviewValue').value = ''; byId('reviewReason').value = '';
-                    updateReviewKind();
-                    byId('cdsReviewForm').hidden = false; byId('reviewReason').focus();
-                }));
-                return row;
-            }));
-            diagnosticCursor = data.nextCursor || diagnosticCursor;
-            byId('nextDiagnostics').disabled = data.rows.length < 50;
+                diagnosticCursor = data.nextCursor || diagnosticCursor;
+                byId('nextDiagnostics').disabled = data.rows.length < 50;
+            } catch (error) {
+                if (current()) throw new StatusReadError(error, current);
+            }
         }
 
         const retryStatus=byId('retryJobStatus');
@@ -717,7 +768,9 @@
         byId('nextDiagnostics').addEventListener('click', safe(() => loadDiagnostics(true)));
         for (const [id, operation] of [['cancelRun', 'cancel'], ['resumeRun', 'resume']]) {
             byId(id).addEventListener('click', safe(async () => {
-                await request('cdsImportControl', {operation, runId: activeRun}, {method: 'POST'}); await openRun(activeRun);
+                const run = activeRun, view = activeView;
+                await request('cdsImportControl', {operation, runId: run}, {method: 'POST'});
+                if (view === activeView) await openRun(run);
             }));
         }
         function updateReviewKind() {
@@ -739,13 +792,14 @@
                     throw new Error(text.revisionUnavailable);
                 }
                 const correction = byId('reviewKind').value === 'CORRECT_VALUE';
-                await request('cdsImportControl', {operation: 'review', runId: activeRun, kind: byId('reviewKind').value,
+                const run = activeRun, view = activeView;
+                await request('cdsImportControl', {operation: 'review', runId: run, kind: byId('reviewKind').value,
                     diagnosticId: byId('reviewDiagnosticId').value, patientKey: byId('reviewPatientKey').value,
                     unitKey: byId('reviewUnitKey').value, expectedVersion: byId('reviewVersion').value,
                     sourceXPath: correction ? byId('reviewXPath').value : byId('reviewSourceContext').value,
                     replacementValue: correction ? byId('reviewValue').value : '',
                     reason: byId('reviewReason').value}, {method: 'POST'});
-                byId('cdsReviewForm').hidden = true; await openRun(activeRun);
+                if (view === activeView) { byId('cdsReviewForm').hidden = true; await openRun(run); }
             })();
         });
         try { renderRecent(JSON.parse(global.localStorage.getItem(storageKey) || '[]')); } catch (_) { renderRecent([]); }

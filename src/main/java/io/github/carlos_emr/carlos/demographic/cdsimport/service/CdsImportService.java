@@ -114,6 +114,10 @@ public class CdsImportService {
 
     public CdsImportJobDto status(LoggedInInfo viewer, String run) { CdsImportJobDto job=ledger.status(run); access.requireView(viewer, job); return job; }
     public CdsImportJobDto status(CdsImportActorDto actor, String run) throws IOException { return requireActor(actor, run).job(); }
+    public CdsImportStatusDto observe(LoggedInInfo viewer, String run) {
+        var observed=observations.status(viewer, run);
+        return new CdsImportStatusDto(observed.job(), operatorSummary(run, observed.summary()));
+    }
     public Map<String, Object> summary(LoggedInInfo viewer, String run) { return operatorSummary(run, observations.summary(viewer, run)); }
     public Map<String, Object> summary(CdsImportActorDto actor, String run) throws IOException {
         var context=actorContext(actor, run);

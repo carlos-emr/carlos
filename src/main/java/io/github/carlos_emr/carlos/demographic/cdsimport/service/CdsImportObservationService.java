@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportStatusDto;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -30,6 +31,7 @@ import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /** Bounded protected read model; current authorization precedes every clinical aggregate. */
@@ -39,6 +41,7 @@ public class CdsImportObservationService {
     private final CdsImportReviewService reviews;
     private final CdsImportAccessService access;
     private final TransactionTemplate transaction;
+    private final TransactionTemplate statusTransaction;
 
     @Autowired
     public CdsImportObservationService(CdsImportLedgerService ledger, CdsImportReviewService reviews,
@@ -48,12 +51,25 @@ public class CdsImportObservationService {
         this.access = Objects.requireNonNull(access);
         transaction = CdsImportLedgerService.template(Objects.requireNonNull(manager));
         transaction.setReadOnly(true);
+        statusTransaction = CdsImportLedgerService.template(manager);
+        statusTransaction.setReadOnly(true);
+        statusTransaction.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
     }
 
     /** Real dependencies also support the legacy facade constructor outside Spring. */
     CdsImportObservationService(CdsImportLedgerService ledger, CdsImportReviewService reviews,
             CdsImportAccessService access) {
         this(ledger, reviews, access, Objects.requireNonNull(ledger.observationTransactionManager()));
+    }
+
+    /** The row, aggregate counts and terminal receipt must describe the same committed snapshot. */
+    CdsImportStatusDto status(LoggedInInfo viewer, String run) {
+        CdsImportLedgerService.requireNoTransaction();
+        return statusTransaction.execute(status -> {
+            var current = ledger.jobBindingInReadTransaction(run);
+            access.requireView(viewer, current.job());
+            return new CdsImportStatusDto(current.job(), projection(run));
+        });
     }
 
     Map<String, Object> summary(LoggedInInfo viewer, String run) {

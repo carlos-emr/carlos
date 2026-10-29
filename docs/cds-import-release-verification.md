@@ -60,8 +60,8 @@ and installed-engine gates. The PR records the separate full application CI
 results, including their conditional skips.
 
 The corrected final candidate requires a fresh build and every explicitly
-selected affected regression suite, all 12 physical native suites and the seven
-permanent browser Node suites. Exact case counts must be reconciled from the
+selected affected regression suite, all 12 physical native suites and the
+permanent browser Node suites, including status concurrency. Exact case counts must be reconciled from the
 fresh reports against the required suite manifest; earlier counts above are
 historical. The manifest also includes the affected demographic REST endpoint
 fixture, alongside its focused authorization tests. The added coverage includes
@@ -86,7 +86,7 @@ original submission identity; it is not replaced by a fresh submission.
 | Installed container | Actual service user, 512 MiB heap, 768 MiB cgroup, one CPU, read-only root/source/configuration and no capabilities. Same accepted run survives container replacement; separate ordinary/full-category/no-op cases reconcile native data and all four reports. |
 | Retained browser recovery | Native authentication and authorized recovery remain usable under a retained maintenance window. A stopped proven-unwritten attempt is handled through supported controls; original source and history remain intact. A sealed incomplete cancellation remains incomplete rather than being relabelled clean. |
 | Normal browser and corpus | Real upload/acceptance, preview then execute from the same immutable upload, exact retries, no-op, ZIP and ordinary-doctor refusal. Native category/source reconciliation and all four protected report HTTP bodies must match the selected physical files. |
-| Web job experience | Separate upload and processing states; a canonical owned run bookmark; readable phases and counts with truthful unknown totals. Preview, warnings, review, incomplete work, report failure, cleanup and maintenance are distinct. Technical JSON is supplementary. |
+| Web job experience | Separate upload and processing states; a canonical owned run bookmark; readable phases and counts with truthful unknown totals. Job and summary share an authorized database snapshot; obsolete same-run responses, failures and poll callbacks cannot regress a newer view. Preview, warnings, review, incomplete work, report failure, cleanup and maintenance are distinct. Technical JSON is supplementary. |
 | Browser interruption | Real proxy timeout after acceptance, tab closure and expiration of the selected native HTTP session. Reauthentication returns to the same accepted run without resubmission. The 514-checkpoint result and separate approved synthetic-course copies reconcile completely. |
 | Browser compatibility | Genuine cached historical JavaScript against the new API and new JavaScript against the genuine historical API fail visibly before mutation. Ordinary multipart upload remains functional. Owner/nonowner/anonymous/logout report checks cover all four files. |
 | Large browser ingress | More than 64 MiB through actual Nginx/ModSecurity using declared and streamed HTTP framing, bounded chunks, exact payload/journal hashes, disconnect/resume, CSRF/oversize controls and measured server memory. This upload-only gate does not claim a 20 GiB browser clinical import. |

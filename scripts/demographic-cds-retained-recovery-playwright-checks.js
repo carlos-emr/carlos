@@ -34,6 +34,47 @@ function retainedCancellationComplete(value, runId, afterGeneration = -1) {
     && value.summary.cleanComplete === false;
 }
 
+/** Preserve the exact visible cancellation flags without logging source or clinical data. */
+function cancellationSnapshot(raw, runId, afterGeneration) {
+  const evidence = {runId, afterGeneration, parsed: false};
+  if (typeof raw !== 'string' || raw.length > 32768) return evidence;
+  try {
+    const value = JSON.parse(raw);
+    const flag = value => typeof value === 'boolean' ? value : null;
+    const state = (value, allowed) => allowed.includes(value) ? value : null;
+    const generation = value?.job?.reportGeneration;
+    evidence.parsed = true;
+    evidence.job = {matchesExpectedRun: value?.job?.id === runId,
+      state: state(value?.job?.state, ['ACCEPTED','RUNNING','FINALIZING','REPORTING','RESUME_REQUESTED','REVIEW_REQUIRED',
+        'FAILED_BEFORE_WRITE','CANCELLED_BEFORE_WRITE','CANCELLED','INCOMPLETE','RECONCILIATION_REQUIRED','COMPLETE','DRY_RUN_COMPLETE']),
+      cancelRequested: flag(value?.job?.cancelRequested),
+      reportGeneration: Number.isSafeInteger(generation) && generation >= 0 ? generation : null};
+    evidence.summary = {};
+    for (const key of ['operationTerminal','resumeRequested','reportsDelivered','cleanupComplete','clinicalComplete','cleanComplete'])
+      evidence.summary[key] = flag(value?.summary?.[key]);
+    evidence.summary.reportState = state(value?.summary?.reportState, ['PENDING','DELIVERED','FAILED']);
+    evidence.summary.cleanupState = state(value?.summary?.cleanupState, ['PENDING','COMPLETE','FAILED']);
+  } catch (_) { /* A truncated or unavailable status cannot be evidence of completion. */ }
+  return evidence;
+}
+
+async function waitForCancellation(page, runId, generation, output = console) {
+  try {
+    await page.waitForFunction(({id,generation}) => {
+      try { const row=JSON.parse(document.getElementById('runSummary').textContent);
+        return row.job.id===id && row.job.cancelRequested===true && row.job.reportGeneration>generation
+          && row.summary.reportsDelivered===true && row.summary.operationTerminal===true
+          && row.summary.resumeRequested===false; } catch (_) { return false; }
+    }, {id:runId,generation}, {timeout:180000});
+  } catch (failure) {
+    let evidence = {runId, afterGeneration: generation, parsed: false, unavailable: true};
+    try { evidence = cancellationSnapshot(await page.locator('#runSummary').textContent({timeout:3000}), runId, generation); }
+    catch (_) { /* Preserve the primary timeout even if the browser is already unavailable. */ }
+    output.log('CDS_RECOVERY_CANCEL_FAILURE_EVIDENCE', JSON.stringify(evidence));
+    throw failure;
+  }
+}
+
 function sourceFixture(env) {
   h.assert(env.CDS_RECOVERY_SOURCE_FILE && /^[0-9a-f]{64}$/.test(env.CDS_RECOVERY_SOURCE_SHA256 || ''),
     'Execution requires the original local source file and its independently verified SHA256');
@@ -107,12 +148,7 @@ async function run(env = process.env) {
         'Prior run must be stopped and proven unwritten before this recovery gate cancels it');
       const generation = prior.job.reportGeneration;
       await page.locator('#cancelRun').click();
-      await page.waitForFunction(({id,generation}) => {
-        try { const row=JSON.parse(document.getElementById('runSummary').textContent);
-          return row.job.id===id && row.job.cancelRequested===true && row.job.reportGeneration>generation
-            && row.summary.reportsDelivered===true && row.summary.operationTerminal===true
-            && row.summary.resumeRequested===false; } catch (_) { return false; }
-      }, {id:oldId,generation}, {timeout:180000});
+      await waitForCancellation(page, oldId, generation);
       prior = JSON.parse(await page.locator('#runSummary').textContent());
       h.assert(retainedCancellationComplete(prior, oldId, generation),
         'Cancellation must retain the clinical failure and deliver a newer non-success report generation');
@@ -206,4 +242,4 @@ async function run(env = process.env) {
   }});
 }
 if (require.main === module) run();
-module.exports = {run, assertRetainedLogin, sourceFixture, retainedCancellationComplete};
+module.exports = {run, assertRetainedLogin, sourceFixture, retainedCancellationComplete, cancellationSnapshot, waitForCancellation};

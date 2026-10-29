@@ -326,12 +326,54 @@ class CdsImportObservationServiceUnitTest {
         assertEquals(2, transactions.commits);
     }
 
+    @Test void compositeStatusReturnsTheAuthorizedCurrentJobAndSummaryWithoutPrivateFileIo() throws Exception {
+        Files.delete(metadata);
+        transactions.expectedIsolation=TransactionDefinition.ISOLATION_REPEATABLE_READ;
+        LoggedInInfo viewer=mock(LoggedInInfo.class);
+        current.set(new CdsImportJobBindingDto(job("INCOMPLETE", 8, true, 2), metadata.toString()));
+        projection.set(Map.of("state", "INCOMPLETE", "cancelRequested", true,
+                "operationTerminal", true, "reportsDelivered", true, "cleanComplete", false));
+
+        var result=facade.observe(viewer, "run");
+
+        assertEquals(List.of("current-binding", "authorize-viewer", "clinical-projection", "review-projection"), order);
+        assertEquals("READY", prefetched.get().job().state());
+        assertSame(current.get().job(), result.job());
+        assertEquals(2, result.job().reportGeneration());
+        assertEquals(true, result.summary().get("reportsDelivered"));
+        assertEquals(false, result.summary().get("cleanComplete"));
+        assertEquals(1, transactions.begins);
+        assertEquals(1, transactions.commits);
+        assertEquals(0, transactions.rollbacks);
+        assertThrows(UnsupportedOperationException.class, () -> result.summary().put("operationTerminal", false));
+        assertFalse(result.toString().contains(metadata.toString()));
+        assertFalse(result.toString().contains(jobRoot.toString()));
+        verify(ledger, never()).status(anyString());
+        verify(ledger, never()).jobBinding(anyString());
+        verify(ledger, never()).summary(anyString());
+    }
+
+    @Test void compositeStatusDenialPrecedesEveryAggregateAndReturnsNoJob() throws Exception {
+        Files.delete(metadata);
+        transactions.expectedIsolation=TransactionDefinition.ISOLATION_REPEATABLE_READ;
+        LoggedInInfo viewer=mock(LoggedInInfo.class);
+        SecurityException denied=new SecurityException("viewer denied");
+        doThrow(denied).when(access).requireView(viewer, current.get().job());
+        assertSame(denied, assertThrows(SecurityException.class, () -> facade.observe(viewer, "run")));
+        verify(ledger, never()).summaryInReadTransaction(anyString());
+        verify(ledger, never()).jobBinding(anyString());
+        verifyNoInteractions(reviews);
+        assertEquals(1, transactions.rollbacks);
+    }
+
     @Test void observationRefusesAnAmbientTransactionBeforeAnyProtectedRead() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         TransactionSynchronizationManager.setCurrentTransactionReadOnly(true);
         try {
             var failure=assertThrows(CdsImportException.class, () -> observations.summary(mock(LoggedInInfo.class), "run"));
             assertEquals("AMBIENT_TRANSACTION_REFUSED", failure.getCode());
+            var statusFailure=assertThrows(CdsImportException.class, () -> observations.status(mock(LoggedInInfo.class), "run"));
+            assertEquals("AMBIENT_TRANSACTION_REFUSED", statusFailure.getCode());
             verify(ledger, never()).jobBindingInReadTransaction(anyString());
             assertEquals(0, transactions.begins);
         } finally {
@@ -369,8 +411,13 @@ class CdsImportObservationServiceUnitTest {
     }
 
     private CdsImportJobDto job(String state, long epoch, boolean cancel) {
+        return job(state, epoch, cancel, 0);
+    }
+
+    private CdsImportJobDto job(String state, long epoch, boolean cancel, long generation) {
         return new CdsImportJobDto("run", "operator", "1", "registered-source", "pcon-2024-02", state,
-                SOURCE, OPTIONS, RULESET, null, 0, 0, epoch, cancel, Instant.EPOCH, Instant.EPOCH, 0, null, null);
+                SOURCE, OPTIONS, RULESET, null, 0, 0, epoch, cancel, Instant.EPOCH, Instant.EPOCH, generation,
+                generation==0 ? null : jobRoot.resolve("private-report.json").toString(), generation==0 ? null : "d".repeat(64));
     }
 
     private void requireReadScope() {
@@ -383,12 +430,13 @@ class CdsImportObservationServiceUnitTest {
         int begins;
         int commits;
         int rollbacks;
+        int expectedIsolation=TransactionDefinition.ISOLATION_READ_COMMITTED;
 
         @Override protected Object doGetTransaction() { return new Object(); }
 
         @Override protected void doBegin(Object transaction, TransactionDefinition definition) {
             assertTrue(definition.isReadOnly());
-            assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, definition.getIsolationLevel());
+            assertEquals(expectedIsolation, definition.getIsolationLevel());
             assertEquals(120, definition.getTimeout());
             begins++;
         }
