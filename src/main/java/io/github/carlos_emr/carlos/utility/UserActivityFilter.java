@@ -30,10 +30,14 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+import java.io.IOException;
+import java.util.Set;
+
 import org.apache.logging.log4j.Logger;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
-
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
@@ -43,70 +47,171 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import java.io.IOException;
-import java.util.Date;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * Filter for determining the inactivity of a user with a session. Pages that automatically refresh should be marked with the parameter autoRefresh=true
+ * Logs out an authenticated session whose user has made no request of their own for longer than
+ * the session's maximum inactive interval, even while background polls keep the container session
+ * alive.
+ *
+ * <p>Requests that are not the user's own do not count as activity: any request carrying
+ * {@code autoRefresh=true} (pages that refresh themselves must add it), the session heartbeat
+ * ({@code /status/SessionHeartbeat}) and the CSRFGuard script servlet.</p>
+ *
+ * <p>Contract, kept by the {@code web.xml} mapping and this class (issue #5305):</p>
+ * <ul>
+ *   <li>The filter is mapped after {@code LoginFilter} and before Struts prepare/execute, for the
+ *       REQUEST dispatcher only. Struts executes an action without calling the rest of the
+ *       chain, so a mapping after {@code struts2-execute} never sees an action.</li>
+ *   <li>It never creates a session, and it judges only authenticated sessions. An anonymous or
+ *       half-finished login session (MFA, forced password reset) is left alone; LoginFilter
+ *       governs what those may reach.</li>
+ *   <li>The logout flow and the public login/error pages are never redirected: the logout page
+ *       posts to {@code /logout}, so redirecting either would loop.</li>
+ *   <li>An inactive session is recorded in the audit log once. Later requests from the same
+ *       session, such as the heartbeat each minute, are redirected without another audit row
+ *       until {@code /logout} invalidates the session.</li>
+ * </ul>
+ *
+ * <p>{@code LoginFilter}'s {@code INACTIVITY_LIMIT_MINS} timer is separate and normally fires
+ * first; this filter is the backstop measured against the session's own timeout.</p>
  */
 public final class UserActivityFilter implements Filter {
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static final String LAST_USER_ACTIVITY = "LAST_USER_ACTIVITY";
+
+    /** Session attribute holding the time, in epoch milliseconds, of the user's last own request. */
+    static final String LAST_USER_ACTIVITY = "LAST_USER_ACTIVITY";
+
+    /** Session attribute set once this filter has audited the session's inactivity logout. */
+    static final String INACTIVITY_LOGOUT_AUDITED = "LAST_USER_ACTIVITY_LOGOUT_AUDITED";
+
+    /** Context-relative target of the inactivity redirect, with its query string already encoded. */
+    static final String INACTIVITY_LOGOUT_PATH =
+            "/logoutPage?autoLogout=true&errorMessage=logged%20out%20due%20to%20inactivity";
+
+    /** Audit {@code contentId} written for an inactivity logout; audit reports match this text. */
+    static final String INACTIVITY_AUDIT_TEXT = "logged out due to inactivity";
+
+    /**
+     * Context-relative paths that are never redirected. They are the logout flow and the public
+     * login/error pages, matching LoginFilter's timeout-redirect exemptions.
+     */
+    private static final Set<String> TIMEOUT_REDIRECT_EXEMPT_PATHS =
+            Set.of("/logout", "/logoutPage", "/index", "/loginfailed");
+
+    /**
+     * Context-relative paths whose requests are never the user's own: the heartbeat poll and the
+     * CSRFGuard script servlet (mapped at {@code /csrfguard}; {@code /JavaScriptServlet} is its
+     * pre-4.x name).
+     */
+    private static final Set<String> NON_USER_ACTIVITY_PATHS =
+            Set.of("/status/SessionHeartbeat", "/csrfguard", "/JavaScriptServlet");
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
+        // No configuration.
     }
 
     @Override
     public void destroy() {
+        // Nothing to release.
     }
 
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    /**
+     * Redirects an inactive authenticated session to the logout page; otherwise records user
+     * activity when the request is the user's own and continues the chain.
+     */
+    // FindSecBugs UNVALIDATED_REDIRECT: the redirect target is the fixed same-origin logout page; no request data reaches it.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "the redirect target is the fixed same-origin logout page; no request data reaches it")
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-        boolean redirectToLogout = false;
-        if (request instanceof HttpServletRequest) {
-            HttpServletRequest httpRequest = (HttpServletRequest) request;
-
-
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(httpRequest);
-            Long now = (new Date()).getTime();
-
-            HttpSession session = httpRequest.getSession(false);
-            if (session != null && !httpRequest.getRequestURL().toString().contains(httpRequest.getContextPath() + "/logoutPage")) {
-                Long lastActivity = (Long) session.getAttribute(LAST_USER_ACTIVITY);
-
-                if (lastActivity == null) {
-                    lastActivity = now; // set new last activity
-                }
-                if (now - lastActivity > session.getMaxInactiveInterval() * 1000L) {
-                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.LOGOUT, LogConst.CON_LOGIN, "logged out due to inactivity", request.getRemoteAddr());
-                    logger.warn("User providerNo=" + loggedInInfo.getLoggedInProviderNo() + " logged out due to inactivity");
-                    redirectToLogout = true;
-                } else if (isUserRequest(httpRequest)) {
-                    // Reset activity timer in session
-                    // nosemgrep: tainted-session-from-http-request -- now is System.currentTimeMillis(), a server-generated timestamp
-                    session.setAttribute(LAST_USER_ACTIVITY, now);
-                }
-            }
-        }
-        if (redirectToLogout) {
-            HttpServletResponse httpResponse = (HttpServletResponse) response;
-            httpResponse.sendRedirect(((HttpServletRequest) request).getContextPath() + "/logoutPage?autoLogout=true&errorMessage=logged out due to inactivity");
-        } else {
+        if (!(request instanceof HttpServletRequest httpRequest)
+                || !(response instanceof HttpServletResponse httpResponse)) {
             chain.doFilter(request, response);
+            return;
         }
+
+        // getSession(false): judging activity must never create a session for an anonymous request.
+        HttpSession session = httpRequest.getSession(false);
+        String providerNo = session == null ? null : authenticatedProviderNo(session);
+        String path = contextRelativePath(httpRequest);
+        if (providerNo == null || TIMEOUT_REDIRECT_EXEMPT_PATHS.contains(path)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        Object lastActivity = session.getAttribute(LAST_USER_ACTIVITY);
+        if (lastActivity instanceof Long last && isInactive(now, last, session.getMaxInactiveInterval())) {
+            auditInactivityOnce(session, providerNo, httpRequest.getRemoteAddr());
+            httpResponse.sendRedirect(httpRequest.getContextPath() + INACTIVITY_LOGOUT_PATH);
+            return;
+        }
+
+        if (isUserRequest(httpRequest, path)) {
+            // nosemgrep: tainted-session-from-http-request -- now is System.currentTimeMillis(), a server-generated timestamp
+            session.setAttribute(LAST_USER_ACTIVITY, now);
+        }
+        chain.doFilter(request, response);
     }
 
-    private boolean isUserRequest(HttpServletRequest httpRequest) {
-        if (Boolean.parseBoolean(httpRequest.getParameter("autoRefresh"))) { // is autorefresh
-            return false;
-        } else if (httpRequest.getRequestURL().toString().endsWith(httpRequest.getContextPath() + "/JavaScriptServlet")) { // is csrf servlet js
+    /**
+     * Returns the provider number of an authenticated session, or {@code null} when the session
+     * is not authenticated. Uses the same marker as LoginFilter: a present, non-blank {@code user}
+     * attribute. The provider number of the session's LoggedInInfo is preferred for the audit row.
+     */
+    private static String authenticatedProviderNo(HttpSession session) {
+        Object user = session.getAttribute("user");
+        // LoginFilter's rule: only a missing or blank user marks the session unauthenticated.
+        if (user == null || (user instanceof String userValue && userValue.isBlank())) {
+            return null;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(session);
+        String providerNo = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+        return providerNo == null || providerNo.isBlank() ? String.valueOf(user) : providerNo;
+    }
+
+    /**
+     * A zero or negative interval means the session never times out (Servlet specification),
+     * so it is never inactive.
+     */
+    static boolean isInactive(long now, long lastActivity, int maxInactiveIntervalSeconds) {
+        return maxInactiveIntervalSeconds > 0 && now - lastActivity > maxInactiveIntervalSeconds * 1000L;
+    }
+
+    private static void auditInactivityOnce(HttpSession session, String providerNo, String remoteAddr) {
+        // Check-and-mark under the session's lock so two requests arriving together (a click and a
+        // heartbeat) write one row. Reached only on the inactive path; nothing else is held here.
+        synchronized (session) {
+            if (session.getAttribute(INACTIVITY_LOGOUT_AUDITED) != null) {
+                return;
+            }
+            session.setAttribute(INACTIVITY_LOGOUT_AUDITED, Boolean.TRUE);
+        }
+        LogAction.addLog(providerNo, LogConst.LOGOUT, LogConst.CON_LOGIN, INACTIVITY_AUDIT_TEXT, remoteAddr);
+        logger.warn("User providerNo={} logged out due to inactivity", LogSafe.sanitize(providerNo));
+    }
+
+    private static boolean isUserRequest(HttpServletRequest httpRequest, String path) {
+        if (NON_USER_ACTIVITY_PATHS.contains(path)) {
             return false;
         }
-        return true;
+        return !Boolean.parseBoolean(httpRequest.getParameter("autoRefresh"));
+    }
+
+    /**
+     * The request path below the context root as the container mapped it: servlet path plus path
+     * info, which the container has already decoded and stripped of dot segments and path
+     * parameters ({@code ;jsessionid=}). A trailing slash is dropped, so an exemption cannot be
+     * dodged by decorating the URI.
+     */
+    static String contextRelativePath(HttpServletRequest request) {
+        String servletPath = request.getServletPath();
+        String pathInfo = request.getPathInfo();
+        String path = (servletPath == null ? "" : servletPath) + (pathInfo == null ? "" : pathInfo);
+        while (path.length() > 1 && path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+        return path;
     }
 }

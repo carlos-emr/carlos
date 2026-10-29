@@ -1473,6 +1473,23 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Embedded Tomcat and Jasper, same version as the packaged container, for tests that
+             need a real servlet container: RequestBoundaryFilterOrderIntegrationTest runs the
+             web.xml filter order with the real Struts filters and a compiled JSP (issue #5305).
+             Test scope only; nothing here reaches the WAR. -->
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-core</artifactId>
+            <version>${tomcat.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-jasper</artifactId>
+            <version>${tomcat.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>

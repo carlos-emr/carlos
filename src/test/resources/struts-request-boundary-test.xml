@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC
+        "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN"
+        "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+  Struts configuration for RequestBoundaryFilterOrderIntegrationTest (issue #5305). The test loads
+  only struts-default.xml and this file. Constants mirror the production struts.xml where they
+  decide whether Struts handles a request: extensionless actions, and servlet/JSP paths excluded.
+  The logout routes keep their production names so the UserActivityFilter exemptions are
+  exercised on the real paths.
+-->
+<struts>
+    <constant name="struts.devMode" value="false"/>
+    <constant name="struts.mapper.action.prefix.enabled" value="false"/>
+    <constant name="struts.action.extension" value=""/>
+    <constant name="struts.enable.SlashesInActionNames" value="true"/>
+    <constant name="struts.mapper.alwaysSelectFullNamespace" value="false"/>
+    <constant name="struts.actionConfig.fallbackToEmptyNamespace" value="true"/>
+    <constant name="struts.action.excludePattern" value=".*\.jsp$|^/servlet/.*"/>
+
+    <package name="request-boundary-test" namespace="/" extends="struts-default">
+        <action name="boundary/forwardToJsp"
+                class="io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest$LeakingAction">
+            <result name="success">/WEB-INF/jsp/boundary/leak.jsp</result>
+        </action>
+        <action name="boundary/actionFails"
+                class="io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest$FailingAction"/>
+        <action name="boundary/jspFails"
+                class="io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest$LeakingAction">
+            <result name="success">/WEB-INF/jsp/boundary/leak-then-fail.jsp</result>
+        </action>
+        <action name="boundary/transaction"
+                class="io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest$TransactionalAction"/>
+        <action name="boundary/activity"
+                class="io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest$ActivityAction"/>
+        <action name="status/SessionHeartbeat"
+                class="io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest$ActivityAction"/>
+        <action name="logoutPage"
+                class="io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest$ActivityAction"/>
+        <action name="logout"
+                class="io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest$LogoutAction"/>
+    </package>
+</struts>
