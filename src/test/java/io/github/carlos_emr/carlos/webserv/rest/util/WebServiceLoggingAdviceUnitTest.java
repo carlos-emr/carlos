@@ -110,7 +110,7 @@ class WebServiceLoggingAdviceUnitTest {
         WebServiceLoggingAdvice advice = new WebServiceLoggingAdvice();
 
         try (LogCapture capture = LogCapture.forLogger(WebServiceLoggingAdvice.class);
-             MockedStatic<PhaseInterceptorChain> _ = stubCurrentRequest();
+             var _ = stubCurrentRequest();
              MockedStatic<LogAction> ignoredLog = mockStatic(LogAction.class)) {
 
             Object result = advice.logAccess(joinpoint);
@@ -137,7 +137,7 @@ class WebServiceLoggingAdviceUnitTest {
 
         WebServiceLoggingAdvice advice = new WebServiceLoggingAdvice();
 
-        try (MockedStatic<PhaseInterceptorChain> _ = stubCurrentRequest();
+        try (var _ = stubCurrentRequest();
              MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
 
             advice.logAccess(joinpoint);
@@ -158,7 +158,7 @@ class WebServiceLoggingAdviceUnitTest {
         WebServiceLoggingAdvice advice = new WebServiceLoggingAdvice();
 
         try (LogCapture capture = LogCapture.forLogger(WebServiceLoggingAdvice.class);
-             MockedStatic<PhaseInterceptorChain> _ = stubCurrentRequest();
+             var _ = stubCurrentRequest();
              MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
 
             assertThatThrownBy(() -> advice.logAccess(joinpoint)).isSameAs(boom);
@@ -195,7 +195,7 @@ class WebServiceLoggingAdviceUnitTest {
         ProceedingJoinPoint joinpoint = mockJoinPoint("getPharmacies");
         when(joinpoint.proceed()).thenReturn("ok");
 
-        try (MockedStatic<PhaseInterceptorChain> _ = stubCurrentRequest(request);
+        try (var _ = stubCurrentRequest(request);
              MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
 
             assertThat(new WebServiceLoggingAdvice().logAccess(joinpoint)).isEqualTo("ok");
@@ -255,7 +255,7 @@ class WebServiceLoggingAdviceUnitTest {
         RuntimeException boom = new RuntimeException("boom");
         when(joinpoint.proceed()).thenThrow(boom);
 
-        try (MockedStatic<PhaseInterceptorChain> _ = stubCurrentRequest(request);
+        try (var _ = stubCurrentRequest(request);
              MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
 
             assertThatThrownBy(() -> new WebServiceLoggingAdvice().logAccess(joinpoint)).isSameAs(boom);
