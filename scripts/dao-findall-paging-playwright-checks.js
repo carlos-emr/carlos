@@ -5,11 +5,13 @@
  * pharmacies, GET /ws/rs/pharmacies/?offset=&limit=, which pages straight through
  * AbstractDaoImpl.findAll(offset, limit) -- the read every JPA DAO inherits and the
  * one HRMFixMissingReportHelper and the eForm report tool list also page with.
- * Asserted: the full list comes back in ascending pharmacy id order and equals the
- * database's rows id for id; small pages read with increasing offsets concatenate to
- * exactly that list (no row repeated, none skipped), each page is itself ascending and
- * re-reading a page returns the same rows; an offset past the end returns an empty
- * page; a limit above the 5000-row maximum select size is refused with no rows.
+ * Asserted, against the database's rows in id order: a maximum-size (5000-row) first
+ * page holds exactly the first rows; small pages read with increasing offsets
+ * concatenate to the whole directory (no row repeated, none skipped, every owned row
+ * present), each page is itself ascending and re-reading a page returns the same rows;
+ * an offset past the end returns an empty page; a limit above the 5000-row maximum
+ * select size is refused with no rows. A directory larger than one maximum-size page
+ * (an imported provincial list) is handled by paging, not by the first page.
  * Fixtures: seven pharmacies named after the run marker, inserted in reverse name
  * order so name order and id order disagree. Read-only otherwise. Cleanup deletes only
  * marker rows above the pre-run id high-water mark and asserts they are gone.
@@ -61,17 +63,18 @@ async function workflow(s) {
     fixtureIds.push(Number(id));
   }
 
-  let all;
-  await s.step('the unpaged list is in ascending id order and matches the database', async () => {
-    const expected = sql.rows(`SELECT recordID FROM pharmacyInfo ORDER BY recordID LIMIT ${MAX_SELECT}`)
-      .map(([id]) => Number(id));
+  // The whole directory in id order, straight from the database. A large directory
+  // (an imported provincial list) can hold more than one maximum-size page, so the
+  // REST reads below are compared with slices of this, never with each other.
+  const all = sql.rows('SELECT recordID FROM pharmacyInfo ORDER BY recordID').map(([id]) => Number(id));
+  h.assert(fixtureIds.every(id => all.includes(id)), 'An owned pharmacy is missing from the database');
+
+  await s.step('a maximum-size first page is in ascending id order and matches the database', async () => {
     const listed = await listPharmacies(s, { offset: 0, limit: MAX_SELECT });
     h.assert(listed.status === 200, `The pharmacy list answered HTTP ${listed.status}`);
-    assertAscending(listed.ids, 'The unpaged pharmacy list');
-    h.assert(JSON.stringify(listed.ids) === JSON.stringify(expected),
-      'The unpaged pharmacy list does not hold the database rows in id order');
-    h.assert(fixtureIds.every(id => listed.ids.includes(id)), 'The unpaged list lost an owned pharmacy');
-    all = listed.ids;
+    assertAscending(listed.ids, 'The maximum-size first page');
+    h.assert(JSON.stringify(listed.ids) === JSON.stringify(all.slice(0, MAX_SELECT)),
+      'The maximum-size first page does not hold the first database rows in id order');
   });
 
   await s.step('consecutive pages concatenate to the full list with no repeat or gap', async () => {
@@ -88,7 +91,8 @@ async function workflow(s) {
     }
     h.assert(new Set(visited).size === visited.length, 'A pharmacy was returned on more than one page');
     h.assert(JSON.stringify(visited) === JSON.stringify(all),
-      'The pages do not concatenate to the unpaged list in the same order');
+      'The pages do not concatenate to the database rows in id order');
+    h.assert(fixtureIds.every(id => visited.includes(id)), 'The paged traversal lost an owned pharmacy');
 
     const again = await listPharmacies(s, { offset: pageSize, limit: pageSize });
     h.assert(JSON.stringify(again.ids) === JSON.stringify(all.slice(pageSize, 2 * pageSize)),
