@@ -41,6 +41,7 @@ import os
 import re
 import sys
 import zipfile
+import zlib
 
 DEFAULT_RULES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              "fixtures", "tomcat-container-packages.json")
@@ -49,6 +50,9 @@ CLASSES = "WEB-INF/classes/"
 # A multi-release jar keeps per-JDK classes under META-INF/versions/<n>/; Tomcat
 # resolves those to the same class names, so they are checked as such.
 VERSIONED = re.compile(r"^META-INF/versions/[0-9]+/")
+# What reading a damaged or unsupported archive member can raise: a bad header or CRC, a broken
+# deflate stream, an unsupported compression method, an encrypted entry, a truncated file.
+ARCHIVE_ERRORS = (zipfile.BadZipFile, zlib.error, NotImplementedError, RuntimeError, EOFError, OSError)
 
 
 class UnusableInput(Exception):
@@ -109,15 +113,22 @@ def jar_entries(origin, data):
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as jar:
             return jar.namelist()
-    except zipfile.BadZipFile as exc:
+    except ARCHIVE_ERRORS as exc:
         raise UnusableInput(f"{origin} is not a readable jar: {exc}") from exc
+
+
+def read_member(war, path, name):
+    try:
+        return war.read(name)
+    except ARCHIVE_ERRORS as exc:
+        raise UnusableInput(f"cannot read {name} from {path}: {exc}") from exc
 
 
 def check_war_file(path, rules):
     findings, found_required, jars = [], set(), 0
     try:
         war = zipfile.ZipFile(path)
-    except (OSError, zipfile.BadZipFile) as exc:
+    except ARCHIVE_ERRORS as exc:
         raise UnusableInput(f"cannot open {path}: {exc}") from exc
     with war:
         names = war.namelist()
@@ -126,7 +137,8 @@ def check_war_file(path, rules):
         for name in names:
             if name.startswith(LIB) and name.endswith(".jar") and "/" not in name[len(LIB):]:
                 jars += 1
-                inspect_entries(f"{path}!{name}", jar_entries(name, war.read(name)), rules, findings, found_required)
+                data = read_member(war, path, name)
+                inspect_entries(f"{path}!{name}", jar_entries(name, data), rules, findings, found_required)
     return findings, found_required, jars
 
 

@@ -52,14 +52,15 @@ import org.junit.jupiter.api.Test;
  * Build-time guard that the APIs Tomcat 11 supplies are compiled against but never packaged.
  *
  * <p>Tomcat always loads {@code jakarta.el}, {@code jakarta.servlet}, {@code jakarta.annotation}
- * and its own {@code org.apache.*} packages from its {@code lib/} directory, so a copy in
- * {@code WEB-INF/lib} is never used inside the container; it only misleads tests and tools that
- * run outside it. Issue #5416 found the Expression Language 5.0.1 API shipping that way, at
+ * and its own {@code org.apache.*} packages from its {@code lib/} directory first, so a copy in
+ * {@code WEB-INF/lib} is used only for a class the container lacks; otherwise it only misleads
+ * the tools that run outside the container. Issue #5416 found the Expression Language 5.0.1 API shipping that way, at
  * compile scope through displaytag's JSTL API, beside Tomcat 11's EL 6.0.
  *
  * <p>{@code dependencies-lock.json} is the resolved dependency graph (the build's lock check
- * refuses any difference), so its {@code compile} and {@code runtime} jars are exactly what the
- * WAR plugin copies into {@code WEB-INF/lib}. This test opens each of those jars from the test
+ * refuses any difference), so its non-optional {@code compile} and {@code runtime} artifacts of
+ * the library types are what the WAR plugin copies into {@code WEB-INF/lib}. This test opens
+ * each of those jars from the test
  * class path and applies the rules in {@code scripts/fixtures/tomcat-container-packages.json},
  * which {@code scripts/check-war-container-apis.py} also applies to the built WAR during the
  * Debian package build. Reading the classes, not only the coordinates, also catches an API
@@ -73,6 +74,10 @@ class ContainerApiPackagingUnitTest {
 
     private static final Path PROJECT = Paths.get(System.getProperty("user.dir"));
     private static final Set<String> PACKAGED_SCOPES = Set.of("compile", "runtime");
+    /** Types the WAR plugin overlays or ignores rather than copying into {@code WEB-INF/lib}. */
+    private static final Set<String> UNPACKAGED_TYPES = Set.of("pom", "war", "zip");
+    /** Types whose file is a {@code .jar}; any other packaged type keeps its own extension. */
+    private static final Set<String> JAR_TYPES = Set.of("jar", "bundle", "ejb", "ejb-client", "test-jar");
     /** Multi-release jars keep per-JDK copies of a class under this prefix. */
     private static final Pattern VERSIONED = Pattern.compile("^META-INF/versions/[0-9]+/");
     /** Far fewer than the WAR ships; guards against a lookup that silently scans nothing. */
@@ -83,17 +88,20 @@ class ContainerApiPackagingUnitTest {
 
     /** One {@code dependencies-lock.json} entry. */
     private record LockedArtifact(String groupId, String artifactId, String version, String scope,
-                                  String type, String classifier) {
+                                  String type, String classifier, boolean optional) {
 
-        /** Whether the WAR plugin copies this artifact into {@code WEB-INF/lib}. */
+        /**
+         * Whether the WAR plugin packages this artifact. A packaged type that is not a jar is kept,
+         * so that its file is looked for and the test fails rather than skipping it unseen.
+         */
         boolean packaged() {
-            return PACKAGED_SCOPES.contains(scope) && "jar".equals(type);
+            return PACKAGED_SCOPES.contains(scope) && !optional && !UNPACKAGED_TYPES.contains(type);
         }
 
         /** The artifact's path below a Maven repository root. */
         String repositoryPath() {
             return groupId.replace('.', '/') + "/" + artifactId + "/" + version + "/" + artifactId + "-" + version
-                    + (classifier == null ? "" : "-" + classifier) + ".jar";
+                    + (classifier == null ? "" : "-" + classifier) + "." + (JAR_TYPES.contains(type) ? "jar" : type);
         }
 
         @Override
@@ -133,7 +141,8 @@ class ContainerApiPackagingUnitTest {
         for (JsonNode entry : lock.path("dependencies")) {
             artifacts.add(new LockedArtifact(entry.path("groupId").asText(), entry.path("artifactId").asText(),
                     entry.path("version").asText(), entry.path("scope").asText(), entry.path("type").asText(),
-                    entry.hasNonNull("classifier") ? entry.get("classifier").asText() : null));
+                    entry.hasNonNull("classifier") ? entry.get("classifier").asText() : null,
+                    entry.path("optional").asBoolean(false)));
         }
         locked = Collections.unmodifiableList(artifacts);
 
@@ -163,7 +172,7 @@ class ContainerApiPackagingUnitTest {
     }
 
     @Test
-    @DisplayName("should package no class Tomcat loads from its own lib, nor a competing EL implementation")
+    @DisplayName("should package no class Tomcat loads from its own lib, nor a competing EL or WebSocket implementation")
     void shouldPackageNoContainerApi_inAnyBundledJar() throws IOException {
         Map<String, Set<String>> bundled = new TreeMap<>();
         for (LockedArtifact artifact : packagedArtifacts()) {
@@ -236,7 +245,9 @@ class ContainerApiPackagingUnitTest {
                 .filter(Files::isRegularFile)
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Packaged dependency " + artifact
-                        + " is not on the test class path, so its classes cannot be checked"));
+                        + " is not on the test class path, so its classes cannot be checked. If"
+                        + " dependencies-lock.json is stale, regenerate it with"
+                        + " mvn se.vandmo:dependency-lock-maven-plugin:lock"));
     }
 
     private static List<String> testClassPath() {

@@ -666,7 +666,8 @@
         <!-- Container APIs. Tomcat 11 supplies Servlet 6.1, Pages 4.0, Expression
              Language 6.0 and Annotations 3.0 and always loads those packages from
              its own lib/, so they are provided: on the compile and test class paths,
-             never in the WAR. Only JSTL is the application's to ship (Tomcat has none).
+             never in the WAR. Of the web-tier APIs, only JSTL is the application's to ship
+             (Tomcat has none).
              ContainerApiPackagingUnitTest and scripts/check-war-container-apis.py keep
              it that way; docs/container-provided-apis.md has the reasoning. -->
         <dependency>
@@ -2094,7 +2095,7 @@
                         <groupId>io.leonard.maven.plugins</groupId>
                         <artifactId>jspc-maven-plugin</artifactId>
                         <version>5.0.0</version>
-                        <!-- jspc-maven-plugin 5.0.0 bundles Tomcat 10.1's Jasper (Pages 3.1,
+                        <!-- jspc-maven-plugin 5.0.0 depends on Tomcat 10.1's Jasper (Pages 3.1,
                              EL 5.0), and its class loader puts that Jasper and its EL ahead of
                              the project's provided APIs. Compile with Tomcat 11's Jasper
                              (the tomcat.version the build already compiles against) instead,

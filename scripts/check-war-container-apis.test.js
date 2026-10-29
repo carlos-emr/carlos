@@ -115,14 +115,22 @@ test('container classes are refused under any jar name, multi-release path or WE
   }
 }));
 
-test('a competing EL implementation is refused by its ExpressionFactory service file', () => withTempDir(directory => {
+test('a competing EL or WebSocket implementation is refused by its service file', () => withTempDir(directory => {
   const war = build({ path: path.join(directory, 'carlos.war'),
     jars: { ...JSTL, 'expressly-6.0.0.jar': ['org/glassfish/expressly/ExpressionFactoryImpl.class',
-      'META-INF/services/jakarta.el.ExpressionFactory'] } });
+      'META-INF/services/jakarta.el.ExpressionFactory'],
+    'tyrus-container-2.2.0.jar': ['org/glassfish/tyrus/container/Provider.class',
+      'META-INF/services/jakarta.websocket.ContainerProvider'],
+    // An application's own ServletContainerInitializer is not a container API implementation.
+    'spring-web-7.0.10.jar': ['org/springframework/web/SpringServletContainerInitializer.class',
+      'META-INF/services/jakarta.servlet.ServletContainerInitializer'] } });
   const result = check(war);
   assert.equal(result.status, 1);
   assert.match(result.stderr,
     /expressly-6\.0\.0\.jar: META-INF\/services\/jakarta\.el\.ExpressionFactory installs a competing container implementation$/m);
+  assert.match(result.stderr,
+    /tyrus-container-2\.2\.0\.jar: META-INF\/services\/jakarta\.websocket\.ContainerProvider installs a competing container implementation$/m);
+  assert.doesNotMatch(result.stderr, /spring-web/);
 }));
 
 test('a WAR without JSTL is refused, because Tomcat provides none', () => withTempDir(directory => {
@@ -158,6 +166,23 @@ test('an unreadable artifact or rules file is an error, never a pass', () => wit
   cases.push([check(notZip), /cannot open/]);
   const corruptJar = build({ path: path.join(directory, 'corrupt.war'), jars: { ...JSTL, 'broken.jar': null } });
   cases.push([check(corruptJar), /broken\.jar is not a readable jar/]);
+  // A jar member whose compressed bytes are damaged inside an otherwise valid WAR.
+  const damaged = path.join(directory, 'damaged.war');
+  const damage = spawnSync('python3', ['-I', '-c', String.raw`
+import io, sys, zipfile
+inner = io.BytesIO()
+with zipfile.ZipFile(inner, "w") as jar:
+    jar.writestr("jakarta/servlet/jsp/jstl/core/Config.class", b"x" * 4096)
+with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as war:
+    war.writestr("WEB-INF/lib/app.jar", inner.getvalue() + b"y" * 4096)
+data = bytearray(open(sys.argv[1], "rb").read())
+start = data.index(b"WEB-INF/lib/app.jar") + len("WEB-INF/lib/app.jar")
+for offset in range(start + 8, start + 64):
+    data[offset] ^= 0xFF
+open(sys.argv[1], "wb").write(bytes(data))
+`, damaged], { encoding: 'utf8' });
+  assert.equal(damage.status, 0, damage.stderr);
+  cases.push([check(damaged), /cannot read WEB-INF\/lib\/app\.jar from .*damaged\.war/]);
   const noLib = build({ path: path.join(directory, 'empty.war') });
   cases.push([check(noLib), /has no WEB-INF\/lib\/\*\.jar/]);
   fs.mkdirSync(path.join(directory, 'not-webapp'));
@@ -183,13 +208,15 @@ test('an unreadable artifact or rules file is an error, never a pass', () => wit
 
 test('the shared rules mirror Tomcat 11\'s class-loader filter and keep JSTL with the application', () => {
   const rules = JSON.parse(fs.readFileSync(rulesFile, 'utf8'));
-  // WebappClassLoaderBase.filter in Tomcat 11.0.x: always loaded from the container.
-  for (const prefix of ['jakarta/el/', 'jakarta/servlet/', 'jakarta/annotation/', 'jakarta/websocket/',
-    'jakarta/security/auth/message/', 'javax/websocket/', 'org/apache/el/', 'org/apache/catalina/',
-    'org/apache/jasper/', 'org/apache/juli/', 'org/apache/tomcat/', 'org/apache/naming/', 'org/apache/coyote/']) {
-    assert.ok(rules.containerPackages.includes(prefix), `${prefix} is a container package`);
-  }
+  // WebappClassLoaderBase.filter in Tomcat 11.0.x: always loaded from the container. The exact set,
+  // so a prefix that is too broad (org/apache/) or too narrow fails here, not in a real build.
+  assert.deepEqual([...rules.containerPackages].sort(), ['jakarta/annotation/', 'jakarta/el/',
+    'jakarta/security/auth/message/', 'jakarta/servlet/', 'jakarta/websocket/', 'javax/websocket/',
+    'org/apache/catalina/', 'org/apache/coyote/', 'org/apache/el/', 'org/apache/jasper/', 'org/apache/juli/',
+    'org/apache/naming/', 'org/apache/tomcat/']);
   assert.deepEqual([...rules.applicationPackages].sort(), ['jakarta/servlet/jsp/jstl/', 'org/apache/tomcat/jdbc/']);
-  assert.deepEqual(rules.containerServices, ['META-INF/services/jakarta.el.ExpressionFactory']);
+  assert.deepEqual([...rules.containerServices].sort(), ['META-INF/services/jakarta.el.ExpressionFactory',
+    'META-INF/services/jakarta.websocket.ContainerProvider',
+    'META-INF/services/jakarta.websocket.server.ServerEndpointConfig$Configurator']);
   assert.ok(rules.requiredClasses.includes('jakarta/servlet/jsp/jstl/core/Config.class'));
 });

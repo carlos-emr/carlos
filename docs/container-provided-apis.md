@@ -24,9 +24,10 @@ This page records which APIs those are, why, and the checks that keep it so.
    `<dependencyManagement>` also carries `<scope>provided</scope>`, so every transitive path
    resolves to it.
 2. Never make JSTL `provided`. Every page that uses `<c:...>` or `<fmt:...>` would fail.
-3. Do not add an Expression Language implementation (Expressly, GlassFish `jakarta.el`) to the
-   WAR. `ExpressionFactory.newInstance()` looks the factory up through the web application's
-   class loader, so a bundled implementation could replace Tomcat's.
+3. Do not add an Expression Language implementation (Expressly, GlassFish `jakarta.el`) or a
+   WebSocket implementation to the WAR. `ExpressionFactory.newInstance()`, the WebSocket
+   `ContainerProvider` and the default `ServerEndpointConfig.Configurator` are looked up through
+   the web application's class loader, so a bundled implementation could replace Tomcat's.
 4. After a dependency change, regenerate `dependencies-lock.json`
    (`mvn se.vandmo:dependency-lock-maven-plugin:lock`) and run the checks below.
 
@@ -37,8 +38,9 @@ Tomcat's web application class loader always asks its parent first for `jakarta.
 `jakarta.security.auth.message`, `javax.websocket` and its own `org.apache.catalina`, `coyote`,
 `el`, `jasper`, `juli`, `naming` and `tomcat` packages (except `org.apache.tomcat.jdbc`)
 (`WebappClassLoaderBase.filter`). A copy in `WEB-INF/lib` is used only for a class the container
-lacks. It never changes what Tomcat runs. It does change what runs outside Tomcat: unit tests,
-JSP precompilation and any tool that puts `WEB-INF/lib/*` on its class path.
+lacks, so it does not change what Tomcat runs. What it does change is everything that uses the
+same pin without Tomcat: tests and JSP precompilation compiled against the EL 5 API while Tomcat
+ran EL 6, and any tool that puts `WEB-INF/lib/*` on its class path saw the EL 5 copy.
 
 Until #5416 the WAR shipped two such copies:
 
@@ -74,15 +76,15 @@ a fallback.
 ## Classpaths without Tomcat
 
 - **Unit and integration tests:** `provided` dependencies are on the test class path, so tests
-  compile and run against EL 6.0.1, the version the JSP 4.0 API itself is built against. No test
+  compile and run against EL 6.0.1, of the EL 6.0 line the JSP 4.0 API is built against. No test
   needs an EL implementation; `CarlosEncodeTagUnitTest` only implements `PageContext`, whose
   `getELContext()` returns an EL type.
 - **JSP precompilation (`mvn package -Pjspc`, `make jspc`, the CI `jspc` job):**
-  `jspc-maven-plugin` 5.0.0 bundles Tomcat 10.1's Jasper (Pages 3.1, EL 5.0), and its class
+  `jspc-maven-plugin` 5.0.0 depends on Tomcat 10.1's Jasper (Pages 3.1, EL 5.0), and its class
   loader puts that Jasper and its EL ahead of the project's dependencies. The `jspc` profile
   therefore pins the plugin's `tomcat-jasper` to `${tomcat.version}`, which brings Tomcat 11's
   Jasper, JSP API, EL API and EL implementation together. All 992 JSPs compiled with it when
-  this changed, as they did with the bundled 10.1 Jasper.
+  this changed, as they did with the plugin's default 10.1 Jasper.
 - **`scripts/compile-edit-appointment-jsp.sh`:** puts `$CATALINA_HOME/lib` first, so it already
   compiled against the deployment's EL.
 - **The packaged Flyway runner (`carlos-ctl db-*`):** runs with `WEB-INF/lib/*` on its class path
@@ -92,9 +94,11 @@ a fallback.
 
 - `ContainerApiPackagingUnitTest` runs with every `mvn test`. It reads `dependencies-lock.json`,
   which the build's lock check holds equal to the resolved dependency graph, and requires the EL
-  API to be 6.x and `provided`. It opens every `compile` and `runtime` jar, which is exactly what
-  the WAR plugin packages, and fails on any class in a container package, on an
-  `ExpressionFactory` service file, and on missing JSTL.
+  API to be 6.x and `provided`. It opens every non-optional `compile` and `runtime` artifact the
+  WAR plugin would package (every type but `pom`, `war` and `zip`; a type it cannot open fails
+  the test), and fails on any class in a container package, on a competing EL or WebSocket
+  service file, and on missing JSTL. A stale lock file shows as an artifact missing from the test
+  class path.
 - `scripts/check-war-container-apis.py` applies the same rules to the built WAR (or an exploded
   web application). `debian/rules` runs it on every package build, so a jar copied into the WAR
   by any route is refused. Its cases are in `scripts/check-war-container-apis.test.js`.
@@ -108,6 +112,6 @@ To check by hand:
 
 ```bash
 mvn dependency:tree -Dverbose -Dincludes=jakarta.el,jakarta.annotation,jakarta.servlet.jsp.jstl
-mvn package -DskipTests && python3 scripts/check-war-container-apis.py target/carlos-*.war
+mvn clean package -DskipTests && python3 scripts/check-war-container-apis.py target/carlos-*.war
 mvn test -Dtest=ContainerApiPackagingUnitTest
 ```

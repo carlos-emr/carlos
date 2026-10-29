@@ -6,8 +6,9 @@
     "outside Tomcat (issue #5416: EL 5.0.1 shipped beside Tomcat 11's EL 6.0).",
     "applicationPackages are the exceptions the filter itself makes. containerServices are",
     "service files whose presence in the WAR would install a competing implementation of a",
-    "container API: jakarta.el.ExpressionFactory.newInstance() looks the factory up through",
-    "the web application's class loader. requiredClasses must ship, because Tomcat provides",
+    "container API, because the API looks it up through the web application's class loader:",
+    "jakarta.el.ExpressionFactory.newInstance(), and the WebSocket ContainerProvider and default",
+    "ServerEndpointConfig.Configurator. requiredClasses must ship, because Tomcat provides",
     "no JSTL. Prefixes are zip entry paths ('/'-separated, trailing '/').",
     "Read by scripts/check-war-container-apis.py and ContainerApiPackagingUnitTest; see",
     "docs/container-provided-apis.md before changing it."
@@ -32,7 +33,9 @@
     "org/apache/tomcat/jdbc/"
   ],
   "containerServices": [
-    "META-INF/services/jakarta.el.ExpressionFactory"
+    "META-INF/services/jakarta.el.ExpressionFactory",
+    "META-INF/services/jakarta.websocket.ContainerProvider",
+    "META-INF/services/jakarta.websocket.server.ServerEndpointConfig$Configurator"
   ],
   "requiredClasses": [
     "jakarta/servlet/jsp/jstl/core/Config.class",

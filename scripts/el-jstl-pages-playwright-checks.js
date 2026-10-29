@@ -4,7 +4,7 @@
  * Expression Language, JSTL and displaytag on deployed pages (issue #5416).
  *
  * #5416 moved the Jakarta Expression Language API to 6.0 and out of the WAR: Tomcat 11
- * supplies it, and a copy in WEB-INF/lib is never loaded (docs/container-provided-apis.md).
+ * supplies it, and loads it ahead of any copy in WEB-INF/lib (docs/container-provided-apis.md).
  * This check proves, on a running deployment, that the container still evaluates the
  * expressions, tags and EL functions CARLOS pages rely on. Administration is entered through
  * the schedule's control; the other pages are requested with the GET their links send, which

@@ -117,7 +117,7 @@
 - `ContainerApiPackagingUnitTest` (dependency graph) and `scripts/check-war-container-apis.py`
   (the built WAR, run by `debian/rules`) enforce this from
   `scripts/fixtures/tomcat-container-packages.json`. The `jspc` profile compiles with Tomcat 11's
-  Jasper (`${tomcat.version}`), not the plugin's bundled 10.1. See `docs/container-provided-apis.md`.
+  Jasper (`${tomcat.version}`), not the plugin's default 10.1. See `docs/container-provided-apis.md`.
 
 ## Debian Packaging and carlos-ctl
 
