@@ -26,6 +26,12 @@ const DOCUMENT_STORE = process.env.CONSULT_FAX_DOCUMENT_STORE || '/var/lib/carlo
 const UNROUTABLE_RELAY = 'http://127.0.0.1:9/';
 
 /**
+ * A random value for an owned account's relay credentials. It authenticates nothing real: the accounts point at an
+ * unroutable port or the check's own loopback stub, which only compares it with what it was given.
+ */
+const throwawayCredential = () => crypto.randomBytes(8).toString('hex');
+
+/**
  * Owned sender accounts.
  *
  * @param s the runWorkflow session
@@ -53,7 +59,7 @@ function ownedSenders(s, { url, labels }) {
     h.assert(number, 'No unused sender fax number was found');
     const sender = {
       number, name: `${prefix} ${label}`, faxUser: `user${label}${number.slice(-4)}`, siteUser: `site${label}${number.slice(-4)}`,
-      passwd: `pw${label}${crypto.randomBytes(4).toString('hex')}`, faxPasswd: `fp${label}${crypto.randomBytes(4).toString('hex')}`,
+      passwd: throwawayCredential(), faxPasswd: throwawayCredential(),
     };
     sender.id = h.insertId(sql, `INSERT INTO fax_config
       (providerType,active,faxNumber,faxReply,accountName,senderEmail,faxUser,siteUser,passwd,faxPasswd,gatewayName,queue,url,download)
