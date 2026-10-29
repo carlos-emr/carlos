@@ -739,9 +739,9 @@ public class CdsImportLedgerService {
         lineage.setTargetDemographicNo(demographicNo); touch(run);
     }
 
-    public CdsImportJobDto status(String runId) { return write(() -> dto(requiredRun(runId, false))); }
+    public CdsImportJobDto status(String runId) { return jobBinding(runId).job(); }
     /** Protected internal source location; the application facade must authorize before calling. */
-    public String snapshotLocation(String runId) { return write(() -> requiredRun(runId, false).getSnapshotLocation()); }
+    public String snapshotLocation(String runId) { return jobBinding(runId).documentLocation(); }
 
     /** Protected internal request binding; the application facade authorizes before private-path access. */
     public CdsImportJobBindingDto jobBinding(String runId) {

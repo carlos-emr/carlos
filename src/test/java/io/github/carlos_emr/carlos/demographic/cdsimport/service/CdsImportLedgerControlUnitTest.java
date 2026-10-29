@@ -215,6 +215,53 @@ class CdsImportLedgerControlUnitTest {
             verifyNoInteractions(runs,manager);
         } finally {TransactionSynchronizationManager.setActualTransactionActive(false);}
     }
+    @Test void standaloneJobAndPathReadsPreserveEveryFieldAndObserveLaterControlChanges() {
+        run.setSnapshotLocation("/opaque/private-job-document");
+        run.setSourceNamespace("source");run.setProfile("pcon-2024-02");
+        run.setSourceDigest("a".repeat(64));run.setOptionsDigest("b".repeat(64));
+        run.setRulesetDigest("c".repeat(64));run.setManifestDigest("d".repeat(64));
+        run.setExpectedPatients(17);run.setExpectedUnits(99);run.setReportGeneration(3);
+        run.setReportLocation("/opaque/report-manifest");run.setReportDigest("e".repeat(64));
+        when(runs.readJobBinding("run")).thenAnswer(call-> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto(
+                    CdsImportLedgerService.dto(run),run.getSnapshotLocation());
+        });
+        var first=ledger.status("run");
+        assertThat(first).isEqualTo(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto(
+                "run","fixture","999998","source","pcon-2024-02","RUNNING",
+                "a".repeat(64),"b".repeat(64),"c".repeat(64),"d".repeat(64),17,99,7,true,
+                Instant.EPOCH,Instant.EPOCH,3,"/opaque/report-manifest","e".repeat(64)));
+        assertThat(ledger.snapshotLocation("run")).isEqualTo("/opaque/private-job-document");
+        run.setOwnerEpoch(8);run.setCancelRequested(false);run.setState("FINALIZING");
+        run.setReportGeneration(4);run.setReportLocation("/opaque/new-report");run.setReportDigest("f".repeat(64));
+        run.setSnapshotLocation("/opaque/new-job-document");
+        assertThat(ledger.status("run")).isEqualTo(CdsImportLedgerService.dto(run));
+        assertThat(ledger.snapshotLocation("run")).isEqualTo("/opaque/new-job-document");
+        assertThat(first.ownerEpoch()).isEqualTo(7);assertThat(first.cancelRequested()).isTrue();
+        assertThat(first.state()).isEqualTo("RUNNING");assertThat(first.reportGeneration()).isEqualTo(3);
+        verify(runs,times(4)).readJobBinding("run");verify(runs,never()).get(anyString());
+        verifyNoInteractions(manager,patients,unitRows,diagnosticRows);
+    }
+    @ParameterizedTest
+    @ValueSource(booleans={false,true})
+    void standaloneReadsRetainInvalidMissingAndAmbientErrors(boolean location) {
+        for(String invalid:java.util.Arrays.asList(null,""," ","x".repeat(37)))
+            assertThatThrownBy(()->standaloneRead(location,invalid)).isInstanceOf(IllegalArgumentException.class).hasMessage("Invalid run id");
+        verifyNoInteractions(runs,manager);
+        assertThatThrownBy(()->standaloneRead(location,"missing")).isInstanceOf(CdsImportException.class).hasMessage("RUN_NOT_FOUND");
+        verify(runs).readJobBinding("missing");verify(runs,never()).get(anyString());verifyNoInteractions(manager);
+        clearInvocations(runs);
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            for(String value:java.util.Arrays.asList(null,"run"))
+                assertThatThrownBy(()->standaloneRead(location,value)).isInstanceOf(CdsImportException.class).hasMessage("AMBIENT_TRANSACTION_REFUSED");
+            verifyNoInteractions(runs,manager);
+        } finally {TransactionSynchronizationManager.setActualTransactionActive(false);}
+    }
+    private Object standaloneRead(boolean location,String runId) {
+        return location?ledger.snapshotLocation(runId):ledger.status(runId);
+    }
     @Test void shouldReadOnlyEntryFacts_withoutTransactionOrAggregateQueries() {
         var expected=new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto(
                 true, false, true, false, "/opaque/private-job-document");

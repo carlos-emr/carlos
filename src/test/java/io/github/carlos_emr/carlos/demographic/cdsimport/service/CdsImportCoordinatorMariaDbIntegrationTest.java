@@ -413,6 +413,56 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
                     +" rawLegacyBefore="+legacyBefore+" rawLegacyAfter="+legacyAfter
                     +" rawNew="+prefetchedQuestions+" rawLegacy="+legacyQuestions+" calls=12");
 
+            // Exercise both public APIs independently. Keep the earlier R5 windows
+            // intact and compare against the exact former transaction/entity reads.
+            for (boolean location:java.util.List.of(false,true)) {
+                Object publicExpected=location?expected.documentLocation():expected.job();
+                probe.expectedActualTransaction=false;
+                statistics.clear(); probe.statements=0; probe.jdbcExecutions=0;
+                long publicBefore=questions();
+                for (int index=0; index<12; index++) {
+                    Object actual=location?ledger.snapshotLocation(run):ledger.status(run);
+                    assertThat(actual).isEqualTo(publicExpected);
+                    assertBindingResourcesRetired(factory, probe);
+                    assertThat(Files.readString(metadata)).isEqualTo("private bounded metadata fixture");
+                }
+                long publicAfter=questions();
+                assertThat(probe.statements).isEqualTo(12);
+                assertThat(probe.jdbcExecutions).isEqualTo(12);
+                assertThat(statistics.getPrepareStatementCount()).isEqualTo(12);
+                assertThat(statistics.getQueryExecutionCount()).isEqualTo(12);
+                assertThat(statistics.getEntityLoadCount()).isZero();
+                assertThat(statistics.getTransactionCount()).isZero();
+
+                probe.expectedActualTransaction=true;
+                statistics.clear(); probe.statements=0; probe.jdbcExecutions=0;
+                long publicLegacyBefore=questions();
+                for (int index=0; index<12; index++) {
+                    Object legacy=transaction.execute(status-> {
+                        var row=dao.get(run);
+                        return location?row.getSnapshotLocation():CdsImportLedgerService.dto(row);
+                    });
+                    assertThat(legacy).isEqualTo(publicExpected);
+                    assertBindingResourcesRetired(factory, probe);
+                }
+                long publicLegacyAfter=questions();
+                assertThat(probe.statements).isEqualTo(12);
+                assertThat(statistics.getPrepareStatementCount()).isEqualTo(12);
+                assertThat(statistics.getEntityLoadCount()).isEqualTo(12);
+                assertThat(statistics.getTransactionCount()).isEqualTo(12);
+                assertThat(publicAfter-publicBefore)
+                        .as("Both raw windows include their final observer SHOW; no subtraction")
+                        .isLessThan(publicLegacyAfter-publicLegacyBefore);
+                assertThat(publicLegacyAfter-publicLegacyBefore-(publicAfter-publicBefore))
+                        .as("At least two fixed session/transaction statements saved per public read")
+                        .isGreaterThanOrEqualTo(24);
+                System.out.println((location?"CDS_SNAPSHOT_LOCATION_SQL":"CDS_STANDALONE_STATUS_SQL")
+                        +" rawNewBefore="+publicBefore+" rawNewAfter="+publicAfter
+                        +" rawLegacyBefore="+publicLegacyBefore+" rawLegacyAfter="+publicLegacyAfter
+                        +" rawNew="+(publicAfter-publicBefore)+" rawLegacy="+(publicLegacyAfter-publicLegacyBefore)
+                        +" calls=12 entities=0 transactions=0");
+            }
+
             probe.expectedActualTransaction=true;
             CdsImportReportEntryDto entryExpected=transaction.execute(status-> {
                 var row=dao.get(run);
@@ -445,9 +495,10 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
             long entryLegacyBefore=questions();
             for (int index=0; index<12; index++) {
                 var previous=ledger.summary(run);
+                String legacyLocation=transaction.execute(status->dao.get(run).getSnapshotLocation());
                 var legacyEntry=new CdsImportReportEntryDto(Boolean.TRUE.equals(previous.get("reportsDelivered")),
                         Boolean.TRUE.equals(previous.get("discoveryComplete")), Boolean.TRUE.equals(previous.get("dryRun")),
-                        "SEALED".equals(previous.get("inventoryState")), ledger.snapshotLocation(run));
+                        "SEALED".equals(previous.get("inventoryState")), legacyLocation);
                 assertThat(legacyEntry).isEqualTo(entryExpected);
                 assertBindingResourcesRetired(factory, probe);
             }
@@ -505,6 +556,55 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
             assertThat(ledger.jobBinding(run).job().cancelRequested()).isTrue();
             assertThat(expected.job().cancelRequested()).as("An earlier immutable DTO cannot change in place").isFalse();
             assertBindingResourcesRetired(factory, probe);
+            // The maintenance observer writes on an independent physical connection;
+            // each subsequent public read must see that committed current row.
+            try (Connection connection=source.getConnection()) {
+                assertThat(scalar(connection,"SELECT CONNECTION_ID()"))
+                        .isNotEqualTo(scalar(observer,"SELECT CONNECTION_ID()"));
+            }
+            var priorStatus=ledger.status(run);
+            assertBindingResourcesRetired(factory, probe);
+            String priorLocation=ledger.snapshotLocation(run);
+            assertBindingResourcesRetired(factory, probe);
+            update("UPDATE cds_import_run SET owner_epoch=8,cancel_requested=0,state='FINALIZING',report_generation=10,report_location='/opaque/current-report',report_digest=?,snapshot_location='/opaque/current-job' WHERE id=?",
+                    "e".repeat(64), run);
+            var currentStatus=ledger.status(run);
+            assertThat(currentStatus.ownerEpoch()).isEqualTo(8);
+            assertThat(currentStatus.cancelRequested()).isFalse();
+            assertThat(currentStatus.state()).isEqualTo("FINALIZING");
+            assertThat(currentStatus.reportGeneration()).isEqualTo(10);
+            assertThat(currentStatus.reportLocation()).isEqualTo("/opaque/current-report");
+            assertThat(currentStatus.reportDigest()).isEqualTo("e".repeat(64));
+            assertBindingResourcesRetired(factory, probe);
+            assertThat(ledger.snapshotLocation(run)).isEqualTo("/opaque/current-job");
+            assertBindingResourcesRetired(factory, probe);
+            assertThat(priorStatus.ownerEpoch()).isEqualTo(7);assertThat(priorStatus.cancelRequested()).isTrue();
+            assertThat(priorStatus.reportGeneration()).isEqualTo(9);
+            assertThat(priorLocation).isEqualTo("/opaque/control-probe");
+            probe.expectedActualTransaction=true;
+            assertThat(currentStatus).isEqualTo(transaction.execute(status->CdsImportLedgerService.dto(dao.get(run))));
+            assertBindingResourcesRetired(factory, probe);
+            probe.expectedActualTransaction=false;
+            for (boolean location:java.util.List.of(false,true)) {
+                for (String invalid:java.util.Arrays.asList(null,""," ","x".repeat(37))) {
+                    int beforeInvalid=probe.statements;
+                    assertThatThrownBy(()-> {if(location)ledger.snapshotLocation(invalid);else ledger.status(invalid);})
+                            .isInstanceOf(IllegalArgumentException.class).hasMessage("Invalid run id");
+                    assertThat(probe.statements).isEqualTo(beforeInvalid);
+                    assertBindingResourcesRetired(factory, probe);
+                }
+                assertThatThrownBy(()-> {if(location)ledger.snapshotLocation(alternate);else ledger.status(alternate);})
+                        .isInstanceOf(CdsImportException.class).hasMessage("RUN_NOT_FOUND");
+                assertBindingResourcesRetired(factory, probe);
+                int beforeAmbient=probe.statements;
+                transaction.executeWithoutResult(status-> {
+                    for (String value:java.util.Arrays.asList(null,run))
+                        assertThatThrownBy(()-> {if(location)ledger.snapshotLocation(value);else ledger.status(value);})
+                                .isInstanceOf(CdsImportException.class).hasMessage("AMBIENT_TRANSACTION_REFUSED");
+                    assertThat(probe.statements).isEqualTo(beforeAmbient);
+                });
+                assertBindingResourcesRetired(factory, probe);
+            }
             assertThatThrownBy(()-> ledger.jobBinding(alternate)).isInstanceOf(CdsImportException.class).hasMessage("RUN_NOT_FOUND");
             assertBindingResourcesRetired(factory, probe);
             int observed=probe.statements;

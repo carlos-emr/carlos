@@ -446,12 +446,21 @@
                     && typeof error.code === 'string' && /^[A-Z][A-Z0-9_]{0,79}$/.test(error.code)
                     ? error.code : 'IMPORT_CONTROL_OUTCOME_UNCONFIRMED';
                 // A later view, including a reopened view of this same run, keeps
-                // its own notice. Reopening the original job reveals this warning.
-                if (view === activeView) controlNotice(run, attempt);
+                // its own notice. Only this attempt's already visible pending
+                // notice changes; otherwise reopening its job reveals the warning.
+                if (view === activeView || controlNoticeOwner === attempt) controlNotice(run, attempt);
                 return;
             }
             controlAttempts.delete(run);
-            if (view !== activeView) return;
+            if (controlNoticeOwner === attempt) {
+                byId('cdsNotice').hidden = true; controlNoticeOwner = undefined;
+            }
+            if (view !== activeView) {
+                // This same job may have looked terminal before the old control
+                // committed. Refresh its current view without reopening it.
+                if (activeRun === run) await updateStatus(run, activeView);
+                return;
+            }
             acknowledged();
             await openRun(run);
         }

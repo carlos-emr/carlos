@@ -30,7 +30,7 @@ class Element {
 // Drive the real DOMContentLoaded controller and its actual fetch/stream reader.
 // Deferred responses make the browser's out-of-order network completion deterministic.
 function browser(options = {}) {
-  const nodes = new Map(), requests = [], timers = new Map(); let nextTimer = 0;
+  const nodes = new Map(), requests = [], timers = new Map(), routes = []; let nextTimer = 0;
   const node = id => { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); };
   node('cdsImport').dataset = {context: '/carlos', owner: 'web-fixture'};
   const document = {
@@ -42,7 +42,8 @@ function browser(options = {}) {
     {status, headers: {'content-type': 'application/json', 'X-CARLOS-CDS-API-Version': '2'}});
   const sandbox = vm.createContext({document, URL, URLSearchParams, AbortController, TextDecoder, WritableStream,
     location: {origin: 'http://localhost', href: 'http://localhost/carlos/form/importUpload'},
-    history: {replaceState() {}}, localStorage: {getItem: () => null, setItem() {}}, navigator: {},
+    history: {replaceState(state, title, url) { routes.push(url); }},
+    localStorage: {getItem: () => null, setItem() {}}, navigator: {},
     setTimeout(callback, delay) { const id = ++nextTimer; timers.set(id, {callback, delay}); return id; },
     clearTimeout(id) { timers.delete(id); },
     fetch(url, init) {
@@ -57,7 +58,7 @@ function browser(options = {}) {
   });
   vm.runInContext(SOURCE, sandbox); document.ready();
   const jobs = () => requests.filter(row => row.url.pathname.endsWith('/cdsImportStatus') && row.section === 'job');
-  return {node, requests, jobs, timers,
+  return {node, requests, jobs, timers, routes,
     open(id = RUN) { node('runId').value = id; return node('openRun').fire('click'); },
     click(id) { return node(id).fire('click'); },
     controls() { return requests.filter(row => row.url.pathname.endsWith('/cdsImportControl')); },
@@ -93,6 +94,75 @@ function startControl(fixture, operation) {
   fixture.node('reviewPatientKey').value = 'a'.repeat(64);
   fixture.node('reviewReason').value = 'Synthetic review reason';
   return fixture.node('cdsReviewForm').fire('submit');
+}
+
+for (const operation of ['cancel', 'resume', 'review']) {
+  for (const sameRun of [true, false]) {
+    // A different job cannot own the original job's pending-control notice.
+    for (const notice of sameRun ? ['owned', 'none', 'unrelated'] : ['none', 'unrelated']) {
+      for (const outcome of ['success', 'failure']) test(`a late ${operation} ${outcome} acknowledgement keeps a ${sameRun ? 'same-job' : 'different-job'} ${notice} view consistent`, async () => {
+        const f = browser({deferControls: true}); const initial = f.open(); await settle();
+        f.jobs()[0].respond(status(1, true, RUN, {cancelRequested: false})); await initial;
+        const action = startControl(f, operation); await settle();
+        const selected = sameRun ? RUN : OTHER, reopened = f.open(selected); await settle();
+        f.jobs()[1].respond(status(1, true, selected, {cancelRequested: false})); await reopened;
+        if (sameRun && notice !== 'none') {
+          await startControl(f, operation); await settle();
+          assert.match(f.node('cdsNotice').textContent, /awaiting acknowledgement/);
+        }
+        if (notice === 'unrelated') await f.click('copyJobStatus');
+        const previousNotice = f.node('cdsNotice').textContent;
+        f.node('cdsReviewForm').hidden = false; f.node('reviewReason').value = 'NEW_VIEW_DRAFT';
+        const scrolls = f.node('runHeading').scrolls, routeCount = f.routes.length, route = f.routes.at(-1);
+        assert.equal(f.controls().length, 1, 'the duplicate must be refused before sending another mutation');
+        assert.equal(f.polls().length, 0, 'the reopened observation was terminal before the old request settled');
+        if (outcome === 'success') f.controls()[0].respond({});
+        else f.controls()[0].reject(Error('CONTROL_ACK_UNCONFIRMED'));
+        await settle();
+
+        if (sameRun && outcome === 'success') {
+          assert.equal(f.node('cdsNotice').hidden, notice !== 'unrelated', 'only the exact owned pending notice may be cleared');
+          assert.equal(f.jobs().length, 3, 'a late same-job acknowledgement must refresh its potentially obsolete terminal observation');
+          assert.equal(f.jobs()[2].init.method, 'GET');
+          assert.equal(f.jobs()[2].url.searchParams.get('runId'), RUN);
+          assert.equal(f.status().job.reportGeneration, 1, 'the view is retained while its read-only refresh is pending');
+          assert.equal(f.node('jobOverview').dataset.fresh, 'true');
+          const fresh = status(2, operation === 'cancel', RUN, {cancelRequested: operation === 'cancel'});
+          fresh.summary.resumeRequested = operation === 'resume'; fresh.summary.reviewVersion = operation === 'review' ? 1 : 0;
+          f.jobs()[2].respond(fresh);
+        } else assert.equal(f.jobs().length, 2, 'a failure or another selected job must not start an unsolicited status read');
+        await action; await settle();
+
+        assert.equal(f.controls().length, 1, 'settlement never retries the mutation');
+        assert.equal(f.status().job.id, selected);
+        assert.equal(f.node('jobOverview').dataset.fresh, 'true');
+        assert.equal(f.node('cdsReviewForm').hidden, false, 'an obsolete review acknowledgement cannot hide the newer form');
+        assert.equal(f.node('reviewReason').value, 'NEW_VIEW_DRAFT');
+        assert.equal(f.node('runHeading').scrolls, scrolls, 'refreshing status must not reopen or scroll the newer view');
+        assert.equal(f.routes.at(-1), route);
+        assert.ok(f.routes.slice(routeCount).every(value => value === route), 'the read-only refresh must not navigate away');
+        if (sameRun && outcome === 'success') {
+          assert.equal(f.status().job.reportGeneration, 2);
+          assert.equal(f.status().job.cancelRequested, operation === 'cancel');
+          assert.equal(f.status().summary.resumeRequested, operation === 'resume');
+          assert.equal(f.status().summary.reviewVersion, operation === 'review' ? 1 : 0);
+          assert.equal(f.polls().length, operation === 'cancel' ? 0 : 1);
+        } else {
+          assert.equal(f.status().job.reportGeneration, 1); assert.equal(f.polls().length, 0);
+        }
+        if (notice === 'unrelated') {
+          assert.equal(f.node('cdsNotice').hidden, false); assert.equal(f.node('cdsNotice').textContent, previousNotice);
+        } else if (sameRun && notice === 'owned' && outcome === 'failure') {
+          assert.match(f.node('cdsNotice').textContent, /Acknowledgement unconfirmed/);
+          assert.doesNotMatch(f.node('cdsNotice').textContent, /awaiting acknowledgement/);
+          assert.equal(f.node('cdsNotice').children.length, 0, 'the status read that preceded this failure cannot permit dismissal');
+          const checked = f.click('retryJobStatus'); await settle(); f.jobs()[2].respond(status(2)); await checked;
+          assert.equal(f.node('cdsNotice').children.length, 1, 'only a later fresh original-job observation permits dismissal');
+          assert.equal(f.controls().length, 1);
+        } else assert.equal(f.node('cdsNotice').hidden, true);
+      });
+    }
+  }
 }
 
 for (const operation of ['cancel', 'resume', 'review']) {
