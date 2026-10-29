@@ -21,9 +21,11 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.List;
 
 import jakarta.persistence.metamodel.Attribute;
@@ -59,12 +61,6 @@ import jakarta.persistence.metamodel.Type;
  */
 final class EntityIdentifierPaths {
 
-    /**
-     * Guards the recursion through embeddables and derived identities. Real mappings nest one or two
-     * levels; a deeper chain means a mapping cycle, which would otherwise overflow the stack.
-     */
-    private static final int MAX_NESTING_DEPTH = 8;
-
     private static final Comparator<Attribute<?, ?>> BY_NAME = Comparator.comparing(Attribute::getName);
 
     private EntityIdentifierPaths() {
@@ -81,17 +77,29 @@ final class EntityIdentifierPaths {
      */
     static List<String> resolve(Metamodel metamodel, Class<?> entityClass) {
         List<String> paths = new ArrayList<>();
-        appendIdentifierPaths(metamodel.entity(entityClass), "", paths, 0);
+        appendIdentifierPaths(metamodel.entity(entityClass), "", paths, new ArrayDeque<>());
         if (paths.isEmpty()) {
             throw new IllegalStateException("No identifier attributes found for " + entityClass.getName());
         }
         return List.copyOf(paths);
     }
 
-    private static void appendIdentifierPaths(IdentifiableType<?> type, String prefix, List<String> paths, int depth) {
-        requireDepth(type, depth);
-        for (SingularAttribute<?, ?> attribute : identifierAttributes(type)) {
-            appendAttributePaths(attribute, prefix + attribute.getName(), paths, depth);
+    /**
+     * Appends the identifier paths of {@code type}. {@code expanding} holds the entity and embeddable
+     * types whose identifiers are being expanded on the current recursion path, so a mapping whose
+     * identifier leads back to a type already on that path fails fast instead of overflowing the
+     * stack. A type may still appear on separate branches, such as two associations to the same
+     * entity in one {@code @IdClass}, and there is no limit on legitimate nesting depth.
+     */
+    private static void appendIdentifierPaths(IdentifiableType<?> type, String prefix, List<String> paths,
+            Deque<Type<?>> expanding) {
+        enter(type, expanding);
+        try {
+            for (SingularAttribute<?, ?> attribute : identifierAttributes(type)) {
+                appendAttributePaths(attribute, prefix + attribute.getName(), paths, expanding);
+            }
+        } finally {
+            expanding.pop();
         }
     }
 
@@ -129,18 +137,23 @@ final class EntityIdentifierPaths {
         return found;
     }
 
-    private static void appendAttributePaths(SingularAttribute<?, ?> attribute, String path, List<String> paths, int depth) {
+    private static void appendAttributePaths(SingularAttribute<?, ?> attribute, String path, List<String> paths,
+            Deque<Type<?>> expanding) {
         Type<?> type = attribute.getType();
         switch (type.getPersistenceType()) {
             case BASIC -> paths.add(path);
             case EMBEDDABLE -> {
-                requireDepth(type, depth + 1);
-                for (SingularAttribute<?, ?> component : sortedByName(((ManagedType<?>) type).getSingularAttributes())) {
-                    appendAttributePaths(component, path + "." + component.getName(), paths, depth + 1);
+                enter(type, expanding);
+                try {
+                    for (SingularAttribute<?, ?> component : sortedByName(((ManagedType<?>) type).getSingularAttributes())) {
+                        appendAttributePaths(component, path + "." + component.getName(), paths, expanding);
+                    }
+                } finally {
+                    expanding.pop();
                 }
             }
             // Derived identity: the key column is the foreign key, i.e. the target's own identifier.
-            case ENTITY -> appendIdentifierPaths((IdentifiableType<?>) type, path + ".", paths, depth + 1);
+            case ENTITY -> appendIdentifierPaths((IdentifiableType<?>) type, path + ".", paths, expanding);
             default -> throw new IllegalStateException("Unsupported identifier attribute " + path
                     + " of persistence type " + type.getPersistenceType());
         }
@@ -152,10 +165,11 @@ final class EntityIdentifierPaths {
         return sorted;
     }
 
-    private static void requireDepth(Type<?> type, int depth) {
-        if (depth > MAX_NESTING_DEPTH) {
+    private static void enter(Type<?> type, Deque<Type<?>> expanding) {
+        if (expanding.contains(type)) {
             throw new IllegalStateException("Identifier of " + type.getJavaType().getName()
-                    + " nests deeper than " + MAX_NESTING_DEPTH + " levels; check the mapping for a cycle");
+                    + " refers back to itself; check the mapping for a cycle");
         }
+        expanding.push(type);
     }
 }

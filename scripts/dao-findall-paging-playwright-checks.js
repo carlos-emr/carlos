@@ -48,17 +48,21 @@ function assertAscending(ids, label) {
 async function workflow(s) {
   const { sql, marker } = s;
   const high = Number(sql.value('SELECT COALESCE(MAX(recordID),0) FROM pharmacyInfo'));
-  const owned = `recordID>${high} AND name LIKE ${h.sqlString(`${marker}%`)}`;
+  // Owned rows: above the pre-run high-water mark and named after the run marker.
+  const owned = 'recordID>? AND name LIKE ?';
+  const ownedValues = [high, `${marker}%`];
   s.cleanup(() => {
-    sql.execute(`DELETE FROM pharmacyInfo WHERE ${owned}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM pharmacyInfo WHERE ${owned}`) === '0', 'Owned pharmacy fixtures were not removed');
+    sql.execute(`DELETE FROM pharmacyInfo WHERE ${owned}`, ownedValues);
+    h.assert(sql.value(`SELECT COUNT(*) FROM pharmacyInfo WHERE ${owned}`, ownedValues) === '0',
+      'Owned pharmacy fixtures were not removed');
   });
   const fixtureIds = [];
   for (let i = 0; i < FIXTURE_ROWS; i++) {
+    const name = `${marker} pharmacy ${String.fromCharCode(90 - i)}`;
     // uid is NOT NULL with no default: strict sql_mode refuses a row that omits it.
-    const id = sql.value(`INSERT INTO pharmacyInfo(uid,name,city,province,status)
-      VALUES(0,${h.sqlString(`${marker} pharmacy ${String.fromCharCode(90 - i)}`)},'Fixture City','ON','1');
-      SELECT LAST_INSERT_ID()`);
+    sql.execute(`INSERT INTO pharmacyInfo(uid,name,city,province,status) VALUES(0,?,'Fixture City','ON','1')`, [name]);
+    // Each bound statement runs in its own client session, so the id is read back by its unique name.
+    const id = sql.value('SELECT recordID FROM pharmacyInfo WHERE recordID>? AND name=?', [high, name]);
     h.assert(/^[1-9]\d*$/.test(id) && Number(id) > high, 'A pharmacy fixture was not created');
     fixtureIds.push(Number(id));
   }
@@ -66,8 +70,13 @@ async function workflow(s) {
   // The whole directory in id order, straight from the database. A large directory
   // (an imported provincial list) can hold more than one maximum-size page, so the
   // REST reads below are compared with slices of this, never with each other.
-  const all = sql.rows('SELECT recordID FROM pharmacyInfo ORDER BY recordID').map(([id]) => Number(id));
+  const readDirectory = () => sql.rows('SELECT recordID FROM pharmacyInfo ORDER BY recordID').map(([id]) => Number(id));
+  const all = readDirectory();
   h.assert(fixtureIds.every(id => all.includes(id)), 'An owned pharmacy is missing from the database');
+  // Offset paging is not a snapshot (see AbstractDao#findAll): another writer during the run
+  // would make a correct endpoint look broken. Report that as what it is, not as a paging defect.
+  const assertDirectoryUnchanged = () => h.assert(JSON.stringify(readDirectory()) === JSON.stringify(all),
+    'pharmacyInfo changed while the check ran, so its paging comparison is void; run it exclusively (EXCLUSIVE=1)');
 
   await s.step('a maximum-size first page is in ascending id order and matches the database', async () => {
     const listed = await listPharmacies(s, { offset: 0, limit: MAX_SELECT });
@@ -89,6 +98,7 @@ async function workflow(s) {
       visited.push(...page.ids);
       if (page.ids.length < pageSize) break;
     }
+    assertDirectoryUnchanged();
     h.assert(new Set(visited).size === visited.length, 'A pharmacy was returned on more than one page');
     h.assert(JSON.stringify(visited) === JSON.stringify(all),
       'The pages do not concatenate to the database rows in id order');

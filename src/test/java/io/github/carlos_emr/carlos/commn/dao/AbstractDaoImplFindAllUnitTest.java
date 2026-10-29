@@ -274,6 +274,35 @@ class AbstractDaoImplFindAllUnitTest {
         }
 
         @Test
+        @DisplayName("should expand the same association target on sibling key branches without reporting a cycle")
+        void shouldExpandSharedTargetOnSiblingBranches_withoutReportingCycle() {
+            EntityType<?> target = singleIdEntity(Integer.class, basic("id"));
+            EntityType<?> entity = mock(EntityType.class);
+            when(entity.getPersistenceType()).thenReturn(PersistenceType.ENTITY);
+            when(entity.hasSingleIdAttribute()).thenReturn(false);
+            doReturn(Set.of(attribute("referrer", target), attribute("recipient", target)))
+                    .when(entity).getIdClassAttributes();
+            doReturn(entity).when(metamodel).entity(Object.class);
+
+            assertThat(EntityIdentifierPaths.resolve(metamodel, Object.class))
+                    .containsExactly("recipient.id", "referrer.id");
+        }
+
+        @Test
+        @DisplayName("should expand an identifier nested deeper than any real mapping without a depth limit")
+        void shouldExpandDeeplyNestedIdentifier_withoutDepthLimit() {
+            Type<?> level = embeddable(basic("leaf"));
+            for (int i = 0; i < 12; i++) {
+                level = embeddable(attribute("inner", level));
+            }
+            EntityType<?> entity = singleIdEntity(Object.class, attribute("id", level));
+            doReturn(entity).when(metamodel).entity(Object.class);
+
+            assertThat(EntityIdentifierPaths.resolve(metamodel, Object.class))
+                    .containsExactly("id" + ".inner".repeat(12) + ".leaf");
+        }
+
+        @Test
         @DisplayName("should reject a class the persistence unit does not map")
         void shouldRejectUnmappedClass_withIllegalArgumentException() {
             doThrow(new IllegalArgumentException("not an entity")).when(metamodel).entity(String.class);
