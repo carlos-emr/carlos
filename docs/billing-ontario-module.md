@@ -470,7 +470,10 @@ Percentage limits belong to a service code and are effective-dated. Read the
 limit in effect on the bill's service date with
 `BillingPercLimitDao.findByServiceCodeAndLatestDate(code, serviceDate)`. That
 is what `BillingOnClaimLoader` does for the interactive bill, and what the
-batch-bill total now does. Write them through `ServiceCodePersister`. Do not
+batch-bill total now does. A configured limit the batch cannot apply (a blank,
+non-numeric or negative bound, or a minimum above the maximum) refuses the
+batch with a `BillingValidationException` naming the code, rather than billing
+the percentage unclamped or outside its range. Write them through `ServiceCodePersister`. Do not
 re-map them onto `BillingService`: a limit row is shared by every dated fee
 row of its code, so a cascade from one fee row would be wrong in both
 directions.

@@ -299,8 +299,8 @@ public class CustomFilterDaoIntegrationTest extends CarlosTestBase {
             entityManager.flush();
 
             assertThat(dao.find(saved.getId())).isNull();
-            assertThat(countJoinRows("custom_filter_providers", saved.getId())).isZero();
-            assertThat(countJoinRows("custom_filter_assignees", saved.getId())).isZero();
+            assertThat(countJoinRows(COUNT_PROVIDER_ROWS, saved.getId())).isZero();
+            assertThat(countJoinRows(COUNT_ASSIGNEE_ROWS, saved.getId())).isZero();
         }
     }
 
@@ -349,8 +349,12 @@ public class CustomFilterDaoIntegrationTest extends CarlosTestBase {
         return program;
     }
 
-    private long countJoinRows(String table, Integer filterId) {
-        return ((Number) entityManager.createNativeQuery("SELECT COUNT(*) FROM " + table + " WHERE filter_id = :id")
+    private static final String COUNT_PROVIDER_ROWS = "SELECT COUNT(*) FROM custom_filter_providers WHERE filter_id = :id";
+    private static final String COUNT_ASSIGNEE_ROWS = "SELECT COUNT(*) FROM custom_filter_assignees WHERE filter_id = :id";
+
+    /** Runs one of the fixed join-table counts above for the filter. */
+    private long countJoinRows(String countSql, Integer filterId) {
+        return ((Number) entityManager.createNativeQuery(countSql)
                 .setParameter("id", filterId).getSingleResult()).longValue();
     }
 

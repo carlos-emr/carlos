@@ -63,6 +63,19 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
             + "left join fetch c.assignees "
             + "left join fetch c.program ";
 
+    // Every read below is DETAIL_FETCH plus a fixed tail, so each query is a compile-time constant.
+    private static final String FIND_BY_ID = DETAIL_FETCH + "where c.id = :id";
+    private static final String FIND_BY_IDS = DETAIL_FETCH + "where c.id in (:ids) order by c.id";
+    private static final String FIND_BY_NAME = DETAIL_FETCH
+            + "where c.id = (select min(c2.id) from CustomFilter c2 where c2.name = :name)";
+    private static final String FIND_BY_NAME_AND_PROVIDER = DETAIL_FETCH
+            + "where c.id = (select min(c2.id) from CustomFilter c2 "
+            + "where c2.name = :name and c2.providerNo = :providerNo)";
+    private static final String FIND_ALL = DETAIL_FETCH + "order by c.id";
+    private static final String FIND_BY_PROVIDER = DETAIL_FETCH + "where c.providerNo = :providerNo order by c.id";
+    private static final String FIND_SHORTCUTS_BY_PROVIDER = DETAIL_FETCH
+            + "where c.providerNo = :providerNo and c.shortcut = true order by c.id";
+
     public CustomFilterDaoImpl() {
         super(CustomFilter.class);
     }
@@ -77,7 +90,7 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
     @Override
     public CustomFilter find(Object id) {
         if (id instanceof Integer filterId) {
-            return firstOrNull(withDetail("where c.id = :id").setParameter("id", filterId));
+            return firstOrNull(detailQuery(FIND_BY_ID).setParameter("id", filterId));
         }
         return initializeDetail(super.find(id));
     }
@@ -117,40 +130,38 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
         if (page.isEmpty()) {
             return new ArrayList<>();
         }
-        return withDetail("where c.id in (:ids) order by c.id").setParameter("ids", page).getResultList();
+        return detailQuery(FIND_BY_IDS).setParameter("ids", page).getResultList();
     }
 
     /** When several filters share the name, returns the one with the lowest id. */
     @Override
     public CustomFilter findByName(String name) {
-        return firstOrNull(withDetail("where c.id = (select min(c2.id) from CustomFilter c2 where c2.name = :name)")
-                .setParameter("name", name));
+        return firstOrNull(detailQuery(FIND_BY_NAME).setParameter("name", name));
     }
 
     /** When the provider has several filters with the name, returns the one with the lowest id. */
     @Override
     public CustomFilter findByNameAndProviderNo(String name, String providerNo) {
-        return firstOrNull(withDetail("where c.id = (select min(c2.id) from CustomFilter c2 "
-                + "where c2.name = :name and c2.providerNo = :providerNo)")
+        return firstOrNull(detailQuery(FIND_BY_NAME_AND_PROVIDER)
                 .setParameter("name", name)
                 .setParameter("providerNo", providerNo));
     }
 
     @Override
     public List<CustomFilter> getCustomFilters() {
-        return withDetail("order by c.id").getResultList();
+        return detailQuery(FIND_ALL).getResultList();
     }
 
     @Override
     public List<CustomFilter> findByProviderNo(String providerNo) {
-        return withDetail("where c.providerNo = :providerNo order by c.id")
+        return detailQuery(FIND_BY_PROVIDER)
                 .setParameter("providerNo", providerNo)
                 .getResultList();
     }
 
     @Override
     public List<CustomFilter> getCustomFilterWithShortCut(String providerNo) {
-        return withDetail("where c.providerNo = :providerNo and c.shortcut = true order by c.id")
+        return detailQuery(FIND_SHORTCUTS_BY_PROVIDER)
                 .setParameter("providerNo", providerNo)
                 .getResultList();
     }
@@ -163,9 +174,9 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
         }
     }
 
-    /** A query over {@link #DETAIL_FETCH} with the given {@code where} / {@code order by} tail. */
-    private TypedQuery<CustomFilter> withDetail(String whereAndOrder) {
-        return entityManager.createQuery(DETAIL_FETCH + whereAndOrder, CustomFilter.class);
+    /** A typed query for one of the constant {@link #DETAIL_FETCH} reads above. */
+    private TypedQuery<CustomFilter> detailQuery(String jpql) {
+        return entityManager.createQuery(jpql, CustomFilter.class);
     }
 
     /**

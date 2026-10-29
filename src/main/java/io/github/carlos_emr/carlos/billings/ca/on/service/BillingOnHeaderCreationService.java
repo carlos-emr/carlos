@@ -265,10 +265,17 @@ public class BillingOnHeaderCreationService {
         for (BillingService percentcode : percentCodes) {
             BigDecimal percent = BillingMoney.amount(percentcode.getPercentage());
             BigDecimal percentCalc = percBase.multiply(percent).setScale(2, RoundingMode.HALF_UP);
-            BillingPercLimit limit = percLimitInEffect(percentcode.getServiceCode(), serviceDate);
+            String code = percentcode.getServiceCode();
+            BillingPercLimit limit = percLimitInEffect(code, serviceDate);
             if (limit != null) {
-                percentCalc = percentCalc.min(limitAmount(limit.getMax(), "maximum", percentcode.getServiceCode()));
-                percentCalc = percentCalc.max(limitAmount(limit.getMin(), "minimum", percentcode.getServiceCode()));
+                BigDecimal max = limitAmount(limit.getMax(), "maximum", code);
+                BigDecimal min = limitAmount(limit.getMin(), "minimum", code);
+                if (min.compareTo(max) > 0) {
+                    // Clamping to an inverted range would bill the minimum, above the configured maximum.
+                    throw new BillingValidationException("Cannot create batch bill: the percentage limit for service code="
+                            + LogSafe.sanitizeForDisplay(code) + " has a minimum above its maximum");
+                }
+                percentCalc = percentCalc.min(max).max(min);
             }
             total = total.add(percentCalc);
         }
@@ -290,11 +297,13 @@ public class BillingOnHeaderCreationService {
     /**
      * Parses one bound of a configured percentage limit.
      *
-     * @throws BillingValidationException naming the code when the bound is blank or not a number
+     * @throws BillingValidationException naming the code when the bound is blank, not a number,
+     *         or negative
      */
     private static BigDecimal limitAmount(String raw, String bound, String serviceCode) {
+        BigDecimal amount;
         try {
-            return BillingMoney.amount(raw);
+            amount = BillingMoney.amount(raw);
         } catch (BillingValidationException | NumberFormatException e) {
             // A configured limit that is not an amount must stop the batch, not be skipped:
             // skipping it would bill the percentage code unclamped.
@@ -302,6 +311,13 @@ public class BillingOnHeaderCreationService {
                     + " percentage limit for service code=" + LogSafe.sanitizeForDisplay(serviceCode)
                     + " is not an amount", e);
         }
+        if (amount.signum() < 0) {
+            // A negative bound would silently lower the claim, or make the total negative.
+            throw new BillingValidationException("Cannot create batch bill: the " + bound
+                    + " percentage limit for service code=" + LogSafe.sanitizeForDisplay(serviceCode)
+                    + " is negative");
+        }
+        return amount;
     }
 
     private static String cleanMoney(String raw) {

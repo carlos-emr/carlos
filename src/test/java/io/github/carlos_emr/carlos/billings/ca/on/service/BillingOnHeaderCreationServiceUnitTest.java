@@ -320,6 +320,45 @@ class BillingOnHeaderCreationServiceUnitTest {
         verify(headerDao, never()).persist(any());
     }
 
+    @Test
+    @DisplayName("should refuse the batch without persisting when a configured minimum exceeds its maximum")
+    void shouldRefuseBatchWithoutPersisting_whenConfiguredMinimumExceedsMaximum() {
+        Date serviceDate = stubPercentageBatch();
+        when(billingPercLimitDao.findByServiceCodeAndLatestDate("E400B", serviceDate))
+                .thenReturn(List.of(limit(7, "20.00", "10.00")));
+
+        assertThatThrownBy(() -> createPercentageBatch(serviceDate))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("minimum above its maximum")
+                .hasMessageContaining("E400B");
+
+        verify(headerDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should refuse the batch without persisting when a configured limit is negative")
+    void shouldRefuseBatchWithoutPersisting_whenConfiguredLimitIsNegative() {
+        Date serviceDate = stubPercentageBatch();
+        when(billingPercLimitDao.findByServiceCodeAndLatestDate("E400B", serviceDate))
+                .thenReturn(List.of(limit(7, "-10.00", "-5.00")));
+
+        assertThatThrownBy(() -> createPercentageBatch(serviceDate))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("percentage limit for service code=E400B is negative");
+
+        verify(headerDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should accept a limit whose minimum equals its maximum")
+    void shouldBillTheFixedAmount_whenMinimumEqualsMaximum() {
+        Date serviceDate = stubPercentageBatch();
+        when(billingPercLimitDao.findByServiceCodeAndLatestDate("E400B", serviceDate))
+                .thenReturn(List.of(limit(7, "12.00", "12.00")));
+
+        assertThat(createPercentageBatch(serviceDate)).isEqualTo("42.00");
+    }
+
     private Date stubPercentageBatch() {
         when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
         when(demographicDao.getDemographicById(1)).thenReturn(demographic(1, "ON"));
