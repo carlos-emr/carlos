@@ -192,8 +192,15 @@ async function workflow(s) {
   await s.step('concurrent Population Reports show the clinic date and time of one computation', async () => {
     const url = h.appUrl(s.config.baseUrl, '/PopulationReport');
     const pages = await Promise.all(Array.from({ length: CONCURRENT_REPORTS }, () => s.context.request.get(url)));
-    // MariaDB runs in the clinic's zone with the JVM (carlos-emr-tomcat keeps them together).
-    const [clinicDay, clinicClock] = String(sql.value("SELECT DATE_FORMAT(NOW(), '%d/%m/%Y %H:%i')")).split(' ');
+    // MariaDB runs in the clinic's zone with the JVM (carlos-emr-tomcat keeps them together). The
+    // second column is how far the clinic's UTC offset moved in the last 61 minutes: -60 just after a
+    // fall-back (the wall clock repeats an hour), +60 just after a spring-forward (it skips one), else 0.
+    const [[clinicNowText, offsetShift]] = sql.rows(`SELECT DATE_FORMAT(NOW(), '%d/%m/%Y %H:%i'),
+        TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW())
+        - TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP() - INTERVAL 61 MINUTE, FROM_UNIXTIME(UNIX_TIMESTAMP() - 3660))`);
+    const [clinicDay, clinicClock] = String(clinicNowText).split(' ');
+    const shift = Number(offsetShift);
+    h.assert(Number.isInteger(shift), `MariaDB gave no UTC offset change for the last hour (${JSON.stringify(offsetShift)})`);
     const [cd, cm, cy] = clinicDay.split('/').map(Number);
     const [ch, cmin] = clinicClock.split(':').map(Number);
     const clinicNow = Date.UTC(cy, cm - 1, cd, ch, cmin) / 60000;
@@ -206,8 +213,12 @@ async function workflow(s) {
     const shown = new Set(stamps.map(stamp => `${stamp.date} ${stamp.time}`));
     h.assert(shown.size === 1, `Concurrent requests for the one cached report showed different dates or times: ${[...shown].join(' | ')}`);
     // The figures are cached for an hour, so the stamp is at most an hour (and a minute of rounding) old.
+    // Both times are clinic wall clock, so a daylight-saving change in that hour moves the apparent age
+    // by the offset shift; the window widens by that much only then.
     const age = clinicNow - stamps[0].minutes;
-    h.assert(age >= -1 && age <= 61, `The report shows ${[...shown][0]}, ${age} minutes from the clinic's time `
+    const earliest = -1 + Math.min(0, shift);
+    const latest = 61 + Math.max(0, shift);
+    h.assert(age >= earliest && age <= latest, `The report shows ${[...shown][0]}, ${age} minutes from the clinic's time `
       + `${clinicDay} ${clinicClock}: not the clinic's date and time of a computation in the last hour`);
   });
 
