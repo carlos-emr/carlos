@@ -88,7 +88,8 @@ class PhsStarHandlerXmlBoundaryUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should refuse a message with an external file entity before parsing it")
     void shouldRefuseMessage_withExternalFileEntity() throws Exception {
-        assertThatThrownBy(() -> handler.init(hostile.externalFileEntity()))
+        String message = hostile.externalFileEntity();
+        assertThatThrownBy(() -> handler.init(message))
                 .isInstanceOf(HL7Exception.class).hasMessageContaining("document type");
         assertThat(handler.msg).isNull();
         assertNoRecordTouched();
@@ -97,7 +98,8 @@ class PhsStarHandlerXmlBoundaryUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should refuse a message that points at an external DTD without calling out")
     void shouldRefuseMessage_withExternalDtd() throws Exception {
-        assertThatThrownBy(() -> handler.init(hostile.externalDtd()))
+        String message = hostile.externalDtd();
+        assertThatThrownBy(() -> handler.init(message))
                 .isInstanceOf(HL7Exception.class).hasMessageContaining("document type");
         assertThat(hostile.requestCount()).isZero();
         assertNoRecordTouched();
@@ -106,7 +108,8 @@ class PhsStarHandlerXmlBoundaryUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should refuse a message that expands entities exponentially")
     void shouldRefuseMessage_withEntityExpansion() throws Exception {
-        assertThatThrownBy(() -> handler.init(hostile.internalEntityExpansion(9)))
+        String message = hostile.internalEntityExpansion(9);
+        assertThatThrownBy(() -> handler.init(message))
                 .isInstanceOf(HL7Exception.class).hasMessageContaining("document type");
         assertNoRecordTouched();
     }
