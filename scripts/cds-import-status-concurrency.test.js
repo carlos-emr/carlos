@@ -17,6 +17,8 @@ class Element {
     this.value = ''; this.textContent = ''; this.className = ''; this.scrolls = 0;
   }
   addEventListener(type, listener) { this.listeners.set(type, [...(this.listeners.get(type) || []), listener]); }
+  get textContent() { return this.text || ''; }
+  set textContent(value) { this.text = String(value); this.children = []; }
   fire(type) { return Promise.all((this.listeners.get(type) || []).map(listener => listener({preventDefault() {}}))); }
   replaceChildren(...children) { this.children = children; }
   append(...children) { this.children.push(...children); }
@@ -36,8 +38,8 @@ function browser(options = {}) {
     querySelector: () => ({value: 'synthetic-token'}),
     addEventListener(type, listener) { if (type === 'DOMContentLoaded') this.ready = listener; }
   };
-  const response = value => new Response(JSON.stringify({ok: true, apiVersion: 2, ...value}),
-    {headers: {'content-type': 'application/json', 'X-CARLOS-CDS-API-Version': '2'}});
+  const response = (value, status = 200) => new Response(JSON.stringify({ok: true, apiVersion: 2, ...value}),
+    {status, headers: {'content-type': 'application/json', 'X-CARLOS-CDS-API-Version': '2'}});
   const sandbox = vm.createContext({document, URL, URLSearchParams, AbortController, TextDecoder, WritableStream,
     location: {origin: 'http://localhost', href: 'http://localhost/carlos/form/importUpload'},
     history: {replaceState() {}}, localStorage: {getItem: () => null, setItem() {}}, navigator: {},
@@ -46,7 +48,7 @@ function browser(options = {}) {
     fetch(url, init) {
       let resolve, reject; const pending = new Promise((done, fail) => { resolve = done; reject = fail; });
       const section = url.searchParams.get('section') || 'job';
-      const row = {url, init, section, respond: value => resolve(response(value)), reject}; requests.push(row);
+      const row = {url, init, section, respond: (value, status) => resolve(response(value, status)), reject}; requests.push(row);
       if (url.pathname.endsWith('/cdsImportStatus') && section !== 'job' &&
           !(options.deferPages && ['patients', 'diagnostics'].includes(section))) row.respond({rows: []});
       if (url.pathname.endsWith('/cdsImportControl') && !options.deferControls) row.respond({});
@@ -58,6 +60,7 @@ function browser(options = {}) {
   return {node, requests, jobs, timers,
     open(id = RUN) { node('runId').value = id; return node('openRun').fire('click'); },
     click(id) { return node(id).fire('click'); },
+    controls() { return requests.filter(row => row.url.pathname.endsWith('/cdsImportControl')); },
     polls() { return [...timers.values()].filter(timer => timer.delay === 2000); },
     status() { return JSON.parse(node('runSummary').textContent); },
     page(section, index) { return requests.filter(row => row.section === section)[index]; },
@@ -82,6 +85,119 @@ for (const oldTerminal of [false, true]) test(`a late ${oldTerminal ? 'terminal'
   f.jobs()[0].respond(status(1, oldTerminal)); await old;
   assert.equal(f.status().job.reportGeneration, 2); assert.equal(f.polls().length, 0);
   assert.equal(f.node('jobOverview').dataset.fresh, 'true'); assert.equal(f.node('runHeading').scrolls, 1);
+});
+
+function startControl(fixture, operation) {
+  if (operation !== 'review') return fixture.click(operation === 'cancel' ? 'cancelRun' : 'resumeRun');
+  fixture.node('reviewKind').value = 'DECLINE_PATIENT';
+  fixture.node('reviewPatientKey').value = 'a'.repeat(64);
+  fixture.node('reviewReason').value = 'Synthetic review reason';
+  return fixture.node('cdsReviewForm').fire('submit');
+}
+
+for (const operation of ['cancel', 'resume', 'review']) {
+  for (const sameRun of [false, true]) test(`an obsolete ${operation} rejection cannot change a ${sameRun ? 'reopened same-job' : 'different-job'} view and remains discoverable on the original job`, async () => {
+    const f = browser({deferControls: true}); const first = f.open(); await settle();
+    f.jobs()[0].respond(status(1)); await first;
+    const action = startControl(f, operation); await settle();
+    assert.equal(f.controls().length, 1); assert.equal(f.controls()[0].init.body.get('runId'), RUN);
+    const selected = sameRun ? RUN : OTHER, next = f.open(selected); await settle();
+    f.jobs()[1].respond(status(2, false, selected)); await next;
+    f.node('cdsNotice').hidden = false; f.node('cdsNotice').textContent = 'CURRENT_VIEW_NOTICE';
+    f.controls()[0].reject(Error('OLD_CONTROL_UNCONFIRMED')); await action; await settle();
+    assert.equal(f.node('cdsNotice').textContent, 'CURRENT_VIEW_NOTICE');
+    assert.equal(f.status().job.id, selected); assert.equal(f.status().job.reportGeneration, 2);
+    assert.equal(f.node('jobOverview').dataset.fresh, 'true'); assert.equal(f.polls().length, 1);
+    assert.equal(f.jobs().length, 2); assert.equal(f.controls().length, 1);
+
+    const original = f.open(RUN); await settle();
+    assert.match(f.node('cdsNotice').textContent, new RegExp(operation, 'i'));
+    assert.match(f.node('cdsNotice').textContent, /Acknowledgement unconfirmed/);
+    assert.ok(f.node('cdsNotice').textContent.includes(RUN));
+    assert.equal(f.node('cdsNotice').children.length, 0, 'no dismissal before a fresh status observation');
+    f.jobs()[2].respond(status(3)); await original;
+    assert.equal(f.node('cdsNotice').children.length, 1);
+    await f.node('cdsNotice').children[0].fire('click');
+    assert.equal(f.node('cdsNotice').hidden, true);
+    assert.equal(f.controls().length, 1, 'checking or dismissing a warning must not resend a mutation');
+    assert.equal(f.polls().length, 0); assert.equal(f.status().job.reportGeneration, 3);
+  });
+
+  test(`a current ${operation} rejection remains visible and cannot be retried before checking and dismissing its original-job warning`, async () => {
+    const f = browser({deferControls: true}); const first = f.open(); await settle();
+    f.jobs()[0].respond(status(1)); await first;
+    const action = startControl(f, operation); await settle();
+    await startControl(f, operation); await settle();
+    assert.equal(f.controls().length, 1, 'an in-flight request cannot be duplicated');
+    assert.equal(f.node('cdsNotice').children.length, 0, 'an in-flight request cannot be dismissed');
+    f.controls()[0].reject(Error('CURRENT_CONTROL_UNCONFIRMED')); await action; await settle();
+    assert.equal(f.node('cdsNotice').hidden, false);
+    assert.match(f.node('cdsNotice').textContent, /Acknowledgement unconfirmed/);
+    assert.ok(f.node('cdsNotice').textContent.includes(RUN));
+    assert.match(f.node('cdsNotice').textContent, /IMPORT_CONTROL_OUTCOME_UNCONFIRMED/);
+    await startControl(f, operation); await settle(); assert.equal(f.controls().length, 1);
+    const other = f.open(OTHER); await settle(); f.jobs()[1].respond(status(2, true, OTHER)); await other;
+    assert.equal(f.node('cdsNotice').hidden, true, 'the original control warning must not follow navigation');
+    const original = f.open(RUN); await settle(); f.jobs()[2].respond(status(3)); await original;
+    assert.equal(f.node('cdsNotice').children.length, 1);
+    await f.node('cdsNotice').children[0].fire('click');
+    assert.equal(f.node('cdsNotice').hidden, true); assert.equal(f.controls().length, 1);
+    assert.equal(f.node('jobOverview').dataset.fresh, 'true'); assert.equal(f.status().job.reportGeneration, 3);
+  });
+}
+
+test('uncertain control warnings are bounded without eviction and refuse a new target before sending', async () => {
+  const f = browser({deferControls: true});
+  const ids = Array.from({length: 21}, (_, index) => '11111111-1111-4111-8111-' + String(index).padStart(12, '0'));
+  for (let index = 0; index < 20; index++) {
+    const opened = f.open(ids[index]); await settle(); f.jobs()[index].respond(status(1, true, ids[index])); await opened;
+    const action = startControl(f, 'cancel'); await settle();
+    f.controls()[index].reject(Error('IMPORT_CONTROL_OUTCOME_UNCONFIRMED')); await action;
+  }
+  const last = f.open(ids[20]); await settle(); f.jobs()[20].respond(status(1, true, ids[20])); await last;
+  await startControl(f, 'cancel'); assert.equal(f.controls().length, 20);
+  assert.match(f.node('cdsNotice').textContent, /earlier jobs/); assert.equal(f.node('cdsNotice').children.length, 20);
+  const earliest = f.node('cdsNotice').children[0].fire('click'); await settle();
+  f.jobs()[21].respond(status(2, true, ids[0])); await earliest;
+  assert.ok(f.node('cdsNotice').textContent.includes(ids[0])); assert.match(f.node('cdsNotice').textContent, /unconfirmed/);
+  await f.node('cdsNotice').children[0].fire('click');
+  const retried = f.open(ids[20]); await settle(); f.jobs()[22].respond(status(2, true, ids[20])); await retried;
+  const action = startControl(f, 'cancel'); await settle(); assert.equal(f.controls().length, 21);
+  f.controls()[20].reject(Error('IMPORT_CONTROL_OUTCOME_UNCONFIRMED')); await action;
+});
+
+test('an unconfirmed control warning retains only a safe code rather than raw exception or review text', async () => {
+  const f = browser({deferControls: true}); const opened = f.open(); await settle();
+  f.jobs()[0].respond(status(1)); await opened;
+  const action = startControl(f, 'review'); await settle();
+  f.controls()[0].reject(Error('PRIVATE_CLINICAL_TEXT')); await action; await settle();
+  assert.match(f.node('cdsNotice').textContent, /IMPORT_CONTROL_OUTCOME_UNCONFIRMED/);
+  assert.equal(f.node('cdsNotice').textContent.includes('PRIVATE'), false);
+  assert.equal(f.node('cdsNotice').textContent.includes('Synthetic review reason'), false);
+  const refreshed = f.open(); await settle(); f.jobs()[1].respond(status(2)); await refreshed;
+  assert.match(f.node('cdsNotice').textContent, /IMPORT_CONTROL_OUTCOME_UNCONFIRMED/);
+  assert.equal(f.node('cdsNotice').textContent.includes('PRIVATE'), false);
+  assert.equal(f.controls().length, 1);
+  await f.node('cdsNotice').children[0].fire('click');
+  startControl(f, 'review'); await settle();
+  f.controls()[1].respond({ok: false, code: 'REVIEW_VERSION_CONFLICT'}, 409); await settle();
+  assert.match(f.node('cdsNotice').textContent, /REVIEW_VERSION_CONFLICT/);
+  assert.equal(f.node('cdsNotice').textContent.includes('Synthetic review reason'), false);
+});
+
+test('a queued dismissal cannot erase a later current status failure or lose the original uncertain control warning', async () => {
+  const f = browser({deferControls: true}); const opened = f.open(); await settle();
+  f.jobs()[0].respond(status(1)); await opened;
+  const action = startControl(f, 'cancel'); await settle(); f.controls()[0].reject(Error('CONTROL_UNCONFIRMED')); await action;
+  const refreshed = f.open(); await settle(); f.jobs()[1].respond(status(2, false)); await refreshed;
+  const dismiss = f.node('cdsNotice').children[0]; assert.ok(dismiss);
+  f.takePoll()(); await settle(); f.jobs()[2].reject(Error('CURRENT_STATUS_UNAVAILABLE')); await settle();
+  await dismiss.fire('click');
+  assert.match(f.node('cdsNotice').textContent, /CURRENT_STATUS_UNAVAILABLE/);
+  assert.equal(f.node('cdsNotice').hidden, false); assert.equal(f.node('jobOverview').dataset.fresh, 'false');
+  const original = f.open(); await settle(); f.jobs()[3].respond(status(3)); await original;
+  assert.match(f.node('cdsNotice').textContent, /Acknowledgement unconfirmed/);
+  assert.equal(f.node('cdsNotice').children.length, 1); assert.equal(f.controls().length, 1);
 });
 
 test('a superseded status failure cannot mark the newer successful view unknown or show its error', async () => {

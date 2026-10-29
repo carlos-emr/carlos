@@ -314,6 +314,10 @@
             housekeeping: 'Le nettoyage des transferts nécessite une intervention administrative. Vérifier les transferts en attente et les réservations du disque.',
             worker: 'Le processus d’importation s’est arrêté. La récupération et la réconciliation des validations sont en attente.',
             secure: 'Une connexion sécurisée au navigateur est requise pour vérifier les octets transférés. Ouvrir CARLOS par son adresse HTTPS approuvée.',
+            controlUnknown: 'Accusé de réception non confirmé. Vérifier l’état durable de cette tâche avant de réessayer.',
+            controlPending: 'La demande précédente attend un accusé de réception. Vérifier l’état durable avant de réessayer.',
+            controlChecked: 'État vérifié — fermer cet avertissement',
+            controlCapacity: 'Vérifier et fermer les avertissements des tâches précédentes avant une autre demande.',
         } : {
             failed: 'The request did not complete. Check durable status before retrying.',
             choose: 'Select at least one XML/ZIP file.', maxFiles: 'Select at most 128 files at once; use a ZIP for larger batches.',
@@ -336,12 +340,21 @@
             housekeeping: 'Upload cleanup needs administrator attention. Check pending uploads and disk reservations.',
             worker: 'The import worker stopped. Recovery and commit reconciliation are pending.',
             secure: 'A secure browser connection is required to verify uploaded bytes. Open CARLOS at its approved HTTPS address.',
+            controlUnknown: 'Acknowledgement unconfirmed. Check this job’s durable status before retrying.',
+            controlPending: 'The previous request is awaiting acknowledgement. Check durable status before retrying.',
+            controlChecked: 'Status checked — dismiss this warning',
+            controlCapacity: 'Check and dismiss the warnings for earlier jobs before sending another control request.',
         };
         let activeRun = '';
         let activeView;
         let statusRead;
         let patientRead;
         let diagnosticRead;
+        let controlNoticeOwner;
+        // Client warnings are bounded hints, never evidence that a mutation failed
+        // or succeeded. Reserve before sending and retain uncertain outcomes until
+        // their original job has been observed and the operator dismisses them.
+        const controlAttempts = new Map();
         let lastConfirmed = '';
         // Opening the same run again is a new view. Responses and queued callbacks
         // from its previous view must not replace its newer durable observation.
@@ -392,8 +405,55 @@
         const storageKey = 'carlos-cds-import:' + root.dataset.owner;
 
         function notice(message, danger = false) {
+            controlNoticeOwner = undefined;
             const node = byId('cdsNotice'); node.hidden = false; node.textContent = message;
             node.className = 'alert ' + (danger ? 'alert-danger' : 'alert-info');
+        }
+        function controlNotice(run, attempt) {
+            if (run !== activeRun || attempt.noticeView !== activeView) return;
+            const operation = {cancel: fr ? 'Annulation' : 'Cancel', resume: fr ? 'Reprise' : 'Resume',
+                review: fr ? 'Révision' : 'Review'}[attempt.operation];
+            notice(operation + ' — ' + run + ': ' + (attempt.uncertain ? text.controlUnknown : text.controlPending)
+                + (attempt.code ? ' ' + attempt.code : ''), true);
+            controlNoticeOwner = attempt;
+            if (attempt.uncertain && attempt.observed) {
+                const view = activeView;
+                byId('cdsNotice').append(button(text.controlChecked, () => {
+                    if (view !== activeView || controlAttempts.get(run) !== attempt || controlNoticeOwner !== attempt
+                            || !attempt.uncertain || !attempt.observed) return;
+                    controlAttempts.delete(run); byId('cdsNotice').hidden = true; controlNoticeOwner = undefined;
+                }));
+            }
+        }
+        async function control(params, acknowledged = () => {}) {
+            const run = activeRun, view = activeView;
+            const prior = controlAttempts.get(run);
+            if (prior) { prior.noticeView = view; controlNotice(run, prior); return; }
+            if (controlAttempts.size >= 20) {
+                notice(text.controlCapacity, true);
+                for (const id of controlAttempts.keys()) byId('cdsNotice').append(button(
+                    (fr ? 'Tâche ' : 'Job ') + id.slice(0, 8), () => openRun(id)));
+                return;
+            }
+            const attempt = {operation: params.operation, noticeView: view, uncertain: false, observed: false};
+            controlAttempts.set(run, attempt);
+            try {
+                await request('cdsImportControl', {...params, runId: run}, {method: 'POST'});
+            } catch (error) {
+                attempt.uncertain = true;
+                attempt.failedRead = statusRead;
+                attempt.code = Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599
+                    && typeof error.code === 'string' && /^[A-Z][A-Z0-9_]{0,79}$/.test(error.code)
+                    ? error.code : 'IMPORT_CONTROL_OUTCOME_UNCONFIRMED';
+                // A later view, including a reopened view of this same run, keeps
+                // its own notice. Reopening the original job reveals this warning.
+                if (view === activeView) controlNotice(run, attempt);
+                return;
+            }
+            controlAttempts.delete(run);
+            if (view !== activeView) return;
+            acknowledged();
+            await openRun(run);
         }
         function token() {
             const field = document.querySelector('input[name="CSRF-TOKEN"]');
@@ -424,7 +484,8 @@
                 }
                 const data = await apiResponse(response);
                 if (!response.ok || data?.ok !== true) {
-                    const failure = new Error(data?.code || 'IMPORT_RESPONSE_FAILED'); failure.status = response.status; throw failure;
+                    const failure = new Error(data?.code || 'IMPORT_RESPONSE_FAILED');
+                    failure.status = response.status; failure.code = data?.code; throw failure;
                 }
                 return data;
             } finally {
@@ -632,11 +693,17 @@
                     lastRunUpdated = data.job.updatedAt;
                 }
                 if (!current()) return;
+                const attempt = controlAttempts.get(id);
+                if (attempt?.uncertain && attempt.noticeView === view && read !== attempt.failedRead) {
+                    attempt.observed = true; controlNotice(id, attempt);
+                }
                 if (!mayStopPolling(latestSummary)) timer = global.setTimeout(() => {
                     if (current()) poll(id, view);
                 }, 2000);
             } catch (error) {
                 if (!current()) return;
+                const attempt = controlAttempts.get(id);
+                if (attempt?.noticeView === view) attempt.observed = false;
                 statusUnknown();
                 byId('cancelRun').disabled = true; byId('resumeRun').disabled = true;
                 throw new StatusReadError(error, current);
@@ -652,8 +719,11 @@
             global.clearTimeout(timer);
             const view = {}; activeView = view;
             statusRead = patientRead = diagnosticRead = undefined;
+            if (controlNoticeOwner) { byId('cdsNotice').hidden = true; controlNoticeOwner = undefined; }
             if (activeRun !== id) { lastConfirmed=''; optionalText('jobLastConfirmed','—'); for (const name of ['jobPatients','jobSourcePatients','jobRecords','jobImported','jobPrior','jobPending','jobReviews','jobReports','jobCleanup']) optionalText(name,'—'); }
             activeRun = id; byId('runId').value = id;
+            const attempt = controlAttempts.get(id);
+            if (attempt?.uncertain) { attempt.noticeView = view; attempt.observed = false; controlNotice(id, attempt); }
             const statusUrl=jobStatusUrl(root.dataset.context,id);
             global.history.replaceState(null,'',statusUrl);
             const link=byId('jobStatusLink'); if (link) { link.href=statusUrl; link.hidden=false; }
@@ -767,11 +837,7 @@
         byId('nextPatients').addEventListener('click', safe(() => loadPatients(true)));
         byId('nextDiagnostics').addEventListener('click', safe(() => loadDiagnostics(true)));
         for (const [id, operation] of [['cancelRun', 'cancel'], ['resumeRun', 'resume']]) {
-            byId(id).addEventListener('click', safe(async () => {
-                const run = activeRun, view = activeView;
-                await request('cdsImportControl', {operation, runId: run}, {method: 'POST'});
-                if (view === activeView) await openRun(run);
-            }));
+            byId(id).addEventListener('click', safe(() => control({operation})));
         }
         function updateReviewKind() {
             const correction = byId('reviewKind').value === 'CORRECT_VALUE';
@@ -792,14 +858,12 @@
                     throw new Error(text.revisionUnavailable);
                 }
                 const correction = byId('reviewKind').value === 'CORRECT_VALUE';
-                const run = activeRun, view = activeView;
-                await request('cdsImportControl', {operation: 'review', runId: run, kind: byId('reviewKind').value,
+                await control({operation: 'review', kind: byId('reviewKind').value,
                     diagnosticId: byId('reviewDiagnosticId').value, patientKey: byId('reviewPatientKey').value,
                     unitKey: byId('reviewUnitKey').value, expectedVersion: byId('reviewVersion').value,
                     sourceXPath: correction ? byId('reviewXPath').value : byId('reviewSourceContext').value,
                     replacementValue: correction ? byId('reviewValue').value : '',
-                    reason: byId('reviewReason').value}, {method: 'POST'});
-                if (view === activeView) { byId('cdsReviewForm').hidden = true; await openRun(run); }
+                    reason: byId('reviewReason').value}, () => { byId('cdsReviewForm').hidden = true; });
             })();
         });
         try { renderRecent(JSON.parse(global.localStorage.getItem(storageKey) || '[]')); } catch (_) { renderRecent([]); }
