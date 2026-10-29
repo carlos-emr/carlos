@@ -703,6 +703,27 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @DisplayName("Inactivity-timer exemptions shared with UserActivityFilter (#5305)")
+    class InactivityTimerExemptions {
+
+        @Test
+        @DisplayName("should exempt background polls and the heartbeat from the inactivity timer")
+        void shouldExemptBackgroundPolls_fromInactivityTimer() {
+            assertThat(LoginFilter.isExemptFromInactivityTimer(CONTEXT_PATH + "/provider/ViewTabAlertsRefresh", CONTEXT_PATH)).isTrue();
+            assertThat(LoginFilter.isExemptFromInactivityTimer(CONTEXT_PATH + "/status/SessionHeartbeat", CONTEXT_PATH)).isTrue();
+            assertThat(LoginFilter.isExemptFromInactivityTimer(CONTEXT_PATH + "/provider/providercontrol;jsessionid=abc", CONTEXT_PATH)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should count ordinary clinical routes as user activity")
+        void shouldNotExemptClinicalRoutes_fromInactivityTimer() {
+            assertThat(LoginFilter.isExemptFromInactivityTimer(CONTEXT_PATH + "/tickler/ticklerMain", CONTEXT_PATH)).isFalse();
+            assertThat(LoginFilter.isExemptFromInactivityTimer(CONTEXT_PATH + "/provider/providercontrolEvil", CONTEXT_PATH)).isFalse();
+            assertThat(LoginFilter.isExemptFromInactivityTimer(null, CONTEXT_PATH)).isFalse();
+        }
+    }
+
+    @Nested
     @DisplayName("Exact path matching")
     class ExactPathMatching {
 

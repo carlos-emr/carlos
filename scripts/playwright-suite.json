@@ -2264,6 +2264,21 @@
       "timeoutSec": 300
     },
     {
+      "name": "request-boundary-filters",
+      "script": "scripts/request-boundary-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The workflow's owned synthetic patient only; opening the legacy Annual form without saving writes no form row.",
+      "notes": "Issue #5305: anonymous requests to a public action, the heartbeat and a static asset mint no JSESSIONID; a signed-in heartbeat answers JSON with and without autoRefresh; repeated legacy-form loads (Struts action then JSP over legacy JDBC) leave the CARLOS MariaDB connection count where it was; Logout passes /logoutPage and POST /logout once each. Reads information_schema.PROCESSLIST, so MYSQL_USER needs PROCESS (root in the deb runbook)."
+    },
+    {
       "name": "master-record-tabs",
       "script": "scripts/master-record-tabs-playwright-checks.js",
       "tiers": [
