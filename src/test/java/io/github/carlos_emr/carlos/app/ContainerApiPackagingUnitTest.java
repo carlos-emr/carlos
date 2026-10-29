@@ -229,10 +229,10 @@ class ContainerApiPackagingUnitTest {
 
     private static List<LockedArtifact> packagedArtifacts() {
         List<LockedArtifact> packaged = locked.stream().filter(LockedArtifact::packaged).toList();
-        assertThat(packaged.size())
+        assertThat(packaged)
                 .as("packaged jars in dependencies-lock.json (a much smaller number means the lock "
                         + "file was not read as expected)")
-                .isGreaterThan(MINIMUM_PACKAGED_JARS);
+                .hasSizeGreaterThan(MINIMUM_PACKAGED_JARS);
         return packaged;
     }
 

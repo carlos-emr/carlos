@@ -43,8 +43,9 @@ const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 
 const TIMEOUT = 20000;
-// Source text that only survives into a response when the container did not evaluate it.
-const UNEVALUATED_SOURCE = /\$\{\s*(?:pageContext|param|paramValues|header|cookie|initParam|(?:page|request|session|application)Scope|ctx\b|carlos:|fn:|empty\b|not\b)/;
+// Source text that only survives into a response when the container did not evaluate it,
+// immediate (${...}) or deferred (#{...}) syntax alike.
+const UNEVALUATED_SOURCE = /[$#]\{\s*(?:pageContext|param|paramValues|header|cookie|initParam|(?:page|request|session|application)Scope|ctx\b|carlos:|fn:|empty\b|not\b)/;
 // Visible text never shows an expression, and <fmt:message> marks a missing key ???key???.
 const UNEVALUATED_TEXT = /\$\{|#\{|\?\?\?[\w.-]+\?\?\?/;
 // Characters the encoders must neutralise: the quotes that end a JavaScript string or an

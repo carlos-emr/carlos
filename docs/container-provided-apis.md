@@ -105,8 +105,8 @@ a fallback.
 - Both read `scripts/fixtures/tomcat-container-packages.json`. Change that file only alongside
   a change to Tomcat's class-loader filter.
 - `scripts/el-jstl-pages-playwright-checks.js` opens representative deployed pages (JSTL,
-  displaytag, the `carlos:` EL functions) and fails on an unevaluated `${...}`, an error page or
-  an EL failure.
+  displaytag, the `carlos:` EL functions) and fails on an unevaluated `${...}` or `#{...}`, an
+  error page or an EL failure.
 
 To check by hand:
 

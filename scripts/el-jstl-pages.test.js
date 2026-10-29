@@ -18,6 +18,9 @@ test('JSP EL source that reached the browser is reported with its context', () =
     '<a rel="${carlos:forHtmlAttribute(ctx)}/admin/LabDisplaySettings">',
     '<option ${ empty param.searchType ? "selected" : "" }>',
     '<input value="${sessionScope.user}">',
+    // Deferred syntax left in a script, which the markup scan sets aside.
+    '<script>const path = \'#{pageContext.request.contextPath}\';</script>',
+    '<script>var q = "#{ param.keyword }";</script>',
   ]) {
     assert.ok(unevaluatedSource(body), `not reported: ${body}`);
   }
@@ -29,6 +32,7 @@ test('JavaScript template literals and evaluated pages are not reported', () => 
   for (const body of [
     '<script>const url = `${base}/report?id=${id}`;</script>',
     '<script>el.textContent = `${count} waiting`;</script>',
+    '<script>render(`#{id}`);</script>',
     '<a href="/carlos/report/DxresearchReport">Disease Registry</a>',
   ]) {
     assert.equal(unevaluatedSource(body), null, body);
