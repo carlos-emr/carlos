@@ -70,6 +70,20 @@
       "notes": "Read-only issue3665 findings2/4: retired aliases return404; retained template management opens Add New without saving."
     },
     {
+      "name": "el-jstl-pages",
+      "script": "scripts/el-jstl-pages-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Read-only #5416: EL 6 from Tomcat evaluates JSTL c:if/c:forEach, fmt:message, displaytag tables and the carlos:forJavaScript/forHtmlAttribute EL functions on Administration, Disease Registry, Facility management and Add professional contact; no unevaluated ${...} or ???key???."
+    },
+    {
       "name": "annotate-document",
       "script": "scripts/e2e/fax/annotate-document-playwright-checks.js",
       "tiers": [

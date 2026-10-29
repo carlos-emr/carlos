@@ -243,6 +243,7 @@
     "test:mutator-get-rejection-live-playwright": "node scripts/mutator-get-rejection-live-playwright-checks.js",
     "test:schedule-date-navigation-playwright": "node scripts/schedule-date-navigation-playwright-checks.js",
     "test:retired-view-aliases-playwright": "node scripts/retired-view-aliases-playwright-checks.js",
+    "test:el-jstl-pages-playwright": "node scripts/el-jstl-pages-playwright-checks.js",
     "test:anonymous-access-refused-playwright": "node scripts/anonymous-access-refused-playwright-checks.js",
     "test:oauth-rest-epoch-dates-playwright": "node scripts/oauth-rest-epoch-dates-playwright-checks.js",
     "test:oauth-rest-surfaces-playwright": "node scripts/oauth-rest-surfaces-playwright-checks.js",

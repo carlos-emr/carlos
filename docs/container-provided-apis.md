@@ -64,7 +64,8 @@ a fallback.
   `java.desktop` module.
 - **Who uses EL in the WAR:** the JSTL API and implementation, `spring-web`, FreeMarker and
   JavaMelody. Every EL constructor, method and field they reference (32 members) resolves
-  against Tomcat 11's `el-api.jar`. CARLOS code has no EL resolver of its own. The EL functions
+  against the `el-api.jar` of Tomcat 11.0.27 and of Ubuntu 26.04's 11.0.22. CARLOS code has no
+  EL resolver of its own. The EL functions
   in `carlos-tag.tld` and `integration-tags.tld` are static `String` methods (`SafeEncode`) and do
   not touch the EL API. displaytag does not use EL classes at all.
 - **Run-time behaviour is unchanged:** because of the class-loader filter, JSPs were already
@@ -80,7 +81,8 @@ a fallback.
   `jspc-maven-plugin` 5.0.0 bundles Tomcat 10.1's Jasper (Pages 3.1, EL 5.0), and its class
   loader puts that Jasper and its EL ahead of the project's dependencies. The `jspc` profile
   therefore pins the plugin's `tomcat-jasper` to `${tomcat.version}`, which brings Tomcat 11's
-  Jasper, JSP API, EL API and EL implementation together. All 992 JSPs compile with it.
+  Jasper, JSP API, EL API and EL implementation together. All 992 JSPs compiled with it when
+  this changed, as they did with the bundled 10.1 Jasper.
 - **`scripts/compile-edit-appointment-jsp.sh`:** puts `$CATALINA_HOME/lib` first, so it already
   compiled against the deployment's EL.
 - **The packaged Flyway runner (`carlos-ctl db-*`):** runs with `WEB-INF/lib/*` on its class path
