@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
@@ -337,7 +338,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             "msp", DiagnosticCodeDao.class
     );
 
-    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     Integer exportNo = 0;
     ArrayList<String> exportError = null;
@@ -448,9 +449,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                     logger.debug("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions. (" + tmpDir + ")");
                 } else {
                     XmlOptions options = new XmlOptions();
-                    options.put(XmlOptions.SAVE_PRETTY_PRINT);
-                    options.put(XmlOptions.SAVE_PRETTY_PRINT_INDENT, 3);
-                    options.put(XmlOptions.SAVE_AGGRESSIVE_NAMESPACES);
+                    options.setSavePrettyPrint();
+                    options.setSavePrettyPrintIndent(3);
+                    options.setSaveAggressiveNamespaces();
 
                     HashMap<String, String> suggestedPrefix = new HashMap<String, String>();
                     suggestedPrefix.put("cds_dt", "cdsd");
@@ -486,7 +487,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                         HashMap<String, String> demoExt = new HashMap<String, String>();
                         demoExt.putAll(demographicExtDao().getAllValuesForDemo(Integer.parseInt(demoNo)));
 
-                        OmdCdsDocument omdCdsDoc = OmdCdsDocument.Factory.newInstance();
+                        OmdCdsDocument omdCdsDoc = LegacyXmlBeans.newInstance(OmdCdsDocument.class, OmdCdsDocument.type);
                         OmdCdsDocument.OmdCds omdCds = omdCdsDoc.addNewOmdCds();
                         PatientRecord patientRec = omdCds.addNewPatientRecord();
                         Demographics demo = patientRec.addNewDemographics();

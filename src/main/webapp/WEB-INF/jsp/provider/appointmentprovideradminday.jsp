@@ -1742,7 +1742,8 @@
                                                    style="color:black" class="noprint">
                                             <input type='radio' name='flipview' class="noprint"
                                                    onClick="goFilpView('<%=curProvider_no[nProvider]%>')"
-                                                   title="<fmt:message key="schedule.scheduleflipview.title"/>">
+                                                   title="<fmt:message key="schedule.scheduleflipview.title"/>"
+                                                   aria-label="<fmt:message key="schedule.scheduleflipview.title"/>">
                                             <a href=#
                                                onClick="goZoomView('<%=curProvider_no[nProvider]%>','<carlos:encode value='<%= curProviderName[nProvider] %>' context="javaScriptAttribute"/>')"
                                                onDblClick="goFilpView('<%=curProvider_no[nProvider]%>')"

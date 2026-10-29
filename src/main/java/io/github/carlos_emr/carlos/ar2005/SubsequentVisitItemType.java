@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -714,64 +712,6 @@ public interface SubsequentVisitItemType extends XmlObject
             return (SubsequentVisitItemType)XmlBeans.getContextTypeLoader().parse(node, SubsequentVisitItemType.type, options);
         }
 
-        /**
-         * Parses XML from an XMLInputStream into a SubsequentVisitItemType instance.
-         *
-         * @param xis XMLInputStream the XML input stream
-         * @return SubsequentVisitItemType the parsed instance
-         * @throws XmlException if the XML is not valid or cannot be parsed
-         * @throws XMLStreamException if there is an error with the XML stream
-         * @deprecated XMLInputStream is deprecated, use alternative parse methods instead
-         */
-        @Deprecated
-        public static SubsequentVisitItemType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (SubsequentVisitItemType)XmlBeans.getContextTypeLoader().parse(xis, SubsequentVisitItemType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses XML from an XMLInputStream into a SubsequentVisitItemType instance with the specified XML options.
-         *
-         * @param xis XMLInputStream the XML input stream
-         * @param options XmlOptions the XML options to use for parsing
-         * @return SubsequentVisitItemType the parsed instance
-         * @throws XmlException if the XML is not valid or cannot be parsed
-         * @throws XMLStreamException if there is an error with the XML stream
-         * @deprecated XMLInputStream is deprecated, use alternative parse methods instead
-         */
-        @Deprecated
-        public static SubsequentVisitItemType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (SubsequentVisitItemType)XmlBeans.getContextTypeLoader().parse(xis, SubsequentVisitItemType.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from an existing XMLInputStream.
-         *
-         * @param xis XMLInputStream the XML input stream to validate
-         * @return XMLInputStream the validating XML input stream
-         * @throws XmlException if the XML is not valid
-         * @throws XMLStreamException if there is an error with the XML stream
-         * @deprecated XMLInputStream is deprecated, use alternative validation methods instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, SubsequentVisitItemType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from an existing XMLInputStream with the specified XML options.
-         *
-         * @param xis XMLInputStream the XML input stream to validate
-         * @param options XmlOptions the XML options to use for validation
-         * @return XMLInputStream the validating XML input stream
-         * @throws XmlException if the XML is not valid
-         * @throws XMLStreamException if there is an error with the XML stream
-         * @deprecated XMLInputStream is deprecated, use alternative validation methods instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, SubsequentVisitItemType.type, options);
-        }
-        
         private Factory() {
         }
     }

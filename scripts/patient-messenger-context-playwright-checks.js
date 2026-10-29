@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copyright (c) 2026 CARLOS Contributors.
+ * Modifications by CARLOS Contributors, 2026.
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Search -> Master Record -> E-Chart -> Messenger tab (not the + composer).
@@ -13,7 +14,7 @@ const { closeBrowserWithChartCleanup, releaseChartLocks } = require('./lib/chart
 const { randomUUID } = require('crypto');
 const {
   SkipCheck, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner,
-  launchBrowser, login, newContext, readConfig, runCheck, wireStrictPage,
+  launchBrowser, login, markFailedStep, newContext, readConfig, runCheck, wireStrictPage,
 } = require('./lib/playwright-harness');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
@@ -70,14 +71,17 @@ async function main() {
       await assertPatientContext();
       for (const field of ['subject', 'date']) {
         for (let direction = 0; direction < 2; direction++) {
-          const [response] = await Promise.all([
-            inbox.waitForResponse((r) => r.request().isNavigationRequest() && r.frame() === inbox.mainFrame()),
-            inbox.waitForEvent('domcontentloaded', { timeout: 45000 }),
-            inbox.locator(`a[href*="orderby=${field}"]`).first().click(),
-          ]);
-          assert(response.status() === 200, `patient message sort returned HTTP ${response.status()}`);
-          await inbox.waitForLoadState('domcontentloaded');
-          await assertPatientContext();
+          const label = `patient ${index + 1}: Messenger ${field} sort ${direction + 1} retains patient context`;
+          try {
+            const [response] = await Promise.all([
+              inbox.waitForResponse((r) => r.request().isNavigationRequest() && r.frame() === inbox.mainFrame()),
+              inbox.waitForEvent('domcontentloaded', { timeout: 45000 }),
+              inbox.locator(`a[href*="orderby=${field}"], a[href*="orderby=!${field}"]`).first().click(),
+            ]);
+            assert(response.status() === 200, `patient message sort returned HTTP ${response.status()}`);
+            await inbox.waitForLoadState('domcontentloaded');
+            await assertPatientContext();
+          } catch (error) { throw markFailedStep(error, label); }
         }
       }
       // Close the named Search window too, so the next iteration can observe

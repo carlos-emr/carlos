@@ -43,9 +43,10 @@ public final class IntegrationTestSeedService {
      */
     public static void ensureProviderExists(EntityManager entityManager, String providerNo) {
         entityManager.createNativeQuery("""
-                MERGE INTO provider (provider_no, first_name, last_name, provider_type, sex, specialty, status)
-                KEY(provider_no)
+                INSERT INTO provider (provider_no, first_name, last_name, provider_type, sex, specialty, status)
                 VALUES (:providerNo, 'Test', 'Provider', 'doctor', 'M', 'GP', '1')
+                ON DUPLICATE KEY UPDATE first_name=VALUES(first_name), last_name=VALUES(last_name),
+                provider_type=VALUES(provider_type), sex=VALUES(sex), specialty=VALUES(specialty), status=VALUES(status)
                 """)
                 .setParameter("providerNo", providerNo)
                 .executeUpdate();
@@ -60,9 +61,10 @@ public final class IntegrationTestSeedService {
      */
     public static void ensureDemographicExists(EntityManager entityManager, Integer demographicNo) {
         entityManager.createNativeQuery("""
-                MERGE INTO demographic (demographic_no, first_name, last_name, sex, patient_status)
-                KEY(demographic_no)
+                INSERT INTO demographic (demographic_no, first_name, last_name, sex, patient_status)
                 VALUES (:demographicNo, 'Test', 'Patient', 'M', 'AC')
+                ON DUPLICATE KEY UPDATE first_name=VALUES(first_name), last_name=VALUES(last_name),
+                sex=VALUES(sex), patient_status=VALUES(patient_status)
                 """)
                 .setParameter("demographicNo", demographicNo)
                 .executeUpdate();

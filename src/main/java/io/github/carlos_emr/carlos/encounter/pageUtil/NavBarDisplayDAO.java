@@ -68,7 +68,8 @@ public class NavBarDisplayDAO {
      * this same calculation so reopening a saved form reuses its named window.
      */
     public static long popupWindowHash(String identity) {
-        return Math.abs((long) identity.hashCode());
+        long hash = identity.hashCode();
+        return hash < 0 ? -hash : hash;
     }
 
     /**

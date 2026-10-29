@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+// Modifications by CARLOS Contributors, 2026.
 /*
  * Print / PDF / download routes against the role matrix (coverage-plan area: authorization,
  * "authz-read" sweep).
@@ -89,8 +90,13 @@ async function workflow(s) {
     for (const role of ['receptionist', 'nurse', 'er_clerk']) sessions[role] = await signIn(s, fixture.addLogin(role));
   });
 
+  // The print loader accepts configured type names and reads chart rows itself.
+  // A patient-only URL or the old numeric printHP index produces no sections.
+  const preventionPrint = () => `prevention/printPrevention?${new URLSearchParams({
+    demographicNo: patient, printHP: 'Inf', immunizationOnly: 'false',
+  })}`;
   const printRoutes = () => [
-    `prevention/printPrevention?${patientQuery(patient)}`,
+    preventionPrint(),
     `rx/ViewPrint?${patientQuery(patient)}`,
     `rx/ViewPrintDrugProfile2?${patientQuery(patient)}`,
     `encounter/oscarConsultationRequest/printPdf2?requestId=${ids.consult}&${patientQuery(patient)}`,
@@ -103,7 +109,7 @@ async function workflow(s) {
 
   await s.step('control: the full-privilege login is served the PDF routes that have data (including the stored document\'s own file and page image), and the label/chart PDFs are served to _demographic holders', async () => {
     const unserved = [];
-    for (const route of [`documentManager/ManageDocument?method=viewDocumentInfo&doc_no=${ids.doc}`, `prevention/printPrevention?${patientQuery(patient)}`,
+    for (const route of [`documentManager/ManageDocument?method=viewDocumentInfo&doc_no=${ids.doc}`, preventionPrint(),
       `encounter/oscarConsultationRequest/printPdf2?requestId=${ids.consult}&${patientQuery(patient)}`, `lab/CA/ALL/PrintPDF?segmentID=${labNo}&providerNo=${provider}`]) {
       if (classify(await get('full', route)) !== 'served') unserved.push(route.split('?')[0]);
     }

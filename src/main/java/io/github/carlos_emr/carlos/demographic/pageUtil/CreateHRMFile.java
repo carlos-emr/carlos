@@ -35,6 +35,7 @@
 
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import java.io.File;
 import java.io.IOException;
 import java.util.Base64;
@@ -96,7 +97,7 @@ public class CreateHRMFile {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     static public void create(DemographicsDocument.Demographics demographic, List<Reports> reports, String filepath) {
 
-        OmdCdsDocument omdCdsDoc = OmdCdsDocument.Factory.newInstance();
+        OmdCdsDocument omdCdsDoc = LegacyXmlBeans.newInstance(OmdCdsDocument.class, OmdCdsDocument.type);
         OmdCds omdCds = omdCdsDoc.addNewOmdCds();
         PatientRecord patientRecord = omdCds.addNewPatientRecord();
 
@@ -106,9 +107,9 @@ public class CreateHRMFile {
         writeReportsReceived(reports, patientRecord);
 
         XmlOptions options = new XmlOptions();
-        options.put(XmlOptions.SAVE_PRETTY_PRINT);
-        options.put(XmlOptions.SAVE_PRETTY_PRINT_INDENT, 3);
-        options.put(XmlOptions.SAVE_AGGRESSIVE_NAMESPACES);
+        options.setSavePrettyPrint();
+        options.setSavePrettyPrintIndent(3);
+        options.setSaveAggressiveNamespaces();
 
         HashMap<String, String> suggestedPrefix = new HashMap<String, String>();
         suggestedPrefix.put("cds_dt", "cdsd");
@@ -156,13 +157,13 @@ public class CreateHRMFile {
         } else if (otherNames.length > 0) {
             for (OtherNames.OtherName oName : otherNames[0].getOtherNameArray()) {
                 if (oName.getPartType().toString().equals("FAMC")) {
-                    lastName = cdsDt.PersonNameStandard.LegalName.LastName.Factory.newInstance();
+                    lastName = LegacyXmlBeans.newInstance(cdsDt.PersonNameStandard.LegalName.LastName.class, cdsDt.PersonNameStandard.LegalName.LastName.type);
                     lastName.setPart(oName.getPart());
                     lastName.setPartQualifier(oName.getPartQualifier());
                     lastName.setPartType(oName.getPartType());
                 }
                 if (oName.getPartType().toString().equals("GIV")) {
-                    firstName = cdsDt.PersonNameStandard.LegalName.FirstName.Factory.newInstance();
+                    firstName = LegacyXmlBeans.newInstance(cdsDt.PersonNameStandard.LegalName.FirstName.class, cdsDt.PersonNameStandard.LegalName.FirstName.type);
                     firstName.setPart(oName.getPart());
                     firstName.setPartQualifier(oName.getPartQualifier());
                     firstName.setPartType(oName.getPartType());

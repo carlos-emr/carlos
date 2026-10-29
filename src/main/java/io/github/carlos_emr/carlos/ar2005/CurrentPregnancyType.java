@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -631,64 +629,6 @@ public interface CurrentPregnancyType extends XmlObject
          */
         public static CurrentPregnancyType parse(final Node node, final XmlOptions options) throws XmlException {
             return (CurrentPregnancyType)XmlBeans.getContextTypeLoader().parse(node, CurrentPregnancyType.type, options);
-        }
-
-        /**
-         * Parses a CurrentPregnancyType from an XML input stream.
-         *
-         * @deprecated Use {@link #parse(InputStream)} instead
-         * @param xis XMLInputStream the XML input stream to parse from
-         * @return CurrentPregnancyType the parsed instance
-         * @throws XmlException if the XML is invalid or doesn't conform to the schema
-         * @throws XMLStreamException if an XML stream error occurs
-         */
-        @Deprecated
-        public static CurrentPregnancyType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (CurrentPregnancyType)XmlBeans.getContextTypeLoader().parse(xis, CurrentPregnancyType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses a CurrentPregnancyType from an XML input stream with specified options.
-         *
-         * @deprecated Use {@link #parse(InputStream, XmlOptions)} instead
-         * @param xis XMLInputStream the XML input stream to parse from
-         * @param options XmlOptions the XML options to use during parsing
-         * @return CurrentPregnancyType the parsed instance
-         * @throws XmlException if the XML is invalid or doesn't conform to the schema
-         * @throws XMLStreamException if an XML stream error occurs
-         */
-        @Deprecated
-        public static CurrentPregnancyType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (CurrentPregnancyType)XmlBeans.getContextTypeLoader().parse(xis, CurrentPregnancyType.type, options);
-        }
-
-        /**
-         * Creates a validating XML input stream from the given XML input stream.
-         *
-         * @deprecated XMLInputStream is deprecated
-         * @param xis XMLInputStream the XML input stream to validate
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if the XML is invalid or doesn't conform to the schema
-         * @throws XMLStreamException if an XML stream error occurs
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, CurrentPregnancyType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XML input stream from the given XML input stream with specified options.
-         *
-         * @deprecated XMLInputStream is deprecated
-         * @param xis XMLInputStream the XML input stream to validate
-         * @param options XmlOptions the XML options to use during validation
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if the XML is invalid or doesn't conform to the schema
-         * @throws XMLStreamException if an XML stream error occurs
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, CurrentPregnancyType.type, options);
         }
 
         /**

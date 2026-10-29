@@ -1,0 +1,25 @@
+{
+  "name": "@carlos/svgr-plugin-svgo",
+  "version": "8.1.0",
+  "private": true,
+  "description": "Unmodified @svgr/plugin-svgo 8.1.0 runtime with its unused deepmerge dependency removed",
+  "main": "index.js",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14"
+  },
+  "dependencies": {
+    "cosmiconfig": "8.3.6",
+    "svgo": "3.3.5"
+  },
+  "peerDependencies": {
+    "@svgr/core": "*"
+  },
+  "upstream": {
+    "package": "@svgr/plugin-svgo",
+    "version": "8.1.0",
+    "runtime": "dist/index.js",
+    "runtimeSha256": "4a9a9511fdeee0ecf9ed25837b44f1c8b82b3a069bd9a34247077ff5034b9078",
+    "note": "index.js and LICENSE are copied byte-for-byte from the upstream npm tarball; only the manifest omits the unused deepmerge dependency."
+  }
+}

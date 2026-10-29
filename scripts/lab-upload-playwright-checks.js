@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Modifications by CARLOS Contributors, 2026.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -234,7 +235,8 @@ async function workflow(session, options = {}) {
   const content = Buffer.from(syntheticCmlLab(accession, marker), 'latin1');
   let proof = null;
   if (options.injectFailure) {
-    h.assert(process.env.LAB_ROLLBACK_FAULT_ARTIFACT_DIR, 'Rollback fault requires explicit private artifact directory');
+    if (!process.env.LAB_ROLLBACK_FAULT_ARTIFACT_DIR) throw new h.SkipCheck(
+      'Set LAB_ROLLBACK_FAULT_ARTIFACT_DIR to a private directory for rollback fault evidence');
     h.assert(process.env.LAB_UPLOAD_DOCUMENT_STORE, 'Rollback fault requires actual installed document store');
     h.assert(serverLogFromEnvironment().configured, 'Rollback fault requires actual server-log proof');
     proof = createFaultReceipt(process.env.LAB_ROLLBACK_FAULT_ARTIFACT_DIR, {

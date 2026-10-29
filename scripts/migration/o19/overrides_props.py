@@ -29,7 +29,7 @@ carrying it.
 """
 
 # Keep the shared manifest generation token with the schema conversion rules.
-PROPS_MAP_VERSION = "o19map-4"
+PROPS_MAP_VERSION = "o19map-5"
 
 KEYS = {
     # --- clinic identity / billing (carry) --------------------------------
