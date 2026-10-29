@@ -29,7 +29,9 @@ const JSP_DIR = path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/messenger')
 const SKIPPED = /<%--[\s\S]*?--%>|<%[\s\S]*?%>|<!--[\s\S]*?-->/y;
 const CLASS_ATTR = /(?:^|\s)class\s*=\s*("([^"]*)"|'([^']*)')/i;
 const HREF_ATTR = /(?:^|\s)href\s*=\s*("([^"]*)"|'([^']*)')/i;
-const IN_TAG = /<%[\s\S]*?%>|<[a-z]+:(?:<%[\s\S]*?%>|[^<>])*\/>|\$\{[^}]*\}/iy;
+// A custom tag may nest an expression; that expression is matched up to its first %> with
+// no choice of where it ends, so the repeated group cannot backtrack exponentially.
+const IN_TAG = /<%[\s\S]*?%>|<[a-z]+:(?:<%(?:[^%]|%(?!>))*%>|[^<>])*\/>|\$\{[^}]*\}/iy;
 
 function anchors(source) {
   const found = [];
