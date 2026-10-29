@@ -33,6 +33,7 @@ JCL_CLASSES = [
     "org/apache/commons/logging/impl/Log4jApiLogFactory.class",
 ]
 SERVICE = "META-INF/services/org.apache.commons.logging.LogFactory"
+LOG4J_API_FACTORY = "org/apache/commons/logging/impl/Log4jApiLogFactory.class"
 
 
 def jar_bytes(entries):
@@ -211,6 +212,27 @@ class CheckWarCommonsLoggingTest(unittest.TestCase):
             "WEB-INF/lib/commons-logging-1.2.jar has no "
             "org/apache/commons/logging/impl/Log4jApiLogFactory.class",
             "commons-logging 1.3 or later")
+
+    def test_refuses_factory_present_only_as_versioned_copy(self):
+        # Java 25 does not load META-INF/versions/99, and nothing loads a versioned
+        # entry from a jar without Multi-Release: true; only the base entry counts.
+        classes = {name: None for name in JCL_CLASSES if "Log4jApi" not in name}
+        classes["META-INF/versions/99/" + LOG4J_API_FACTORY] = None
+        result = self.run_check(self.war({
+            "WEB-INF/lib/commons-logging-1.2.jar": jar_bytes(classes),
+        }))
+        self.assert_refused(result, f"WEB-INF/lib/commons-logging-1.2.jar has no {LOG4J_API_FACTORY}")
+
+    def test_refuses_versioned_discovery_override(self):
+        # A multi-release jar serves META-INF/versions/N/commons-logging.properties
+        # for getResources("commons-logging.properties") on a new enough JVM.
+        versioned = "META-INF/versions/9/commons-logging.properties"
+        result = self.run_check(self.war({
+            "WEB-INF/lib/commons-logging-1.4.0.jar": commons_logging_jar(),
+            "WEB-INF/lib/mr-library-1.0.jar": jar_bytes({
+                versioned: b"org.apache.commons.logging.LogFactory=example.Factory\n"}),
+        }))
+        self.assert_refused(result, f"WEB-INF/lib/mr-library-1.0.jar carries {versioned}")
 
     def test_refuses_commons_logging_jar_without_log_factory(self):
         result = self.run_check(self.war({

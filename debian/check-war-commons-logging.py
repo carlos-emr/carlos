@@ -22,7 +22,8 @@ and a library that shades its own copy of the classes. It fails when:
     one without Log4jApiLogFactory (commons-logging before 1.3 cannot bind
     to the Log4j API, so JCL would not reach Log4j 2);
   * anything carries META-INF/services/org.apache.commons.logging.LogFactory
-    or commons-logging.properties, which would override LogFactory discovery.
+    or commons-logging.properties (versioned copies included), which would
+    override LogFactory discovery.
 
 Versioned copies count whether or not their jar declares Multi-Release: the
 rule is that the package ships no second definition, and a manifest edit is
@@ -74,7 +75,7 @@ def scan_names(names):
         unversioned = MULTI_RELEASE.sub("", name)
         if unversioned.startswith(JCL_PACKAGE) and unversioned.endswith(".class"):
             definitions.append(name)
-        elif name in DISCOVERY_OVERRIDES:
+        elif unversioned in DISCOVERY_OVERRIDES:
             overrides.append(name)
     return definitions, overrides
 
@@ -126,7 +127,10 @@ def violations(sources):
                 f"{source} defines org.apache.commons.logging classes; only "
                 "WEB-INF/lib/commons-logging-<version>.jar may")
         else:
-            classes = {MULTI_RELEASE.sub("", d) for d in sources[source][0]}
+            # Base entries only: a copy under META-INF/versions/N is not loaded by a
+            # JVM older than N or from a jar without Multi-Release: true, so it
+            # cannot stand in for the class itself.
+            classes = set(sources[source][0])
             for required, why in ((LOG_FACTORY, ""),
                                   (LOG4J_API_FACTORY, " (commons-logging 1.3 or later "
                                    "is needed to bind JCL to Log4j 2)")):
