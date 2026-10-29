@@ -24,8 +24,9 @@
 
 Reads one or more session transcripts (JSONL) and lists every tool call that reached
 outside the clean export: a path in the original repository, a web search or fetch,
-a git history command, or a network download. It also reports a session whose working
-directory was not the export, since relative paths there resolve somewhere else. Used by /cleanroom-spec:cleanroom-audit.
+a git history command, a network download, or a built-in file tool aimed outside the
+export. It also reports a session whose working directory was not the export, since
+relative paths there resolve somewhere else. Used by /cleanroom-spec:cleanroom-audit.
 
 Usage:
   python3 scripts/cleanroom/audit-transcript.py --repo <original-repo> \
@@ -41,6 +42,10 @@ import re
 import sys
 
 WEB_TOOLS = {"WebFetch", "WebSearch"}
+# Built-in file tools and the input keys that hold their target path.
+FILE_TOOLS = {"Read": "file_path", "Write": "file_path", "Edit": "file_path",
+              "MultiEdit": "file_path", "NotebookEdit": "notebook_path",
+              "Glob": "path", "Grep": "path"}
 # History or remote access that could surface the original file's text.
 RISKY_SHELL = re.compile(
     r"\bgit\s+(?:-C\s+\S+\s+)?(?:log|show|blame|diff|cat-file|checkout|restore|reflog|fetch|clone|pull|archive)\b"
@@ -73,6 +78,15 @@ def tool_calls(path, cwds):
                     yield block.get("name", "?"), block.get("input") or {}
 
 
+def outside_export(path, export):
+    """True for an absolute path that is not inside the export (relative paths resolve
+    against the working directory, which is checked separately)."""
+    if not path or not path.startswith("/"):
+        return False
+    path = path.rstrip("/")
+    return path != export and not path.startswith(export + "/")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repo", required=True, help="absolute path of the original repository")
@@ -97,6 +111,8 @@ def main():
                 findings.append((transcript, name, "touched the original repository", text))
             elif name == "Bash" and RISKY_SHELL.search(data.get("command", "")):
                 findings.append((transcript, name, "git history or network command", text))
+            elif name in FILE_TOOLS and outside_export(data.get(FILE_TOOLS[name]), export):
+                findings.append((transcript, name, "file access outside the export", text))
         # Relative paths resolve against the working directory, so a session that ran
         # anywhere but the export could have read the original without naming its path.
         for cwd in sorted(cwds):
