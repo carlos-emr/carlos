@@ -1273,8 +1273,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
                 request, prescriptionDao.find(SCRIPT_ID));
 
         String rx = bound.getParameter("rx");
-        assertThat(rx).contains("Metoprolol 25 mg tablet" + nl + "1 tab PO BID; hold if SBP<100");
-        assertThat(rx).contains("1 tab PO BID; hold if SBP<100" + nl + "Qty 60");
+        assertThat(rx)
+                .contains("Metoprolol 25 mg tablet" + nl + "1 tab PO BID; hold if SBP<100")
+                .contains("1 tab PO BID; hold if SBP<100" + nl + "Qty 60");
     }
 
     @Test
@@ -1294,8 +1295,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
         String rx = bound.getParameter("rx");
-        assertThat(rx).contains("1 tab PO BID; hold if SBP<100");
-        assertThat(rx).doesNotContain("BID" + System.lineSeparator() + " hold");
+        assertThat(rx)
+                .contains("1 tab PO BID; hold if SBP<100")
+                .doesNotContain("BID" + System.lineSeparator() + " hold");
     }
 
     @Test
@@ -1404,8 +1406,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         // A database or wiring failure is not a directive. Absorbing it would fax a prescription with no
         // patient on it while masking an outage; it must propagate and stop the fax.
         when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenThrow(new IllegalStateException("datasource down"));
+        FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
 
-        assertThatThrownBy(() -> new FrmCustomedPDFServlet().bindFaxContentToRecord(request))
+        assertThatThrownBy(() -> servlet.bindFaxContentToRecord(request))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -1455,9 +1458,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         io.github.carlos_emr.carlos.commn.model.Provider provider = new io.github.carlos_emr.carlos.commn.model.Provider();
         provider.setFirstName("Ada");
         provider.setLastName("Prescriber");
-        ProviderDao providerDao = mock(ProviderDao.class);
-        when(providerDao.getProvider("999998")).thenReturn(provider);
-        registerMock(ProviderDao.class, providerDao);
+        ProviderDao prescriberProviderDao = mock(ProviderDao.class);
+        when(prescriberProviderDao.getProvider("999998")).thenReturn(provider);
+        registerMock(ProviderDao.class, prescriberProviderDao);
 
         HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
@@ -1862,17 +1865,17 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         // Give the RECORD known values so the assertions prove where the replacements came FROM.
         // Asserting only "not the posted value" would pass even if the binding wrote empty strings,
         // i.e. it would go green over a fix that silently dropped the prescriber's real notes.
-        Prescription record = prescriptionDao.find(SCRIPT_ID);
-        record.setComments("Take with food. Recheck INR in 5 days.");
+        Prescription prescriptionRecord = prescriptionDao.find(SCRIPT_ID);
+        prescriptionRecord.setComments("Take with food. Recheck INR in 5 days.");
         io.github.carlos_emr.carlos.commn.model.Provider provider =
                 new io.github.carlos_emr.carlos.commn.model.Provider();
         provider.setFirstName("Ada");
         provider.setLastName("Prescriber");
         provider.setPractitionerNo("CPSO-12345");
         provider.setBillingNo("BILL-67890");
-        ProviderDao providerDao = mock(ProviderDao.class);
-        when(providerDao.getProvider("999998")).thenReturn(provider);
-        registerMock(ProviderDao.class, providerDao);
+        ProviderDao prescriberProviderDao = mock(ProviderDao.class);
+        when(prescriberProviderDao.getProvider("999998")).thenReturn(provider);
+        registerMock(ProviderDao.class, prescriberProviderDao);
 
         request.addParameter("additNotes", "Oxycodone 80 mg, #100, refills x5");
         request.addParameter("pracNo", "999999");
@@ -2237,8 +2240,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
-            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")).get("clinicName"))
-                    .isEqualTo("Smith & Jones\n2 North Ave\nBarrie, ON L4M 1A1");
+            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")))
+                    .containsEntry("clinicName", "Smith & Jones\n2 North Ave\nBarrie, ON L4M 1A1");
         } finally {
             restoreProperty("multisites", previousMultisites);
         }
@@ -2271,8 +2274,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
-            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")).get("clinicName"))
-                    .isEqualTo("Smith & Jones\n2 North Ave\nBarrie, ON L4M 1A1");
+            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")))
+                    .containsEntry("clinicName", "Smith & Jones\n2 North Ave\nBarrie, ON L4M 1A1");
         } finally {
             restoreProperty("multisites", previousMultisites);
         }
@@ -2286,9 +2289,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
         java.util.HashMap<String, String> parsed = FrmCustomedPDFServlet.parseSCAddress(block);
 
-        assertThat(parsed.get("clinicTel")).isEqualTo("8195551111");
-        assertThat(parsed.get("clinicFax")).isEqualTo("8195552222");
-        assertThat(parsed.get("clinicName")).isEqualTo("Site Nord\n2 rue Nord\nGatineau, QC J8X 1A1");
+        assertThat(parsed)
+                .containsEntry("clinicTel", "8195551111")
+                .containsEntry("clinicFax", "8195552222")
+                .containsEntry("clinicName", "Site Nord\n2 rue Nord\nGatineau, QC J8X 1A1");
     }
 
     @Test
@@ -2297,10 +2301,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
                 "2 <br> North Ave", "City </b>", "ON", "P1P 1P1", "123<br>456", "789</b>012",
                 "T&eacute;l", "Fax");
         java.util.HashMap<String, String> parsed = FrmCustomedPDFServlet.parseSCAddress(block);
-        assertThat(parsed.get("clinicName"))
-                .isEqualTo("North <br> &amp; </b> Clinic\n2 <br> North Ave\nCity </b>, ON P1P 1P1");
-        assertThat(parsed.get("clinicTel")).isEqualTo("123<br>456");
-        assertThat(parsed.get("clinicFax")).isEqualTo("789</b>012");
+        assertThat(parsed)
+                .containsEntry("clinicName", "North <br> &amp; </b> Clinic\n2 <br> North Ave\nCity </b>, ON P1P 1P1")
+                .containsEntry("clinicTel", "123<br>456")
+                .containsEntry("clinicFax", "789</b>012");
     }
 
     @Test
@@ -2320,8 +2324,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of(site));
             HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
-            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")).get("clinicName"))
-                    .isEqualTo("North <br> &amp; </b> Clinic\n2 North Ave\nBarrie, ON L4M 1A1");
+            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")))
+                    .containsEntry("clinicName", "North <br> &amp; </b> Clinic\n2 North Ave\nBarrie, ON L4M 1A1");
         } finally {
             restoreProperty("multisites", previousMultisites);
         }
@@ -2334,8 +2338,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         Prescription prescription = prescriptionDao.find(SCRIPT_ID);
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenThrow(new IllegalStateException("datasource down"));
+        FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
 
-        assertThatThrownBy(() -> new FrmCustomedPDFServlet().isFaxDeniedByPrivilege(prescription, mock(LoggedInInfo.class)))
+        assertThatThrownBy(() -> servlet.isFaxDeniedByPrivilege(prescription, loggedInInfo))
                 .isInstanceOf(IllegalStateException.class);
     }
 

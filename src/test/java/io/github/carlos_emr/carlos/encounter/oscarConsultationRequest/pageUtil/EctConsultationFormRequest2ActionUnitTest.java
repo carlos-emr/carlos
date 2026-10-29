@@ -83,6 +83,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -339,8 +340,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.execute();
 
         String warning = new ObjectMapper().readTree(response.getContentAsString()).get("warningMessage").asText();
-        assertThat(warning).contains("The captured signature could not be saved and will not appear on the PDF.");
-        assertThat(warning).contains("- Lab result (source not confirmed)");
+        assertThat(warning)
+                .contains("The captured signature could not be saved and will not appear on the PDF.")
+                .contains("- Lab result (source not confirmed)");
     }
 
     @Test
@@ -706,8 +708,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(request.getAttribute("demographicId")).isEqualTo("1");
         assertThat(request.getAttribute("errorMessage")).asString().contains("active consultant");
-        assertThat(((java.util.Map<?, ?>) request.getAttribute("consultationSubmittedValues")).get("reasonForConsultation"))
-                .isEqualTo("Entered referral reason");
+        assertThat(request.getAttribute("consultationSubmittedValues"))
+                .asInstanceOf(InstanceOfAssertFactories.MAP)
+                .containsEntry("reasonForConsultation", "Entered referral reason");
         verify(consultationRequestDao, never()).persist(any());
         verifyNoInteractions(consultationManager, digitalSignatureManager);
         verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), anyInt());
@@ -1235,7 +1238,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(consultationManager.getAttachedEForms("9")).thenReturn(List.of());
 
         try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
-             MockedConstruction<CommonLabResultData> labConstruction = mockConstruction(CommonLabResultData.class,
+             MockedConstruction<CommonLabResultData> _ = mockConstruction(CommonLabResultData.class,
                      (labData, context) -> when(labData.populateLabResultsData(any(), eq("1"), eq("9"), anyBoolean()))
                              .thenReturn(new ArrayList<>(List.of(hl7Lab, mdsLab))))) {
             eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("9"), anyBoolean())).thenReturn(new ArrayList<>());

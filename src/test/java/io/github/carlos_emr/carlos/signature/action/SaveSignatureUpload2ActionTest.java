@@ -287,7 +287,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
             mockRequest.setParameter("source", "IPAD");
             mockRequest.setParameter("signatureImage", "data:image/png;base64,garbage");
 
-            try (MockedConstruction<Base64> ignored = mockConstruction(Base64.class,
+            try (MockedConstruction<Base64> _ = mockConstruction(Base64.class,
                     (mock, context) -> when(mock.decode(any(byte[].class)))
                             .thenThrow(new IllegalArgumentException("bad base64")))) {
                 action.execute();
@@ -376,6 +376,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
                         @Override
                         public void setReadListener(ReadListener listener) {
+                            // Not needed: the action reads this stream synchronously, so no listener is ever registered.
                         }
                     };
                 }

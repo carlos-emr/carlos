@@ -163,7 +163,7 @@ public final class ImageRenderingServlet extends HttpServlet {
             // request must honor that same chart-read and patient-record boundary.
             PatientRecordAccess.require(SpringUtils.getBean(SecurityInfoManager.class),
                     LoggedInInfo.getLoggedInInfoFromSession(request), clientId.toString(), "_eChart", "r");
-        } catch (SecurityException denied) {
+        } catch (SecurityException _) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
@@ -191,12 +191,12 @@ public final class ImageRenderingServlet extends HttpServlet {
         if (values == null || values.length == 0) return null;
         Integer selected = null;
         for (String value : values) {
-            if (value == null || !value.matches("[0-9]{1,10}")) return null;
+            if (value == null || !value.matches("\\d{1,10}")) return null;
             try {
                 int patient = Integer.parseInt(value);
                 if (patient <= 0 || selected != null && selected != patient) return null;
                 selected = patient;
-            } catch (NumberFormatException invalidPatient) {
+            } catch (NumberFormatException _) {
                 return null;
             }
         }
