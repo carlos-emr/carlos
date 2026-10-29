@@ -1,6 +1,6 @@
 # Design: Consolidate HTML-to-PDF on Flying Saucer and Remove wkhtmltopdf
 
-**Date:** 2026-10-29 (third revision, after a full verification pass)
+**Date:** 2026-10-29 (fourth revision, after a full verification pass and a final review cycle)
 **Status:** Design approved in conversation; written spec awaiting review
 **Target:** `release/2026.08` (currently `2026.08.0-beta3-SNAPSHOT`), forward-merged to `develop`
 
@@ -10,19 +10,19 @@ Every behavioural claim was checked against the code on `release/2026.08` and, w
 concerns rendering, by rendering documents with the real engines:
 
 - **wkhtmltopdf 0.12.6.1** from the vendored `ultrabuk-htmltopdf-java` jar, with
-  `InternalEDocConverter`'s exact settings, `LANG=C.UTF-8` (as the Debian service sets it)
-  and a fontconfig limited to `fonts-dejavu-core` (the only font package `carlos-emr`
-  depends on). This is the "production baseline".
+  `InternalEDocConverter`'s exact settings, `LANG=C.UTF-8` (as the Debian service sets it),
+  a fontconfig limited to `fonts-dejavu-core` (the only font package `carlos-emr` depends
+  on) and, as input, the output of `ConvertToEdoc.tidyDocument`. This is the "production
+  baseline".
 - **Flying Saucer 10.0.6 and 10.7.0** through CARLOS's own `LocalOnlyUserAgent` and
   `ReplacedElementFactoryImpl`, and through an end-to-end prototype of this design.
 - **PDFBox 3.0.8** for merging and flattening, as CARLOS uses it.
 
-The prototype of the second revision rendered 15 fixtures (forms, an Annual form built from
-the real `formannualfemale.jsp` with its real stylesheets under a webroot outside the
-working directory, HRM-like reports, email, letters, wide pages, `@page`, small text, media
-rules, edge markup) with the production baseline's page counts and zero outbound requests.
-About 80 adversarial documents were also compared. The defects those runs found are fixed
-in this revision; items marked *(tested)* were re-run with the fix.
+Three rounds were run: a verification pass (claims audit, prototype of the second revision
+against 15 fixtures, about 80 adversarial documents) and a final review cycle (document
+review, prototype of the third revision against the full test list). Defects found are fixed
+here. Items marked *(tested)* were re-run with the fix; the pixel budget under "Images" is
+the one rule that is designed but not yet load-tested, and PR 1 must load-test it.
 
 ## Problem
 
@@ -41,10 +41,9 @@ Chromium stays for scripted and complex pages. The other two have these problems
 - The upstream project was archived in January 2023; its Qt WebKit engine is unmaintained;
   it has a published SSRF vulnerability (CVE-2022-35583).
 - `InternalEDocConverter` runs it with `load.blockLocalFileAccess=false` and no
-  transport-level URL guard. `ConvertToEdoc`'s DOM clean-up (`translatePaths`,
-  `rewriteCssResourceUrls`) removes remote `<img>`/`<link>` and blanks remote CSS `url()`,
-  but `<iframe>`, `<object>`, `<embed>`, `srcset` and string-form `@import "…"` reach
-  wkhtmltopdf unchanged.
+  transport-level URL guard. `ConvertToEdoc`'s DOM clean-up removes remote `<img>`/`<link>`
+  and blanks remote CSS `url()`, but `<iframe>`, `<object>`, `<embed>`, `srcset` and
+  string-form `@import "…"` reach wkhtmltopdf unchanged.
 - It ships as a 33 MB vendored jar with a native library, needs `libxrender1` on the host
   and pulls in JNA. CARLOS's dependency audits (`docs/dependency-audit-2026-03-16.md`,
   `-03-17.md`) mark it "abandoned, replace".
@@ -64,9 +63,9 @@ Items 1–4 also affect today's `Doc2PDF` output and today's `ConvertToEdoc` fal
 2. **Images mis-sized or unreadable.** `ReplacedElementFactoryImpl` calls
    `fsImage.scale(width, height)` and discards the result, and it skips Flying Saucer's
    output-resolution scaling, so an `<img>` without `width`/`height` prints about 20 times
-   too small (2400 dpi instead of 120 dpi, measured). `formannualfemaleprint.jsp` draws its
-   checkbox state with unsized `checkmark.gif`/`notChecked.gif`, so those marks would
-   effectively vanish. It also opens any absolute path with `new File(src)` (it read
+   too small (2400 dpi instead of 120 dpi, measured). Pages that draw state with unsized
+   images (for example `formannualfemaleprint.jsp`'s `checkmark.gif`/`notChecked.gif`)
+   would lose those marks. It also opens any absolute path with `new File(src)` (it read
    `/etc/passwd` in the prototype and failed only because the file is not an image), and it
    cannot load `data:` URIs.
 3. **Fonts break the PDF font policy (#5046).** For no family, generic families and unknown
@@ -109,10 +108,11 @@ Items 1–4 also affect today's `Doc2PDF` output and today's `ConvertToEdoc` fal
    | Minimum font size | 10 CSS px | none |
    | `line-height: normal` with DejaVu Sans | about 1.164 | about 24 % taller |
    | `thead` | repeated on every page | printed once |
+   | `rowspan` past the end of its row group | clamped (HTML table model) | not clamped: following content is drawn over the cell |
    | Media | `print` | `print` (same) |
 
    The Annual form's `form/annualStyle.css` has 800–955 px containers, so Flying Saucer would
-   clip its right side.
+   clip its right side, and `formannualfemale.jsp` has a `rowspan="4"` over three rows.
 6. **Stylesheets blocked on Debian installs.** `ConvertToEdoc.fallbackRender` passes a null
    base URL; Flying Saucer then uses the JVM working directory as the base, and
    `LocalOnlyUserAgent` only allows the base directory, `java.io.tmpdir` and
@@ -128,7 +128,7 @@ Items 1–4 also affect today's `Doc2PDF` output and today's `ConvertToEdoc` fal
    shaping: Hebrew prints with its letters reversed, Arabic and Urdu as unjoined letters in
    reversed order, and `dir="rtl"` alignment is ignored. wkhtmltopdf prints them correctly.
 
-### Failure paths that crash or hide failures
+### Failures that crash or are hidden today
 
 - `HRMPDFCreator.printPdf` (HTML branch, line ~182) calls `Files.readAllBytes(null)` when
   `ConvertToEdoc` returns null. The `NullPointerException` escapes `HRMUtil.renderHRM`, which
@@ -136,12 +136,20 @@ Items 1–4 also affect today's `Doc2PDF` output and today's `ConvertToEdoc` fal
 - `EmailManager.createMessageAttachment` (line ~516) calls `toString()` on a null path.
 - `ConvertToEdoc.execute` calls `tidyDocument` outside its `try` (blank HTML throws
   `IllegalArgumentException`) and catches only `DocumentException` and `IOException`.
-- `ConvertToEdoc.translatePaths` silently **removes** any `<img>` whose source is remote,
-  `file:` or cannot be resolved to a local file.
+- `ConvertToEdoc` silently **removes** `<img>` elements in two places:
+  `validateResourcePaths` (line ~1017) removes any whose path fails `validateLink`, which
+  only accepts the extensions in `FileType` (`pdf, css, jpeg, png, gif, js, jpg`, line 103),
+  so `.bmp`, `.tif`, `.svg` and `.webp` images disappear; `translatePaths` (lines ~905/911)
+  removes any whose source is remote, `file:` or unresolvable.
+- `translateResourcePaths` (line ~617) and `validateResourcePaths` collect their work in a
+  `HashMap<List<String>, Element>` keyed by the list of candidate paths. When the same
+  `src` appears more than once, equal keys overwrite each other and only the last `<img>`
+  is translated and validated; the earlier ones keep their raw `src` and print nothing.
 - An image of 10 000 × 10 000 pixels (a 316 KB PNG) exhausts a 1 GB heap while Flying Saucer
-  decodes it. Production runs with `-XX:+ExitOnOutOfMemoryError` and heap dumps
-  (`carlos-emr-tomcat`, lines 147–151), so one such image would restart CARLOS and write a
-  heap dump containing patient data. wkhtmltopdf decoded images in native memory.
+  decodes it, and two concurrent renders of one 25-megapixel RGBA PNG exhaust 512 MB.
+  Production runs with `-XX:+ExitOnOutOfMemoryError` and heap dumps
+  (`carlos-emr-tomcat`, lines 147–151), so such images would restart CARLOS and write a heap
+  dump containing patient data. wkhtmltopdf decoded images in native memory.
 
 ### Unused code and dependencies
 
@@ -164,7 +172,7 @@ Agreed in conversation on 2026-10-29:
 | Flying Saucer version | Upgrade 10.0.6 → 10.7.0 as the first step |
 | Structure | One shared Flying Saucer pipeline; `ConvertToEdoc` and `Doc2PDF` become thin callers; their callers keep their contracts |
 | Fonts | Every family prints in bundled DejaVu Sans, as production wkhtmltopdf does; bundled fallbacks only for characters DejaVu Sans lacks |
-| Output geometry | Emulate wkhtmltopdf: Letter, 10 mm margins, 0.8 zoom, shrink-to-fit, 10 px minimum font, WebKit line height, repeated table headers |
+| Output geometry | Emulate wkhtmltopdf: Letter, 10 mm margins, 0.8 zoom, shrink-to-fit, 10 px minimum font, WebKit line height, repeated table headers, HTML row-span clamping |
 | Shrink-to-fit limit | None (nothing is cut off); WARN when the zoom falls below 0.4 |
 | Form controls | Printed as static text and marks; never as PDF form fields |
 | Bad images | That image is replaced by a visible "[image unavailable]" box; the rest of the document prints; WARN without the path |
@@ -182,11 +190,12 @@ Flying Saucer 10.7.0 was checked before choosing it:
 - SSRF probe (11 vectors) and XXE probe (external entity, parameter entity, external DTD):
   zero requests. Author `@font-face` (local or remote) and `<base href>` (`http:` or
   `file:`) cause no request or file read; wkhtmltopdf fetched both.
-- APIs used below exist: `ITextRenderer.setScaleToFit(boolean)`,
+- APIs used below exist and are overridable where needed: `ITextRenderer.setScaleToFit`,
   `ITextRenderer(float, int, ITextOutputDevice, ITextUserAgent, FontResolver)`,
   `ITextFontResolver.resolveFont(SharedContext, FontSpecification)` and
   `addFont(String, String, String, boolean, String)`, the `FontSpecification` record,
-  `Configuration.valueFor`, `XhtmlCssOnlyNamespaceHandler.getDefaultStylesheet`.
+  `ITextUserAgent.getImageResource(String)` (public, non-final), `Configuration.valueFor`,
+  `XhtmlCssOnlyNamespaceHandler.getDefaultStylesheet`.
 
 ## Goals
 
@@ -199,7 +208,7 @@ Flying Saucer 10.7.0 was checked before choosing it:
   or garbled (unsupported characters print as a visible U+FFFD; right-to-left documents
   fail clearly).
 - Form answers print; hidden values, passwords and buttons never do; no PDF form fields.
-- Image problems are visible, never silent, and never crash the JVM.
+- Image problems are visible, never silent, and never exhaust the heap.
 - The SSRF guard covers every path and never depends on the working directory.
 - Every failure reaches the caller as a clear error or `null` per the caller's existing
   contract; none escapes as an unhandled `NullPointerException`.
@@ -214,6 +223,7 @@ Flying Saucer 10.7.0 was checked before choosing it:
 - Moving callers onto a new API, or deleting `ConvertToEdoc`/`Doc2PDF`.
 - Removing `ConvertToEdoc`'s class-level `synchronized` methods or its static `realPath`.
 - Upgrading the vendored OpenPDF core (stays 3.0.3).
+- Widening `ConvertToEdoc`'s `FileType` extension list.
 - Right-to-left layout (see "Known limitations").
 - Changing the OSCAR 19 import map: carlos-ctl's own test suite, which CI runs against this
   tree (`debian-python-tests.yml`, `CARLOS_SRC`), asserts `WKHTMLTOPDF_COMMAND` is
@@ -235,32 +245,33 @@ table shows the end state after PR 2; "Delivery" shows the split.
 |---|---|---|
 | `HtmlPdf` | New, public, static utility | The only entry point: `render(String html, RenderContext context)` returns PDF bytes or throws `PDFGenerationException` |
 | `HtmlPdf.RenderContext` | New record | `baseDirectory` (`Path`, absolute, required) and `allowedDirectories` (`List<Path>`, non-empty, no filesystem root, must contain `baseDirectory`) |
-| `XhtmlCleanup` | New, package-private, static utility | All DOM preparation (steps 2a–2k below) and serialisation |
+| `XhtmlCleanup` | New, package-private, static utility | All DOM preparation (steps 2a–2m) and serialisation |
 | `PrintFormControls` | New, package-private, static utility | Replaces form controls with static print markup |
-| `PrintImages` | New, package-private, static utility | Checks every `<img>` and inline `<svg>` before layout and replaces unusable ones with the "[image unavailable]" box |
+| `PrintImages` | New, package-private, static utility | Checks every `<img>` and inline `<svg>` before layout, holds the image pixel budget, and replaces unusable images with the "[image unavailable]" box |
 | `FallbackFontRuns` | New, package-private, static utility | Wraps characters DejaVu Sans cannot draw in a span using a bundled fallback font |
 | `BundledFontResolver` | New, package-private | Subclass of Flying Saucer's `ITextFontResolver`; every family resolves to a bundled face; enforces the minimum font size |
 | `BundledFontFiles` | New, package-private, static utility | Extracts and verifies the bundled font files in one private directory |
 | `PageGeometry` | New, package-private, static utility | Two-pass layout, zoom/shrink-to-fit page import onto Letter |
-| `LocalOnlyUserAgent` | Changed | Explicit allowed directories; allows Flying Saucer's own default stylesheet by exact URL; image size cap and failure handling; PHI-safe logging |
+| `LocalOnlyUserAgent` | Changed | Explicit allowed directories; allows Flying Saucer's own default stylesheet by exact URL; image caps and failure handling; PHI-safe logging |
 | `ReplacedElementFactoryImpl` | **Deleted** | Replaced by Flying Saucer's own factory with all images loading through `LocalOnlyUserAgent` |
-| `ConvertToEdoc` | Changed | `renderPDF` calls `HtmlPdf`; emits encoded `file:` URIs for translated paths; marks unusable images instead of removing them; explicit base and allowed directories; broader error handling; dead code removed |
+| `ConvertToEdoc` | Changed | `renderPDF` calls `HtmlPdf`; per-element path translation; encoded `file:` URIs; marks unusable images instead of removing them; one webapp-root lookup; broader error handling; dead code removed |
 | `Doc2PDF` (`util`) | Changed | `renderWithFlyingSaucer` calls `HtmlPdf` |
 | `HRMPDFCreator`, `HRMUtil`, `PrintHRMReport2Action` (`hospitalReportManager`) | Changed | A failed HTML conversion surfaces as `PDFGenerationException` |
 | `EmailManager` (`managers`) | Changed | Throws `EmailSendingException` when the message PDF cannot be built |
 | `InternalEDocConverter`, `EDocConverterInterface` | Deleted | wkhtmltopdf wrapper |
 | Dead entry points listed under "Unused code" | Deleted | No production callers |
 
-`HtmlPdf` and its helpers hold no mutable state apart from the verified font directory
-(set once per JVM) and are safe to call concurrently (24 mixed renders on 8 threads gave
-identical output and no errors, *tested*).
+`HtmlPdf` and its helpers hold no mutable state apart from the verified font directory and
+the JVM-wide image pixel budget, and are safe to call concurrently (24 mixed renders on
+8 threads gave identical bytes and no errors, *tested*).
 
 ### Render pipeline
 
 `HtmlPdf.render(html, context)`:
 
-1. **Validate input.** `html` must not be null or blank, and the context rules above must
-   hold; otherwise throw `PDFGenerationException`.
+1. **Validate input.** `html` must not be null or whitespace-only, and the context rules
+   above must hold; otherwise throw `PDFGenerationException`. Markup with no visible content
+   prints one blank page.
 2. **Prepare the DOM** (`XhtmlCleanup`), parsing with Jsoup, in this order:
    - a. remove `<script>` elements and all comment nodes (comments never render; an HTML
      comment containing `--` is not valid XML);
@@ -268,31 +279,40 @@ identical output and no errors, *tested*).
      hyphens (U+00AD, which Flying Saucer prints as visible hyphens) and invisible bidi
      formatting characters (U+200E, U+200F, U+061C, U+202A–U+202E, U+2066–U+2069);
    - c. `PrintFormControls` (see "Form controls");
-   - d. `PrintImages` (see "Images");
+   - d. `PrintImages` (see "Images"); this acquires the document's pixel-budget permits,
+     which are released in a `finally` after step 5;
    - e. rewrite an inline `style` that sets `position: fixed` to `position: absolute`
      (Flying Saucer repeats fixed elements on every page, overprinting body text);
-   - f. on `<ol type="…">` without an inline `list-style-type`, set
-     `list-style-type` (`a` → `lower-alpha`, `A` → `upper-alpha`, `i` → `lower-roman`,
-     `I` → `upper-roman`, `1` → `decimal`);
-   - g. **right-to-left check:** if any text node outside `<style>` and `<title>` contains a
+   - f. on `<ol type="…">` without an inline `list-style-type`, set `list-style-type`
+     (`a` → `lower-alpha`, `A` → `upper-alpha`, `i` → `lower-roman`, `I` → `upper-roman`,
+     `1` → `decimal`);
+   - g. **clamp `rowspan`:** for each `td`/`th` whose `rowspan` is 0 or larger than the
+     number of rows from its row to the end of its row group (`thead`, `tbody`, `tfoot`, or
+     the table), set it to that number, as the HTML table model does (*tested* on
+     `formannualfemale.jsp`: without it, the following table is drawn over the cell);
+   - h. add class `carlos-pdf-paginate` to each `<table>` that has a direct `<thead>` child
+     and no cell of its own with a `rowspan` other than 1 (Flying Saucer's pagination
+     breaks row-span heights, *tested*);
+   - i. **right-to-left check:** if any text node outside `<style>` and `<title>` contains a
      code point whose `Character.getDirectionality` is `RIGHT_TO_LEFT` or
      `RIGHT_TO_LEFT_ARABIC`, throw
      `PDFGenerationException("HTML could not be converted to PDF: right-to-left text is not supported")`;
-   - h. add `alt=""` to `<img>` without one;
-   - i. ensure a `<head>` exists and insert `<style id="carlos-pdf-defaults">` (see
+   - j. add `alt=""` to `<img>` without one;
+   - k. ensure a `<head>` exists and insert `<style id="carlos-pdf-defaults">` (see
      "Injected stylesheet") as its **first** child, so author rules of equal specificity
-     still win, while its `@page` rule wins anyway because it is `!important`
-     (*tested*: with the defaults first, an author A4-landscape `@page` lost and an author
-     class font size won);
-   - j. `FallbackFontRuns` (see "Fonts");
-   - k. serialise with XML syntax, XHTML escaping, UTF-8 and pretty-printing off. A
+     still win, while its `@page` rule wins anyway because it is `!important` (*tested*:
+     with the defaults first, an author A4-landscape `@page` lost and an author class font
+     size won);
+   - l. `FallbackFontRuns` (see "Fonts");
+   - m. serialise with XML syntax, XHTML escaping, UTF-8 and pretty-printing off. A
      `<!DOCTYPE html>` added by `ConvertToEdoc.parseDocument` is kept, so standards mode is
      used, as with wkhtmltopdf.
 
    This replaces `ConvertToEdoc.prepareDocumentForFlyingSaucer` and the Jsoup steps in
    `Doc2PDF.renderWithFlyingSaucer`.
 3. **Lay out and render** (`PageGeometry`, see "Output geometry"). Each pass builds its
-   renderer with `LocalOnlyUserAgent.createRestrictedRenderer(context, new BundledFontResolver(...))`,
+   renderer with
+   `LocalOnlyUserAgent.createRestrictedRenderer(context, new BundledFontResolver(...))`,
    which uses `ITextRenderer(float, int, ITextOutputDevice, ITextUserAgent, FontResolver)`
    with CARLOS's existing 26.666666 dots per point and 20 dots per pixel. Print mode on,
    interactive off, smoothing threshold 0, Flying Saucer's own
@@ -325,7 +345,8 @@ text, so the fallback-font step and the right-to-left check apply to it.
 | `<button>` | removed |
 | `<select>` | `<span>` (kind `select`) with the text of the `<option>` that has `selected`; for `multiple`, all selected options joined with ", "; if none is selected, the first option (single) or nothing (multiple); options inside `<optgroup>` count |
 | `<textarea>` | `<div>` (kind `textarea`) containing the text, newlines preserved |
-| `<progress>` / `<meter>` | `<span>` (kind `text`) containing `value/max` (`progress`) or `value` (`meter`) |
+| `<progress>` | `<span>` (kind `text`) containing `value/max` (`max` defaults to 1); nothing when `value` is absent (indeterminate) |
+| `<meter>` | `<span>` (kind `text`) containing `value` |
 
 `checked` and `selected` follow HTML boolean-attribute rules: present means on, whatever
 the value (so `checked="false"` is checked, as in browsers and wkhtmltopdf).
@@ -335,45 +356,78 @@ Per element, `PrintFormControls` sets `min-width: size × 0.55em` for text-like 
 (defaults 20 and 2), unless the element has an inline `width`/`height`. Replacements grow to
 fit their content; values are never clipped.
 
-### Images (`PrintImages` and `LocalOnlyUserAgent`)
+### Images (`PrintImages`, `LocalOnlyUserAgent`, `ConvertToEdoc`)
 
-**Before layout** (`PrintImages`), each `<img>` is checked:
+**Before layout** (`PrintImages`), each `<img>` is checked in document order:
 
-1. Resolve its source. `data:` URIs are decoded. `file:` URIs and relative paths (resolved
-   against `baseDirectory`) must point to an existing regular file inside an allowed
-   directory. Anything else (remote, empty, or marked unusable by `ConvertToEdoc`, see
-   below) is unusable.
-2. If the content is SVG: it is unusable if any `href`, `xlink:href` or CSS `url()` in it
-   points anywhere other than a fragment (`#…`) or a `data:` URI (Batik would otherwise fail
-   the whole render). Otherwise it is usable.
-3. Otherwise read only the image header with `ImageIO` (no decoding). It is unusable if no
-   `ImageIO` reader recognises it (for example WebP), the header cannot be read, or
-   width × height exceeds **25 000 000 pixels**.
+1. **Resolve the source as the renderer will.** A `data:` URI is decoded. Otherwise the
+   source must be a valid URI reference: `baseDirectory.toUri().resolve(new URI(src))`
+   (a raw space or other invalid character makes it unusable). The result must be a
+   `file:` URI naming an existing regular file inside an allowed directory. Remote, empty
+   and `data-carlos-image-unavailable` sources are unusable.
+2. **Size and type.** Unusable if the file or decoded `data:` payload exceeds 32 MB, or if
+   it is a PDF (starts with `%PDF-`; Flying Saucer 10.7.0 would otherwise render it as an
+   image page).
+3. **SVG.** If the content is SVG, it is unusable if any `href`, `xlink:href` or CSS
+   `url()` in it points anywhere other than a fragment (`#…`) or a `data:` URI (Batik would
+   otherwise fail the whole render); otherwise it is usable and skips rules 4–6.
+4. **Header.** Read only the header with `ImageIO` (no decoding). Unusable if no `ImageIO`
+   reader recognises it (for example WebP) or the header cannot be read, or if
+   width × height exceeds the **per-image cap**: the smaller of 25 000 000 pixels and the
+   budget capacity below.
+5. **Pixel budget** *(designed, to be load-tested in PR 1)*. One JVM-wide semaphore holds
+   `Runtime.getRuntime().maxMemory() / 64` pixel permits (about a quarter of the heap at 16
+   bytes per pixel, the worst case measured: a 2 GB heap gives about 33.5 million pixels).
+   Walking the usable raster images in document order (each distinct file or `data:`
+   payload once), the
+   document keeps images while their running total fits the capacity; later images become
+   the box (reason `over render pixel budget`). The render then acquires the total from the
+   semaphore, waiting at most 60 s, and fails with `PDFGenerationException` if it cannot.
+   The permits are released in a `finally` after the PDF is built. (One 25-megapixel RGBA
+   PNG needs 256–384 MB of heap; two concurrent renders of one exhausted 512 MB, *tested*.)
+6. **Trial decode.** Decode with OpenPDF `org.openpdf.text.Image.getInstance(bytes)`, the
+   call Flying Saucer uses, after the permits are held. A failure makes it unusable (reason
+   `undecodable`). This catches a valid header with corrupt data and formats `ImageIO` reads
+   but OpenPDF cannot (for example WBMP or PNM from `jai-imageio-core`). Passing rules 1–6
+   guarantees Flying Saucer can draw the image.
+7. **Rewrite.** A usable `<img>` gets its `src` set to the checked file's `Path.toUri()`
+   (encoded, so paths with spaces or accents load, *tested*); `data:` sources are kept.
 
 An unusable `<img>` is replaced by
 `<span class="carlos-pdf-image-unavailable">[image unavailable]</span>`, sized from the
 image's `width`/`height` attributes or inline style when present, and a WARN is logged with
-the reason only (no path, no URL). Inline `<svg>` elements get rule 2 and the same
+the reason only (no path, no URL). Inline `<svg>` elements get rule 3 and the same
 replacement.
 
 **During layout** (`LocalOnlyUserAgent.getImageResource`, defence in depth and for CSS
-background images, which cannot show a box): the same pixel cap is applied from the header
-before any decoding, and any exception while loading an image returns an empty image
-resource, so Flying Saucer draws nothing for it, with a WARN without the path. A single bad
-image therefore never fails the render, and never decodes past the cap.
+background images, which cannot show a box): the override handles `data:` and `file:`
+sources, applies the 32 MB limit and reads the header before any decoding; a CSS background
+over 4 000 000 pixels, or any exception while loading, returns an empty image resource (so
+Flying Saucer draws nothing for it), with a WARN without the path. Otherwise it delegates to
+`super.getImageResource(uri)`, keeping Flying Saucer's resolution scaling. A single bad
+image therefore never fails the render, and never decodes past the caps or the budget.
 
 **`ConvertToEdoc`'s part:**
 
-- Translated paths are emitted as encoded `file:` URIs (`Path.toUri()`), in `src`,
-  `href`, CSS `url()` and the `pdfMediaStylesheet` link, so paths with spaces or non-ASCII
-  characters load (*tested*: a path with spaces and accents loaded only when encoded).
-- Where `translatePaths` today removes an `<img>` (remote, `file:` or unresolvable source),
-  it instead removes the `src` and sets `data-carlos-image-unavailable`, so `PrintImages`
-  shows the box. No URL reaches the renderer. `<link>` and `<script>` handling is
-  unchanged, and remote CSS `url()` stays blanked.
+- `translateResourcePaths`, `translatePaths` and `validateResourcePaths` collect their work
+  per element (`LinkedHashMap<Element, List<String>>`) instead of keyed by the candidate
+  path list, so every occurrence of a repeated image is translated and validated (today
+  only the last is).
+- Translated paths are emitted as encoded `file:` URIs (`Path.toUri()`), in `src`, `href`,
+  CSS `url()` and the `pdfMediaStylesheet` link.
+- Where `validateResourcePaths` (line ~1017) or `translatePaths` (lines ~905/911) today
+  removes an `<img>` (remote, `file:`, unresolvable, or an extension outside `FileType`), it
+  instead removes the `src` and sets `data-carlos-image-unavailable`, so `PrintImages` shows
+  the box. No URL reaches the renderer. `<link>` and `<script>` handling is unchanged, and
+  remote CSS `url()` stays blanked.
+- When the static `realPath` is null, `ConvertToEdoc` sets it from the same webapp-root
+  lookup used for the render context (below), so path translation and rendering use one
+  root.
 
-Measured: CMYK and progressive JPEG, 16-bit and alpha PNG, GIF (first frame), BMP and TIFF
-load. WebP and corrupt, zero-byte and missing files become the box.
+Measured through `Doc2PDF`'s path: CMYK and progressive JPEG, 16-bit and alpha PNG, GIF
+(first frame), BMP and TIFF load; WebP and corrupt, zero-byte and missing files become the
+box. In `ConvertToEdoc`, only `jpeg`, `jpg`, `png` and `gif` files pass `FileType`; other
+image files show the box (today they silently disappear).
 
 ### Output geometry (`PageGeometry`)
 
@@ -406,9 +460,9 @@ with `printMediaType=true` (*tested*).
 extractable; vector graphics, images and embedded fonts are kept. wkhtmltopdf kept links;
 no consumer of these PDFs (fax, print, email attachment, document store) uses them.
 
-Measured with these rules: 612 × 792 pt pages and content edges within 1 pt of wkhtmltopdf
-for 400, 850, 1000 and 1400 px wide pages; the Annual form at zoom 0.776; production
-baseline page counts on all fixtures except long tables (see "Testing").
+Measured with these rules: 612 × 792 pt pages; content edges at 28 pt (wkhtmltopdf 29);
+the Annual form at zoom 0.776, 1400 px at 0.529; production-baseline page counts on every
+fixture of up to 3 pages; a 2000-row table at 41–42 pages against 43.
 
 ### Injected stylesheet (`carlos-pdf-defaults`)
 
@@ -418,7 +472,7 @@ html { line-height: 1.164 }                     /* WebKit "normal" for DejaVu Sa
 html, body { margin-top: 0 !important }          /* WebKit drops the top margin at the page start */
 body > *:first-child { margin-top: 0 !important }
 body { word-wrap: break-word }                  /* long URLs/values wrap instead of forcing shrink */
-table { -fs-table-paginate: paginate }          /* repeat thead on every page */
+table.carlos-pdf-paginate { -fs-table-paginate: paginate }  /* repeat thead (step 2h) */
 .carlos-pdf-control { display: inline-block; vertical-align: baseline; font-size: 10pt;
   text-align: left; text-indent: 0; text-transform: none; letter-spacing: normal;
   word-spacing: normal }
@@ -428,19 +482,20 @@ table { -fs-table-paginate: paginate }          /* repeat thead on every page */
   word-wrap: break-word }
 .carlos-pdf-checkbox, .carlos-pdf-radio { font-size: 13px }
 .carlos-pdf-image-unavailable { display: inline-block; border: 1px dashed #000;
-  padding: 2px; font-size: 8pt; text-align: center }
+  padding: 2px; font-size: 8pt; text-align: left; white-space: nowrap; overflow: hidden }
 ```
 
 Flying Saucer 10.7.0 ignores `overflow-wrap`; it supports `word-wrap: break-word`. Without
 it, one 600-character URL shrank a whole document to zoom 0.145 (*tested*; with it, 0.8).
+A box narrower than its text keeps its size and shows "[image un…" rather than breaking
+mid-word (*tested*).
 
 ### Fonts
 
 **Mapping** (`BundledFontResolver`). With production fonts (`fonts-dejavu-core` only),
 wkhtmltopdf prints every generic and unknown family (`serif`, `Times New Roman`,
 `monospace` including `<pre>`, `Courier New`, `Arial`, `Verdana`, unstyled text) in DejaVu
-Sans, and italic upright (the package has no oblique face) (measured). For parity, every
-family resolves to one registered family:
+Sans (measured). For parity, every family resolves to one registered family:
 
 | Registered family | Files (all `Identity-H`, embedded) | Used for |
 |---|---|---|
@@ -454,13 +509,14 @@ by `FallbackFontRuns`) resolve to those families; everything else resolves to
 `CARLOS Sans`. The whole list is replaced by that one family, so Flying Saucer's base-14
 fonts are never chosen. Families are registered under the exact names above (Flying Saucer
 matches registered names case-sensitively, *tested*). Bold selects DejaVu Sans Bold
-(*tested*). No oblique faces are registered, so italic and oblique text use the regular or
-bold face: it prints upright with the same character widths as production, where
-`fonts-dejavu-core` has no oblique face either (production prints such text upright or, if
-fontconfig's synthetic-oblique rule is enabled, slanted with the same widths). The bundled
-DejaVu Sans Oblique faces are deliberately not used: their widths differ from the regular
-face for 120 of 2536 characters (for example « » æ œ ľ), which would move line breaks
-(measured).
+(*tested*).
+
+No oblique faces are registered, so italic and oblique text use the regular or bold face,
+which Flying Saucer slants synthetically with the same character widths (*tested*). This
+matches production, where `fonts-dejavu-core` has no oblique face and Debian's default
+`90-synthetic.conf` slants it the same way (*tested* side by side). The bundled DejaVu Sans
+Oblique faces are deliberately not used: their widths differ from the regular face for 120
+of 2536 characters (for example « » æ œ ľ), which would move line breaks (measured).
 
 This differs from JasperReports' logical-font mapping (`carlos-jasper-fonts.xml`, serif →
 DejaVu Serif, monospace → Liberation Mono), because parity with today's HTML output is the
@@ -470,42 +526,47 @@ goal here.
 For each text node outside `<style>` and `<title>`, each code point that is not whitespace
 and not a format or variation-selector character, and that is not drawable by **both**
 registered DejaVu Sans faces (regular and bold), is assigned the first face that can draw
-it: WenQuanYi Micro Hei, then Symbola. Maximal runs
-with the same face are wrapped in `<span style="font-family:'CARLOS CJK'; font-style:normal">`
-(or `'CARLOS Symbol'`); fallback faces have no italic, so the span forces upright. A code
-point neither can draw is replaced with U+FFFD, which DejaVu Sans draws, so the gap is
-visible; a DEBUG log records only the count. The same input always produces the same spans.
+it: WenQuanYi Micro Hei, then Symbola. Maximal runs with the same face are wrapped in
+`<span style="font-family:'CARLOS CJK'; font-style:normal">` (or `'CARLOS Symbol'`);
+fallback faces have no italic, so the span forces upright. A code point neither can draw is
+replaced with U+FFFD, which DejaVu Sans draws, so the gap is visible; a DEBUG log records
+only the count. The same input always produces the same spans (*tested*).
 
 Coverage (OpenPDF `BaseFont.charExists`): DejaVu Sans (regular and bold) covers accented
-Latin, Greek, Cyrillic, math, units, arrows, punctuation and ☐ ☒ ◉ ○ • ✓. WenQuanYi Micro
-Hei covers Han, kana, Hangul, Bopomofo, CJK punctuation and fullwidth forms. Symbola covers
-most remaining symbols and monochrome emoji.
+Latin, Greek, Cyrillic, math, units, arrows, punctuation, ☐ ☒ ◉ ○ • ✓ and U+FFFD.
+WenQuanYi Micro Hei covers Han, kana, Hangul, Bopomofo, CJK punctuation and fullwidth
+forms. Symbola covers most remaining symbols (for example 𝄞).
 
 **Font files** (`BundledFontFiles`). Flying Saucer's `addFont` reads a filesystem path (its
 `BaseFont` overload re-reads the path to extract names), and DejaVu ships inside the
-`jasperreports-fonts` jar (compile scope, already used by `PdfFonts`). On first use per JVM:
+`jasperreports-fonts` jar (compile scope, already used by `PdfFonts`).
 
-- the directory is `<java.io.tmpdir>/carlos-pdf-fonts-<first 12 hex digits of the SHA-256
-  over all four font files' bytes>`, so one directory is reused across restarts and nothing
-  leaks (a unique directory per start leaked 14 MB each time, *tested*). It is not under
+- The directory is `<java.io.tmpdir>/carlos-pdf-fonts-<first 12 hex digits of the SHA-256
+  over all four font files' bytes>`, so one directory is reused across restarts (a unique
+  directory per start leaked 14 MB each time, *tested*). It is not under
   `<tmpdir>/carlos-temp`, which `ApplicationTempPurgeJob` deletes after
-  `carlos_temp_purge_max_age_hours` (default 24 h);
-- if the directory exists, it must be a real directory (not a symlink), owned by the
-  process user, with owner-only permissions where POSIX permissions are supported;
-  otherwise the render fails with `PDFGenerationException`. If it does not exist, it is
-  created owner-only;
-- every file's SHA-256 is verified against the classpath bytes; a missing or different file
-  is rewritten in place. Other `carlos-pdf-fonts-*` directories owned by the process user
-  are deleted;
-- owner-only permissions are the tamper control; a missing classpath font fails the render;
+  `carlos_temp_purge_max_age_hours` (default 24 h).
+- If it does not exist, it is created owner-only (where POSIX permissions are supported).
+  If it exists but is a symlink or not owned by the process user, this JVM uses a fresh
+  `Files.createTempDirectory(tmpdir, "carlos-pdf-fonts-")` (owner-only) instead and logs a
+  WARN, so another local user cannot block PDF generation.
+- On first use, every file's SHA-256 is verified against the classpath bytes; a missing or
+  different file is written to a temporary name and moved atomically into place.
+  Extraction runs under one JVM-wide lock.
+- Before every render, each file's existence and size are checked; on a mismatch the
+  verification and rewrite run again under the lock (a file deleted after first use is
+  restored by the next render, *tested*).
+- Directories of other bundle versions are not deleted (another JVM sharing the temp
+  directory may be using one); there is one per font-bundle version.
+- Owner-only permissions are the tamper control. A missing classpath font fails the render;
   nothing is substituted.
 
 On Debian `java.io.tmpdir` is `/var/lib/carlos-emr/catalina/temp` (`CATALINA_TMPDIR`,
 `carlos-emr-tomcat` line 178; in `ReadWritePaths`; not aged by tmpfiles). In the Podman
 example it is `/carlos-tmp` (`-Djava.io.tmpdir=/carlos-tmp`).
 
-Measured cost: first render about 0.9–1.2 s including extraction; warm renders 94–300 ms;
-the Annual form with two passes about 150 ms warm.
+Measured cost: first render about 0.95 s including extraction; warm renders 81–300 ms (an
+email about 118 ms; the Annual form with two passes 81–115 ms).
 
 ### Resource loading and security (`LocalOnlyUserAgent`)
 
@@ -522,8 +583,10 @@ the Annual form with two passes about 150 ms warm.
   URI silently instead of logging a WARN. Every other `jar:` URI (including other entries in
   the same jar and `jar:http:`), `http:`, `https:`, `ftp:`, protocol-relative and
   out-of-directory `file:` request stays blocked.
-- **`data:` URIs** stay allowed.
-- **Images:** see "Images" (pixel cap, failures become an empty resource).
+- **`data:` URIs** stay allowed for images (`<img>` and CSS backgrounds, decoded in
+  `getImageResource`). Flying Saucer opens no other `data:` resource; a `data:` stylesheet
+  is ignored, as today.
+- **Images:** see "Images" (caps, budget, failures become the box or an empty resource).
 - **XXE.** CARLOS's path parses through Flying Saucer's `XMLResource` SAX path and entity
   resolver; zero requests on 10.0.6 and 10.7.0.
 - **PHI-safe logging.** Blocked requests log the scheme and, for network schemes, the host
@@ -545,7 +608,7 @@ If the webapp root cannot be resolved, the render fails (`ConvertToEdoc` returns
 
 | Caller | After |
 |---|---|
-| `HtmlPdf.render` | Throws `PDFGenerationException` for any failure (see "Render pipeline"), including blank input and right-to-left text; never returns partial bytes |
+| `HtmlPdf.render` | Throws `PDFGenerationException` for any failure (see "Render pipeline"), including blank input, right-to-left text and a pixel-budget timeout; never returns partial bytes |
 | `ConvertToEdoc.execute` | `tidyDocument`, rendering and saving all inside one `try`; catches `PDFGenerationException`, `IOException` and `RuntimeException`; logs a fixed message, the `LogSafe`-sanitised file name and the cause class (and, for right-to-left text, that reason); returns `null` (contract unchanged) |
 | `FormsManagerImpl.renderForm`, `FaxDocumentManagerImpl.getFormFaxDocument` | Unchanged: they already turn `null` into `PDFGenerationException` naming the form |
 | `HRMPDFCreator.printPdf` | Declares `throws PDFGenerationException`; the HTML branch throws it when `ConvertToEdoc` returns `null` (the existing `IOException`/`DocumentException` handling for text reports is unchanged) |
@@ -566,7 +629,7 @@ including right-to-left text.
   - Remove `com.github.openosp:ultrabuk-htmltopdf-java`.
   - Remove `com.github.librepdf.openpdf:openpdf-html` (also drops `neko-htmlunit`).
   - Remove the `jna.version` property and the `net.java.dev.jna:jna` dependency-management
-    pin (only ultrabuk used JNA; nothing imports `com.sun.jna`).
+    pin (only ultrabuk used JNA; nothing imports `com.sun.jna`; no packaging test pins it).
   - Update the repositories comment that lists ultrabuk and openpdf-html as vendored.
 - **`local_repo/`:** delete `com/github/openosp/ultrabuk-htmltopdf-java` (33 MB) and
   `com/github/librepdf/openpdf/openpdf-html`.
@@ -574,7 +637,9 @@ including right-to-left text.
   `se.vandmo:dependency-lock-maven-plugin`), never by hand. The forward merge to `develop`
   regenerates it there too.
 - **Java:**
-  - delete `InternalEDocConverter`, `EDocConverterInterface`, `ReplacedElementFactoryImpl`;
+  - delete `InternalEDocConverter`, `EDocConverterInterface`, `ReplacedElementFactoryImpl`,
+    and the `@see`/`{@link}` references to `ReplacedElementFactoryImpl` in `ConvertToEdoc`
+    (lines ~92 and ~419);
   - in `ConvertToEdoc` delete `fallbackRender`, `prepareDocumentForFlyingSaucer`,
     `normalizeHtmlCommentsForXml` (its only caller is `prepareDocumentForFlyingSaucer`),
     `DEFAULT_WKHTMLTOPDF_COMMAND`, `DEFAULT_WKHTMLTOPDF_ARGS`, the wkhtmltopdf comments
@@ -607,6 +672,8 @@ including right-to-left text.
   - `utils/readme.txt`: remove the wkhtmltopdf section.
   - `ConvertToEdoc` class JavaDoc (line ~84, "Fallback conversion via Flying Saucer") and
     `HRMPDFCreator` JavaDoc (line ~126): describe the single engine.
+  - Historical records (`docs/pdf-migration-functional-equivalence-findings.md`) stay as
+    they are.
 
 ## Testing
 
@@ -620,22 +687,24 @@ context exists in tests.
 
 | Test | Asserts |
 |---|---|
-| `LocalOnlyUserAgentUnitTest` (extended; its three `createRestrictedRenderer()` calls at lines ~472–494 move to the new signature) | Default stylesheet URL opens and `setBaseURL` with it logs nothing; another entry in the same jar, `jar:http:`, `http:`, protocol-relative and out-of-directory `file:` return `null`; a root directory is rejected; blocked `file:` logs contain no path; behaviour does not depend on the working directory; image over the pixel cap and a corrupt image return an empty resource without decoding past the cap |
-| `XhtmlCleanupUnitTest` | Steps 2a–2k: scripts and comments removed (including the `--` comment case moved from `ConvertToEdocUnitTest:94`); soft hyphens and bidi controls removed; inline `position: fixed` rewritten; `<ol type>` mapped; `alt` added; `carlos-pdf-defaults` first in `<head>` and an author class rule beats it; output parses with the JDK XML parser |
-| `PrintFormControlsUnitTest` | Every row of the form-control table, including copied attributes, sizing, CR/LF removal, multi-select, `optgroup`, no selection, `checked="false"`, password not revealing length |
-| `PrintImagesUnitTest` | Usable: file inside an allowed directory, `data:` PNG, local SVG with only fragment references, path with spaces and accents. Unusable → box: remote, file outside allowed directories, missing, zero-byte, corrupt, WebP, 10 000 × 10 000 PNG (no decoding), SVG with an outside reference, inline `<svg>` with an outside reference, `data-carlos-image-unavailable`; box sized from `width`/`height`; WARN without path |
-| `FallbackFontRunsUnitTest` | Only characters missing from DejaVu Sans regular or bold are wrapped (for example CJK and emoji); WenQuanYi → Symbola → U+FFFD order; spans set `font-style: normal`; `<style>`/`<title>` untouched; identical output across runs |
-| `BundledFontResolverUnitTest` | Every family (generic, named, unknown, none) → `CARLOS Sans`; `carlos cjk`/`carlos symbol` → their families; bold → DejaVu Sans Bold; italic → the regular face with regular widths; minimum size 200 dots |
-| `BundledFontFilesUnitTest` | Directory name from the bundle hash; outside `carlos-temp`; owner-only where supported; reused across calls; a deleted, truncated or same-size altered file is rewritten; other `carlos-pdf-fonts-*` directories removed; a symlinked or foreign-owned directory fails clearly; a missing classpath font fails clearly |
+| `LocalOnlyUserAgentUnitTest` (extended; its three `createRestrictedRenderer()` calls at lines ~472–494 move to the new signature) | Default stylesheet URL opens and `setBaseURL` with it logs nothing; another entry in the same jar, `jar:http:`, `http:`, protocol-relative and out-of-directory `file:` return `null`; a root directory is rejected; blocked `file:` logs contain no path; behaviour does not depend on the working directory; `getImageResource` returns an empty resource for an over-cap background, a corrupt image and an over-32 MB file without decoding past the cap, and loads a `data:` image |
+| `XhtmlCleanupUnitTest` | Steps 2a–2m: scripts and comments removed (including the `--` comment case moved from `ConvertToEdocUnitTest:94`); soft hyphens and bidi controls removed; inline `position: fixed` rewritten; `<ol type>` mapped; `rowspan` clamped to its row group; only `thead` tables without row spans get `carlos-pdf-paginate`; `alt` added; `carlos-pdf-defaults` first in `<head>` and an author class rule beats it; output parses with the JDK XML parser |
+| `PrintFormControlsUnitTest` | Every row of the form-control table, including copied attributes, sizing, CR/LF removal, multi-select, `optgroup`, no selection, `checked="false"`, password not revealing length, `progress` with and without `value`/`max`, `meter` |
+| `PrintImagesUnitTest` | Usable: file inside an allowed directory, `data:` PNG, local SVG with only fragment references, a path with spaces and accents (rewritten to an encoded URI). Unusable → box: remote, outside allowed directories, missing, zero-byte, over 32 MB, a PDF, corrupt header, valid header with corrupt data, WebP, WBMP, 10 000 × 10 000 PNG (no decoding), a raw space in a relative `src`, SVG with an outside reference, inline `<svg>` with an outside reference, `data-carlos-image-unavailable`; images past the pixel budget; box sized from `width`/`height`; WARN without path |
+| `PrintImagesMemoryUnitTest` | Six near-cap images in one document, and four such documents rendered concurrently at `-Xmx1g`: no `OutOfMemoryError`; a render that cannot acquire the budget within the timeout fails with `PDFGenerationException` (run in its own JVM) |
+| `FallbackFontRunsUnitTest` | Only characters missing from DejaVu Sans regular or bold are wrapped (for example CJK and 𝄞); WenQuanYi → Symbola → U+FFFD order; spans set `font-style: normal`; `<style>`/`<title>` untouched; identical output across runs |
+| `BundledFontResolverUnitTest` | Every family (generic, named, unknown, none) → `CARLOS Sans`; `carlos cjk`/`carlos symbol` → their families; bold → DejaVu Sans Bold; italic → the regular face, slanted, with regular widths; minimum size 200 dots |
+| `BundledFontFilesUnitTest` | Directory name from the bundle hash; outside `carlos-temp`; owner-only where supported; reused across calls; a deleted, truncated or same-size altered file is rewritten; a file deleted after first use is restored by the next render; a symlinked or foreign-owned directory leads to a fresh private directory and a WARN; concurrent first use extracts once; a missing classpath font fails clearly |
 | `PageGeometryUnitTest` | 400, 850, 1000, 1400 px pages: 612 × 792 pt, content left/top at 28 ± 1 pt, nothing clipped; a narrow first page with a wide later page still shrinks; author A4-landscape `@page` ignored; identical output with `Locale.setDefault(Locale.UK)` and with a country-less locale (restored afterwards); 8 px text prints at 6 pt; `@media print` applies, `@media screen` does not; `thead` repeats on every page; a 600-character URL keeps zoom 0.8; zoom below 0.4 logs a WARN; `/Title` copied |
-| `HtmlPdfRenderUnitTest` | For each fixture: valid PDF; PDFBox text contains the expected strings (accents, ≥, ✓, Chinese); every font embedded and one of the three bundled families; no `<title>` or CSS text; no `/AcroForm`; expected page count; blank and null HTML fail with `PDFGenerationException`; Hebrew, Arabic and Urdu text fail with the right-to-left message; Hindi, Punjabi, Tamil and Thai print as U+FFFD |
+| `HtmlPdfRenderUnitTest` | For each fixture: valid PDF; PDFBox text contains the expected strings (accents, ≥, ✓, Chinese); every font embedded and one of the four bundled faces; no `<title>` or CSS text; no `/AcroForm`; expected page count; a `rowspan=4` cell over three rows and a row span inside a `thead` table do not overlap the following content; null and whitespace-only HTML fail with `PDFGenerationException`, while markup with no visible content gives one blank page; a `baseDirectory` outside `allowedDirectories` fails; a `LinkageError` from the renderer becomes `PDFGenerationException`; Hebrew, Arabic and Urdu text fail with the right-to-left message, and right-to-left text only inside `<title>` does not; Hindi, Punjabi, Tamil and Thai print as U+FFFD |
 | `HtmlPdfFormsUnitTest` | Forms fixture: every value present including CJK; ☒/☐ and ◉/○ correct; hidden values and the Annual hidden field names never appear; only the selected option prints; textarea keeps two lines; a date value complete; values left-aligned inside right-aligned cells; text identical after `ConcatPDF` alone and after `ConcatPDF` + flatten |
 | `HtmlPdfSsrfUnitTest` | Hostile HTML (`<link>`, `@import` both forms, `url()` background, `@font-face`, `<base href>`, `<img>` over `http:`, `jar:http:`, protocol-relative, `file:///etc/passwd`, `srcset`, `<iframe>`, `<object>`, `<embed>`, SVG `xlink:href`) makes no request to a local `ServerSocket` and reads no file outside the allowed directories |
 | `HtmlPdfConcurrencyUnitTest` | 24 mixed renders on 8 threads give identical output and no errors |
-| `ConvertToEdocUnitTest` (updated) | A linked stylesheet, a CSS `url()` background and `pdfMediaStylesheet` under the webapp root load when the working directory is outside it; translated paths are encoded `file:` URIs; an unresolvable `<img>` becomes the box instead of disappearing; blank HTML and render failures return `null` and log no HTML |
+| `ConvertToEdocUnitTest` (updated) | A linked stylesheet, a CSS `url()` background and `pdfMediaStylesheet` under the webapp root load when the working directory is outside it; translated paths are encoded `file:` URIs; three `<img>` with the same `src` all translate; an unresolvable `<img>` and a `.bmp` `<img>` become the box instead of disappearing; with `realPath` unset, translation and rendering use the same webapp root; blank HTML and render failures return `null` and log no HTML |
 | `ConvertToEdocIntegrationTest` (rewritten) | Its `MockedConstruction<InternalEDocConverter>` and `ConvertToEdoc.from(eform)` cases (lines ~87–105) move to `saveAsTempPDF(EFormData)`; the `from(eForm, pdfPath)` case stays |
 | `Doc2PDFIntegrationTest` (updated) | Uses `HtmlPdf` through `Doc2PDF`; failure returns `null` |
 | `FormsManagerUnitTest` | The `@Nested` class `SaveFormDataAsEDocSecurity` (lines ~305–323) is deleted with the method |
+| `HRMPdfUnicodeUnitTest`, `PrintHRMReport2ActionUnitTest` (updated) | Compile against `printPdf() throws PDFGenerationException`; a thrown `PDFGenerationException` gives `PrintHRMReport2Action`'s existing error response |
 | `HRMPDFCreator`/`HRMUtil` tests | A `null` conversion surfaces as `PDFGenerationException` naming the report, never a `NullPointerException` |
 | `EmailManager` test | A `null` message PDF surfaces as `EmailSendingException` |
 | Existing `EformDataManagerImplCreatePdfUnitTest`, `FormsManagerImplUnitTest`, `FaxDocumentManagerImplUnitTest`, `MsgAttachPDF2ActionUnitTest` | Run unchanged |
@@ -643,17 +712,17 @@ context exists in tests.
 **Fixtures** (`src/test/resources/htmlpdf/`), all with `<!DOCTYPE html>`:
 
 - Annual form pages, female and male, built from the real JSPs with checked boxes, textarea
-  text, the hidden fields and the real `annualStyle.css`/`print.css`.
+  text, the hidden fields, the row spans and the real `annualStyle.css`/`print.css`.
 - A forms page with every control type (CJK in a value, `optgroup`, `progress`, `meter`).
 - The demo HRM report and three synthetic HTML HRM reports: table-heavy (including a
-  2000-row table), inline styles, and images (file, `data:`, remote, corrupt, WebP,
-  oversized).
+  2000-row table), inline styles, and images (file, `data:`, remote, repeated `src`, `.bmp`,
+  corrupt header, corrupt body, WebP, PDF, oversized).
 - An encrypted-email message body; a Messenger letter.
 - Wide pages (400, 850, 1000, 1400 px), a narrow-then-wide page, an author `@page` page,
   small text, print/screen media rules, a long URL, `thead` across pages, `position: fixed`,
-  soft hyphens, `<ol type="a">`.
-- Scripts: CJK, ✓, emoji, Hebrew, Arabic, Urdu, Hindi, Punjabi, Tamil, Thai, Vietnamese
-  with combining marks.
+  soft hyphens, `<ol type="a">`, an over-long `rowspan`.
+- Scripts: CJK, ✓, 𝄞, Hebrew, Arabic, Urdu, Hindi, Punjabi, Tamil, Thai, Vietnamese with
+  combining marks.
 - Edge markup: empty elements, self-closing source tags, misnested tags, entities,
   fragment-only and text-only input.
 
@@ -668,13 +737,14 @@ jar; `InternalEDocConverter`'s settings; `LANG=C.UTF-8` or `-Djna.encoding=UTF-8
 Acceptance per fixture:
 
 - page size 612 × 792 pt;
-- page count equal for documents of up to 3 pages; for longer ones within 5 % (rounded up
-  to whole pages) — Flying Saucer packs long tables slightly tighter (a 2000-row table:
-  41 pages against 43);
+- page count equal for documents of up to 3 pages; for longer ones at most wkhtmltopdf's
+  count and at least 90 % of it (Flying Saucer packs long tables slightly tighter: a
+  2000-row table gives 41–42 pages against 43);
 - content left and top edges at 28 ± 1 pt for edge-to-edge fixtures, otherwise within 4 pt
   of wkhtmltopdf;
 - every value and checked box visible, no hidden value visible, every image present or
-  shown as the box.
+  shown as the box;
+- no text or box drawn over another (checked on the side-by-side PNGs).
 
 Differences are listed in the PR. The script is not kept in CI (wkhtmltopdf is removed in
 PR 2).
@@ -695,19 +765,33 @@ directory (as on Debian):
 
 List these in PR 1:
 
-- **`ConvertToEdoc`:** buttons and image inputs no longer print; long values wrap instead
-  of being clipped; passwords print as eight bullets; multi-selects print the chosen
-  options as text; checkbox and radio marks are DejaVu glyphs rather than drawn boxes;
-  author CSS that targets `input`/`select`/`textarea` element types (for example
-  `input[type=text] { width: 220px }`) no longer sizes the replacements (`annualStyle.css`
-  has no such rules); unusable images show the
-  "[image unavailable]" box (today they vanish or, in wkhtmltopdf, show a blank frame);
-  very wide content shrinks without limit instead of being clipped; documents with
-  right-to-left text fail instead of printing.
+- **`ConvertToEdoc`:**
+  - buttons and image inputs no longer print (the Annual form's top bar keeps its grey
+    background but loses its five buttons);
+  - long values wrap instead of being clipped; long unbroken words and URLs in body text
+    wrap;
+  - passwords print as eight bullets; multi-selects print the chosen options as text;
+    textareas lose their scrollbars; `<progress>`/`<meter>` print as text instead of bars;
+  - checkbox and radio marks are DejaVu glyphs (about 7.8 pt) rather than drawn 10 pt
+    boxes;
+  - author CSS that targets `input`/`select`/`textarea` element types (for example
+    `input[type=text] { width: 220px }`) no longer sizes the replacements
+    (`annualStyle.css` has no such rules);
+  - table column widths differ slightly (Flying Saucer gives right-hand columns more
+    width, so the Annual form's header fields spread across the page);
+  - author `margin-top` on `html`, `body` and the body's first child is ignored at the page
+    start;
+  - images that today silently disappear (repeated `src`, removed sources) now print, or
+    show the "[image unavailable]" box; unusable images (including an `<img>` pointing to a
+    PDF) show the box;
+  - very wide content shrinks without limit instead of being clipped;
+  - a table with both `<thead>` and row spans prints its header once instead of on every
+    page;
+  - documents with right-to-left text fail instead of printing.
 - **`Doc2PDF` (Messenger):** output adopts the same geometry and rules (Letter, 10 mm,
-  0.8 zoom, author `@page` ignored, form controls, fonts). Today it uses Flying Saucer's
-  defaults, honours author `@page`, takes its paper size from the JVM locale and, because
-  of the blocked default stylesheet, prints the title and CSS text.
+  0.8 zoom, author `@page` ignored, form controls, fonts, images). Today it uses Flying
+  Saucer's defaults, honours author `@page`, takes its paper size from the JVM locale and,
+  because of the blocked default stylesheet, prints the title and CSS text.
 
 ## Known limitations
 
@@ -718,12 +802,15 @@ List these in PR 1:
   others) print each character as a visible U+FFFD. Production wkhtmltopdf with only
   `fonts-dejavu-core` prints boxes, so both lose this text visibly. Punjabi is common in
   British Columbia.
+- **`ConvertToEdoc` image types:** only `jpeg`, `jpg`, `png` and `gif` pass its `FileType`
+  list; other image files show the box (today they disappear).
 - **HRM files in Windows-1252** decode to U+FFFD in both engines (`HRMPDFCreator` decodes
   as UTF-8); pre-existing.
 - **CSS background images** that fail to load are omitted with a WARN; they cannot show the
   box.
 - **Stylesheet-defined `position: fixed`** (as opposed to inline) still repeats on every
   page; inline is rewritten.
+- **Tables with both `<thead>` and row spans** print their header once.
 
 ## Delivery
 
@@ -732,8 +819,9 @@ Two PRs, both from and to `release/2026.08`, both merged before 2026.08 ships:
 1. **New engine.** Flying Saucer 10.7.0; `HtmlPdf` and its helpers; the
    `LocalOnlyUserAgent`, `ConvertToEdoc` path/image and error-path fixes; deletion of
    `ReplacedElementFactoryImpl`; `Doc2PDF` and the `ConvertToEdoc` fallback use `HtmlPdf`
-   (wkhtmltopdf still first, so today's fallback output also becomes correct). Tests,
-   fixtures, the font-check script entry and the comparison images.
+   (wkhtmltopdf still first, so today's fallback output also becomes correct). Tests
+   (including the pixel-budget load test), fixtures, the font-check script entry and the
+   comparison images.
 2. **Switch and removal.** `ConvertToEdoc` uses `HtmlPdf` only; deletions and every item in
    "Removals and Packaging".
 
@@ -745,8 +833,8 @@ Rules from `docs/release-process.md` and `CLAUDE.md`:
   (`release-process.md`, lines ~38 and ~113). Each PR body states the case: abandoned
   wkhtmltopdf with a published SSRF vulnerability and local file access on; today's Flying
   Saucer fallback printing CSS text, losing checkbox answers and printing hidden
-  identifiers; the font policy gap; the image heap-exhaustion risk. The 2026.08 release
-  owner decides whether to accept it.
+  identifiers; images silently dropped today; the font policy gap; the image
+  heap-exhaustion risk. The 2026.08 release owner decides whether to accept it.
 - Commits are not signed off by Claude; a maintainer confirms DCO on each PR with the
   repository's manual phrase.
 - Each PR body includes the "Generated with Claude Code" line and references this spec.
@@ -755,12 +843,13 @@ Rules from `docs/release-process.md` and `CLAUDE.md`:
 
 | Risk | Mitigation |
 |---|---|
-| A form or HRM report lays out differently from wkhtmltopdf despite the emulation | Side-by-side comparison with acceptance criteria in PR 1; small CSS fixes to form print markup are in scope; other differences are listed for the release owner |
+| A form or HRM report lays out differently from wkhtmltopdf despite the emulation | Side-by-side comparison with acceptance criteria (including an overlap check) in PR 1; small CSS fixes to form print markup are in scope; other differences are listed for the release owner |
 | Real hospital HRM HTML is more varied than the fixtures (CSS beyond Flying Saucer's CSS 2.1, malformed markup) | Failures surface as an error naming the report; unusable images show the box; new variants become fixtures |
+| The pixel budget is too small (images boxed needlessly) or too large (heap still exhausted) | Load test in PR 1 at `-Xmx1g` and at the production default; the budget is derived from the heap size, not hard-coded |
 | Clinics with right-to-left patient names or reports hit the new failure | The error names the document; listed as a known limitation and a follow-up |
-| Two passes plus page import make each render slower | Measured 94–300 ms warm; `ConvertToEdoc` is already serialised; fax batches are checked in the manual tests |
+| Two passes plus page import make each render slower | Measured 81–300 ms warm; `ConvertToEdoc` is already serialised; fax batches are checked in the manual tests |
 | Default-stylesheet fix and geometry change today's `Doc2PDF` (Messenger) output | Listed as a deliberate difference; covered by tests and the manual Messenger check |
-| Font directory tampering or deletion in a shared temp directory | Owner-only directory with ownership and symlink checks; SHA-256 verified once per JVM and rewritten on mismatch |
+| Font directory tampering, deletion or squatting in a shared temp directory | Owner-only directory with ownership and symlink checks and a private fallback directory; verified on first use, existence and size checked before every render, rewritten on mismatch |
 | Webapp root unavailable when `ConvertToEdoc` runs outside a request (HRM, email) | Resolved from the Spring web application context; checked from a scheduler thread in the manual tests; if unavailable the render fails clearly |
 | CI workflow edit blocked by the `.github/` write rule | Exact patch handed to the maintainer |
 
@@ -769,6 +858,8 @@ Rules from `docs/release-process.md` and `CLAUDE.md`:
 - Right-to-left support: bidi reordering with `java.text.Bidi` and Arabic shaping with ICU4J
   (already a dependency) before layout. A prototype made Hebrew read correctly; wrapped
   multi-line paragraphs still need line-order handling.
+- `ConvertToEdoc.getRealPath` matches a resource by file name anywhere under the webapp
+  (`Files.walk`), so it can pick a same-named file from another directory; pre-existing.
 - `.devcontainer/development/Dockerfile:79` installs `libxrender1`, `libxi6`,
   `xfonts-75dpi` and `xfonts-base` for wkhtmltopdf. Remove them after a devcontainer
   Playwright run confirms Chromium does not need them.
