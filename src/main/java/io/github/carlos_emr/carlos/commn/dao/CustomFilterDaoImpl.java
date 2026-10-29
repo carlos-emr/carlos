@@ -63,6 +63,8 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
             + "left join fetch c.assignees "
             + "left join fetch c.program ";
 
+    private static final String PROVIDER_NO = "providerNo";
+
     // Every read below is DETAIL_FETCH plus a fixed tail, so each query is a compile-time constant.
     private static final String FIND_BY_ID = DETAIL_FETCH + "where c.id = :id";
     private static final String FIND_BY_IDS = DETAIL_FETCH + "where c.id in (:ids) order by c.id";
@@ -144,7 +146,7 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
     public CustomFilter findByNameAndProviderNo(String name, String providerNo) {
         return firstOrNull(detailQuery(FIND_BY_NAME_AND_PROVIDER)
                 .setParameter("name", name)
-                .setParameter("providerNo", providerNo));
+                .setParameter(PROVIDER_NO, providerNo));
     }
 
     @Override
@@ -155,14 +157,14 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
     @Override
     public List<CustomFilter> findByProviderNo(String providerNo) {
         return detailQuery(FIND_BY_PROVIDER)
-                .setParameter("providerNo", providerNo)
+                .setParameter(PROVIDER_NO, providerNo)
                 .getResultList();
     }
 
     @Override
     public List<CustomFilter> getCustomFilterWithShortCut(String providerNo) {
         return detailQuery(FIND_SHORTCUTS_BY_PROVIDER)
-                .setParameter("providerNo", providerNo)
+                .setParameter(PROVIDER_NO, providerNo)
                 .getResultList();
     }
 

@@ -79,7 +79,8 @@ class BillingEditCode2ActionUnitTest extends CarlosUnitTestBase {
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
         loggedIn = mockStatic(LoggedInInfo.class);
-        loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(mock(LoggedInInfo.class));
+        LoggedInInfo sessionUser = mock(LoggedInInfo.class);
+        loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(sessionUser);
         request.getSession().setAttribute("user", "999998");
     }
 
@@ -124,7 +125,8 @@ class BillingEditCode2ActionUnitTest extends CarlosUnitTestBase {
         grantBillingWrite(false);
         codeUpdate();
 
-        assertThatThrownBy(() -> new BillingEditCode2Action().execute()).isInstanceOf(SecurityException.class);
+        BillingEditCode2Action action = new BillingEditCode2Action();
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         verifyNoInteractions(billingServices);
     }
 

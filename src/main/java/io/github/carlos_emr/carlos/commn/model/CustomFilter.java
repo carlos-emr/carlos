@@ -163,7 +163,7 @@ public class CustomFilter extends AbstractModel<Integer> {
 
     public void setExcludedDemographicNos(Set<Integer> patientIds) {
         Set<Integer> copy = Set.copyOf(patientIds);
-        if (copy.stream().anyMatch(id -> id <= 0)) throw new IllegalArgumentException("Positive patient exclusions required");
+        if (copy.stream().anyMatch(patientId -> patientId <= 0)) throw new IllegalArgumentException("Positive patient exclusions required");
         this.excludedDemographicNos = copy;
     }
 

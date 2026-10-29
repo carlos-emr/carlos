@@ -30,7 +30,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
@@ -51,6 +50,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -78,12 +78,12 @@ class BillingOnHeaderCreationServiceUnitTest {
 
     @BeforeEach
     void setUp() {
-        headerDao = Mockito.mock(BillingONCHeader1Dao.class);
-        providerDao = Mockito.mock(ProviderDao.class);
-        demographicDao = Mockito.mock(DemographicDao.class);
-        billingServiceDao = Mockito.mock(BillingServiceDao.class);
-        gstControlDao = Mockito.mock(GstControlDao.class);
-        billingPercLimitDao = Mockito.mock(BillingPercLimitDao.class);
+        headerDao = mock(BillingONCHeader1Dao.class);
+        providerDao = mock(ProviderDao.class);
+        demographicDao = mock(DemographicDao.class);
+        billingServiceDao = mock(BillingServiceDao.class);
+        gstControlDao = mock(GstControlDao.class);
+        billingPercLimitDao = mock(BillingPercLimitDao.class);
 
         service = new BillingOnHeaderCreationService(
                 headerDao, providerDao, demographicDao, billingServiceDao, gstControlDao, billingPercLimitDao);
