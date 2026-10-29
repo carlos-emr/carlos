@@ -137,6 +137,7 @@ def violations(sources):
 
 
 def main(argv):
+    """Check the WAR named in argv[1]; return the exit status (0 clean, 1 refused, 2 unreadable)."""
     if len(argv) != 2:
         print(f"usage: {PROG}.py <carlos.war>", file=sys.stderr)
         return 2

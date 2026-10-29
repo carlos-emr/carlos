@@ -109,11 +109,13 @@ class CheckWarCommonsLoggingTest(unittest.TestCase):
         return path
 
     def run_check(self, *args):
+        """Run the checker as debian/rules does, capturing its output."""
         return subprocess.run(
             [sys.executable, str(CHECK), *map(str, args)],
             capture_output=True, text=True, check=False)
 
     def assert_refused(self, result, *fragments):
+        """The check exited 1 and its diagnostics name every fragment."""
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         for fragment in fragments:
             self.assertIn(fragment, result.stderr)
@@ -245,8 +247,7 @@ class CheckWarCommonsLoggingTest(unittest.TestCase):
         self.assertEqual(self.run_check(self.tmp / "missing.war").returncode, 2)
 
     def test_fails_closed_on_members_zipfile_cannot_open(self):
-        # An encrypted jar raises RuntimeError and an unsupported compression
-        # method NotImplementedError; both must be reported, not crash with exit 1.
+        """Encrypted or unsupported members are unreadable input (exit 2), never a traceback."""
         for label, patch in (("encrypted", {"flag_bits": 0x1}),
                              ("unsupported compression", {"compress_type": 99})):
             with self.subTest(label):
@@ -267,6 +268,7 @@ class RulesRunsCommonsLoggingCheckTest(unittest.TestCase):
     CHECK_LINE = "\tpython3 $(CURDIR)/debian/check-war-commons-logging.py $(BUILDDIR)/carlos.war\n"
 
     def assert_checks_packaged_war(self, rules):
+        """Fail unless `rules` checks carlos.war on its own line after the CARLOS_WAR if/else."""
         build = rules.split("override_dh_auto_build:", 1)[1].split("\noverride_", 1)[0]
         check = re.search(
             r"^\tpython3 \$\(CURDIR\)/debian/check-war-commons-logging\.py "
@@ -287,6 +289,7 @@ class RulesRunsCommonsLoggingCheckTest(unittest.TestCase):
         self.assert_checks_packaged_war(RULES.read_text(encoding="utf-8"))
 
     def test_contract_rejects_misplaced_checks(self):
+        """Each way of moving or dropping the check must fail the contract, for its own reason."""
         rules = RULES.read_text(encoding="utf-8")
         self.assertIn(self.CHECK_LINE, rules)
         without = rules.replace(self.CHECK_LINE, "")
