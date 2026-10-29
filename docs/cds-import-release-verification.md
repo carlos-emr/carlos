@@ -33,6 +33,14 @@ uses America/Toronto and en-CA in the default, FORMAT and DISPLAY categories.
 A run's command/configuration ruleset digest is a separate composite value;
 it must not be overwritten to match a raw runtime fingerprint.
 
+The Maven SCM provider used by this release runs `git log -1 --no-merges`, so
+a build checked out at a merge commit can embed an earlier revision. Select a
+normal source commit containing the integrated tree for the canonical build,
+then verify the actual packaged SCM value against that commit. Retain a
+mismatched build and its diagnostics as an unaccepted attempt; do not rewrite
+its metadata or use its label as proof of the code tree. Record the CI test-merge
+revision and the authored source revision separately.
+
 | Preserved intermediate foundation | Executed evidence |
 | --- | --- |
 | Affected application regression | 1,461 cases in all 124 required suites; zero failures, errors or skips. Required XML reports reconcile their counters to individual cases. |

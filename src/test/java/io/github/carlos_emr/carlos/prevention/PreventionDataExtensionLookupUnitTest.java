@@ -30,26 +30,31 @@ class PreventionDataExtensionLookupUnitTest extends CarlosUnitTestBase {
     private static final String CLINICAL_MARKER = "SYNTHETIC-CLINICAL-LOT-REASON";
     private final PreventionDao preventionDao = mock(PreventionDao.class);
     private final PreventionExtDao extensionDao = mock(PreventionExtDao.class);
+    private final PartialDateDao partialDateDao = mock(PartialDateDao.class);
     private Object originalPreventionDao;
     private Object originalExtensionDao;
+    private Object originalPartialDateDao;
 
     @BeforeEach
     void setUpLookups() {
         registerMock(PreventionDao.class, preventionDao);
         registerMock(PreventionExtDao.class, extensionDao);
-        registerMock(PartialDateDao.class, mock(PartialDateDao.class));
+        registerMock(PartialDateDao.class, partialDateDao);
         DHIRSubmissionManager dhir = createAndRegisterMock(DHIRSubmissionManager.class);
         when(dhir.findByPreventionId(anyInt())).thenReturn(List.of());
         originalPreventionDao = ReflectionTestUtils.getField(PreventionData.class, "preventionDao");
         originalExtensionDao = ReflectionTestUtils.getField(PreventionData.class, "preventionExtDao");
+        originalPartialDateDao = ReflectionTestUtils.getField(PreventionData.class, "partialDateDao");
         ReflectionTestUtils.setField(PreventionData.class, "preventionDao", preventionDao);
         ReflectionTestUtils.setField(PreventionData.class, "preventionExtDao", extensionDao);
+        ReflectionTestUtils.setField(PreventionData.class, "partialDateDao", partialDateDao);
     }
 
     @AfterEach
     void restoreLookups() {
         ReflectionTestUtils.setField(PreventionData.class, "preventionDao", originalPreventionDao);
         ReflectionTestUtils.setField(PreventionData.class, "preventionExtDao", originalExtensionDao);
+        ReflectionTestUtils.setField(PreventionData.class, "partialDateDao", originalPartialDateDao);
     }
 
     @Test
