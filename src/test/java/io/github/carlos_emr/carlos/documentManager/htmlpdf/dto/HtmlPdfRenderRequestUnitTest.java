@@ -86,6 +86,12 @@ class HtmlPdfRenderRequestUnitTest {
     void shouldRejectRelativeOrRootDirectory_forConstructor() {
         assertThatIllegalArgumentException().as("relative directory")
                 .isThrownBy(() -> requestWith(null, Path.of("rel")));
+        // "rel" alone has no parent, so the filesystem-root rule would reject it even without the
+        // absolute-path rule. A multi-segment path has a parent, so only the absolute-path rule
+        // stops it; a relative directory would resolve against the JVM working directory.
+        assertThatIllegalArgumentException().as("multi-segment relative directory")
+                .isThrownBy(() -> requestWith(null, Path.of("rel", "dir")))
+                .withMessageContaining("must be absolute");
         assertThatIllegalArgumentException().as("filesystem root")
                 .isThrownBy(() -> requestWith(null, Path.of("/")));
         assertThatIllegalArgumentException().as("unnormalised directory")
@@ -116,6 +122,11 @@ class HtmlPdfRenderRequestUnitTest {
                 .isThrownBy(() -> requestWith(tmp.resolve("sub/../../escape"), tmp));
         assertThatIllegalArgumentException().as("relative base")
                 .isThrownBy(() -> requestWith(Path.of("rel"), tmp));
+        // A relative base is also refused by the containment rule, so only the message shows that
+        // the absolute-path rule did the rejecting.
+        assertThatIllegalArgumentException().as("multi-segment relative base")
+                .isThrownBy(() -> requestWith(Path.of("rel", "dir"), tmp))
+                .withMessageContaining("must be absolute");
     }
 
     @Test
