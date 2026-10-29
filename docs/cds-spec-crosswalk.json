@@ -38258,7 +38258,7 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java"
         ],
-        "normalization": "Pinned spoken-language table maps known codes; unknown stays source with warning. Status/expiry are exact calendar dates. Complete note is used within native byte capacity; otherwise a visible complete-source reference replaces native projection, never a clipped excerpt. Every projected native DATE must retain its exact civil day through the actual legacy Calendar; unrepresentable dates require preflight review before any clinical write.",
+        "normalization": "Pinned spoken-language table maps recognized ASCII code spellings after ASCII-only case folding; Unicode lookalikes and unrecognized codes remain source-only with warning. Status/expiry are exact calendar dates. Complete note is used within native byte capacity; otherwise a visible complete-source reference replaces native projection, never a clipped excerpt. Every projected native DATE must retain its exact civil day through the actual legacy Calendar; unrepresentable dates require preflight review before any clinical write.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 3 (Demographics)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -39740,7 +39740,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described.",
-    "sha256": "3d352c3ecc75206e5d1a30050bb09ac5876ffc61bfd504e3cf3ce7ccfb7b21c0"
+    "sha256": "ce87fc2d2664d8984ae2a1b8ed6ecb2210ed50264c2d72fe98c773c17614de74"
   },
   "root": "cds:OmdCds",
   "schemas": [

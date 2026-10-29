@@ -1906,7 +1906,7 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java"
       ],
-      "normalization": "Pinned spoken-language table maps known codes; unknown stays source with warning. Status/expiry are exact calendar dates. Complete note is used within native byte capacity; otherwise a visible complete-source reference replaces native projection, never a clipped excerpt. Every projected native DATE must retain its exact civil day through the actual legacy Calendar; unrepresentable dates require preflight review before any clinical write.",
+      "normalization": "Pinned spoken-language table maps recognized ASCII code spellings after ASCII-only case folding; Unicode lookalikes and unrecognized codes remain source-only with warning. Status/expiry are exact calendar dates. Complete note is used within native byte capacity; otherwise a visible complete-source reference replaces native projection, never a clipped excerpt. Every projected native DATE must retain its exact civil day through the actual legacy Calendar; unrepresentable dates require preflight review before any clinical write.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 3 (Demographics)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -3829,7 +3829,7 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactImportService.java": "27b0917f13de06c698c6c2d2ff1cb9ad3fe8f7709411761a534e6dbc66d3b1e8",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactNormalizationService.java": "6172e49421dc45bc8a473060b72f96b35b48010d7f1a7da52fc6141b8c9af563",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactPersister.java": "7521a29861c1cc60f46c562ac3a0fb5f2e27f0dc98bb8255cb635f09ccd47b81",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicDetailsService.java": "69ac6037c6d229cbc7d09fd4fc87816d444a3b17122d16ba8d0bb2c80b6716a3",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicDetailsService.java": "015525169c1b2a6b0165be6ce48d44fd756aa32d29eb7c886c62b7e198448712",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java": "d8b0be15c2d4f123ee2ac95bdf048c45cd893124151321799e83bacd2a6f2c13",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java": "04c16b05bbf82e7eaef78c50e9832456cd436a4eca079d312fd612754ed95809",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDocumentPublicationService.java": "fffd90f3d03e600d20b865ed4a19323925bba95f8c9ce793bf5ddbc92996ffb1",
