@@ -493,27 +493,42 @@ Administrative access is root@localhost over the unix socket, which on Ubuntu
 authenticates by uid. That is why this package never asks for, and never
 stores, a MariaDB root password.
 
-MariaDB root access. A MariaDB set up before this package (an earlier MariaDB
-or MySQL install, another application's installer) may have given
-root@localhost a password and no unix-socket login. The install then reports
+MariaDB root access. CARLOS administers MariaDB as the system root user over
+the unix socket, with no MariaDB root password at all. That is the
+distribution's own default since MariaDB 10.4 -- there is no root password to
+leak or guess, and database root is exactly operating-system root -- and it is
+why this package never asks for, and never stores, a MariaDB root password.
+
+A MariaDB set up before this package (an earlier MariaDB or MySQL install, a
+web-stack tutorial, another application's installer) may instead have given
+root@localhost a password, often with the legacy SHA-1 based
+mysql_native_password method, and no socket login. The install then reports
 that root@localhost "refuses the system root user over the unix socket" and
-provisions nothing. Add socket login for root and keep the password: log in
-with that password,
+provisions nothing. Put root back to the distribution default rather than
+keeping that password:
 
-    sudo mariadb -u root -p
+  1. Find whatever else logs in as root with it (phpMyAdmin, a backup script,
+     another application) and give it its own account with only the
+     privileges it needs: root's password stops working in step 2.
+  2. Log in once with the old password (the prompt takes it as typed),
 
-and run, with the CURRENT root password in place of the placeholder (inside
-the quotes write a ' as '' and a backslash as \\),
+         sudo mariadb -u root -p
 
-    ALTER USER root@localhost IDENTIFIED VIA unix_socket
-        OR mysql_native_password USING PASSWORD('current-root-password');
+     and run
 
-`sudo mariadb -e 'SELECT 1'` now answers without a password, and password
-logins keep working for anything else that uses them. A /root/.my.cnf that
-sends a password (an "Access denied ... (using password: YES)" error) no longer
-matters once socket login is in place. Then:
+         ALTER USER root@localhost IDENTIFIED VIA unix_socket
+             OR mysql_native_password USING 'invalid';
+
+     'invalid' is not a password: no password can match it, so root logs in
+     over the socket only, exactly as on a fresh install.
+  3. Delete any root password stored in /root/.my.cnf (an "Access denied ...
+     (using password: YES)" error means one is being sent). It is no longer
+     used, and a plaintext root credential on disk is a liability.
+
+`sudo mariadb -e 'SELECT 1'` now answers without a password. Then:
 
     sudo carlos-ctl finish-install
+    sudo dpkg-reconfigure carlos-emr-drugref     (if DrugRef was installed too)
 
 If nobody knows the old root password, or root is locked ("this account is
 locked" -- a locked root cannot log in to unlock itself), reset it with the
@@ -530,9 +545,7 @@ normally straight after:
     sudo systemctl unset-environment MYSQLD_OPTS
     sudo systemctl restart mariadb
 
-USING 'invalid' is the distribution's default: root logs in over the socket
-only. To keep a password for other tools, use USING PASSWORD('new-password')
-instead. Then run sudo carlos-ctl finish-install.
+Then do steps 1 and 3 above and finish the install the same way.
 
 The schema is managed with Flyway. The application boots with
 `carlos.flyway.onBoot=validate`, so it refuses to start against a schema it was

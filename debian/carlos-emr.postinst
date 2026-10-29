@@ -534,7 +534,14 @@ case "$1" in
                 # install (CarlosDocument not yet created by tmpfiles at this
                 # point) never gains a spurious symlink.
                 ln -sfn CarlosDocument "${STATE}/OscarDocument"
-                echo "carlos-emr: restored the OscarDocument -> CarlosDocument compat symlink after an interrupted rename"
+                if [ -n "${2:-}" ]; then
+                    echo "carlos-emr: restored the OscarDocument -> CarlosDocument compat symlink after an interrupted rename"
+                else
+                    # No prior version: a reinstall after a purge, which keeps
+                    # the document store and removes this symlink. Nothing was
+                    # interrupted; saying so worried a beta2 tester.
+                    echo "carlos-emr: recreated the OscarDocument -> CarlosDocument compat symlink for the document store an earlier purge kept"
+                fi
             fi
         fi
 
@@ -933,7 +940,18 @@ except ValueError:
             # A fresh mariadb-server install may not have finished starting.
             sd_invoke start mariadb.service >/dev/null 2>&1 || true
             deadline=$(( $(uptime_s) + 60 ))  # every probe capped too (hung server)
-            while [ "$(uptime_s)" -lt "${deadline}" ] && ! timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; do
+            # A server that answers and REFUSES root (a root password from an
+            # earlier setup, a locked account) is up: the rest of the minute
+            # cannot change that. The beta2 tester sat through two such
+            # minutes, this one and DrugRef's. Stop at the refusal; the cause
+            # is named where provisioning reports it below.
+            while [ "$(uptime_s)" -lt "${deadline}" ]; do
+                mariadb_probe_rc=0
+                mariadb_probe_err="$(timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' 2>&1 >/dev/null)" || mariadb_probe_rc=$?
+                [ "${mariadb_probe_rc}" != 0 ] || break
+                case "${mariadb_probe_err}" in
+                    *"ERROR 1045"* | *"ERROR 1698"* | *"ERROR 4151"*) break ;;
+                esac
                 sleep 2
             done
         fi

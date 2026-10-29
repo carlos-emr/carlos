@@ -538,6 +538,10 @@ class TestMariadbCause(HostConflictsCase):
         }, "mariadb")
         self.assertIn("root@localhost account was given a password", r.stdout)
         self.assertIn("MariaDB root access", r.stdout)
+        # The fix is the distribution default, socket login with no root
+        # password -- never "keep the (often SHA-1 mysql_native_password) one".
+        self.assertIn("distribution default (socket login, no root password)", r.stdout)
+        self.assertNotIn("keeping the password", r.stdout)
 
     def test_locked_root_is_not_called_a_password(self):
         r = self.run_script({
@@ -760,6 +764,125 @@ printf 'FREED=%s\n' "$FRONT_DOOR_FREED"
         self.assertTrue(block.startswith("Template: carlos-emr/stop-port-conflicts\n"
                                          "Type: boolean\nDefault: true\n"), block[:120])
         self.assertIn("${services}", block.split("\n\n")[0])
+
+
+DRUGREF_POSTINST = ROOT / "debian" / "carlos-emr-drugref.postinst"
+README = ROOT / "debian" / "carlos-emr.README.Debian"
+
+
+def _wait_loop(text):
+    """The MariaDB wait loop a postinst runs before provisioning."""
+    start = text.index("            while [ \"$(uptime_s)\" -lt \"${deadline}\" ]; do\n                mariadb_probe_rc=0")
+    end = text.index("            done\n", start) + len("            done\n")
+    return text[start:end]
+
+
+class TestMariadbWaitStopsAtARefusal(unittest.TestCase):
+    """A server that answers and refuses root will not change its mind: the
+    beta2 tester waited out two whole minutes (carlos-emr's and DrugRef's)
+    for an "Access denied" that was there from the first probe. A server that
+    is still starting must still be waited for."""
+
+    def run_loop(self, text, stderr, rc):
+        # The probe runs inside $( ... ), a subshell: count probes in a file.
+        with tempfile.TemporaryDirectory() as tmp:
+            calls = os.path.join(tmp, "calls")
+            script = f"""set -e
+t=0
+uptime_s() {{ echo "$t"; }}
+sleep() {{ t=$((t + 2)); }}
+timeout() {{ shift; "$@"; }}
+mariadb() {{ echo x >> "{calls}"; printf '%s\\n' "{stderr}" >&2; return {rc}; }}
+deadline=60
+{_wait_loop(text)}
+"""
+            r = subprocess.run(["sh", "-c", script], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            with open(calls) as fh:
+                return len(fh.read().splitlines())
+
+    def check(self, path):
+        text = path.read_text()
+        for err in ("ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: NO)",
+                    "ERROR 1698 (28000): Access denied for user 'root'@'localhost'",
+                    "ERROR 4151 (HY000): Access denied, this account is locked"):
+            with self.subTest(path=path.name, err=err):
+                self.assertEqual(self.run_loop(text, err, 1), 1)
+        with self.subTest(path=path.name, err="not up yet"):
+            starting = "ERROR 2002 (HY000): Can't connect to local server through socket"
+            self.assertGreater(self.run_loop(text, starting, 1), 20)
+        with self.subTest(path=path.name, err="answers"):
+            self.assertEqual(self.run_loop(text, "", 0), 1)
+
+    def test_carlos_emr_postinst(self):
+        self.check(POSTINST)
+
+    def test_drugref_postinst(self):
+        self.check(DRUGREF_POSTINST)
+
+
+class TestDrugrefNamesTheCause(unittest.TestCase):
+
+    def run_notice(self, helper_output):
+        text = DRUGREF_POSTINST.read_text()
+        start = text.index('            DB_CAUSE=""\n')
+        end = text.index("            echo \"carlos-emr-drugref: WARNING: The DrugRef database was NOT")
+        with tempfile.TemporaryDirectory() as tmp:
+            helper = Path(tmp, "helper")
+            helper.write_text("#!/bin/sh\nprintf '%s\\n' " + json.dumps(helper_output) + "\n")
+            helper.chmod(0o755)
+            block = text[start:end].replace("/usr/lib/carlos-emr/carlos-emr-host-conflicts", str(helper))
+            r = subprocess.run(["sh", "-c", "set -e\n" + block], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stderr
+
+    def test_the_helpers_cause_replaces_did_not_answer(self):
+        err = self.run_notice("cause: MariaDB is running, but its root@localhost account was given a password")
+        self.assertIn("root could not use MariaDB: MariaDB is running, but its root@localhost", err)
+        self.assertNotIn("did not answer", err)
+
+    def test_no_cause_keeps_the_timeout_message(self):
+        self.assertIn("did not answer within 60 seconds", self.run_notice(""))
+
+
+class TestRootAccessDocumentation(unittest.TestCase):
+
+    def test_readme_restores_the_distribution_default_not_a_password(self):
+        text = README.read_text()
+        section = text[text.index("MariaDB root access."):text.index("The schema is managed with Flyway.")]
+        self.assertIn("IDENTIFIED VIA unix_socket\n             OR mysql_native_password USING 'invalid';", section)
+        self.assertNotIn("USING PASSWORD(", section)
+        self.assertIn("/root/.my.cnf", section)
+        self.assertIn("--skip-grant-tables --skip-networking", section)
+
+
+class TestCompatSymlinkWording(unittest.TestCase):
+    """A reinstall after a purge recreates the document-store compat symlink;
+    calling that "an interrupted rename" worried a beta2 tester."""
+
+    def run_heal(self, old_version):
+        text = POSTINST.read_text()
+        start = text.index('            elif [ -d "${STATE}/CarlosDocument" ] && [ ! -e "${STATE}/OscarDocument" ]; then')
+        # From the branch's own test to the end of its inner if/fi.
+        message = text.index("compat symlink for the document store an earlier purge kept", start)
+        end = text.index("\n                fi\n", message) + len("\n                fi\n")
+        block = text[start + len("            el"):end] + "fi\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            os.mkdir(os.path.join(tmp, "CarlosDocument"))
+            r = subprocess.run(["sh", "-c", f'set -- configure {old_version}\nSTATE="{tmp}"\n' + block],
+                               capture_output=True, text=True)
+            linked = os.path.islink(os.path.join(tmp, "OscarDocument"))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue(linked)
+        return r.stdout
+
+    def test_reinstall_after_purge_is_not_called_an_interrupted_rename(self):
+        out = self.run_heal("")
+        self.assertIn("an earlier purge kept", out)
+        self.assertNotIn("interrupted", out)
+
+    def test_an_upgrade_still_reports_the_interrupted_rename(self):
+        self.assertIn("after an interrupted rename", self.run_heal("2026.08.0~beta1"))
 
 
 if __name__ == "__main__":
