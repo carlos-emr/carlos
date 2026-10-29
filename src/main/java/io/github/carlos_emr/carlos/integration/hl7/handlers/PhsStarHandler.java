@@ -728,7 +728,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
     public void init(String hl7Body) throws HL7Exception {
         Parser p = new GenericParser();
         p.setValidationContext(new NoValidation());
-        String message = hl7Body.replaceAll("\n", "\r\n");
+        String message = hl7Body.replace("\n", "\r\n");
         // GenericParser also reads HL7 v2 XML. Refuse a DOCTYPE before HAPI sees it: HAPI 2.x no
         // longer loads external entities or DTDs, but it still expands internal entities.
         Hl7XmlMessageValidator.requireNoDocumentType(p, message);

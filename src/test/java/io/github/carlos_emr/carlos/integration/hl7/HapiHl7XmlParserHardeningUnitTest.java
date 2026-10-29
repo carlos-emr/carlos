@@ -92,7 +92,7 @@ class HapiHl7XmlParserHardeningUnitTest {
         unsafe.setNamespaceAware(true);
         try {
             unsafe.newDocumentBuilder().parse(new InputSource(new StringReader(hostile.externalDtd())));
-        } catch (Exception expected) {
+        } catch (Exception _) {
             // the DTD the observer serves does not declare the HL7 elements; the request is the point
         }
         assertThat(hostile.requestCount()).as("requests from a parser left at its defaults").isPositive();
@@ -110,7 +110,7 @@ class HapiHl7XmlParserHardeningUnitTest {
             try {
                 Message parsed = parser.parse(attack.getValue());
                 content = new DefaultXMLParser().encode(parsed);
-            } catch (HL7Exception rejected) {
+            } catch (HL7Exception _) {
                 // refusing the message is as good an answer as reading it without the reference
             }
 

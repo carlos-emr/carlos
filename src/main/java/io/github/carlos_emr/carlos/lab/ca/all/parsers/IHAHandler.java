@@ -390,7 +390,7 @@ public class IHAHandler implements MessageHandler {
                 test = terser.getSegment("/.OBR");
                 while (test != null) {
                     i++;
-                    test = (Segment) segmentNames.get("OBR" + i);
+                    test = segmentNames.get("OBR" + i);
                 }
 
             } catch (Exception e) {
@@ -449,7 +449,7 @@ public class IHAHandler implements MessageHandler {
                 if (obrName.equals(""))
                     obrName = getString(terser.get("/.OBR-4-1"));
             } else {
-                Segment obrSeg = (Segment) segmentNames.get("OBR" + i);
+                Segment obrSeg = segmentNames.get("OBR" + i);
                 obrName = getString(Terser.get(obrSeg, 4, 0, 2, 1));
                 if (obrName.equals(""))
                     obrName = getString(Terser.get(obrSeg, 4, 0, 1, 1));
@@ -472,7 +472,7 @@ public class IHAHandler implements MessageHandler {
             if (i == 1) {
                 obrName = getString(terser.get("/.OBR-4-1"));
             } else {
-                Segment obrSeg = (Segment) segmentNames.get("OBR" + i);
+                Segment obrSeg = segmentNames.get("OBR" + i);
                 obrName = getString(Terser.get(obrSeg, 4, 0, 2, 1));
                 if (obrName.equals(""))
                     obrName = getString(Terser.get(obrSeg, 4, 0, 1, 1));
@@ -971,7 +971,7 @@ public class IHAHandler implements MessageHandler {
             if (i == 1) {
                 timeStamp = formatDateTime(getString(terser.get("/.OBR-7-1")));
             } else {
-                Segment obrSeg = (Segment) segmentNames.get("OBR" + i);
+                Segment obrSeg = segmentNames.get("OBR" + i);
                 timeStamp = formatDateTime(getString(Terser.get(obrSeg, 7, 0, 1, 1)));
             }
             return (timeStamp);
