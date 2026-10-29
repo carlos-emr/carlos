@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -48,6 +49,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
@@ -99,6 +101,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DisplayName("EctConsultationFormRequest2Action")
@@ -829,7 +832,10 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
-        when(consultationSignatureService.wasManualSignatureCaptured(any(), eq("sig-request"))).thenReturn(true);
+        // The action passes the logged-in user's own session, which holds the issued pad ids.
+        HttpSession session = new MockHttpSession();
+        when(loggedInInfo.getSession()).thenReturn(session);
+        when(consultationSignatureService.wasManualSignatureCaptured(same(session), eq("sig-request"))).thenReturn(true);
         when(digitalSignatureManager.processAndSaveDigitalSignature(
                 loggedInInfo, "sig-request", 1, ModuleType.CONSULTATION))
                 .thenReturn(null);
@@ -854,7 +860,10 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
-        when(consultationSignatureService.wasManualSignatureCaptured(any(), eq("sig-request"))).thenReturn(false);
+        // The action passes the logged-in user's own session, which holds the issued pad ids.
+        HttpSession session = new MockHttpSession();
+        when(loggedInInfo.getSession()).thenReturn(session);
+        when(consultationSignatureService.wasManualSignatureCaptured(same(session), eq("sig-request"))).thenReturn(false);
         when(digitalSignatureManager.processAndSaveDigitalSignature(
                 loggedInInfo, "sig-request", 1, ModuleType.CONSULTATION))
                 .thenReturn(null);
@@ -930,7 +939,10 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
-        when(consultationSignatureService.wasManualSignatureCaptured(any(), eq("sig-request"))).thenReturn(true);
+        // The action passes the logged-in user's own session, which holds the issued pad ids.
+        HttpSession session = new MockHttpSession();
+        when(loggedInInfo.getSession()).thenReturn(session);
+        when(consultationSignatureService.wasManualSignatureCaptured(same(session), eq("sig-request"))).thenReturn(true);
         when(digitalSignatureManager.processAndSaveDigitalSignature(
                 loggedInInfo, "sig-request", 1, ModuleType.CONSULTATION))
                 .thenReturn(null);

@@ -175,7 +175,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             try {
                 imageData = new Base64().decode(encoded.getBytes(StandardCharsets.US_ASCII));
             } catch (IllegalArgumentException e) {
-                MiscUtils.getLogger().warn("Invalid Base64 signatureImage for key {}", LogSafe.sanitize(signatureKey)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                MiscUtils.getLogger().warn("Invalid Base64 signatureImage in a signature upload");
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid image data");
                 return NONE;
             }
@@ -255,8 +255,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 // Manager documents null-return on expected failures; any propagated
                 // RuntimeException is an unexpected failure mode (e.g. encryption,
                 // DB connectivity). Delete the orphan temp file before surfacing 500.
-                MiscUtils.getLogger().error("Digital signature persist failed for key {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                        LogSafe.sanitize(signatureKey), e);
+                MiscUtils.getLogger().error("Digital signature persist failed for a signature upload", e);
                 deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
                 return NONE;
@@ -267,8 +266,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 // exception. The file upload succeeded but persistence did not —
                 // surface 500 rather than returning an empty signatureId that the
                 // caller has no way to distinguish from a successful save.
-                MiscUtils.getLogger().warn("Digital signature persist returned null for key {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                        LogSafe.sanitize(signatureKey));
+                MiscUtils.getLogger().warn("Digital signature persist returned null for a signature upload");
                 deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
                 return NONE;

@@ -80,14 +80,23 @@ class ImageRenderingServletUnitTest extends CarlosUnitTestBase {
         request.addParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, otherSessionsId);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        servlet().doGet(request, response);
+        // With the web root to find it, the preview answers with the blank "not signed yet" GIF.
+        servlet(new MockServletContext("file:src/main/webapp")).doGet(request, response);
 
-        assertThat(response.getContentAsByteArray()).isNotEqualTo(PNG_BYTES);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).isEqualTo("image/gif");
+        assertThat(response.getContentAsByteArray())
+                .isNotEqualTo(PNG_BYTES)
+                .containsExactly(Files.readAllBytes(Path.of("src/main/webapp/images/1x1.gif")));
     }
 
     private static ImageRenderingServlet servlet() throws Exception {
+        return servlet(new MockServletContext());
+    }
+
+    private static ImageRenderingServlet servlet(MockServletContext context) throws Exception {
         ImageRenderingServlet servlet = new ImageRenderingServlet();
-        servlet.init(new MockServletConfig(new MockServletContext()));
+        servlet.init(new MockServletConfig(context));
         return servlet;
     }
 
