@@ -56,7 +56,7 @@ async function workflow(s) {
       await picker.fill('');
       await picker.pressSequentially(brand.value.slice(0, 24), { delay: 10 });
       const choice = index.locator('#immunization_choices .ac-item')
-        .filter({ has: index.locator('strong', { hasText: new RegExp(`^${brand.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }) })
+        .filter({ has: index.getByText(brand.name, { exact: true }) })
         .filter({ hasText: brand.value }).first();
       await choice.waitFor({ state: 'visible' });
       // Every pick opens the same named window, so each popup is closed before the next pick.

@@ -20,16 +20,33 @@ const action = fs.readFileSync(path.join(root, 'src/main/java/io/github/carlos_e
 /** The h1n1 layout's markup: from its branch to the next layout's. */
 const h1n1 = jsp.slice(jsp.indexOf('layoutType.equals("h1n1")'), jsp.indexOf('layoutType.equals("PAPMAM")'));
 
-/** The value and visible text of each option of a select in the h1n1 layout. */
+/**
+ * The value and visible text of each option of a select in the h1n1 layout. An option's selected test is a JSP
+ * scriptlet whose `%>` must not be read as the end of the tag, so the tag is scanned rather than matched by a regex.
+ */
 function selectOptions(name) {
   const start = h1n1.indexOf(`<select name="${name}"`);
   assert.notEqual(start, -1, `the h1n1 layout has no ${name} select`);
   const body = h1n1.slice(start, h1n1.indexOf('</select>', start));
-  // An option's selected test is a scriptlet, whose %> must not be read as the end of the tag.
-  return [...body.matchAll(/<option value="([^"]*)"(?:<%[\s\S]*?%>|[^>])*>([\s\S]*?)<\/option>/g)].map(([, value, text]) => ({
-    value,
-    label: text.includes('oscarprevention.addpreventiondata.yes') ? 'Yes' : text.replace(/\s+/g, ' ').trim(),
-  }));
+  const options = [];
+  const open = '<option value="';
+  for (let at = body.indexOf(open); at !== -1; at = body.indexOf(open, at)) {
+    const valueEnd = body.indexOf('"', at + open.length);
+    const value = body.slice(at + open.length, valueEnd);
+    let tagEnd = valueEnd + 1;
+    while (body[tagEnd] !== '>') {
+      tagEnd = body.startsWith('<%', tagEnd) ? body.indexOf('%>', tagEnd) + 2 : tagEnd + 1;
+      assert.ok(tagEnd > 0 && tagEnd < body.length, `an option of ${name} has no closing >`);
+    }
+    const close = body.indexOf('</option>', tagEnd);
+    const text = body.slice(tagEnd + 1, close);
+    options.push({
+      value,
+      label: text.includes('oscarprevention.addpreventiondata.yes') ? 'Yes' : text.replace(/\s+/g, ' ').trim(),
+    });
+    at = close;
+  }
+  return options;
 }
 
 test('the h1n1 layout exists and is the only one with the pandemic-flu Info box', () => {
@@ -45,7 +62,12 @@ for (const [name, expected] of [['chronic', CHRONIC_CONDITIONS], ['healthcarewor
 
 for (const flag of FLAG_FIELDS) {
   test(`${flag} is a checkbox posting "true" and AddPrevention2Action stores it under its own name`, () => {
-    assert.match(h1n1, new RegExp(`type="checkbox"[^>]*name="${flag}"\\s+value="true"`));
+    const name = h1n1.indexOf(`name="${flag}"`);
+    assert.notEqual(name, -1, `the h1n1 layout has no ${flag} input`);
+    const tag = h1n1.slice(h1n1.lastIndexOf('<input', name), h1n1.indexOf('>', name));
+    assert.ok(tag.includes('type="checkbox"'), `${flag} is not a checkbox`);
+    assert.equal(h1n1.slice(name + `name="${flag}"`.length).trimStart().slice(0, 'value="true"'.length), 'value="true"',
+      `${flag} does not post "true"`);
     assert.ok(action.includes(`addHashtoArray(extraData, request.getParameter("${flag}"), "${flag}");`), `${flag} is not stored`);
   });
 }
