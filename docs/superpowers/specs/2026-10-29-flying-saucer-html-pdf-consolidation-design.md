@@ -1,8 +1,10 @@
 # Design: Consolidate HTML-to-PDF on Flying Saucer and Remove wkhtmltopdf
 
-**Date:** 2026-10-29 (sixth revision: approved design, plus the "failure is the last resort"
-principle, CARLOS layering conventions and a Spring/MVC class-structure review)
-**Status:** Approved in conversation on 2026-10-29, with the changes in this revision
+**Date:** 2026-10-29 (seventh revision: approved design, plus the "failure is the last resort"
+principle, CARLOS layering conventions, a Spring/MVC class-structure review, measured image
+limits and a final fit-for-purpose review)
+**Status:** Approved in conversation on 2026-10-29, with the changes in this revision; one
+open decision: which branch it lands on (see "Delivery")
 **Target:** `release/2026.08` (currently `2026.08.0-beta3-SNAPSHOT`), forward-merged to `develop`
 
 ## How this spec was verified
@@ -18,6 +20,11 @@ concerns rendering, by rendering documents with the real engines:
 - **Flying Saucer 10.0.6 and 10.7.0** through CARLOS's own `LocalOnlyUserAgent` and
   `ReplacedElementFactoryImpl`, and through an end-to-end prototype of this design.
 - **PDFBox 3.0.8** for merging and flattening, as CARLOS uses it.
+- **Final review**: an independent proportionality review of this spec against
+  `docs/release-process.md`, `docs/architecture/layer-names.md` and the packaging, and a
+  sourced survey of current HTML-to-PDF engines and image limits (see "Decisions"). It led
+  to fewer beans, a bounded 10 s wait instead of a two-minute permit ladder, per-severity
+  logging, a rollback plan and the release-fit question.
 - **Large images**: the smallest heap that renders 12- and 48-megapixel JPEGs and 8.4-,
   25- and 67-megapixel PNGs, streamed subsampled decoding of a 95 MB PNG, and TwelveMonkeys
   3.15.3 WebP decoding (see "Images").
@@ -26,7 +33,7 @@ Three rounds were run: a verification pass (claims audit, prototype against 15 f
 about 80 adversarial documents) and a final review cycle (document review, prototype of the
 full test list). Items marked *(tested)* were run with the rule in place. Two parts of this
 revision are designed but not yet run, and PR 1 must test them: the retry and degradation
-ladder under "Resilience" (the image memory budget and the safe-mode and text-only retries)
+ladder under "Resilience" (the render slots and image memory, and the safe-mode and text-only retries)
 and the right-to-left shaping under "Right-to-left text" (a Hebrew prototype read
 correctly; Arabic shaping with ICU4J is untested). The class structure under
 "Architecture" was reviewed against `docs/architecture/layer-names.md`, the Ontario billing
@@ -184,9 +191,28 @@ Agreed in conversation on 2026-10-29:
 | Output geometry | Emulate wkhtmltopdf: Letter, 10 mm margins, 0.8 zoom, shrink-to-fit, 10 px minimum font, WebKit line height, repeated table headers, HTML row-span clamping |
 | Shrink-to-fit limit | None (nothing is cut off); WARN when the zoom falls below 0.4 |
 | Form controls | Printed as static text and marks; never as PDF form fields |
-| Images | JPEG photos embedded unchanged at any resolution; other images reduced only above 25 megapixels (beyond what paper shows) or when memory is short; formats OpenPDF cannot draw converted; a visible "[image unavailable]" box only for what cannot be read; never exhaust the heap |
+| Images | JPEG photos embedded unchanged at any resolution; other images reduced only above 25 megapixels or the render's share of memory (16.7 megapixels with the default 2 GB heap; beyond what paper shows); formats OpenPDF cannot draw converted; a visible "[image unavailable]" box only for what cannot be read; never exhaust the heap |
 | Right-to-left text | Best effort for all of it: shaped and reordered before layout, never failing; documents with long right-to-left passages get a visible note |
 | Release | Land on `release/2026.08`; maintainers forward-merge to `develop` |
+
+Alternatives considered in the final review (sources: project repositories and Maven
+Central, October 2026):
+
+- **openhtmltopdf** (community fork, `io.github.openhtmltopdf`, LGPL, PDFBox 3): very
+  active (1.1.105 on 2026-10-29, released once per pull request), with per-character font
+  fallback, right-to-left line breaking in the right order and PDF/UA. It would not remove
+  the Indic gap, the image limits, the shrink-to-fit emulation (it has no zoom), the
+  font-family mapping or the form-control replacement (it writes fillable fields); its
+  network and file access is open by default, as Flying Saucer's is; and its frequent
+  patch releases change layout, so an exact pin and visual tests would be needed. Not a
+  clear win; a prototype is listed under "Follow-ups" in case right-to-left quality
+  becomes important.
+- **Chromium for everything** (already deployed for eForms): shapes every script, but
+  needs a browser process per render, depends on system fonts, and was ruled out for
+  documents that need no scripting.
+- **openpdf-html**: no release since OpenPDF 3.0.5 (May 2026), HTML parsed by NekoHTML.
+- **WeasyPrint, Apache FOP, iText pdfHTML**: Python, XSL-FO input, or AGPL/commercial with
+  closed-source Indic shaping.
 
 Flying Saucer 10.7.0 was checked before choosing it:
 
@@ -234,7 +260,10 @@ Flying Saucer 10.7.0 was checked before choosing it:
   image reports) or JasperReports templates.
 - Moving callers onto a new API, or deleting `ConvertToEdoc`/`Doc2PDF`.
 - Removing `ConvertToEdoc`'s class-level `synchronized` methods or its static `realPath`.
-- Upgrading the vendored OpenPDF core (stays 3.0.3).
+- Upgrading the vendored OpenPDF core (stays 3.0.3; Flying Saucer 10.7.0 is built against
+  3.0.5, and every OpenPDF member it uses exists in 3.0.3, see "Decisions").
+- Tagged PDF, PDF/UA or PDF/A output. Flying Saucer 10.5+ can tag, but placing pages on
+  Letter discards the structure, and wkhtmltopdf's output had none either.
 - Widening `ConvertToEdoc`'s `FileType` extension list.
 - Full right-to-left layout (line breaking in right-to-left order; see "Follow-ups").
 - Changing the OSCAR 19 import map: carlos-ctl's own test suite, which CI runs against this
@@ -269,12 +298,12 @@ Ontario billing's service tier (`docs/billing-ontario-module.md`, §3):
                                 │ HtmlPdfRenderRequest → HtmlPdfRenderResult
 ┌───────────────────────────────▼───────────────────────────────────────────┐
 │ htmlpdf service tier (new Spring beans, constructor injection)            │
-│   HtmlPdfRenderService  — the only entry point; attempts and the ladder   │
+│   HtmlPdfRenderService  — the only entry point; render slots, attempts,   │
+│                           the ladder                                      │
 │   PrintDocumentComposer — print-ready XHTML (pure DOM rules)              │
-│   PrintImageResolver    — read-only image plan                            │
-│   PrintImageService     — applies the plan under a memory-budget lease    │
-│   ImageMemoryBudgetService, BundledFontFileService                         │
-│   PrintLayoutService, LetterPageComposer, RenderedPdfValidator            │
+│   PrintImageService     — plans and prepares every image                  │
+│   PrintLayoutService    — layout passes and placement on Letter           │
+│   BundledFontFileService, RenderedPdfValidator                            │
 │ No servlet API, no HTTP codes, no PHI in messages or logs.                │
 └───────────────────────────────┬───────────────────────────────────────────┘
                                 │
@@ -288,19 +317,21 @@ Ontario billing's service tier (`docs/billing-ontario-module.md`, §3):
 Rules, following `docs/billing-ontario-module.md` §3.2, §9.2 and §14 and standard Spring
 practice:
 
-- **Stateless singletons.** Every bean is a singleton whose fields are `private final` and
-  set by its constructor. The only JVM-wide state is the pixel semaphore
-  (`ImageMemoryBudgetService`) and the verified font set (`BundledFontFileService`), both
-  thread-safe. Per-render objects (the Jsoup DOM, the degradation set, the renderer,
-  `LocalOnlyUserAgent`, `BundledFontResolver`, temporary directories) stay on the calling
-  thread for one attempt and are never stored in a field.
+- **Few, cohesive, stateless singletons.** Six beans, each owning one cohesive job; a
+  class exists because it has a separate responsibility, not to satisfy a suffix. Every
+  bean is a singleton whose fields are `private final` and set by its constructor. The only
+  JVM-wide state is the render slots (a `Semaphore` in `HtmlPdfRenderService`) and the
+  verified font set (`BundledFontFileService`), both thread-safe. Per-render objects (the
+  Jsoup DOM, the degradation set, the renderer, `LocalOnlyUserAgent`,
+  `BundledFontResolver`, temporary directories) stay on the calling thread for one
+  attempt and are never stored in a field.
 - **Constructor injection, no I/O in constructors.** Constructors only assign fields, so a
   temporary-directory or font problem can never stop the Spring context from starting;
-  fonts are extracted on first render. Where a test must set a limit (pixel capacity, wait
-  time, temporary root), the class also has a package-private test constructor, and its
-  production constructor carries `@Autowired` (Spring needs it to choose between two
-  constructors). No field-initialised `SpringUtils.getBean(...)`, no `@Lazy`, no circular
-  dependencies.
+  fonts are extracted on first render. Where a test must set a limit (slot wait,
+  temporary root), the class also has a package-private test constructor, and its
+  production constructor carries `@Autowired` (the documented way to tell Spring which of
+  two constructors to use). No field-initialised `SpringUtils.getBean(...)`, no `@Lazy`,
+  no circular dependencies.
 - **Legacy facades.** `ConvertToEdoc` and `Doc2PDF` are static, so they obtain the service
   at call time with `SpringUtils.getBean(HtmlPdfRenderService.class)`, the pattern
   `ConvertToEdoc` already uses for `NioFileManager` (line ~302: "resolve against the
@@ -310,10 +341,10 @@ practice:
   Mockito mocks concrete classes, and Ontario billing's services are concrete. The legacy
   `*Manager`/`*ManagerImpl` pairing is not used for new code.
 - **One public entry point.** Outside the module, code uses only `HtmlPdfRenderService`
-  and the three `dto` types. The other service-package classes are package-private
-  (component scanning instantiates package-private classes). `support`, `engine` and
-  `validator` types are public only because the service package uses them; their
-  `package-info.java` marks them module-internal.
+  and the `dto` types. The other service-package classes are package-private (component
+  scanning instantiates package-private classes). `support` and `engine` types are public
+  only because the service package uses them; their `package-info.java` marks them
+  module-internal.
 - **No HTTP semantics below the facades:** no `jakarta.servlet` or Struts types and no
   status codes in the module. Facades and controllers decide responses, as Ontario
   billing's assemblers leave HTTP codes to actions.
@@ -321,10 +352,17 @@ practice:
   and passes it to the steps that can degrade (a collecting parameter confined to the
   thread); the result carries the final set (Ontario billing's `partial` flag pattern,
   §9.2.1). Never nulls, sentinel values or exceptions for control flow.
-- **Resources are owned by a scope.** The memory-budget lease and the per-render
-  directories are `AutoCloseable` and opened with `try`-with-resources by
-  `HtmlPdfRenderService` around one attempt (or, for the base directory, one render), so
-  permits are always released and temporary files always deleted, whichever step fails.
+- **Bounded concurrency and waits (bulkhead).** At most two renders hold a render slot at
+  once (`ConvertToEdoc` is already serialised, so this is one form render plus one
+  Messenger render). A render waits at most 10 s for a slot; this is the module's only
+  wait. Each slot carries a fixed share of image memory, so how a document's images are
+  reduced depends only on the document and the heap size, never on load. This is the
+  usual pattern for server-side document rendering (Gotenberg and Browserless default to
+  a fixed number of concurrent conversions and a 30 s request timeout).
+- **Resources are owned by a scope.** The render slot and the per-render directories are
+  released with `try`/`finally` or `try`-with-resources by `HtmlPdfRenderService` around
+  the render and each attempt, so a slot is always returned and temporary files always
+  deleted, whichever step fails.
 - **Exceptions:**
   - the checked `PDFGenerationException` (existing, `utility`) is the boundary type for an
     expected failure (nothing printable could be produced); every caller already handles
@@ -334,28 +372,29 @@ practice:
     broad catches handle;
   - `HtmlPdfRenderException` (package-private, unchecked, with a `Phase`) is internal and
     never leaves the service;
-  - log or throw, never both: the service logs a successful render's degradations and each
-    failed attempt (PHI-safe), and does not log the exception it throws; callers log what
-    they catch.
+  - log or throw, never both: the service logs each render's outcome and each failed
+    attempt (PHI-safe), and does not log the exception it throws; callers log what they
+    catch.
 - **Logging** uses `MiscUtils.getLogger()` in a `private static final Logger`, as elsewhere.
-  The module never logs a path, file name, URL or document content.
-- **Constants, not settings.** The limits (a budget of a quarter of the heap; charges of
-  16 bytes per decoded pixel and four times a JPEG's file size; 25 megapixels per decoded
-  image; 250 megapixels per source header; 32 MB per file used as is; 128 MB per file in
-  the user agent; 4 megapixels per decoded CSS background; 30 s waits; three halvings; a
-  40-character right-to-left threshold; a zoom warning below 0.4) are named
-  `static final` constants in the class that owns them, each commented with its measured
-  reason. No new `carlos.properties` keys: the budget already follows the heap size, and no
-  operator need for the others has been shown.
+  The module never logs a path, file name, URL or document content. Levels follow what an
+  operator must act on (see "Observability").
+- **Constants, not settings.** The limits (two render slots; a 10 s slot wait; image
+  memory of a quarter of the heap shared between the slots; charges of 16 bytes per
+  decoded pixel and four times a JPEG's file size; 25 megapixels per decoded image;
+  250 megapixels per source header; 32 MB per file used as is; 128 MB per file in the user
+  agent; 4 megapixels per decoded CSS background; the HTML size above which a render goes
+  straight to text-only mode; a 40-character right-to-left threshold; a zoom warning below
+  0.4) are named `static final` constants in the class that owns them, each commented with
+  its measured reason. No new `carlos.properties` keys: the image memory already follows
+  the heap size, and no operator need for the others has been shown.
 - **Printed text** (the document notes and "[image unavailable]") comes from
   `oscarResources`, as in the other PDF creators (`ConsultationPDFCreator`,
   `CaseManagementPrintPdf`); see "Printed text".
 - **No `@Transactional`:** the module does no database work.
 - Components are discovered by the existing broad
   `<context:component-scan base-package="io.github.carlos_emr.carlos">`. The bean names
-  (`htmlPdfRenderService`, `printDocumentComposer`, `printImageResolver`,
-  `printImageService`, `imageMemoryBudgetService`, `bundledFontFileService`,
-  `printLayoutService`, `letterPageComposer`, `renderedPdfValidator`) clash with no
+  (`htmlPdfRenderService`, `printDocumentComposer`, `printImageService`,
+  `printLayoutService`, `bundledFontFileService`, `renderedPdfValidator`) clash with no
   existing bean or class name (checked).
 
 ### Package dependencies
@@ -364,20 +403,20 @@ practice:
 callers (ConvertToEdoc, Doc2PDF, future services)
    │   HtmlPdfRenderService and dto only
    ▼
-service ──► validator
-   │  ├───► support ──► dto, engine
+service ──► support ──► dto, engine
    │  └───► engine
    └──────► dto
 ```
 
-`dto`, `engine` and `validator` depend on nothing else in the module; `support` uses only
-`dto` and `engine` value types; only `service` sees everything. Nothing in the module
-imports `jakarta.servlet`, Struts, a DAO, a manager or the legacy facades.
-`HtmlPdfArchitectureUnitTest` enforces these rules. Moving `LocalOnlyUserAgent` into
-`engine` (with `git mv`, so its history follows) is what keeps the graph acyclic: left in
-`documentManager`, the service would use it while `documentManager.ConvertToEdoc` uses the
-service. After this change nothing else uses it, and it imports only Flying Saucer, the
-JDK and `MiscUtils`.
+`dto` and `engine` depend on nothing else in the module; `support` uses only `dto` and
+`engine` value types; only `service` sees everything. Nothing in the module imports
+`jakarta.servlet`, Struts, a DAO, a manager or the legacy facades.
+`HtmlPdfArchitectureUnitTest` enforces these rules (reading the source files, as
+`OntarioAssemblerArchitectureUnitTest` does; wildcard imports are rejected so the check
+cannot be bypassed). Moving `LocalOnlyUserAgent` into `engine` (with `git mv`, so its
+history follows) is what keeps the graph acyclic: left in `documentManager`, the service
+would use it while `documentManager.ConvertToEdoc` uses the service. After this change
+nothing else uses it, and it imports only Flying Saucer, the JDK and `MiscUtils`.
 
 ### Package map
 
@@ -386,35 +425,30 @@ src/main/java/io/github/carlos_emr/carlos/documentManager/htmlpdf/
 ├── package-info.java                  module boundary, dependency rules, PHI rules
 ├── dto/
 │   ├── package-info.java
-│   ├── HtmlPdfRenderRequest.java      record: html, baseDirectory (nullable), allowedDirectories
+│   ├── HtmlPdfRenderRequest.java      record: html, baseDirectory (nullable),
+│   │                                  allowedDirectories, source
+│   ├── HtmlPdfRenderSource.java       enum: FORM, HRM, EMAIL, MESSENGER (for logs)
 │   ├── HtmlPdfRenderResult.java       record: PDF bytes + degradations
 │   └── HtmlPdfRenderDegradation.java  enum (see "Resilience")
 ├── service/
 │   ├── package-info.java
-│   ├── HtmlPdfRenderService.java      public @Service: entry point, attempts, ladder
-│   ├── PrintDocumentComposer.java     @Service: pure DOM rules (steps 2a–2i, 2k–2m)
-│   ├── PrintImageResolver.java        @Service: read-only image plan (step 2j)
-│   ├── PrintImageService.java         @Service: applies the plan under a lease (step 2j)
-│   ├── PreparedPrintImages.java       AutoCloseable: one attempt's lease and image directory
-│   ├── ImageMemoryBudgetService.java  @Service: JVM-wide image-memory semaphore
-│   ├── ImageMemoryLease.java          AutoCloseable permit holder (idempotent close)
+│   ├── HtmlPdfRenderService.java      public @Service: entry point, slots, attempts, ladder
+│   ├── PrintDocumentComposer.java     @Service: pure DOM rules (steps a–i, k–m)
+│   ├── PrintImageService.java         @Service: plans and prepares images (step j)
+│   ├── PreparedPrintImages.java       AutoCloseable: one attempt's image directory
+│   ├── PrintLayoutService.java        @Service: layout passes, placement on Letter
+│   ├── RenderedPdfValidator.java      @Component: output checks → Result(messages, valid)
 │   ├── BundledFontFileService.java    @Service: font extraction and verification
-│   ├── PrintLayoutService.java        @Service: Flying Saucer layout passes
-│   ├── PrintLayoutResult.java         record: layout PDF bytes and zoom
-│   ├── LetterPageComposer.java        @Service: flatten, place on Letter, copy /Title
 │   ├── PageZoomCalculator.java        static: zoom and pass-2 page size
 │   ├── PrintMode.java                 enum: NORMAL, SAFE, TEXT_ONLY
 │   └── HtmlPdfRenderException.java    unchecked, internal, Phase, PHI-safe message
-├── validator/
-│   ├── package-info.java
-│   └── RenderedPdfValidator.java      @Component: output checks → Result(messages, valid)
 ├── support/                           static, dependency-free (domain nouns)
 │   ├── package-info.java
-│   ├── XhtmlCleanup.java              steps 2a, 2b, 2d–2g, 2i, 2m
-│   ├── PrintFormControls.java         step 2c
-│   ├── RtlTextShaping.java            step 2h
-│   ├── PrintStylesheet.java           the injected stylesheet (step 2k)
-│   ├── FallbackFontRuns.java          step 2l
+│   ├── XhtmlCleanup.java              steps a, b, d–g, i, m
+│   ├── PrintFormControls.java         step c
+│   ├── RtlTextShaping.java            step h
+│   ├── PrintStylesheet.java           the injected stylesheet (step k)
+│   ├── FallbackFontRuns.java          step l
 │   └── PrintMessages.java             printed notes and box text from oscarResources
 └── engine/                            Flying Saucer and OpenPDF extensions
     ├── package-info.java
@@ -425,13 +459,16 @@ src/main/java/io/github/carlos_emr/carlos/documentManager/htmlpdf/
 
 Names follow `docs/architecture/layer-names.md`:
 
-- Beans carry role suffixes (`*Composer`, `*Resolver`, `*Validator`) or the `*Service`
-  fallback. `PrintImageResolver` only reads (it resolves and probes files); the writing
-  half (converted files and the lease) is `PrintImageService`, because the policy's
-  resolvers and composers produce read-only state.
-- `PageZoomCalculator` is a `final` class with static methods and a private constructor,
-  like `BillingOnHistoryBalanceCalculator`; `RenderedPdfValidator` is a `@Component` in a
-  `validator` package, like `BillingOnReviewValidator`.
+- Beans carry a role suffix where one fits (`*Composer`, `*Validator`) or the `*Service`
+  fallback. `PrintImageService` plans and prepares the images in one class, because the
+  plan and its application share all their state; a whole-document plan with file I/O is
+  not the policy's `*Resolver` ("picks one value"). `PrintLayoutService` runs the layout
+  passes and places the pages on Letter: placement is a few lines that only consume the
+  layout's output.
+- `RenderedPdfValidator` is a `@Component`, as the policy and `BillingOnReviewValidator`
+  have it, kept package-private in `service` because nothing else uses it.
+  `PageZoomCalculator` is a `final` class with static methods and a private constructor,
+  like `BillingOnHistoryBalanceCalculator`.
 - The boundary records are named `*Request`/`*Result` in `dto`, like Ontario billing's
   `FeeScheduleImportRequest`/`FeeScheduleImportResult`: the policy reserves `*Command` for
   write and validation inputs and `*Dto` for persistence and query shapes, and a render
@@ -442,24 +479,28 @@ Names follow `docs/architecture/layer-names.md`:
 
 **Typed boundary objects:**
 
-- `HtmlPdfRenderRequest(String html, Path baseDirectory, List<Path> allowedDirectories)`,
-  validated in its canonical constructor:
-  - `html` not null;
+- `HtmlPdfRenderRequest(String html, Path baseDirectory, List<Path> allowedDirectories,
+  HtmlPdfRenderSource source)`, validated in its canonical constructor:
+  - `html` and `source` not null;
   - `allowedDirectories` non-empty, each absolute, normalised and not a filesystem root;
     stored with `List.copyOf`;
   - `baseDirectory` either `null` (no webapp root: the service substitutes a private empty
     directory and reports `WEBAPP_ROOT_UNAVAILABLE`) or absolute and inside an allowed
     directory;
-  - `toString()` prints only the HTML length and the number of allowed directories, so
-    logging a request can never write PHI or paths (a record's default `toString` would
-    print the HTML).
+  - `toString()` prints only the source, the HTML length and the number of allowed
+    directories, so logging a request can never write PHI or paths (a record's default
+    `toString` would print the HTML).
+- `HtmlPdfRenderSource`: which kind of document is being rendered (`FORM` from
+  `ConvertToEdoc`'s form paths, `HRM`, `EMAIL`, `MESSENGER` from `Doc2PDF`); it carries no
+  identifier and exists so an operator can tell which workflow degrades.
 - `HtmlPdfRenderResult(byte[] pdf, Set<HtmlPdfRenderDegradation> degradations)`:
   - the constructor copies the bytes and stores an unmodifiable copy of the set;
   - `pdf()` returns a copy; `size()` and `writeTo(OutputStream)` avoid copying;
   - `equals`/`hashCode` compare the bytes' contents and `toString()` prints the size and
     the degradation names only (a record's defaults would compare array identity and
     print an array reference).
-- `HtmlPdfRenderDegradation`: one constant per reportable step down (see "Resilience").
+- `HtmlPdfRenderDegradation`: one constant per reportable step down (see "Resilience"),
+  each with its log level (see "Observability").
 - `HtmlPdfRenderException`: like Ontario billing's `BillingDataLoadException`, it carries a
   `Phase` (`PREPARE`, `IMAGES`, `LAYOUT_PASS_1`, `LAYOUT_PASS_2`, `PLACE`, `VALIDATE`) and
   a PHI-safe message (mode, phase, original exception class; never the original message);
@@ -477,23 +518,20 @@ CARLOS copyright header on new files; `@since 2026-10-29`; no `@author`.
 
 | Class | Kind | Responsibility |
 |---|---|---|
-| `HtmlPdfRenderService` | public `@Service` | `HtmlPdfRenderResult render(HtmlPdfRenderRequest) throws PDFGenerationException`. Runs attempts in `NORMAL`, `SAFE` and `TEXT_ONLY` mode (the ladder), owning each attempt's resources with `try`-with-resources; logs degradations and failed attempts PHI-safely |
-| `PrintDocumentComposer` | `@Service` (`*Composer`) | `prepare(html, mode, degradations)` → Jsoup `Document` (steps 2a–2i) and `finish(document, mode, degradations)` → XHTML (2k–2m); builds the text-only document in `TEXT_ONLY` mode. Pure: no file, network or budget access |
-| `PrintImageResolver` | `@Service` (`*Resolver`) | Read-only: for each `<img>` and inline `<svg>`, resolves and probes the source and plans one outcome through a priority chain (use, convert, downscale, clean SVG, box) with its planned pixels |
-| `PrintImageService` | `@Service` | Step 2j: gets a lease for the plan (with the wait and halving retries), decodes, converts and writes images into the attempt's image directory, cleans SVG, and rewrites or boxes each element; returns `PreparedPrintImages` |
-| `ImageMemoryBudgetService` | `@Service` | The JVM-wide fair semaphore of estimated image memory: `Optional<ImageMemoryLease> tryAcquire(long bytes, Duration wait)` |
-| `BundledFontFileService` | `@Service` | Extracts, verifies and re-verifies the bundled font files; returns the shared `BundledFontSet` |
-| `PrintLayoutService` | `@Service` | Layout pass 1 and, when needed, pass 2 → `PrintLayoutResult`; falls back to pass 1 at `612 / W` (`MARGINS_REDUCED`) |
-| `LetterPageComposer` | `@Service` (`*Composer`) | Flattens, places each page on Letter with the zoom, copies `/Title` |
+| `HtmlPdfRenderService` | public `@Service` | `HtmlPdfRenderResult render(HtmlPdfRenderRequest) throws PDFGenerationException`. Takes a render slot (bounded wait), runs attempts in `NORMAL`, `SAFE` and `TEXT_ONLY` mode (the ladder), owns each attempt's resources, and logs the outcome (see "Observability") |
+| `PrintDocumentComposer` | `@Service` (`*Composer`) | `prepare(html, mode, degradations)` → Jsoup `Document` (steps a–i) and `finish(document, mode, degradations)` → XHTML (k–m); builds the text-only document in `TEXT_ONLY` mode. Pure: no file or network access |
+| `PrintImageService` | `@Service` | Step j: resolves and probes every `<img>` and inline `<svg>`, plans each one's outcome against the slot's image memory (use, convert, downscale, clean SVG, box), then decodes, converts and writes into the attempt's image directory and rewrites or boxes each element; returns `PreparedPrintImages` |
+| `PrintLayoutService` | `@Service` | Layout pass 1 and, when needed, pass 2; falls back to pass 1 at `612 / W` (`MARGINS_REDUCED`); flattens and places each page on Letter with the zoom; copies `/Title` |
 | `RenderedPdfValidator` | `@Component` (`*Validator`) | Pure checks on the output → `Result(List<String> messages, boolean valid)`; messages name the failed check only |
+| `BundledFontFileService` | `@Service` | Extracts, verifies and re-verifies the bundled font files; returns the shared `BundledFontSet` |
 | `PageZoomCalculator` | static (`*Calculator`) | Zoom and pass-2 page size from the pass-1 width |
 | `XhtmlCleanup`, `PrintFormControls`, `RtlTextShaping`, `PrintStylesheet`, `FallbackFontRuns`, `PrintMessages` | static utilities | The dependency-free markup rules and printed text |
 | `LocalOnlyUserAgent` | engine extension (per render), moved to `engine` and changed | `createRestrictedRenderer(List<Path> allowedDirectories, FontResolver)`; explicit allowed directories; default stylesheet by exact URL; image caps; PHI-safe logging |
 | `BundledFontResolver` | engine extension (per render) | Every family → a bundled face; minimum font size |
 | `BundledFontSet` | engine value (immutable, shared) | The verified font paths, which fallback faces loaded, and `canDraw(face, codePoint)` through OpenPDF `BaseFont.charExists` (font tables are only read after loading, so one instance is shared by all renders) |
 | `ReplacedElementFactoryImpl` | **deleted** | Replaced by Flying Saucer's own factory with all images loading through `LocalOnlyUserAgent` |
-| `ConvertToEdoc` | legacy facade, changed | Per-element path translation; encoded `file:` URIs; marks unusable images; one webapp-root lookup; builds the request; maps the result to its `Path`-or-`null` contract |
-| `Doc2PDF` (`util`) | legacy facade, changed | Builds the request from the webapp root; keeps its existing failure paths |
+| `ConvertToEdoc` | legacy facade, changed | Per-element path translation; encoded `file:` URIs; marks unusable images; one webapp-root lookup; builds the request (`FORM` for `FormTransportContainer`, `EMAIL` for `EmailData`, `HRM` for `EFormData`, whose only production caller is `HRMPDFCreator` once the dead eForm entry points are deleted); maps the result to its `Path`-or-`null` contract |
+| `Doc2PDF` (`util`) | legacy facade, changed | Builds the request (`MESSENGER`) from the webapp root; keeps its existing failure paths |
 | `HRMPDFCreator`, `HRMUtil`, `PrintHRMReport2Action` | changed | A failed HTML conversion surfaces as `PDFGenerationException` |
 | `EmailManager` | changed | Throws `EmailSendingException` when the message PDF cannot be built |
 | `InternalEDocConverter`, `EDocConverterInterface` | deleted | wkhtmltopdf wrapper |
@@ -515,27 +553,30 @@ structure).
    every mode needs it, so retrying is pointless). If `baseDirectory` is `null`, create a
    private empty base directory for this render (deleted when the render ends) and record
    `WEBAPP_ROOT_UNAVAILABLE`.
-2. **Run attempts** in `NORMAL`, then `SAFE`, then `TEXT_ONLY` mode until one succeeds
-   (see "Resilience"). Each attempt starts again from the request's HTML string with a
-   fresh degradation set, so nothing from a failed attempt leaks into the next; only the
-   render-level degradations (the base directory, the permit outcome) carry forward, and
-   after one permit wait sequence has run, later attempts are told not to wait again. One
-   attempt, in outline:
+2. **Take a render slot** (see "Time and memory bounds"): wait at most 10 s. Without a
+   slot, the render continues with every raster image planned as the box
+   (`IMAGES_OMITTED_FOR_MEMORY`, only if the document has images). The slot is released in
+   a `finally` when the render ends.
+3. **Run attempts** in `NORMAL`, then `SAFE`, then `TEXT_ONLY` mode until one succeeds
+   (see "Resilience"); HTML over the size limit starts at `TEXT_ONLY`. Each attempt starts
+   again from the request's HTML string with a fresh degradation set, so nothing from a
+   failed attempt leaks into the next; only the render-level degradations (the base
+   directory, a missing slot) carry forward. One attempt, in outline:
 
    ```java
-   Document dom = printDocumentComposer.prepare(html, mode, degradations);        // 2a–2i
+   Document dom = printDocumentComposer.prepare(html, mode, degradations);      // a–i
    try (PreparedPrintImages images =
-           printImageService.apply(dom, request, mode, mayWait, degradations)) { // 2j
-       String xhtml = printDocumentComposer.finish(dom, mode, degradations);       // 2k–2m
-       PrintLayoutResult layout = printLayoutService.layout(
-               xhtml, baseDirectory, allowedDirectoriesWith(images), fontSet, degradations); // 3
-       byte[] pdf = letterPageComposer.place(layout);                               // 4
-       RenderedPdfValidator.Result check = renderedPdfValidator.validate(pdf);      // 5
+           printImageService.prepare(dom, request, mode, imageMemory, degradations)) { // j
+       String xhtml = printDocumentComposer.finish(dom, mode, degradations);     // k–m
+       byte[] pdf = printLayoutService.render(
+               xhtml, baseDirectory, allowedDirectoriesWith(images), fontSet,
+               degradations);                                                    // lay out, place
+       RenderedPdfValidator.Result check = renderedPdfValidator.validate(pdf);    // check
        ...
-   } // permits released and the image directory deleted here, whatever happened
+   } // the image directory is deleted here, whatever happened
    ```
 
-   The steps, in this order (Jsoup parsing):
+   The document steps, in this order (Jsoup parsing):
    - a. remove `<script>` elements and all comment nodes (comments never render; an HTML
      comment containing `--` is not valid XML);
    - b. from text nodes and from the `value` attributes of form controls, remove soft
@@ -556,10 +597,9 @@ structure).
      breaks row-span heights, *tested*);
    - h. `RtlTextShaping` (see "Right-to-left text");
    - i. add `alt=""` to `<img>` without one;
-   - j. images: `PrintImageResolver` plans and `PrintImageService` applies (see "Images");
-     the only step with side effects before layout (budget permits, temporary files). In
-     `TEXT_ONLY` mode there are no images and `apply` returns an empty holder with no lease
-     and no directory;
+   - j. images: `PrintImageService` (see "Images"), the only step with side effects before
+     layout (temporary files). In `TEXT_ONLY` mode there are no images and `prepare`
+     returns an empty holder with no directory;
    - k. ensure a `<head>` exists and insert `<style id="carlos-pdf-defaults">`
      (`PrintStylesheet`, see "Injected stylesheet") as its **first** child, so author rules
      of equal specificity still win, while its `@page` rule wins anyway because it is
@@ -577,58 +617,85 @@ structure).
    that every side effect sits in one step whose resources one scope owns. This replaces
    `ConvertToEdoc.prepareDocumentForFlyingSaucer` and the Jsoup steps in
    `Doc2PDF.renderWithFlyingSaucer`.
-3. **Lay out** (`PrintLayoutService`, see "Output geometry"). Each pass builds its
-   renderer with `LocalOnlyUserAgent.createRestrictedRenderer(allowedDirectories,
-   new BundledFontResolver(fontSet))`, where `allowedDirectories` is the request's list
-   plus the attempt's image directory and, when the request had no base directory, the
-   private base directory. It uses
-   `ITextRenderer(float, int, ITextOutputDevice, ITextUserAgent, FontResolver)` with
-   CARLOS's existing 26.666666 dots per point and 20 dots per pixel. Print mode on,
-   interactive off, smoothing threshold 0, Flying Saucer's own
-   `ITextReplacedElementFactory`, `setDocumentFromString(xhtml, the base directory's
-   URI)`, `layout()`, `createPDF(buffer, true)`.
-4. **Place on Letter** (`LetterPageComposer`): flatten any AcroForm fields, import each
-   page onto a 612 × 792 pt page scaled by the zoom, copy `/Title`.
-5. **Check** (`RenderedPdfValidator`): starts with `%PDF-`; PDFBox loads it with at least
-   one page; every page 612 × 792 pt; no `/AcroForm`. An invalid result fails the attempt.
+
+   Then, in the same attempt:
+   - **Lay out** (`PrintLayoutService`, see "Output geometry"). Each pass builds its
+     renderer with `LocalOnlyUserAgent.createRestrictedRenderer(allowedDirectories,
+     new BundledFontResolver(fontSet))`, where `allowedDirectories` is the request's list
+     plus the attempt's image directory and, when the request had no base directory, the
+     private base directory. It uses
+     `ITextRenderer(float, int, ITextOutputDevice, ITextUserAgent, FontResolver)` with
+     CARLOS's existing 26.666666 dots per point and 20 dots per pixel. Print mode on,
+     interactive off, smoothing threshold 0, Flying Saucer's own
+     `ITextReplacedElementFactory`, `setDocumentFromString(xhtml, the base directory's
+     URI)`, `layout()`, `createPDF(buffer, true)`.
+   - **Place on Letter** (`PrintLayoutService`): flatten any AcroForm fields, import each
+     page onto a 612 × 792 pt page scaled by the zoom, copy `/Title`.
+   - **Check** (`RenderedPdfValidator`): starts with `%PDF-`; PDFBox loads it with at least
+     one page; every page 612 × 792 pt; no `/AcroForm`. An invalid result fails the
+     attempt.
 
 Any `Exception` or `LinkageError` (for example `NoClassDefFoundError`) inside an attempt is
-caught, logged at WARN with the mode, phase and exception class only, and handled by the
-ladder. Exception messages from the engine can quote document text, so the original
-exception is never chained or logged: the attempt's `HtmlPdfRenderException` records the
-mode, phase and original exception class and copies the original stack trace (useful line
-numbers, no message). The last one becomes the cause of the final
-`PDFGenerationException`, so callers that log the whole exception (for example `Doc2PDF`'s
-`logger.error(..., e)`) log no PHI. Other `Error`s (including `OutOfMemoryError`) are not
-caught. No partial bytes are ever returned.
+caught, logged (see "Observability") with the mode, phase and exception class only, and
+handled by the ladder; a `LinkageError` is still retried, because safe mode can avoid the
+failing path (for example Batik, for inline SVG). Exception messages from the engine can
+quote document text, so the original exception is never chained or logged: the attempt's
+`HtmlPdfRenderException` records the mode, phase and original exception class and copies
+the original stack trace (useful line numbers, no message). The last one becomes the cause
+of the final `PDFGenerationException`, so callers that log the whole exception (for
+example `Doc2PDF`'s `logger.error(..., e)`) log no PHI. Other `Error`s (including
+`OutOfMemoryError`) are not caught. No partial bytes are ever returned.
+
+### Time and memory bounds
+
+Flying Saucer's layout cannot be interrupted, so the module bounds what it starts rather
+than timing it out:
+
+- **Render slots.** A fair `Semaphore` of two slots in `HtmlPdfRenderService`; a render
+  waits at most 10 s for one (`ConvertToEdoc` is already serialised, so the second slot
+  serves Messenger renders). This is the only wait in the module, so a fax with several
+  attachments queued behind `ConvertToEdoc`'s lock stays far inside nginx's 300 s
+  `proxy_read_timeout` (`debian/assets/nginx/proxy-params.conf`).
+- **Image memory per slot.** A quarter of the heap is set aside for images and shared
+  equally by the two slots: 256 MB per slot with the Debian default heap of 2 GB
+  (`CARLOS_JAVA_XMX`). Each document's images are planned to fit its slot's share (see
+  "Images"), so the reductions depend only on the document and the heap size, never on
+  load, and output stays deterministic.
+- **Document size.** HTML larger than a limit (measured in PR 1 and set so that the
+  slowest normal-mode layout of a reference server stays under 30 s; the 2000-row table
+  fixture is the reference) goes straight to `TEXT_ONLY`. `data:` URI payloads do not
+  count towards it.
+- **Performance budget**, checked in PR 1 against the wkhtmltopdf baseline: warm renders
+  of the real form fixtures under 2 s at the 95th percentile; the worst case, with a 10 s
+  slot wait and all three attempts, under 60 s.
 
 ### Resilience: failure is the last resort
 
 Each row is tried in order; an error reaches the caller only from the last column, and
 only where it says so. Every step down is recorded as a `HtmlPdfRenderDegradation` on the
-result, and `HtmlPdfRenderService` logs one WARN per render listing the degradation names
-only (no path, no content). Facades do not log them again.
+result and logged once per render by `HtmlPdfRenderService` (see "Observability").
+Facades do not log them again.
 
 | Failure point | Mitigations, in order | Last resort |
 |---|---|---|
 | Large JPEG photo (up to 32 MB, any resolution) | None needed: embedded as is, at full resolution (it is never decoded) | — |
-| Other image over 25 megapixels, or any image file over 32 MB | Read as a stream with `ImageIO` (never loaded whole), subsampled with `ImageReadParam.setSourceSubsampling` to fit 25 megapixels when larger; keep the printed size (`IMAGE_DOWNSCALED` when reduced, otherwise `IMAGE_CONVERTED`) | The box |
+| Other image over the per-image cap (25 megapixels, or the slot's share: 16.7 megapixels with a 2 GB heap), or any image file over 32 MB | Read as a stream with `ImageIO` (never loaded whole), subsampled with `ImageReadParam.setSourceSubsampling` to fit the cap when larger; keep the printed size (`IMAGE_DOWNSCALED` when reduced, otherwise `IMAGE_CONVERTED`) | The box |
 | Image format OpenPDF cannot draw (for example WebP, WBMP, PNM) but `ImageIO` can read | Convert with `ImageIO` (subsampled if needed) to JPEG or PNG (`IMAGE_CONVERTED`) | The box |
 | Valid header, corrupt data | Decode with `ImageIO` (tolerant reader) and re-encode as PNG (`IMAGE_CONVERTED`) | The box |
-| SVG with outside references | Remove the referencing elements, attributes and `url()` values; render the rest (`SVG_REFERENCES_REMOVED`) | The box (unparseable SVG) |
+| SVG with outside references | Remove the referencing elements, attributes, `url()` values, `@import` rules and processing instructions; render the rest (`SVG_REFERENCES_REMOVED`) | The box (unparseable SVG) |
 | Image missing, remote, unreadable or of an unknown format (for example HEIC) | — (remote sources are never fetched) | The box (`IMAGE_UNAVAILABLE`) |
 | Image header declaring over 250 megapixels (malformed or a decompression bomb) | — (never decoded) | The box (`IMAGE_UNAVAILABLE`) |
-| Document's images exceed the budget capacity | Downscale the largest decoded or converted images further, and convert as-is JPEGs that still do not fit, keeping printed sizes, until the total fits (`IMAGE_DOWNSCALED`) | — |
-| Budget not available (other renders hold it) | Wait 30 s; then, up to three times, halve every image's dimensions (a quarter of the pixels; halved JPEGs are converted) and wait 30 s again (`IMAGE_DOWNSCALED`). This sequence runs at most once per render: a later attempt that cannot get permits at once goes straight to the last resort | Render with every raster image as the box and a document note (`IMAGES_OMITTED_FOR_MEMORY`) |
+| Document's images exceed the slot's image memory | Downscale the largest decoded or converted images further, and convert as-is JPEGs that still do not fit, keeping printed sizes, until the total fits (`IMAGE_DOWNSCALED`) | — |
+| No render slot free within 10 s | — | Render with every raster image as the box and a document note (`IMAGES_OMITTED_FOR_MEMORY`); a document without images renders normally |
 | Layout pass 2 fails | Use pass 1 (complete content on a widened page) placed at `612 / W`: margins come out smaller than 10 mm (`MARGINS_REDUCED`) | Next row |
 | Layout fails (both passes), placing or the output check fails | Retry in **safe mode**: author `<style>`, `<link rel="stylesheet">` and `style` attributes removed, inline `<svg>` as the box, with the document note (`SAFE_MODE`) | Next row |
-| Safe mode fails | Retry in **text-only mode**: the document's text in reading order (block elements as paragraphs, table rows as lines with cells separated by " \| ", form-control replacements kept, no images), with the document note (`TEXT_ONLY`) | `PDFGenerationException("HTML could not be converted to PDF", cause)` |
+| Safe mode fails, or the HTML is over the size limit | **Text-only mode**: the document's text in reading order (block elements as paragraphs, table rows as lines with cells separated by " \| ", form-control replacements kept, no images), with the document note (`TEXT_ONLY`) | `PDFGenerationException("HTML could not be converted to PDF", cause)` |
 | Webapp root cannot be resolved | The facade passes `baseDirectory = null`; the service renders against a private, empty base directory with the remaining allowed directories; webapp stylesheets and images are unavailable and show as the box (`WEBAPP_ROOT_UNAVAILABLE`) | — |
 | A fallback font (WenQuanYi or Symbola) cannot be loaded | Characters that needed it print as U+FFFD (`FALLBACK_FONT_UNAVAILABLE`) | — |
 | The font directory is foreign-owned or a symlink | Use a fresh private directory for this JVM (`BundledFontFileService`) | — |
 | DejaVu Sans cannot be loaded from the classpath (a build defect) | — | `PDFGenerationException`, at once |
 | Right-to-left text | Shape and reorder (see "Right-to-left text"); a long passage adds the document note (`RTL_BEST_EFFORT`) | — |
-| `ConvertToEdoc` cannot save the temporary file | Retry once | `null` (existing contract) |
+| `ConvertToEdoc` cannot save the temporary file | — (a full disk or a permission error does not heal on retry) | `null` (existing contract) |
 | Whitespace-only input | — | `PDFGenerationException` (nothing to print) |
 
 **The document note** is one bordered box (`carlos-pdf-note`, DejaVu Sans 8 pt) at the top
@@ -645,6 +712,23 @@ of the first page listing, in fixed wording, each applicable reason:
 
 Other degradations are visible where they happen (the box) or do not change content
 (downscaled or converted images, smaller margins) and are only reported.
+
+**Observability.** `HtmlPdfRenderService` writes one line per render with the fixed token
+`htmlpdf-render`, the source, the mode that succeeded, the duration and the degradation
+names (no path, no content), at the level of its most serious degradation:
+
+| Level | Degradations | Meaning for an operator |
+|---|---|---|
+| DEBUG | none | Normal |
+| INFO | `IMAGE_DOWNSCALED`, `IMAGE_CONVERTED`, `SVG_REFERENCES_REMOVED`, `MARGINS_REDUCED`, `RTL_BEST_EFFORT` | Content kept; nothing to do |
+| WARN | `IMAGE_UNAVAILABLE`, `IMAGES_OMITTED_FOR_MEMORY`, `FALLBACK_FONT_UNAVAILABLE`, `WEBAPP_ROOT_UNAVAILABLE` | Content visibly missing; check the source or the server's load |
+| ERROR | `SAFE_MODE`, `TEXT_ONLY` | A template or engine defect to fix |
+
+Each failed attempt logs WARN with the mode, phase and exception class; a `LinkageError`
+logs ERROR (a packaging defect). The root logger defaults to WARN (`LOG_VERBOSITY`), so
+routine INFO lines appear only when an operator raises it. There are no metrics: CARLOS has
+no metrics registry (the pom imports the Micrometer BOM only for Spring Security), and the
+log token is greppable.
 
 **Printed text** (`PrintMessages`). The four note sentences and the box text
 "[image unavailable]" are `oscarResources` entries (`htmlpdf.note.safeMode`,
@@ -684,7 +768,7 @@ Per element, `PrintFormControls` sets `min-width: size × 0.55em` for text-like 
 (defaults 20 and 2), unless the element has an inline `width`/`height`. Replacements grow to
 fit their content; values are never clipped.
 
-### Images (`PrintImageResolver`, `PrintImageService`, `ImageMemoryBudgetService`, `LocalOnlyUserAgent`)
+### Images (`PrintImageService`, `LocalOnlyUserAgent`)
 
 **What large images cost** (measured with Flying Saucer 10.7.0, one image per page, FAKE
 content):
@@ -705,11 +789,14 @@ WebP to 4000 × 3000 in a 96 MB heap (*tested*).
 
 So the rules let through everything that is cheap, at full resolution, and reduce only
 what would otherwise exhaust memory, never below what paper shows: 25 megapixels on a full
-Letter page is about 520 dpi, above fax (200 dpi) and office printers (300–600 dpi).
+Letter page is about 520 dpi and 16.7 megapixels about 420 dpi, above fax (200 dpi) and
+office printers (300–600 dpi). For comparison, common tools refuse or cap images at
+similar sizes: sharp refuses above 268 megapixels, Debian's ImageMagick policy caps the
+area at 256 megapixels, Pillow refuses above 179 megapixels, Thumbor at 75 megapixels.
 
-**Before layout** (step 2j), `PrintImageResolver` plans each `<img>` in document order
-(rules 1–5, reading only), and `PrintImageService` carries the plan out (the lease in
-rule 5, the SVG file in rule 3, rules 6 and 7):
+**Before layout** (step j), `PrintImageService` first plans every `<img>` in document
+order, reading only (rules 1–5), then carries the plan out (the SVG file in rule 3,
+rules 6 and 7):
 
 1. **Resolve the source as the renderer will.** A `data:` URI is decoded. Otherwise the
    source must be a valid URI reference: `baseDirectory.toUri().resolve(new URI(src))`,
@@ -721,7 +808,10 @@ rule 5, the SVG file in rule 3, rules 6 and 7):
    otherwise render it as an image page). There is no file-size limit: a large file is
    read as a stream (rule 6), never loaded whole.
 3. **SVG.** If the content is SVG: elements, attributes and CSS `url()` values that point
-   anywhere other than a fragment (`#…`) or a `data:` URI are removed, and the cleaned SVG
+   anywhere other than a fragment (`#…`) or a `data:` URI are removed, as are `@import`
+   rules (string or `url()` form) and processing instructions such as
+   `<?xml-stylesheet?>` (Batik, which Flying Saucer 10.7 uses to draw SVG, honours both,
+   and its default resource security allows same-host and `file:` loads), and the cleaned SVG
    is written to the attempt's image directory and used (`SVG_REFERENCES_REMOVED`).
    An SVG that cannot be parsed is unusable. Inline `<svg>` elements get the same cleaning
    in place. SVG skips rules 4–6.
@@ -742,16 +832,14 @@ rule 5, the SVG file in rule 3, rules 6 and 7):
      subsampling that fits the cap, or at full size when already under it; charged
      16 bytes per output pixel.
 
-   The per-image cap is the smaller of 25 megapixels and what the whole budget capacity
-   holds at 16 bytes per pixel (33.5 megapixels with a 2 GB heap, so 25). If the document's total charge (each distinct
-   file or `data:` payload once) exceeds the capacity, the largest decoded or converted
-   images are planned smaller, and as-is JPEGs that still do not fit are converted, until
-   it fits. `PrintImageService` then asks `ImageMemoryBudgetService` for a lease on the
-   total (see "Resilience" for the wait and halving retries and the last-resort boxes).
-   The lease belongs to the attempt's `PreparedPrintImages` and is released when the
-   attempt's `try`-with-resources block ends, after the PDF is built or when any step
-   fails.
-6. **Decode check and conversion**, with the lease held. An as-is image is checked once
+   The memory available is the render slot's share (see "Time and memory bounds"):
+   256 MB with a 2 GB heap. The per-image cap is the smaller of 25 megapixels and what that
+   share holds at 16 bytes per pixel (16.7 megapixels with a 2 GB heap). If the document's
+   total charge (each distinct file or `data:` payload once) exceeds the share, the largest
+   decoded or converted images are planned smaller, and as-is JPEGs that still do not fit
+   are converted, until it fits. Without a render slot, every raster image is planned as
+   the box. The plan depends only on the document and the heap size.
+6. **Decode check and conversion.** An as-is image is checked once
    with OpenPDF `org.openpdf.text.Image.getInstance(bytes)`, the call Flying Saucer uses
    (for a JPEG this reads only its header); on failure it is converted instead. A
    converted image is read by an `ImageIO` reader from a file `ImageInputStream` (or the
@@ -770,19 +858,8 @@ An unusable `<img>` is replaced by
 `PrintMessages`), sized from the image's `width`/`height` attributes or inline style when
 present (`IMAGE_UNAVAILABLE`), and a WARN is logged with the reason only (no path, no URL).
 
-**The budget** (`ImageMemoryBudgetService`) is one JVM-wide fair `Semaphore` whose permits
-are KiB of estimated heap; its capacity is a quarter of the heap
-(`Runtime.getRuntime().maxMemory() / 4`), capped at `Integer.MAX_VALUE` KiB (a `Semaphore`
-counts in `int`, and `maxMemory()` is `Long.MAX_VALUE` when the heap has no limit). With
-the Debian default heap of 2 GB (`CARLOS_JAVA_XMX`), that is 512 MB: a 48-megapixel JPEG
-uses 28 MB of it and a 25-megapixel PNG 400 MB (two concurrent renders of one such PNG
-exhausted a 512 MB heap without a budget, *tested*). Fairness stops a large request from
-waiting forever behind a stream of small ones. `tryAcquire(long bytes, Duration wait)`
-returns an empty `Optional` on timeout; if the waiting thread is interrupted, it restores
-the interrupt flag and the render goes straight to the last resort (boxes and the note),
-with no further waiting. An `ImageMemoryLease` releases exactly what it acquired, once,
-however often `close()` is called. The attempt's image directory is a private temporary
-directory owned by `PreparedPrintImages` and deleted when it closes.
+The attempt's image directory is a private temporary directory owned by
+`PreparedPrintImages` and deleted when it closes.
 
 **During layout** (`LocalOnlyUserAgent.getImageResource`, defence in depth and for CSS
 background images, which are not in the plan because they can come from stylesheets and
@@ -849,7 +926,7 @@ runs.
 (`hapi-fhir-structures-dstu3` → `org.hl7.fhir.utilities`); because CARLOS code now imports
 it, it is declared explicitly in `pom.xml` at the locked version.
 
-### Output geometry (`PrintLayoutService`, `PageZoomCalculator`, `LetterPageComposer`)
+### Output geometry (`PrintLayoutService`, `PageZoomCalculator`)
 
 Constants: Letter `612 × 792 pt`; margin `M = 28.3465 pt` (10 mm); default zoom `0.8`.
 
@@ -863,7 +940,7 @@ Constants: Letter `612 × 792 pt`; margin `M = 28.3465 pt` (10 mm); default zoom
    `z = 612 / P`. Pass 2 replaces the `@page` rule with
    `@page { size: P pt (792/z) pt !important; margin: (M/z) pt !important }` and renders
    without scale-to-fit. Use pass 2 with that `z`. If `z < 0.4`, log a WARN with `z` only.
-4. **Place** (`LetterPageComposer`). Flatten AcroForm fields with OpenPDF
+4. **Place** (`PrintLayoutService`). Flatten AcroForm fields with OpenPDF
    `PdfStamper.setFormFlattening(true)` (defensive: `PrintFormControls` leaves none).
    Create a 612 × 792 pt document with no margins; for each page, `getImportedPage` and
    `addTemplate(page, z, 0, 0, z, 0, 792 − h × z)` with `h` the source page height. Copy
@@ -892,7 +969,7 @@ html { line-height: 1.164 }                     /* WebKit "normal" for DejaVu Sa
 html, body { margin-top: 0 !important }          /* WebKit drops the top margin at the page start */
 body > *:first-child { margin-top: 0 !important }
 body { word-wrap: break-word }                  /* long URLs/values wrap instead of forcing shrink */
-table.carlos-pdf-paginate { -fs-table-paginate: paginate }  /* repeat thead (step 2g) */
+table.carlos-pdf-paginate { -fs-table-paginate: paginate }  /* repeat thead (step g) */
 .carlos-pdf-control { display: inline-block; vertical-align: baseline; font-size: 10pt;
   text-align: left; text-indent: 0; text-transform: none; letter-spacing: normal;
   word-spacing: normal }
@@ -1023,6 +1100,16 @@ types, so the engine package does not depend on the request record.
   only. Blocked `file:` requests, image outcomes and degradations log no path and no
   content. Flying Saucer 10.7.0's `Html5Support` warnings name only tags and CSS
   properties.
+- **Flying Saucer's own logging.** Flying Saucer can log whole text strings: with
+  `xr.renderer.replace-missing-characters` switched on, `ITextOutputDevice` logs each line
+  that has a character missing from its font, at INFO (read in the 10.7.0 bytecode). It
+  has two logging paths: the legacy `XRLog`, which writes through `java.util.logging` and
+  is off unless `xr.util-logging.loggingEnabled` is set, and SLF4J in newer classes, which
+  CARLOS routes to Log4j 2 (`log4j-slf4j2-impl`). The module never sets either property
+  (`FallbackFontRuns` makes every character drawable or U+FFFD first), and `log4j2.xml`
+  gains `<Logger name="org.xhtmlrenderer" level="warn"/>` so that raising CARLOS's
+  verbosity (for example the devcontainer's `debug-on`) never turns on the library's INFO
+  and DEBUG output.
 
 **Callers' requests:**
 
@@ -1036,7 +1123,7 @@ types, so the engine package does not depend on the request record.
 | Caller | After |
 |---|---|
 | `HtmlPdfRenderService.render` | Returns `HtmlPdfRenderResult` with its degradations whenever any attempt in the ladder succeeds. Throws `PDFGenerationException` only for whitespace-only input, an unloadable DejaVu Sans, or an exhausted ladder; never returns partial bytes. An invalid request cannot reach it: the record's constructor rejects it (`NullPointerException`/`IllegalArgumentException`, a programming error) |
-| `ConvertToEdoc.execute` | `tidyDocument`, rendering and saving inside one `try`; builds the request inside it too; catches `PDFGenerationException`, `IOException` and `RuntimeException`; retries a failed temporary-file save once; returns `null` only on final failure (contract unchanged), logging a fixed message, the `LogSafe`-sanitised file name and the cause class |
+| `ConvertToEdoc.execute` | `tidyDocument`, rendering and saving inside one `try`; builds the request inside it too; catches `PDFGenerationException`, `IOException` and `RuntimeException`; returns `null` only on final failure (contract unchanged), logging a fixed message, the `LogSafe`-sanitised file name and the cause class |
 | `FormsManagerImpl.renderForm`, `FaxDocumentManagerImpl.getFormFaxDocument` | Unchanged: they already turn `null` into `PDFGenerationException` naming the form |
 | `HRMPDFCreator.printPdf` | Declares `throws PDFGenerationException`; the HTML branch throws it when `ConvertToEdoc` returns `null` (the existing `IOException`/`DocumentException` handling for text reports is unchanged) |
 | `HRMUtil.renderHRM` | Rethrows as `PDFGenerationException` naming the HRM report (it already declares the type) |
@@ -1114,6 +1201,8 @@ failure.
   - `utils/readme.txt`: remove the wkhtmltopdf section.
   - `ConvertToEdoc` class JavaDoc (line ~84, "Fallback conversion via Flying Saucer") and
     `HRMPDFCreator` JavaDoc (line ~126): describe the single engine.
+  - `src/main/resources/log4j2.xml`: the `org.xhtmlrenderer` logger at WARN (see
+    "Resource loading and security").
   - Historical records (`docs/pdf-migration-functional-equivalence-findings.md`) stay as
     they are.
 
@@ -1133,28 +1222,28 @@ package-private setter, because no web application context exists in tests.
 | Test | Asserts |
 |---|---|
 | `HtmlPdfRenderRequestUnitTest`, `HtmlPdfRenderResultUnitTest` | Canonical-constructor validation (null HTML, empty, relative, unnormalised or root directories, base outside allowed; a `null` base accepted); defensive copies; unmodifiable degradations; `toString()` contains no HTML and no path; results with equal bytes are equal |
-| `HtmlPdfArchitectureUnitTest` | Reads the module's source files and checks the import rules under "Package dependencies" (no `jakarta.servlet`, Struts, DAO, manager or facade imports; `dto`, `engine` and `validator` independent; `support` free of `service`), and that only `HtmlPdfRenderService` is public in `service` |
+| `HtmlPdfArchitectureUnitTest` | Reads the module's source files and checks the import rules under "Package dependencies" (no `jakarta.servlet`, Struts, DAO, manager or facade imports; `dto` and `engine` independent; `support` free of `service`; no wildcard imports), and that only `HtmlPdfRenderService` is public in `service` |
 | `HtmlPdfSpringWiringUnitTest` | An `AnnotationConfigApplicationContext` scanning only `documentManager.htmlpdf` starts and supplies `HtmlPdfRenderService` (the module needs no outside beans, constructor selection works, no cycles) and renders one fixture |
 | `LocalOnlyUserAgentUnitTest` (moved to `engine` with the class and extended; its three `createRestrictedRenderer()` calls at lines ~472–494 move to the new signature) | Default stylesheet URL opens and `setBaseURL` with it logs nothing; another entry in the same jar, `jar:http:`, `http:`, protocol-relative and out-of-directory `file:` return `null`; behaviour does not depend on the working directory; blocked `file:` logs contain no path; `getImageResource` loads a `data:` image and a large JPEG background as is, downscales an over-4-megapixel PNG background to fit, and returns an empty resource for a corrupt image, an over-128 MB file and an over-250-megapixel header without decoding it |
-| `XhtmlCleanupUnitTest` | Steps 2a, 2b, 2d–2g, 2i and 2m: scripts and comments removed (including the `--` comment case moved from `ConvertToEdocUnitTest:94`); soft hyphens and bidi controls removed; inline `position: fixed` rewritten; `<ol type>` mapped; `rowspan` clamped to its row group; only `thead` tables without row spans get `carlos-pdf-paginate`; `alt` added; output parses with the JDK XML parser |
-| `PrintDocumentComposerUnitTest` | Step order 2a–2i and 2k–2m with no collaborators (pure); `carlos-pdf-defaults` first in `<head>` and an author class rule beats it; the document note is the first child of `<body>`; note and box text identical under `Locale.setDefault(Locale.FRENCH)`; `SAFE` mode drops author styles and boxes inline SVG; `TEXT_ONLY` mode keeps reading order, table cells joined with " \| " and form-control text |
+| `XhtmlCleanupUnitTest` | Steps a, b, d–g, i and m: scripts and comments removed (including the `--` comment case moved from `ConvertToEdocUnitTest:94`); soft hyphens and bidi controls removed; inline `position: fixed` rewritten; `<ol type>` mapped; `rowspan` clamped to its row group; only `thead` tables without row spans get `carlos-pdf-paginate`; `alt` added; output parses with the JDK XML parser |
+| `PrintDocumentComposerUnitTest` | Step order a–i and k–m with no collaborators (pure); `carlos-pdf-defaults` first in `<head>` and an author class rule beats it; the document note is the first child of `<body>`; note and box text identical under `Locale.setDefault(Locale.FRENCH)`; `SAFE` mode drops author styles and boxes inline SVG; `TEXT_ONLY` mode keeps reading order, table cells joined with " \| " and form-control text |
 | `PrintFormControlsUnitTest` | Every row of the form-control table, including copied attributes, sizing, CR/LF removal, multi-select, `optgroup`, no selection, `checked="false"`, password not revealing length, `progress` with and without `value`/`max`, `meter` |
-| `PrintImageResolverUnitTest` | The planned outcome and charge, with no file written: as is (file inside an allowed directory, `data:` PNG, a path with spaces and accents, a 48-megapixel JPEG charged four times its file size); convert (WBMP, WebP, an over-32 MB file); downscale (an over-25-megapixel PNG; a document over capacity plans its largest images smaller and converts a JPEG that does not fit); clean (SVG with outside references); box (remote, outside allowed directories, missing, zero-byte, a PDF, HEIC, a crafted PNG header declaring 20 000 × 20 000 that is never decoded, a raw space in a relative `src`, unparseable SVG, `data-carlos-image-unavailable`); repeated sources counted once |
-| `PrintImageServiceUnitTest` | Applying the plan: encoded-URI rewrite; a JPEG embedded unchanged (same bytes); WBMP and a valid header with corrupt data that `ImageIO` can still read are converted; WebP without transparency becomes JPEG, with transparency PNG; an over-cap PNG is read as a stream with subsampling (no full decode) and its printed size kept; SVG and inline `<svg>` cleaned with their other content kept; undecodable data boxed; box sized from `width`/`height`; WARN without path. Lease: permits released and the image directory deleted when a later step throws; the wait-and-halve sequence then the omitted-images outcome; the sequence runs once per render; an interrupted wait restores the flag and boxes |
-| `ImageMemoryBudgetServiceUnitTest` | Capacity a quarter of `maxMemory()` in KiB, capped at `Integer.MAX_VALUE`; `tryAcquire` returns empty on timeout and never throws; a lease's repeated `close()` releases once; a large waiting request is served before later small ones (fairness) |
-| `HtmlPdfMemoryUnitTest` (a child JVM started by the test with `ProcessBuilder`, the test classpath and `-Xmx1g`, so the Surefire configuration is unchanged) | Six near-cap PNGs in one document and four such documents concurrently; a document with a 48-megapixel JPEG and a 95 MB, 67-megapixel PNG scan: no `OutOfMemoryError`; every document produced (the JPEG at full resolution; PNGs downscaled, or boxes with the note under contention) |
+| `PrintImageServiceUnitTest` (plan) | The planned outcome and charge, with no file written: as is (file inside an allowed directory, `data:` PNG, a path with spaces and accents, a 48-megapixel JPEG charged four times its file size); convert (WBMP, WebP, an over-32 MB file); downscale (an over-25-megapixel PNG; a document over its slot's share plans its largest images smaller and converts a JPEG that does not fit; without a slot every raster image is planned as the box; the same document and heap always give the same plan); clean (SVG with outside references); box (remote, outside allowed directories, missing, zero-byte, a PDF, HEIC, a crafted PNG header declaring 20 000 × 20 000 that is never decoded, a raw space in a relative `src`, unparseable SVG, `data-carlos-image-unavailable`); repeated sources counted once |
+| `PrintImageServiceUnitTest` (apply) | Applying the plan: encoded-URI rewrite; a JPEG embedded unchanged (same bytes); WBMP and a valid header with corrupt data that `ImageIO` can still read are converted; WebP without transparency becomes JPEG, with transparency PNG; an over-cap PNG is read as a stream with subsampling (no full decode) and its printed size kept; SVG and inline `<svg>` cleaned with their other content kept; undecodable data boxed; box sized from `width`/`height`; WARN without path; the image directory is deleted when a later step throws; SVG `@import` rules and `<?xml-stylesheet?>` are removed |
+| `HtmlPdfRenderServiceSlotUnitTest` | Slot share a quarter of `maxMemory()` split between two slots; a third concurrent render waits, and after the (injected, short) wait renders with boxes and the note, or normally if it has no images; a slot is returned when an attempt throws; an interrupted wait restores the interrupt flag and does not wait again; fairness: an earlier waiter is served first |
+| `HtmlPdfMemoryUnitTest`, tagged `slow` (a child JVM started by the test with `ProcessBuilder`, the test classpath, `-Xmx256m` and `-XX:+ExitOnOutOfMemoryError`, so the Surefire configuration is unchanged and a failure ends the child, not the build) | With images scaled to the small heap: six near-cap PNGs in one document and four such documents concurrently; a document with a large JPEG and a large streamed PNG scan: no `OutOfMemoryError`; every document produced (the JPEG at full resolution; PNGs downscaled, or boxes with the note when no slot is free) |
 | `RtlTextShapingUnitTest` | Hebrew reordered to visual order; Arabic joined to presentation forms and reordered; brackets mirrored; paragraph direction from `dir` or the first strong character; `text-align: right` on `dir="rtl"` blocks; a run over 40 characters adds `RTL_BEST_EFFORT`; mixed left-to-right digits and Latin keep their order |
 | `FallbackFontRunsUnitTest` | Only characters missing from DejaVu Sans regular or bold are wrapped (for example CJK and 𝄞); WenQuanYi → Symbola → U+FFFD order; spans set `font-style: normal`; `<style>`/`<title>` untouched; identical output across runs; a missing fallback font gives U+FFFD and `FALLBACK_FONT_UNAVAILABLE` |
 | `BundledFontResolverUnitTest` | Every family (generic, named, unknown, none) → `CARLOS Sans`; `carlos cjk`/`carlos symbol` → their families; bold → DejaVu Sans Bold; italic → the regular face, slanted, with regular widths; minimum size 200 dots |
 | `BundledFontFileServiceUnitTest` | Directory name from the bundle hash; outside `carlos-temp`; owner-only where supported; reused across calls; a deleted, truncated or same-size altered file is rewritten; a file deleted after first use is restored by the next render; a symlinked or foreign-owned directory leads to a fresh private directory and a WARN; concurrent first use extracts once; a missing DejaVu face fails clearly; constructing the service touches no file; a re-verification publishes a new `BundledFontSet` |
 | `PageZoomCalculatorUnitTest` | `W ≤ 765.5` gives 0.8; the pass-2 formula for 850, 1000, 1400 px; printed width `P × z = 612` |
-| `PrintLayoutServiceUnitTest`, `LetterPageComposerUnitTest` | 400, 850, 1000, 1400 px pages: 612 × 792 pt, content left/top at 28 ± 1 pt, nothing clipped; a narrow first page with a wide later page still shrinks; author A4-landscape `@page` ignored; identical output with `Locale.setDefault(Locale.UK)` and with a country-less locale (restored afterwards); 8 px text prints at 6 pt; `@media print` applies, `@media screen` does not; `thead` repeats on every page; a 600-character URL keeps zoom 0.8; zoom below 0.4 logs a WARN; `/Title` copied; flattening removes any AcroForm |
+| `PrintLayoutServiceUnitTest` | 400, 850, 1000, 1400 px pages: 612 × 792 pt, content left/top at 28 ± 1 pt, nothing clipped; a narrow first page with a wide later page still shrinks; author A4-landscape `@page` ignored; identical output with `Locale.setDefault(Locale.UK)` and with a country-less locale (restored afterwards); 8 px text prints at 6 pt; `@media print` applies, `@media screen` does not; `thead` repeats on every page; a 600-character URL keeps zoom 0.8; zoom below 0.4 logs a WARN; `/Title` copied; flattening removes any AcroForm |
 | `RenderedPdfValidatorUnitTest` | Typed result for: not a PDF, zero pages, a non-Letter page, an AcroForm present, a valid PDF |
-| `HtmlPdfRenderServiceUnitTest` | For each fixture: valid PDF; PDFBox text contains the expected strings (accents, ≥, ✓, Chinese, Hebrew); every font embedded and one of the four bundled faces; no `<title>` or CSS text; no `/AcroForm`; expected page count and degradations; a `rowspan=4` cell over three rows and a row span inside a `thead` table do not overlap the following content; whitespace-only input fails with `PDFGenerationException`, markup with no visible content gives one blank page; Hindi, Punjabi, Tamil and Thai print as U+FFFD. Ladder: a forced pass-2 failure gives `MARGINS_REDUCED` with complete text; a forced layout failure gives `SAFE_MODE` with the note; a forced safe-mode failure gives `TEXT_ONLY` with the note; a forced text-only failure gives `PDFGenerationException`; a `LinkageError` from the renderer is handled like any other attempt failure; the final exception's cause chain contains no engine message (a forced failure whose message holds a FAKE- name does not leak it); a `null` base directory gives `WEBAPP_ROOT_UNAVAILABLE` and still produces the document; degradations are logged once per render, by name only, with no path. Failures are forced by injecting failing collaborators (Mockito spies) through the constructor |
+| `HtmlPdfRenderServiceUnitTest` | For each fixture: valid PDF; PDFBox text contains the expected strings (accents, ≥, ✓, Chinese, Hebrew); every font embedded and one of the four bundled faces; no `<title>` or CSS text; no `/AcroForm`; expected page count and degradations; a `rowspan=4` cell over three rows and a row span inside a `thead` table do not overlap the following content; whitespace-only input fails with `PDFGenerationException`, markup with no visible content gives one blank page; Hindi, Punjabi, Tamil and Thai print as U+FFFD. Ladder: a forced pass-2 failure gives `MARGINS_REDUCED` with complete text; a forced layout failure gives `SAFE_MODE` with the note; a forced safe-mode failure gives `TEXT_ONLY` with the note; a forced text-only failure gives `PDFGenerationException`; a `LinkageError` from the renderer is retried and logged at ERROR; the final exception's cause chain contains no engine message (a forced failure whose message holds a FAKE- name does not leak it); a `null` base directory gives `WEBAPP_ROOT_UNAVAILABLE` and still produces the document; one `htmlpdf-render` line per render at the level of its most serious degradation, with source, mode, duration and names only; a character no bundled font has logs no document text on either of Flying Saucer's logging paths, and neither `xr.renderer.replace-missing-characters` nor `xr.util-logging.loggingEnabled` is set; HTML over the size limit goes straight to `TEXT_ONLY`. **every real document fixture (Annual female and male, the forms page, the demo HRM report, the email body, the Messenger letter) renders with no WARN- or ERROR-level degradation**, so a slide into safe mode or a lost image fails CI. Failures are forced by injecting failing collaborators (Mockito spies) through the constructor |
 | `HtmlPdfFormsUnitTest` | Forms fixture: every value present including CJK and Hebrew; ☒/☐ and ◉/○ correct; hidden values and the Annual hidden field names never appear; only the selected option prints; textarea keeps two lines; a date value complete; values left-aligned inside right-aligned cells; text identical after `ConcatPDF` alone and after `ConcatPDF` + flatten |
 | `HtmlPdfSsrfUnitTest` | Hostile HTML (`<link>`, `@import` both forms, `url()` background, `@font-face`, `<base href>`, `<img>` over `http:`, `jar:http:`, protocol-relative, `file:///etc/passwd`, `srcset`, `<iframe>`, `<object>`, `<embed>`, SVG `xlink:href`) makes no request to a local `ServerSocket` and reads no file outside the allowed directories, in every ladder mode |
 | `HtmlPdfConcurrencyUnitTest` | 24 mixed renders on 8 threads give identical output and no errors |
-| `ConvertToEdocUnitTest` (updated) | A linked stylesheet, a CSS `url()` background and `pdfMediaStylesheet` under the webapp root load when the working directory is outside it; translated paths are encoded `file:` URIs; three `<img>` with the same `src` all translate; an unresolvable `<img>` and a `.bmp` `<img>` become the box instead of disappearing; with `realPath` unset, translation and rendering use the same webapp root; an unresolvable root passes a `null` base directory; a failed temporary-file save is retried once; blank HTML and final failures return `null` and log no HTML |
+| `ConvertToEdocUnitTest` (updated) | A linked stylesheet, a CSS `url()` background and `pdfMediaStylesheet` under the webapp root load when the working directory is outside it; translated paths are encoded `file:` URIs; three `<img>` with the same `src` all translate; an unresolvable `<img>` and a `.bmp` `<img>` become the box instead of disappearing; with `realPath` unset, translation and rendering use the same webapp root; an unresolvable root passes a `null` base directory; a failed temporary-file save returns `null`; blank HTML and final failures return `null` and log no HTML |
 | `ConvertToEdocIntegrationTest` (rewritten) | Its `MockedConstruction<InternalEDocConverter>` and `ConvertToEdoc.from(eform)` cases (lines ~87–105) move to `saveAsTempPDF(EFormData)`; the `from(eForm, pdfPath)` case stays |
 | `Doc2PDFIntegrationTest` (updated) | Uses `HtmlPdfRenderService` through `Doc2PDF`; final failure returns `null` |
 | `FormsManagerUnitTest` | The `@Nested` class `SaveFormDataAsEDocSecurity` (lines ~305–323) is deleted with the method |
@@ -1202,7 +1291,9 @@ PNGs to PR 1. Acceptance per fixture:
   of wkhtmltopdf;
 - every value and checked box visible, no hidden value visible, every image present or
   shown as the box;
-- no text or box drawn over another (checked on the side-by-side PNGs).
+- no text or box drawn over another (checked on the side-by-side PNGs);
+- render time against wkhtmltopdf's, within the performance budget under "Time and memory
+  bounds"; the same measurements set the text-only size limit, which the PR records.
 
 Differences are listed in the PR. The script is not kept in CI (wkhtmltopdf is removed in
 PR 2).
@@ -1259,6 +1350,10 @@ List these in PR 1:
 
 ## Known limitations
 
+- **Copying or searching shaped Arabic** in the PDF yields presentation forms in visual
+  order, not the original text (Unicode advises against those forms in stored text); the
+  printed page is correct. Some Persian and Urdu letter forms are missing from DejaVu Sans
+  and print as U+FFFD.
 - **Long right-to-left passages** that wrap print their lines in reverse order (marked by
   the note); passages split across inline elements are reordered piece by piece.
 - **Scripts without bundled glyphs or shaping** (Devanagari, Gurmukhi, Tamil, Thai and
@@ -1282,28 +1377,48 @@ List these in PR 1:
 Two PRs, both from and to `release/2026.08`, both merged before 2026.08 ships:
 
 1. **New engine.** Flying Saucer 10.7.0; `icu4j` declared; `imageio-webp` added; the
-   `htmlpdf` package with its `package-info` files and the `htmlpdf.*` message keys; `LocalOnlyUserAgent` moved into it (`git mv`,
-   with its test) and changed; the `ConvertToEdoc` path/image and error-path fixes;
-   deletion of
-   `ReplacedElementFactoryImpl`; `Doc2PDF` and the `ConvertToEdoc` fallback use
+   `org.xhtmlrenderer` logger pinned at WARN; the `htmlpdf` package with its
+   `package-info` files and the `htmlpdf.*` message keys; `LocalOnlyUserAgent` moved into
+   it (`git mv`, with its test) and changed; the `ConvertToEdoc` path/image and error-path
+   fixes; deletion of `ReplacedElementFactoryImpl`; `Doc2PDF` and the `ConvertToEdoc` fallback use
    `HtmlPdfRenderService` (wkhtmltopdf still first, so today's fallback output also becomes
    correct). Tests (including the memory test, the ladder tests and Arabic shaping),
    fixtures, the font-check script entry, `docs/html-pdf-rendering.md` and the comparison
    images.
 2. **Switch and removal.** `ConvertToEdoc` uses `HtmlPdfRenderService` only; deletions and
    every remaining item in "Removals and Packaging" (the Flying Saucer upgrade, the
-   `icu4j` and `imageio-webp` additions and the message keys are already in PR 1).
+   `icu4j` and `imageio-webp` additions, the logger and the message keys are already in
+   PR 1). Nothing else goes into PR 2, so it can be reverted as a unit.
+
+**Rollback.** If printed, faxed or emailed documents regress after release, reverting PR 2
+restores wkhtmltopdf as the primary engine, with PR 1's renderer as its fallback. The
+revert brings back everything PR 2 removed (the vendored jar in `local_repo/`, the JNA pin,
+`libxrender1` in `debian/control`, the settings); the patch release then regenerates
+`dependencies-lock.json` with `make lock`. Reports are triaged as GitHub issues with a
+FAKE-data reproduction (the form, values entered with FAKE- names, and the
+`htmlpdf-render` log line), never a patient's PDF.
 
 Rules from `docs/release-process.md` and `CLAUDE.md`:
 
 - Do not change the `-SNAPSHOT` version or the SCM tag.
 - After each PR merges, a maintainer forward-merges `release/2026.08` into `develop`.
-- During beta the release branch takes high-priority correctness and security fixes
-  (`release-process.md`, lines ~38 and ~113). Each PR body states the case: abandoned
-  wkhtmltopdf with a published SSRF vulnerability and local file access on; today's Flying
-  Saucer fallback printing CSS text, losing checkbox answers and printing hidden
-  identifiers; images silently dropped today; the font policy gap; the image
-  heap-exhaustion risk. The 2026.08 release owner decides whether to accept it.
+- **Open: release fit.** "Normal features and fixes target `develop`. A high-priority bug
+  or security fix for a supported release starts from and targets its `release/YYYY.MM`
+  branch" (`release-process.md`, lines 38–39; the fix cycle, lines 113–114, covers
+  "a high-priority correctness or security fix found in an alpha, beta…"). Since beta1 the
+  branch has taken only fixes and dependency patches. This change is a new module, two new
+  dependencies, an engine upgrade and a new layout for every printed, faxed and emailed
+  form, without alpha exposure: by that policy it is a feature. The alternative is a small
+  hardening PR on `release/2026.08` (strip the wkhtmltopdf SSRF vectors from the input:
+  `iframe`, `object`, `embed`, `frame`, `srcset`, string-form `@import`; fix the
+  null-pointer crashes and the silent image loss; fix the Flying Saucer fallback's data
+  leaks: the blocked default stylesheet, printed hidden values, passwords and buttons; stop
+  logging exception messages) and this design on `develop` for the next train. The
+  project owner decides; if this design stays on `release/2026.08`, each PR body states
+  the case (abandoned wkhtmltopdf with a published SSRF vulnerability and local file
+  access on; today's fallback printing CSS text, losing checkbox answers and printing
+  hidden identifiers; images silently dropped; the font policy gap; heap exhaustion) and
+  the release owner accepts it.
 - Commits are not signed off by Claude; a maintainer confirms DCO on each PR with the
   repository's manual phrase.
 - Each PR body includes the "Generated with Claude Code" line and references this spec.
@@ -1315,10 +1430,11 @@ Rules from `docs/release-process.md` and `CLAUDE.md`:
 | A form or HRM report lays out differently from wkhtmltopdf despite the emulation | Side-by-side comparison with acceptance criteria (including an overlap check) in PR 1; small CSS fixes to form print markup are in scope; other differences are listed for the release owner |
 | Real hospital HRM HTML is more varied than the fixtures (CSS beyond Flying Saucer's CSS 2.1, malformed markup) | The ladder prints it in safe or text-only mode with a note instead of failing; unusable images show the box; new variants become fixtures |
 | The ladder hides a systematic problem (many documents in safe mode) | Every degradation is logged by name at WARN; the PR adds a note to the module guide on reading them |
-| The image memory budget is too small (images downscaled needlessly) or too large (heap still exhausted) | Charges come from measurements by format (JPEGs are not decoded); load test in PR 1 at `-Xmx1g` and at the 2 GB production default; the budget follows the heap size, not hard-coded |
+| The image memory share is too small (images downscaled needlessly) or too large (heap still exhausted) | Charges come from measurements by format (JPEGs are not decoded); load test in PR 1 at a small heap and at the 2 GB production default; the share follows the heap size, not hard-coded |
 | JPEG photos embedded unchanged make large PDFs (a 48-megapixel photo adds its 7 MB) | Photos are rare in these documents (forms, HRM reports, email bodies); converted images are written at their reduced size; downsampling oversized JPEGs to printed resolution is a follow-up if fax or email size limits are hit |
 | Right-to-left passages print with reversed line order | Visible note on such documents; short text (the common case) is correct; full support is a follow-up |
-| Waiting for image permits (up to 2 minutes) happens inside `ConvertToEdoc`'s class-level lock, delaying other `ConvertToEdoc` renders | Contention needs concurrent image-heavy renders (`ConvertToEdoc` itself is serialised, so only `Doc2PDF` renders compete); the wait sequence runs once per render; the load test in PR 1 measures it. Removing the class lock is a non-goal |
+| Regressions in printed forms reported after release, with no switch back | See "Rollback" under "Delivery" |
+| Waiting for a render slot happens inside `ConvertToEdoc`'s class-level lock, delaying other `ConvertToEdoc` renders | The wait is at most 10 s, once per render, and only when two other renders hold the slots; removing the class lock is a non-goal |
 | Two passes plus page import (and occasional retries) make some renders slower | Measured 81–300 ms warm for one attempt; retries happen only after a failure; `ConvertToEdoc` is already serialised; fax batches are checked in the manual tests |
 | Default-stylesheet fix and geometry change today's `Doc2PDF` (Messenger) output | Listed as a deliberate difference; covered by tests and the manual Messenger check |
 | Font directory tampering, deletion or squatting in a shared temp directory | Owner-only directory with ownership and symlink checks and a private fallback directory; verified on first use, existence and size checked before every render, rewritten on mismatch |
@@ -1340,5 +1456,11 @@ Rules from `docs/release-process.md` and `CLAUDE.md`:
 - The OSCAR 19 import map keeps `WKHTMLTOPDF_*` as `deploy-owned` until carlos-ctl's test
   changes in its own repository.
 - HRM charset detection for non-UTF-8 reports.
+- Indic and Thai text: neither Java engine shapes these scripts. A route that sends
+  documents containing them to the existing Chromium renderer (scripts off, network
+  blocked), with a Noto font package for those scripts added to the Debian dependencies,
+  would print Punjabi correctly instead of U+FFFD.
+- A prototype of openhtmltopdf (see "Decisions") if right-to-left layout quality becomes
+  important.
 - Print the document notes in the reader's language: callers pass a locale on
   `HtmlPdfRenderRequest` and `PrintMessages` uses it (the translated keys already exist).
