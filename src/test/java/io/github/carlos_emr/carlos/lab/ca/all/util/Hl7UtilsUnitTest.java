@@ -1,4 +1,24 @@
-/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.lab.ca.all.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,7 +62,7 @@ class Hl7UtilsUnitTest {
 
     @Test
     @DisplayName("should treat a checked HL7Exception and one wrapped by HAPI 2.x alike")
-    void shouldAcceptBothShapes() {
+    void shouldAccept_bothExceptionShapes() {
         HL7Exception checked = new HL7Exception("missing");
         assertThat(Hl7Utils.isHl7AccessFailure(checked)).isTrue();
         assertThat(Hl7Utils.isHl7AccessFailure(new RuntimeException(checked))).isTrue();
@@ -50,7 +70,7 @@ class Hl7UtilsUnitTest {
 
     @Test
     @DisplayName("should not treat programming errors as HAPI access failures")
-    void shouldRejectOtherFailures() {
+    void shouldReject_otherFailures() {
         assertThat(Hl7Utils.isHl7AccessFailure(new NullPointerException())).isFalse();
         assertThat(Hl7Utils.isHl7AccessFailure(new IndexOutOfBoundsException("-1"))).isFalse();
         assertThat(Hl7Utils.isHl7AccessFailure(new RuntimeException(new IllegalStateException()))).isFalse();
@@ -59,7 +79,7 @@ class Hl7UtilsUnitTest {
 
     @Test
     @DisplayName("should swallow an HAPI access failure and rethrow anything else unchanged")
-    void shouldRethrowUnlessHl7AccessFailure() {
+    void shouldRethrow_unlessHl7AccessFailure() {
         assertThatCode(() -> Hl7Utils.rethrowUnlessHl7AccessFailure(new RuntimeException(new HL7Exception("x"))))
                 .doesNotThrowAnyException();
 
@@ -69,7 +89,7 @@ class Hl7UtilsUnitTest {
 
     @Test
     @DisplayName("should give back the wrapped HL7Exception, or rethrow when there is none")
-    void shouldUnwrapHl7AccessFailure() {
+    void shouldUnwrap_hl7AccessFailure() {
         HL7Exception cause = new HL7Exception("missing");
         assertThat(Hl7Utils.unwrapHl7AccessFailure(new RuntimeException(cause))).isSameAs(cause);
 

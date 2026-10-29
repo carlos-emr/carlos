@@ -25,7 +25,7 @@ package io.github.carlos_emr.carlos.utility;
 import java.io.IOException;
 import java.io.StringReader;
 
-import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.xml.sax.InputSource;
@@ -44,7 +44,7 @@ import ca.uhn.hl7v2.parser.Parser;
  * external DTD loading, which closes the file and network reads, but it still accepts a
  * {@code DOCTYPE} and expands the internal entities it declares, so a small "billion laughs"
  * message costs the server time and memory. This validator closes that remaining gap by parsing
- * the text first with the project's hardened parser ({@link XmlUtils#createSecureDocumentBuilderFactory()}),
+ * the text first with the project's hardened SAX parser ({@link XmlUtils#createSecureSAXParserFactory()}),
  * which rejects a {@code DOCTYPE} outright and so never reaches entity expansion.
  *
  * <p>Pipe-delimited ({@code MSH|...}) messages are not touched. Whether a message is XML is
@@ -82,11 +82,11 @@ public final class Hl7XmlMessageValidator {
             return;
         }
         try {
-            DocumentBuilder builder = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder();
-            // DefaultHandler throws on a fatal error and stays quiet otherwise, so a rejected
-            // message is not also printed to stderr by the parser.
-            builder.setErrorHandler(new DefaultHandler());
-            builder.parse(new InputSource(new StringReader(message)));
+            // A streaming parse: only well-formedness and the DOCTYPE matter here, so no DOM is
+            // built for a message HAPI is about to parse again. DefaultHandler throws on a fatal
+            // error and stays quiet otherwise, so a rejected message is not also printed to stderr.
+            SAXParser saxParser = XmlUtils.createSecureSAXParserFactory().newSAXParser();
+            saxParser.parse(new InputSource(new StringReader(message)), new DefaultHandler());
         } catch (SAXException | IOException | ParserConfigurationException e) {
             throw new HL7Exception(
                     "HL7 XML message rejected: it must be well-formed and must not declare a document type", e);

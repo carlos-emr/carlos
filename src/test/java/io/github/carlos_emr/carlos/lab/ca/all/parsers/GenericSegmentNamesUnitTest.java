@@ -1,4 +1,24 @@
-/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -82,7 +102,7 @@ class GenericSegmentNamesUnitTest {
 
     @Test
     @DisplayName("should keep every repetition in message order under its name")
-    void shouldKeepRepetitionsInOrder() throws Exception {
+    void shouldKeepRepetitions_inMessageOrder() throws Exception {
         GenericSegmentNames names = namesOf("OBR|1/OBX|1/OBX|2/OBR|2/OBR|3/OBX|3", "2.3");
         assertThat(names.getNames()).containsExactly("MSH", "OBR", "OBX", "OBR2", "OBR3", "OBX2");
         assertThat(setIds(names.getAll("OBX"))).containsExactly("1", "2");
