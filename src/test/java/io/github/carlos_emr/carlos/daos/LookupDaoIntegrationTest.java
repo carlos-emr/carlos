@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.model.LookupCodeValue;
 import io.github.carlos_emr.carlos.model.LookupTableDefValue;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;

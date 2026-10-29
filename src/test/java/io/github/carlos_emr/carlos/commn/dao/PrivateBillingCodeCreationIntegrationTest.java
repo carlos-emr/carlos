@@ -179,7 +179,8 @@ class PrivateBillingCodeCreationIntegrationTest {
         try (EntityManager em = factory.createEntityManager()) {
             BillingService code = new BillingService();
             code.setServiceCode("_FAKE");
-            assertThatThrownBy(() -> dao(em).persistPrivateCodeIfAbsent(code))
+            BillingServiceDao billingServices = dao(em);
+            assertThatThrownBy(() -> billingServices.persistPrivateCodeIfAbsent(code))
                     .isInstanceOf(IllegalTransactionStateException.class);
         }
         assertThat(rows()).isEmpty();

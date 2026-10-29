@@ -394,7 +394,7 @@ public class AddPrevention2Action extends ActionSupport {
      */
     static final String RH_INJECTION_TYPE = "RH";
 
-    private List<String> validate(String preventionType, String demographic_no, String id, boolean deleting) {
+    private List<String> validate(String preventionType, String demographicNo, String id, boolean deleting) {
         List<String> result = new ArrayList<String>();
 
         if (deleting) {
@@ -408,7 +408,7 @@ public class AddPrevention2Action extends ActionSupport {
         }
 
         try {
-            int demographicId = Integer.parseInt(demographic_no);
+            int demographicId = Integer.parseInt(demographicNo);
             if (demographicId <= 0 || !demographicDao.clientExists(demographicId)) {
                 result.add("Patient not found");
             } else if (id != null) {

@@ -136,7 +136,7 @@ public class WebServiceLoggingAdvice {
             }
             try {
                 info = LoggedInInfo.getLoggedInInfoFromSession(session);
-            } catch (IllegalStateException e) {
+            } catch (IllegalStateException _) {
                 // The session was invalidated or expired after the container handed it over; there
                 // is no caller left to attribute the call to.
                 return NO_AUTHENTICATED_CALLER;
