@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
@@ -111,6 +112,18 @@ public final class UserActivityFilter implements Filter {
     private static final Set<String> NON_USER_ACTIVITY_PATHS =
             Set.of("/status/SessionHeartbeat", "/csrfguard", "/JavaScriptServlet");
 
+    /**
+     * Striped locks for the per-session check-and-set steps. They are keyed by session id, so every
+     * request of one session takes the same lock whatever session object the container hands it;
+     * a lock is held only for an attribute read and write, so sessions sharing a stripe barely
+     * contend.
+     */
+    private static final Object[] SESSION_LOCKS = new Object[64];
+
+    static {
+        Arrays.setAll(SESSION_LOCKS, i -> new Object());
+    }
+
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         // No configuration.
@@ -165,7 +178,7 @@ public final class UserActivityFilter implements Filter {
      * time, so an older request finishing last cannot move the timer backwards.
      */
     private static void recordActivity(HttpSession session, long now) {
-        synchronized (session) {
+        synchronized (SESSION_LOCKS[lockIndex(session)]) {
             Object current = session.getAttribute(LAST_USER_ACTIVITY);
             if (!(current instanceof Long last) || last < now) {
                 // nosemgrep: tainted-session-from-http-request -- now is System.currentTimeMillis(), a server-generated timestamp
@@ -190,6 +203,10 @@ public final class UserActivityFilter implements Filter {
         return providerNo == null || providerNo.isBlank() ? String.valueOf(user) : providerNo;
     }
 
+    private static int lockIndex(HttpSession session) {
+        return Math.floorMod(session.getId().hashCode(), SESSION_LOCKS.length);
+    }
+
     /**
      * A zero or negative interval means the session never times out (Servlet specification),
      * so it is never inactive.
@@ -200,16 +217,17 @@ public final class UserActivityFilter implements Filter {
 
     private static void auditInactivityOnce(HttpSession session, String providerNo, String remoteAddr) {
         // Check-and-mark under the session's lock so two requests arriving together (a click and a
-        // heartbeat) write one row. Tomcat hands every request of a session the same facade object
-        // (StandardSession caches it), so the facade is a per-session lock; nothing else is held.
-        synchronized (session) {
+        // heartbeat) write one row; nothing else is held while it is taken.
+        synchronized (SESSION_LOCKS[lockIndex(session)]) {
             if (session.getAttribute(INACTIVITY_LOGOUT_AUDITED) != null) {
                 return;
             }
             session.setAttribute(INACTIVITY_LOGOUT_AUDITED, Boolean.TRUE);
         }
         LogAction.addLog(providerNo, LogConst.LOGOUT, LogConst.CON_LOGIN, INACTIVITY_AUDIT_TEXT, remoteAddr);
-        logger.warn("User providerNo={} logged out due to inactivity", LogSafe.sanitize(providerNo));
+        if (logger.isWarnEnabled()) {
+            logger.warn("User providerNo={} logged out due to inactivity", LogSafe.sanitize(providerNo));
+        }
     }
 
     private static boolean isUserRequest(HttpServletRequest httpRequest, String path) {

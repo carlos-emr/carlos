@@ -75,10 +75,11 @@ class WebXmlRequestBoundaryOrderUnitTest {
         assertThat(mappings.subList(0, db))
                 .as("only the sanitizer, COOP, monitoring and WAF filters may run outside the cleanup")
                 .allSatisfy(m -> assertThat(OUTSIDE_CLEANUP_BOUNDARY).contains(m.filterName()));
-        assertThat(db).isLessThan(WebXmlFilterMappings.indexOf(mappings, "LoginFilter"));
-        assertThat(db).isLessThan(WebXmlFilterMappings.indexOf(mappings, "RootEntryRedirectFilter"));
-        assertThat(db).isLessThan(WebXmlFilterMappings.indexOf(mappings, "struts2-prepare"));
-        assertThat(db).isLessThan(WebXmlFilterMappings.indexOf(mappings, "struts2-execute"));
+        assertThat(db)
+                .isLessThan(WebXmlFilterMappings.indexOf(mappings, "LoginFilter"))
+                .isLessThan(WebXmlFilterMappings.indexOf(mappings, "RootEntryRedirectFilter"))
+                .isLessThan(WebXmlFilterMappings.indexOf(mappings, "struts2-prepare"))
+                .isLessThan(WebXmlFilterMappings.indexOf(mappings, "struts2-execute"));
     }
 
     @Test
@@ -90,9 +91,10 @@ class WebXmlRequestBoundaryOrderUnitTest {
         assertThat(activity).hasSize(1);
         assertThat(activity.get(0).urlPatterns()).containsExactly("/*");
         assertThat(activity.get(0).effectiveDispatchers()).containsExactly("REQUEST");
-        assertThat(index).isGreaterThan(WebXmlFilterMappings.indexOf(mappings, "LoginFilter"));
-        assertThat(index).isLessThan(WebXmlFilterMappings.indexOf(mappings, "struts2-prepare"));
-        assertThat(index).isLessThan(WebXmlFilterMappings.indexOf(mappings, "struts2-execute"));
+        assertThat(index)
+                .isGreaterThan(WebXmlFilterMappings.indexOf(mappings, "LoginFilter"))
+                .isLessThan(WebXmlFilterMappings.indexOf(mappings, "struts2-prepare"))
+                .isLessThan(WebXmlFilterMappings.indexOf(mappings, "struts2-execute"));
     }
 
     @Test

@@ -95,6 +95,7 @@ import jakarta.servlet.http.HttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -148,7 +149,7 @@ public class RequestBoundaryFilterOrderIntegrationTest {
         Probe.dataSource = dataSource;
         Probe.transactionManager = new DataSourceTransactionManager(dataSource);
 
-        oscarLogDao = Mockito.mock(OscarLogDao.class);
+        oscarLogDao = mock(OscarLogDao.class);
         DefaultListableBeanFactory beans = new DefaultListableBeanFactory();
         beans.registerSingleton("dataSource", dataSource);
         beans.registerSingleton("oscarLogDao", oscarLogDao);
@@ -348,7 +349,8 @@ public class RequestBoundaryFilterOrderIntegrationTest {
             assertThat(started).as("the first authenticated request, a poll here, starts the timer")
                     .isGreaterThanOrEqualTo(beforeFirst);
 
-            Thread.sleep(20);
+            // Let the clock move past the first timestamp, so the action's update is visible.
+            await(() -> System.currentTimeMillis() > started, "the clock to advance");
             long before = System.currentTimeMillis();
             assertThat(get(client, PRODUCTION + "/boundary/activity").statusCode()).isEqualTo(200);
             long recorded = Long.parseLong(readLastActivity(client));
@@ -549,7 +551,7 @@ public class RequestBoundaryFilterOrderIntegrationTest {
             for (Connection c : leaked) {
                 try {
                     c.close();
-                } catch (SQLException e) {
+                } catch (SQLException _) {
                     // The control test only needs the pool back.
                 }
             }
@@ -770,7 +772,7 @@ public class RequestBoundaryFilterOrderIntegrationTest {
     private static boolean isClosed(Connection connection) {
         try {
             return connection.isClosed();
-        } catch (SQLException e) {
+        } catch (SQLException _) {
             return true;
         }
     }

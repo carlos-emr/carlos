@@ -551,14 +551,14 @@ public class LoginFilter implements Filter {
                 EXEMPT_URLS_FOR_REQUEST_TIMEOUT);
     }
 
-    private static boolean matchesExemption(String requestURI, String contextPath, String[] EXEMPT_URLS) {
+    private static boolean matchesExemption(String requestURI, String contextPath, String[] exemptUrls) {
         requestURI = normalizeUri(requestURI);
 
         // Treat context root (e.g. /carlos/) as equivalent to /index (welcome file)
         if (isContextRootRequest(requestURI, contextPath)) {
             requestURI = contextPath + "/index";
         }
-        for (String exemptUrl : EXEMPT_URLS) {
+        for (String exemptUrl : exemptUrls) {
             String fullExempt = contextPath + exemptUrl;
             if (requestURI.equals(fullExempt)
                     || requestURI.startsWith(fullExempt + "/")
