@@ -239,6 +239,32 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         });
     }
 
+    /** Whitespace-only text is no value: it clears a held key to empty rather than storing the spaces. */
+    @Test
+    void shouldClearHeldKeyToEmpty_whenSubmittedValueIsWhitespaceOnly() {
+        Fixture fixture = tx.execute(status -> fixture(true));
+        tx.executeWithoutResult(status -> {
+            CaseManagementNoteExt historical = extension(CaseManagementNoteExt.TREATMENT, "Held treatment", null);
+            historical.setNoteId(fixture.originalId());
+            extensions.save(historical);
+        });
+
+        CaseManagementNote saved = service(extensions).saveCppNoteRevision(draft(fixture), "Doctor", "",
+                Map.of(), List.of(extension(CaseManagementNoteExt.TREATMENT, " \t ", null))).note();
+
+        tx.executeWithoutResult(status -> {
+            assertThat(extensions.getExtByNote(saved.getId()))
+                    .filteredOn(e -> CaseManagementNoteExt.TREATMENT.equals(e.getKeyVal()))
+                    .singleElement().satisfies(e -> {
+                        assertThat(e.getValue()).isEmpty();
+                        assertThat(e.getDateValue()).isNull();
+                    });
+            assertThat(extensions.getExtByNote(fixture.originalId()))
+                    .filteredOn(e -> CaseManagementNoteExt.TREATMENT.equals(e.getKeyVal()))
+                    .singleElement().extracting(CaseManagementNoteExt::getValue).isEqualTo("Held treatment");
+        });
+    }
+
     /**
      * The chart editor posts every extension input, including the ones the box hides and the ones
      * left empty. A blank value for a key the revision does not hold must not become an empty row

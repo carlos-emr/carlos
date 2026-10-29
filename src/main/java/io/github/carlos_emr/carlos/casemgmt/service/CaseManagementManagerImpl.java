@@ -1966,7 +1966,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     private void copySubmittedExtensionValue(CaseManagementNoteExt source, CaseManagementNoteExt target) {
-        target.setValue(source.getValue());
+        // A blank clears a held key to the empty string: whitespace-only text is no value here
+        // either, or a field cleared with spaces would keep them and the editor would prefill them.
+        target.setValue(carriesNoValue(source) ? "" : source.getValue());
         target.setDateValue(source.getDateValue() == null ? null : new Date(source.getDateValue().getTime()));
     }
 

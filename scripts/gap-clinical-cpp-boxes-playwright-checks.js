@@ -96,20 +96,21 @@ async function workflow(s) {
   const noteCount = () => sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`);
   s.cleanup(() => {
     // A signed save hashes the note into hash_audit (type 'enc', the note id in `id`), one row per
-    // revision. The ids are read before the notes go, so the closing count still names them.
-    const noteIds = sql.rows(owned).map(([id]) => id);
-    h.assert(noteIds.every(id => /^[1-9]\d*$/.test(id)), 'An owned note id was not numeric');
-    const signatures = `type='enc' AND id IN (${noteIds.join(',') || 'NULL'})`;
-    sql.execute(`DELETE FROM hash_audit WHERE ${signatures};
-      DELETE FROM casemgmt_issue_notes WHERE note_id IN (${owned});
+    // revision. The ids are read before the notes go, so the closing count still names them; they
+    // are bound, not spliced into the statement.
+    const noteIds = sql.rows(owned).map(([id]) => Number(id));
+    h.assert(noteIds.every(id => Number.isSafeInteger(id) && id > 0), 'An owned note id was not numeric');
+    const signatures = `FROM hash_audit WHERE type='enc' AND id IN (${noteIds.map(() => '?').join(',') || 'NULL'})`;
+    sql.execute(`DELETE ${signatures}`, noteIds);
+    sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${owned});
       DELETE FROM casemgmt_note_ext WHERE note_id IN (${owned});
       DELETE FROM casemgmt_note_link WHERE note_id IN (${owned});
       DELETE FROM casemgmt_note WHERE demographic_no=${patient};
       DELETE FROM casemgmt_issue WHERE demographic_no=${patient};
       DELETE FROM casemgmt_cpp WHERE demographic_no=${patient};
       DELETE FROM eChart WHERE demographicNo=${patient}`);
+    h.assert(sql.value(`SELECT COUNT(*) ${signatures}`, noteIds) === '0', 'Owned CPP signature rows were not removed');
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient})
-      + (SELECT COUNT(*) FROM hash_audit WHERE ${signatures})
       + (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM casemgmt_cpp WHERE demographic_no=${patient})`) === '0', 'Owned CPP rows were not removed');
   });
