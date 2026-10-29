@@ -276,6 +276,10 @@ const WORKFLOWS = [
     // no reqId attribute, so ConsultationFormRequest.jsp always renders the
     // new-request form — `Submit` is the branch that actually stores the prose.
     overrides: () => ({ service: consultationServiceId, submission: 'Submit Consultation Request' }),
+    // A save names an active consultant or is refused with the form's error alert (#5073), and the
+    // captured body has none: the clinician picks one after the page loads. The replay takes the first
+    // consultant the page's own directory offers (see chooseConsultant()).
+    chooseConsultant: true,
     // Guard the assumption above rather than trusting it. If a future change makes
     // this URL render an existing request, `Submit` would file a duplicate instead
     // of measuring this save — the replay would still reach the WAF, but it would
@@ -363,7 +367,7 @@ async function captureForm(page, formName) {
  * phrase the captured body goes back unchanged, which is how the demographic
  * workflow restores what it overwrote.
  */
-async function replay(page, workflow, entries, phrase) {
+async function replay(page, workflow, entries, phrase, chosen = {}) {
   return page.evaluate(async ({ pairs, action, fields, text, overrides }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal; the arguments are the form body this same page just rendered plus constants from this file, structured-cloned rather than interpolated into page script
     const body = new URLSearchParams();
     const replaced = new Set(text === null ? [] : fields);
@@ -407,8 +411,32 @@ async function replay(page, workflow, entries, phrase) {
     action: new URL(appUrlForPage(workflow.action)).pathname,
     fields: workflow.fields,
     text: phrase === null ? null : `${phrase.text} ${RUN_STAMP}`,
-    overrides: workflow.overrides(),
+    overrides: { ...workflow.overrides(), ...chosen },
   });
+}
+
+/**
+ * The consultant a clinician would pick on this render: the first entry of the active directory the
+ * page loads for its picker (allSpecialistsData, from ConsultationLookup2Action getAllSpecialists).
+ * The save refuses a request without an active consultant (#5073), so without one every replay came
+ * back as the form with its error alert and the check measured that refusal instead of the WAF.
+ *
+ * Installs with ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS=true post a contact on the patient's
+ * own care team instead, which the owned patient does not have; that is reported, not guessed at.
+ */
+async function chooseConsultant(page, workflow) {
+  const picker = await page.locator('#specialistInput').count();
+  assert(picker > 0, `${workflow.name}: the form shows no consultant directory picker (#specialistInput), so this `
+    + 'install lists the patient\'s care team instead (ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS=true); '
+    + 'the owned patient has no team contact, so no consultant can be chosen and every save would be refused');
+  const specId = await page.waitForFunction(() => {
+    const directory = typeof allSpecialistsData === 'undefined' ? [] : allSpecialistsData;
+    const first = directory.find((entry) => /^[1-9]\d*$/.test(String(entry && entry.specId)));
+    return first ? String(first.specId) : null;
+  }, null, { timeout: 30000 }).then((handle) => handle.jsonValue(), () => null);
+  assert(specId, `${workflow.name}: the page's consultant directory listed no active consultant within 30s, `
+    + 'so a save could only be refused');
+  return { specialist: specId };
 }
 
 function appUrlForPage(appPath) {
@@ -473,6 +501,8 @@ async function runWorkflow(context, workflow) {
         + 'so this run would not measure what the check claims');
     }
 
+    const chosen = workflow.chooseConsultant ? await chooseConsultant(page, workflow) : {};
+
     // Put back what the replays overwrote, where the route updates in place, and
     // do it on the failure path as well: a replay that throws after an earlier
     // phrase saved would otherwise leave the record holding that phrase. The
@@ -484,7 +514,7 @@ async function runWorkflow(context, workflow) {
     try {
       for (const phrase of PROSE_CORPUS) {
         replayStarted = true;
-        const status = await replay(page, workflow, entries, phrase);
+        const status = await replay(page, workflow, entries, phrase, chosen);
         saveResults.push({
           workflow: workflow.name, phrase: phrase.label, crs: phrase.crs, status,
         });

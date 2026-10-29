@@ -1415,6 +1415,13 @@ def _shared_table_columns(t, o19, carlos, r):
     for col in value_exprs.get(t, {}):
         if col in carlos.tables[t] and col not in cols:
             cols.append(col)
+    # Known later O19 columns must survive even when the reproducible baseline
+    # predates them. The CLI intersects these with the actual staged schema.
+    for col in sorted(getattr(r.ov, "SOURCE_OPTIONAL_COLUMNS", {}).get(t, ())):
+        if col not in carlos.tables[t]:
+            raise SystemExit("optional source column has no target: {}.{}".format(t, col))
+        if col not in cols:
+            cols.append(col)
     return cols, ren_out, mapped_sources
 
 

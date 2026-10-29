@@ -236,6 +236,7 @@ async function checkLegacyDocumentImages(context, config, documentId) {
     originalError = error;
     throw error;
   } finally {
+    phase = 'complete';
     // Accepted renders stay counted until complete even when their page is removed.
     // Keep cleanup failures visible, together with the original assertion if any.
     const cleanupErrors = [];

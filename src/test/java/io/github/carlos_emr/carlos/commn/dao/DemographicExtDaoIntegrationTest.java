@@ -65,7 +65,10 @@ public class DemographicExtDaoIntegrationTest extends CarlosTestBase {
 
     @BeforeEach
     void createParentDemographics() {
-        String sql = "MERGE INTO demographic (demographic_no, first_name, last_name, sex, year_of_birth, month_of_birth, date_of_birth) KEY(demographic_no) VALUES (?, 'Test', 'Patient', 'M', '1990', '01', '15')";
+        String sql = "INSERT INTO demographic (demographic_no, first_name, last_name, sex, year_of_birth, month_of_birth, date_of_birth) "
+                + "VALUES (?, 'Test', 'Patient', 'M', '1990', '01', '15') ON DUPLICATE KEY UPDATE "
+                + "first_name=VALUES(first_name), last_name=VALUES(last_name), sex=VALUES(sex), "
+                + "year_of_birth=VALUES(year_of_birth), month_of_birth=VALUES(month_of_birth), date_of_birth=VALUES(date_of_birth)";
         for (int demoNo : new int[]{DEMO_1, DEMO_2}) {
             entityManager.createNativeQuery(sql)
                     .setParameter(1, demoNo)

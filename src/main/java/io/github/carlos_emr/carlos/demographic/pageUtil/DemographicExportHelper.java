@@ -77,9 +77,9 @@ public class DemographicExportHelper {
 
     public static XmlOptions getDefaultOptions() {
         XmlOptions options = new XmlOptions();
-        options.put(XmlOptions.SAVE_PRETTY_PRINT);
-        options.put(XmlOptions.SAVE_PRETTY_PRINT_INDENT, 3);
-        options.put(XmlOptions.SAVE_AGGRESSIVE_NAMESPACES);
+        options.setSavePrettyPrint();
+        options.setSavePrettyPrintIndent(3);
+        options.setSaveAggressiveNamespaces();
 
         HashMap<String, String> suggestedPrefix = new HashMap<String, String>();
         suggestedPrefix.put("cds_dt", "cdsd");

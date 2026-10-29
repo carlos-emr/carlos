@@ -1,5 +1,6 @@
 #!/bin/bash
 # Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+# Modifications by CARLOS Contributors, 2026.
 #
 # This software is published under the GPL GNU General Public License.
 # This program is free software; you can redistribute it and/or
@@ -411,6 +412,8 @@ export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/documen
 export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # lab-upload-signed-feed requires the server log; lab-upload-rollback reads it when named (runbook section 6).
 export LAB_UPLOAD_JOURNAL_UNIT=carlos-emr
+install -d -m 700 /tmp/carlos-lab-rollback-faults
+export LAB_ROLLBACK_FAULT_ARTIFACT_DIR=/tmp/carlos-lab-rollback-faults
 export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1 CONSULT_STAMP_PROVIDER_NO=999998
 export CONSULT_APPLICATION_TEMP_DIR=/var/lib/carlos-emr/catalina/temp/carlos-temp

@@ -42,7 +42,7 @@ archive-by-default).
 
 # Nullable Program flags no longer need primitive coercion during import.
 # Refuse resuming a partially applied import under the previous conversion rules.
-SCHEMA_MAP_VERSION = "o19map-4"
+SCHEMA_MAP_VERSION = "o19map-5"
 
 #: Provinces the import verb will actually RUN, as opposed to provinces
 #: the package carries a profile for (generate_manifests.PROVINCES).
@@ -275,15 +275,19 @@ FK_REMAP = {
 
 # --- shared tables that must NOT copy ---------------------------------------
 
-# Bearer/OAuth tokens issued by the OSCAR 19 install. Copying them would let
-# every token that was live on the old server authenticate against CARLOS;
-# they are archived for the record and never restored into the live schema
-# (integrations re-authorize after the migration).
-ARCHIVE_SHARED = {"SecurityToken", "ServiceAccessToken", "ServiceRequestToken"}
+# Preserve established OAuth 1.0a grants across a clinic migration. Browser/security
+# sessions and unfinished authorization handshakes still stay in the archive.
+ARCHIVE_SHARED = {"SecurityToken", "ServiceRequestToken"}
 
-# Copied verbatim, but they ARE credentials: the ETL report names them under
-# a rotate/verify advisory (OAuth consumer secrets, signing key pairs).
-CREDENTIAL_TABLES = ["ServiceClient", "oscarKeys", "publicKeys"]
+# Copied verbatim, including access-token secrets. The existing carry-credentials
+# acknowledgement covers these; migration does not rotate or renew credentials.
+CREDENTIAL_TABLES = ["ServiceClient", "ServiceAccessToken", "oscarKeys", "publicKeys"]
+
+# The pinned early O19 tree predates the configurable client lifetime column.
+# Later O19 clinics have it: include it in the manifest so effective_entry copies
+# their setting, rather than treating it as a vendor column to archive. The CLI
+# supplies -1 ONLY when this column is absent (the early O19 issuance behavior).
+SOURCE_OPTIONAL_COLUMNS = {"ServiceClient": {"lifetime"}}
 
 # The claim header P7 aggregates by fiscal year, per province. It is the
 # money check -- the one verification an operator's accountant will ask
