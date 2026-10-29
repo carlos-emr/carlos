@@ -23,14 +23,29 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 const TIMEOUT = 20000;
 
+// The way back to the Inbox from any messenger page, taken with .first(): the Inbox button
+// on a message or draft page, or the Inbox tab on a box page. Since #5250 that tab links
+// DisplayMessages?boxType=0 with the box's search and sort, so it is matched by boxType=0;
+// the bare-href form is kept for packages built before that. The Sent and Archived tabs and
+// the column-sort links carry another boxType or an orderby, and are never the first match
+// (#5349; scripts/messenger-inbox-link.test.js renders the JSPs and pins this).
+const INBOX_LINK = 'a.nav-link[href*="/messenger/DisplayMessages?boxType=0"]:visible,'
+  + ' a.btn[href*="/messenger/DisplayMessages"]:visible,'
+  + ' a.nav-link[href*="/messenger/DisplayMessages"]:not([href*="boxType"]):not([href*="orderby"]):visible';
+
 async function settle(page) {
   await page.waitForLoadState('domcontentloaded', { timeout: TIMEOUT });
   await page.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
   await h.assertNotErrorPage(page, 'messenger page');
 }
 
-// A click that submits a form or follows a link in the same window.
+// A click that submits a form or follows a link in the same window. The control is
+// resolved first: a selector the page no longer matches then fails naming that
+// selector, not as an anonymous waitForResponse timeout with nothing recorded (#5349).
 async function clickAndLoad(page, locator, pathname) {
+  await locator.waitFor({ timeout: TIMEOUT }).catch(e => {
+    throw new Error(`No visible control to open ${pathname}: ${locator} (${String(e.message).split('\n')[0]})`);
+  });
   await Promise.all([
     page.waitForResponse(r => r.request().isNavigationRequest() && r.frame() === page.mainFrame()
       && new URL(r.url()).pathname.endsWith(pathname), { timeout: TIMEOUT }),
@@ -84,9 +99,7 @@ async function workflow(s) {
     await clickAndLoad(inbox, inbox.locator(`a[href*="/messenger/ViewMessage?messageID=${id}&"]`).first(), '/messenger/ViewMessage');
     await inbox.locator('#msgSubject').waitFor();
   };
-  // The Inbox button on a message/draft page, or the inbox tab on a box page.
-  const backToInbox = () => clickAndLoad(inbox, inbox.locator('a.btn[href*="/messenger/DisplayMessages"]:visible,'
-    + ' a.nav-link[href*="/messenger/DisplayMessages"]:not([href*="boxType"]):not([href*="orderby"]):visible').first(), '/messenger/DisplayMessages');
+  const backToInbox = () => clickAndLoad(inbox, inbox.locator(INBOX_LINK).first(), '/messenger/DisplayMessages');
   const draft = async () => ({
     subject: await inbox.locator('#subject').inputValue(),
     demographic: await inbox.locator('input[name="demographic_no"]').inputValue(),
@@ -211,4 +224,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('messenger-demographic-link', workflow, { openPatient: true });
-module.exports = { workflow, settle, clickAndLoad };
+module.exports = { workflow, settle, clickAndLoad, INBOX_LINK };
