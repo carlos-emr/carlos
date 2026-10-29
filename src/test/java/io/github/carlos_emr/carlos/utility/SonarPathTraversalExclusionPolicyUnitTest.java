@@ -255,8 +255,8 @@ class SonarPathTraversalExclusionPolicyUnitTest {
     @Test
     @DisplayName("should leave the eForm PDF servlet under the rule after its template fix")
     void shouldLeaveEFormPdfServletVisible_afterTemplateFix() {
-        // EFormPDFServlet built a PdfReader path from the __template parameter with no validation;
-        // the retired **/eform/** glob hid it. It is fixed now and must stay under the rule.
+        // The eForm PDF servlet opened a template named by a request parameter without validating
+        // it, and the retired eform package glob hid that. It is fixed now and stays under the rule.
         String servlet = MAIN_SOURCE_ROOT + CARLOS_PACKAGE + "eform/util/EFormPDFServlet.java";
         assertThat(projectBase.resolve(servlet)).exists();
         assertThat(sonarMatches("**/eform/**/*.java", servlet)).isTrue();

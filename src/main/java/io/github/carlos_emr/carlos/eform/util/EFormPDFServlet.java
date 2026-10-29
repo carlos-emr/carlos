@@ -212,12 +212,17 @@ public class EFormPDFServlet extends HttpServlet {
 
         } catch (jakarta.servlet.ServletException | java.io.IOException e) {
             throw e;
-        } catch (FileValidationException e) {
+        } catch (FileValidationException _) {
             // A missing or rejected __template value is a bad request, not a server fault; the value
-            // itself is not logged or echoed.
+            // itself is not logged or echoed. The sendError IOException is handled here so it never
+            // escapes doPost() (Sonar S1989), as in FrmPDFServlet.
             log.warn("Rejected an invalid eForm PDF template name");
             if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid PDF template.");
+                try {
+                    res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid PDF template.");
+                } catch (IOException ioe) {
+                    log.warn("Unable to send 400 for an invalid eForm PDF template", ioe);
+                }
             }
         } catch (Exception e) {
             log.error("Error generating eForm PDF", e);
@@ -282,6 +287,23 @@ public class EFormPDFServlet extends HttpServlet {
                 throw new FileValidationException("Missing PDF template.");
             }
             String template = PathValidationUtils.validatePathComponent(templateParam.trim(), "__template") + ".pdf";
+            // Resolve and contain the template inside the image directory now, before the PDF
+            // document is opened: a refusal raised after that is masked by the document's own
+            // "no pages" error on close. The directory is configuration, so a problem with it stays
+            // a server error; only the template itself can be a bad request.
+            File imageDirectory = PathValidationUtils.resolveConfiguredDirectory(
+                    CarlosProperties.getInstance().getEformImageDirectory(), "EFORM_IMAGES_DIR");
+            File templateFile;
+            try {
+                templateFile = PathValidationUtils.validatePath(template, imageDirectory);
+            } catch (FileValidationException rejected) {
+                throw rejected;
+            } catch (SecurityException outside) {
+                // A single-component name can still resolve outside the directory through a
+                // symbolic link planted in it; that is a refused template too, not a server fault.
+                throw new FileValidationException("PDF template is outside the eForm image directory.", outside);
+            }
+            String propFilename = templateFile.getPath();
 
             int numPages = 1;
             String pages = req.getParameter("__numPages" + suffix);
@@ -310,11 +332,6 @@ public class EFormPDFServlet extends HttpServlet {
             saveMeasurementValues(measurements, props, req, numPages, xMeasurementValues, yMeasurementValues);
             addDocumentProps(document, title, props);
 
-            // create a reader for a certain document; the validated component is resolved and
-            // contained inside the image directory before the file is opened
-            File templateFile = PathValidationUtils.validatePath(template,
-                    new File(CarlosProperties.getInstance().getEformImageDirectory()));
-            String propFilename = templateFile.getPath();
 
             try {
                 reader = new PdfReader(propFilename);
@@ -427,8 +444,9 @@ public class EFormPDFServlet extends HttpServlet {
             // opened file to the image directory, and a rejection lands in the catch below exactly
             // like a missing file (empty layout), as before.
             File propFile = PathValidationUtils.validatePath(cfgFilename,
-                    new File(CarlosProperties.getInstance().getEformImageDirectory()));
-            log.debug("1Looking for the prop file! {}", LogSafe.sanitize(propFile.getPath()));
+                    PathValidationUtils.resolveConfiguredDirectory(
+                            CarlosProperties.getInstance().getEformImageDirectory(), "EFORM_IMAGES_DIR"));
+            log.debug("1Looking for the prop file! {}", () -> LogSafe.sanitize(propFile.getPath()));
             is = new FileInputStream(propFile);
             if (is != null) {
                 log.debug("2Found the prop file! {}", LogSafe.sanitize(cfgFilename));

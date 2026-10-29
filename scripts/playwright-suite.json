@@ -8494,6 +8494,27 @@
       "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision. Last, pinned to app-findings-log.md finding 168: a login that may save eForms but holds no _edoc x presses Add to Documents; the eForm is stored once and no document is filed (control step), and the answer must not be the replay refusal (AddEForm2Action used to answer every post-commit RuntimeException with eform.submitUnavailable; since #4424 it answers HTTP 409 eform.submitSavedStepIncomplete, naming the step). Runs about 65 s. The demo database carries EFormDocs rows (attached documents, labs, forms, HRM reports and eForms) for ids 247-1063 that no eform_data row owns, so a new instance whose id falls there inherits them and a login without read access to those object types is refused 403 before the eForm is stored (\"no permission to use one or more selected attachments\"); the workflow therefore moves the id counter past them first, or the control step would fail depending on the id it happened to get. The POST-replay step failed once in an earlier run of this plan with its message lost and did not fail in 22 later runs (16 through the runner, 6 replay-only under four busy CPU cores): see the Task 15 report. Its failure messages now carry the AddEForm statuses and the owned-row count. The finding-168 step needs the eForm PDF renderer: before passing it, the check downloads one of the run's saved eForms (eform/downloadEFormPdf); when no PDF comes back, Add to Documents never reached the document step, and the check SKIPs there rather than passing the pinned step."
     },
     {
+      "name": "eform-pdf-template-path",
+      "script": "scripts/eform-pdf-template-path-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "EFORM_IMAGE_DIR",
+        "DOCUMENT_DIR",
+        "CONSULT_DEMO_NO"
+      ],
+      "fixtures": "Plants one marker template PDF in EFORM_IMAGE_DIR and one marker PDF in DOCUMENT_DIR (outside the image directory); cleanup deletes both and asserts them gone. Writes no database rows. Must run on the server, where those directories are.",
+      "notes": "Issue #5316: /eform/createpdf built its PdfReader path from __template with no validation. A template inside the image directory must still render a PDF; a relative ../ path and an absolute path to the outside PDF, a blank and a missing template must each be refused (the application's 400, or the front-door WAF for the traversal payloads) with no PDF and without echoing the value. Direct POSTs: the servlet has no in-app page."
+    },
+    {
       "name": "double-submit-lab-manual",
       "script": "scripts/double-submit-lab-manual-playwright-checks.js",
       "tiers": [

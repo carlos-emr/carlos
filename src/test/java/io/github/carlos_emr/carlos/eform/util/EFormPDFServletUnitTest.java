@@ -181,6 +181,24 @@ class EFormPDFServletUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsByteArray()).isEmpty();
     }
 
+    @Test
+    @DisplayName("should refuse a template name that is a symbolic link out of the image directory")
+    void shouldRefuseTemplate_whenNameIsSymlinkOutOfImageDirectory() throws Exception {
+        // A single, valid-looking component can still escape through a link planted in the
+        // directory; containment is checked on the resolved file, and the answer is a 400.
+        Path images = imageDirectoryWithTemplate("consult");
+        Path otherPatient = Files.createDirectories(root.resolve("other-patient"));
+        writePdf(otherPatient.resolve("scan.pdf"), 3);
+        Files.createSymbolicLink(images.resolve("linked.pdf"), otherPatient.resolve("scan.pdf"));
+        allowRead("123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        postAsProvider(templateRequest("linked"), response);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
     @ParameterizedTest(name = "template \"{0}\"")
     @ValueSource(strings = {"", "  "})
     @DisplayName("should refuse a request that names no template as a bad request")
