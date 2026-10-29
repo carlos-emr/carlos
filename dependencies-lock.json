@@ -641,6 +641,14 @@
     "optional" : false,
     "integrity" : "sha512:rDccMEYjqfu5S9MOTop+ovqjAbjdfAlxpaExxibGChTjORGqNP5HfN67u3CmDS9PkOZy+NY9q4CsCnFbDT3ugQ=="
   }, {
+    "groupId" : "com.twelvemonkeys.imageio",
+    "artifactId" : "imageio-webp",
+    "version" : "3.15.3",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:mGvAkVIaLi7LwQs5yHvdcb26XCW+4UMlUIuzY2S9wTou7666wUWw2u0qyK6sD0j8wwasnJN/Vv9R1puxJoqZBw=="
+  }, {
     "groupId" : "com.zaxxer",
     "artifactId" : "SparseBitSet",
     "version" : "1.3",
@@ -3678,19 +3686,19 @@
   }, {
     "groupId" : "org.xhtmlrenderer",
     "artifactId" : "flying-saucer-core",
-    "version" : "10.0.6",
+    "version" : "10.7.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:7mbzwahELCB3QaVRkr19PcfvcBu33rPD/mA0qLgEHjOyr8LzNnpMa56JZc/5W80Wr2VMbl2esygZ8CXddAFVLA=="
+    "integrity" : "sha512:abpOatfdH55199YWYWDC4iP7JaHKpn4KbqNMzTNv2A3IGGafBeLPpd44n4n+2uJBYlr35ZseYKZm2g918e28tQ=="
   }, {
     "groupId" : "org.xhtmlrenderer",
     "artifactId" : "flying-saucer-pdf",
-    "version" : "10.0.6",
+    "version" : "10.7.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:nouPG+aFVgSZosgoheodAn8ZPEytnnP9Qs/eeWYjA/2JdUx86fPy3BAX5H8HECfYUGXrQ7AHQCrKk8wlwte+Vg=="
+    "integrity" : "sha512:QApQkuO0a5toOe+E0xhFuINg+YBTy356usoUdy3R5vZWFxvBfey1gO1n+4xDXfNMBJsWfkMYdyWdTjpUaIgNPA=="
   }, {
     "groupId" : "org.xmlresolver",
     "artifactId" : "xmlresolver",
