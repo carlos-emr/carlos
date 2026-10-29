@@ -1117,7 +1117,7 @@ types, so the engine package does not depend on the request record.
 
 | Caller | `baseDirectory` | `allowedDirectories` |
 |---|---|---|
-| `ConvertToEdoc` | webapp root: `realPath` if set, else `ServletContext.getRealPath("/")` from `ContextLoader.getCurrentWebApplicationContext()` (`OscarSpringContextLoader` extends `ContextLoaderListener`); if neither resolves, `null` (the service substitutes a private empty directory: `WEBAPP_ROOT_UNAVAILABLE`) | webapp root if resolved; `CarlosProperties.getEformImageDirectory()` (`EFORM_IMAGES_DIR`, else derived from `BASE_DOCUMENT_DIR`), omitted if it cannot be resolved; `java.io.tmpdir`; `catalina.base/work` if set |
+| `ConvertToEdoc` | webapp root: `realPath` if set, else `getRealPath("/")` of the `ServletContext` bean that `ServletContextConfig` already exposes (`applicationContext.xml` line 41), obtained with `SpringUtils.getBean(ServletContext.class)`, which works on any thread; if neither resolves, `null` (the service substitutes a private empty directory: `WEBAPP_ROOT_UNAVAILABLE`) | webapp root if resolved; `CarlosProperties.getEformImageDirectory()` (`EFORM_IMAGES_DIR`, else derived from `BASE_DOCUMENT_DIR`), omitted if it cannot be resolved; `java.io.tmpdir`; `catalina.base/work` if set |
 | `Doc2PDF` | webapp root from `request.getServletContext().getRealPath("/")` (today's base); if that is null, `null` (as above) | webapp root if resolved; `java.io.tmpdir`; `catalina.base/work` if set |
 
 ### Errors
@@ -1310,7 +1310,7 @@ directory (as on Debian):
 - attach a Messenger PDF of a form;
 - save a form as a document;
 - trigger an HRM render from a non-request thread (for example the fax scheduler) to check
-  `ContextLoader.getCurrentWebApplicationContext()` resolves there.
+  the `ServletContext` bean lookup resolves the webapp root there.
 
 ## Deliberate differences from today's output
 
