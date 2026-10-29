@@ -1252,7 +1252,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(consultationManager.getAttachedEForms("9")).thenReturn(List.of());
 
         try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
-             MockedConstruction<CommonLabResultData> _ = mockConstruction(CommonLabResultData.class,
+             var _ = mockConstruction(CommonLabResultData.class,
                      (labData, context) -> when(labData.populateLabResultsData(any(), eq("1"), eq("9"), anyBoolean()))
                              .thenReturn(new ArrayList<>(List.of(hl7Lab, mdsLab))))) {
             eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("9"), anyBoolean())).thenReturn(new ArrayList<>());

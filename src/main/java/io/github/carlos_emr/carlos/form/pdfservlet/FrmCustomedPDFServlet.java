@@ -1354,14 +1354,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      */
     static String formatCityPostal(String city, String province, String postal) {
         int check = (city.trim().isEmpty() ? 0 : 1) | (province.trim().isEmpty() ? 0 : 2);
-        String separator;
-        if (check == 3) {
-            separator = ", ";
-        } else if (check == 2) {
-            separator = "";
-        } else {
-            separator = " ";
-        }
+        String separator = switch (check) {
+            case 3 -> ", ";
+            case 2 -> "";
+            default -> " ";
+        };
         return String.format("%s%s%s %s", city, separator, province, postal);
     }
 
