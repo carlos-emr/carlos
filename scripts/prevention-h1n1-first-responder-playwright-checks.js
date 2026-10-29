@@ -16,6 +16,7 @@
  * and their ext rows are removed in cleanup.
  */
 const h = require('./lib/playwright-harness');
+const { clickAndAwaitClose } = require('./lib/prevention-coverage');
 const { GIVEN_ON, flagWorkflow } = require('./lib/prevention-h1n1-options');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
@@ -45,8 +46,7 @@ async function workflow(s) {
     const live = forms.active();
     // The clinician deletes the record the cases left, so the legacy one is the only live H1N1.
     const current = await forms.open(live);
-    await current.locator('input[name="delete"]').click();
-    if (!current.isClosed()) await current.waitForEvent('close', { timeout: 30000 });
+    await clickAndAwaitClose(current, current.locator('input[name="delete"]'));
     await expectValue(sql, `SELECT deleted FROM preventions WHERE id=${live}`, '1', 'Delete did not archive the record');
     // The closing popup refreshes the Preventions page; the deleted row going away shows that refresh has finished.
     await forms.record(live).waitFor({ state: 'detached' });

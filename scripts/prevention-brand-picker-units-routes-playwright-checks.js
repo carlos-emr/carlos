@@ -50,8 +50,10 @@ async function workflow(s) {
   const samples = brandsByUnitAndRoute(brands);
   h.assert(samples.length > 1, 'vaccine-brands.json lists no units or routes');
 
-  await s.step('every dose unit and route the catalogue prefills is shown by the Add Prevention form as given', async () => {
-    const differences = [];
+  // Opening the forms and judging what they show are separate steps, so a failure of the picker or a popup is
+  // reported under the first and never mistaken for the known defect (finding 323) the second asserts.
+  const shown = [];
+  await s.step('the brand picker opens the Add Prevention form for one brand of every unit and route pair', async () => {
     for (const brand of samples) {
       await picker.fill('');
       await picker.pressSequentially(brand.value.slice(0, 24), { delay: 10 });
@@ -63,12 +65,21 @@ async function workflow(s) {
       const editor = await s.popup(index, choice, 'prevention-editor');
       await editor.waitForURL(/\/prevention\/ViewAddPreventionData\?/, { waitUntil: 'domcontentloaded' });
       h.assert(await editor.locator('#name').inputValue() === brand.value, `The picker opened another brand than ${brand.value}`);
-      const unit = await editor.locator('select[name="doseUnit"]').inputValue();
-      const route = await editor.locator('#route').inputValue();
+      shown.push({
+        brand,
+        unit: await editor.locator('select[name="doseUnit"]').inputValue(),
+        route: await editor.locator('#route').inputValue(),
+      });
       await editor.close();
-      for (const [what, given, shown] of [['unit', brand.units, unit], ['route', brand.route, route]]) {
-        if (given && !showsCatalogueValue(what, given, shown)) {
-          differences.push(`${brand.value}: ${what} "${given}" shows as ${shown ? `"${shown}"` : 'blank'}`);
+    }
+  });
+
+  await s.step('every dose unit and route the catalogue prefills is shown by the Add Prevention form as given', async () => {
+    const differences = [];
+    for (const { brand, unit, route } of shown) {
+      for (const [what, given, value] of [['unit', brand.units, unit], ['route', brand.route, route]]) {
+        if (given && !showsCatalogueValue(what, given, value)) {
+          differences.push(`${brand.value}: ${what} "${given}" shows as ${value ? `"${value}"` : 'blank'}`);
         }
       }
     }

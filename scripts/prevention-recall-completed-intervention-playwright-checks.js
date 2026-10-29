@@ -22,7 +22,7 @@
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
-const { openPreventionIndex, ownPatientPreventions, preventionForms } = require('./lib/prevention-coverage');
+const { clickAndAwaitClose, openPreventionIndex, ownPatientPreventions, preventionForms } = require('./lib/prevention-coverage');
 const { runWorkflow } = require('./lib/workflow-session');
 
 const AS_OF = '2026-06-30';
@@ -122,8 +122,7 @@ async function workflow(s) {
     await editor.locator('[name="given"][value="given"]').check();
     await editor.locator('#prevDate').fill(ENTERED);
     h.assert(await editor.locator('[name="result"][value="pending"]').isChecked(), 'A new mammogram did not open with Result Pending');
-    await editor.locator('input[type="submit"][name="action"]').first().click();
-    if (!editor.isClosed()) await editor.waitForEvent('close', { timeout: 30000 });
+    await clickAndAwaitClose(editor, editor.locator('input[type="submit"][name="action"]').first());
     const live = sql.rows(`SELECT id FROM preventions WHERE demographic_no=${patient} AND prevention_type='MAM' AND deleted=0
       AND DATE(prevention_date)=${q(ENTERED)}`);
     h.assert(live.length === 1, `Expected one entered mammogram, found ${live.length}`);
@@ -138,8 +137,7 @@ async function workflow(s) {
   async function amend(change) {
     const editor = await forms.open(id);
     await change(editor);
-    await editor.locator('input[type="submit"][name="action"]').first().click();
-    if (!editor.isClosed()) await editor.waitForEvent('close', { timeout: 30000 });
+    await clickAndAwaitClose(editor, editor.locator('input[type="submit"][name="action"]').first());
     h.assert(sql.value(`SELECT deleted FROM preventions WHERE id=${id}`) === '1', 'The amended mammogram was not archived');
     const replacement = sql.value(`SELECT prevention_id FROM preventionsExt WHERE keyval='previousId' AND val=${q(id)}`);
     h.assert(/^[1-9]\d*$/.test(replacement), 'The amendment stored no replacement');

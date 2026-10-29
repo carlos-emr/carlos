@@ -25,6 +25,17 @@ const LIST_COLOURS = Object.freeze({
   abnormal: 'rgb(238, 95, 91)',
 });
 
+/**
+ * Clicks a button that ends with the popup closing itself (Save, Delete), listening for the close before the click so
+ * a popup that closes at once cannot be missed. A popup that stays open fails after 30 seconds.
+ */
+async function clickAndAwaitClose(editor, button) {
+  const closed = editor.waitForEvent('close', { timeout: 30000 });
+  closed.catch(() => {}); // a failed click is reported by the click itself
+  await button.click();
+  await closed;
+}
+
 function requireId(value, what) {
   h.assert(ID.test(String(value)), `${what} is not a stored record id`);
   return String(value);
@@ -121,8 +132,7 @@ function preventionForms(s, index, type) {
     },
     /** Saves the open form with its Save button and waits for the popup to close itself. */
     async save(editor) {
-      await editor.locator(SAVE).first().click();
-      if (!editor.isClosed()) await editor.waitForEvent('close', { timeout: 30000 });
+      await clickAndAwaitClose(editor, editor.locator(SAVE).first());
     },
     /** Saves a new record and returns its id once the page lists it. */
     async saveNew(editor) {
@@ -242,6 +252,7 @@ async function readRecommendations(index) {
 module.exports = {
   LIST_COLOURS,
   applicationToday,
+  clickAndAwaitClose,
   datesBefore,
   enterLot,
   listedRecord,

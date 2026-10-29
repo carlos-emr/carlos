@@ -31,9 +31,12 @@ async function workflow(s) {
   const { sql, patient, provider } = s;
   const q = h.sqlString;
   ownPatientPreventions(s);
-  const stamp = String(Date.now());
-  const generic = `8${stamp}`;
-  const brand = `8${stamp}1`;
+  // Every synthetic key comes from the run's random marker, so two runs never share (or clean up) each other's rows.
+  const stamp = s.marker.slice(-16);
+  h.assert(/^[0-9a-f]{16}$/.test(stamp), 'The run marker does not end in 16 hex digits');
+  const digits = (BigInt(`0x${stamp}`) % 10n ** 16n).toString().padStart(16, '0');
+  const generic = `8${digits}`;
+  const brand = `8${digits}1`;
   const brandName = `PWCVC${stamp} brand`;
   const first = { lot: `PWCVC${stamp}A`, expiry: '2027-03-31' };
   const second = { lot: `PWCVC${stamp}B`, expiry: '2027-09-30' };

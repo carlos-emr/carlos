@@ -12,7 +12,7 @@
  * Subcutaneous, its summary says "Route: SC" and "Dose: 1 vial", and the printout says "Dose Administered: 1 vial"
  * with the vaccine and lot (the printout has no route line: PreventionPrintLoader.Entry carries none). LAST, a dose
  * saved with no unit is stored as entered, reopens with that dose in the Dose box, and is still stored after an
- * unchanged save.
+ * unchanged save; that last assertion has a step of its own (finding 322, issue #5431).
  * Fixtures: the runWorkflow FAKE- patient; its preventions and their ext rows are removed in cleanup. SKIP when the
  * install replaces the brand picker with the CVC catalogue (cvc.url set), or Poppler pdftotext is missing.
  */
@@ -108,19 +108,26 @@ async function workflow(s) {
     h.assert(!printedIncludes(printed, 'Dose Administered: 0.5 mL'), 'The printout shows the archived dose');
   });
 
-  await s.step('a dose saved with no unit reopens with that dose and survives an unchanged save', async () => {
+  // The known defect (finding 322) is asserted in a step of its own, after the steps that act on the page, so a
+  // failure while saving or reopening is reported under those steps and never mistaken for the known defect.
+  await s.step('a dose saved with no unit is stored as entered', async () => {
     editor = await forms.open(id);
     await editor.locator('#dose').fill('0.5');
     await editor.locator('select[name="doseUnit"]').selectOption('');
-    let previous = id;
-    id = await forms.saveAmendment(editor, previous);
+    id = await forms.saveAmendment(editor, id);
     h.assert(forms.ext(id, 'dose') === '0.5', `A dose with no unit was stored as ${forms.ext(id, 'dose')}`);
-    // Both halves are observed before asserting, so one run shows what the form displays and what a resave stores.
+  });
+
+  let reopened;
+  let resaved;
+  await s.step('the record with a unitless dose reopens and is saved again unchanged', async () => {
     editor = await forms.open(id);
-    const reopened = await editor.locator('#dose').inputValue();
-    previous = id;
-    id = await forms.saveAmendment(editor, previous);
-    const resaved = forms.ext(id, 'dose');
+    reopened = await editor.locator('#dose').inputValue();
+    id = await forms.saveAmendment(editor, id);
+    resaved = forms.ext(id, 'dose');
+  });
+
+  await s.step('a dose saved with no unit reopens with that dose and survives an unchanged save', async () => {
     h.assert(reopened === '0.5' && resaved === '0.5',
       `A dose stored as "0.5" with no unit reopened as "${reopened}", and an unchanged save stored "${resaved}"`);
   });
