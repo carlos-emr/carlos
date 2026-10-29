@@ -30,6 +30,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -78,7 +79,7 @@ class DateTimeFormatUtilsUnitTest {
 
     @Test
     void shouldFormatAndParseEveryDate_whenCalledConcurrently() throws Exception {
-        LocalDate first = LocalDate.of(1990, 1, 1);
+        LocalDate first = LocalDate.of(1990, Month.JANUARY, 1);
 
         var failures = ConcurrentRounds.run(8, 1500, (thread, round) -> {
             // Every call works on a date no other call uses, so a crossed result cannot pass.
@@ -99,7 +100,7 @@ class DateTimeFormatUtilsUnitTest {
         var failures = ConcurrentRounds.run(8, 1500, (thread, round) -> {
             LocalTime time = LocalTime.MIDNIGHT.plusMinutes((thread * 181L + round) % (24 * 60));
             Date onEpochDay = Date.from(LocalDate.EPOCH.atTime(time).atZone(ZoneId.systemDefault()).toInstant());
-            Date sameTimeToday = Date.from(LocalDate.of(2026, 10, 29).atTime(time).plusSeconds(round % 60)
+            Date sameTimeToday = Date.from(LocalDate.of(2026, Month.OCTOBER, 29).atTime(time).plusSeconds(round % 60)
                     .atZone(ZoneId.systemDefault()).toInstant());
 
             String formatted = DateTimeFormatUtils.getStringFromTime(sameTimeToday);
@@ -115,7 +116,7 @@ class DateTimeFormatUtilsUnitTest {
     void shouldFormatEveryDateWithTheCallersPattern_whenCalledConcurrently() throws Exception {
         // The Population Report's day/month/year pattern, shared by every request.
         DateTimeFormatter reportDate = DateTimeFormatter.ofPattern("dd/MM/uuuu");
-        LocalDate first = LocalDate.of(2001, 1, 1);
+        LocalDate first = LocalDate.of(2001, Month.JANUARY, 1);
 
         var failures = ConcurrentRounds.run(8, 1500, (thread, round) -> {
             LocalDate date = first.plusDays(thread * 2000L + round);
@@ -134,7 +135,7 @@ class DateTimeFormatUtilsUnitTest {
         // The deprecated DateFormat overload is kept for compatibility. A caller that passes one
         // shared SimpleDateFormat, as the Population Report did, must still get its own date back.
         DateFormat shared = new SimpleDateFormat("dd/MM/yyyy");
-        LocalDate first = LocalDate.of(2002, 1, 1);
+        LocalDate first = LocalDate.of(2002, Month.JANUARY, 1);
 
         var failures = ConcurrentRounds.run(8, 1500, (thread, round) -> {
             LocalDate date = first.plusDays(thread * 2000L + round);
@@ -199,11 +200,11 @@ class DateTimeFormatUtilsUnitTest {
     void shouldParseLeapDayAndSingleDigitFields_forValidDates() throws Exception {
         inZone(CLINIC_ZONE, () -> {
             assertThat(DateTimeFormatUtils.getDateFromString("2028-02-29"))
-                    .isEqualTo(clinicMidnight(LocalDate.of(2028, 2, 29)));
+                    .isEqualTo(clinicMidnight(LocalDate.of(2028, Month.FEBRUARY, 29)));
             assertThat(DateTimeFormatUtils.getDateFromString("2026-5-1"))
-                    .isEqualTo(clinicMidnight(LocalDate.of(2026, 5, 1)));
+                    .isEqualTo(clinicMidnight(LocalDate.of(2026, Month.MAY, 1)));
             assertThat(DateTimeFormatUtils.getDateFromString("2100-01-01"))
-                    .isEqualTo(clinicMidnight(LocalDate.of(2100, 1, 1)));
+                    .isEqualTo(clinicMidnight(LocalDate.of(2100, Month.JANUARY, 1)));
         });
     }
 

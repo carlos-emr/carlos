@@ -83,6 +83,9 @@ public class PopulationReport2Action extends ActionSupport {
 
     private static final AtomicReference<Figures> CACHED_FIGURES = new AtomicReference<>();
 
+    /** Held while one request refreshes the figures, so concurrent cache misses compute them once. */
+    private static final Object REFRESH_LOCK = new Object();
+
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -100,7 +103,7 @@ public class PopulationReport2Action extends ActionSupport {
         if (figures == null || System.currentTimeMillis() - figures.retrievedAt() > DateUtils.MILLIS_PER_HOUR) {
             // Keep one refresh in flight. Atomic publication alone lets every concurrent cache
             // miss run all of the report's expensive queries before any result has been cached.
-            synchronized (CACHED_FIGURES) {
+            synchronized (REFRESH_LOCK) {
                 figures = CACHED_FIGURES.get();
                 if (figures == null || System.currentTimeMillis() - figures.retrievedAt() > DateUtils.MILLIS_PER_HOUR) {
                     // Arguments are evaluated left to right: the cache time is taken after every

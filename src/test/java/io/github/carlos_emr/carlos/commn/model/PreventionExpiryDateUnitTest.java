@@ -32,6 +32,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.TimeZone;
@@ -92,7 +93,7 @@ class PreventionExpiryDateUnitTest {
 
     @Test
     void shouldStoreAndReadEveryExpiryDate_whenCalledConcurrently() throws Exception {
-        LocalDate first = LocalDate.of(2020, 1, 1);
+        LocalDate first = LocalDate.of(2020, Month.JANUARY, 1);
 
         var failures = ConcurrentRounds.run(8, 1500, (thread, round) -> {
             // Every call works on a date no other call uses, so a crossed result cannot pass.
@@ -153,9 +154,9 @@ class PreventionExpiryDateUnitTest {
     @Test
     void shouldReadHandTypedDates_withSingleDigitFieldsOrSurroundingSpace() throws Exception {
         inZone(CLINIC_ZONE, () -> {
-            assertThat(withStoredExpiry("2026-5-1").getExpiryDate()).isEqualTo(clinicMidnight(LocalDate.of(2026, 5, 1)));
-            assertThat(withStoredExpiry(" 2026-05-01 ").getExpiryDate()).isEqualTo(clinicMidnight(LocalDate.of(2026, 5, 1)));
-            assertThat(withStoredExpiry("2028-02-29").getExpiryDate()).isEqualTo(clinicMidnight(LocalDate.of(2028, 2, 29)));
+            assertThat(withStoredExpiry("2026-5-1").getExpiryDate()).isEqualTo(clinicMidnight(LocalDate.of(2026, Month.MAY, 1)));
+            assertThat(withStoredExpiry(" 2026-05-01 ").getExpiryDate()).isEqualTo(clinicMidnight(LocalDate.of(2026, Month.MAY, 1)));
+            assertThat(withStoredExpiry("2028-02-29").getExpiryDate()).isEqualTo(clinicMidnight(LocalDate.of(2028, Month.FEBRUARY, 29)));
         });
     }
 
@@ -190,7 +191,7 @@ class PreventionExpiryDateUnitTest {
         // java.sql.Date refuses toInstant(); a JDBC-loaded value must still store its date.
         inZone(CLINIC_ZONE, () -> {
             Prevention prevention = new Prevention();
-            prevention.setExpiryDate(java.sql.Date.valueOf(LocalDate.of(2027, 6, 30)));
+            prevention.setExpiryDate(java.sql.Date.valueOf(LocalDate.of(2027, Month.JUNE, 30)));
             assertThat(storedExpiry(prevention)).isEqualTo("2027-06-30");
         });
     }

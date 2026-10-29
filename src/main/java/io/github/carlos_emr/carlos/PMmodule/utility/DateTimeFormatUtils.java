@@ -75,7 +75,7 @@ public final class DateTimeFormatUtils {
      */
     private static final DateTimeFormatter DATE_PARSER = DateTimeFormatter.ofPattern("uuuu-M-d", Locale.ROOT)
             .withResolverStyle(ResolverStyle.STRICT);
-    private static final Pattern DATE_TEXT = Pattern.compile("[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}");
+    private static final Pattern DATE_TEXT = Pattern.compile("\\d{4}-\\d{1,2}-\\d{1,2}");
 
     /**
      * The short Canadian time, for example {@code 8:05 p.m.}: the same localized pattern the

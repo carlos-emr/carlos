@@ -52,6 +52,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.TimeZone;
@@ -187,7 +188,7 @@ class FHIRCommunicationRequestHandlerObservationDateUnitTest extends CarlosUnitT
 
     @Test
     void shouldFormatEveryDate_whenCalledConcurrently() throws Exception {
-        LocalDate first = LocalDate.of(2000, 1, 1);
+        LocalDate first = LocalDate.of(2000, Month.JANUARY, 1);
 
         var failures = ConcurrentRounds.run(8, 1500, (thread, round) -> {
             // Every call works on a date no other call uses, so a crossed result cannot pass.

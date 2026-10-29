@@ -55,6 +55,7 @@ import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.Logger;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -75,7 +76,7 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
     // The text field also takes hand-typed dates such as 2026-5-1, which the legacy parser accepted.
     private static final DateTimeFormatter EXPIRY_DATE_PARSER = DateTimeFormatter.ofPattern("uuuu-M-d", Locale.ROOT)
             .withResolverStyle(ResolverStyle.STRICT);
-    private static final Pattern EXPIRY_DATE_TEXT = Pattern.compile("[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}");
+    private static final Pattern EXPIRY_DATE_TEXT = Pattern.compile("\\d{4}-\\d{1,2}-\\d{1,2}");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -512,8 +513,11 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
 
         LocalDate expiry = parseExpiryDate(datestring.trim());
         if (expiry == null) {
-            MiscUtils.getLogger().warn("Immunization expiry date [{}] is not a yyyy-MM-dd calendar date; reading it as no date",
-                    LogSafe.sanitize(datestring));
+            Logger logger = MiscUtils.getLogger();
+            if (logger.isWarnEnabled()) {
+                logger.warn("Immunization expiry date [{}] is not a yyyy-MM-dd calendar date; reading it as no date",
+                        LogSafe.sanitize(datestring));
+            }
             return null;
         }
         return Date.from(expiry.atStartOfDay(ZoneId.systemDefault()).toInstant());
@@ -547,7 +551,7 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
         }
         try {
             return LocalDate.parse(text, EXPIRY_DATE_PARSER);
-        } catch (DateTimeParseException e) {
+        } catch (DateTimeParseException _) {
             // Well-formed but not on the calendar, such as 2026-02-30 or 2026-13-01.
             return null;
         }

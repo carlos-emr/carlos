@@ -91,7 +91,7 @@ public final class ConcurrentRounds {
                                 return;
                             }
                         }
-                    } catch (InterruptedException interrupted) {
+                    } catch (InterruptedException _) {
                         Thread.currentThread().interrupt();
                         failures.add("thread " + thread + " was interrupted");
                     }
