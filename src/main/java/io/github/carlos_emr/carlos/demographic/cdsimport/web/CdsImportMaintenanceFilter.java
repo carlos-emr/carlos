@@ -117,7 +117,7 @@ public final class CdsImportMaintenanceFilter implements Filter {
     }
 
     private static String route(String path) {
-        return path.endsWith(".do") ? path.substring(0,path.length()-3)
-                : path.endsWith(".action") ? path.substring(0,path.length()-7) : path;
+        return path.endsWith(".do") ? path.substring(0, path.length() - 3)
+                : path.endsWith(".action") ? path.substring(0, path.length() - 7) : path;
     }
 }
