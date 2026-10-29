@@ -4,6 +4,12 @@
 # as required by the Developer Certificate of Origin (DCO).
 # See https://developercertificate.org/
 #
+# Commits that cannot carry a contributor trailer pass automatically and are
+# reported separately from signed-off commits: verified GitHub-generated merge
+# commits (two or more parents, committer account web-flow, valid GitHub
+# signature, "Merge pull request" or "Merge branch ... into ..." subject) and
+# the allow-listed bot accounts. They never need a manual confirmation.
+#
 # This check can also pass if an authorized maintainer with write or higher
 # repository permission posts a PR comment containing:
 #   Confirming DCO sign off for all commits at <full PR head SHA>
@@ -145,6 +151,7 @@ jobs:
           github_merge_exempt=()
           total=0
           passed=0
+          signed_off=0
           page=1
           head_seen=false
           declare -A seen_commits=()
@@ -191,6 +198,7 @@ jobs:
               fi
               if printf '%s\n' "$message" | grep -qE '^Signed-off-by: .+ <.+>'; then
                 passed=$((passed + 1))
+                signed_off=$((signed_off + 1))
               elif [ "$author_type" = "Bot" ] && printf '%s' "$author_login" | grep -qE "$bot_logins_regex"; then
                 passed=$((passed + 1))
                 bot_exempt+=("$short - $subject")
@@ -226,6 +234,9 @@ jobs:
             exit 0
           fi
 
+          # Report each outcome class separately so an exemption is never
+          # mistaken for a sign-off, and an exempt commit is never listed as
+          # missing or answered with a request for manual confirmation.
           if [ ${#bot_exempt[@]} -gt 0 ]; then
             echo "DCO-exempt bot commits (${#bot_exempt[@]}):"
             for entry in "${bot_exempt[@]}"; do
@@ -242,14 +253,45 @@ jobs:
             echo ""
           fi
 
+          summary="$signed_off signed off, ${#github_merge_exempt[@]} verified GitHub merge exemption(s), ${#bot_exempt[@]} bot exemption(s), ${#missing[@]} missing sign-off"
           echo "Checked $total commit(s): $passed passed, ${#missing[@]} missing sign-off"
+          echo "Breakdown: $summary"
 
           if [ ${#missing[@]} -gt 0 ]; then
             echo "commits_missing=true" >> "$GITHUB_OUTPUT"
             printf '%s\n' "${missing[@]}" > /tmp/missing_commits.txt
+            # Exempt commits need no action; the failure comment names them
+            # only so a reader does not wonder whether they were counted.
+            {
+              [ ${#github_merge_exempt[@]} -gt 0 ] && printf '%s\n' "${github_merge_exempt[@]/#/github-merge }"
+              [ ${#bot_exempt[@]} -gt 0 ] && printf '%s\n' "${bot_exempt[@]/#/bot }"
+              true
+            } > /tmp/exempt_commits.txt
           else
             echo "commits_missing=false" >> "$GITHUB_OUTPUT"
-            echo "All commits have valid DCO sign-off."
+            if [ ${#github_merge_exempt[@]} -eq 0 ] && [ ${#bot_exempt[@]} -eq 0 ]; then
+              echo "All commits have valid DCO sign-off."
+              description="All commits have valid DCO sign-off"
+            else
+              echo "All commits satisfy DCO ($summary)."
+              description="DCO satisfied: $signed_off signed off"
+              [ ${#github_merge_exempt[@]} -gt 0 ] && description="$description, ${#github_merge_exempt[@]} verified GitHub merge(s) exempt"
+              [ ${#bot_exempt[@]} -gt 0 ] && description="$description, ${#bot_exempt[@]} bot(s) exempt"
+            fi
+            echo "success_description=$description" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              echo "### CARLOS EMR DCO check"
+              echo ""
+              echo "| Outcome | Commits |"
+              echo "| --- | ---: |"
+              echo "| Signed off (\`Signed-off-by\` trailer) | $signed_off |"
+              echo "| Exempt: verified GitHub-generated merge | ${#github_merge_exempt[@]} |"
+              echo "| Exempt: permitted bot account | ${#bot_exempt[@]} |"
+              echo "| Missing sign-off | ${#missing[@]} |"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Set success status
@@ -258,13 +300,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          DESCRIPTION: ${{ steps.dco_check.outputs.success_description }}
         run: |
           set -euo pipefail
 
           jq -n \
             --arg state "success" \
             --arg context "DCO" \
-            --arg description "All commits have valid DCO sign-off" \
+            --arg description "${DESCRIPTION:-All commits have valid DCO sign-off}" \
             --arg target_url "$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" \
             '{state: $state, context: $context, description: $description, target_url: $target_url}' | \
             curl -fsS -X POST \
@@ -549,6 +592,13 @@ jobs:
               echo ""
               echo "The following commit(s) are missing a \`Signed-off-by\` line:"
               echo "$missing_list"
+              if [ -s /tmp/exempt_commits.txt ]; then
+                echo ""
+                echo "These commits were checked and are exempt; they need no sign-off and no manual confirmation (verified GitHub-generated merge commits or permitted bot accounts):"
+                while IFS= read -r entry; do
+                  echo "- \`$entry\`"
+                done < /tmp/exempt_commits.txt
+              fi
               echo ""
               echo "### Preferred fix"
               echo ""
