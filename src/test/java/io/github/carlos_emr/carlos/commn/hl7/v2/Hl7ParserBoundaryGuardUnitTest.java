@@ -62,7 +62,7 @@ class Hl7ParserBoundaryGuardUnitTest {
     /** Files that implement the boundary and so may name the HAPI classes they wrap. */
     private static final Set<String> BOUNDARY_FILES = Set.of(
             "HardenedHl7XmlParser.java", "UntrustedHl7MessageParser.java", "LegacyHl7NoValidation.java",
-            "LegacyHl7Escaping.java", "Hl7Parsers.java");
+            "LegacyHl7Escaping.java", "LegacyHl7PipeParser.java", "Hl7Parsers.java");
 
     private record Rule(Pattern pattern, String replacement) {
     }
@@ -76,6 +76,8 @@ class Hl7ParserBoundaryGuardUnitTest {
                     "no HAPI pre-parser: its XML reader resolves external entities"),
             new Rule(Pattern.compile("ca\\.uhn\\.hl7v2\\.util\\.XMLUtils"),
                     "HardenedHl7XmlParser instead of HAPI's XMLUtils"),
+            new Rule(Pattern.compile("extends\\s+(?:ca\\.uhn\\.hl7v2\\.parser\\.)?(?:PipeParser|GenericParser|DefaultXMLParser|XMLParser)\\b"),
+                    "Hl7Parsers, UntrustedHl7MessageParser or HardenedHl7XmlParser instead of another HAPI parser subclass"),
             new Rule(Pattern.compile("new\\s+(?:ca\\.uhn\\.hl7v2\\.parser\\.)?PipeParser\\s*\\("),
                     "Hl7Parsers.newPipeParser() or Hl7Parsers.newEncodingPipeParser(), which keep HAPI 1.0.1 trimming and escaping"),
             new Rule(Pattern.compile("new\\s+(?:ca\\.uhn\\.hl7v2\\.validation\\.impl\\.)?NoValidation\\s*\\("),
@@ -116,6 +118,17 @@ class Hl7ParserBoundaryGuardUnitTest {
         long matches = RULES.stream().filter(rule -> rule.pattern().matcher(stripComments(offending)).find()).count();
 
         assertThat(matches).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("should detect a subclass of a HAPI parser when it is declared outside the boundary")
+    void shouldDetectSubclassOfHapiParser_whenDeclaredOutsideBoundary() {
+        // A subclass is created with its own name, so the "new PipeParser(" rule would not see it.
+        for (String declaration : List.of("class X extends PipeParser {}", "class X extends ca.uhn.hl7v2.parser.PipeParser {}",
+                "class X extends DefaultXMLParser {}", "class X extends GenericParser {}", "class X extends XMLParser {}")) {
+            assertThat(RULES.stream().anyMatch(rule -> rule.pattern().matcher(declaration).find()))
+                    .as(declaration).isTrue();
+        }
     }
 
     @Test

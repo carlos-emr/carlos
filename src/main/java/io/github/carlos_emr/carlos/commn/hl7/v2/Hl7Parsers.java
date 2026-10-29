@@ -24,8 +24,8 @@ package io.github.carlos_emr.carlos.commn.hl7.v2;
 import ca.uhn.hl7v2.DefaultHapiContext;
 import ca.uhn.hl7v2.HapiContext;
 import ca.uhn.hl7v2.model.Message;
-import ca.uhn.hl7v2.model.Varies;
 import ca.uhn.hl7v2.parser.DefaultModelClassFactory;
+import ca.uhn.hl7v2.parser.FixFieldDataType;
 import ca.uhn.hl7v2.parser.ModelClassFactory;
 import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.validation.impl.ValidationContextImpl;
@@ -37,7 +37,8 @@ import ca.uhn.hl7v2.validation.impl.ValidationContextImpl;
  * changes no lab value, prescription QR code or ADT export:</p>
  * <ul>
  *   <li>{@link #newPipeParser()} reads received HL7, such as lab results: no format checks, FT/ST/TX
- *       left-trimmed ({@link LegacyHl7NoValidation}) and {@link LegacyHl7Escaping}.</li>
+ *       left-trimmed ({@link LegacyHl7NoValidation}), {@link LegacyHl7Escaping}, and 1.0.1's names
+ *       for the segments of a message HAPI parses generically ({@link LegacyHl7PipeParser}).</li>
  *   <li>{@link #forBuilding(Message)} and {@link #newEncodingPipeParser()} are for messages CARLOS
  *       builds: values are stored exactly as set, with no trimming and no format checks, then
  *       encoded with {@link LegacyHl7Escaping}. HAPI 2.x would otherwise check numeric fields while
@@ -63,8 +64,8 @@ public final class Hl7Parsers {
      * is in place before any lab message is parsed.
      */
     static {
-        if (System.getProperty(Varies.ESCAPE_SUBCOMPONENT_DELIM_IN_PRIMITIVE) == null) {
-            System.setProperty(Varies.ESCAPE_SUBCOMPONENT_DELIM_IN_PRIMITIVE, "false");
+        if (System.getProperty(FixFieldDataType.ESCAPE_SUBCOMPONENT_DELIM_IN_PRIMITIVE) == null) {
+            System.setProperty(FixFieldDataType.ESCAPE_SUBCOMPONENT_DELIM_IN_PRIMITIVE, "false");
         }
     }
 
@@ -87,14 +88,17 @@ public final class Hl7Parsers {
         return context;
     }
 
-    /** A pipe parser for received HL7. */
+    /**
+     * A pipe parser for received HL7. A message of a type HAPI does not define keeps HAPI 1.0.1's
+     * segment names ({@link LegacyHl7PipeParser}).
+     */
     public static PipeParser newPipeParser() {
-        return new PipeParser(newParsingContext());
+        return new LegacyHl7PipeParser(newParsingContext());
     }
 
     /** A pipe parser for received HL7 that maps segments onto custom model classes. */
     public static PipeParser newPipeParser(ModelClassFactory modelClassFactory) {
-        return new PipeParser(newParsingContext(modelClassFactory));
+        return new LegacyHl7PipeParser(newParsingContext(modelClassFactory));
     }
 
     /**
