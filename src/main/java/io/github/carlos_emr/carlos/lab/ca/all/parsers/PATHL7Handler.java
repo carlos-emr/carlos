@@ -47,12 +47,11 @@ import ca.uhn.hl7v2.model.v23.datatype.ED;
 import ca.uhn.hl7v2.model.v23.datatype.HD;
 import ca.uhn.hl7v2.model.v23.datatype.XCN;
 import ca.uhn.hl7v2.model.v23.message.ORU_R01;
-import ca.uhn.hl7v2.parser.DefaultXMLParser;
+import io.github.carlos_emr.carlos.commn.hl7.v2.HardenedHl7XmlParser;
 import ca.uhn.hl7v2.parser.Parser;
-import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.parser.XMLParser;
 import ca.uhn.hl7v2.util.Terser;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -88,8 +87,7 @@ public class PATHL7Handler implements MessageHandler {
     }
 
     public void init(String hl7Body) throws HL7Exception {
-        Parser p = new PipeParser();
-        p.setValidationContext(new NoValidation());
+        Parser p = Hl7Parsers.newPipeParser();
         msg = (ORU_R01) p.parse(hl7Body.replaceAll("\n", "\r\n").replace("\\.Zt\\", "\t"));
     }
 
@@ -116,15 +114,15 @@ public class PATHL7Handler implements MessageHandler {
     }
 
     public String getFirstName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getGivenName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getGivenName().getValue()));
     }
 
     public String getMiddleName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getXpn3_MiddleInitialOrName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getXpn3_MiddleInitialOrName().getValue()));
     }
 
     public String getLastName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getFamilyName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getFamilyName().getValue()));
     }
 
     public String getDOB() {
@@ -524,7 +522,8 @@ public class PATHL7Handler implements MessageHandler {
                 return "A";
             }
             return ed.getEncoding().getValue();
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
             logger.warn("Cannot read embedded lab document encoding; using document fallback");
             return null;
         }
@@ -570,7 +569,8 @@ public class PATHL7Handler implements MessageHandler {
                         }
                     }
                 }
-            } catch (HL7Exception e) {
+            } catch (RuntimeException e) {
+                // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
                 logger.error("Error", e);
                 return false;
             }
@@ -626,7 +626,8 @@ public class PATHL7Handler implements MessageHandler {
             return values != null && values.length > 0 && values[0] != null
                     && values[0].getData() instanceof ED ed
                     && !StringUtils.isEmpty(ed.getEd1_SourceApplication().getHd1_NamespaceID().getValue());
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
             return false;
         }
     }
@@ -1063,7 +1064,7 @@ public class PATHL7Handler implements MessageHandler {
 
     public String getXML() {
 
-        XMLParser xmlParser = new DefaultXMLParser();
+        XMLParser xmlParser = new HardenedHl7XmlParser();
         String messageInXML = "";
         try {
             messageInXML = xmlParser.encode(msg);

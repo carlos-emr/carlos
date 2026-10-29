@@ -184,7 +184,7 @@
         <!-- JNA: pin transitive ultrabuk-htmltopdf-java range [5.12,) to the locked version -->
         <jna.version>5.19.1</jna.version>
         <!-- HAPI HL7 v2 -->
-        <hapi-hl7.version>1.0.1</hapi-hl7.version>
+        <hapi-hl7.version>2.6.0</hapi-hl7.version>
         <!-- Flyway schema migrations (Community edition covers MariaDB/MySQL) -->
         <flyway.version>11.14.0</flyway.version>
         <!-- Selenium: drives the pinned headless Chromium for eForm browser PDF rendering -->
@@ -559,29 +559,22 @@
         </dependency>
 
         <!-- ==================== HL7 / HAPI ==================== -->
+        <!-- HAPI HL7 v2 (issue #5414). hapi-base and every structures module must share
+             ${hapi-hl7.version}; mixing releases breaks the generated model classes.
+             2.6.0 replaced 1.0.1 (2010), whose XML parser resolved external entities.
+             CARLOS still parses untrusted HL7 XML only through HardenedHl7XmlParser. -->
         <dependency>
             <groupId>ca.uhn.hapi</groupId>
             <artifactId>hapi-base</artifactId>
             <version>${hapi-hl7.version}</version>
             <exclusions>
-                <!-- Not being used, excluded to avoid triggering security issue -->
+                <!-- Declared as a compile dependency of hapi-base 2.6.0, but no class in
+                     hapi-base or the structures jars references org.joda (checked against
+                     the 2.6.0 bytecode) and CARLOS does not use it. Excluded so a 2012
+                     joda-time with stale time zone data is not shipped in the WAR. -->
                 <exclusion>
-                    <groupId>xalan</groupId>
-                    <artifactId>xalan</artifactId>
-                </exclusion>
-                <!-- Excluded this low version to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>org.jdom</groupId>
-                    <artifactId>jdom</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>commons-lang</groupId>
-                    <artifactId>commons-lang</artifactId>
-                </exclusion>
-                <!-- Exclude vulnerable log4j v1.2.x - default to using log4j 2.x instead -->
-                <exclusion>
-                    <groupId>log4j</groupId>
-                    <artifactId>log4j</artifactId>
+                    <groupId>joda-time</groupId>
+                    <artifactId>joda-time</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -611,7 +604,8 @@
             <version>${hapi-hl7.version}</version>
         </dependency>
 
-        <!-- Replaces jdom v1 excluded from hapi-base (security fix) -->
+        <!-- JDOM 2, used directly by CARLOS XML code (the vulnerable JDOM 1 that HAPI 1.0.1
+             pulled in was excluded before the HAPI 2.6.0 upgrade removed it entirely) -->
         <dependency>
             <groupId>org.jdom</groupId>
             <artifactId>jdom2</artifactId>

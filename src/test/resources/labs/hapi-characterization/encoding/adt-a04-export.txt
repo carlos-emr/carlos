@@ -1,0 +1,4 @@
+MSH|^~\&|||||<clock>||ADT^A04|<clock>|T|2.3\r
+EVN|A04|<clock>\r
+PID|1||R_42||FAKE\F\SURNAME\S\  A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试  ^  A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试  ^ ||19800102|F\r
+\r

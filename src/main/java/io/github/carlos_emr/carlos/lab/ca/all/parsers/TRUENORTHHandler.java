@@ -47,9 +47,8 @@ import ca.uhn.hl7v2.model.v23.message.ORU_R01;
 import ca.uhn.hl7v2.model.v23.segment.OBR;
 import ca.uhn.hl7v2.model.v23.segment.OBX;
 import ca.uhn.hl7v2.parser.Parser;
-import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
 
 public class TRUENORTHHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
@@ -63,8 +62,7 @@ public class TRUENORTHHandler implements MessageHandler {
 
     public void init(String hl7Body) throws HL7Exception {
 
-        Parser p = new PipeParser();
-        p.setValidationContext(new NoValidation());
+        Parser p = Hl7Parsers.newPipeParser();
         msg = (ORU_R01) p.parse(hl7Body.replaceAll("\n", "\r\n"));
         String accessionNumber = getAccessionNum(msg);
         String firstName = getFirstName();
@@ -475,7 +473,7 @@ public class TRUENORTHHandler implements MessageHandler {
     }
 
     private String getFirstName(ORU_R01 msg) {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getGivenName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getGivenName().getValue()));
     }
 
     public String getLastName() {
@@ -483,7 +481,7 @@ public class TRUENORTHHandler implements MessageHandler {
     }
 
     private String getLastName(ORU_R01 msg) {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getFamilyName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getFamilyName().getValue()));
     }
 
     public String getDOB() {
@@ -522,7 +520,8 @@ public class TRUENORTHHandler implements MessageHandler {
     private String getHealthNum(ORU_R01 msg) {
         try {
             return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientIDInternalID(0).getID().getValue()));
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
             logger.error("Could not get hin", e);
             return "";
         }

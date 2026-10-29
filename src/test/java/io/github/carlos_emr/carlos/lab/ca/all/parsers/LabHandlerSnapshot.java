@@ -27,8 +27,7 @@ import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -54,8 +53,9 @@ import java.util.stream.Collectors;
  *       whose result is text, a number, a boolean, a date or a collection of those are called.</li>
  *   <li>{@code getAge()} (today's date) and {@code getXML()} (unused serializer output) are
  *       skipped.</li>
- *   <li>Dates are shown as local date-time in the JVM zone: handlers parse HL7 timestamps in
- *       that zone, so the epoch would differ between machines but the local time does not.</li>
+ *   <li>Dates are shown as date-time text in the JVM zone and calendar, the ones handlers parse
+ *       HL7 timestamps with. Callers pin the zone, because some handlers also convert timestamps
+ *       that carry an offset into the server's local time.</li>
  *   <li>A thrown exception is recorded by class name, never by message text, which carries
  *       library-specific wording.</li>
  *   <li>Values longer than {@value #MAX_INLINE_CHARS} characters (embedded PDFs) are recorded as
@@ -202,7 +202,8 @@ final class LabHandlerSnapshot {
             return quote(text.toString());
         }
         if (value instanceof Date date) {
-            return "Date(" + LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault()) + ")";
+            // Same calendar and zone the handlers parse with, so pre-1582 and LMT dates round-trip.
+            return "Date(" + new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS").format(date) + ")";
         }
         if (value instanceof Collection<?> items) {
             return items.stream().map(LabHandlerSnapshot::value).collect(Collectors.joining(", ", "[", "]"));

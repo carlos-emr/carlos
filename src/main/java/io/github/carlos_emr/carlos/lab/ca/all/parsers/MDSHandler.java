@@ -58,7 +58,7 @@ import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.model.Structure;
 import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -94,8 +94,7 @@ public class MDSHandler implements MessageHandler {
             // Store raw HL7 for direct Z-segment parsing (official HAPI can't access Z-segments reliably)
             this.rawHL7Body = hl7Body;
 
-            PipeParser parser = new PipeParser();
-            parser.setValidationContext(new NoValidation());
+            PipeParser parser = Hl7Parsers.newPipeParser();
             msg = parser.parse(hl7Body.replace("\n", "\r\n"));
             terser = new Terser(msg);
 

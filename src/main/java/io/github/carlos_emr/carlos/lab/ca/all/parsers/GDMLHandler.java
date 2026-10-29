@@ -64,9 +64,8 @@ import ca.uhn.hl7v2.model.v23.message.ORU_R01;
 import ca.uhn.hl7v2.model.v23.segment.OBR;
 import ca.uhn.hl7v2.model.v23.segment.OBX;
 import ca.uhn.hl7v2.parser.Parser;
-import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
 
 /**
  * @author wrighd
@@ -87,8 +86,7 @@ public class GDMLHandler implements MessageHandler {
 
     public void init(String hl7Body) throws HL7Exception {
 
-        Parser p = new PipeParser();
-        p.setValidationContext(new NoValidation());
+        Parser p = Hl7Parsers.newPipeParser();
         msg = (ORU_R01) p.parse(hl7Body.replaceAll("\n", "\r\n"));
 
         ArrayList<String> labs = getMatchingGDMLLabsByAccessionNo(hl7Body);
@@ -480,11 +478,11 @@ public class GDMLHandler implements MessageHandler {
     }
 
     public String getFirstName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getGivenName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getGivenName().getValue()));
     }
 
     public String getLastName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getFamilyName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getFamilyName().getValue()));
     }
 
     public String getDOB() {
@@ -565,7 +563,8 @@ public class GDMLHandler implements MessageHandler {
             if (msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getObr39_CollectorSCommentReps() != 0) {
                 return (getString(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getObr39_CollectorSComment(0).getCe1_Identifier().getValue()));
             }
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
             logger.error("Error", e);
         }
         return (getString(msg.getMSH().getSendingFacility().getNamespaceID().getValue()));

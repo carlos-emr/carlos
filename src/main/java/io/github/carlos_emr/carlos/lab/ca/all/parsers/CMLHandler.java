@@ -64,9 +64,8 @@ import ca.uhn.hl7v2.model.v23.datatype.XCN;
 import ca.uhn.hl7v2.model.v23.message.ORU_R01;
 import ca.uhn.hl7v2.model.v23.segment.OBR;
 import ca.uhn.hl7v2.parser.Parser;
-import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
@@ -85,8 +84,7 @@ public class CMLHandler implements MessageHandler {
 
     @Override
     public void init(String hl7Body) throws HL7Exception {
-        Parser p = new PipeParser();
-        p.setValidationContext(new NoValidation());
+        Parser p = Hl7Parsers.newPipeParser();
         msg = (ORU_R01) p.parse(hl7Body.replaceAll( "\n", "\r\n" ));
     }
 
@@ -382,12 +380,12 @@ public class CMLHandler implements MessageHandler {
 
     @Override
     public String getFirstName(){
-        return(getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getGivenName().getValue()));
+        return(getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getGivenName().getValue()));
     }
 
     @Override
     public String getLastName(){
-        return(getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getFamilyName().getValue()));
+        return(getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getFamilyName().getValue()));
     }
 
     @Override

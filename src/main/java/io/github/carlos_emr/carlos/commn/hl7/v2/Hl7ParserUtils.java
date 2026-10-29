@@ -30,7 +30,6 @@
 package io.github.carlos_emr.carlos.commn.hl7.v2;
 
 import ca.uhn.hl7v2.parser.PipeParser;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
 
 /**
  * Shared HL7 parser utilities used across modules that need HL7 v2 message encoding/decoding.
@@ -42,7 +41,11 @@ import ca.uhn.hl7v2.validation.impl.NoValidation;
  */
 public final class Hl7ParserUtils {
 
-    /** Pre-configured HAPI PipeParser with no validation, suitable for encoding/decoding HL7 messages. */
+    /**
+     * Shared HAPI PipeParser for encoding messages CARLOS builds, such as the prescription QR code.
+     * It applies no validation and HAPI 1.0.1 escaping ({@link Hl7Parsers#newEncodingPipeParser()});
+     * parse received HL7 with {@link Hl7Parsers#newPipeParser()} instead.
+     */
     public static final PipeParser pipeParser = initialisePipeParser();
 
     private Hl7ParserUtils() {
@@ -50,8 +53,6 @@ public final class Hl7ParserUtils {
     }
 
     private static PipeParser initialisePipeParser() {
-        PipeParser pipeParser = new PipeParser();
-        pipeParser.setValidationContext(new NoValidation());
-        return pipeParser;
+        return Hl7Parsers.newEncodingPipeParser();
     }
 }

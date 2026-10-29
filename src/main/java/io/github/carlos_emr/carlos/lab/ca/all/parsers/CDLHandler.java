@@ -56,9 +56,8 @@ import ca.uhn.hl7v2.model.v23.message.ORU_R01;
 import ca.uhn.hl7v2.model.v23.segment.OBR;
 import ca.uhn.hl7v2.model.v23.segment.OBX;
 import ca.uhn.hl7v2.parser.Parser;
-import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CDLHandler implements MessageHandler {
@@ -77,8 +76,7 @@ public class CDLHandler implements MessageHandler {
     }
 
     public void init(String hl7Body) throws HL7Exception {
-        Parser p = new PipeParser();
-        p.setValidationContext(new NoValidation());
+        Parser p = Hl7Parsers.newPipeParser();
         msg = (ORU_R01) p.parse(hl7Body.replaceAll("\n", "\r\n"));
         ca.uhn.hl7v2.model.v23.group.ORU_R01_RESPONSE pat_res = msg.getRESPONSE();
         ca.uhn.hl7v2.model.v23.group.ORU_R01_ORDER_OBSERVATION obsr =
@@ -373,11 +371,11 @@ public class CDLHandler implements MessageHandler {
     }
 
     public String getFirstName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getGivenName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getGivenName().getValue()));
     }
 
     public String getLastName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getFamilyName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getFamilyName().getValue()));
     }
 
     public String getDOB() {

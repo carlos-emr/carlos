@@ -40,13 +40,12 @@ import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.v23.datatype.XCN;
 import ca.uhn.hl7v2.model.v23.message.ORU_R01;
-import ca.uhn.hl7v2.parser.DefaultXMLParser;
+import io.github.carlos_emr.carlos.commn.hl7.v2.HardenedHl7XmlParser;
 import ca.uhn.hl7v2.parser.Parser;
-import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.parser.XMLParser;
 import ca.uhn.hl7v2.util.Terser;
 // import ca.uhn.hl7v2.validation.ValidationContext;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
@@ -87,8 +86,7 @@ public class MEDITECHHandler implements MessageHandler {
     @Override
     public void init(String hl7Body) throws HL7Exception {
 
-        Parser parser = new PipeParser();
-        parser.setValidationContext(new NoValidation());
+        Parser parser = Hl7Parsers.newPipeParser();
         msg = (ORU_R01) parser.parse(hl7Body.replaceAll("\n", "\r\n"));
         setTerser(new Terser(msg));
     }
@@ -103,7 +101,7 @@ public class MEDITECHHandler implements MessageHandler {
 
     public String getXML() {
 
-        XMLParser xmlParser = new DefaultXMLParser();
+        XMLParser xmlParser = new HardenedHl7XmlParser();
         String messageInXML = "";
         try {
             messageInXML = xmlParser.encode(msg);
@@ -353,7 +351,8 @@ public class MEDITECHHandler implements MessageHandler {
         String specimen = "";
         try {
             specimen = getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR().getObr15_SpecimenSource().getCm_sps2_Additives().getValue());
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
             return ("");
         }
 
@@ -368,7 +367,8 @@ public class MEDITECHHandler implements MessageHandler {
         String specimenDescription = "";
         try {
             specimenDescription = getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR().getObr15_SpecimenSource().getCm_sps3_Freetext().getValue());
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
             return ("");
         }
 
@@ -511,7 +511,8 @@ public class MEDITECHHandler implements MessageHandler {
         int count = 0;
         try {
             count = msg.getRESPONSE().getORDER_OBSERVATION(i).getNTEReps();
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
             //do nothing
         }
         return count;
@@ -531,7 +532,8 @@ public class MEDITECHHandler implements MessageHandler {
         int count = 0;
         try {
             count = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTEReps();
-        } catch (HL7Exception e1) {
+        } catch (RuntimeException e1) {
+            // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
             // do nothing
         }
         return count;
@@ -556,16 +558,16 @@ public class MEDITECHHandler implements MessageHandler {
 
     @Override
     public String getFirstName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getGivenName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getGivenName().getValue()));
     }
 
     public String getMiddleName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getXpn3_MiddleInitialOrName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getXpn3_MiddleInitialOrName().getValue()));
     }
 
     @Override
     public String getLastName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getFamilyName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getFamilyName().getValue()));
     }
 
     @Override
@@ -951,13 +953,15 @@ public class MEDITECHHandler implements MessageHandler {
 
         try {
             createProviderMap(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getOrderingProvider(), providerMap);
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
             logger.error("Exception while adding ordering providers to map ", e);
         }
 
         try {
             createProviderMap(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getResultCopiesTo(), providerMap);
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
             logger.error("Exception while adding copied to providers to map ", e);
         }
 

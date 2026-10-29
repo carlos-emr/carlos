@@ -40,6 +40,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import java.util.regex.Matcher;
@@ -176,9 +177,17 @@ class LabHandlerHl7ParsingSnapshotUnitTest {
         assertThat(messages).as("fixture %s yields at least one message", testCase.id()).isNotEmpty();
 
         StringBuilder actual = new StringBuilder();
-        for (int index = 0; index < messages.size(); index++) {
-            actual.append("=== message ").append(index + 1).append(" of ").append(messages.size()).append(" ===\n");
-            actual.append(LabHandlerSnapshot.render(handlerClass, messages.get(index)));
+        // Handlers convert timestamps that carry an offset into the server's local time, so the
+        // snapshots are recorded and compared in UTC whatever zone the build machine uses.
+        TimeZone serverZone = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+            for (int index = 0; index < messages.size(); index++) {
+                actual.append("=== message ").append(index + 1).append(" of ").append(messages.size()).append(" ===\n");
+                actual.append(LabHandlerSnapshot.render(handlerClass, messages.get(index)));
+            }
+        } finally {
+            TimeZone.setDefault(serverZone);
         }
 
         Path golden = GOLDEN.resolve(testCase.id().replace('/', '_') + ".txt.gz");

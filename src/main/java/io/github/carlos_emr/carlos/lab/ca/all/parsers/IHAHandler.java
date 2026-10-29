@@ -45,9 +45,8 @@ import ca.uhn.hl7v2.model.Message;
 import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.model.Structure;
 import ca.uhn.hl7v2.parser.Parser;
-import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Deprecated
@@ -70,8 +69,7 @@ public class IHAHandler implements MessageHandler {
     @Override
     public void init(String hl7Body) throws HL7Exception {
 
-        Parser p = new PipeParser();
-        p.setValidationContext(new NoValidation());
+        Parser p = Hl7Parsers.newPipeParser();
 
         // force parsing as a generic message by changing the message structure
         hl7Body = hl7Body.replaceAll("R01", "O01");

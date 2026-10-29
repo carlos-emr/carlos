@@ -35,9 +35,8 @@ import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.Message;
 import ca.uhn.hl7v2.model.v23.segment.MSH;
 import ca.uhn.hl7v2.parser.Parser;
-import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
@@ -89,8 +88,7 @@ public class IHAPOIHandler extends MEDITECHHandler implements MessageHandler {
 
     @Override
     public void init(String hl7Body) throws HL7Exception {
-        Parser parser = new PipeParser();
-        parser.setValidationContext(new NoValidation());
+        Parser parser = Hl7Parsers.newPipeParser();
         Message message = parser.parse(hl7Body.replaceAll("\n", "\n\r"));
 
         if (message instanceof ca.uhn.hl7v2.model.v23.message.ORU_R01) {
@@ -145,14 +143,16 @@ public class IHAPOIHandler extends MEDITECHHandler implements MessageHandler {
 
         try {
             accession = getString(msg.getRESPONSE().getORDER_OBSERVATION().getOBR().getPlacerOrderNumber(0).getEntityIdentifier().getValue());
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
             // do nothing. Lab may not display correctly with out accession.
         }
         try {
             if (accession == null || accession.isEmpty()) {
                 accession = getString(msg.getRESPONSE().getORDER_OBSERVATION().getORC().getPlacerOrderNumber(0).getEntityIdentifier().getValue());
             }
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            // HAPI 2.x reports missing-structure access as an unchecked exception (#5414).
             // do nothing. Lab may not display correctly with out accession.
         }
 

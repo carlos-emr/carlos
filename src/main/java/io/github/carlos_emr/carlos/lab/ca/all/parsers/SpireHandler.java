@@ -58,7 +58,7 @@ import ca.uhn.hl7v2.parser.CustomModelClassFactory;
 import ca.uhn.hl7v2.parser.ModelClassFactory;
 import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 class Lines {
@@ -275,8 +275,7 @@ public class SpireHandler implements MessageHandler {
         hl7Body = fixMessage(hl7Body);
 
         ModelClassFactory cmf = new CustomModelClassFactory("io.github.carlos_emr.carlos.lab.ca.all.spireHapiExt");
-        PipeParser p = new PipeParser(cmf);
-        p.setValidationContext(new NoValidation());
+        PipeParser p = Hl7Parsers.newPipeParser(cmf);
 
         msg = (ORU_R01) p.parse(hl7Body.replaceAll("\n", "\r\n"));
     }
@@ -727,11 +726,11 @@ public class SpireHandler implements MessageHandler {
     }
 
     public String getFirstName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getGivenName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getGivenName().getValue()));
     }
 
     public String getLastName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getFamilyName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getFamilyName().getValue()));
     }
 
     public String getDOB() {

@@ -1,0 +1,12 @@
+MSH|^~\&|OSCAR|SYNTHETIC CLINIC   A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试  |||<clock>||OMP^O09^OMP_O09|||2.6\r
+SFT|OSCARMcMaster|<build>|OSCAR\r
+NTE|||UnggY29tbWVudCAgIEF8Ql5DJkR+RVxGIFwuYnJcIFxIXGhpXE5cIFxYMEQwQVwgWm/DqyDDh8O0dMOpIOa1i+ivlQ==|^Rx Comments\r
+PID|1||9999999901^AB^^^HEALTH_NUMBER^^20200506^20300506^ON||FAKE\F\SURNAME\S\  A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试  ^  A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试  ^^^^^L||19800102|F|||2 FAKE AVE   A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试^^Montréal^QC^H0H 0H0^^H||^^^^^^^^^^^555-0101||French|||||||||||Canadian\r
+ORC|NW|||||||||||999998^FAKE\S\DOCTOR^A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试^^^DR|||20261029091500||||||SYNTHETIC CLINIC   A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试|1 FAKE ST   A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试^^FAKETOWN^ON^A1A 1A1^^O|^^^^^^^^^^^555-0100\r
+TQ1||30^&TAB&tablet|^^^^^^^^^^BID|||15^&&D|20261029000000|20261113000000\r
+RXO|^SYNTHETICOL   A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试(FAKEBRAND)|1.5||^TAB|^TABLET   A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试|^Instruction   A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试|^PO, Take||true\r
+NTE|||VGFrZSB3aXRoIGZvb2QgICBBfEJeQyZEfkVcRiBcLmJyXCBcSFxoaVxOXCBcWDBEMEFcIFpvw6sgw4fDtHTDqSDmtYvor5U=|^Prescription Text\r
+ORC|NW|||||||||||999998^FAKE\S\DOCTOR^A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试^^^DR|||20261029091500||||||SYNTHETIC CLINIC   A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试|1 FAKE ST   A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试^^FAKETOWN^ON^A1A 1A1^^O|^^^^^^^^^^^555-0100\r
+TQ1||30^&TAB&tablet|^^^^^^^^^^BID|||15^&&D|20261029000000|20261113000000\r
+RXO|^PLACEBOMYCIN|2||^TAB|^TABLET   A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试|^Instruction   A\F\B\S\C\T\D\R\E\E\F \.br\ \E\H\E\hi\E\N\E\ \E\X0D0A\E\ Zoë Çôté 测试|^PO, Take||false\r
+\r

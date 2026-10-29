@@ -67,8 +67,7 @@ public interface MessageHandler {
      * needed.
      * <p>
      * The 'msg' object should be initialized with the following code:
-     * Parser p = new PipeParser();
-     * p.setValidationContext(new NoValidation());
+     * Parser p = Hl7Parsers.newPipeParser();
      * msg = (ORU_R01) p.parse(hl7Body.replaceAll( "\n", "\r\n" ));
      * - If you wish to validate the message please see the hapi documentation at
      * 'http://hl7api.sourceforge.net/'

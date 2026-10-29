@@ -50,8 +50,6 @@ import ca.uhn.hl7v2.model.v23.segment.EVN;
 import ca.uhn.hl7v2.model.v23.segment.MSH;
 import ca.uhn.hl7v2.model.v23.segment.PID;
 import ca.uhn.hl7v2.model.v23.segment.PV1;
-import ca.uhn.hl7v2.parser.Parser;
-import ca.uhn.hl7v2.parser.PipeParser;
 
 /**
  * Class HL7A04Data
@@ -247,7 +245,7 @@ public class HL7A04Data {
         String currentDateTime = formatter.format(new Date());
 
         // Begin generating HL7 A04
-        ADT_A04 adt = new ADT_A04();
+        ADT_A04 adt = Hl7Parsers.forBuilding(new ADT_A04());
 
         // MSH Segment
         MSH mshSegment = adt.getMSH();
@@ -275,9 +273,9 @@ public class HL7A04Data {
 
         pid.getPatientIDInternalID(0).getID().setValue("R_" + demoData[0]);
 
-        pid.getPatientName().getFamilyName().setValue(demoData[1]);
-        pid.getPatientName().getGivenName().setValue(demoData[2]);
-        pid.getPatientName().getMiddleInitialOrName().setValue(" ");
+        pid.getPatientName(0).getFamilyName().setValue(demoData[1]);
+        pid.getPatientName(0).getGivenName().setValue(demoData[2]);
+        pid.getPatientName(0).getMiddleInitialOrName().setValue(" ");
         pid.getDateOfBirth().getTimeOfAnEvent().setValue(demoData[3]);
         pid.getSex().setValue(demoData[4]);
 
@@ -393,7 +391,6 @@ public class HL7A04Data {
             pv1.getAdmitDateTime().getTimeOfAnEvent().setValue(dateTime);
         }
 
-        Parser parser = new PipeParser();
-        this.message = parser.encode(adt);
+        this.message = Hl7Parsers.newEncodingPipeParser().encode(adt);
     }
 }

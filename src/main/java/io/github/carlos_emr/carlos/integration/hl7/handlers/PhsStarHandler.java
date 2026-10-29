@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.hl7.v2.UntrustedHl7MessageParser;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -70,10 +71,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.CarlosProperties;
 import ca.uhn.hl7v2.HL7Exception;
-import ca.uhn.hl7v2.parser.GenericParser;
-import ca.uhn.hl7v2.parser.Parser;
 import ca.uhn.hl7v2.util.Terser;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
 
 public class PhsStarHandler extends BasePhsStarHandler {
 
@@ -725,9 +723,9 @@ public class PhsStarHandler extends BasePhsStarHandler {
      * Logic to choose which message type we have, and to handle it.
      */
     public void init(String hl7Body) throws HL7Exception {
-        Parser p = new GenericParser();
-        p.setValidationContext(new NoValidation());
-        msg = p.parse(hl7Body.replaceAll("\n", "\r\n"));
+        // The body comes from a lab upload and may be pipe or XML encoded. XML is parsed with
+        // entity and DTD resolution disabled; HAPI's GenericParser must not be used here (#5414).
+        msg = new UntrustedHl7MessageParser().parse(hl7Body.replaceAll("\n", "\r\n"));
 
         t = new Terser(msg);
         String msgType = t.get("/MSH-9-1");
@@ -735,7 +733,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
         String controlId = t.get("/MSH-10-1");
 
         logger.info("hl7 message id is " + controlId);
-        logger.info("\n" + hl7Body);
+        // The message body is not logged: it carries patient demographics (PHI).
         logger.info("msg = " + msgType + " " + triggerEvent);
 
         //ADT A14 is PENDING ADMIT

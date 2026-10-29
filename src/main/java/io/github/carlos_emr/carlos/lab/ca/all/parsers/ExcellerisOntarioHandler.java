@@ -56,7 +56,7 @@ import org.apache.logging.log4j.Logger;
 
 import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.HL7Exception;
-import ca.uhn.hl7v2.model.Varies;
+import ca.uhn.hl7v2.model.Variable;
 import ca.uhn.hl7v2.model.v231.datatype.CX;
 import ca.uhn.hl7v2.model.v231.datatype.ST;
 import ca.uhn.hl7v2.model.v231.datatype.XCN;
@@ -64,9 +64,8 @@ import ca.uhn.hl7v2.model.v231.datatype.XPN;
 import ca.uhn.hl7v2.model.v231.group.ORU_R01_PIDPD1NK1NTEPV1PV2ORCOBRNTEOBXNTECTI;
 import ca.uhn.hl7v2.model.v231.message.ORU_R01;
 import ca.uhn.hl7v2.parser.Parser;
-import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
-import ca.uhn.hl7v2.validation.impl.NoValidation;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7Parsers;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -118,8 +117,7 @@ public class ExcellerisOntarioHandler implements MessageHandler {
 
     public void init(String hl7Body) throws HL7Exception {
         this.hl7Body = hl7Body;
-        Parser p = new PipeParser();
-        p.setValidationContext(new NoValidation());
+        Parser p = Hl7Parsers.newPipeParser();
         msg = (ORU_R01) p.parse(hl7Body.replaceAll("\n", "\r\n").replace("\\.Zt\\", "\t"));
     }
 
@@ -226,7 +224,7 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             String type = cx.getCx5_IdentifierTypeCode().getValue();
             String ver = "";
             if (cx.getExtraComponents() != null && cx.getExtraComponents().numComponents() == 5) {
-                Varies v = cx.getExtraComponents().getComponent(4);
+                Variable v = cx.getExtraComponents().getComponent(4);
                 ver = v.getData().toString();
             }
 

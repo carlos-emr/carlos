@@ -110,7 +110,9 @@ public final class OmpO09Builder {
      * @throws UnsupportedEncodingException if encoding fails
      */
     public static OMP_O09 makeOmpO09(Clinic clinic, Provider provider, Demographic demographic, Prescription prescription, List<Drug> drugs) throws HL7Exception, UnsupportedEncodingException {
-        OMP_O09 prescriptionMsg = new OMP_O09();
+        // Values are stored as typed: HAPI 2.x would otherwise reject free-text quantities and
+        // doses such as "1-2" in numeric fields and the QR code would not be produced (#5414).
+        OMP_O09 prescriptionMsg = Hl7Parsers.forBuilding(new OMP_O09());
 
         fillMsh(prescriptionMsg.getMSH(), new Date(), clinic.getClinicName(), "OMP", "O09", "OMP_O09", HL7_VERSION_ID);
         fillSft(prescriptionMsg.getSFT(), CarlosProperties.getBuildTag(), CarlosProperties.getBuildDate());
