@@ -18,17 +18,23 @@ and a library that shades its own copy of the classes. It fails when:
   * no jar, or more than one jar or WEB-INF/classes, defines a class in
     org.apache.commons.logging (multi-release META-INF/versions/N/ copies
     included);
-  * the one definer is not WEB-INF/lib/commons-logging-<version>.jar;
+  * the one definer is not WEB-INF/lib/commons-logging-<version>.jar, or is
+    one without Log4jApiLogFactory (commons-logging before 1.3 cannot bind
+    to the Log4j API, so JCL would not reach Log4j 2);
   * anything carries META-INF/services/org.apache.commons.logging.LogFactory
     or commons-logging.properties, which would override LogFactory discovery.
 
+Versioned copies count whether or not their jar declares Multi-Release: the
+rule is that the package ships no second definition, and a manifest edit is
+all it takes to activate one.
+
 Only jars directly in WEB-INF/lib are read: that is all Tomcat puts on the web
-application's class path.
+application's class path. Each is read as a stream from the WAR, so memory
+stays bounded by the largest central directory, not the largest jar.
 
 Usage: check-war-commons-logging.py <carlos.war>
 Exit status: 0 clean, 1 the WAR breaks the rule, 2 the WAR cannot be read.
 """
-import io
 import re
 import sys
 import zipfile
@@ -37,6 +43,8 @@ from pathlib import PurePosixPath
 PROG = "check-war-commons-logging"
 JCL_PACKAGE = "org/apache/commons/logging/"
 LOG_FACTORY = JCL_PACKAGE + "LogFactory.class"
+# Added in commons-logging 1.3.0; the factory discovery binds to reach Log4j 2.
+LOG4J_API_FACTORY = JCL_PACKAGE + "impl/Log4jApiLogFactory.class"
 MULTI_RELEASE = re.compile(r"^META-INF/versions/[0-9]+/")
 DISCOVERY_OVERRIDES = (
     "META-INF/services/org.apache.commons.logging.LogFactory",
@@ -50,6 +58,13 @@ EXPECTED_JAR = re.compile(r"^commons-logging-[0-9][0-9A-Za-z.\-]*\.jar$")
 
 class Unreadable(Exception):
     """The WAR, or a jar inside it, is not a readable zip archive."""
+
+
+# What zipfile raises for input it cannot read: a damaged archive (BadZipFile,
+# OSError, EOFError), an encrypted member (RuntimeError) or an unsupported
+# compression method (NotImplementedError). Each means the WAR cannot be
+# verified, which must stop the build rather than escape as a traceback.
+UNREADABLE = (zipfile.BadZipFile, OSError, EOFError, RuntimeError, NotImplementedError)
 
 
 def scan_names(names):
@@ -77,11 +92,13 @@ def scan_war(war_path):
                 if path.parent != LIB or not path.name.lower().endswith(".jar"):
                     continue
                 try:
-                    with zipfile.ZipFile(io.BytesIO(war.read(name))) as jar:
+                    # A seekable stream over the member: ZipFile reads only the
+                    # jar's central directory instead of inflating it into memory.
+                    with war.open(name) as member, zipfile.ZipFile(member) as jar:
                         sources[name] = scan_names(jar.namelist())
-                except (zipfile.BadZipFile, OSError) as exc:
+                except UNREADABLE as exc:
                     raise Unreadable(f"{name} is not a readable jar: {exc}") from exc
-    except (zipfile.BadZipFile, OSError) as exc:
+    except UNREADABLE as exc:
         raise Unreadable(f"{war_path} is not a readable WAR: {exc}") from exc
     return sources
 
@@ -108,8 +125,13 @@ def violations(sources):
             problems.append(
                 f"{source} defines org.apache.commons.logging classes; only "
                 "WEB-INF/lib/commons-logging-<version>.jar may")
-        elif LOG_FACTORY not in [MULTI_RELEASE.sub("", d) for d in sources[source][0]]:
-            problems.append(f"{source} has no {LOG_FACTORY}")
+        else:
+            classes = {MULTI_RELEASE.sub("", d) for d in sources[source][0]}
+            for required, why in ((LOG_FACTORY, ""),
+                                  (LOG4J_API_FACTORY, " (commons-logging 1.3 or later "
+                                   "is needed to bind JCL to Log4j 2)")):
+                if required not in classes:
+                    problems.append(f"{source} has no {required}{why}")
     single = definers[0] if len(definers) == 1 and not problems else None
     return problems, single
 

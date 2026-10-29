@@ -61,6 +61,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @DisplayName("Commons Logging routing (#5413)")
 @Tag("unit")
+@Tag("fast")
+@Tag("utility")
 class CommonsLoggingRoutingUnitTest {
 
     private static final String LOG_FACTORY_SERVICE = "META-INF/services/org.apache.commons.logging.LogFactory";

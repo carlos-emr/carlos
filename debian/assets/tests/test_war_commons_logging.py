@@ -49,6 +49,34 @@ def commons_logging_jar():
     return jar_bytes({name: None for name in JCL_CLASSES})
 
 
+def commons_logging_1_2_jar():
+    """commons-logging 1.2: the same API classes, but no Log4jApiLogFactory."""
+    return jar_bytes({name: None for name in JCL_CLASSES if "Log4jApi" not in name})
+
+
+def flag_member(war_path, member, *, flag_bits=None, compress_type=None):
+    """Rewrite one member's central-directory record in place.
+
+    zipfile cannot write an encrypted entry or one with an unsupported
+    compression method, but it reads both fields from the central directory,
+    so patching the record reproduces what such a WAR looks like to the check.
+    """
+    data = bytearray(Path(war_path).read_bytes())
+    name = member.encode()
+    pos = 0
+    while True:
+        pos = data.index(b"PK\x01\x02", pos)
+        name_len = int.from_bytes(data[pos + 28:pos + 30], "little")
+        if data[pos + 46:pos + 46 + name_len] == name:
+            break
+        pos += 4
+    if flag_bits is not None:
+        data[pos + 8:pos + 10] = flag_bits.to_bytes(2, "little")
+    if compress_type is not None:
+        data[pos + 10:pos + 12] = compress_type.to_bytes(2, "little")
+    Path(war_path).write_bytes(bytes(data))
+
+
 def jcl_over_slf4j_jar():
     return jar_bytes({
         "org/apache/commons/logging/Log.class": None,
@@ -170,6 +198,18 @@ class CheckWarCommonsLoggingTest(unittest.TestCase):
         }))
         self.assert_refused(result, "only WEB-INF/lib/commons-logging-<version>.jar may")
 
+    def test_refuses_commons_logging_before_log4j_api_support(self):
+        # A prebuilt CARLOS_WAR skips the Maven build, so this is the only gate
+        # on the version: 1.2 has no Log4jApiLogFactory and cannot reach Log4j 2.
+        result = self.run_check(self.war({
+            "WEB-INF/lib/commons-logging-1.2.jar": commons_logging_1_2_jar(),
+        }))
+        self.assert_refused(
+            result,
+            "WEB-INF/lib/commons-logging-1.2.jar has no "
+            "org/apache/commons/logging/impl/Log4jApiLogFactory.class",
+            "commons-logging 1.3 or later")
+
     def test_refuses_commons_logging_jar_without_log_factory(self):
         result = self.run_check(self.war({
             "WEB-INF/lib/commons-logging-1.4.0.jar": jar_bytes({
@@ -204,20 +244,86 @@ class CheckWarCommonsLoggingTest(unittest.TestCase):
         self.assertEqual(self.run_check().returncode, 2)
         self.assertEqual(self.run_check(self.tmp / "missing.war").returncode, 2)
 
+    def test_fails_closed_on_members_zipfile_cannot_open(self):
+        # An encrypted jar raises RuntimeError and an unsupported compression
+        # method NotImplementedError; both must be reported, not crash with exit 1.
+        for label, patch in (("encrypted", {"flag_bits": 0x1}),
+                             ("unsupported compression", {"compress_type": 99})):
+            with self.subTest(label):
+                war = self.war({
+                    "WEB-INF/lib/commons-logging-1.4.0.jar": commons_logging_jar(),
+                    "WEB-INF/lib/opaque-1.0.jar": unrelated_jar(),
+                })
+                flag_member(war, "WEB-INF/lib/opaque-1.0.jar", **patch)
+                result = self.run_check(war)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn("WEB-INF/lib/opaque-1.0.jar is not a readable jar", result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+
 
 class RulesRunsCommonsLoggingCheckTest(unittest.TestCase):
     """debian/rules must check the WAR it packages, built or prebuilt."""
 
-    def test_rules_checks_the_packaged_war(self):
-        rules = RULES.read_text(encoding="utf-8")
+    CHECK_LINE = "\tpython3 $(CURDIR)/debian/check-war-commons-logging.py $(BUILDDIR)/carlos.war\n"
+
+    def assert_checks_packaged_war(self, rules):
         build = rules.split("override_dh_auto_build:", 1)[1].split("\noverride_", 1)[0]
         check = re.search(
             r"^\tpython3 \$\(CURDIR\)/debian/check-war-commons-logging\.py "
             r"\$\(BUILDDIR\)/carlos\.war$", build, re.M)
         self.assertIsNotNone(check, "override_dh_auto_build no longer checks carlos.war")
-        # after both branches have put the WAR in place, before it is unpacked
-        war_ready = build.index("cp -f target/carlos-*.war $(BUILDDIR)/carlos.war")
-        self.assertGreater(check.start(), war_ready)
+        # Its own recipe line, not a continuation inside a shell block: the line
+        # before it must not end in a backslash.
+        before = build[:check.start()].rstrip("\n").rsplit("\n", 1)[-1]
+        self.assertFalse(before.endswith("\\"), f"check runs inside a shell block: {before!r}")
+        # After the CARLOS_WAR if/else closes, so the prebuilt and the built WAR
+        # are both checked; inside either branch, one of them would not be.
+        branch = build.index('if [ -n "$$CARLOS_WAR" ]; then')
+        closed = re.compile(r"^\tfi$", re.M).search(build, branch)
+        self.assertIsNotNone(closed, "the CARLOS_WAR if/else no longer closes with a tab-fi line")
+        self.assertGreater(check.start(), closed.end(), "check runs before the WAR is in place")
+
+    def test_rules_checks_the_packaged_war(self):
+        self.assert_checks_packaged_war(RULES.read_text(encoding="utf-8"))
+
+    def test_contract_rejects_misplaced_checks(self):
+        rules = RULES.read_text(encoding="utf-8")
+        self.assertIn(self.CHECK_LINE, rules)
+        without = rules.replace(self.CHECK_LINE, "")
+        built_copy = "\t  cp -f target/carlos-*.war $(BUILDDIR)/carlos.war; \\\n"
+        prebuilt_branch = '\tif [ -n "$$CARLOS_WAR" ]; then \\\n'
+        build_start = "override_dh_auto_build:\n"
+        for anchor in (built_copy, prebuilt_branch, build_start):
+            self.assertEqual(without.count(anchor), 1, anchor)
+        expected_failure = {
+            "removed": "no longer checks carlos.war",
+            "inside the build branch": "no longer checks carlos.war",
+            "inside the build branch, unindented": "no longer checks carlos.war",
+            "continuing the build branch": "check runs inside a shell block",
+            "before the WAR exists": "check runs before the WAR is in place",
+        }
+        mutants = {
+            "removed": without,
+            # only the Maven-built WAR would be checked; a prebuilt CARLOS_WAR would not
+            "inside the build branch": without.replace(
+                built_copy,
+                built_copy + "\t  python3 $(CURDIR)/debian/check-war-commons-logging.py "
+                             "$(BUILDDIR)/carlos.war; \\\n"),
+            "inside the build branch, unindented": without.replace(
+                built_copy, built_copy + self.CHECK_LINE.replace("\n", "; \\\n")),
+            # a line that looks like its own command but continues the build branch
+            "continuing the build branch": without.replace(
+                built_copy, built_copy + self.CHECK_LINE),
+            # its own recipe line, but before either branch has put the WAR in place
+            "before the WAR exists": without.replace(
+                build_start, build_start + self.CHECK_LINE),
+        }
+        for label, mutant in mutants.items():
+            with self.subTest(label):
+                self.assertNotEqual(mutant, rules)
+                with self.assertRaises(AssertionError) as caught:
+                    self.assert_checks_packaged_war(mutant)
+                self.assertIn(expected_failure[label], str(caught.exception))
 
 
 if __name__ == "__main__":

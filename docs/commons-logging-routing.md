@@ -35,8 +35,8 @@ in depth; their current releases do not bring it.
 | Guard | Where it runs | What it catches |
 |-------|---------------|-----------------|
 | `maven-enforcer-plugin`, execution `ban-duplicate-commons-logging` | every Maven build, `validate` phase, all scopes | `jcl-over-slf4j`, `spring-jcl`, `commons-logging-api` and `commons-logging-jboss-logging` (which redefine the classes), and `log4j-jcl` and `log4j-to-slf4j` (which change the route) |
-| `CommonsLoggingRoutingUnitTest` | unit tests | a second definition of any of the five classes on the test class path, a service file or `commons-logging.properties` override, discovery not binding `Log4jApiLogFactory`, a JCL call not arriving in Log4j 2 exactly once at the configured level |
-| `debian/check-war-commons-logging.py` | `debian/rules`, on the WAR being packaged (built or prebuilt `CARLOS_WAR`) | a second jar, or `WEB-INF/classes`, defining `org.apache.commons.logging` classes (including shaded and multi-release copies), and discovery overrides |
+| `CommonsLoggingRoutingUnitTest` | unit tests | a second definition of one of the five classes on the test class path, a service file or `commons-logging.properties` override, discovery not binding `Log4jApiLogFactory`, a JCL call not arriving in Log4j 2 exactly once at the configured level |
+| `debian/check-war-commons-logging.py` | `debian/rules`, on the WAR being packaged (built or prebuilt `CARLOS_WAR`) | a second jar, or `WEB-INF/classes`, defining `org.apache.commons.logging` classes (including shaded and multi-release copies), a commons-logging older than 1.3 (no `Log4jApiLogFactory`), and discovery overrides |
 
 The dependency lock alone does not hold this: regenerating it after a library bump admits
 whatever the new tree resolves, which is how the bridge returned through CXF.
