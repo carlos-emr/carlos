@@ -112,8 +112,8 @@
 
 - HAPI HL7 v2 is 2.6.0 (#5414). Create pipe parsers and new HL7 messages only through
   `commn.hl7.v2.Hl7Parsers` (`newPipeParser`, `newEncodingPipeParser`, `forBuilding`). They keep
-  HAPI 1.0.1's trimming, escaping and absence of format checks, which lab display, the
-  prescription QR code and the ADT export depend on.
+  HAPI 1.0.1's trimming, escaping, absence of format checks and generic-message segment names,
+  which lab display, the prescription QR code and the ADT export depend on.
 - HL7 that may be XML goes through `UntrustedHl7MessageParser` or `HardenedHl7XmlParser`, which
   refuse any DOCTYPE and fail closed. Never HAPI's `GenericParser`, `DefaultXMLParser`, `XMLUtils`
   or pre-parser; `Hl7ParserBoundaryGuardUnitTest` fails the build otherwise.
