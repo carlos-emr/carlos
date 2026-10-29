@@ -34,7 +34,7 @@ function browser(options = {}) {
   const node = id => { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); };
   node('cdsImport').dataset = {context: '/carlos', owner: 'web-fixture'};
   const document = {
-    documentElement: {lang: 'en'}, getElementById: node, createElement: () => new Element(),
+    documentElement: {lang: options.language || 'en'}, getElementById: node, createElement: () => new Element(),
     querySelector: () => ({value: 'synthetic-token'}),
     addEventListener(type, listener) { if (type === 'DOMContentLoaded') this.ready = listener; }
   };
@@ -78,6 +78,35 @@ function status(generation, terminal = true, id = RUN, extra = {}) {
   summary: {resumeRequested: false, operationTerminal: terminal, reportsDelivered: terminal,
     cleanupComplete: terminal, clinicalComplete: false, cleanComplete: false}};
 }
+
+for (const language of ['en', 'fr']) test(`the public fatal-supervisor alert blocks Resume and shows repair guidance in ${language}`, async () => {
+  const f = browser({language}); const opened = f.open(); await settle();
+  const stopped = status(1);
+  stopped.summary.workerAlert = 'IMPORT_SUPERVISOR_FATAL';
+  f.jobs()[0].respond(stopped); await opened;
+  assert.equal(f.node('resumeRun').disabled, true);
+  assert.equal(f.node('cdsWorkerAlert').hidden, false);
+  assert.match(f.node('cdsWorkerAlert').textContent, /IMPORT_SUPERVISOR_FATAL/);
+  assert.equal(f.node('cdsOperationalAlert').hidden, false);
+  const restart = language === 'fr' ? /réparation et un redémarrage du service/ : /administrator repair and service restart/;
+  assert.match(f.node('cdsOperationalAlert').textContent, restart);
+
+  // A healthy supervisor can leave a suspended review explicitly retryable.
+  const reopened = f.open(); await settle();
+  const review = status(2);
+  Object.assign(review.summary, {workerAlert: 'REVIEW_WORKER_FATAL', reviewErrorCode: 'REVIEW_WORKER_FATAL', pendingReviewCount: 1});
+  f.jobs()[1].respond(review); await reopened;
+  assert.equal(f.node('resumeRun').disabled, false);
+  assert.equal(f.node('cdsOperationalAlert').hidden, false);
+  assert.doesNotMatch(f.node('cdsOperationalAlert').textContent, restart);
+  assert.match(f.node('cdsOperationalAlert').textContent, language === 'fr' ? /Reprendre réessaie cette révision/ : /Resume retries that preserved review/);
+
+  const refreshed = f.open(); await settle();
+  f.jobs()[2].respond(status(3)); await refreshed;
+  assert.equal(f.node('resumeRun').disabled, false);
+  assert.equal(f.node('cdsWorkerAlert').hidden, true);
+  assert.equal(f.node('cdsOperationalAlert').hidden, true);
+});
 
 for (const oldTerminal of [false, true]) test(`a late ${oldTerminal ? 'terminal' : 'pending'} same-run response cannot replace the reopened terminal observation`, async () => {
   const f = browser(); const old = f.open(); await settle(); const fresh = f.open(); await settle();

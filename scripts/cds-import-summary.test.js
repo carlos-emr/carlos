@@ -150,15 +150,26 @@ test('recovery controls retry a fatal review but block normal pending validation
   assert.equal(client.recoveryControls({pendingReviewCount: 1}).resumeDisabled, true);
   assert.equal(client.recoveryControls({inactiveDraftCount: 1}).resumeDisabled, true);
   assert.deepEqual(client.recoveryControls({pendingReviewCount: 1, reviewErrorCode: 'REVIEW_WORKER_FATAL'}),
-    {fatalReview: true, resumePending: false, resumeDisabled: false});
+    {fatalReview: true, fatalSupervisor: false, resumePending: false, resumeDisabled: false});
   assert.equal(client.recoveryControls({workerAlert: 'REVIEW_WORKER_FATAL'}).fatalReview, true);
-  assert.equal(client.recoveryControls({reviewErrorCode: 'REVIEW_WORKER_FATAL', supervisorAlert: 'IMPORT_SUPERVISOR_FATAL'}).resumeDisabled, true);
+  assert.equal(client.recoveryControls({reviewErrorCode: 'REVIEW_WORKER_FATAL', workerAlert: 'IMPORT_SUPERVISOR_FATAL'}).resumeDisabled, true);
   assert.equal(client.recoveryControls({maintenanceReleasePending: true, maintenanceReleaseState: 'RELEASE_DEFERRED'}).resumeDisabled, false);
+});
+
+test('the public worker alert blocks a fatal supervisor without blocking recoverable workers', () => {
+  const stopped = client.recoveryControls({workerAlert: 'IMPORT_SUPERVISOR_FATAL'});
+  assert.equal(stopped.fatalSupervisor, true);
+  assert.equal(stopped.resumeDisabled, true);
+  for (const workerAlert of ['WORKER_FATAL', 'REVIEW_WORKER_FATAL', null]) {
+    const recovery = client.recoveryControls({workerAlert});
+    assert.equal(recovery.fatalSupervisor, false);
+    assert.equal(recovery.resumeDisabled, false);
+  }
 });
 
 test('queued resume is typed pending intent and disables duplicates independently of owner phase', () => {
   assert.deepEqual(client.recoveryControls({resumeRequested: true}),
-    {fatalReview: false, resumePending: true, resumeDisabled: true});
+    {fatalReview: false, fatalSupervisor: false, resumePending: true, resumeDisabled: true});
   for (const resumeRequested of [false, undefined, 'true']) {
     assert.equal(client.recoveryControls({resumeRequested}).resumePending, false);
   }

@@ -177,10 +177,11 @@
     function recoveryControls(summary = {}) {
         const fatalReview = summary.reviewErrorCode === 'REVIEW_WORKER_FATAL'
             || summary.workerAlert === 'REVIEW_WORKER_FATAL';
+        const fatalSupervisor = summary.workerAlert === 'IMPORT_SUPERVISOR_FATAL';
         const pendingReview = Number.isSafeInteger(summary.pendingReviewCount) && summary.pendingReviewCount > 0;
         const inactiveDraft = Number.isSafeInteger(summary.inactiveDraftCount) && summary.inactiveDraftCount > 0;
         const resumePending = summary.resumeRequested === true;
-        return {fatalReview, resumePending, resumeDisabled: resumePending || Boolean(summary.supervisorAlert)
+        return {fatalReview, fatalSupervisor, resumePending, resumeDisabled: resumePending || fatalSupervisor
             || (!fatalReview && (pendingReview || inactiveDraft))};
     }
 
@@ -676,8 +677,7 @@
                 const recovery = recoveryControls(latestSummary);
                 if (recovery.resumePending) operational.push(text.resumePending);
                 if (recovery.fatalReview) operational.push(text.reviewFatal);
-                if (latestSummary.supervisorAlert) operational.push(text.supervisor
-                    + ' ' + String(latestSummary.supervisorAlert).slice(0, 96));
+                if (recovery.fatalSupervisor) operational.push(text.supervisor);
                 byId('cdsOperationalAlert').hidden = operational.length === 0;
                 byId('cdsOperationalAlert').textContent = operational.join(' ');
                 const presentation = statusPresentation(data.job, latestSummary);
