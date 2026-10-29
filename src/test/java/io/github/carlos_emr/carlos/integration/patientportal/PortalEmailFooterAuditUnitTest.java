@@ -161,6 +161,37 @@ class PortalEmailFooterAuditUnitTest {
         assertThat(saved.footerSkipped()).isEqualTo("transport");
         assertThat(saved.footerText()).isNull();
     }
+    @Test void shouldKeepSkippedAttempt_whenItFailedOrItsOutcomeIsUnknown() {
+        // A skipped attempt is recorded before SMTP answers, so it can end like any other.
+        for (String status : List.of("failed", "unknown")) {
+            var p = skipped("mfa", "http_status");
+            attempt(p).put("status", status);
+            var saved = parse(p).attempts().get(0);
+            assertThat(saved.status()).isEqualTo(status);
+            assertThat(saved.footerSkipped()).isEqualTo("http_status");
+            assertThat(saved.footerText()).isNull();
+        }
+    }
+    @Test void shouldNotClaimAnOutcome_inTheSkippedSentence() throws Exception {
+        // The sentence is shown under every status: prepared, accepted, failed and unknown. The
+        // summary line above it says how the attempt ended, so the sentence must not.
+        Map<String, List<String>> outcomeWords = Map.of(
+                "en", List.of("sent", "delivered", "accepted", "failed"),
+                "fr", List.of("envoy", "livr", "accept", "chou"),
+                "es", List.of("enviad", "entregad", "aceptad", "fall"),
+                "pl", List.of("wys\u0142an", "dostarczon", "zaakceptowan", "nieudan"),
+                "pt_BR", List.of("enviad", "entregue", "aceit", "falh"));
+        for (var locale : outcomeWords.entrySet()) {
+            Properties bundle = new Properties();
+            try (Reader reader = Files.newBufferedReader(Path.of(
+                    "src/main/resources/oscarResources_" + locale.getKey() + ".properties"), StandardCharsets.ISO_8859_1)) {
+                bundle.load(reader);
+            }
+            String sentence = bundle.getProperty("admin.configureEmail.portalFooter.skipped").toLowerCase(Locale.ROOT);
+            for (String word : locale.getValue())
+                assertThat(sentence).as(locale.getKey()).doesNotContain(word);
+        }
+    }
     @Test void shouldLabelEverySkipReason_inEveryLocale() throws Exception {
         // The footer history shows a label, never the raw reason; a reason without one would
         // show the bundle's missing-key marker instead.
@@ -179,7 +210,7 @@ class PortalEmailFooterAuditUnitTest {
             }
         }
     }
-    @Test void shouldRefuseSkippedAttemptOutsideItsContract() {
+    @Test void shouldRefuseSkippedAttempt_outsideItsContract() {
         List<Consumer<ObjectNode>> invalid = List.of(
                 a->a.put("revision","a".repeat(64)), a->a.put("footer_text",TEXT), a->a.put("logo_sha256","b".repeat(64)),
                 a->a.put("footer_skipped","outage"), a->a.put("footer_skipped",""), a->a.putNull("footer_skipped"),
