@@ -18,12 +18,15 @@ concerns rendering, by rendering documents with the real engines:
 - **Flying Saucer 10.0.6 and 10.7.0** through CARLOS's own `LocalOnlyUserAgent` and
   `ReplacedElementFactoryImpl`, and through an end-to-end prototype of this design.
 - **PDFBox 3.0.8** for merging and flattening, as CARLOS uses it.
+- **Large images**: the smallest heap that renders 12- and 48-megapixel JPEGs and 8.4-,
+  25- and 67-megapixel PNGs, streamed subsampled decoding of a 95 MB PNG, and TwelveMonkeys
+  3.15.3 WebP decoding (see "Images").
 
 Three rounds were run: a verification pass (claims audit, prototype against 15 fixtures,
 about 80 adversarial documents) and a final review cycle (document review, prototype of the
 full test list). Items marked *(tested)* were run with the rule in place. Two parts of this
 revision are designed but not yet run, and PR 1 must test them: the retry and degradation
-ladder under "Resilience" (the image pixel budget and the safe-mode and text-only retries)
+ladder under "Resilience" (the image memory budget and the safe-mode and text-only retries)
 and the right-to-left shaping under "Right-to-left text" (a Hebrew prototype read
 correctly; Arabic shaping with ICU4J is untested). The class structure under
 "Architecture" was reviewed against `docs/architecture/layer-names.md`, the Ontario billing
@@ -181,7 +184,7 @@ Agreed in conversation on 2026-10-29:
 | Output geometry | Emulate wkhtmltopdf: Letter, 10 mm margins, 0.8 zoom, shrink-to-fit, 10 px minimum font, WebKit line height, repeated table headers, HTML row-span clamping |
 | Shrink-to-fit limit | None (nothing is cut off); WARN when the zoom falls below 0.4 |
 | Form controls | Printed as static text and marks; never as PDF form fields |
-| Images | Convert or downscale what can be drawn; a visible "[image unavailable]" box only for what cannot; never exhaust the heap |
+| Images | JPEG photos embedded unchanged at any resolution; other images reduced only above 25 megapixels (beyond what paper shows) or when memory is short; formats OpenPDF cannot draw converted; a visible "[image unavailable]" box only for what cannot be read; never exhaust the heap |
 | Right-to-left text | Best effort for all of it: shaped and reordered before layout, never failing; documents with long right-to-left passages get a visible note |
 | Release | Land on `release/2026.08`; maintainers forward-merge to `develop` |
 
@@ -269,8 +272,8 @@ Ontario billing's service tier (`docs/billing-ontario-module.md`, §3):
 │   HtmlPdfRenderService  — the only entry point; attempts and the ladder   │
 │   PrintDocumentComposer — print-ready XHTML (pure DOM rules)              │
 │   PrintImageResolver    — read-only image plan                            │
-│   PrintImageService     — applies the plan under a pixel-budget lease     │
-│   ImagePixelBudgetService, BundledFontFileService                         │
+│   PrintImageService     — applies the plan under a memory-budget lease    │
+│   ImageMemoryBudgetService, BundledFontFileService                         │
 │   PrintLayoutService, LetterPageComposer, RenderedPdfValidator            │
 │ No servlet API, no HTTP codes, no PHI in messages or logs.                │
 └───────────────────────────────┬───────────────────────────────────────────┘
@@ -287,7 +290,7 @@ practice:
 
 - **Stateless singletons.** Every bean is a singleton whose fields are `private final` and
   set by its constructor. The only JVM-wide state is the pixel semaphore
-  (`ImagePixelBudgetService`) and the verified font set (`BundledFontFileService`), both
+  (`ImageMemoryBudgetService`) and the verified font set (`BundledFontFileService`), both
   thread-safe. Per-render objects (the Jsoup DOM, the degradation set, the renderer,
   `LocalOnlyUserAgent`, `BundledFontResolver`, temporary directories) stay on the calling
   thread for one attempt and are never stored in a field.
@@ -318,7 +321,7 @@ practice:
   and passes it to the steps that can degrade (a collecting parameter confined to the
   thread); the result carries the final set (Ontario billing's `partial` flag pattern,
   §9.2.1). Never nulls, sentinel values or exceptions for control flow.
-- **Resources are owned by a scope.** The pixel-budget lease and the per-render
+- **Resources are owned by a scope.** The memory-budget lease and the per-render
   directories are `AutoCloseable` and opened with `try`-with-resources by
   `HtmlPdfRenderService` around one attempt (or, for the base directory, one render), so
   permits are always released and temporary files always deleted, whichever step fails.
@@ -336,9 +339,11 @@ practice:
     they catch.
 - **Logging** uses `MiscUtils.getLogger()` in a `private static final Logger`, as elsewhere.
   The module never logs a path, file name, URL or document content.
-- **Constants, not settings.** The limits (25 megapixels per image, 32 MB per file, a
-  budget of heap / 64 pixels, 30 s waits, three halvings, a 40-character right-to-left
-  threshold, a zoom warning below 0.4, 4 megapixels per CSS background) are named
+- **Constants, not settings.** The limits (a budget of a quarter of the heap; charges of
+  16 bytes per decoded pixel and four times a JPEG's file size; 25 megapixels per decoded
+  image; 250 megapixels per source header; 32 MB per file used as is; 128 MB per file in
+  the user agent; 4 megapixels per decoded CSS background; 30 s waits; three halvings; a
+  40-character right-to-left threshold; a zoom warning below 0.4) are named
   `static final` constants in the class that owns them, each commented with its measured
   reason. No new `carlos.properties` keys: the budget already follows the heap size, and no
   operator need for the others has been shown.
@@ -349,7 +354,7 @@ practice:
 - Components are discovered by the existing broad
   `<context:component-scan base-package="io.github.carlos_emr.carlos">`. The bean names
   (`htmlPdfRenderService`, `printDocumentComposer`, `printImageResolver`,
-  `printImageService`, `imagePixelBudgetService`, `bundledFontFileService`,
+  `printImageService`, `imageMemoryBudgetService`, `bundledFontFileService`,
   `printLayoutService`, `letterPageComposer`, `renderedPdfValidator`) clash with no
   existing bean or class name (checked).
 
@@ -391,8 +396,8 @@ src/main/java/io/github/carlos_emr/carlos/documentManager/htmlpdf/
 │   ├── PrintImageResolver.java        @Service: read-only image plan (step 2j)
 │   ├── PrintImageService.java         @Service: applies the plan under a lease (step 2j)
 │   ├── PreparedPrintImages.java       AutoCloseable: one attempt's lease and image directory
-│   ├── ImagePixelBudgetService.java   @Service: JVM-wide pixel semaphore
-│   ├── PixelBudgetLease.java          AutoCloseable permit holder (idempotent close)
+│   ├── ImageMemoryBudgetService.java  @Service: JVM-wide image-memory semaphore
+│   ├── ImageMemoryLease.java          AutoCloseable permit holder (idempotent close)
 │   ├── BundledFontFileService.java    @Service: font extraction and verification
 │   ├── PrintLayoutService.java        @Service: Flying Saucer layout passes
 │   ├── PrintLayoutResult.java         record: layout PDF bytes and zoom
@@ -476,7 +481,7 @@ CARLOS copyright header on new files; `@since 2026-10-29`; no `@author`.
 | `PrintDocumentComposer` | `@Service` (`*Composer`) | `prepare(html, mode, degradations)` → Jsoup `Document` (steps 2a–2i) and `finish(document, mode, degradations)` → XHTML (2k–2m); builds the text-only document in `TEXT_ONLY` mode. Pure: no file, network or budget access |
 | `PrintImageResolver` | `@Service` (`*Resolver`) | Read-only: for each `<img>` and inline `<svg>`, resolves and probes the source and plans one outcome through a priority chain (use, convert, downscale, clean SVG, box) with its planned pixels |
 | `PrintImageService` | `@Service` | Step 2j: gets a lease for the plan (with the wait and halving retries), decodes, converts and writes images into the attempt's image directory, cleans SVG, and rewrites or boxes each element; returns `PreparedPrintImages` |
-| `ImagePixelBudgetService` | `@Service` | The JVM-wide fair semaphore: `Optional<PixelBudgetLease> tryAcquire(long pixels, Duration wait)` |
+| `ImageMemoryBudgetService` | `@Service` | The JVM-wide fair semaphore of estimated image memory: `Optional<ImageMemoryLease> tryAcquire(long bytes, Duration wait)` |
 | `BundledFontFileService` | `@Service` | Extracts, verifies and re-verifies the bundled font files; returns the shared `BundledFontSet` |
 | `PrintLayoutService` | `@Service` | Layout pass 1 and, when needed, pass 2 → `PrintLayoutResult`; falls back to pass 1 at `612 / W` (`MARGINS_REDUCED`) |
 | `LetterPageComposer` | `@Service` (`*Composer`) | Flattens, places each page on Letter with the zoom, copies `/Title` |
@@ -606,13 +611,15 @@ only (no path, no content). Facades do not log them again.
 
 | Failure point | Mitigations, in order | Last resort |
 |---|---|---|
-| Image over the per-image cap | Decode subsampled with `ImageIO` (`ImageReadParam.setSourceSubsampling`, never the full image) to fit the cap; keep the printed size (`IMAGE_DOWNSCALED`) | The box |
-| Image format OpenPDF cannot draw (for example WBMP, PNM) but `ImageIO` can read | Decode with `ImageIO` (subsampled if needed) and re-encode as PNG (`IMAGE_CONVERTED`) | The box |
+| Large JPEG photo (up to 32 MB, any resolution) | None needed: embedded as is, at full resolution (it is never decoded) | — |
+| Other image over 25 megapixels, or any image file over 32 MB | Read as a stream with `ImageIO` (never loaded whole), subsampled with `ImageReadParam.setSourceSubsampling` to fit 25 megapixels when larger; keep the printed size (`IMAGE_DOWNSCALED` when reduced, otherwise `IMAGE_CONVERTED`) | The box |
+| Image format OpenPDF cannot draw (for example WebP, WBMP, PNM) but `ImageIO` can read | Convert with `ImageIO` (subsampled if needed) to JPEG or PNG (`IMAGE_CONVERTED`) | The box |
 | Valid header, corrupt data | Decode with `ImageIO` (tolerant reader) and re-encode as PNG (`IMAGE_CONVERTED`) | The box |
 | SVG with outside references | Remove the referencing elements, attributes and `url()` values; render the rest (`SVG_REFERENCES_REMOVED`) | The box (unparseable SVG) |
-| Image missing, remote, unreadable or of an unknown format | — (remote sources are never fetched) | The box (`IMAGE_UNAVAILABLE`) |
-| Document's images exceed the budget capacity | Downscale the largest images further, keeping printed sizes, until the total fits (`IMAGE_DOWNSCALED`) | — |
-| Budget permits not available (other renders hold them) | Wait 30 s; then, up to three times, halve every image's dimensions (a quarter of the pixels) and wait 30 s again (`IMAGE_DOWNSCALED`). This sequence runs at most once per render: a later attempt that cannot get permits at once goes straight to the last resort | Render with every raster image as the box and a document note (`IMAGES_OMITTED_FOR_MEMORY`) |
+| Image missing, remote, unreadable or of an unknown format (for example HEIC) | — (remote sources are never fetched) | The box (`IMAGE_UNAVAILABLE`) |
+| Image header declaring over 250 megapixels (malformed or a decompression bomb) | — (never decoded) | The box (`IMAGE_UNAVAILABLE`) |
+| Document's images exceed the budget capacity | Downscale the largest decoded or converted images further, and convert as-is JPEGs that still do not fit, keeping printed sizes, until the total fits (`IMAGE_DOWNSCALED`) | — |
+| Budget not available (other renders hold it) | Wait 30 s; then, up to three times, halve every image's dimensions (a quarter of the pixels; halved JPEGs are converted) and wait 30 s again (`IMAGE_DOWNSCALED`). This sequence runs at most once per render: a later attempt that cannot get permits at once goes straight to the last resort | Render with every raster image as the box and a document note (`IMAGES_OMITTED_FOR_MEMORY`) |
 | Layout pass 2 fails | Use pass 1 (complete content on a widened page) placed at `612 / W`: margins come out smaller than 10 mm (`MARGINS_REDUCED`) | Next row |
 | Layout fails (both passes), placing or the output check fails | Retry in **safe mode**: author `<style>`, `<link rel="stylesheet">` and `style` attributes removed, inline `<svg>` as the box, with the document note (`SAFE_MODE`) | Next row |
 | Safe mode fails | Retry in **text-only mode**: the document's text in reading order (block elements as paragraphs, table rows as lines with cells separated by " \| ", form-control replacements kept, no images), with the document note (`TEXT_ONLY`) | `PDFGenerationException("HTML could not be converted to PDF", cause)` |
@@ -677,7 +684,28 @@ Per element, `PrintFormControls` sets `min-width: size × 0.55em` for text-like 
 (defaults 20 and 2), unless the element has an inline `width`/`height`. Replacements grow to
 fit their content; values are never clipped.
 
-### Images (`PrintImageResolver`, `PrintImageService`, `ImagePixelBudgetService`, `LocalOnlyUserAgent`)
+### Images (`PrintImageResolver`, `PrintImageService`, `ImageMemoryBudgetService`, `LocalOnlyUserAgent`)
+
+**What large images cost** (measured with Flying Saucer 10.7.0, one image per page, FAKE
+content):
+
+| Image | File | Smallest heap that rendered it |
+|---|---|---|
+| 12-megapixel JPEG photo | 1 MB | 64 MB (peak 30 MB) |
+| 48-megapixel JPEG photo | 7 MB | 64 MB (peak 39 MB) |
+| 8.4-megapixel PNG (a 300-dpi Letter scan) | 11 MB | 128 MB |
+| 25-megapixel RGBA PNG | 30 MB | 512 MB |
+| 67-megapixel PNG (a 600-dpi tabloid scan) | 95 MB | 1 GB |
+
+Flying Saucer embeds a JPEG without decoding it, so a JPEG costs about its file size
+whatever its resolution; every other format is decoded, at 14–15 bytes per pixel. Reading
+with `ImageIO` from a file stream with source subsampling holds only the result: the 95 MB,
+67-megapixel PNG was reduced to 3300 × 5100 in a 96 MB heap in 3.5 s, and a 48-megapixel
+WebP to 4000 × 3000 in a 96 MB heap (*tested*).
+
+So the rules let through everything that is cheap, at full resolution, and reduce only
+what would otherwise exhaust memory, never below what paper shows: 25 megapixels on a full
+Letter page is about 520 dpi, above fax (200 dpi) and office printers (300–600 dpi).
 
 **Before layout** (step 2j), `PrintImageResolver` plans each `<img>` in document order
 (rules 1–5, reading only), and `PrintImageService` carries the plan out (the lease in
@@ -686,36 +714,52 @@ rule 5, the SVG file in rule 3, rules 6 and 7):
 1. **Resolve the source as the renderer will.** A `data:` URI is decoded. Otherwise the
    source must be a valid URI reference: `baseDirectory.toUri().resolve(new URI(src))`,
    with the render's base directory (a raw space or other invalid character makes it
-   unusable). The result must be a
-   `file:` URI naming an existing regular file inside an allowed directory. Remote, empty
-   and `data-carlos-image-unavailable` sources are unusable; remote sources are never
-   fetched.
-2. **Size and type.** Unusable if the file or decoded payload exceeds 32 MB, or if it is a
-   PDF (starts with `%PDF-`; Flying Saucer 10.7.0 would otherwise render it as an image
-   page).
+   unusable). The result must be a `file:` URI naming an existing regular file inside an
+   allowed directory. Remote, empty and `data-carlos-image-unavailable` sources are
+   unusable; remote sources are never fetched.
+2. **Type.** Unusable if it is a PDF (starts with `%PDF-`; Flying Saucer 10.7.0 would
+   otherwise render it as an image page). There is no file-size limit: a large file is
+   read as a stream (rule 6), never loaded whole.
 3. **SVG.** If the content is SVG: elements, attributes and CSS `url()` values that point
    anywhere other than a fragment (`#…`) or a `data:` URI are removed, and the cleaned SVG
    is written to the attempt's image directory and used (`SVG_REFERENCES_REMOVED`).
    An SVG that cannot be parsed is unusable. Inline `<svg>` elements get the same cleaning
    in place. SVG skips rules 4–6.
-4. **Header.** Read only the header with `ImageIO`, without decoding. Unusable if no
-   `ImageIO` reader recognises it (for example WebP) or the header cannot be read. Its
-   pixel count is width × height.
-5. **Plan the pixels.** The per-image cap is the smaller of 25 000 000 pixels and the
-   budget capacity. An image over the cap is planned for subsampled decoding to fit it.
-   Then, if the document's planned total (each distinct file or `data:` payload once)
-   exceeds the budget capacity, the largest images are planned smaller until it fits.
-   `PrintImageService` then asks `ImagePixelBudgetService` for a lease on the total (see
-   "Resilience" for the wait and halving retries and the last-resort boxes). The lease
-   belongs to the attempt's `PreparedPrintImages` and is released when the attempt's
-   `try`-with-resources block ends, after the PDF is built or when any step fails.
-6. **Decode check and conversion**, with the permits held. If the image is planned at full
-   size, it is decoded once with OpenPDF `org.openpdf.text.Image.getInstance(bytes)`, the
-   call Flying Saucer uses; on success it is used as is. Otherwise (planned smaller, or
-   OpenPDF cannot decode it) it is decoded with `ImageIO` at the planned subsampling and
-   re-encoded (PNG; JPEG at quality 0.9 for JPEG sources) into the attempt's image
-   directory (`IMAGE_DOWNSCALED` / `IMAGE_CONVERTED`). If `ImageIO` cannot decode it either,
-   it is unusable.
+4. **Header.** Read only the header with `ImageIO`, without decoding. TwelveMonkeys
+   `imageio-webp` is added (see "Removals and Packaging") so WebP is recognised. Unusable
+   if no reader recognises it (for example HEIC), if the header cannot be read, or if it
+   declares more than 250 megapixels (about 15 800 × 15 800, nearly four times a 600-dpi
+   tabloid scan): such a header is malformed or a decompression bomb, and decoding it would
+   occupy a server thread for minutes.
+5. **Plan.** Each image gets one of three plans, with a memory charge:
+   - **as is, JPEG:** a JPEG of at most 32 MB that OpenPDF can embed, at any resolution;
+     charged four times its file size (the bytes are held by the renderer, the layout
+     PDF, the page import and the final PDF);
+   - **as is, decoded:** another format OpenPDF can embed (PNG, GIF, BMP, TIFF) of at most
+     32 MB and at most the per-image cap; charged 16 bytes per pixel;
+   - **converted:** everything else `ImageIO` can read (a larger file, a decoded format over
+     the cap, a format OpenPDF cannot embed such as WebP or WBMP), planned at the largest
+     subsampling that fits the cap, or at full size when already under it; charged
+     16 bytes per output pixel.
+
+   The per-image cap is the smaller of 25 megapixels and what the whole budget capacity
+   holds at 16 bytes per pixel (33.5 megapixels with a 2 GB heap, so 25). If the document's total charge (each distinct
+   file or `data:` payload once) exceeds the capacity, the largest decoded or converted
+   images are planned smaller, and as-is JPEGs that still do not fit are converted, until
+   it fits. `PrintImageService` then asks `ImageMemoryBudgetService` for a lease on the
+   total (see "Resilience" for the wait and halving retries and the last-resort boxes).
+   The lease belongs to the attempt's `PreparedPrintImages` and is released when the
+   attempt's `try`-with-resources block ends, after the PDF is built or when any step
+   fails.
+6. **Decode check and conversion**, with the lease held. An as-is image is checked once
+   with OpenPDF `org.openpdf.text.Image.getInstance(bytes)`, the call Flying Saucer uses
+   (for a JPEG this reads only its header); on failure it is converted instead. A
+   converted image is read by an `ImageIO` reader from a file `ImageInputStream` (or the
+   decoded `data:` bytes) at the planned subsampling and written into the attempt's image
+   directory: as JPEG at quality 0.9 when the source is a JPEG or WebP without
+   transparency (so the result is again cheap to embed), otherwise as PNG (lossless, for
+   scans and text) (`IMAGE_DOWNSCALED` when reduced, `IMAGE_CONVERTED` otherwise). If
+   `ImageIO` cannot decode it, it is unusable.
 7. **Rewrite.** A usable `<img>` gets its `src` set to the checked or converted file's
    `Path.toUri()` (encoded, so paths with spaces or accents load, *tested*); `data:` sources
    are kept. If the image was downscaled and the element has no `width`/`height`, they are
@@ -723,29 +767,34 @@ rule 5, the SVG file in rule 3, rules 6 and 7):
 
 An unusable `<img>` is replaced by
 `<span class="carlos-pdf-image-unavailable">[image unavailable]</span>` (text from
-`PrintMessages`), sized from the
-image's `width`/`height` attributes or inline style when present (`IMAGE_UNAVAILABLE`), and
-a WARN is logged with the reason only (no path, no URL).
+`PrintMessages`), sized from the image's `width`/`height` attributes or inline style when
+present (`IMAGE_UNAVAILABLE`), and a WARN is logged with the reason only (no path, no URL).
 
-**The budget** (`ImagePixelBudgetService`) is one JVM-wide fair `Semaphore` of
-`Runtime.getRuntime().maxMemory() / 64` pixel permits, about a quarter of the heap at
-16 bytes per pixel, the worst case measured (one 25-megapixel RGBA PNG needs 256–384 MB of
-heap; two concurrent renders of one exhausted 512 MB, *tested*). A 2 GB heap gives about
-33.5 million pixels. The capacity is capped at `Integer.MAX_VALUE` (a `Semaphore` counts
-in `int`, and `maxMemory()` is `Long.MAX_VALUE` when the heap has no limit). Fairness stops
-a large request from waiting forever behind a stream of small ones. `tryAcquire` returns
-an empty `Optional` on timeout; if the waiting thread is interrupted, it restores the
-interrupt flag and the render goes straight to the last resort (boxes and the note), with
-no further waiting. A `PixelBudgetLease` releases exactly what it acquired, once, however
-often `close()` is called. The attempt's image directory is a private temporary directory
-owned by `PreparedPrintImages` and deleted when it closes.
+**The budget** (`ImageMemoryBudgetService`) is one JVM-wide fair `Semaphore` whose permits
+are KiB of estimated heap; its capacity is a quarter of the heap
+(`Runtime.getRuntime().maxMemory() / 4`), capped at `Integer.MAX_VALUE` KiB (a `Semaphore`
+counts in `int`, and `maxMemory()` is `Long.MAX_VALUE` when the heap has no limit). With
+the Debian default heap of 2 GB (`CARLOS_JAVA_XMX`), that is 512 MB: a 48-megapixel JPEG
+uses 28 MB of it and a 25-megapixel PNG 400 MB (two concurrent renders of one such PNG
+exhausted a 512 MB heap without a budget, *tested*). Fairness stops a large request from
+waiting forever behind a stream of small ones. `tryAcquire(long bytes, Duration wait)`
+returns an empty `Optional` on timeout; if the waiting thread is interrupted, it restores
+the interrupt flag and the render goes straight to the last resort (boxes and the note),
+with no further waiting. An `ImageMemoryLease` releases exactly what it acquired, once,
+however often `close()` is called. The attempt's image directory is a private temporary
+directory owned by `PreparedPrintImages` and deleted when it closes.
 
 **During layout** (`LocalOnlyUserAgent.getImageResource`, defence in depth and for CSS
-background images, which cannot show a box): the override handles `data:` and `file:`
-sources, applies the 32 MB limit and reads the header before any decoding; a CSS background
-over 4 000 000 pixels, or any exception while loading, returns an empty image resource (so
-Flying Saucer draws nothing for it), with a WARN without the path. Otherwise it delegates to
-`super.getImageResource(uri)`, keeping Flying Saucer's resolution scaling.
+background images, which are not in the plan because they can come from stylesheets and
+cannot show a box): the override handles `data:` and `file:` sources, refuses files over
+128 MB (above the largest converted output, a 25-megapixel PNG of noise at under 100 MB) and
+reads the header before any decoding. A JPEG background loads as is; another background
+over 4 megapixels is decoded with subsampling to fit 4 megapixels (at most 64 MB each)
+instead of being dropped; a header over 250 megapixels, or any exception while loading,
+returns an empty image resource (Flying Saucer draws nothing for it), with a WARN without
+the path. Otherwise it delegates to `super.getImageResource(uri)`, keeping Flying Saucer's
+resolution scaling. No form JSP in the repository uses a CSS background image (checked),
+so this matters mainly for HRM and email HTML.
 
 **`ConvertToEdoc`'s part:**
 
@@ -764,9 +813,12 @@ Flying Saucer draws nothing for it), with a WARN without the path. Otherwise it 
   lookup used for the request (below), so path translation and rendering use one root.
 
 Measured through `Doc2PDF`'s path: CMYK and progressive JPEG, 16-bit and alpha PNG, GIF
-(first frame), BMP and TIFF load; WebP, corrupt and zero-byte files show the box. In
-`ConvertToEdoc`, only `jpeg`, `jpg`, `png` and `gif` files pass `FileType`; other image
-files show the box (today they silently disappear).
+(first frame), BMP and TIFF load; corrupt and zero-byte files show the box. WebP converts
+with the TwelveMonkeys reader (*tested* standalone; through the pipeline in PR 1); HEIC has
+no Java reader and shows the box. In `ConvertToEdoc`, only `jpeg`, `jpg`, `png` and `gif`
+files pass `FileType`; other image files, WebP included, show the box (today they silently
+disappear); WebP still prints there when embedded as a `data:` URI, and always through
+`Doc2PDF`.
 
 ### Right-to-left text (`RtlTextShaping`)
 
@@ -1003,6 +1055,11 @@ failure.
   - Flying Saucer `10.0.6` → `10.7.0` (keep the `com.github.librepdf:openpdf` exclusion).
   - Declare `com.ibm.icu:icu4j` explicitly at the locked version 78.1 (CARLOS code now
     imports it; it was only transitive through HAPI FHIR).
+  - Add `com.twelvemonkeys.imageio:imageio-webp` at `${twelvemonkeys.version}` (3.15.3, the
+    release of the existing `imageio-tiff`; BSD 3-clause, pure Java, read-only). Its
+    dependencies (`imageio-core`, `imageio-metadata`, `common-*`) are already locked at
+    3.15.3, so it adds one 80 KB jar. It registers with `ImageIO` the same way as the TIFF
+    reader that `ImagePDFCreator` already relies on.
   - Remove `com.github.openosp:ultrabuk-htmltopdf-java`.
   - Remove `com.github.librepdf.openpdf:openpdf-html` (also drops `neko-htmlunit`).
   - Remove the `jna.version` property and the `net.java.dev.jna:jna` dependency-management
@@ -1078,14 +1135,14 @@ package-private setter, because no web application context exists in tests.
 | `HtmlPdfRenderRequestUnitTest`, `HtmlPdfRenderResultUnitTest` | Canonical-constructor validation (null HTML, empty, relative, unnormalised or root directories, base outside allowed; a `null` base accepted); defensive copies; unmodifiable degradations; `toString()` contains no HTML and no path; results with equal bytes are equal |
 | `HtmlPdfArchitectureUnitTest` | Reads the module's source files and checks the import rules under "Package dependencies" (no `jakarta.servlet`, Struts, DAO, manager or facade imports; `dto`, `engine` and `validator` independent; `support` free of `service`), and that only `HtmlPdfRenderService` is public in `service` |
 | `HtmlPdfSpringWiringUnitTest` | An `AnnotationConfigApplicationContext` scanning only `documentManager.htmlpdf` starts and supplies `HtmlPdfRenderService` (the module needs no outside beans, constructor selection works, no cycles) and renders one fixture |
-| `LocalOnlyUserAgentUnitTest` (moved to `engine` with the class and extended; its three `createRestrictedRenderer()` calls at lines ~472–494 move to the new signature) | Default stylesheet URL opens and `setBaseURL` with it logs nothing; another entry in the same jar, `jar:http:`, `http:`, protocol-relative and out-of-directory `file:` return `null`; behaviour does not depend on the working directory; blocked `file:` logs contain no path; `getImageResource` returns an empty resource for an over-cap background, a corrupt image and an over-32 MB file without decoding past the cap, and loads a `data:` image |
+| `LocalOnlyUserAgentUnitTest` (moved to `engine` with the class and extended; its three `createRestrictedRenderer()` calls at lines ~472–494 move to the new signature) | Default stylesheet URL opens and `setBaseURL` with it logs nothing; another entry in the same jar, `jar:http:`, `http:`, protocol-relative and out-of-directory `file:` return `null`; behaviour does not depend on the working directory; blocked `file:` logs contain no path; `getImageResource` loads a `data:` image and a large JPEG background as is, downscales an over-4-megapixel PNG background to fit, and returns an empty resource for a corrupt image, an over-128 MB file and an over-250-megapixel header without decoding it |
 | `XhtmlCleanupUnitTest` | Steps 2a, 2b, 2d–2g, 2i and 2m: scripts and comments removed (including the `--` comment case moved from `ConvertToEdocUnitTest:94`); soft hyphens and bidi controls removed; inline `position: fixed` rewritten; `<ol type>` mapped; `rowspan` clamped to its row group; only `thead` tables without row spans get `carlos-pdf-paginate`; `alt` added; output parses with the JDK XML parser |
 | `PrintDocumentComposerUnitTest` | Step order 2a–2i and 2k–2m with no collaborators (pure); `carlos-pdf-defaults` first in `<head>` and an author class rule beats it; the document note is the first child of `<body>`; note and box text identical under `Locale.setDefault(Locale.FRENCH)`; `SAFE` mode drops author styles and boxes inline SVG; `TEXT_ONLY` mode keeps reading order, table cells joined with " \| " and form-control text |
 | `PrintFormControlsUnitTest` | Every row of the form-control table, including copied attributes, sizing, CR/LF removal, multi-select, `optgroup`, no selection, `checked="false"`, password not revealing length, `progress` with and without `value`/`max`, `meter` |
-| `PrintImageResolverUnitTest` | The planned outcome, with no file written: use as is (file inside an allowed directory, `data:` PNG, a path with spaces and accents); convert (WBMP); downscale (an over-cap PNG; a document over capacity plans its largest images smaller); clean (SVG with outside references); box (remote, outside allowed directories, missing, zero-byte, over 32 MB, a PDF, WebP, a raw space in a relative `src`, unparseable SVG, `data-carlos-image-unavailable`); repeated sources counted once |
-| `PrintImageServiceUnitTest` | Applying the plan: encoded-URI rewrite; WBMP and a valid header with corrupt data that `ImageIO` can still read are converted; an over-cap PNG is decoded subsampled (no full decode) with its printed size kept; SVG and inline `<svg>` cleaned with their other content kept; undecodable data boxed; box sized from `width`/`height`; WARN without path. Lease: permits released and the image directory deleted when a later step throws; the wait-and-halve sequence then the omitted-images outcome; the sequence runs once per render; an interrupted wait restores the flag and boxes |
-| `ImagePixelBudgetServiceUnitTest` | Capacity from `maxMemory()/64`, capped at `Integer.MAX_VALUE`; `tryAcquire` returns empty on timeout and never throws; a lease's repeated `close()` releases once; a large waiting request is served before later small ones (fairness) |
-| `HtmlPdfMemoryUnitTest` (a child JVM started by the test with `ProcessBuilder`, the test classpath and `-Xmx1g`, so the Surefire configuration is unchanged) | Six near-cap images in one document and four such documents concurrently: no `OutOfMemoryError`; every document produced (downscaled, or boxes with the note under contention) |
+| `PrintImageResolverUnitTest` | The planned outcome and charge, with no file written: as is (file inside an allowed directory, `data:` PNG, a path with spaces and accents, a 48-megapixel JPEG charged four times its file size); convert (WBMP, WebP, an over-32 MB file); downscale (an over-25-megapixel PNG; a document over capacity plans its largest images smaller and converts a JPEG that does not fit); clean (SVG with outside references); box (remote, outside allowed directories, missing, zero-byte, a PDF, HEIC, a crafted PNG header declaring 20 000 × 20 000 that is never decoded, a raw space in a relative `src`, unparseable SVG, `data-carlos-image-unavailable`); repeated sources counted once |
+| `PrintImageServiceUnitTest` | Applying the plan: encoded-URI rewrite; a JPEG embedded unchanged (same bytes); WBMP and a valid header with corrupt data that `ImageIO` can still read are converted; WebP without transparency becomes JPEG, with transparency PNG; an over-cap PNG is read as a stream with subsampling (no full decode) and its printed size kept; SVG and inline `<svg>` cleaned with their other content kept; undecodable data boxed; box sized from `width`/`height`; WARN without path. Lease: permits released and the image directory deleted when a later step throws; the wait-and-halve sequence then the omitted-images outcome; the sequence runs once per render; an interrupted wait restores the flag and boxes |
+| `ImageMemoryBudgetServiceUnitTest` | Capacity a quarter of `maxMemory()` in KiB, capped at `Integer.MAX_VALUE`; `tryAcquire` returns empty on timeout and never throws; a lease's repeated `close()` releases once; a large waiting request is served before later small ones (fairness) |
+| `HtmlPdfMemoryUnitTest` (a child JVM started by the test with `ProcessBuilder`, the test classpath and `-Xmx1g`, so the Surefire configuration is unchanged) | Six near-cap PNGs in one document and four such documents concurrently; a document with a 48-megapixel JPEG and a 95 MB, 67-megapixel PNG scan: no `OutOfMemoryError`; every document produced (the JPEG at full resolution; PNGs downscaled, or boxes with the note under contention) |
 | `RtlTextShapingUnitTest` | Hebrew reordered to visual order; Arabic joined to presentation forms and reordered; brackets mirrored; paragraph direction from `dir` or the first strong character; `text-align: right` on `dir="rtl"` blocks; a run over 40 characters adds `RTL_BEST_EFFORT`; mixed left-to-right digits and Latin keep their order |
 | `FallbackFontRunsUnitTest` | Only characters missing from DejaVu Sans regular or bold are wrapped (for example CJK and 𝄞); WenQuanYi → Symbola → U+FFFD order; spans set `font-style: normal`; `<style>`/`<title>` untouched; identical output across runs; a missing fallback font gives U+FFFD and `FALLBACK_FONT_UNAVAILABLE` |
 | `BundledFontResolverUnitTest` | Every family (generic, named, unknown, none) → `CARLOS Sans`; `carlos cjk`/`carlos symbol` → their families; bold → DejaVu Sans Bold; italic → the regular face, slanted, with regular widths; minimum size 200 dots |
@@ -1114,7 +1171,10 @@ package-private setter, because no web application context exists in tests.
   `meter`).
 - The demo HRM report and three synthetic HTML HRM reports: table-heavy (including a
   2000-row table), inline styles, and images (file, `data:`, remote, repeated `src`, `.bmp`,
-  WBMP, corrupt header, corrupt body, WebP, PDF, oversized, SVG with outside references).
+  WBMP, corrupt header, corrupt body, WebP with and without transparency, HEIC, PDF,
+  oversized, SVG with outside references). The large images (48-megapixel JPEG,
+  67-megapixel PNG, a header declaring 20 000 × 20 000) are generated by the tests at run
+  time into a temporary directory, not committed.
 - An encrypted-email message body; a Messenger letter.
 - Wide pages (400, 850, 1000, 1400 px), a narrow-then-wide page, an author `@page` page,
   small text, print/screen media rules, a long URL, `thead` across pages, `position: fixed`,
@@ -1180,8 +1240,10 @@ List these in PR 1:
   - author `margin-top` on `html`, `body` and the body's first child is ignored at the page
     start;
   - images that today silently disappear (repeated `src`, removed sources, `.bmp`/`.tif`)
-    now print, or show the "[image unavailable]" box; oversized images print at reduced
-    resolution with the same printed size; SVGs with outside references print without
+    now print, or show the "[image unavailable]" box; non-JPEG images over 25 megapixels
+    print at reduced resolution (still above print resolution) with the same printed
+    size; JPEG photos print at full resolution; WebP prints where it reaches the renderer;
+    SVGs with outside references print without
     those references;
   - very wide content shrinks without limit instead of being clipped;
   - a table with both `<thead>` and row spans prints its header once instead of on every
@@ -1209,6 +1271,8 @@ List these in PR 1:
   as UTF-8); pre-existing.
 - **CSS background images** that fail to load are omitted with a WARN; they cannot show the
   box.
+- **HEIC images** (the iPhone camera format) have no Java reader and show the box; JPEG
+  copies print. Images whose header declares over 250 megapixels show the box.
 - **Stylesheet-defined `position: fixed`** (as opposed to inline) still repeats on every
   page; inline is rewritten.
 - **Tables with both `<thead>` and row spans** print their header once.
@@ -1217,8 +1281,8 @@ List these in PR 1:
 
 Two PRs, both from and to `release/2026.08`, both merged before 2026.08 ships:
 
-1. **New engine.** Flying Saucer 10.7.0; `icu4j` declared; the `htmlpdf` package with its `package-info`
-   files and the `htmlpdf.*` message keys; `LocalOnlyUserAgent` moved into it (`git mv`,
+1. **New engine.** Flying Saucer 10.7.0; `icu4j` declared; `imageio-webp` added; the
+   `htmlpdf` package with its `package-info` files and the `htmlpdf.*` message keys; `LocalOnlyUserAgent` moved into it (`git mv`,
    with its test) and changed; the `ConvertToEdoc` path/image and error-path fixes;
    deletion of
    `ReplacedElementFactoryImpl`; `Doc2PDF` and the `ConvertToEdoc` fallback use
@@ -1228,7 +1292,7 @@ Two PRs, both from and to `release/2026.08`, both merged before 2026.08 ships:
    images.
 2. **Switch and removal.** `ConvertToEdoc` uses `HtmlPdfRenderService` only; deletions and
    every remaining item in "Removals and Packaging" (the Flying Saucer upgrade, the
-   `icu4j` declaration and the message keys are already in PR 1).
+   `icu4j` and `imageio-webp` additions and the message keys are already in PR 1).
 
 Rules from `docs/release-process.md` and `CLAUDE.md`:
 
@@ -1251,7 +1315,8 @@ Rules from `docs/release-process.md` and `CLAUDE.md`:
 | A form or HRM report lays out differently from wkhtmltopdf despite the emulation | Side-by-side comparison with acceptance criteria (including an overlap check) in PR 1; small CSS fixes to form print markup are in scope; other differences are listed for the release owner |
 | Real hospital HRM HTML is more varied than the fixtures (CSS beyond Flying Saucer's CSS 2.1, malformed markup) | The ladder prints it in safe or text-only mode with a note instead of failing; unusable images show the box; new variants become fixtures |
 | The ladder hides a systematic problem (many documents in safe mode) | Every degradation is logged by name at WARN; the PR adds a note to the module guide on reading them |
-| The pixel budget is too small (images downscaled needlessly) or too large (heap still exhausted) | Load test in PR 1 at `-Xmx1g` and at the production default; the budget is derived from the heap size, not hard-coded |
+| The image memory budget is too small (images downscaled needlessly) or too large (heap still exhausted) | Charges come from measurements by format (JPEGs are not decoded); load test in PR 1 at `-Xmx1g` and at the 2 GB production default; the budget follows the heap size, not hard-coded |
+| JPEG photos embedded unchanged make large PDFs (a 48-megapixel photo adds its 7 MB) | Photos are rare in these documents (forms, HRM reports, email bodies); converted images are written at their reduced size; downsampling oversized JPEGs to printed resolution is a follow-up if fax or email size limits are hit |
 | Right-to-left passages print with reversed line order | Visible note on such documents; short text (the common case) is correct; full support is a follow-up |
 | Waiting for image permits (up to 2 minutes) happens inside `ConvertToEdoc`'s class-level lock, delaying other `ConvertToEdoc` renders | Contention needs concurrent image-heavy renders (`ConvertToEdoc` itself is serialised, so only `Doc2PDF` renders compete); the wait sequence runs once per render; the load test in PR 1 measures it. Removing the class lock is a non-goal |
 | Two passes plus page import (and occasional retries) make some renders slower | Measured 81–300 ms warm for one attempt; retries happen only after a failure; `ConvertToEdoc` is already serialised; fax batches are checked in the manual tests |
