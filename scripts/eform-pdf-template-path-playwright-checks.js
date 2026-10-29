@@ -91,8 +91,10 @@ async function main() {
 
   const marker = `carlos5316${crypto.randomBytes(6).toString('hex')}`;
   const templateName = `${marker}-template`;
-  const templateFile = path.join(imageDir, `${templateName}.pdf`);
-  const outsideBase = path.join(documentDir, `${marker}-other-patient`);
+  // Both directories are operator-supplied, realpath-resolved and checked to be directories; the
+  // file names are a random hex marker plus constant suffixes, so neither join takes request data.
+  const templateFile = path.join(imageDir, `${templateName}.pdf`); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- operator directory + random hex marker
+  const outsideBase = path.join(documentDir, `${marker}-other-patient`); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- operator directory + random hex marker
   const outsideFile = `${outsideBase}.pdf`;
   const planted = [templateFile, outsideFile];
   const cleanup = () => {
