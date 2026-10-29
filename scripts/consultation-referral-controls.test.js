@@ -16,6 +16,7 @@ const cover = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/fax/C
 test('shouldRefuseAnUnreadableDate_beforeSubmitOrUpdatePostsIt', () => {
   const check = form.slice(form.indexOf('function checkForm(submissionVal, formName)'), form.indexOf('ShowSpin(true);'));
   assert.match(check, /\^\(Submit\|Update\)/, 'the date guard must cover every save button');
+  assert.match(check, /submissionVal === 'And Print Preview'/, 'and the unsaved Print Preview, which would print without the date');
   for (const id of ['referalDate', 'appointmentDate', 'followUpDate']) assert.ok(check.includes(`'${id}'`), `the guard skips ${id}`);
   assert.match(check, /validity\.badInput/, 'an unreadable date is what the browser reports as badInput');
   assert.match(check, /return false;/, 'the guard must stop the submit');

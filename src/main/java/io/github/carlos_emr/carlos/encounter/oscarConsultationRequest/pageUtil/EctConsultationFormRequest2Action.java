@@ -557,7 +557,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 ConsultationRequest consult = new ConsultationRequest();
                 String dateString = this.getReferalDate();
                 Date date = null;
-                if (dateString != null && !dateString.isEmpty()) {
+                if (StringUtils.isNotBlank(dateString)) {
                     date = DateUtils.parseDateStrictly(dateString, format);
                 }
                 consult.setReferralDate(date);
@@ -570,7 +570,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 consult.setLetterheadPhone(this.getLetterheadPhone());
                 consult.setLetterheadFax(this.getLetterheadFax());
 
-                if (this.getAppointmentDate() != null && !this.getAppointmentDate().equals("")) {
+                if (StringUtils.isNotBlank(this.getAppointmentDate())) {
                     date = DateUtils.parseDateStrictly(this.getAppointmentDate(), format);
                     consult.setAppointmentDate(date);
 
@@ -606,7 +606,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
                 consult.setPatientWillBook(pWillBook);
 
-                if (this.getFollowUpDate() != null && !this.getFollowUpDate().equals("")) {
+                if (StringUtils.isNotBlank(this.getFollowUpDate())) {
                     date = DateUtils.parseDateStrictly(this.getFollowUpDate(), format);
                     consult.setFollowUpDate(date);
                 }
@@ -732,7 +732,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 consult.setDemographicContact(consultant.contact());
                 request.setAttribute("professionalSpecialistName", consultant.displayName());
 
-                if (this.getAppointmentDate() != null && !this.getAppointmentDate().equals("")) {
+                if (StringUtils.isNotBlank(this.getAppointmentDate())) {
                     date = DateUtils.parseDateStrictly(this.getAppointmentDate(), format);
                     consult.setAppointmentDate(date);
                     try {
@@ -764,7 +764,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
                 consult.setPatientWillBook(pWillBook);
 
-                if (this.getFollowUpDate() != null && !this.getFollowUpDate().equals("")) {
+                if (StringUtils.isNotBlank(this.getFollowUpDate())) {
                     date = DateUtils.parseDateStrictly(this.getFollowUpDate(), format);
                     consult.setFollowUpDate(date);
                 } else if (request.getParameter("followUpDate") != null) {
@@ -914,7 +914,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
      */
     boolean postedDatesAreValid(String[] format) {
         for (String value : new String[]{getReferalDate(), getAppointmentDate(), getFollowUpDate()}) {
-            // Blank is "no date"; each save path decides whether that keeps or clears the stored one.
+            // Blank, whitespace included, is "no date", exactly as the save paths read it, so a value
+            // accepted here can never fail to parse after a side effect. Each save path decides
+            // whether no date keeps or clears the stored one.
             if (StringUtils.isBlank(value)) {
                 continue;
             }

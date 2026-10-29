@@ -1786,8 +1786,9 @@
             }
             // A date the browser cannot read (an impossible day such as 30 February) posts as an
             // empty value, which would save the referral without that date or, on Update, clear the
-            // stored one. Refuse it and name the field instead (issue #5272).
-            if (/^(Submit|Update)/.test(submissionVal)) {
+            // stored one, and an unsaved Print Preview would print without it. Refuse it and name the
+            // field instead (issue #5272).
+            if (/^(Submit|Update)/.test(submissionVal) || submissionVal === 'And Print Preview') {
                 var unreadableDate = ['referalDate', 'appointmentDate', 'followUpDate'].map(function (id) {
                     return document.getElementById(id);
                 }).filter(function (input) {

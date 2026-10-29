@@ -10,8 +10,8 @@
  *   2. changing it updates the same request, archives the previous date, and leaves the control referral alone;
  *   3. clearing the control stores NULL and the reopened form shows it empty (release/2026.08 kept the old date:
  *      the update branch only ever set a non-blank date);
- *   4. an impossible date (30 February) is refused: the browser's date control cannot read it, and Update raises an
- *      alert naming the field instead of posting it as "no date"; posted past the control (the field's type switched
+ *   4. an impossible date (30 February) is refused: the browser's date control cannot read it, and Update and Print
+ *      raise an alert naming the field instead of posting it as "no date"; posted past the control (the field's type switched
  *      to text, as a non-browser client would send it) the server answers 400 before archiving or saving, and the
  *      stored date is unchanged (release/2026.08 parsed it leniently and stored 2 March);
  *   5. closing the window over an unsaved edit changes nothing.
@@ -125,6 +125,10 @@ async function workflow(s) {
       'Update left the form although the follow-up date was refused');
     h.assert(followUp() === first && archivedFollowUps().length === archivedBefore,
       'The refused update changed the stored follow-up date or archived a version');
+    // Print (an unsaved preview) would otherwise print the referral without the date the clinician typed.
+    const previewRefused = await h.withExpectedDialogs(form, () => form.locator('input[name="printPreview"]').click());
+    h.assert(previewRefused.length === 1 && /not a real calendar date/i.test(previewRefused[0].text),
+      `Print with an unreadable follow-up date raised ${JSON.stringify(previewRefused)}, not the refusal`);
 
     // Past the control: what a client that is not this form posts. The server must refuse it, not store 2 March.
     await control.evaluate(input => { input.type = 'text'; input.value = '2026-02-30'; });

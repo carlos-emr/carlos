@@ -875,6 +875,47 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         verify(consultationRequestDao, never()).persist(any());
     }
 
+    /**
+     * A whitespace date passes the up-front check as "no date"; the save paths must read it the same
+     * way, or it would fail to parse after the stamp or the archive copy had been written.
+     */
+    @Test
+    @DisplayName("saves a new consultation without dates when the dates are posted as whitespace")
+    void shouldSaveWithoutDates_whenCreateDatesAreWhitespace() throws Exception {
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
+        action.setSubmission("Submit Consultation Request");
+        action.setService("1");
+        action.setSpecialist("7");
+        action.setReferalDate(" ");
+        action.setAppointmentDate("  ");
+        action.setFollowUpDate(" ");
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        action.execute();
+
+        assertThat(response.getStatus()).isNotEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(persisted[0]).isNotNull();
+        assertThat(persisted[0].getReferralDate()).isNull();
+        assertThat(persisted[0].getAppointmentDate()).isNull();
+        assertThat(persisted[0].getFollowUpDate()).isNull();
+    }
+
+    @Test
+    @DisplayName("clears the follow-up date when the update posts it as whitespace, with no refusal")
+    void shouldClearFollowUpDate_whenFieldIsPostedAsWhitespaceOnUpdate() throws Exception {
+        ConsultationRequest existing = updateWithStoredFollowUp();
+        action.setFollowUpDate(" ");
+        request.addParameter("followUpDate", " ");
+
+        action.execute();
+
+        assertThat(response.getStatus()).isNotEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verify(consultationManager).archiveConsultationRequest(9);
+        verify(consultationRequestDao).merge(existing);
+        assertThat(existing.getFollowUpDate()).isNull();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"2026-02-28", "2028-02-29", "2026/02/28", "1000-01-01", "9999-12-31", "", " "})
     @DisplayName("accepts real calendar dates and blank values")
