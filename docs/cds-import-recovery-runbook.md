@@ -82,6 +82,8 @@ Before any cleanup, establish actual ownership, reference state and acceptance o
 
 If storage is exhausted, preserve the original source and failed/partial owned state. Repair capacity, inspect the existing run and use supported recovery. Increasing heap does not repair a full disk. Raising a reserve or clearing a hold does not establish completeness.
 
+A table-full diagnostic (`HY000` / vendor `1114`) can indicate exhausted database datadir or tablespace capacity, including a bounded memory-backed mount. Inspect database storage separately from source/staging free space and JVM heap. Preserve the protected diagnostic, repair capacity through normal database maintenance, then reconcile and resume the same accepted run.
+
 ## Reopening ordinary clinical access
 
 Clinical maintenance and chart holds protect different boundaries. Only the documented release proof can reopen ordinary clinical work. A later report failure does not roll back a completed chart, and a successful report does not release an unresolved hold.

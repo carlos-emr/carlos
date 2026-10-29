@@ -12,20 +12,22 @@ authorized report/original downloads and read-only source pages keep their
 versionless links. Existing immutable receipts are not rewritten. The CLI
 capability/delegation protocol remains **1**.
 
-Run this exclusive gate only after the installed host/container and ordinary
-browser workflows have completed, the maintenance window is released, and no
-patient holds remain. It deliberately performs one ordinary document upload
-through the existing E-Chart popup workflow. That workflow verifies the real
-multipart request, native document/link/file, redirect and opener behavior,
-and removes only its owned synthetic records/files during teardown.
+Run this exclusive gate after the ordinary browser workflows have completed,
+the maintenance window is released, and no patient holds remain. Host/container
+acceptance may run separately afterward in its own disposable runtime; it
+remains mandatory before any PR is marked ready. This gate deliberately performs
+one ordinary document upload through the existing E-Chart popup workflow. That
+workflow verifies the real multipart request, native document/link/file,
+redirect and opener behavior, and removes only its owned synthetic records/files
+during teardown.
 
 Report tests require an existing delivered run owned by the configured browser
-account. Event, error and receipt downloads must work for that owner. A separate
-native login has `_cds_import:w` and `_demographic:w`, and no administrator
-privilege: its successful owner-scoped upload-list read first proves it is an
-import operator. All three foreign report downloads must refuse. Anonymous and
-native-logout-invalidated sessions receive no protected attachment or report
-fields. A temporary basename link explicitly returns
+account. Event, error, receipt and units downloads must work for that owner.
+A separate native login has `_cds_import:w` and `_demographic:w`, and no
+administrator privilege: its successful owner-scoped upload-list read first
+proves it is an import operator. All four foreign report downloads must refuse.
+Anonymous and native-logout-invalidated sessions receive no protected attachment
+or report fields. A temporary basename link explicitly returns
 `410 IMPORT_LEGACY_LOG_LINK_EXPIRED`. Native logout is not evidence that a
 session timed out naturally; these are separate scenarios.
 

@@ -284,9 +284,10 @@ The `CDS import native contracts` workflow compiles the actual application and t
 runs `scripts/ci/run-cds-native-tier.py`. The harness creates a uniquely owned internal-network
 MariaDB server with checked tmpfs storage and bootstraps two empty schemas through the complete
 common/Ontario Flyway chain. A separate workflow step runs five fresh 64MiB parser probes.
-The nine required native suites include demographic and document ORM
-callbacks alongside maintenance, identity, clinical capacity, appointments, history visibility,
-ledger recovery and target receipts. Missing reports, zero tests, skips, inconsistent counters,
+The [required native-suite manifest](../scripts/ci/run-cds-native-tier.py) includes demographic and document ORM
+callbacks alongside maintenance, coordinator binding prefetch, identity, clinical capacity,
+appointments, history visibility, HRM admission, review acceptance, ledger recovery and target
+receipts. Missing reports, zero tests, skips, inconsistent counters,
 failures, errors and flaky reruns fail the gate. The host parser uses hash-pinned `defusedxml`;
 only reports with captured configuration/output removed become CI artifacts. Cleanup removes
 only the harness's own container, network and generated credentials. This physical gate does not

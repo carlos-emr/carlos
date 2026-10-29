@@ -1,9 +1,11 @@
 # CDS import resource verification
 
-Run the installed resource gates against the exact packaged candidate after the
-ordinary installed host/container and retained-browser recovery gates. They
-never edit a deployment configuration, change a failed source namespace, reset a
-run, or delete an accepted snapshot to make another workload fit.
+Run the installed resource gates against the exact packaged candidate in an
+exclusive disposable runtime. These resource profiles run independently of
+browser and ordinary host/container acceptance. All gates remain mandatory
+before any PR is marked ready. The resource gates never edit a deployment
+configuration, change a failed source namespace, reset a run, or delete an
+accepted snapshot to make another workload fit.
 
 `scripts/ci/run-cds-performance.py` requires the actual installed `carlos-ctl`,
 Java25/JDK instrumentation, MariaDB client, `xmllint`, root-owned synthetic
@@ -148,8 +150,9 @@ deployed WAR is a separate required deployment proof.
 The versioned resource workflow builds the actual companion Debian package and
 the CARLOS WAR, starts a pinned Ubuntu26.04/Java25 runtime and a fresh pinned
 MariaDB server, migrates the full Ontario chain, prepares the real fixture, and
-runs all three non-skipping profiles. Only whitelisted metric/count/hash proof
-and a bounded log tail with the fresh database secret removed are published.
+runs every non-skipping profile in the workflow matrix. Only whitelisted
+metric/count/hash proof and a bounded log tail with the fresh database secret
+removed are published.
 The owned synthetic runtime/database retire only when their CI job ends; this
 does not authorize cleanup of any developer, retained-failure or clinical state.
 
