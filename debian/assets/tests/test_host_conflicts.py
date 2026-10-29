@@ -395,6 +395,30 @@ class TestFrontDoor(HostConflictsCase):
         self.assertEqual(self.stops(),
                          ["systemctl disable --now lighttpd.socket lighttpd.service"])
 
+    def test_socket_and_the_service_it_started_are_handled_once(self):
+        # ss names systemd (the socket) AND the service process it handed the
+        # socket to as owners of the same listener.
+        scenario = {
+            "listeners": [{"addr": "[::]:80", "socket": "lighttpd.socket",
+                           "triggers": "lighttpd.service",
+                           "owners": [{"name": "systemd", "pid": 1},
+                                      {"name": "lighttpd", "pid": 300}]}],
+            "procs": {"300": {"unit": "lighttpd.service"}},
+            "units": {"lighttpd.socket": {"FragmentPath": "/usr/lib/systemd/system/lighttpd.socket",
+                                          "Triggers": "lighttpd.service"},
+                      "lighttpd.service": {"FragmentPath": "/usr/lib/systemd/system/lighttpd.service"}},
+            "dpkg": {"/usr/lib/systemd/system/lighttpd.socket": "lighttpd",
+                     "/usr/lib/systemd/system/lighttpd.service": "lighttpd"},
+        }
+        plan = self.run_script(scenario, "front-door", "--plan", "0.0.0.0")
+        self.assertEqual(plan.stdout.count("will-stop:"), 1, plan.stdout)
+        self.assertNotIn("blocked:", plan.stdout)
+        r = self.run_script(scenario, "front-door", "0.0.0.0")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.stops(),
+                         ["systemctl disable --now lighttpd.socket lighttpd.service"])
+        self.assertEqual(r.stdout.count("stopped:"), 1, r.stdout)
+
     def test_usrmerge_unit_registered_under_lib_is_recognised(self):
         r = self.run_script({
             "listeners": [apache("*:80")],
@@ -563,7 +587,8 @@ class TestShippedAndWired(unittest.TestCase):
 
     def test_postinst_frees_the_front_door_before_init_config(self):
         text = POSTINST.read_text()
-        gate = text.index('        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then\n            free_front_door\n')
+        gate = text.index('        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then\n'
+                          '            free_front_door "${2:-}"\n')
         self.assertLess(gate, text.index("carlos-ctl init-config ||"))
 
     def test_postinst_names_the_cause_when_mariadb_is_unreachable(self):
@@ -626,7 +651,7 @@ class TestPostinstConfirmation(unittest.TestCase):
     STOPPED = ("stopped: apache2.service (package apache2) was listening on *:80, which the "
                "CARLOS front door needs; it is stopped and disabled but still installed")
 
-    def run_block(self, answer, plan=True, shown=True):
+    def run_block(self, answer, plan=True, shown=True, old_version="", nginx_state="failed"):
         text = POSTINST.read_text()
         fns = "\n".join(re.search(r"\n%s\(\) \{.*?\n\}" % name, text, re.S).group(0)
                         for name in ("join_lines", "log_action", "free_front_door"))
@@ -656,8 +681,9 @@ db_fset() {{ call "db_fset $*"; }}
 db_input() {{ call "db_input $*"; [ {1 if shown else 0} = 1 ] || return 30; }}
 db_go() {{ call db_go; }}
 db_get() {{ call "db_get $*"; RET="{answer}"; }}
+systemctl() {{ [ "$1" = is-active ] || return 1; echo {nginx_state}; [ {nginx_state} = active ]; }}
 {fns.replace("/run/systemd/system", systemd)}
-free_front_door
+free_front_door "{old_version}"
 printf 'FREED=%s\n' "$FRONT_DOOR_FREED"
 """
             r = subprocess.run(["sh", "-c", script], capture_output=True, text=True)
@@ -698,6 +724,20 @@ printf 'FREED=%s\n' "$FRONT_DOOR_FREED"
         r, calls = self.run_block("true", plan=False)
         self.assertFalse(any(c.startswith(("db_", "logger")) for c in calls), calls)
         self.assertNotIn("host_conflicts front-door 0.0.0.0", calls)
+
+    def test_upgrade_leaves_an_operator_stopped_nginx_and_its_replacement_alone(self):
+        r, calls = self.run_block("true", old_version="2026.08.0~beta2", nginx_state="inactive")
+        self.assertEqual([c for c in calls if c.startswith(("host_conflicts", "db_"))], [])
+        self.assertIn("FREED=\n", r.stdout)
+        self.assertIn("left as they are", r.stderr)
+
+    def test_upgrade_with_a_failed_nginx_still_frees_the_ports(self):
+        r, calls = self.run_block("true", old_version="2026.08.0~beta2", nginx_state="failed")
+        self.assertIn("host_conflicts front-door 0.0.0.0", calls)
+
+    def test_first_install_frees_the_ports_whatever_nginx_state(self):
+        r, calls = self.run_block("true", old_version="", nginx_state="inactive")
+        self.assertIn("host_conflicts front-door 0.0.0.0", calls)
 
     def test_the_question_defaults_to_yes(self):
         templates = TEMPLATES.read_text()

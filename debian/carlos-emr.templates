@@ -177,10 +177,10 @@ Description: Stop the other services using ports 80 and 443?
  .
  ${services}
  .
- If you agree, each one is stopped and kept from starting again at boot
- (disabled, or masked when it cannot be disabled). Nothing is uninstalled and
- no configuration is changed; the next screen shows how to bring each one
- back after moving it to other ports.
+ If you agree, each one is stopped and, where possible, kept from starting
+ again at boot (disabled, or masked when it cannot be disabled). Nothing is
+ uninstalled and no configuration is changed; the next screen shows what was
+ done to each one and how to bring it back after moving it to other ports.
  .
  If you decline, nothing is changed and CARLOS EMR is NOT reachable until
  those ports are free. Free them yourself, then run:

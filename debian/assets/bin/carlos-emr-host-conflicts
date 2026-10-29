@@ -312,9 +312,6 @@ front_door() {
     [ -n "${found}" ] || return 0
 
     acted=0
-    # name|unit of every owner --plan says it would stop, so its "blocked:"
-    # list holds only what would be left.
-    planned=" "
     # Units policy-rc.d would not let this configure stop.
     denied=" "
     if [ "${mode}" != report ]; then
@@ -333,7 +330,6 @@ front_door() {
             fi
             if app="$(snap_app "${unit}")" && command -v snap >/dev/null 2>&1; then
                 if [ "${mode}" = plan ]; then
-                    planned="${planned}${name}|${unit} "
                     stopped_units="${stopped_units}${unit} "
                     say "will-stop: the ${app%%.*} snap's ${app} service, on ${addrs}"
                     continue
@@ -360,15 +356,17 @@ front_door() {
                 [ "${also_ok}" = 1 ] || continue
             fi
             origin="$(origin_of "${unit}")"
+            # The units a socket starts are handled with it: ss names the
+            # service's own process as an owner of the same socket, and that
+            # row must not be planned or stopped a second time.
             if [ "${mode}" = plan ]; then
-                planned="${planned}${name}|${unit} "
-                stopped_units="${stopped_units}${unit} "
+                stopped_units="${stopped_units}${unit} ${also:+${also} }"
                 say "will-stop: ${unit} (${origin}), on ${addrs}"
                 continue
             fi
             # shellcheck disable=SC2086 # $also is a list of unit names
             kept_off="$(stop_unit "${unit}" ${also})" || continue
-            stopped_units="${stopped_units}${unit} "
+            stopped_units="${stopped_units}${unit} ${also:+${also} }"
             acted=1
             case "${kept_off}" in
                 disabled)
@@ -395,7 +393,11 @@ EOF
     fi
 
     while read -r name pid unit addrs; do
-        case "${planned}" in *" ${name}|${unit} "*) continue ;; esac
+        # --plan lists only what it would leave: a unit it would stop (or one
+        # a socket it would stop starts) is not also "blocked".
+        if [ "${mode}" = plan ]; then
+            case "${stopped_units:- }" in *" ${unit} "*) continue ;; esac
+        fi
         [ "${unit}" != - ] || unit=""
         why=""
         case "${denied}" in *" ${unit} "*) why="policy-rc.d forbids stopping services during this install, so it was left running; " ;; esac

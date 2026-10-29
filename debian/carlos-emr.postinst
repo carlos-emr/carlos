@@ -240,9 +240,19 @@ log_action() {
 # what holds the ports, and the install finishes NOT ready. A preseeded false
 # keeps every run hands-off. Sets FRONT_DOOR_FREED to the "stopped:" lines for
 # the closing note.
+#
+# $1 is the version being upgraded from (empty on a first install). An nginx
+# an operator stopped (inactive) before an upgrade stays stopped -- the nginx
+# step below honours that -- and so does whatever they put on 80/443 in its
+# place: stopping it would only swap their choice for an nginx this run then
+# starts. A first install, or an nginx that failed to start, is not that case.
 free_front_door() {
     FRONT_DOOR_FREED=""
     [ -d /run/systemd/system ] || return 0
+    if [ -n "${1:-}" ] && [ "$(systemctl is-active nginx.service 2>/dev/null || true)" = inactive ]; then
+        echo "carlos-emr: nginx is stopped, as it was left before this upgrade; ports 80 and 443, and whatever serves them, are left as they are." >&2
+        return 0
+    fi
     front_door_ip="$(configured_bind_ip)"
     front_door_plan="$(host_conflicts front-door --plan "${front_door_ip}" | sed -n 's/^will-stop: //p')"
     [ -n "${front_door_plan}" ] || return 0
@@ -1569,7 +1579,7 @@ OAUTH_ACCESS_DEFAULTS
         # init-config and provisioning, and taking another service down for a
         # front door it is not about to configure would be all cost.
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
-            free_front_door
+            free_front_door "${2:-}"
         fi
         [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
