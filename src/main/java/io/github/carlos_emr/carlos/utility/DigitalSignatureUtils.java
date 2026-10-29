@@ -85,7 +85,7 @@ public class DigitalSignatureUtils {
         RANDOM.nextBytes(bytes);
         String requestId = HexFormat.of().formatHex(bytes);
         synchronized (ISSUED_IDS_LOCK) {
-            LinkedHashSet<String> issued = issuedIds(session, true);
+            LinkedHashSet<String> issued = issuedIds(session);
             issued.add(requestId);
             for (Iterator<String> oldest = issued.iterator(); issued.size() > MAX_ISSUED_REQUEST_IDS; ) {
                 oldest.next();
@@ -108,24 +108,22 @@ public class DigitalSignatureUtils {
             return false;
         }
         synchronized (ISSUED_IDS_LOCK) {
-            LinkedHashSet<String> issued;
+            Object issued;
             try {
-                issued = issuedIds(session, false);
-            } catch (IllegalStateException invalidated) {
+                issued = session.getAttribute(ISSUED_REQUEST_IDS_ATTRIBUTE);
+            } catch (IllegalStateException _) {
                 return false;
             }
-            return issued != null && issued.contains(requestId);
+            return issued instanceof LinkedHashSet<?> ids && ids.contains(requestId);
         }
     }
 
+    /** The request ids issued to this session, oldest first; stores an empty set if there is none yet. */
     @SuppressWarnings("unchecked")
-    private static LinkedHashSet<String> issuedIds(HttpSession session, boolean create) {
+    private static LinkedHashSet<String> issuedIds(HttpSession session) {
         Object value = session.getAttribute(ISSUED_REQUEST_IDS_ATTRIBUTE);
         if (value instanceof LinkedHashSet<?> set) {
             return (LinkedHashSet<String>) set;
-        }
-        if (!create) {
-            return null;
         }
         LinkedHashSet<String> issued = new LinkedHashSet<>();
         session.setAttribute(ISSUED_REQUEST_IDS_ATTRIBUTE, issued);

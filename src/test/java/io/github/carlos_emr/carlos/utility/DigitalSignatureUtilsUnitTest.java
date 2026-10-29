@@ -103,8 +103,10 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
             ids.add(DigitalSignatureUtils.generateSignatureRequestId(session));
         }
 
-        assertThat(ids).hasSize(50).allMatch(id -> id.matches("[0-9a-f]{32}"));
-        assertThat(ids).noneMatch(id -> id.startsWith("999998"));
+        assertThat(ids)
+                .hasSize(50)
+                .allMatch(id -> id.matches("[0-9a-f]{32}"))
+                .noneMatch(id -> id.startsWith("999998"));
     }
 
     @Test
@@ -126,6 +128,15 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
         assertThat(DigitalSignatureUtils.isIssued(session, "9999981700000000000")).isFalse();
         assertThat(DigitalSignatureUtils.isIssued(session, "")).isFalse();
         assertThat(DigitalSignatureUtils.isIssued(session, null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should refuse any request ID in a session never issued one, and store nothing in it")
+    void shouldRefuseRequestId_whenSessionWasNeverIssuedOne() {
+        MockHttpSession fresh = new MockHttpSession();
+
+        assertThat(DigitalSignatureUtils.isIssued(fresh, "0123456789abcdef".repeat(2))).isFalse();
+        assertThat(fresh.getAttribute(DigitalSignatureUtils.ISSUED_REQUEST_IDS_ATTRIBUTE)).isNull();
     }
 
     @Test
