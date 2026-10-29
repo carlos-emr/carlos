@@ -5492,7 +5492,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the Search Patient popup closes itself before listing anyone, and Link to Patient posts a runtime-built form without a CSRF token.",
+      "notes": "Passes on 2026.09.0~snapshot27 through the front door. Its last step had failed since #5250 gave the box pages' Inbox tab a boxType=0 link, which the check's way back to the Inbox did not match (#5349); the Search Patient and Link to Patient defects it was written for were fixed by #4149 and #4130.",
       "fixtures": "Owned patient, an owned messenger group and owned messages; all removed."
     },
     {
@@ -5895,7 +5895,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails on 2026.08: the patient-search page closes itself on load (null-safe encoder vs \"null\" comparison) and throws a TypeError; through the front door the WAF blocks the Doc2PDF preview/attach POSTs.",
+      "notes": "Passes on 2026.09.0~snapshot27 through the front door, all 11 steps: the patient-search page no longer closes itself on load (#4514, fixed by #4149) and the WAF no longer blocks the Doc2PDF preview and attach POSTs (#5349 validation).",
       "fixtures": "Owned patient, an owned messenger group as recipient and owned messages with stored PDF attachments; all removed."
     },
     {
