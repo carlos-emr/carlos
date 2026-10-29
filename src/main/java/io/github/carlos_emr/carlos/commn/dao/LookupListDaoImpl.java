@@ -61,6 +61,10 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
      */
     private final CacheManager cacheManager;
 
+    /**
+     * @param cacheManager the application's transaction-aware cache manager ({@code CacheConfig}),
+     *                     which must define the {@code lookupLists} cache
+     */
     @Autowired
     public LookupListDaoImpl(CacheManager cacheManager) {
         super(LookupList.class);

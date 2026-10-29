@@ -70,6 +70,11 @@ public class LookupList extends AbstractModel<Integer> {
     @OrderBy("displayOrder")
     private List<LookupListItem> items = new ArrayList<LookupListItem>();
 
+    /**
+     * Creates an empty instance, as JPA and the existing callers do. Declared explicitly
+     * because the private copy constructor behind {@link #copyOf(LookupList)} would
+     * otherwise remove the implicit no-argument constructor JPA requires.
+     */
     public LookupList() {
     }
 

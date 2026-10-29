@@ -62,6 +62,10 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
      */
     private final CacheManager cacheManager;
 
+    /**
+     * @param cacheManager the application's transaction-aware cache manager ({@code CacheConfig}),
+     *                     which must define the {@code appointmentStatuses} cache
+     */
     @Autowired
     public AppointmentStatusDaoImpl(CacheManager cacheManager) {
         super(AppointmentStatus.class);

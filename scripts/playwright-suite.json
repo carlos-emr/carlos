@@ -5057,6 +5057,24 @@
       "notes": "Fails at its last step on 2026.08: lookupListManagerAction accepts GET for its mutating methods."
     },
     {
+      "name": "reference-data-cache",
+      "script": "scripts/reference-data-cache-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "appointment_status",
+        "LookupListItem"
+      ],
+      "fixtures": "Snapshots one clinic-wide appointment_status row (an editable active custom status a-f), changes its label, colour and active flag through the status editor and edits it back, and adds then removes one marker-labelled LookupListItem on the clinic-wide reasonCode list through Manage Lookup Lists, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A failed run first repairs both through the same UI (best effort, so the caches are evicted) and then restores the status snapshot and deletes the owned item by SQL, asserting both. Nothing is booked."
+    },
+    {
       "name": "admin-update-demographic-provider",
       "script": "scripts/admin-update-demographic-provider-playwright-checks.js",
       "tiers": [

@@ -119,6 +119,11 @@ public class MeasurementType extends AbstractModel<Integer> implements Serializa
     @Temporal(TemporalType.TIMESTAMP)
     private Date createDate = new Date();
 
+    /**
+     * Creates an empty instance, as JPA and the existing callers do. Declared explicitly
+     * because the private copy constructor behind {@link #copyOf(MeasurementType)} would
+     * otherwise remove the implicit no-argument constructor JPA requires.
+     */
     public MeasurementType() {
     }
 

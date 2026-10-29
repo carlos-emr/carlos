@@ -64,6 +64,10 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
      */
     private final CacheManager cacheManager;
 
+    /**
+     * @param cacheManager the application's transaction-aware cache manager ({@code CacheConfig}),
+     *                     which must define the {@code measurementTypes} cache
+     */
     @Autowired
     public MeasurementTypeDaoImpl(CacheManager cacheManager) {
         super(MeasurementType.class);

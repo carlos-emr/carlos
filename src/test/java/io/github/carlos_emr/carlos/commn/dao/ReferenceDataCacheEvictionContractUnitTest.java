@@ -59,6 +59,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DisplayName("Reference-data DAO cache eviction contract")
 @Tag("unit")
+@Tag("dao")
 @Tag("fast")
 @Tag("cache")
 class ReferenceDataCacheEvictionContractUnitTest {

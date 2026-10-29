@@ -53,6 +53,11 @@ public class LookupListItem extends AbstractModel<Integer> {
     @Temporal(TemporalType.TIMESTAMP)
     private Date dateCreated = new Date();
 
+    /**
+     * Creates an empty instance, as JPA and the existing callers do. Declared explicitly
+     * because the private copy constructor behind {@link #copyOf(LookupListItem)} would
+     * otherwise remove the implicit no-argument constructor JPA requires.
+     */
     public LookupListItem() {
     }
 

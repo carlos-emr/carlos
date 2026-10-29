@@ -74,6 +74,11 @@ public class AppointmentStatus extends AbstractModel<Integer> {
     @Column(name = "short_letter_colour")
     private String shortLetterColour;
 
+    /**
+     * Creates an empty instance, as JPA and the existing callers do. Declared explicitly
+     * because the private copy constructor behind {@link #copyOf(AppointmentStatus)} would
+     * otherwise remove the implicit no-argument constructor JPA requires.
+     */
     public AppointmentStatus() {
     }
 
