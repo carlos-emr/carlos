@@ -136,7 +136,7 @@ function ownedReferrals(s, { consultantFax = '555-0161' } = {}) {
 
     /**
      * A FAKE document in an owned patient's chart (database rows only: no file is needed to list or attach
-     * it). Removed, with every attachment row naming it, by cleanup.
+     * it). Removed by cleanup; its attachment rows go with the owned referrals they belong to.
      */
     document(description, demographicNo = patient) {
       h.assert(patients.includes(String(demographicNo)), 'A document fixture needs an owned patient');
@@ -145,13 +145,14 @@ function ownedReferrals(s, { consultantFax = '555-0161' } = {}) {
         VALUES ('consult',${q(description)},${q(`${description}.pdf`)},${q(provider)},${q(provider)},'A','application/pdf',
         0,1,0,CURDATE(),NOW(),NOW())`, 'document');
       sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${demographicNo},${id},'A')`);
+      // Attachment rows are never deleted by document number: the demo dataset has consultdocs rows naming document
+      // numbers no document carries yet, which a new document can take. The owned referrals' attachments are removed
+      // with those referrals, by request id.
       s.cleanup(() => {
-        sql.execute(`DELETE FROM consultdocs WHERE document_no=${id} AND doctype='D';
-          DELETE FROM ctl_document WHERE document_no=${id} AND module='demographic' AND module_id=${demographicNo};
+        sql.execute(`DELETE FROM ctl_document WHERE document_no=${id} AND module='demographic' AND module_id=${demographicNo};
           DELETE FROM document WHERE document_no=${id} AND docdesc=${q(description)}`);
         h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM document WHERE document_no=${id})
-          + (SELECT COUNT(*) FROM ctl_document WHERE document_no=${id} AND module='demographic')
-          + (SELECT COUNT(*) FROM consultdocs WHERE document_no=${id} AND doctype='D')`) === '0', 'The owned document remains');
+          + (SELECT COUNT(*) FROM ctl_document WHERE document_no=${id} AND module='demographic')`) === '0', 'The owned document remains');
       });
       return id;
     },
