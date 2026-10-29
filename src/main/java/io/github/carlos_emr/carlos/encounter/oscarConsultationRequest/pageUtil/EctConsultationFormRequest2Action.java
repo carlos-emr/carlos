@@ -516,6 +516,11 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         null, professionalSpecialistDao);
                 if (consultant == null) return INPUT;
 
+                // Before the signature and the consultation are written (issue #5272).
+                if (!postedDatesAreValid(format)) {
+                    return refuseInvalidDates();
+                }
+
                 if (newSignature) {
                     // Manual signature from tablet/signature pad. Capture intent up front: a null result
                     // is a genuine failure only when a signature was actually collected (a stamp-less
@@ -553,7 +558,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 String dateString = this.getReferalDate();
                 Date date = null;
                 if (dateString != null && !dateString.isEmpty()) {
-                    date = DateUtils.parseDate(dateString, format);
+                    date = DateUtils.parseDateStrictly(dateString, format);
                 }
                 consult.setReferralDate(date);
                 consult.setServiceId(parseOptionalId(this.getService()));
@@ -566,7 +571,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 consult.setLetterheadFax(this.getLetterheadFax());
 
                 if (this.getAppointmentDate() != null && !this.getAppointmentDate().equals("")) {
-                    date = DateUtils.parseDate(this.getAppointmentDate(), format);
+                    date = DateUtils.parseDateStrictly(this.getAppointmentDate(), format);
                     consult.setAppointmentDate(date);
 
                     if (!StringUtils.isEmpty(appointmentHour) && !StringUtils.isEmpty(this.getAppointmentMinute())) {
@@ -602,7 +607,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 consult.setPatientWillBook(pWillBook);
 
                 if (this.getFollowUpDate() != null && !this.getFollowUpDate().equals("")) {
-                    date = DateUtils.parseDate(this.getFollowUpDate(), format);
+                    date = DateUtils.parseDateStrictly(this.getFollowUpDate(), format);
                     consult.setFollowUpDate(date);
                 }
 
@@ -650,6 +655,11 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             ConsultationConsultantSelection consultant = resolveConsultant(loggedInInfo, demographicId,
                     consultationRequestId, professionalSpecialistDao);
             if (consultant == null) return INPUT;
+
+            // Before the archive copy, the signature and the merge are written (issue #5272).
+            if (!postedDatesAreValid(format)) {
+                return refuseInvalidDates();
+            }
 
             try {
                 consultationManager.archiveConsultationRequest(consultationRequestId);
@@ -704,7 +714,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 // By default, the referral date will not have a value on edit, so we need to make sure
                 // that the newly inputted date is parsed, or pulled from the previous date value
                 if (StringUtils.isNotBlank(this.getReferalDate())) {
-                    date = DateUtils.parseDate(this.getReferalDate(), format);
+                    date = DateUtils.parseDateStrictly(this.getReferalDate(), format);
                 } else {
                     date = consult.getReferralDate();
                 }
@@ -723,7 +733,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 request.setAttribute("professionalSpecialistName", consultant.displayName());
 
                 if (this.getAppointmentDate() != null && !this.getAppointmentDate().equals("")) {
-                    date = DateUtils.parseDate(this.getAppointmentDate(), format);
+                    date = DateUtils.parseDateStrictly(this.getAppointmentDate(), format);
                     consult.setAppointmentDate(date);
                     try {
                         date = DateUtils.setHours(date, Integer.valueOf(appointmentHour));
@@ -755,8 +765,13 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 consult.setPatientWillBook(pWillBook);
 
                 if (this.getFollowUpDate() != null && !this.getFollowUpDate().equals("")) {
-                    date = DateUtils.parseDate(this.getFollowUpDate(), format);
+                    date = DateUtils.parseDateStrictly(this.getFollowUpDate(), format);
                     consult.setFollowUpDate(date);
+                } else if (request.getParameter("followUpDate") != null) {
+                    // The form posted Last Follow-up empty: the clinician cleared it. Keeping the
+                    // stored date here made the field impossible to clear (issue #5272). A client
+                    // that does not post the field at all still keeps the stored date.
+                    consult.setFollowUpDate(null);
                 }
                 saveConsultationWithAttachments(loggedInInfo, consult, false);
             } catch (ParseException | IllegalArgumentException e) {
@@ -876,6 +891,52 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             forward += "&signatureNotApplied=1";
         }
         response.sendRedirect(forward);
+        return NONE;
+    }
+
+    /**
+     * The years a MariaDB DATE column supports (1000-9999). A date input accepts a five-digit year,
+     * so a posted date outside them is refused rather than stored mangled or failing the save.
+     */
+    private static final int FIRST_STORABLE_YEAR = 1000;
+    private static final int LAST_STORABLE_YEAR = 9999;
+
+    /**
+     * Whether every date this submission posts is either blank or a real calendar date.
+     *
+     * <p>Parsing is strict: the lenient {@code DateUtils.parseDate} this action used turned an
+     * impossible date such as {@code 2026-02-30} into {@code 2026-03-02} and saved it as if the
+     * clinician had typed it (issue #5272). Callers run this before the archive copy, the
+     * signature and the consultation are written, so a refusal leaves nothing behind.</p>
+     *
+     * @param format the accepted patterns, as the save paths use them
+     * @return {@code false} when any posted referral, appointment or follow-up date is not a real date
+     */
+    boolean postedDatesAreValid(String[] format) {
+        for (String value : new String[]{getReferalDate(), getAppointmentDate(), getFollowUpDate()}) {
+            // Blank is "no date"; each save path decides whether that keeps or clears the stored one.
+            if (StringUtils.isBlank(value)) {
+                continue;
+            }
+            try {
+                Calendar parsed = Calendar.getInstance();
+                parsed.setTime(DateUtils.parseDateStrictly(value, format));
+                int year = parsed.get(Calendar.YEAR);
+                if (year < FIRST_STORABLE_YEAR || year > LAST_STORABLE_YEAR) {
+                    return false;
+                }
+            } catch (ParseException e) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Answers an impossible posted date with 400, before anything is written. */
+    private String refuseInvalidDates() throws IOException {
+        logger.warn("Consultation save refused: a posted date is not a real calendar date");
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                "A consultation date is not a real calendar date. Nothing was saved; go back and correct it.");
         return NONE;
     }
 

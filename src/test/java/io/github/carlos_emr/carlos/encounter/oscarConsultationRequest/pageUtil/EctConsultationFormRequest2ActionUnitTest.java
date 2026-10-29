@@ -773,6 +773,119 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(mergedConsultation.getValue().getServiceId()).isNull();
     }
 
+    /** Prepares an Update of request 9 whose stored Last Follow-up is 2026-11-04. */
+    private ConsultationRequest updateWithStoredFollowUp() throws Exception {
+        ConsultationRequest existing = consultationRequest(1);
+        existing.setFollowUpDate(org.apache.commons.lang3.time.DateUtils.parseDateStrictly("2026-11-04", "yyyy-MM-dd"));
+        when(consultationRequestDao.find(9)).thenReturn(existing);
+        action.setSubmission("Update Consultation Request");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("7");
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+        return existing;
+    }
+
+    /**
+     * Issue #5272: the form posts Last Follow-up empty when the clinician clears it. The update
+     * branch only ever set a non-blank date, so a cleared field kept the stored date.
+     */
+    @Test
+    @DisplayName("clears the stored follow-up date when the form posts the field empty on update")
+    void shouldClearFollowUpDate_whenFieldIsPostedEmptyOnUpdate() throws Exception {
+        ConsultationRequest existing = updateWithStoredFollowUp();
+        action.setFollowUpDate("");
+        request.addParameter("followUpDate", "");
+
+        action.execute();
+
+        verify(consultationRequestDao).merge(existing);
+        assertThat(existing.getFollowUpDate()).isNull();
+    }
+
+    /** A client that does not post the field at all is not asking to clear it. */
+    @Test
+    @DisplayName("keeps the stored follow-up date when the update does not post the field")
+    void shouldKeepFollowUpDate_whenFieldIsNotPostedOnUpdate() throws Exception {
+        ConsultationRequest existing = updateWithStoredFollowUp();
+
+        action.execute();
+
+        verify(consultationRequestDao).merge(existing);
+        assertThat(existing.getFollowUpDate())
+                .isEqualTo(org.apache.commons.lang3.time.DateUtils.parseDateStrictly("2026-11-04", "yyyy-MM-dd"));
+    }
+
+    @Test
+    @DisplayName("replaces the stored follow-up date with a posted valid one on update")
+    void shouldReplaceFollowUpDate_whenValidDateIsPostedOnUpdate() throws Exception {
+        ConsultationRequest existing = updateWithStoredFollowUp();
+        action.setFollowUpDate("2026-12-01");
+        request.addParameter("followUpDate", "2026-12-01");
+
+        action.execute();
+
+        verify(consultationRequestDao).merge(existing);
+        assertThat(existing.getFollowUpDate())
+                .isEqualTo(org.apache.commons.lang3.time.DateUtils.parseDateStrictly("2026-12-01", "yyyy-MM-dd"));
+    }
+
+    /**
+     * Issue #5272: commons-lang's lenient parseDate stored 2026-02-30 as 2026-03-02. An impossible
+     * date is now refused before the archive copy, the stamp and the merge, so nothing changes.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"followUp:2026-02-30", "followUp:2026-13-01", "appointment:2026-04-31",
+            "referral:2026-00-10", "followUp:20260-01-01", "followUp:0999-12-31"})
+    @DisplayName("refuses an impossible posted date on update before archiving or saving anything")
+    void shouldRefuseImpossibleDate_beforeAnyUpdateSideEffect(String fieldAndValue) throws Exception {
+        ConsultationRequest existing = updateWithStoredFollowUp();
+        String value = fieldAndValue.substring(fieldAndValue.indexOf(':') + 1);
+        switch (fieldAndValue.substring(0, fieldAndValue.indexOf(':'))) {
+            case "followUp" -> action.setFollowUpDate(value);
+            case "appointment" -> action.setAppointmentDate(value);
+            default -> action.setReferalDate(value);
+        }
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verify(consultationManager, never()).archiveConsultationRequest(anyInt());
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+        verify(consultationRequestDao, never()).merge(any());
+        assertThat(existing.getFollowUpDate())
+                .isEqualTo(org.apache.commons.lang3.time.DateUtils.parseDateStrictly("2026-11-04", "yyyy-MM-dd"));
+    }
+
+    @Test
+    @DisplayName("refuses an impossible follow-up date on create before the stamp or the consultation is saved")
+    void shouldRefuseImpossibleDate_beforeAnyCreateSideEffect() throws Exception {
+        action.setSubmission("Submit Consultation Request");
+        action.setService("1");
+        action.setSpecialist("7");
+        action.setFollowUpDate("2026-02-30");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+        verify(consultationRequestDao, never()).persist(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2026-02-28", "2028-02-29", "2026/02/28", "1000-01-01", "9999-12-31", "", " "})
+    @DisplayName("accepts real calendar dates and blank values")
+    void shouldAcceptPostedDates_whenEachIsBlankOrARealDate(String value) {
+        action.setFollowUpDate(value);
+        action.setAppointmentDate(value);
+        action.setReferalDate(value);
+
+        assertThat(action.postedDatesAreValid(new String[]{"yyyy-MM-dd", "yyyy/MM/dd"})).isTrue();
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "POſT"})
     @DisplayName("rejects every non-POST verb with 405 and performs no persistence")
