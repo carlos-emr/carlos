@@ -1564,8 +1564,13 @@ OAUTH_ACCESS_DEFAULTS
         # started by hand and database servers are only named, and the nginx
         # step below records them. On a host whose front door already works
         # this finds nothing, asks nothing and does nothing.
-        # Interactive installs are asked first (see free_front_door).
-        free_front_door
+        # Interactive installs are asked first (see free_front_door). Not when
+        # another run holds the provisioning lock: this configure then defers
+        # init-config and provisioning, and taking another service down for a
+        # front door it is not about to configure would be all cost.
+        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
+            free_front_door
+        fi
         [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
             carlos-ctl init-config || {
@@ -1901,13 +1906,27 @@ OAUTH_ACCESS_DEFAULTS
                 # not (a restart closes every old socket before binding
                 # anew). carlos-ctl init-config does the same.
                 #
-                # An inactive nginx is STARTED, not reloaded: systemd refuses
-                # to reload a unit that is not running, and on a fresh install
-                # nginx is down whenever its own postinst could not bind port
-                # 80 — the case the port check before init-config clears.
-                NGINX_ACTION=reload
-                systemctl is-active --quiet nginx.service || NGINX_ACTION=start
-                if ! sd_invoke "${NGINX_ACTION}" nginx.service 2>/dev/null; then
+                # A stopped nginx is STARTED, not reloaded (systemd refuses to
+                # reload a unit that is not running), but only when it is down
+                # because it COULD not run: a first install, a unit that
+                # failed (its own postinst could not bind port 80), or a
+                # conflict this run has just cleared. An nginx an operator
+                # stopped (inactive, on an upgrade) stays stopped: starting it
+                # would expose the EMR during maintenance or after the
+                # operator took the front door down on purpose.
+                NGINX_STATE="$(systemctl is-active nginx.service 2>/dev/null || true)"
+                case "${NGINX_STATE}" in
+                    active | reloading) NGINX_ACTION=reload ;;
+                    *)
+                        if [ -z "${2:-}" ] || [ "${NGINX_STATE}" = failed ] || [ -n "${FRONT_DOOR_FREED:-}" ]; then
+                            NGINX_ACTION=start
+                        else
+                            NGINX_ACTION=""
+                        fi ;;
+                esac
+                if [ -z "${NGINX_ACTION}" ]; then
+                    echo "carlos-emr: nginx is stopped (${NGINX_STATE:-unknown}) and was left stopped, as found; the front door serves once it is started: sudo systemctl start nginx" >&2
+                elif ! sd_invoke "${NGINX_ACTION}" nginx.service 2>/dev/null; then
                     echo "carlos-emr: WARNING: nginx ${NGINX_ACTION} failed — the rendered front-door configuration is not live (systemctl status nginx; journalctl -u nginx)" >&2
                     FRONT_DOOR_BLOCKERS="$(front_door_blockers)"
                     [ -z "${FRONT_DOOR_BLOCKERS}" ] || printf 'carlos-emr: %s\n' "${FRONT_DOOR_BLOCKERS}" >&2

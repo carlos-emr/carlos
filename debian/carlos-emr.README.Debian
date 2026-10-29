@@ -1063,8 +1063,11 @@ nginx will not start: port 80 or 443 is already in use
       echo 'carlos-emr carlos-emr/stop-port-conflicts boolean false' | sudo debconf-set-selections
 
   Named but left running: containers and the container engines (stopping one
-  stops every container), programs started by hand, ssh, systemd and database
-  servers. nginx's own setup runs first, so its red "Failed to start" may
+  stops every container), programs started by hand (an nginx started outside
+  nginx.service included), ssh, systemd and database servers, and any service
+  when /usr/sbin/policy-rc.d forbids service changes, as image builds do. An
+  nginx you stopped yourself stays stopped on an upgrade; a first install, or
+  an nginx that failed to start, is started. nginx's own setup runs first, so its red "Failed to start" may
   still appear earlier in the same install; the CARLOS step says when it was
   this conflict. To see what holds the ports (as root: without sudo the owner
   column is blank):

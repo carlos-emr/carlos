@@ -124,10 +124,12 @@ elif cmd == "mariadb":
     sys.exit(st.get("mariadb_rc", 0))
 elif cmd == "sleep":
     pass
+elif cmd == "policy-rc.d":
+    sys.exit(st.get("policy_rc", 0))
 '''
 
 STUBBED = ("ss", "ps", "systemctl", "dpkg-query", "kill", "journalctl",
-           "timeout", "mariadb", "sleep", "snap")
+           "timeout", "mariadb", "sleep", "snap", "policy-rc.d")
 
 APACHE_UNIT = {"FragmentPath": "/usr/lib/systemd/system/apache2.service"}
 APACHE_DPKG = {"/usr/lib/systemd/system/apache2.service": "apache2"}
@@ -311,7 +313,9 @@ class TestFrontDoor(HostConflictsCase):
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
 
-    def test_nginx_started_outside_its_service_is_told_to_exit(self):
+    def test_nginx_started_by_hand_is_named_never_signalled(self):
+        # A process is not a service: it may serve other sites, and a PID read
+        # a moment earlier is not a safe handle to signal.
         r = self.run_script({
             "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "nginx", "pid": 200},
                                                             {"name": "nginx", "pid": 201}]}],
@@ -320,18 +324,22 @@ class TestFrontDoor(HostConflictsCase):
                 "201": {"unit": "session-3.scope", "args": "nginx: worker process", "ppid": "200"},
             },
         }, "front-door", "0.0.0.0")
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(self.stops(), ["kill -TERM 200"])
-        self.assertIn("stopped: an nginx started outside nginx.service (pid 200, session-3.scope)",
-                      r.stdout)
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(self.stops(), [])
+        self.assertIn("blocked: nginx (pid 200, session-3.scope) is listening on 0.0.0.0:80", r.stdout)
+        self.assertIn("started by hand", r.stdout)
 
-    def test_nginx_in_a_desktop_terminal_is_also_hand_started(self):
-        r = self.run_script({
-            "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "nginx", "pid": 210}]}],
-            "procs": {"210": {"unit": "user@1000.service", "args": "nginx: master process nginx"}},
-        }, "front-door", "0.0.0.0")
-        self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertEqual(self.stops(), ["kill -TERM 210"])
+    def test_programs_from_a_desktop_are_hand_started(self):
+        for unit in ("user@1000.service", "app-gnome-org.gnome.Terminal-4242.scope"):
+            with self.subTest(unit=unit):
+                r = self.run_script({
+                    "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "nginx", "pid": 210}]}],
+                    "procs": {"210": {"unit": unit, "args": "nginx: master process nginx"}},
+                }, "front-door", "0.0.0.0")
+                self.assertEqual(r.returncode, 1)
+                self.assertEqual(self.stops(), [])
+                self.assertIn("started by hand, not by a system service", r.stdout)
+                self.assertNotIn("systemctl disable", r.stdout)
 
     def test_nginx_inside_a_container_is_never_killed(self):
         # A container with host networking shows its own nginx on the host's
@@ -416,7 +424,7 @@ class TestFrontDoor(HostConflictsCase):
         self.assertEqual(len(lines), 2, r.stdout)
         self.assertTrue(lines[1].startswith("blocked: docker-proxy (pid 400, docker.service)"))
 
-    def test_plan_names_snaps_and_hand_started_nginx(self):
+    def test_plan_lists_snaps_and_leaves_hand_started_nginx_blocked(self):
         r = self.run_script({
             "listeners": [{"addr": "*:443", "owners": [{"name": "httpd", "pid": 800}]},
                           {"addr": "0.0.0.0:80", "owners": [{"name": "nginx", "pid": 200}]}],
@@ -425,9 +433,49 @@ class TestFrontDoor(HostConflictsCase):
         }, "front-door", "--plan", "0.0.0.0")
         self.assertEqual(self.stops(), [])
         self.assertIn("will-stop: the nextcloud snap's nextcloud.apache service, on *:443", r.stdout)
-        self.assertIn("will-stop: an nginx started by hand outside nginx.service (pid 200, "
-                      "session-3.scope), on 0.0.0.0:80", r.stdout)
-        self.assertNotIn("blocked:", r.stdout)
+        self.assertIn("blocked: nginx (pid 200, session-3.scope)", r.stdout)
+        self.assertNotIn("will-stop: an nginx", r.stdout)
+
+    def test_policy_rc_d_that_forbids_stopping_is_obeyed(self):
+        # deb-systemd-invoke asks policy-rc.d before touching a service; an
+        # image build or a staged install that forbids it must not lose a site.
+        for code in (101, 106):
+            with self.subTest(code=code):
+                scenario = {
+                    "listeners": [apache("*:80")],
+                    "procs": {"100": {"unit": "apache2.service"}},
+                    "units": {"apache2.service": APACHE_UNIT}, "dpkg": APACHE_DPKG,
+                    "policy_rc": code,
+                }
+                plan = self.run_script(scenario, "front-door", "--plan", "0.0.0.0")
+                self.assertNotIn("will-stop:", plan.stdout)
+                r = self.run_script(scenario, "front-door", "0.0.0.0")
+                self.assertEqual(r.returncode, 1)
+                self.assertEqual(self.stops(), [])
+                self.assertIn("policy-rc.d forbids stopping services during this install", r.stdout)
+                self.assertIn("policy-rc.d apache2 stop", self.calls())
+
+    def test_policy_rc_d_that_allows_stopping_does_not_get_in_the_way(self):
+        r = self.run_script({
+            "listeners": [apache("*:80")],
+            "procs": {"100": {"unit": "apache2.service"}},
+            "units": {"apache2.service": APACHE_UNIT}, "dpkg": APACHE_DPKG,
+            "policy_rc": 0,
+        }, "front-door", "0.0.0.0")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
+
+    def test_socket_that_starts_a_protected_service_is_left_alone(self):
+        r = self.run_script({
+            "listeners": [{"addr": "[::]:80", "owners": [{"name": "systemd", "pid": 1}],
+                           "socket": "odd.socket", "triggers": "docker.service"}],
+            "units": {"odd.socket": {"FragmentPath": "/usr/lib/systemd/system/odd.socket",
+                                     "Triggers": "docker.service"}},
+            "dpkg": {"/usr/lib/systemd/system/odd.socket": "odd"},
+        }, "front-door", "0.0.0.0")
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(self.stops(), [])
+        self.assertIn("blocked:", r.stdout)
 
     def test_free_ports_print_nothing(self):
         r = self.run_script({"listeners": []}, "front-door", "0.0.0.0")
@@ -467,6 +515,22 @@ class TestMariadbCause(HostConflictsCase):
         self.assertIn("root@localhost account was given a password", r.stdout)
         self.assertIn("MariaDB root access", r.stdout)
 
+    def test_locked_root_is_not_called_a_password(self):
+        r = self.run_script({
+            "mariadb_state": "active", "listeners": [], "mariadb_rc": 1,
+            "mariadb_stderr": "ERROR 4151 (HY000): Access denied, this account is locked\n",
+        }, "mariadb")
+        self.assertIn("root@localhost account is locked", r.stdout)
+        self.assertNotIn("given a password", r.stdout)
+
+    def test_other_access_denied_quotes_the_error(self):
+        r = self.run_script({
+            "mariadb_state": "active", "listeners": [], "mariadb_rc": 1,
+            "mariadb_stderr": "ERROR 1698 (28000): Access denied for user 'root'@'localhost'\n",
+        }, "mariadb")
+        self.assertIn("refuses the system root user over the unix socket (ERROR 1698", r.stdout)
+        self.assertNotIn("given a password", r.stdout)
+
     def test_server_that_answers_now_was_merely_late(self):
         r = self.run_script({"mariadb_state": "active", "listeners": []}, "mariadb")
         self.assertIn("answers root over the unix socket now", r.stdout)
@@ -499,8 +563,8 @@ class TestShippedAndWired(unittest.TestCase):
 
     def test_postinst_frees_the_front_door_before_init_config(self):
         text = POSTINST.read_text()
-        free = text.index("\n        free_front_door\n")
-        self.assertLess(free, text.index("carlos-ctl init-config ||"))
+        gate = text.index('        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then\n            free_front_door\n')
+        self.assertLess(gate, text.index("carlos-ctl init-config ||"))
 
     def test_postinst_names_the_cause_when_mariadb_is_unreachable(self):
         text = POSTINST.read_text()
@@ -528,6 +592,19 @@ class TestShippedAndWired(unittest.TestCase):
                       "nginx could not start (apache2 holds *:80); "
                       "the schema migration failed\n", body)
         self.assertEqual(body.count("reason="), 1)
+
+    def test_marker_dedupe_is_literal_not_a_glob(self):
+        fn = re.search(r"\nmark_incomplete\(\) \{.*?\n\}", POSTINST.read_text(), re.S).group(0)
+        with tempfile.TemporaryDirectory() as tmp:
+            script = (f'STATE="{tmp}"\nINCOMPLETE_MARKER="$STATE/.install-incomplete"\n'
+                      f'INCOMPLETE_REASONS=""\n{fn}\n'
+                      'mark_incomplete "nginx could not start" "apache2 holds *:80"\n'
+                      'mark_incomplete "nginx could not start" "* holds *:80"\n')
+            r = subprocess.run(["sh", "-c", script], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            body = Path(tmp, ".install-incomplete").read_text()
+        self.assertIn("reason=nginx could not start (apache2 holds *:80); "
+                      "nginx could not start (* holds *:80)\n", body)
 
     def test_the_error_dialog_lists_the_recorded_causes(self):
         self.assertIn("${reasons}", TEMPLATES.read_text())

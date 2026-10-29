@@ -188,13 +188,13 @@ Description: Stop the other services using ports 80 and 443?
 
 Template: carlos-emr/stopped-port-conflicts
 Type: note
-Description: Another web server was stopped to free ports 80 and 443
+Description: Another service was stopped to free ports 80 and 443
  CARLOS EMR serves clinicians through nginx on ports 80 and 443, and another
  service on this host was already using them, so nginx could not start. The
- installer stopped it and kept it from starting again at boot:
+ installer stopped it:
  .
  ${services}
  .
- It is still installed, with its configuration untouched. To use it again,
- move it to other ports first, then bring it back with the command shown
- above.
+ Each entry says what was done and, where it applies, the command that brings
+ the service back once it has been moved to other ports. Nothing was
+ uninstalled and no configuration was changed.
