@@ -3,8 +3,9 @@
 **Date:** 2026-10-29 (seventh revision: approved design, plus the "failure is the last resort"
 principle, CARLOS layering conventions, a Spring/MVC class-structure review, measured image
 limits and a final fit-for-purpose review)
-**Status:** Approved in conversation on 2026-10-29, with the changes in this revision; one
-open decision: which branch it lands on (see "Delivery")
+**Status:** Approved in conversation on 2026-10-29, with the changes in this revision. The
+project owner chose to keep it on `release/2026.08` despite the release-fit concern (see
+"Delivery")
 **Target:** `release/2026.08` (currently `2026.08.0-beta3-SNAPSHOT`), forward-merged to `develop`
 
 ## How this spec was verified
@@ -24,7 +25,8 @@ concerns rendering, by rendering documents with the real engines:
   `docs/release-process.md`, `docs/architecture/layer-names.md` and the packaging, and a
   sourced survey of current HTML-to-PDF engines and image limits (see "Decisions"). It led
   to fewer beans, a bounded 10 s wait instead of a two-minute permit ladder, per-severity
-  logging, a rollback plan and the release-fit question.
+  logging, a rollback plan and the release-fit question (decided: it stays on
+  `release/2026.08`).
 - **Large images**: the smallest heap that renders 12- and 48-megapixel JPEGs and 8.4-,
   25- and 67-megapixel PNGs, streamed subsampled decoding of a 95 MB PNG, and TwelveMonkeys
   3.15.3 WebP decoding (see "Images").
@@ -1402,7 +1404,7 @@ Rules from `docs/release-process.md` and `CLAUDE.md`:
 
 - Do not change the `-SNAPSHOT` version or the SCM tag.
 - After each PR merges, a maintainer forward-merges `release/2026.08` into `develop`.
-- **Open: release fit.** "Normal features and fixes target `develop`. A high-priority bug
+- **Release fit (decided: stays on `release/2026.08`).** "Normal features and fixes target `develop`. A high-priority bug
   or security fix for a supported release starts from and targets its `release/YYYY.MM`
   branch" (`release-process.md`, lines 38–39; the fix cycle, lines 113–114, covers
   "a high-priority correctness or security fix found in an alpha, beta…"). Since beta1 the
@@ -1413,9 +1415,9 @@ Rules from `docs/release-process.md` and `CLAUDE.md`:
   `iframe`, `object`, `embed`, `frame`, `srcset`, string-form `@import`; fix the
   null-pointer crashes and the silent image loss; fix the Flying Saucer fallback's data
   leaks: the blocked default stylesheet, printed hidden values, passwords and buttons; stop
-  logging exception messages) and this design on `develop` for the next train. The
-  project owner decides; if this design stays on `release/2026.08`, each PR body states
-  the case (abandoned wkhtmltopdf with a published SSRF vulnerability and local file
+  logging exception messages) and this design on `develop` for the next train. On
+  2026-10-29 the project owner chose to keep this design on `release/2026.08`. Each PR
+  body therefore states the case (abandoned wkhtmltopdf with a published SSRF vulnerability and local file
   access on; today's fallback printing CSS text, losing checkbox answers and printing
   hidden identifiers; images silently dropped; the font policy gap; heap exhaustion) and
   the release owner accepts it.
