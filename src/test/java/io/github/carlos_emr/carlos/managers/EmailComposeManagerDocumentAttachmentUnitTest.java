@@ -154,4 +154,31 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
         assertThat(emailComposeManager.applicationTempFile(created)).isEqualTo(created);
         verify(nioFileManager, never()).createTempFileFrom(any(), any());
     }
+
+    @Test
+    @DisplayName("should delete the files prepared for a compose window that then failed")
+    void shouldDeletePreparedFiles_whenComposeFails() throws Exception {
+        ByteArrayOutputStream pdf = new ByteArrayOutputStream();
+        pdf.writeBytes("%PDF-1.4 FAKE prepared eForm".getBytes(StandardCharsets.US_ASCII));
+        created = new NioFileManagerImpl().saveTempFile("FAKE-prepared-eform", pdf, "pdf");
+
+        emailComposeManager.discardPreparedAttachments(List.of(
+                new EmailAttachment("attachment_001.pdf", created.toString(), DocumentType.EFORM, 1, pdf.size())));
+
+        assertThat(created).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("should leave a file outside the application temp tree alone, such as a stored document")
+    void shouldLeaveStoredFile_whenComposeFails() throws Exception {
+        Path stored = Files.write(documentDir.resolve("FAKE-stored-letter.pdf"),
+                "%PDF-1.4 FAKE stored letter".getBytes(StandardCharsets.US_ASCII));
+
+        emailComposeManager.discardPreparedAttachments(List.of(
+                new EmailAttachment("attachment_001.pdf", stored.toString(), DocumentType.DOC, 9401),
+                new EmailAttachment("attachment_002.pdf", null, DocumentType.DOC, 9402)));
+
+        assertThat(stored).exists();
+        verify(nioFileManager, never()).deleteTempFile(anyString());
+    }
 }

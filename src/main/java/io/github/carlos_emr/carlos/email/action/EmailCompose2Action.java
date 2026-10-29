@@ -299,7 +299,9 @@ public class EmailCompose2Action extends ActionSupport {
         } catch (SecurityException e) {
             // A missing privilege is a refusal, not a preparation failure: it goes to the access-denied
             // page rather than the generic "try again" message. The draft still goes back, like any
-            // failure after take().
+            // failure after take(). The attachment types already prepared are deleted: a retry
+            // renders them again.
+            emailComposeManager.discardPreparedAttachments(emailAttachmentList);
             restoreDraft.run();
             throw e;
         } catch (PDFGenerationException | RuntimeException e) {
@@ -310,6 +312,9 @@ public class EmailCompose2Action extends ActionSupport {
             // exceptionTrace gives the types and code locations, never a message.
             logger.error("Unable to prepare the eForm email; causeType={}, reference={}{}",
                     e.getClass().getName(), reference, LogSafe.exceptionTrace(e));
+            // A later attachment type was refused (another patient's record) or failed after the
+            // earlier ones were rendered: delete those, as a retry renders them again.
+            emailComposeManager.discardPreparedAttachments(emailAttachmentList);
             restoreDraft.run();
             return emailComposeError(request, EmailFailureMessage.format(LocaleUtils.resolveBundleLocale(request),
                     EmailFailureMessage.EFORM_ATTACHMENTS_KEY, reference));

@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.managers;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -211,6 +212,38 @@ public class EmailComposeManager {
         } catch (IOException | RuntimeException e) {
             // No file name or path in the message.
             throw new PDFGenerationException("A document could not be copied for the email", e);
+        }
+    }
+
+    /**
+     * Deletes the files of attachments that were prepared for a compose window which then failed.
+     *
+     * <p>Attachment types are prepared one after another, so when a later one is refused (another
+     * patient's record, a missing privilege) or fails to render, the earlier types' PDFs are
+     * already in the application temp tree. The window gets its draft back for a retry, and each
+     * retry renders them again; without this they stay until {@code ApplicationTempPurgeJob}
+     * sweeps them. Only files inside the application temp tree are deleted (the attachment
+     * preview's own rule), so a stored document can never be. A file that cannot be deleted is
+     * logged with its exception class only, never its path, and left to the purge job.</p>
+     *
+     * @param prepared the attachments prepared so far; {@code null} or empty does nothing
+     */
+    public void discardPreparedAttachments(List<EmailAttachment> prepared) {
+        if (prepared == null) {
+            return;
+        }
+        for (EmailAttachment attachment : prepared) {
+            String filePath = attachment == null ? null : attachment.getFilePath();
+            if (filePath == null || filePath.isBlank()) {
+                continue;
+            }
+            try {
+                if (PathValidationUtils.isInApplicationTempDirectory(new File(filePath))) {
+                    nioFileManager.deleteTempFile(filePath);
+                }
+            } catch (RuntimeException e) {
+                logger.warn("A prepared email attachment could not be deleted; causeType={}", e.getClass().getName());
+            }
         }
     }
 
