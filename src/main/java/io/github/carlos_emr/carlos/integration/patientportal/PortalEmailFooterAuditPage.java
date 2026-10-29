@@ -42,9 +42,10 @@ public record PortalEmailFooterAuditPage(LocalDate date, List<Attempt> attempts,
             "email_change_confirmation", "email_change_requested", "booking_prompt", "booking_prompt_update");
     private static final Set<String> STATUSES = Set.of("prepared", "accepted", "failed", "unknown");
     /**
-     * A sign-in code or password reset the Portal sent WITHOUT the clinic footer while it could not
-     * get one (carlos-portal #27, Ben's decision D138): the usual fields with revision, footer_text
-     * and logo_sha256 all null, plus footer_skipped naming why. Only these two kinds are ever sent so.
+     * A sign-in code or password reset the Portal prepared WITHOUT the clinic footer while it could
+     * not get one (carlos-portal #27, Ben's decision D138): the usual fields with revision, footer_text
+     * and logo_sha256 all null, plus footer_skipped naming why. Only these two kinds ever go so; the
+     * outcome (prepared, accepted, failed, unknown) is recorded as for any other attempt.
      */
     private static final Set<String> SKIPPED_ATTEMPT_FIELDS = Set.of("attempt_id", "kind", "prepared_at",
             "status", "status_at", "clinic_id", "revision", "footer_text", "logo_sha256", "footer_skipped");
@@ -111,7 +112,7 @@ public record PortalEmailFooterAuditPage(LocalDate date, List<Attempt> attempts,
             // These saved wall-clock readings can move backwards after a clock correction.
             // Preserve both; the producer contract promises UTC syntax, not monotonic time.
             if (skipped) {
-                // Sent without a footer: nothing of a footer may be claimed, only why there was none.
+                // Without a footer: nothing of a footer may be claimed, only why there was none.
                 String reason = PortalJson.requiredText(row, "footer_skipped");
                 if (!SKIP_REASONS.contains(reason) || !SKIPPABLE_KINDS.contains(kind)
                         || !row.get("revision").isNull() || !row.get("footer_text").isNull()

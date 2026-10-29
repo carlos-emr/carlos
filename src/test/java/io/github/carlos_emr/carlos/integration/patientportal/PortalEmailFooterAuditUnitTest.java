@@ -121,7 +121,7 @@ class PortalEmailFooterAuditUnitTest {
         assertThat(saved.status()).isEqualTo("accepted");
         assertThat(saved.footerText()).isEqualTo(TEXT);
     }
-    /** A sign-in code or password reset the Portal sent without the footer (portal #27, D138). */
+    /** A sign-in code or password reset the Portal prepared without the footer (portal #27, D138). */
     private ObjectNode skipped(String kind, String reason) {
         var p = page();
         var a = attempt(p);
@@ -177,9 +177,9 @@ class PortalEmailFooterAuditUnitTest {
         // summary line above it says how the attempt ended, so the sentence must not.
         Map<String, List<String>> outcomeWords = Map.of(
                 "en", List.of("sent", "delivered", "accepted", "failed"),
-                "fr", List.of("envoy", "livr", "accept", "chou"),
-                "es", List.of("enviad", "entregad", "aceptad", "fall"),
-                "pl", List.of("wys\u0142an", "dostarczon", "zaakceptowan", "nieudan"),
+                "fr", List.of("envoy", "livr", "accept", "chou", "\u00e9chec"),
+                "es", List.of("enviad", "envi\u00f3", "entregad", "aceptad", "fall"),
+                "pl", List.of("wys\u0142an", "dostarczon", "zaakceptowan", "przyj\u0119t", "nieudan", "niepowodz"),
                 "pt_BR", List.of("enviad", "entregue", "aceit", "falh"));
         for (var locale : outcomeWords.entrySet()) {
             Properties bundle = new Properties();

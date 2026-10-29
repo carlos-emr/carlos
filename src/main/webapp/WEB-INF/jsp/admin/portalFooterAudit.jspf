@@ -57,7 +57,7 @@
                                     <p><fmt:message key="admin.configureEmail.portalFooter.statusTime"/> <carlos:encode value="${attempt.statusAt}"/></p>
                                 </c:if>
                                 <c:choose>
-                                    <%-- Sent without the clinic footer while the Portal could not get one (portal #27, D138).
+                                    <%-- Prepared without the clinic footer while the Portal could not get one (portal #27, D138).
                                          footerSkipped is one of the nine reasons PortalEmailFooterAuditPage accepts, each
                                          with a label in every locale; the label is encoded like any other text. --%>
                                     <c:when test="${not empty attempt.footerSkipped}">
