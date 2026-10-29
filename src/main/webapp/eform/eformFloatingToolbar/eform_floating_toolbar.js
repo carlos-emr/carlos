@@ -1582,6 +1582,11 @@ function positionToolbarAfterForm(wrapper) {
     let queued = false;
     function place() {
         queued = false;
+        // Print media hides the toolbar (display:none), and a toolbar with no box measures its top as 0:
+        // placing it then added the whole form height to the gap, so after printing the toolbar sat a
+        // second form-height below the eForm. Keep the last placement until it is rendered again; the
+        // print media listener below places it once the screen layout is back.
+        if (!wrapper.getClientRects().length) return;
         // Reset the gap before measuring so the toolbar cannot grow its own offset.
         wrapper.style.marginTop = "16px";
         let bottom = 0;
@@ -1610,6 +1615,13 @@ function positionToolbarAfterForm(wrapper) {
     }
     document.addEventListener('load', schedule, true);
     window.addEventListener('resize', schedule);
+    // Leaving print media changes no element or size the observers above see, so re-place the toolbar
+    // explicitly: a change made while it was hidden for printing has not been measured yet.
+    const printMedia = window.matchMedia ? window.matchMedia('print') : null;
+    // A browser without MediaQueryList.addEventListener (Safari before 14) still re-places the
+    // toolbar through the afterprint listener below.
+    printMedia?.addEventListener?.('change', schedule);
+    window.addEventListener('afterprint', schedule);
     schedule();
 }
 

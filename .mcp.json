@@ -10,7 +10,7 @@
         "--browser",
         "chromium",
         "--executable-path",
-        "/root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome",
+        "/root/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome",
         "--timeout-action",
         "15000",
         "--timeout-navigation",

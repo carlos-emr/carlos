@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Check the distribution dependency without starting EMR services or a database.
+Test-Command: python3 scripts/waf/check-clinical-policy.py --check-inventory
+Depends: python3, modsecurity-crs
+Restrictions: superficial

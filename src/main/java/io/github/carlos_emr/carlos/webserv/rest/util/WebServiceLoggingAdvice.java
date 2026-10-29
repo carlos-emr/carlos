@@ -29,8 +29,11 @@
 package io.github.carlos_emr.carlos.webserv.rest.util;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.PhaseInterceptorChain;
 import org.apache.logging.log4j.Logger;
@@ -58,6 +61,9 @@ public class WebServiceLoggingAdvice {
 
     private static Logger logger = MiscUtils.getLogger();
 
+    /** Audit provider for a call with no authenticated caller. */
+    private static final String NO_AUTHENTICATED_CALLER = "N/A";
+
     @Pointcut("execution(public * io.github.carlos_emr.carlos.webserv.rest.*.*(..))")
     public void pointcut() {
         // Pointcut marker only; AspectJ never executes this body.
@@ -70,6 +76,13 @@ public class WebServiceLoggingAdvice {
         return type + "." + methodName;
     }
 
+    /**
+     * Writes one {@link OscarLog} audit record per REST call, for success and for failure.
+     *
+     * <p>The record's provider is the authenticated caller, resolved once before the service runs
+     * (see {@link #resolveAuditProviderNo(HttpServletRequest)}), or {@code "N/A"} when there is
+     * none. Resolving the caller never creates a session and never changes the call's outcome.</p>
+     */
     @Around("execution(public * io.github.carlos_emr.carlos.webserv.rest.*.*(..))")
     public Object logAccess(ProceedingJoinPoint joinpoint) throws Throwable {
         // Log only the service.method name (never the joinpoint argument values, which can
@@ -80,27 +93,64 @@ public class WebServiceLoggingAdvice {
             logger.debug("REST WS access: {}", getServiceCallDescription(joinpoint));
         }
 
+        // Resolved before proceed() and outside the try: an audit lookup failure after a successful
+        // call would otherwise be caught below, recorded as FAILURE and rethrown to the client.
+        HttpServletRequest request = currentRequest();
+        String providerNo = resolveAuditProviderNo(request);
+
         try {
             Object result = joinpoint.proceed();
 
-            logAccess("REST WS: " + getServiceCallDescription(joinpoint));
+            logAccess("REST WS: " + getServiceCallDescription(joinpoint), request, providerNo);
             return result;
         } catch (Throwable t) {
             logger.debug("WS Failure", t);
 
-            logAccess("REST WS: FAILURE: " + getServiceCallDescription(joinpoint));
+            logAccess("REST WS: FAILURE: " + getServiceCallDescription(joinpoint), request, providerNo);
             throw t;
         }
     }
 
-    private void logAccess(String action) {
+    private HttpServletRequest currentRequest() {
+        Message currentMessage = PhaseInterceptorChain.getCurrentMessage();
+        return (HttpServletRequest) currentMessage.get("HTTP.REQUEST");
+    }
+
+    /**
+     * Resolves the audit author in the same order as {@code AbstractServiceImpl.getLoggedInInfo()}:
+     * the request principal first (set by {@code OAuthInterceptor} / {@code WsUtils}), then an
+     * existing session (the {@code /ws/rs} surface).
+     *
+     * <p>Uses {@code getSession(false)}: {@code LoggedInInfo.getLoggedInInfoFromSession(HttpServletRequest)}
+     * would create a session for every OAuth call just to audit it (issue #3446).</p>
+     *
+     * @return the caller's provider number, or {@code "N/A"} with no caller, no provider number, or an
+     *     invalidated session
+     */
+    private String resolveAuditProviderNo(HttpServletRequest request) {
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromRequest(request);
+        if (info == null) {
+            HttpSession session = request.getSession(false);
+            if (session == null) {
+                return NO_AUTHENTICATED_CALLER;
+            }
+            try {
+                info = LoggedInInfo.getLoggedInInfoFromSession(session);
+            } catch (IllegalStateException _) {
+                // The session was invalidated or expired after the container handed it over; there
+                // is no caller left to attribute the call to.
+                return NO_AUTHENTICATED_CALLER;
+            }
+        }
+        String providerNo = info == null ? null : info.getLoggedInProviderNo();
+        // Checked here because OscarLog.setProviderNo trims blanks to null, which would store NULL.
+        return StringUtils.isBlank(providerNo) ? NO_AUTHENTICATED_CALLER : providerNo;
+    }
+
+    private void logAccess(String action, HttpServletRequest request, String providerNo) {
         OscarLog log = new OscarLog();
         log.setAction(action);
-        log.setProviderNo("N/A");
-
-        Message currentMessage = PhaseInterceptorChain.getCurrentMessage();
-
-        HttpServletRequest request = (HttpServletRequest) currentMessage.get("HTTP.REQUEST");
+        log.setProviderNo(providerNo);
 
         log.setIp(request.getRemoteAddr());
         log.setContent(request.getRequestURL().toString());

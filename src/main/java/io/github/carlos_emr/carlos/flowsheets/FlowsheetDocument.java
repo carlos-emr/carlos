@@ -12,8 +12,6 @@ import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlObject;
 import org.apache.xmlbeans.XmlOptions;
 import org.apache.xmlbeans.XmlString;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
 import org.w3c.dom.Node;
 
 /**
@@ -272,64 +270,6 @@ public interface FlowsheetDocument extends XmlObject {
        */
       public static FlowsheetDocument parse(Node var0, XmlOptions var1) throws XmlException {
          return (FlowsheetDocument)XmlBeans.getContextTypeLoader().parse(var0, FlowsheetDocument.type, var1);
-      }
-
-      /**
-       * Parses a flowsheet document from an XMLInputStream.
-       *
-       * @param var0 XMLInputStream the XML input stream
-       * @return FlowsheetDocument parsed flowsheet document
-       * @throws XmlException if the XML is invalid or does not conform to the flowsheet schema
-       * @throws XMLStreamException if there is an error reading the XML stream
-       * @deprecated Use parse methods with standard InputStream or XMLStreamReader instead
-       */
-      @Deprecated
-      public static FlowsheetDocument parse(XMLInputStream var0) throws XmlException, XMLStreamException {
-         return (FlowsheetDocument)XmlBeans.getContextTypeLoader().parse(var0, FlowsheetDocument.type, (XmlOptions)null);
-      }
-
-      /**
-       * Parses a flowsheet document from an XMLInputStream with specified options.
-       *
-       * @param var0 XMLInputStream the XML input stream
-       * @param var1 XmlOptions options for XML parsing and validation
-       * @return FlowsheetDocument parsed flowsheet document
-       * @throws XmlException if the XML is invalid or does not conform to the flowsheet schema
-       * @throws XMLStreamException if there is an error reading the XML stream
-       * @deprecated Use parse methods with standard InputStream or XMLStreamReader instead
-       */
-      @Deprecated
-      public static FlowsheetDocument parse(XMLInputStream var0, XmlOptions var1) throws XmlException, XMLStreamException {
-         return (FlowsheetDocument)XmlBeans.getContextTypeLoader().parse(var0, FlowsheetDocument.type, var1);
-      }
-
-      /**
-       * Creates a validating XMLInputStream from an existing XMLInputStream.
-       *
-       * @param var0 XMLInputStream the source XML input stream
-       * @return XMLInputStream validating stream for the flowsheet schema
-       * @throws XmlException if schema validation setup fails
-       * @throws XMLStreamException if there is an error with the XML stream
-       * @deprecated Use standard XML validation mechanisms instead
-       */
-      @Deprecated
-      public static XMLInputStream newValidatingXMLInputStream(XMLInputStream var0) throws XmlException, XMLStreamException {
-         return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(var0, FlowsheetDocument.type, (XmlOptions)null);
-      }
-
-      /**
-       * Creates a validating XMLInputStream from an existing XMLInputStream with options.
-       *
-       * @param var0 XMLInputStream the source XML input stream
-       * @param var1 XmlOptions options for XML validation
-       * @return XMLInputStream validating stream for the flowsheet schema
-       * @throws XmlException if schema validation setup fails
-       * @throws XMLStreamException if there is an error with the XML stream
-       * @deprecated Use standard XML validation mechanisms instead
-       */
-      @Deprecated
-      public static XMLInputStream newValidatingXMLInputStream(XMLInputStream var0, XmlOptions var1) throws XmlException, XMLStreamException {
-         return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(var0, FlowsheetDocument.type, var1);
       }
 
       private Factory() {

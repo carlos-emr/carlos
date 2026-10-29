@@ -39,7 +39,7 @@ test('isolated checks cannot pass before asynchronous assertions finish', () => 
 
 /** Reject removed npm identities, following links and inferring names when npm omits them. */
 function assertRemovedPackagesAbsent(packages) {
-  const removed = ['sprintf-js', 'http-cache-semantics', 'cacheable-request', 'got'];
+  const removed = ['sprintf-js', 'http-cache-semantics', 'cacheable-request', 'got', 'deepmerge'];
   const packageName = (location) => {
     const seen = new Set();
     while (true) {
@@ -75,6 +75,7 @@ test('removed implementations are rejected under direct, nested and aliased inst
     'node_modules/@fixture/policy-alias': {name: 'http-cache-semantics', version: '4.2.0'},
     'node_modules/consumer/node_modules/request-alias': {name: 'cacheable-request', version: '10.2.14'},
     'node_modules/consumer/node_modules/@fixture/client-alias': {name: 'got', version: '12.6.1'},
+    'node_modules/merge-alias': {name: 'deepmerge', version: '4.3.1'},
   };
   for (const [location, entry] of Object.entries(aliases)) {
     const expected = {name: 'AssertionError', message: `${entry.name} must remain removed (${location})`};
@@ -86,6 +87,44 @@ test('removed implementations are rejected under direct, nested and aliased inst
       });
     }
   }
+});
+
+test('SVGR retains SVG optimization and JSX generation without unused deepmerge', () => {
+  const pluginRequire = from('@svgr/webpack');
+  const optimize = pluginRequire('@svgr/plugin-svgo');
+  assert.equal(pluginRequire('@svgr/plugin-svgo/package.json').name, '@carlos/svgr-plugin-svgo');
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">'
+    + '<defs><linearGradient id="paint"><stop stop-color="red"/></linearGradient></defs>'
+    + '<path data-fixture="remove" fill="url(#paint)" d="M0 0h24v24H0z"/></svg>';
+  const state = {componentName: 'SecurityIcon', filePath: '/fixtures/security.svg'};
+  const optimized = optimize(svg, {svgo: true, icon: true}, state);
+  assert.match(optimized, /viewBox="0 0 24 24"/);
+  assert.match(optimized, /id="security_svg__/);
+  assert.match(optimized, /fill="url\(#security_svg__/);
+  assert.equal(optimize(svg, {svgo: false}, state), svg);
+  const custom = optimize(svg, {svgo: true, svgoConfig: {
+    plugins: [{name: 'removeAttrs', params: {attrs: 'data-fixture'}}],
+  }}, state);
+  assert.doesNotMatch(custom, /data-fixture/);
+  const {transform} = pluginRequire('@svgr/core');
+  const jsx = transform.sync(svg, {
+    icon: true, plugins: [optimize, pluginRequire('@svgr/plugin-jsx')],
+  }, state);
+  assert.match(jsx, /const SecurityIcon =/);
+  assert.match(jsx, /viewBox="0 0 24 24"/);
+  assert.match(jsx, /export default SecurityIcon/);
+});
+
+test('serialization escapes a script terminator at the end of a function body', () => {
+  const serialize = require('serialize-javascript');
+  function f() {}
+  function g() {}
+  f.toString = () => 'function f(){ return 1 }//</script';
+  g.toString = () => 'function g(x){ return x } > <img src=x onerror=alert(1)>';
+  const output = serialize({a: {f}, g}, {space: 2});
+  assert.doesNotMatch(output, /<\/script(?:\s|\/|>)/i);
+  const ordinary = serialize({fn: function double(n) { return n * 2; }});
+  assert.equal(Function(`return (${ordinary});`)().fn(3), 6);
 });
 
 test('allowed packages and aliases are not confused with removed implementations', () => {

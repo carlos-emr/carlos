@@ -576,9 +576,9 @@ overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 > section 3 preseed, refuses to continue unless `carlos-ctl check` reports
 > "All checks passed" and no `.install-incomplete` marker remains, stages the
 > section 4 fixtures, performs the section 6 first-login reset, writes
-> `/root/suite-env.sh` and creates the Vascular Tracker measurement dictionary
+> `/root/suite-env.sh`, initializes shared E-Chart measurement definitions and creates the Vascular Tracker measurement dictionary
 > (`scripts/vascular-dictionary-initialize.js`; the VT checks refuse to start
-> without it so its one-off creation stays out of a run's residue window). Then it runs the suite and the server-log audit inside
+> without it so these one-off creations stay out of a run's residue window). Then it runs the suite and the server-log audit inside
 > the container, where the MariaDB socket is:
 >
 > ```bash
@@ -962,9 +962,23 @@ export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/documen
 export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # With the journal unit named, those two checks also read the server log for their injected failure and
 # assert it shows the database's own error at ERROR and no Hibernate HHH000099 (#4436). Unset,
-# lab-upload-rollback skips that half with a notice and lab-upload-signed-feed fails, since its
-# fault evidence is the log. Needs a user who can read the journal (root in the VM).
+# both fault checks require server-log proof. Needs a user who can read the
+# journal (root in the VM).
 export LAB_UPLOAD_JOURNAL_UNIT=carlos-emr
+install -d -m 700 /tmp/carlos-lab-rollback-faults
+export LAB_ROLLBACK_FAULT_ARTIFACT_DIR=/tmp/carlos-lab-rollback-faults
+```
+
+Keep rollback fault receipts private and retain them when fault removal cannot be
+proved. The helper skips when `LAB_ROLLBACK_FAULT_ARTIFACT_DIR` is unset.
+
+The CAISI-only `encounter-legacy-note-soft-wrap` check was removed from the suite,
+npm commands and its wrapper at the maintainer's request (#5368). Its prerequisite
+was a legacy chart deployment with `AbandonOldChart=false`, `ModuleNames=Caisi`
+and `caisi=true`. Legacy CAISI soft wrapping remains unverified; the modern
+`echart-note-soft-wrap` check remains available. No CAISI-enabled run is required.
+
+```bash
 # Browser diagnostics omit raw clinical content. eDoc screenshots are disabled by
 # default; set EDOC_NAV_SCREENSHOT_DIR only for an explicitly approved test-data capture.
 # login-playwright-checks mutates and restores this account; give it the hash of
@@ -2742,7 +2756,7 @@ now takes no screenshot when it is unset.
 | 10 | The environment gaps above. Eight passed when rerun with the variable set (`account-lockout-unlock`, `billing-on-group-disk-zero-total`, `consultation-list-filters`, `demographic-edit-update`, `document-pagination`, `incoming-pdf-extraction`, `patient-letters-envelopes`, `session-heartbeat-timeout`); `admin-role-management` needs `EXCLUSIVE=1`; `stored-document-mutations` passed its steps on rerun but its cleanup refused a fixture with an acquired note reference |
 | 6 | Existing findings or failures known before this run: 54 (`report-daysheet-labs`), 103 (`clinical-forms-save-reopen`), `gap-provider-schedule-reason-privacy`, `contact-lifecycle`, `admin-jobs`, and `eform-groups`, which now fails on the 302 that #4130's POST/redirect/GET returns rather than on the 405/403 its note describes |
 | 5 | Seed and demo-data differences from the devcontainer database: `episode-lifecycle` and `record-access` (`_newCasemgmt.episode` is `o` for doctor in the Flyway seed, `x` in `development.sql`), `form-print-pdf` (Lab Req 2007 is not in the Forms menu), `popup-opener-master-record` (the fixture patient has no postal code, so Update Record is refused), `tickler-note-dialog` (finding 143) |
-| 3 | Fixtures this environment lacks: `eform-corpus-soak`, `o19-migrated-smoke`, `encounter-legacy-note-soft-wrap` (CAISI) |
+| 3 | Fixtures this historical run lacked: `eform-corpus-soak`, `o19-migrated-smoke`, `encounter-legacy-note-soft-wrap` (CAISI; removed from the current suite per #5368) |
 | 3 | Browser and front door: `double-submit-eform` (the check armed its unsaved-changes prompt with a `beforeunload` handler that removes itself while it runs, `{ once: true }`, and Chromium 154 shows no prompt for such a handler and logs a missing user gesture although the page had one; fixed in the check, which now disarms the handler from a timer), `export-content-eform-export-zip` (under the POSIX locale of the container, `LANG` unset, Chromium cannot map a UTF-8 name to the locale charset and names any download whose `filename*=` holds a non-ASCII letter "download" although `Content-Disposition` is valid; the old assertion depended on the runner's locale, and the check now asserts the header), `gap-provider-messenger-write-to-encounter` (the WAF answers 403 for `msgId=2147483648`) |
 | 1 | Stale against the delta, fixed here: `gap-clinical-calculators-coronary` (#4398 refuses ages outside 30 to 75 instead of clamping); it passes |
 | 1 | Not analysed: `boundary-demographic-search` (the sort form's keyword field timed out) |

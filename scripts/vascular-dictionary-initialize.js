@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+// Modifications by CARLOS Contributors, 2026.
 // One-time environment initializer for the Vascular Tracker browser checks
 // (clinical-forms-save-reopen-vascular-tracker, -save and -script).
 //
@@ -17,6 +18,11 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { requireVascularDictionaryReady } = require('./clinical-forms-save-reopen-playwright-checks');
 
 async function workflow(s) {
+  // E-Chart also creates shared default definitions on its first visit. Do that
+  // in environment setup, before any clinical check takes its residue baseline.
+  await s.step('opening E-Chart once initializes its shared measurement definitions', async () => {
+    await s.chart();
+  });
   await s.step('opening Vascular Tracker once creates its measurement dictionary', async () => {
     const page = await s.context.newPage();
     const base = s.config.baseUrl.href.endsWith('/') ? s.config.baseUrl.href : `${s.config.baseUrl.href}/`;
@@ -28,5 +34,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('vascular-dictionary-initialize', workflow, { openMaster: false });
+if (require.main === module) runWorkflow('vascular-dictionary-initialize', workflow);
 module.exports = { workflow };

@@ -78,7 +78,7 @@ jobs:
           fi
 
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
@@ -101,7 +101,7 @@ jobs:
         # Keyed on the files that pin the scanner/plugin versions so the entry is
         # refreshed when they change; the previous constant key could never be
         # updated once saved.
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .sonar-cache
           key: ${{ runner.os }}-sonar-${{ hashFiles('.github/workflows/sonarcloud.yml', 'pom.xml') }}
