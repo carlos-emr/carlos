@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceRe
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportMaintenanceService;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -90,6 +91,11 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
                     this::initializeClinicalProcesses);
             sce.getServletContext().setAttribute(ClinicalStartupCoordinator.ATTRIBUTE, clinicalStartup);
             clinicalStartup.start();
+            // OscarSpringContextLoader installs SpringUtils only after Spring refresh.
+            // Start durable recovery here, including when retained maintenance leaves
+            // ordinary clinical initialization pending. Earlier worker execution can
+            // mistake an uninitialized privilege lookup for revoked authorization.
+            SpringUtils.getBean(CdsImportService.class).start();
             logger.info("OSCAR web context started. context={} clinicalStartup={}", contextPath, clinicalStartup.state());
         } catch (Exception e) {
             logger.error("Unexpected error.", e);

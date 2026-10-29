@@ -79,6 +79,27 @@ function status(generation, terminal = true, id = RUN, extra = {}) {
     cleanupComplete: terminal, clinicalComplete: false, cleanComplete: false}};
 }
 
+test('scheduled polling preserves inactivity while manual reads remain user activity', async () => {
+  const f = browser(); const opened = f.open(); await settle();
+  f.jobs()[0].respond(status(1, false)); await opened;
+  assert.equal(f.jobs()[0].url.searchParams.has('autoRefresh'), false);
+  assert.equal(f.page('patients', 0).url.searchParams.has('autoRefresh'), false);
+  assert.equal(f.page('diagnostics', 0).url.searchParams.has('autoRefresh'), false);
+
+  f.takePoll()(); await settle();
+  assert.equal(f.jobs()[1].url.searchParams.get('autoRefresh'), 'true');
+  f.jobs()[1].respond(status(2, false)); await settle();
+  assert.equal(f.page('patients', 1).url.searchParams.get('autoRefresh'), 'true');
+  assert.equal(f.page('diagnostics', 1).url.searchParams.get('autoRefresh'), 'true');
+
+  await f.click('nextPatients'); await f.click('nextDiagnostics');
+  assert.equal(f.page('patients', 2).url.searchParams.has('autoRefresh'), false);
+  assert.equal(f.page('diagnostics', 2).url.searchParams.has('autoRefresh'), false);
+  const reopened = f.click('retryJobStatus'); await settle();
+  assert.equal(f.jobs()[2].url.searchParams.has('autoRefresh'), false);
+  f.jobs()[2].respond(status(3)); await reopened;
+});
+
 for (const language of ['en', 'fr']) test(`the public fatal-supervisor alert blocks Resume and shows repair guidance in ${language}`, async () => {
   const f = browser({language}); const opened = f.open(); await settle();
   const stopped = status(1);

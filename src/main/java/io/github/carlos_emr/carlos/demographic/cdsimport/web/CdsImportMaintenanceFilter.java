@@ -42,11 +42,12 @@ import java.util.function.Supplier;
  * Pool-level admission independently excludes background/non-HTTP clinical SQL.
  */
 public final class CdsImportMaintenanceFilter implements Filter {
+    private static final String SESSION_HEARTBEAT = "/status/SessionHeartbeat";
     private static final Set<String> ROUTES = Set.of("/", "/index", "/index.jsp", "/login", "/login.do",
             "/logout", "/logout.do", "/logoutPage", "/loginfailed", "/forcepasswordreset",
             "/forcepasswordresetSubmit", "/location", "/select_facility", "/csrfguard",
             "/mfa/loginMfa", "/securityRecord/mfa", "/form/importUpload", "/form/cdsUpload", "/form/cdsImportSubmit", "/form/cdsImportStatus", "/form/cdsImportDiagnostic",
-            "/form/cdsImportControl", "/form/cdsImportReport", "/form/importLogDownload");
+            "/form/cdsImportControl", "/form/cdsImportReport", "/form/importLogDownload", SESSION_HEARTBEAT);
     private static final String[] STATIC = {"/css/", "/js/", "/images/", "/fonts/", "/library/", "/loginResource/"};
     // Exact dependencies of the native login's global-head.jspf. Other shared
     // resources remain subject to maintenance admission.
@@ -65,7 +66,10 @@ public final class CdsImportMaintenanceFilter implements Filter {
             chain.doFilter(request, response); return;
         }
         String path = http.getRequestURI().substring(http.getContextPath().length());
-        boolean loginAssetRead = !LOGIN_ASSETS.contains(path)
+        // The heartbeat reads only this browser's session, never clinical data.
+        // Shared login scripts must still be able to observe session expiry
+        // while clinical access and background writers remain closed.
+        boolean loginAssetRead = !(LOGIN_ASSETS.contains(path) || SESSION_HEARTBEAT.equals(route(path)))
                 || "GET".equals(http.getMethod()) || "HEAD".equals(http.getMethod());
         if (allowed(path) && loginAssetRead) { chain.doFilter(request, response); return; }
         boolean blocked;
@@ -104,13 +108,16 @@ public final class CdsImportMaintenanceFilter implements Filter {
     static boolean allowed(String path) {
         if (path == null || path.contains("%") || path.contains(";") || path.contains("\\")
                 || path.contains("//") || path.contains("/../") || path.contains("/./")) return false;
-        String route = path.endsWith(".do") ? path.substring(0, path.length() - 3)
-                : path.endsWith(".action") ? path.substring(0, path.length() - 7) : path;
-        if (ROUTES.contains(route)) return true;
+        if (ROUTES.contains(route(path))) return true;
         if (LOGIN_ASSETS.contains(path)) return true;
         if (path.startsWith("/WEB-INF/jsp/login/") || path.startsWith("/WEB-INF/jsp/mfa/")) return true;
         if (path.equals("/WEB-INF/jsp/demographic/demographicImport.jsp")) return true;
         for (String prefix : STATIC) if (path.startsWith(prefix)) return true;
         return false;
+    }
+
+    private static String route(String path) {
+        return path.endsWith(".do") ? path.substring(0,path.length()-3)
+                : path.endsWith(".action") ? path.substring(0,path.length()-7) : path;
     }
 }

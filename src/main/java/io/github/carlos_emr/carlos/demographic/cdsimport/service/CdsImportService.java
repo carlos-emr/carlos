@@ -25,7 +25,6 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportComman
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportReviewCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -58,6 +57,7 @@ public class CdsImportService {
     private final ThreadPoolExecutor worker=new ThreadPoolExecutor(1, 1, 0, TimeUnit.MILLISECONDS,
             new ArrayBlockingQueue<>(16), r -> { Thread t=new Thread(r, "cds-import-worker"); t.setDaemon(true); t.setUncaughtExceptionHandler((thread, failure) -> LOG.error("CDS worker terminated: WORKER_FATAL")); return t; });
     private ScheduledExecutorService dispatcher;
+    private boolean closed;
     private final CdsImportCleanupService cleanup;
     private final AtomicReference<Map<String, Object>> administrativeCleanup=new AtomicReference<>(Map.of());
     private final CdsImportReviewService reviews;
@@ -84,12 +84,19 @@ public class CdsImportService {
         this.observations=Objects.requireNonNull(observations);
     }
 
-    @PostConstruct public void start() {
+    /** Called by web startup after CARLOS has published its legacy Spring bean bridge. */
+    public synchronized void start() {
+        if (closed || dispatcher!=null) return;
         if (!Boolean.parseBoolean(configuration.value("cds.import.worker.enabled", "true"))) return;
         dispatcher=Executors.newSingleThreadScheduledExecutor(r -> { Thread t=new Thread(r, "cds-import-dispatcher"); t.setDaemon(true); return t; });
         dispatcher.scheduleWithFixedDelay(this::dispatch, 1, 5, TimeUnit.SECONDS);
     }
-    @PreDestroy public void close() { if (dispatcher!=null) dispatcher.shutdownNow(); worker.shutdownNow(); }
+    @PreDestroy public synchronized void close() {
+        if (closed) return;
+        closed=true;
+        if (dispatcher!=null) dispatcher.shutdownNow();
+        worker.shutdownNow();
+    }
 
     /** Acceptance is durable before foreground callers print the run ID or perform lengthy execution. */
     public CdsImportJobDto accept(CdsImportActorDto actor, CdsImportCommand command) throws IOException {

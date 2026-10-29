@@ -45,14 +45,16 @@ class CdsImportSupervisionServiceUnitTest {
     private CdsImportExecutionService execution;
     private CdsImportService service;
     private ThreadPoolExecutor worker;
+    private CdsImportConfigurationService configuration;
 
     @BeforeEach void setUp() throws Exception {
         reviews=mock(CdsImportReviewService.class);
         ledger=mock(CdsImportLedgerService.class);
         execution=mock(CdsImportExecutionService.class);
-        var configuration=mock(CdsImportConfigurationService.class);
+        configuration=mock(CdsImportConfigurationService.class);
         var cleanup=mock(CdsImportCleanupService.class);
         when(configuration.enabled()).thenReturn(true);
+        when(configuration.value("cds.import.worker.enabled", "true")).thenReturn("true");
         when(cleanup.housekeeping()).thenReturn(Map.of("state", "COMPLETE", "fullPassComplete", true));
         when(ledger.pending("", 16)).thenReturn(List.of());
         when(ledger.summary("run")).thenReturn(Map.of());
@@ -64,6 +66,46 @@ class CdsImportSupervisionServiceUnitTest {
         worker=(ThreadPoolExecutor)field.get(service);
     }
     @AfterEach void close() {service.close();}
+
+    @Test void recoveredWorkWaitsForExplicitPostRefreshWebBootstrap() throws Exception {
+        var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+        when(job.id()).thenReturn("recovered");
+        when(job.state()).thenReturn("RUNNING");
+        when(ledger.pending("",16)).thenReturn(List.of(job));
+        when(ledger.status("recovered")).thenReturn(job);
+        var dispatcher=CdsImportService.class.getDeclaredField("dispatcher");dispatcher.setAccessible(true);
+        try (var context=new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
+            context.registerBean("cdsImportService",CdsImportService.class,()->service);
+            context.refresh();
+            // CARLOS publishes SpringUtils after refresh returns. No persisted
+            // job may reach privilege checks during refresh or its events.
+            assertThat(dispatcher.get(service)).isNull();
+            verifyNoInteractions(ledger,execution);
+            service.start();
+            Object started=dispatcher.get(service);
+            service.start();
+            assertThat(started).isNotNull().isSameAs(dispatcher.get(service));
+            verify(execution,timeout(3000)).execute("recovered",false);
+        }
+        service.start();
+        assertThat(worker.isShutdown()).isTrue();
+    }
+
+    @Test void disabledWebWorkerDoesNotStartAtBootstrap() throws Exception {
+        when(configuration.value("cds.import.worker.enabled","true")).thenReturn("false");
+        service.start();
+        var field=CdsImportService.class.getDeclaredField("dispatcher");field.setAccessible(true);
+        assertThat(field.get(service)).isNull();
+        verifyNoInteractions(ledger,execution);
+    }
+
+    @Test void closeBeforeBootstrapCannotResurrectWorker() throws Exception {
+        service.close();service.start();service.close();
+        var field=CdsImportService.class.getDeclaredField("dispatcher");field.setAccessible(true);
+        assertThat(field.get(service)).isNull();
+        assertThat(worker.isShutdown()).isTrue();
+        verifyNoInteractions(ledger,execution);
+    }
 
     @Test void fatalReviewStaysSuspendedUntilHealthySupervisorPersistsIt() throws Exception {
         when(reviews.process("failed")).thenThrow(new AssertionError("synthetic private failure"));

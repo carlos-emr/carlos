@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportMaintenanceService;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob;
@@ -92,20 +93,40 @@ class ContextStartupListenerUnitTest {
     }
     @Test void shouldBootRecoveryContextWithoutClinicalQueries_whenMaintenanceIsRetained() {
         var maintenance = mock(CdsImportMaintenanceService.class);
+        var imports = mock(CdsImportService.class);
         when(maintenance.isClinicalAccessBlocked()).thenReturn(true);
         var context = new MockServletContext();
         var listener = new ContextStartupListener();
         try (var spring = mockStatic(SpringUtils.class)) {
             spring.when(() -> SpringUtils.getBean(CdsImportMaintenanceService.class)).thenReturn(maintenance);
+            spring.when(() -> SpringUtils.getBean(CdsImportService.class)).thenReturn(imports);
             listener.contextInitialized(new ServletContextEvent(context));
             var coordinator = (ClinicalStartupCoordinator) context.getAttribute(ClinicalStartupCoordinator.ATTRIBUTE);
             assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.PENDING);
             // Applies even to an empty database without default program/site: no fabricated rows or IDs.
             spring.verify(() -> SpringUtils.getBean(CdsImportMaintenanceService.class));
+            spring.verify(() -> SpringUtils.getBean(CdsImportService.class));
+            verify(imports).start();
             spring.verifyNoMoreInteractions();
             listener.contextDestroyed(new ServletContextEvent(context));
             assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.CLOSED);
         } finally { MiscUtils.setShutdownSignaled(false); }
+    }
+
+    @Test void shouldNotStartImportDispatcher_whenClinicalStartupFails() {
+        var maintenance=mock(CdsImportMaintenanceService.class);
+        var transactions=mock(PlatformTransactionManager.class);
+        var listener=spy(new ContextStartupListener());
+        doThrow(new IllegalStateException("synthetic startup failure")).when(listener).initializeDefaultData(transactions);
+        var context=new MockServletContext();
+        try(var spring=mockStatic(SpringUtils.class)) {
+            spring.when(()->SpringUtils.getBean(CdsImportMaintenanceService.class)).thenReturn(maintenance);
+            spring.when(()->SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
+            assertThatThrownBy(()->listener.contextInitialized(new ServletContextEvent(context)))
+                    .isInstanceOf(RuntimeException.class).hasRootCauseMessage("synthetic startup failure");
+            spring.verify(()->SpringUtils.getBean(CdsImportService.class),never());
+            listener.contextDestroyed(new ServletContextEvent(context));
+        } finally {MiscUtils.setShutdownSignaled(false);}
     }
 
     @Test void shouldRollbackAllDefaultCreation_whenSiteCreationFails() {

@@ -503,6 +503,60 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
     @DisplayName("Inactivity timeout")
     class InactivityTimeout {
 
+        @ParameterizedTest
+        @ValueSource(strings = {"true", "false"})
+        void shouldRefreshOnlyManualCdsStatusRequests(String background) throws Exception {
+            var request=authenticatedRequest();
+            request.setRequestURI(CONTEXT_PATH+"/form/cdsImportStatus");
+            request.setParameter("autoRefresh",background);
+            var session=request.getSession(false);
+            var previous=new Date(System.currentTimeMillis()-30_000);
+            session.setAttribute("last_request_time",previous);
+            var response=new MockHttpServletResponse();var chain=new MockFilterChain();
+            try(var statics=mockStatic(CarlosProperties.class)) {
+                var properties=mock(CarlosProperties.class);
+                statics.when(CarlosProperties::getInstance).thenReturn(properties);
+                when(properties.getProperty("INACTIVITY_LIMIT_MINS")).thenReturn("60");
+                filter.doFilter(request,response,chain);
+                assertThat(chain.getRequest()).isNotNull();
+                if (Boolean.parseBoolean(background)) assertThat(session.getAttribute("last_request_time")).isSameAs(previous);
+                else assertThat((Date)session.getAttribute("last_request_time")).isAfter(previous);
+            }
+        }
+
+        @Test void shouldInitializeFirstCdsBackgroundRequestTimer() throws Exception {
+            var request=authenticatedRequest();
+            request.setRequestURI(CONTEXT_PATH+"/form/cdsImportStatus");
+            request.setParameter("autoRefresh","true");
+            var chain=new MockFilterChain();
+            try(var statics=mockStatic(CarlosProperties.class)) {
+                var properties=mock(CarlosProperties.class);
+                statics.when(CarlosProperties::getInstance).thenReturn(properties);
+                when(properties.getProperty("INACTIVITY_LIMIT_MINS")).thenReturn("60");
+                filter.doFilter(request,new MockHttpServletResponse(),chain);
+                assertThat(chain.getRequest()).isNotNull();
+                assertThat(request.getSession(false).getAttribute("last_request_time")).isInstanceOf(Date.class);
+            }
+        }
+
+        @Test void shouldRejectExpiredCdsBackgroundRequestsBeforeAnyTimerReset() throws Exception {
+            var request=authenticatedRequest();
+            request.setRequestURI(CONTEXT_PATH+"/form/cdsImportStatus");
+            request.setParameter("autoRefresh","true");
+            var previous=new Date(System.currentTimeMillis()-7_200_000);
+            request.getSession(false).setAttribute("last_request_time",previous);
+            var response=new MockHttpServletResponse();var chain=new MockFilterChain();
+            try(var statics=mockStatic(CarlosProperties.class)) {
+                var properties=mock(CarlosProperties.class);
+                statics.when(CarlosProperties::getInstance).thenReturn(properties);
+                when(properties.getProperty("INACTIVITY_LIMIT_MINS")).thenReturn("60");
+                filter.doFilter(request,response,chain);
+                assertThat(chain.getRequest()).isNull();
+                assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH+"/logoutPage");
+                assertThat(request.getSession(false).getAttribute("last_request_time")).isSameAs(previous);
+            }
+        }
+
         @Test
         @DisplayName("should fail closed when inactivity limit is malformed")
         void shouldFailClosed_whenInactivityLimitIsMalformed()

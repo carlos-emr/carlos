@@ -51,6 +51,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -156,10 +157,11 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
                 .hasMessage("IMPORT_SUMMARY_INVALID");
     }
 
-    @ParameterizedTest @ValueSource(strings={"GET", "HEAD"})
-    void shouldRenderOneCoherentStatus_withoutSeparateJobAndSummaryReads(String method) throws Exception {
+    @ParameterizedTest @CsvSource({"GET,", "HEAD,", "GET,true", "HEAD,true", "GET,false", "HEAD,false"})
+    void shouldRenderOneCoherentStatus_withoutSeparateJobAndSummaryReads(String method,String background) throws Exception {
         String run="11111111-1111-4111-8111-111111111111";
         request.setMethod(method); request.addParameter("runId", run);
+        if(background!=null)request.addParameter("autoRefresh",background);
         var job=new CdsImportJobDto(run, "web-42", "999998", "clinic", "omd-5.2",
                 "INCOMPLETE", "a".repeat(64), "b".repeat(64), "c".repeat(64), null, 1, 8, 2, true,
                 Instant.EPOCH, Instant.EPOCH, 2, "/private/protected-report.json", "d".repeat(64));
@@ -177,6 +179,20 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("/private", "reportLocation", "documentLocation");
         org.mockito.Mockito.verify(imports).observe(actor, run);
         verifyNoInteractions(uploads);
+    }
+
+    @ParameterizedTest @ValueSource(strings={"TRUE","1","invalid",""})
+    void shouldRejectMalformedBackgroundFlagsBeforeReadingJobData(String flag) throws Exception {
+        request.addParameter("autoRefresh",flag);
+        var action=new CdsImportStatus2Action(access,imports,uploads);
+        action.setRunId("11111111-1111-4111-8111-111111111111");action.execute();
+        assertThat(response.getStatus()).isEqualTo(400);verifyNoInteractions(imports,uploads);
+    }
+
+    @Test void shouldRejectRepeatedBackgroundFlagsBeforeReadingJobData() throws Exception {
+        request.addParameter("autoRefresh","true","false");
+        new CdsImportStatus2Action(access,imports,uploads).execute();
+        assertThat(response.getStatus()).isEqualTo(400);verifyNoInteractions(imports,uploads);
     }
 
     @Test void shouldReturnUnauthorizedWithoutRawExceptionDetails_whenSessionIsAbsent() throws Exception {

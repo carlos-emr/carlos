@@ -58,7 +58,11 @@ public class CdsImportStatus2Action extends ActionSupport {
         }
         try {
             var actor = CdsWeb.authorize(request, access);
-            CdsWeb.parameters(request, Set.of("section", "runId", "uploadId", "afterKey", "afterId", "limit"));
+            CdsWeb.parameters(request, Set.of("section", "runId", "uploadId", "afterKey", "afterId", "limit", "autoRefresh"));
+            String background=request.getParameter("autoRefresh");
+            if (background!=null && !Set.of("true","false").contains(background)) {
+                throw new CdsUploadException("IMPORT_PARAMETERS_INVALID",400);
+            }
             if (limit < 1 || limit > 100 || afterId < 0) throw new CdsUploadException("IMPORT_PAGE_INVALID", 400);
             Map<String, Object> result = new LinkedHashMap<>(); result.put("ok", true);
             switch (section) {

@@ -33,6 +33,32 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsImportMaintenanceFilterUnitTest {
+    @Test void shouldAllowOnlySessionHeartbeatReadsDuringMaintenance() throws Exception {
+        var service=mock(CdsImportMaintenanceService.class);
+        for(String method:new String[]{"GET","HEAD"}) {
+            for(String suffix:new String[]{"",".do",".action"}) {
+                var request=new MockHttpServletRequest(method,"/carlos/status/SessionHeartbeat"+suffix);
+                request.setContextPath("/carlos");
+                var response=new MockHttpServletResponse();var chain=mock(FilterChain.class);
+                new CdsImportMaintenanceFilter(()->service).doFilter(request,response,chain);
+                verify(chain).doFilter(request,response);
+            }
+        }
+        verifyNoInteractions(service);
+        when(service.isClinicalAccessBlocked()).thenReturn(true);
+        for(String method:new String[]{"POST","PUT","DELETE","PATCH","TRACE","OPTIONS"}) {
+            var request=new MockHttpServletRequest(method,"/status/SessionHeartbeat");
+            var response=new MockHttpServletResponse();var chain=mock(FilterChain.class);
+            new CdsImportMaintenanceFilter(()->service).doFilter(request,response,chain);
+            assertThat(response.getStatus()).isEqualTo(503);verifyNoInteractions(chain);
+        }
+        for(String path:new String[]{"/status/SessionHeartbeat/extra","/status/SessionHeartbeat;ignored",
+                "/status/%53essionHeartbeat","/status/Other"}) {
+            var response=new MockHttpServletResponse();var chain=mock(FilterChain.class);
+            new CdsImportMaintenanceFilter(()->service).doFilter(new MockHttpServletRequest("GET",path),response,chain);
+            assertThat(response.getStatus()).isEqualTo(503);verifyNoInteractions(chain);
+        }
+    }
     @Test
     void shouldHoldOrdinaryRequests_whenDeferredStartupIsIncomplete() throws Exception {
         CdsImportMaintenanceService service = mock(CdsImportMaintenanceService.class);

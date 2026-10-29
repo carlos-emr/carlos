@@ -651,13 +651,13 @@
             if (rows.length) uploadCursor = rows[rows.length - 1].id;
             byId('nextUploads').disabled = rows.length < 50;
         }
-        async function updateStatus(id, view = activeView) {
+        async function updateStatus(id, view = activeView, background = false) {
             if (view !== activeView || id !== activeRun) return;
             const read = {}; statusRead = read;
             const current = () => view === activeView && read === statusRead;
             global.clearTimeout(timer);
             try {
-                const data = await request('cdsImportStatus', {runId: id});
+                const data = await request('cdsImportStatus', {runId: id, ...(background ? {autoRefresh: true} : {})});
                 if (!current()) return;
                 if (!data.job || data.job.id !== id) throw new Error('IMPORT_STATUS_RUN_CONFLICT');
                 latestSummary = data.summary || {};
@@ -697,7 +697,7 @@
                     link.href = root.dataset.context + '/form/cdsImportReport?' + new URLSearchParams({runId: id, type});
                 }
                 if (lastRunUpdated !== data.job.updatedAt) {
-                    await Promise.all([loadPatients(false, view, current), loadDiagnostics(false, view, current)]);
+                    await Promise.all([loadPatients(false, view, current, background), loadDiagnostics(false, view, current, background)]);
                     if (!current()) return;
                     lastRunUpdated = data.job.updatedAt;
                 }
@@ -720,7 +720,7 @@
         }
         async function poll(id, view) {
             if (view !== activeView) return;
-            try { await updateStatus(id, view); }
+            try { await updateStatus(id, view, true); }
             catch (error) { failure(error); }
         }
         async function openRun(id) {
@@ -753,14 +753,14 @@
             await readOpenedJobStatus(id, () => updateStatus(id, view),
                 () => view === activeView ? activeRun : '', () => byId('runHeading'));
         }
-        async function loadPatients(next = false, view = activeView, parentCurrent = () => true) {
+        async function loadPatients(next = false, view = activeView, parentCurrent = () => true, background = false) {
             if (view !== activeView || !parentCurrent()) return;
             const run = activeRun;
             const read = {}; patientRead = read;
             const current = () => view === activeView && read === patientRead && parentCurrent();
             const start = next ? patientCursor : patientPageStart;
             try {
-                const data = await request('cdsImportStatus', {section: 'patients', runId: run, afterKey: start, limit: 50});
+                const data = await request('cdsImportStatus', {section: 'patients', runId: run, afterKey: start, limit: 50, ...(background ? {autoRefresh: true} : {})});
                 if (!current()) return;
                 if (!Array.isArray(data.rows) || data.rows.length > 50) throw new Error('IMPORT_PAGE_LIMIT_VIOLATED');
                 patientPageStart = start;
@@ -774,7 +774,7 @@
                 if (current()) throw new StatusReadError(error, current);
             }
         }
-        async function loadDiagnostics(next = false, view = activeView, parentCurrent = () => true) {
+        async function loadDiagnostics(next = false, view = activeView, parentCurrent = () => true, background = false) {
             if (view !== activeView || !parentCurrent()) return;
             const run = activeRun;
             const read = {}; diagnosticRead = read;
@@ -782,7 +782,7 @@
             const current = () => pageCurrent() && parentCurrent();
             const start = next ? diagnosticCursor : diagnosticPageStart;
             try {
-                const data = await request('cdsImportStatus', {section: 'diagnostics', runId: run, afterId: start, limit: 50});
+                const data = await request('cdsImportStatus', {section: 'diagnostics', runId: run, afterId: start, limit: 50, ...(background ? {autoRefresh: true} : {})});
                 if (!current()) return;
                 if (!Array.isArray(data.rows) || data.rows.length > 50) throw new Error('IMPORT_PAGE_LIMIT_VIOLATED');
                 diagnosticPageStart = start;
