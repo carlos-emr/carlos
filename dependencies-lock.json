@@ -974,18 +974,18 @@
     "groupId" : "jakarta.annotation",
     "artifactId" : "jakarta.annotation-api",
     "version" : "3.0.0",
-    "scope" : "compile",
+    "scope" : "provided",
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:K9WhZoTE6BRIl7ptxGdijRuKhTJiNSQOTCAQG23zaB0jruvDDKmeOV7ISPM8tSRAhQMbKg+850bI7ecUil58HQ=="
   }, {
     "groupId" : "jakarta.el",
     "artifactId" : "jakarta.el-api",
-    "version" : "5.0.1",
-    "scope" : "compile",
+    "version" : "6.0.1",
+    "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:MkaRfNk7XRFaSvesyBX2RWcKv3DgjS0XkP65g+2ES654A1Fo7FeMPPwb7UY2lduFOe0ugoj/9K72T7BCliRiDA=="
+    "integrity" : "sha512:+6t73xjpv7MWtRmow7PR8udp4/MYty5GzzNiHylCuE7t6bl5cP9G/im1T41hyw355YTTcfEOVr8AUNdyfrDuIw=="
   }, {
     "groupId" : "jakarta.inject",
     "artifactId" : "jakarta.inject-api",

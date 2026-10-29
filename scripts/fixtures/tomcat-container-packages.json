@@ -1,0 +1,41 @@
+{
+  "$comment": [
+    "The class packages Apache Tomcat 11 always loads from its own lib/ before the web",
+    "application (WebappClassLoaderBase.filter in Tomcat 11.0.x). A copy in the WAR is never",
+    "used while the container has the class, so it can only mislead tools and tests that run",
+    "outside Tomcat (issue #5416: EL 5.0.1 shipped beside Tomcat 11's EL 6.0).",
+    "applicationPackages are the exceptions the filter itself makes. containerServices are",
+    "service files whose presence in the WAR would install a competing implementation of a",
+    "container API: jakarta.el.ExpressionFactory.newInstance() looks the factory up through",
+    "the web application's class loader. requiredClasses must ship, because Tomcat provides",
+    "no JSTL. Prefixes are zip entry paths ('/'-separated, trailing '/').",
+    "Read by scripts/check-war-container-apis.py and ContainerApiPackagingUnitTest; see",
+    "docs/container-provided-apis.md before changing it."
+  ],
+  "containerPackages": [
+    "jakarta/annotation/",
+    "jakarta/el/",
+    "jakarta/security/auth/message/",
+    "jakarta/servlet/",
+    "jakarta/websocket/",
+    "javax/websocket/",
+    "org/apache/catalina/",
+    "org/apache/coyote/",
+    "org/apache/el/",
+    "org/apache/jasper/",
+    "org/apache/juli/",
+    "org/apache/naming/",
+    "org/apache/tomcat/"
+  ],
+  "applicationPackages": [
+    "jakarta/servlet/jsp/jstl/",
+    "org/apache/tomcat/jdbc/"
+  ],
+  "containerServices": [
+    "META-INF/services/jakarta.el.ExpressionFactory"
+  ],
+  "requiredClasses": [
+    "jakarta/servlet/jsp/jstl/core/Config.class",
+    "org/apache/taglibs/standard/tag/rt/core/ForEachTag.class"
+  ]
+}

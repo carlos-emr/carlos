@@ -125,6 +125,11 @@ override_dh_auto_build:
 	$(CURDIR)/debian/build-flyway-runner.sh $(BUILDDIR)/carlos.war $(BUILDDIR)
 	# Bind the supplied/built WAR to the committed physical schema contract.
 	python3 scripts/schema-contract.py --verify-files --verify-war $(BUILDDIR)/carlos.war
+	# Refuse a WAR that bundles an API Tomcat 11 supplies (EL, Servlet,
+	# Annotations, Tomcat's own classes) or lacks JSTL, which Tomcat does not
+	# supply (#5416). Tomcat never loads such a copy; it only misleads what runs
+	# beside it, such as the Flyway runner's WEB-INF/lib class path.
+	python3 scripts/check-war-container-apis.py $(BUILDDIR)/carlos.war
 	python3 scripts/test-o19-input-lifecycle.py
 ifeq ($(SKIP_DRUGREF),)
 	set -e; \
