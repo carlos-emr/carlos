@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +33,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
+import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
 import io.github.carlos_emr.carlos.billing.CA.dao.GstControlDao;
 import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
@@ -46,6 +49,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationExc
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -69,6 +73,7 @@ class BillingOnHeaderCreationServiceUnitTest {
     private DemographicDao demographicDao;
     private BillingServiceDao billingServiceDao;
     private GstControlDao gstControlDao;
+    private BillingPercLimitDao billingPercLimitDao;
     private BillingOnHeaderCreationService service;
 
     @BeforeEach
@@ -78,9 +83,10 @@ class BillingOnHeaderCreationServiceUnitTest {
         demographicDao = Mockito.mock(DemographicDao.class);
         billingServiceDao = Mockito.mock(BillingServiceDao.class);
         gstControlDao = Mockito.mock(GstControlDao.class);
+        billingPercLimitDao = Mockito.mock(BillingPercLimitDao.class);
 
         service = new BillingOnHeaderCreationService(
-                headerDao, providerDao, demographicDao, billingServiceDao, gstControlDao);
+                headerDao, providerDao, demographicDao, billingServiceDao, gstControlDao, billingPercLimitDao);
     }
 
     @Test
@@ -236,6 +242,107 @@ class BillingOnHeaderCreationServiceUnitTest {
                 .hasMessageContaining("demographicNo=2");
 
         verify(headerDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should cap a percentage code at the maximum in effect on the service date")
+    void shouldCapPercentageCode_atConfiguredMaximum() {
+        Date serviceDate = stubPercentageBatch();
+        when(billingPercLimitDao.findByServiceCodeAndLatestDate("E400B", serviceDate))
+                .thenReturn(List.of(limit(7, "1.00", "10.00")));
+
+        String total = createPercentageBatch(serviceDate);
+
+        // 30.00 base + min(30.00 x 0.50 = 15.00, 10.00)
+        assertThat(total).isEqualTo("40.00");
+    }
+
+    @Test
+    @DisplayName("should raise a percentage code to the minimum in effect on the service date")
+    void shouldRaisePercentageCode_toConfiguredMinimum() {
+        Date serviceDate = stubPercentageBatch();
+        when(billingPercLimitDao.findByServiceCodeAndLatestDate("E400B", serviceDate))
+                .thenReturn(List.of(limit(7, "20.00", "99.00")));
+
+        String total = createPercentageBatch(serviceDate);
+
+        // 30.00 base + max(15.00, 20.00)
+        assertThat(total).isEqualTo("50.00");
+    }
+
+    @Test
+    @DisplayName("should leave a percentage code unclamped when no limit is configured")
+    void shouldLeavePercentageUnclamped_whenNoLimitConfigured() {
+        Date serviceDate = stubPercentageBatch();
+        when(billingPercLimitDao.findByServiceCodeAndLatestDate("E400B", serviceDate)).thenReturn(List.of());
+
+        String total = createPercentageBatch(serviceDate);
+
+        assertThat(total).isEqualTo("45.00");
+    }
+
+    @Test
+    @DisplayName("should look up limits only for percentage codes, by resolved code and service date")
+    void shouldLookUpLimits_onlyForPercentageCodes() {
+        Date serviceDate = stubPercentageBatch();
+        when(billingPercLimitDao.findByServiceCodeAndLatestDate(anyString(), any())).thenReturn(List.of());
+
+        createPercentageBatch(serviceDate);
+
+        verify(billingPercLimitDao).findByServiceCodeAndLatestDate("E400B", serviceDate);
+        verify(billingPercLimitDao, never()).findByServiceCodeAndLatestDate(eq("A007A"), any());
+    }
+
+    @Test
+    @DisplayName("should apply the most recently added limit when two share the effective date")
+    void shouldApplyMostRecentlyAddedLimit_whenTwoShareTheEffectiveDate() {
+        Date serviceDate = stubPercentageBatch();
+        when(billingPercLimitDao.findByServiceCodeAndLatestDate("E400B", serviceDate))
+                .thenReturn(List.of(limit(9, "1.00", "12.00"), limit(3, "1.00", "5.00")));
+
+        String total = createPercentageBatch(serviceDate);
+
+        assertThat(total).isEqualTo("42.00");
+    }
+
+    @Test
+    @DisplayName("should refuse the batch without persisting when a configured limit is not an amount")
+    void shouldRefuseBatchWithoutPersisting_whenConfiguredLimitIsNotAnAmount() {
+        Date serviceDate = stubPercentageBatch();
+        when(billingPercLimitDao.findByServiceCodeAndLatestDate("E400B", serviceDate))
+                .thenReturn(List.of(limit(7, "1.00", " ")));
+
+        assertThatThrownBy(() -> createPercentageBatch(serviceDate))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("maximum percentage limit")
+                .hasMessageContaining("E400B");
+
+        verify(headerDao, never()).persist(any());
+    }
+
+    private Date stubPercentageBatch() {
+        when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
+        when(demographicDao.getDemographicById(1)).thenReturn(demographic(1, "ON"));
+        when(billingServiceDao.searchBillingCode(eq("A007A"), eq("ON"), any()))
+                .thenReturn(stubServiceCode("A007A", "30.00", false, ""));
+        when(billingServiceDao.searchBillingCode(eq("E400B"), eq("ON"), any()))
+                .thenReturn(stubServiceCode("E400B", "", false, "0.50"));
+        when(gstControlDao.find(any(Integer.class))).thenReturn(gstControl("0"));
+        return new Date();
+    }
+
+    private String createPercentageBatch(Date serviceDate) {
+        return service.createBills("999998", List.of("1"), List.of("A007A", "E400B"), List.of("401"),
+                "00001", serviceDate, "999998");
+    }
+
+    private BillingPercLimit limit(int id, String min, String max) {
+        BillingPercLimit limit = new BillingPercLimit();
+        limit.setId(id);
+        limit.setService_code("E400B");
+        limit.setMin(min);
+        limit.setMax(max);
+        return limit;
     }
 
     private Provider provider(String providerNo) {

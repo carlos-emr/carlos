@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
@@ -40,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
+import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -69,17 +71,20 @@ public class BillingOnHeaderCreationService {
     private final DemographicDao demographicDao;
     private final BillingServiceDao billingServiceDao;
     private final GstControlDao gstControlDao;
+    private final BillingPercLimitDao billingPercLimitDao;
 
     public BillingOnHeaderCreationService(BillingONCHeader1Dao headerDao,
                                           ProviderDao providerDao,
                                           DemographicDao demographicDao,
                                           BillingServiceDao billingServiceDao,
-                                          GstControlDao gstControlDao) {
+                                          GstControlDao gstControlDao,
+                                          BillingPercLimitDao billingPercLimitDao) {
         this.headerDao = headerDao;
         this.providerDao = providerDao;
         this.demographicDao = demographicDao;
         this.billingServiceDao = billingServiceDao;
         this.gstControlDao = gstControlDao;
+        this.billingPercLimitDao = billingPercLimitDao;
     }
 
     /** Create a single-line bill (no dx). Returns the dollar total as a string. */
@@ -224,8 +229,13 @@ public class BillingOnHeaderCreationService {
     /**
      * Calculates the dollar total for a list of service codes on a given date,
      * applying the GST percent (when the code is GST-flagged) and any
-     * percentage-based codes (with min/max clamps from {@link BillingPercLimit}).
-     * Equivalent to the legacy DAO method this replaced — no behavioral change.
+     * percentage-based codes, each clamped to the code's {@link BillingPercLimit}
+     * in effect on the service date.
+     *
+     * <p>Until issue #5307 the clamp read {@code BillingService.getBillingPercLimit()}, a
+     * mapping that joined limits to the fee row's numeric id instead of its code, so a
+     * configured limit was never applied here. The limit is now loaded by code and
+     * service date, the rule {@code BillingOnClaimLoader} uses for the interactive bill.</p>
      */
     private String calcTotal(List<String> codes, Date serviceDate) {
         GstControl gstControl = gstControlDao.find(Integer.valueOf(1));
@@ -255,14 +265,38 @@ public class BillingOnHeaderCreationService {
         for (BillingService percentcode : percentCodes) {
             BigDecimal percent = BillingMoney.amount(percentcode.getPercentage());
             BigDecimal percentCalc = percBase.multiply(percent).setScale(2, RoundingMode.HALF_UP);
-            BillingPercLimit limit = percentcode.getBillingPercLimit();
+            BillingPercLimit limit = percLimitInEffect(percentcode.getServiceCode(), serviceDate);
             if (limit != null) {
-                percentCalc = percentCalc.min(BillingMoney.amount(limit.getMax()));
-                percentCalc = percentCalc.max(BillingMoney.amount(limit.getMin()));
+                percentCalc = percentCalc.min(limitAmount(limit.getMax(), "maximum", percentcode.getServiceCode()));
+                percentCalc = percentCalc.max(limitAmount(limit.getMin(), "minimum", percentcode.getServiceCode()));
             }
             total = total.add(percentCalc);
         }
         return total.toString();
+    }
+
+    /**
+     * The code's percentage limit with the latest effective date on or before the service
+     * date, or {@code null} when none is configured. Two rows on that date should not
+     * exist (ServiceCodePersister updates the row for a date in place); if they do, the
+     * most recently added one wins so the total does not depend on row order.
+     */
+    private BillingPercLimit percLimitInEffect(String serviceCode, Date serviceDate) {
+        return billingPercLimitDao.findByServiceCodeAndLatestDate(serviceCode, serviceDate).stream()
+                .max(Comparator.comparing(BillingPercLimit::getId))
+                .orElse(null);
+    }
+
+    private static BigDecimal limitAmount(String raw, String bound, String serviceCode) {
+        try {
+            return BillingMoney.amount(raw);
+        } catch (BillingValidationException | NumberFormatException e) {
+            // A configured limit that is not an amount must stop the batch, not be skipped:
+            // skipping it would bill the percentage code unclamped.
+            throw new BillingValidationException("Cannot create batch bill: the " + bound
+                    + " percentage limit for service code=" + LogSafe.sanitizeForDisplay(serviceCode)
+                    + " is not an amount", e);
+        }
     }
 
     private static String cleanMoney(String raw) {

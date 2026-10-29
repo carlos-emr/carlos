@@ -31,72 +31,128 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
 import java.util.List;
 
-import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Reads and writes saved tickler {@link CustomFilter}s.
+ *
+ * <p><b>Fetch plan (issue #5307).</b> A filter's provider and assignee sets are
+ * {@code LAZY}, and nothing upstream keeps a persistence context open: the manager hands
+ * these entities to callers outside any transaction. So every read here returns filters
+ * with both sets and the program already loaded, in one statement per query
+ * ({@link #DETAIL_FETCH}). Do not add a read that skips it; a caller touching
+ * {@code getProviders()} on such a filter would get a {@code LazyInitializationException}.</p>
+ *
+ * <p>Both sets are {@code Set}s, so fetching them together cannot raise
+ * {@code MultipleBagFetchException}. The join repeats a filter once per provider x assignee
+ * pair; Hibernate collapses those rows to one filter per id.</p>
+ */
 @Repository
 public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implements CustomFilterDao {
+
+    /** The detail graph every read loads: both provider sets and the (optional) program. */
+    static final String DETAIL_FETCH = "select c from CustomFilter c "
+            + "left join fetch c.providers "
+            + "left join fetch c.assignees "
+            + "left join fetch c.program ";
 
     public CustomFilterDaoImpl() {
         super(CustomFilter.class);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Returns the filter with its provider sets and program loaded. A {@code null} or
+     * non-{@code Integer} key keeps {@code EntityManager.find}'s own handling, and whatever it
+     * returns is initialized before it is handed back.</p>
+     */
     @Override
-    public CustomFilter findByName(String name) {
-        Query query = entityManager.createQuery("select c FROM CustomFilter c where c.name = ?1");
-        query.setParameter(1, name);
-
-        CustomFilter result = this.getSingleResultOrNull(query);
-
-        return result;
+    public CustomFilter find(Object id) {
+        if (id instanceof Integer filterId) {
+            return firstOrNull(withDetail("where c.id = :id").setParameter("id", filterId));
+        }
+        return initializeDetail(super.find(id));
     }
 
     @Override
+    public CustomFilter find(int id) {
+        return find(Integer.valueOf(id));
+    }
+
+    /** Loads the filter through {@link #find(Object)} and then detaches it. */
+    @Override
+    public CustomFilter findDetached(Object id) {
+        CustomFilter filter = find(id);
+        if (filter != null) {
+            detach(filter);
+        }
+        return filter;
+    }
+
+    /**
+     * Pages filter ids first, then loads that page with its detail graph: paging a
+     * collection fetch directly would page the joined rows, not the filters.
+     */
+    @Override
+    public List<CustomFilter> findAll(Integer offset, Integer limit) {
+        int pageSize = (limit == null) ? getMaxSelectSize() : limit;
+        if (pageSize > getMaxSelectSize()) {
+            throw new MaxSelectLimitExceededException(getMaxSelectSize(), limit);
+        }
+        TypedQuery<Integer> ids = entityManager.createQuery(
+                "select c.id from CustomFilter c order by c.id", Integer.class);
+        if (offset != null && offset > 0) {
+            ids.setFirstResult(offset);
+        }
+        ids.setMaxResults(pageSize);
+        List<Integer> page = ids.getResultList();
+        if (page.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return withDetail("where c.id in (:ids) order by c.id").setParameter("ids", page).getResultList();
+    }
+
+    /** When several filters share the name, returns the one with the lowest id. */
+    @Override
+    public CustomFilter findByName(String name) {
+        return firstOrNull(withDetail("where c.id = (select min(c2.id) from CustomFilter c2 where c2.name = :name)")
+                .setParameter("name", name));
+    }
+
+    /** When the provider has several filters with the name, returns the one with the lowest id. */
+    @Override
     public CustomFilter findByNameAndProviderNo(String name, String providerNo) {
-        Query query = entityManager.createQuery("select c FROM CustomFilter c where c.name = ?1 and c.providerNo = ?2");
-        query.setParameter(1, name);
-        query.setParameter(2, providerNo);
-
-        CustomFilter result = this.getSingleResultOrNull(query);
-
-        return result;
+        return firstOrNull(withDetail("where c.id = (select min(c2.id) from CustomFilter c2 "
+                + "where c2.name = :name and c2.providerNo = :providerNo)")
+                .setParameter("name", name)
+                .setParameter("providerNo", providerNo));
     }
 
     @Override
     public List<CustomFilter> getCustomFilters() {
-        Query query = entityManager.createQuery("select c FROM CustomFilter c");
-
-        @SuppressWarnings("unchecked")
-        List<CustomFilter> result = query.getResultList();
-
-        return result;
+        return withDetail("order by c.id").getResultList();
     }
 
     @Override
     public List<CustomFilter> findByProviderNo(String providerNo) {
-        Query query = entityManager.createQuery("select c FROM CustomFilter c where c.providerNo = ?1");
-        query.setParameter(1, providerNo);
-
-        @SuppressWarnings("unchecked")
-        List<CustomFilter> result = query.getResultList();
-
-        return result;
+        return withDetail("where c.providerNo = :providerNo order by c.id")
+                .setParameter("providerNo", providerNo)
+                .getResultList();
     }
 
     @Override
     public List<CustomFilter> getCustomFilterWithShortCut(String providerNo) {
-        Query query = entityManager
-                .createQuery("select c FROM CustomFilter c where c.providerNo = ?1 and c.shortcut = true");
-        query.setParameter(1, providerNo);
-
-        @SuppressWarnings("unchecked")
-        List<CustomFilter> result = query.getResultList();
-
-        return result;
+        return withDetail("where c.providerNo = :providerNo and c.shortcut = true order by c.id")
+                .setParameter("providerNo", providerNo)
+                .getResultList();
     }
 
     @Override
@@ -107,4 +163,21 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
         }
     }
 
+    private TypedQuery<CustomFilter> withDetail(String whereAndOrder) {
+        return entityManager.createQuery(DETAIL_FETCH + whereAndOrder, CustomFilter.class);
+    }
+
+    private static CustomFilter firstOrNull(TypedQuery<CustomFilter> query) {
+        // No setMaxResults: limiting a collection fetch would cut the joined rows, not filters.
+        List<CustomFilter> results = query.getResultList();
+        return results.isEmpty() ? null : results.get(0);
+    }
+
+    private static CustomFilter initializeDetail(CustomFilter filter) {
+        if (filter != null) {
+            Hibernate.initialize(filter.getProviders());
+            Hibernate.initialize(filter.getAssignees());
+        }
+        return filter;
+    }
 }
