@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -125,6 +126,38 @@ class DateTimeFormatUtilsUnitTest {
         });
 
         assertThat(failures).isEmpty();
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    void shouldFormatEveryDate_whenCallersShareOneLegacyDateFormat() throws Exception {
+        // The deprecated DateFormat overload is kept for compatibility. A caller that passes one
+        // shared SimpleDateFormat, as the Population Report did, must still get its own date back.
+        DateFormat shared = new SimpleDateFormat("dd/MM/yyyy");
+        LocalDate first = LocalDate.of(2002, 1, 1);
+
+        var failures = ConcurrentRounds.run(8, 1500, (thread, round) -> {
+            LocalDate date = first.plusDays(thread * 2000L + round);
+
+            assertThat(DateTimeFormatUtils.getStringFromDate(clinicMidnight(date), shared))
+                    .isEqualTo("%02d/%02d/%04d".formatted(date.getDayOfMonth(), date.getMonthValue(), date.getYear()));
+        });
+
+        assertThat(failures).isEmpty();
+        assertThat(DateTimeFormatUtils.getStringFromDate(null, shared)).isEmpty();
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    void shouldReadYearMonthDayText_whateverLegacyFormatIsPassed() {
+        // This overload has always read yyyy-MM-dd and ignored its format argument.
+        DateFormat ignored = new SimpleDateFormat("dd/MM/yyyy");
+
+        assertThat(DateTimeFormatUtils.getDateFromString("2026-05-01", ignored))
+                .isEqualTo(DateTimeFormatUtils.getDateFromString("2026-05-01"));
+        assertThat(DateTimeFormatUtils.getDateFromString("", ignored)).isNull();
+        assertThatThrownBy(() -> DateTimeFormatUtils.getDateFromString("01/05/2026", ignored))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test

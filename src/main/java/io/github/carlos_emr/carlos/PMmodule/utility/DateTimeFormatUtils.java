@@ -28,6 +28,7 @@
 package io.github.carlos_emr.carlos.PMmodule.utility;
 
 import java.sql.Timestamp;
+import java.text.DateFormat;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -114,8 +115,8 @@ public final class DateTimeFormatUtils {
     /**
      * Writes the clinic's calendar date of {@code date} as {@code yyyy-MM-dd}.
      *
-     * @param date the instant to write; may be {@code null}
-     * @return the date text, or an empty string when {@code date} is {@code null}
+     * @param date Date the instant to write; may be {@code null}
+     * @return String the date text, or an empty string when {@code date} is {@code null}
      */
     public static final String getStringFromDate(Date date) {
         return getStringFromDate(date, DATE_FORMAT);
@@ -124,19 +125,41 @@ public final class DateTimeFormatUtils {
     /**
      * Writes {@code date} in the clinic's zone with {@code format}.
      *
-     * @param date the instant to write; may be {@code null}
-     * @param format an immutable formatter, safe to keep in a shared constant
-     * @return the formatted text, or an empty string when {@code date} is {@code null}
+     * @param date Date the instant to write; may be {@code null}
+     * @param format DateTimeFormatter an immutable formatter, safe to keep in a shared constant
+     * @return String the formatted text, or an empty string when {@code date} is {@code null}
      */
     public static final String getStringFromDate(Date date, DateTimeFormatter format) {
         return format(date, format);
     }
 
     /**
+     * Writes {@code date} with a caller's legacy {@link DateFormat}, in that format's own zone.
+     *
+     * <p>A {@code DateFormat} is not safe to share between threads. This method formats with its
+     * own copy of {@code format} and never changes the caller's instance, so callers that share one
+     * instance and use it only through this method each get their own date back.</p>
+     *
+     * @param date Date the instant to write; may be {@code null}
+     * @param format DateFormat the caller's format
+     * @return String the formatted text, or an empty string when {@code date} is {@code null}
+     * @deprecated pass an immutable {@link DateTimeFormatter} to
+     *     {@link #getStringFromDate(Date, DateTimeFormatter)} instead; kept so existing callers
+     *     still compile and link
+     */
+    @Deprecated
+    public static final String getStringFromDate(Date date, DateFormat format) {
+        if (date == null) {
+            return "";
+        }
+        return ((DateFormat) format.clone()).format(date);
+    }
+
+    /**
      * Reads {@code yyyy-MM-dd} text as the clinic's midnight on that date.
      *
-     * @param date the date text; may be {@code null} or empty
-     * @return the clinic's midnight on that date, or {@code null} for {@code null} or empty text
+     * @param date String the date text; may be {@code null} or empty
+     * @return Date the clinic's midnight on that date, or {@code null} for {@code null} or empty text
      * @throws IllegalStateException if the text is not a calendar date
      */
     public static final Date getDateFromString(String date) {
@@ -155,10 +178,26 @@ public final class DateTimeFormatUtils {
     }
 
     /**
+     * Reads {@code yyyy-MM-dd} text exactly as {@link #getDateFromString(String)} does. The
+     * format argument has never been used: this overload has always read {@code yyyy-MM-dd}.
+     *
+     * @param date String the date text; may be {@code null} or empty
+     * @param format DateFormat ignored
+     * @return Date the clinic's midnight on that date, or {@code null} for {@code null} or empty text
+     * @throws IllegalStateException if the text is not a calendar date
+     * @deprecated use {@link #getDateFromString(String)}; kept so existing callers still compile
+     *     and link
+     */
+    @Deprecated
+    public static final Date getDateFromString(String date, DateFormat format) {
+        return getDateFromString(date);
+    }
+
+    /**
      * Truncates {@code date} to the clinic's midnight on the same calendar date.
      *
-     * @param date the instant to truncate; may be {@code null}
-     * @return the clinic's midnight on that date, or {@code null} when {@code date} is {@code null}
+     * @param date Date the instant to truncate; may be {@code null}
+     * @return Date the clinic's midnight on that date, or {@code null} when {@code date} is {@code null}
      */
     public static final Date getDateFromDate(Date date) {
         return (date != null) ? startOfClinicDay(inClinicZone(date).toLocalDate()) : null;
@@ -177,8 +216,8 @@ public final class DateTimeFormatUtils {
     /**
      * Writes the clinic's time of day of {@code time} as the short Canadian time.
      *
-     * @param time the instant to write; may be {@code null}
-     * @return the time text, or an empty string when {@code time} is {@code null}
+     * @param time Date the instant to write; may be {@code null}
+     * @return String the time text, or an empty string when {@code time} is {@code null}
      */
     public static final String getStringFromTime(Date time) {
         return format(time, TIME_FORMAT);
@@ -188,8 +227,8 @@ public final class DateTimeFormatUtils {
      * Reads short Canadian time text as that time of day on 1 January 1970 in the clinic's zone,
      * the date the legacy parser gave a time without a date.
      *
-     * @param time the time text; may be {@code null} or empty
-     * @return the time on 1 January 1970, or {@code null} for {@code null} or empty text
+     * @param time String the time text; may be {@code null} or empty
+     * @return Date the time on 1 January 1970, or {@code null} for {@code null} or empty text
      * @throws IllegalStateException if the text is not a short Canadian time
      */
     public static final Date getTimeFromString(String time) {
@@ -207,8 +246,8 @@ public final class DateTimeFormatUtils {
     /**
      * Keeps only the clinic's time of day of {@code date}, to the minute the short time shows.
      *
-     * @param date the instant; may be {@code null}
-     * @return that time on 1 January 1970, or {@code null} when {@code date} is {@code null}
+     * @param date Date the instant; may be {@code null}
+     * @return Date that time on 1 January 1970, or {@code null} when {@code date} is {@code null}
      */
     public static final Date getTimeFromDate(Date date) {
         return getTimeFromString(getStringFromTime(date));

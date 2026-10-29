@@ -43,9 +43,17 @@ import java.util.concurrent.TimeUnit;
  */
 public final class ConcurrentRounds {
 
-    /** One round of a check; throwing (an assertion error included) records a failure. */
+    /** One round of a check. */
     @FunctionalInterface
     public interface Round {
+        /**
+         * Runs one round.
+         *
+         * @param thread int the thread's number, from 0
+         * @param round int the round's number on that thread, from 0
+         * @throws Exception any failure, an assertion error included, which is recorded and ends
+         *     that thread's rounds
+         */
         void run(int thread, int round) throws Exception;
     }
 
@@ -58,10 +66,10 @@ public final class ConcurrentRounds {
      * <p>A thread stops at its first failure, so the result holds at most one failure per
      * thread.</p>
      *
-     * @param threads the number of threads, released together
-     * @param rounds the rounds each thread runs
-     * @param check the check to run
-     * @return a description of each failure; empty when every round passed
+     * @param threads int the number of threads, released together
+     * @param rounds int the rounds each thread runs
+     * @param check Round the check to run
+     * @return List&lt;String&gt; a description of each failure; empty when every round passed
      * @throws InterruptedException if interrupted while waiting for the threads
      * @throws IllegalStateException if the threads have not finished within a minute
      */

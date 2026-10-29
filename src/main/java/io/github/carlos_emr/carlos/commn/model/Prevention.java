@@ -501,7 +501,7 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
      * a date that does not exist, such as 30 February, is not read as a date in the following
      * month, and trailing text is not ignored, as the lenient legacy parser did.</p>
      *
-     * @return the expiry date, or {@code null} when none is recorded or it is not a calendar date
+     * @return Date the expiry date, or {@code null} when none is recorded or it is not a calendar date
      */
     @Override
     public java.util.Date getExpiryDate() {
@@ -523,7 +523,7 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
      * Stores the clinic's calendar date of {@code expiryDate} as {@code yyyy-MM-dd} text, or empty
      * text when it is {@code null}.
      *
-     * @param expiryDate the expiry date; may be {@code null}
+     * @param expiryDate Date the expiry date; may be {@code null}
      */
     @Override
     public void setExpiryDate(java.util.Date expiryDate) {
@@ -538,7 +538,8 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
     /**
      * Parses trimmed expiry text strictly.
      *
-     * @return the calendar date, or {@code null} when the text is not a {@code yyyy-MM-dd} date
+     * @param text String the trimmed expiry text
+     * @return LocalDate the calendar date, or {@code null} when the text is not a {@code yyyy-MM-dd} date
      */
     private static LocalDate parseExpiryDate(String text) {
         if (!EXPIRY_DATE_TEXT.matcher(text).matches()) {

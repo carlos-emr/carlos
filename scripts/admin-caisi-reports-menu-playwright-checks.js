@@ -16,7 +16,11 @@
  * Population: with the owned FAKE patient admitted to an owned FAKE active Service program, so
  * the report's current population is not 0, the legacy Administration page (admin/ViewAdmin,
  * which the CAISI admin pages' back buttons open) ▸ "Population Report" renders every section
- * (shelter population, intensity of shelter use, the three condition tables, the notes). Then
+ * (shelter population, intensity of shelter use, the three condition tables, the notes). Sixteen
+ * concurrent requests for the report then all show the same date (dd/MM/yyyy) and short Canadian
+ * time (8:05 p.m.) of its cached computation, within the hour before the clinic's current time as
+ * MariaDB reports it: the packaged service runs the JVM and MariaDB in the clinic's zone. The
+ * report formatted these with formatters shared by every request (issue #5301). Then
  * Administration ▸ Reports ▸ "Population Report" in the current shell opens the same report.
  * Only rendering is asserted, not counts: the action keeps its figures for an hour in static
  * fields shared by every user, so a run within an hour of another request sees that request's
@@ -47,6 +51,12 @@ const ACTIVITY_LINK = 'a[rel$="/PMmodule/Reports/ProgramActivityReport"]';
 const POPULATION_SECTIONS = ['Homeless Shelter Population', 'Intensity of Shelter Use', 'Major Medical Condition',
   'Major Mental Illness', 'Incidence in the past year of Serious Medical Conditions', 'Notes on the Data'];
 const REPORT = process.env.CAISI_REPORT || '';
+const CONCURRENT_REPORTS = 16;
+// The report's first table: the heading row carries the computation's date, the summary row its time.
+const REPORT_STAMP = /<thead>\s*<tr>\s*<td>[^<]*<\/td>\s*<td>([^<]*)<\/td>[\s\S]*?<tbody>\s*<tr>\s*<td>[^<]*<\/td>\s*<td>([^<]*)<\/td>/;
+const REPORT_DATE = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+// The short Canadian time: 8:05 p.m., with a narrow no-break space on current JDKs.
+const REPORT_TIME = /^(\d{1,2}):(\d{2})[\s\u00a0\u202f]?([ap])\.m\.$/;
 h.assert(['', 'activity', 'population'].includes(REPORT),
   `CAISI_REPORT must be activity, population or unset (was ${JSON.stringify(REPORT)})`);
 const runs = report => !REPORT || REPORT === report;
@@ -56,6 +66,35 @@ const runs = report => !REPORT || REPORT === report;
  * entry has none, so it has no link role; a fix may load the report in the panel or the frame).
  */
 const populationEntry = admin => admin.locator('#adminNav a').filter({ hasText: /^\s*Population Report\s*$/ }).first();
+
+/** Decodes the numeric and common named character references the encoder may emit. */
+function decodeHtml(text) {
+  return text
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
+    .replace(/&nbsp;/g, '\u00a0').replace(/&amp;/g, '&').trim();
+}
+
+/**
+ * The date and time the report shows, as text and as minutes since the epoch of the clinic's wall
+ * clock (no zone: both sides of the comparison are the clinic's local time).
+ */
+function reportStamp(html, how) {
+  const match = REPORT_STAMP.exec(html);
+  h.assert(match, `${how} has no date and time row`);
+  const [date, time] = [decodeHtml(match[1]), decodeHtml(match[2])];
+  const day = REPORT_DATE.exec(date);
+  h.assert(day, `${how} shows its date as ${JSON.stringify(date)}, not dd/MM/yyyy`);
+  const clock = REPORT_TIME.exec(time);
+  h.assert(clock, `${how} shows its time as ${JSON.stringify(time)}, not the short Canadian time (8:05 p.m.)`);
+  const [dd, mm, yyyy] = day.slice(1).map(Number);
+  const [hour12, minute] = clock.slice(1, 3).map(Number);
+  h.assert(hour12 >= 1 && hour12 <= 12 && minute <= 59, `${how} shows an impossible time ${JSON.stringify(time)}`);
+  const wallClock = new Date(Date.UTC(yyyy, mm - 1, dd, (hour12 % 12) + (clock[3] === 'p' ? 12 : 0), minute));
+  h.assert(wallClock.getUTCFullYear() === yyyy && wallClock.getUTCMonth() === mm - 1 && wallClock.getUTCDate() === dd,
+    `${how} shows a date that is not on the calendar: ${date}`);
+  return { date, time, minutes: wallClock.getTime() / 60000 };
+}
 
 async function openAdmin(s) {
   const { page } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
@@ -148,6 +187,28 @@ async function workflow(s) {
     await legacy.waitForLoadState('load', { timeout: TIMEOUT });
     await assertPopulationReport(legacy.locator('body'), 'Population Report from the legacy Administration page');
     await legacy.close();
+  });
+
+  await s.step('concurrent Population Reports show the clinic date and time of one computation', async () => {
+    const url = h.appUrl(s.config.baseUrl, '/PopulationReport');
+    const pages = await Promise.all(Array.from({ length: CONCURRENT_REPORTS }, () => s.context.request.get(url)));
+    // MariaDB runs in the clinic's zone with the JVM (carlos-emr-tomcat keeps them together).
+    const [clinicDay, clinicClock] = String(sql.value("SELECT DATE_FORMAT(NOW(), '%d/%m/%Y %H:%i')")).split(' ');
+    const [cd, cm, cy] = clinicDay.split('/').map(Number);
+    const [ch, cmin] = clinicClock.split(':').map(Number);
+    const clinicNow = Date.UTC(cy, cm - 1, cd, ch, cmin) / 60000;
+
+    const stamps = [];
+    for (const [index, response] of pages.entries()) {
+      h.assert(response.status() === 200, `Concurrent Population Report ${index + 1} answered HTTP ${response.status()}`);
+      stamps.push(reportStamp(await response.text(), `Concurrent Population Report ${index + 1}`));
+    }
+    const shown = new Set(stamps.map(stamp => `${stamp.date} ${stamp.time}`));
+    h.assert(shown.size === 1, `Concurrent requests for the one cached report showed different dates or times: ${[...shown].join(' | ')}`);
+    // The figures are cached for an hour, so the stamp is at most an hour (and a minute of rounding) old.
+    const age = clinicNow - stamps[0].minutes;
+    h.assert(age >= -1 && age <= 61, `The report shows ${[...shown][0]}, ${age} minutes from the clinic's time `
+      + `${clinicDay} ${clinicClock}: not the clinic's date and time of a computation in the last hour`);
   });
 
   await s.step('Administration ▸ Reports ▸ Population Report opens the report', async () => {

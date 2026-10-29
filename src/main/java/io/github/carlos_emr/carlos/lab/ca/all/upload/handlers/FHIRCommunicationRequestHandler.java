@@ -229,9 +229,9 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
      * The clinic's calendar date of a CommunicationRequest's {@code authoredOn} instant, as the
      * {@code yyyy-MM-dd} observation date its document is filed under.
      *
-     * @param authoredOn the request's authoredOn instant; may be {@code null}
-     * @param clinicZone the clinic's zone
-     * @return the date text, or {@code null} when {@code authoredOn} is {@code null}
+     * @param authoredOn Date the request's authoredOn instant; may be {@code null}
+     * @param clinicZone ZoneId the clinic's zone
+     * @return String the date text, or {@code null} when {@code authoredOn} is {@code null}
      */
     static String observationDate(Date authoredOn, ZoneId clinicZone) {
         if (authoredOn == null) {
