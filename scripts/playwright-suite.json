@@ -799,6 +799,22 @@
       ]
     },
     {
+      "name": "lab-upload-xml-entity",
+      "script": "scripts/lab-upload-xml-entity-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE",
+        "LAB_XXE_OBSERVER_HOST"
+      ]
+    },
+    {
       "name": "lab-upload-rollback",
       "script": "scripts/lab-upload-rollback-playwright-checks.js",
       "tiers": [
