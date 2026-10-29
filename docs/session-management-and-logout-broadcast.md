@@ -43,8 +43,12 @@ session alive. Its rules (issue #5305):
 
 - It is mapped after `LoginFilter` and before Struts prepare/execute, for REQUEST dispatches
   only. Until #5305 it was mapped after `struts2-execute`, so it never saw a Struts action.
-- `autoRefresh=true` requests, `/status/SessionHeartbeat` and the CSRFGuard script servlet
-  (`/csrfguard`) are not user activity.
+- `autoRefresh=true` requests, the CSRFGuard script servlet (`/csrfguard`) and every path
+  `LoginFilter` exempts from its own timer (`LoginFilter.isExemptFromInactivityTimer`: the
+  heartbeat, the tab-alert and message polls, the schedule's self-refresh, static assets, the
+  login and logout pages) are not user activity, so the two timers agree.
+- The timer starts at the session's first authenticated request of any kind, so a session that
+  only ever polls still times out, and it never moves backwards.
 - It never creates a session and ignores anonymous and half-finished login sessions.
 - It never redirects `/logout`, `/logoutPage`, `/index` or `/loginfailed` (the logout page posts
   to `/logout`, so redirecting it would loop).
