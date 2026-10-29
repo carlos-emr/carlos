@@ -446,12 +446,21 @@ mariadb_cause() {
     else
         case "${err}" in
             *"account is locked"*)
-                say "cause: MariaDB is running, but its root@localhost account is locked (${first}); unlock it as an administrator: ALTER USER root@localhost ACCOUNT UNLOCK" ;;
+                # A locked root cannot log in to unlock itself, by password or
+                # by socket: only the grant-table reset recovers it.
+                say "cause: MariaDB is running, but its root@localhost account is locked (${first}), and a locked root cannot log in to unlock itself; reset it as described under 'MariaDB root access' in /usr/share/doc/carlos-emr/README.Debian (a restart with --skip-grant-tables)" ;;
             *"ERROR 1045"*"using password: NO"*)
                 # 1045 without a password offered: the account wants one. The
                 # unix_socket plugin, which is how CARLOS administers MariaDB,
                 # would have let the system root user in.
                 say "cause: MariaDB is running, but its root@localhost account was given a password before CARLOS was installed and refuses the system root user over the unix socket, which is how CARLOS administers the database; allow it (keeping the password) as described under 'MariaDB root access' in /usr/share/doc/carlos-emr/README.Debian" ;;
+            *"ERROR 1045"*"using password: YES"*)
+                # A password was sent although CARLOS passes none: a client
+                # option file (/root/.my.cnf, or a [client] section under
+                # /etc/mysql) supplies one, and root has no socket login to
+                # fall back on. Adding socket login fixes it; the option file
+                # then no longer matters.
+                say "cause: MariaDB is running, but root@localhost has no unix-socket login, and a MariaDB client option file (/root/.my.cnf, or a [client] section under /etc/mysql) sends a password it refuses (${first}); add socket login as described under 'MariaDB root access' in /usr/share/doc/carlos-emr/README.Debian" ;;
             *"Access denied"*)
                 say "cause: MariaDB is running but refuses the system root user over the unix socket (${first}); CARLOS administers the database as root@localhost through unix_socket, see 'MariaDB root access' in /usr/share/doc/carlos-emr/README.Debian" ;;
             *"ERROR 2002"* | *"Can't connect to local server through socket"*)

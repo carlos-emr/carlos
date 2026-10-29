@@ -546,6 +546,21 @@ class TestMariadbCause(HostConflictsCase):
         }, "mariadb")
         self.assertIn("root@localhost account is locked", r.stdout)
         self.assertNotIn("given a password", r.stdout)
+        # A locked root cannot run ACCOUNT UNLOCK itself: point at the reset.
+        self.assertIn("cannot log in to unlock itself", r.stdout)
+        self.assertIn("--skip-grant-tables", r.stdout)
+
+    def test_password_sent_by_an_option_file_is_explained(self):
+        # Seen on a real MariaDB: CARLOS passes no password, so "using
+        # password: YES" means /root/.my.cnf (or /etc/mysql [client]) sent one.
+        r = self.run_script({
+            "mariadb_state": "active", "listeners": [], "mariadb_rc": 1,
+            "mariadb_stderr": "ERROR 1045 (28000): Access denied for user 'root'@'localhost' "
+                              "(using password: YES)\n",
+        }, "mariadb")
+        self.assertIn("no unix-socket login", r.stdout)
+        self.assertIn("/root/.my.cnf", r.stdout)
+        self.assertIn("MariaDB root access", r.stdout)
 
     def test_other_access_denied_quotes_the_error(self):
         r = self.run_script({

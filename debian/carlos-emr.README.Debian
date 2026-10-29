@@ -502,14 +502,37 @@ with that password,
 
     sudo mariadb -u root -p
 
-and run, with the CURRENT root password in place of the placeholder,
+and run, with the CURRENT root password in place of the placeholder (inside
+the quotes write a ' as '' and a backslash as \\),
 
     ALTER USER root@localhost IDENTIFIED VIA unix_socket
         OR mysql_native_password USING PASSWORD('current-root-password');
 
-`sudo mariadb -e 'SELECT 1'` now answers without a password. Then:
+`sudo mariadb -e 'SELECT 1'` now answers without a password, and password
+logins keep working for anything else that uses them. A /root/.my.cnf that
+sends a password (an "Access denied ... (using password: YES)" error) no longer
+matters once socket login is in place. Then:
 
     sudo carlos-ctl finish-install
+
+If nobody knows the old root password, or root is locked ("this account is
+locked" -- a locked root cannot log in to unlock itself), reset it with the
+grant tables switched off. For that short window any local user can connect
+without a password, so networking stays off and the server is restarted
+normally straight after:
+
+    sudo systemctl stop mariadb
+    sudo systemctl set-environment MYSQLD_OPTS="--skip-grant-tables --skip-networking"
+    sudo systemctl start mariadb
+    sudo mariadb -e "FLUSH PRIVILEGES; ALTER USER root@localhost ACCOUNT UNLOCK;
+        ALTER USER root@localhost IDENTIFIED VIA unix_socket
+        OR mysql_native_password USING 'invalid'"
+    sudo systemctl unset-environment MYSQLD_OPTS
+    sudo systemctl restart mariadb
+
+USING 'invalid' is the distribution's default: root logs in over the socket
+only. To keep a password for other tools, use USING PASSWORD('new-password')
+instead. Then run sudo carlos-ctl finish-install.
 
 The schema is managed with Flyway. The application boots with
 `carlos.flyway.onBoot=validate`, so it refuses to start against a schema it was
