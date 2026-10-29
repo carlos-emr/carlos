@@ -57,12 +57,30 @@ INCOMPLETE_MARKER="${STATE}/.install-incomplete"
 # Keep an in-memory failure flag too: a full/read-only filesystem may prevent
 # writing the marker, but must not suppress the notice or abort dpkg configure.
 INSTALL_INCOMPLETE=0
+# Every step that failed in THIS run, in order, joined with "; ". A run can
+# fail more than one step (a beta2 tester's failed MariaDB and nginx), and
+# keeping only the last one sent `carlos-ctl check` and the debconf error to
+# the lesser of the two. One line: carlos_ctl.util.env_get reads the marker as
+# KEY=value lines. The optional second argument is the diagnosed cause.
+INCOMPLETE_REASONS=""
+# What the front-door port check stopped this run ("stopped:" lines of
+# carlos-emr-host-conflicts); announced through debconf at the end. Set here as
+# well as at the check, so an inherited variable never fakes an announcement.
+FRONT_DOOR_FREED=""
 mark_incomplete() {
     INSTALL_INCOMPLETE=1
+    incomplete_reason="$1"
+    if [ -n "${2:-}" ]; then
+        incomplete_reason="$1 ($(printf '%s' "$2" | tr '\n' ' '))"
+    fi
+    case "; ${INCOMPLETE_REASONS}; " in
+        *"; ${incomplete_reason}; "*) ;;
+        *) INCOMPLETE_REASONS="${INCOMPLETE_REASONS:+${INCOMPLETE_REASONS}; }${incomplete_reason}" ;;
+    esac
     marker_tmp=""
     if mkdir -p "${STATE}" && marker_tmp="$(mktemp "${INCOMPLETE_MARKER}.XXXXXX")" &&
         {
-            printf 'reason=%s\n' "$1" &&
+            printf 'reason=%s\n' "${INCOMPLETE_REASONS}" &&
             printf 'reset_admin=%s\n' "${RESET_ADMIN:-true}" &&
             printf 'demo_data=%s\n' "${DEMO_DATA:-false}" &&
             printf 'at=%s\n' "$(date -Is 2>/dev/null || true)"
@@ -180,6 +198,97 @@ sd_invoke() {
     deb-systemd-invoke "$@"
 }
 
+# CARLOS_BIND_IP as Settings reads it: the last value, without surrounding
+# space or brackets; the wildcard when unset.
+configured_bind_ip() {
+    configured_ip="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" 2>/dev/null | tr -d '\042' | tail -1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^\[\(.*\)\]$/\1/')"
+    printf '%s\n' "${configured_ip:-0.0.0.0}"
+}
+
+# What holds the front-door ports or keeps MariaDB from answering root, from
+# the shipped helper (/usr/lib/carlos-emr/carlos-emr-host-conflicts; its
+# header has the rules for what it may stop). A fresh beta2 install on an
+# Ubuntu 26.04 VM met another program on 0.0.0.0:80 and reported only "nginx
+# reload failed" and "could not reach MariaDB"; the tester could not tell
+# what to fix (#5439). Diagnostic: never fails the configure.
+HOST_CONFLICTS=/usr/lib/carlos-emr/carlos-emr-host-conflicts
+host_conflicts() {
+    [ -x "${HOST_CONFLICTS}" ] || return 0
+    "${HOST_CONFLICTS}" "$@" 2>/dev/null || true
+}
+
+# One line per item, joined with "; " for a debconf substitution or the marker.
+join_lines() {
+    awk 'NF { printf "%s%s", sep, $0; sep = "; " }'
+}
+
+# The journal as well as apt's term.log: a service this package turned off on
+# someone else's behalf has to be findable later (journalctl -t carlos-emr).
+log_action() {
+    if command -v logger >/dev/null 2>&1; then
+        logger -t carlos-emr -p daemon.notice -- "$1" 2>/dev/null || true
+    fi
+}
+
+# Ports 80 and 443 belong to nginx. Another system service holding them
+# (apache2, a Nextcloud snap, an administrator's own unit, ...) keeps the
+# front door down, so it is stopped and kept off -- after asking, when debconf
+# can ask. carlos-emr/stop-port-conflicts lists exactly what would be stopped;
+# a non-interactive install (or a priority above high) takes the default,
+# true, and goes ahead. Either way every action, and a refusal, goes to stderr
+# and the journal. Declining changes nothing: the nginx step then records
+# what holds the ports, and the install finishes NOT ready. A preseeded false
+# keeps every run hands-off. Sets FRONT_DOOR_FREED to the "stopped:" lines for
+# the closing note.
+#
+# $1 is the version being upgraded from (empty on a first install). An nginx
+# an operator stopped (inactive) before an upgrade stays stopped -- the nginx
+# step below honours that -- and so does whatever they put on 80/443 in its
+# place: stopping it would only swap their choice for an nginx this run then
+# starts. A first install, or an nginx that failed to start, is not that case.
+free_front_door() {
+    FRONT_DOOR_FREED=""
+    [ -d /run/systemd/system ] || return 0
+    if [ -n "${1:-}" ] && [ "$(systemctl is-active nginx.service 2>/dev/null || true)" = inactive ]; then
+        echo "carlos-emr: nginx is stopped, as it was left before this upgrade; ports 80 and 443, and whatever serves them, are left as they are." >&2
+        return 0
+    fi
+    front_door_ip="$(configured_bind_ip)"
+    front_door_plan="$(host_conflicts front-door --plan "${front_door_ip}" | sed -n 's/^will-stop: //p')"
+    [ -n "${front_door_plan}" ] || return 0
+    db_subst carlos-emr/stop-port-conflicts services \
+        "$(printf '%s\n' "${front_door_plan}" | join_lines)" || true
+    # Asked on every configure that finds a conflict, not once: a service
+    # installed after CARLOS is a new decision.
+    db_fset carlos-emr/stop-port-conflicts seen false || true
+    db_input high carlos-emr/stop-port-conflicts || true
+    db_go || true
+    RET=true
+    db_get carlos-emr/stop-port-conflicts || true
+    if [ "${RET}" = false ]; then
+        printf '%s\n' "${front_door_plan}" | while IFS= read -r planned_line; do
+            echo "carlos-emr: NOT stopping (declined): ${planned_line}" >&2
+            log_action "front door: declined to stop ${planned_line}"
+        done
+        return 0
+    fi
+    FRONT_DOOR_FREED="$(host_conflicts front-door "${front_door_ip}" | sed -n 's/^stopped: //p')"
+    [ -n "${FRONT_DOOR_FREED}" ] || return 0
+    printf '%s\n' "${FRONT_DOOR_FREED}" | while IFS= read -r stopped_line; do
+        echo "carlos-emr: ${stopped_line}" >&2
+        log_action "front door: ${stopped_line}"
+    done
+    # nginx's own postinst ran first and printed a red failure for this same
+    # conflict; say that it is handled, not a new fault.
+    echo "carlos-emr: an earlier 'Failed to start' or 'Address already in use' from nginx's own setup was this conflict; nginx is started below." >&2
+}
+
+# The "blocked:" lines of a front-door report, as one sentence for the marker.
+front_door_blockers() {
+    host_conflicts front-door --report "$(configured_bind_ip)" |
+        sed -n 's/^blocked: //p' | join_lines
+}
+
 # NGINX has bound the front-door listeners the rendered configuration asks for
 # — CARLOS_BIND_IP on 80 and 443. Polled briefly: nginx binds them a moment
 # after the reload signal is delivered, and asking too early would restart a
@@ -191,9 +300,7 @@ sd_invoke() {
 # host, and another daemon holding both ports would read exactly the same. The
 # postinst runs as root, so the owner column is populated.
 front_door_listening() {
-    # Match Settings: use the last value, without surrounding space/brackets.
-    bind_ip="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^\[\(.*\)\]$/\1/')"
-    [ -n "${bind_ip}" ] || bind_ip=0.0.0.0
+    bind_ip="$(configured_bind_ip)"
     for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
         # The master can briefly bind sockets during a reload that later
         # fails. Only workers can serve them; refresh PIDs on every poll.
@@ -427,7 +534,14 @@ case "$1" in
                 # install (CarlosDocument not yet created by tmpfiles at this
                 # point) never gains a spurious symlink.
                 ln -sfn CarlosDocument "${STATE}/OscarDocument"
-                echo "carlos-emr: restored the OscarDocument -> CarlosDocument compat symlink after an interrupted rename"
+                if [ -n "${2:-}" ]; then
+                    echo "carlos-emr: restored the OscarDocument -> CarlosDocument compat symlink after an interrupted rename"
+                else
+                    # No prior version: a reinstall after a purge, which keeps
+                    # the document store and removes this symlink. Nothing was
+                    # interrupted; saying so worried a beta2 tester.
+                    echo "carlos-emr: recreated the OscarDocument -> CarlosDocument compat symlink for the document store an earlier purge kept"
+                fi
             fi
         fi
 
@@ -826,7 +940,18 @@ except ValueError:
             # A fresh mariadb-server install may not have finished starting.
             sd_invoke start mariadb.service >/dev/null 2>&1 || true
             deadline=$(( $(uptime_s) + 60 ))  # every probe capped too (hung server)
-            while [ "$(uptime_s)" -lt "${deadline}" ] && ! timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; do
+            # A server that answers and REFUSES root (a root password from an
+            # earlier setup, a locked account) is up: the rest of the minute
+            # cannot change that. The beta2 tester sat through two such
+            # minutes, this one and DrugRef's. Stop at the refusal; the cause
+            # is named where provisioning reports it below.
+            while [ "$(uptime_s)" -lt "${deadline}" ]; do
+                mariadb_probe_rc=0
+                mariadb_probe_err="$(timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' 2>&1 >/dev/null)" || mariadb_probe_rc=$?
+                [ "${mariadb_probe_rc}" != 0 ] || break
+                case "${mariadb_probe_err}" in
+                    *"ERROR 1045"* | *"ERROR 1698"* | *"ERROR 4151"*) break ;;
+                esac
                 sleep 2
             done
         fi
@@ -1453,6 +1578,27 @@ OAUTH_ACCESS_DEFAULTS
         # front door is not this run's to prove yet. Say so explicitly: run by
         # hand later, a missing symlink is a real fault and init-config must
         # not report success over it.
+        #
+        # Ports 80 and 443 first: init-config's certificate refresh is the
+        # first step that (re)starts nginx, and nginx cannot start while
+        # another web server holds them. A beta2 fresh install on an Ubuntu
+        # 26.04 VM met exactly that — another program on 0.0.0.0:80, the
+        # distribution's nginx failing in its own postinst, and nothing in
+        # this one saying what held the port. Any other system service
+        # holding them is stopped and disabled (masked if it cannot be
+        # disabled), whatever installed it: a Debian package (apache2,
+        # lighttpd, ...), a snap the OS installer offered (Nextcloud), or an
+        # administrator's own unit. Containers, container engines, programs
+        # started by hand and database servers are only named, and the nginx
+        # step below records them. On a host whose front door already works
+        # this finds nothing, asks nothing and does nothing.
+        # Interactive installs are asked first (see free_front_door). Not when
+        # another run holds the provisioning lock: this configure then defers
+        # init-config and provisioning, and taking another service down for a
+        # front door it is not about to configure would be all cost.
+        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
+            free_front_door "${2:-}"
+        fi
         [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
             carlos-ctl init-config || {
@@ -1649,9 +1795,15 @@ OAUTH_ACCESS_DEFAULTS
         else
             MIGRATION_OK=0
             echo "carlos-emr: could not reach MariaDB as root over the unix socket." >&2
+            # Say WHY: stopped or failed (and what holds 3306), still starting,
+            # or a root account that was given a password before CARLOS.
+            DB_CAUSE="$(host_conflicts mariadb | sed -n 's/^cause: //p' | head -n 1)"
+            if [ -n "${DB_CAUSE}" ]; then
+                printf 'carlos-emr: %s\n' "${DB_CAUSE}" >&2
+            fi
             echo "carlos-emr: database provisioning could not run; existing data was not checked." >&2
             echo "carlos-emr: the EMR has not been started by this configure run." >&2
-            mark_incomplete "MariaDB was not reachable while the package was configured"
+            mark_incomplete "MariaDB was not reachable while the package was configured" "${DB_CAUSE}"
         fi
 
         # Everything provisioned: drop any marker a previous failed configure
@@ -1781,9 +1933,32 @@ OAUTH_ACCESS_DEFAULTS
                 # configured listeners are bound and restart when they are
                 # not (a restart closes every old socket before binding
                 # anew). carlos-ctl init-config does the same.
-                if ! sd_invoke reload nginx.service 2>/dev/null; then
-                    echo "carlos-emr: WARNING: nginx reload failed — the rendered front-door configuration is not live (systemctl status nginx; journalctl -u nginx)" >&2
-                    mark_incomplete "nginx could not reload the rendered front-door configuration"
+                #
+                # A stopped nginx is STARTED, not reloaded (systemd refuses to
+                # reload a unit that is not running), but only when it is down
+                # because it COULD not run: a first install, a unit that
+                # failed (its own postinst could not bind port 80), or a
+                # conflict this run has just cleared. An nginx an operator
+                # stopped (inactive, on an upgrade) stays stopped: starting it
+                # would expose the EMR during maintenance or after the
+                # operator took the front door down on purpose.
+                NGINX_STATE="$(systemctl is-active nginx.service 2>/dev/null || true)"
+                case "${NGINX_STATE}" in
+                    active | reloading) NGINX_ACTION=reload ;;
+                    *)
+                        if [ -z "${2:-}" ] || [ "${NGINX_STATE}" = failed ] || [ -n "${FRONT_DOOR_FREED:-}" ]; then
+                            NGINX_ACTION=start
+                        else
+                            NGINX_ACTION=""
+                        fi ;;
+                esac
+                if [ -z "${NGINX_ACTION}" ]; then
+                    echo "carlos-emr: nginx is stopped (${NGINX_STATE:-unknown}) and was left stopped, as found; the front door serves once it is started: sudo systemctl start nginx" >&2
+                elif ! sd_invoke "${NGINX_ACTION}" nginx.service 2>/dev/null; then
+                    echo "carlos-emr: WARNING: nginx ${NGINX_ACTION} failed — the rendered front-door configuration is not live (systemctl status nginx; journalctl -u nginx)" >&2
+                    FRONT_DOOR_BLOCKERS="$(front_door_blockers)"
+                    [ -z "${FRONT_DOOR_BLOCKERS}" ] || printf 'carlos-emr: %s\n' "${FRONT_DOOR_BLOCKERS}" >&2
+                    mark_incomplete "nginx could not ${NGINX_ACTION} the rendered front-door configuration" "${FRONT_DOOR_BLOCKERS}"
                 elif front_door_listening; then
                     :
                 else
@@ -1793,7 +1968,9 @@ OAUTH_ACCESS_DEFAULTS
                         mark_incomplete "nginx listener verification failed (ss or ps probe error)"
                     elif ! sd_invoke restart nginx.service; then
                         echo "carlos-emr: WARNING: nginx restart failed (systemctl status nginx; journalctl -u nginx)" >&2
-                        mark_incomplete "nginx could not restart the rendered front-door configuration"
+                        FRONT_DOOR_BLOCKERS="$(front_door_blockers)"
+                        [ -z "${FRONT_DOOR_BLOCKERS}" ] || printf 'carlos-emr: %s\n' "${FRONT_DOOR_BLOCKERS}" >&2
+                        mark_incomplete "nginx could not restart the rendered front-door configuration" "${FRONT_DOOR_BLOCKERS}"
                     elif front_door_listening; then
                         :
                     else
@@ -1803,7 +1980,9 @@ OAUTH_ACCESS_DEFAULTS
                             mark_incomplete "nginx listener verification failed after restart (ss or ps probe error)"
                         else
                             echo "carlos-emr: WARNING: nginx is not listening on the configured front-door address — it may be serving stale configuration (systemctl status nginx; journalctl -u nginx)" >&2
-                            mark_incomplete "nginx did not bind the configured front-door listeners"
+                            FRONT_DOOR_BLOCKERS="$(front_door_blockers)"
+                            [ -z "${FRONT_DOOR_BLOCKERS}" ] || printf 'carlos-emr: %s\n' "${FRONT_DOOR_BLOCKERS}" >&2
+                            mark_incomplete "nginx did not bind the configured front-door listeners" "${FRONT_DOOR_BLOCKERS}"
                         fi
                     fi
                 fi
@@ -2120,6 +2299,19 @@ if [ "$1" = triggered ] && [ -d /run/systemd/system ]; then
     fi
 fi
 
+# Another package's web server was stopped and disabled to free ports 80 and
+# 443 (the check before init-config). That is a change to someone else's
+# service, so it is announced where an interactive operator will see it, not
+# only on stderr; `seen false` so a later configure that stops another one
+# says so again.
+if [ "$1" = configure ] && [ -n "${FRONT_DOOR_FREED}" ]; then
+    db_subst carlos-emr/stopped-port-conflicts services \
+        "$(printf '%s\n' "${FRONT_DOOR_FREED}" | join_lines)" || true
+    db_fset carlos-emr/stopped-port-conflicts seen false || true
+    db_input high carlos-emr/stopped-port-conflicts || true
+    db_go || true
+fi
+
 # The one outcome an operator must not be able to miss. Everything above
 # reports a failed provisioning step on stderr and lets the transaction
 # succeed, which is right for dpkg and wrong for the person installing: apt
@@ -2130,6 +2322,13 @@ fi
 # Outside the systemd guard above on purpose: an image or chroot build that
 # provisioned nothing needs the same notice.
 if [ "$1" = configure ] && { [ "${INSTALL_INCOMPLETE}" = 1 ] || [ -e "${INCOMPLETE_MARKER}" ]; }; then
+    # Name what failed in the dialog itself: "read the installation output"
+    # left a beta2 tester with a scrolled-away stderr and no idea which step
+    # to fix. A configure that failed nothing new keeps the recorded reason.
+    if [ -z "${INCOMPLETE_REASONS}" ] && [ -r "${INCOMPLETE_MARKER}" ]; then
+        INCOMPLETE_REASONS="$(sed -n 's/^reason=//p' "${INCOMPLETE_MARKER}" | tail -n 1)"
+    fi
+    db_subst carlos-emr/install-incomplete reasons "${INCOMPLETE_REASONS:-not recorded; see the installation output}" || true
     # 'seen false' first: debconf shows a note once and then skips it, so a
     # second failed attempt — the one an operator is most likely to be watching
     # for — would otherwise pass in silence.

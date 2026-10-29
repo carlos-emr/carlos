@@ -1,0 +1,495 @@
+#!/bin/sh
+# carlos-emr-host-conflicts — find, and where it is safe stop, what on this
+# host keeps the CARLOS front door or database from starting.
+#
+# Why it exists: a 2026.08.0-beta2 fresh install on an Ubuntu 26.04 VM found
+# another program already listening on 0.0.0.0:80. The distribution's nginx
+# could not start, MariaDB would not answer root on its unix socket, and the
+# postinst said only "nginx reload failed" and "could not reach MariaDB". The
+# tester read an unprivileged netstat (no process names) and suspected the
+# wrong program (#5439). This names the program, and stops it when that is
+# safe.
+#
+#   front-door [--plan | --report] BIND_IP
+#       Ports 80 and 443 belong to nginx.service. Any OTHER system service
+#       listening there on an address that collides with BIND_IP
+#       (CARLOS_BIND_IP) is stopped and disabled, whatever installed it:
+#       a Debian package (apache2, lighttpd, haproxy, caddy, ...), a snap
+#       (Ubuntu Server's installer offers the Nextcloud snap, which serves
+#       80/443), or a unit an administrator wrote. A service that cannot be
+#       disabled (no [Install] section, pulled in by another unit) is masked
+#       instead, or the next boot would start it again and race nginx for the
+#       port. Nothing is uninstalled: the operator can move it to other ports
+#       and enable it again. A /usr/sbin/policy-rc.d that forbids stopping a
+#       service (exit 101 or 106, as deb-systemd-invoke reads it) is obeyed:
+#       that service is only named. Never stopped, only named: containers and
+#       the container engines (stopping one stops every container on the
+#       host), programs started by hand (an nginx started outside
+#       nginx.service included: a process is not a service, and a PID is not
+#       a safe handle to signal), ssh, systemd, dbus, network management,
+#       database servers and CARLOS's own units. --plan lists what a run without it would stop
+#       ("will-stop:") and what it would leave ("blocked:"), so the postinst
+#       can ask an interactive operator first; --report names every colliding
+#       listener as "blocked:". Neither changes anything.
+#   mariadb
+#       Why root cannot reach MariaDB over the unix socket: the service is
+#       stopped or failed (and what holds 3306, or its last [ERROR] line), it
+#       was still starting, or root@localhost needs a password. Read-only:
+#       a database server is never stopped from here.
+#
+# Output, one line each:
+#   will-stop: <what a run without --plan would stop>     (--plan only)
+#   stopped: <what was stopped, and how to undo it>
+#   blocked: <a listener left in place, and what to do about it>
+#   cause: <why root cannot reach MariaDB>          (mariadb only)
+# Exit status: front-door 0 when no colliding listener is left, 1 when one
+# is, 2 when the listeners cannot be read; mariadb 0 when a cause was named,
+# 1 when none was found.
+#
+# Two callers: carlos-emr.postinst (configure) and, through the shipped path,
+# carlos-ctl. Keep it `dash -n`-clean and free of bashisms. Run as root:
+# without it ss cannot name another user's process.
+
+LC_ALL=C
+export LC_ALL
+
+# printf, not echo: dash's echo expands backslashes, and these lines carry
+# unit names, process names and MariaDB's own error text.
+say() {
+    printf '%s\n' "$*"
+}
+
+usage() {
+    say "usage: carlos-emr-host-conflicts front-door [--plan | --report] BIND_IP | mariadb" >&2
+    exit 2
+}
+
+# One line per listening socket on TCP port $1: "ADDRESS NAME PID", or
+# "ADDRESS - -" when ss shows no owner. Status 2 when ss cannot run.
+listeners() {
+    command -v ss >/dev/null 2>&1 || return 2
+    ss_out="$(ss -ltnpH "sport = :$1" 2>/dev/null)" || return 2
+    [ -n "${ss_out}" ] || return 0
+    printf '%s\n' "${ss_out}" | awk '
+        NF < 4 { next }
+        {
+            addr = $4; s = $0; owners = 0
+            while (match(s, /\("[^"]*",pid=[0-9]+/)) {
+                t = substr(s, RSTART + 2, RLENGTH - 2)
+                s = substr(s, RSTART + RLENGTH)
+                i = index(t, "\",pid=")
+                name = substr(t, 1, i - 1)
+                pid = substr(t, i + 6)
+                gsub(/[^A-Za-z0-9._@+:-]/, "_", name)
+                if (name == "") name = "_"
+                owners++
+                if (!((addr SUBSEP pid) in seen)) { seen[addr SUBSEP pid] = 1; print addr, name, pid }
+            }
+            if (!owners) print addr, "-", "-"
+        }'
+}
+
+# The host part of an ss local address: 0.0.0.0:80 -> 0.0.0.0,
+# [::1]:80 -> ::1, *:80 -> *, 127.0.0.53%lo:53 -> 127.0.0.53.
+host_of() {
+    h="${1%:*}"
+    h="${h#\[}"
+    h="${h%\]}"
+    printf '%s\n' "${h%%%*}"
+}
+
+# Would nginx binding BIND_IP ($2) on the same port fail against a listener
+# on host $1? Linux refuses a specific bind under a same-family wildcard and a
+# wildcard over any same-family address; "*" is a dual-stack socket, which
+# collides with everything. The wildcard front door also binds [::] when the
+# host has IPv6, so it collides with every listener on the port.
+collides() {
+    case "$2" in
+        '' | 0.0.0.0 | :: | '*') return 0 ;;
+    esac
+    [ "$1" = '*' ] && return 0
+    [ "$1" = "$2" ] && return 0
+    case "$2" in
+        *:*) [ "$1" = :: ] ;;
+        *) [ "$1" = 0.0.0.0 ] ;;
+    esac
+}
+
+# The systemd unit a process runs in, or nothing when it cannot be told.
+unit_of() {
+    u="$(ps -o unit= -p "$1" 2>/dev/null | awk 'NF { print $1; exit }')"
+    case "$u" in
+        '' | -) return 1 ;;
+    esac
+    printf '%s\n' "$u"
+}
+
+# The socket unit systemd listens on ADDRESS ($1) for (socket activation: the
+# owner ss shows is systemd itself).
+socket_unit_for() {
+    systemctl list-sockets --all --no-legend 2>/dev/null | awk -v a="$1" '$1 == a { print $2; exit }'
+}
+
+# The Debian package that ships unit $1, or nothing (an administrator's own
+# unit under /etc/systemd/system, a snap, a generated transient unit).
+package_of() {
+    for prop in FragmentPath SourcePath; do
+        p="$(systemctl show --property="${prop}" --value "$1" 2>/dev/null)"
+        [ -n "$p" ] || continue
+        # usrmerge: a package may still register its unit under /lib.
+        for q in "$p" "${p#/usr}"; do
+            r="$(dpkg-query -S "$q" 2>/dev/null | awk -F': ' 'NF > 1 && $1 !~ /^diversion / { print $1; exit }')"
+            if [ -n "$r" ]; then
+                printf '%s\n' "$r"
+                return 0
+            fi
+        done
+    done
+    return 1
+}
+
+# Units that are never stopped from here: the owner of the port itself, the
+# container engines (stopping one stops every container on the host, snap
+# builds included), the things an administrator needs to reach the host, and
+# database servers.
+protected_unit() {
+    case "$1" in
+        nginx.service | init.scope | user@*.service | session-*.scope) return 0 ;;
+        docker.* | docker-*.scope | containerd.* | podman* | libpod-* | crio.* | lxd* | incus*) return 0 ;;
+        snap.docker.* | snap.lxd.* | snap.microk8s.* | snap.k8s.* | snap.incus.*) return 0 ;;
+        ssh.* | sshd.* | systemd-* | dbus.* | NetworkManager* | cockpit*) return 0 ;;
+        carlos-emr*) return 0 ;;
+        mariadb.* | mysql.* | mysqld.* | postgresql* | redis* | mongod*) return 0 ;;
+    esac
+    return 1
+}
+
+# A process started by hand: a login session (ssh, a console), a desktop
+# user's own service manager, or an application scope it started (a terminal
+# in a graphical session).
+hand_started_unit() {
+    case "$1" in
+        session-*.scope | user@*.service | app-*.scope) return 0 ;;
+    esac
+    return 1
+}
+
+# May this package configure stop unit $1? The same question deb-systemd-invoke
+# asks /usr/sbin/policy-rc.d before it touches a service: 101 (forbidden) and
+# 106 (not allowed, use a fallback) mean no; anything else, or no policy-rc.d
+# at all, means yes.
+policy_allows_stop() {
+    command -v policy-rc.d >/dev/null 2>&1 || return 0
+    policy-rc.d "${1%.*}" stop >/dev/null 2>&1
+    case $? in
+        101 | 106) return 1 ;;
+    esac
+    return 0
+}
+
+# The snap application behind unit $1 (snap.nextcloud.apache.service ->
+# nextcloud.apache), or nothing for a unit snapd does not manage.
+snap_app() {
+    case "$1" in
+        snap.*.service) ;;
+        *) return 1 ;;
+    esac
+    app="${1#snap.}"
+    printf '%s\n' "${app%.service}"
+}
+
+# Where unit $1 comes from, for the operator: "package apache2", or its unit
+# file when no package ships it.
+origin_of() {
+    if pkg="$(package_of "$1")"; then
+        printf 'package %s\n' "${pkg}"
+        return
+    fi
+    file="$(systemctl show --property=FragmentPath --value "$1" 2>/dev/null)"
+    printf 'unit file %s\n' "${file:-unknown}"
+}
+
+# Stop service $1 for good (and any units $2.. a socket activates). Prints
+# how it was kept off: "disabled", or "masked" for a unit that cannot be
+# disabled (static, generated, or pulled in by another unit), which would
+# otherwise start again at the next boot and race nginx for the port.
+stop_unit() {
+    systemctl disable --now "$@" >/dev/null 2>&1 || systemctl stop "$@" >/dev/null 2>&1 || return 1
+    case "$(systemctl is-enabled "$1" 2>/dev/null)" in
+        disabled | masked) say disabled ;;
+        *)
+            if systemctl mask "$@" >/dev/null 2>&1; then
+                say masked
+            else
+                say enabled
+            fi ;;
+    esac
+}
+
+# Advice for a listener left in place: $1 name, $2 unit (may be empty).
+advice() {
+    if hand_started_unit "$2"; then
+        say "it was started by hand, not by a system service; stop that program"
+        return
+    fi
+    case "$1|$2" in
+        docker-proxy\|* | *\|docker.service | *\|containerd.service | *\|docker-*.scope)
+            say "a Docker container publishes this port ('sudo docker ps' shows which); stop it or publish it on another port" ;;
+        conmon\|* | rootlessport*\|* | pasta*\|* | slirp4netns\|* | *\|libpod-* | *\|podman*)
+            say "a Podman container publishes this port ('sudo podman ps' shows which); stop it or publish it on another port" ;;
+        *\|*.scope)
+            say "it runs in ${2}, not in a system service; stop that program" ;;
+        *)
+            if [ -n "$2" ] && protected_unit "$2"; then
+                say "the installer never stops ${2}; move it to other ports"
+            elif [ -n "$2" ]; then
+                say "stop it or move it to other ports: sudo systemctl disable --now $2"
+            else
+                say "stop that program or move it to other ports"
+            fi ;;
+    esac
+}
+
+describe() {  # $1 name, $2 pid, $3 unit (may be empty), $4 addresses
+    if [ "$1" = - ]; then
+        printf 'a listener whose owner ss cannot show is on %s' "$4"
+    elif [ -n "$3" ]; then
+        printf '%s (pid %s, %s) is listening on %s' "$1" "$2" "$3" "$4"
+    else
+        printf '%s (pid %s) is listening on %s' "$1" "$2" "$4"
+    fi
+}
+
+# Every listener on ports $2.. that collides with bind IP $1 and is not
+# nginx.service's own, as "ADDRESS NAME PID UNIT" (UNIT "-" when unknown).
+colliding() {
+    bind_ip="$1"
+    shift
+    for port in "$@"; do
+        rows="$(listeners "${port}")" || return 2
+        [ -n "${rows}" ] || continue
+        while read -r addr name pid; do
+            collides "$(host_of "${addr}")" "${bind_ip}" || continue
+            unit=-
+            if [ "${pid}" != - ]; then
+                if [ "${pid}" = 1 ]; then
+                    unit="$(socket_unit_for "${addr}")"
+                    [ -n "${unit}" ] || unit=-
+                else
+                    unit="$(unit_of "${pid}")" || unit=-
+                fi
+            fi
+            # nginx.service's own sockets are the point, not a conflict. An
+            # nginx whose unit cannot be told is given the benefit of the doubt.
+            [ "${unit}" = nginx.service ] && continue
+            [ "${unit}" = - ] && [ "${name}" = nginx ] && continue
+            printf '%s %s %s %s\n' "${addr}" "${name}" "${pid}" "${unit}"
+        done <<EOF
+${rows}
+EOF
+    done
+}
+
+# Group colliding rows by owner so one apache2 on four addresses is one line:
+# "NAME PID UNIT ADDR, ADDR".
+grouped() {
+    awk '
+        { key = $2 SUBSEP $4; if (!(key in first)) { order[++n] = key; first[key] = $3 SUBSEP $2 SUBSEP $4; addrs[key] = $1 }
+          else if (index(", " addrs[key] ", ", ", " $1 ", ") == 0) addrs[key] = addrs[key] ", " $1 }
+        END { for (i = 1; i <= n; i++) { split(first[order[i]], f, SUBSEP); print f[2], f[1], f[3], addrs[order[i]] } }'
+}
+
+front_door() {
+    mode=free
+    case "${1:-}" in
+        --plan) mode=plan; shift ;;
+        --report) mode=report; shift ;;
+    esac
+    [ $# = 1 ] || usage
+    bind_ip="$(printf '%s\n' "$1" | sed 's/^\[\(.*\)\]$/\1/')"
+
+    found="$(colliding "${bind_ip}" 80 443)" || return 2
+    [ -n "${found}" ] || return 0
+
+    acted=0
+    # Units policy-rc.d would not let this configure stop.
+    denied=" "
+    if [ "${mode}" != report ]; then
+        stopped_units=" "
+        while read -r name pid unit addrs; do
+            [ "${name}" != - ] || continue
+            case "${unit}" in
+                *.service | *.socket) ;;
+                *) continue ;;
+            esac
+            protected_unit "${unit}" && continue
+            case "${stopped_units}" in *" ${unit} "*) continue ;; esac
+            if ! policy_allows_stop "${unit}"; then
+                denied="${denied}${unit} "
+                continue
+            fi
+            if app="$(snap_app "${unit}")" && command -v snap >/dev/null 2>&1; then
+                if [ "${mode}" = plan ]; then
+                    stopped_units="${stopped_units}${unit} "
+                    say "will-stop: the ${app%%.*} snap's ${app} service, on ${addrs}"
+                    continue
+                fi
+                # snapd owns its units: `systemctl disable` would be undone by
+                # the next refresh, `snap stop --disable` is not.
+                snap stop --disable "${app}" >/dev/null 2>&1 || continue
+                stopped_units="${stopped_units}${unit} "
+                acted=1
+                say "stopped: the ${app%%.*} snap's ${app} service was listening on ${addrs}, which the CARLOS front door needs; it is stopped and disabled but still installed (to use it again, move it to other ports, then: sudo snap start --enable ${app})"
+                continue
+            fi
+            # A socket-activated service: stop the socket that holds the port
+            # and the service it starts, or the next connection restarts it.
+            # Each of those is held to the same rules as the socket itself.
+            also=""
+            if [ "${unit}" != "${unit%.socket}" ]; then
+                also="$(systemctl show --property=Triggers --value "${unit}" 2>/dev/null)"
+                also_ok=1
+                for triggered in ${also}; do
+                    protected_unit "${triggered}" && also_ok=0
+                    policy_allows_stop "${triggered}" || also_ok=0
+                done
+                [ "${also_ok}" = 1 ] || continue
+            fi
+            origin="$(origin_of "${unit}")"
+            # The units a socket starts are handled with it: ss names the
+            # service's own process as an owner of the same socket, and that
+            # row must not be planned or stopped a second time.
+            if [ "${mode}" = plan ]; then
+                stopped_units="${stopped_units}${unit} ${also:+${also} }"
+                say "will-stop: ${unit} (${origin}), on ${addrs}"
+                continue
+            fi
+            # shellcheck disable=SC2086 # $also is a list of unit names
+            kept_off="$(stop_unit "${unit}" ${also})" || continue
+            stopped_units="${stopped_units}${unit} ${also:+${also} }"
+            acted=1
+            case "${kept_off}" in
+                disabled)
+                    say "stopped: ${unit} (${origin}) was listening on ${addrs}, which the CARLOS front door needs; it is stopped and disabled but still installed (to use it again, move it to other ports, then: sudo systemctl enable --now ${unit})" ;;
+                masked)
+                    say "stopped: ${unit} (${origin}) was listening on ${addrs}, which the CARLOS front door needs; it cannot be disabled, so it is stopped and masked (to use it again, move it to other ports, then: sudo systemctl unmask ${unit} && sudo systemctl start ${unit})" ;;
+                *)
+                    say "stopped: ${unit} (${origin}) was listening on ${addrs}, which the CARLOS front door needs; it is stopped, but could not be disabled or masked and may take the port again at the next boot (keep it off: sudo systemctl mask ${unit})" ;;
+            esac
+        done <<EOF
+$(printf '%s\n' "${found}" | grouped)
+EOF
+    fi
+
+    if [ "${acted}" = 1 ]; then
+        # A stopped server releases its sockets a moment later.
+        i=0
+        while [ "$i" -lt 50 ]; do
+            found="$(colliding "${bind_ip}" 80 443)" || return 2
+            [ -n "${found}" ] || return 0
+            sleep 0.2
+            i=$((i + 1))
+        done
+    fi
+
+    while read -r name pid unit addrs; do
+        # --plan lists only what it would leave: a unit it would stop (or one
+        # a socket it would stop starts) is not also "blocked".
+        if [ "${mode}" = plan ]; then
+            case "${stopped_units:- }" in *" ${unit} "*) continue ;; esac
+        fi
+        [ "${unit}" != - ] || unit=""
+        why=""
+        case "${denied}" in *" ${unit} "*) why="policy-rc.d forbids stopping services during this install, so it was left running; " ;; esac
+        say "blocked: $(describe "${name}" "${pid}" "${unit}" "${addrs}"), so nginx cannot serve the CARLOS front door; ${why}$(advice "${name}" "${unit}")"
+    done <<EOF
+$(printf '%s\n' "${found}" | grouped)
+EOF
+    return 1
+}
+
+mariadb_cause() {
+    state=""
+    if command -v systemctl >/dev/null 2>&1; then
+        state="$(systemctl is-active mariadb.service 2>/dev/null)" || true
+    fi
+    case "${state}" in
+        failed | inactive | deactivating)
+            holders="$(colliding 127.0.0.1 3306 2>/dev/null | awk '$4 != "mariadb.service"' | grouped)" || holders=""
+            if [ -n "${holders}" ]; then
+                printf '%s\n' "${holders}" | {
+                    read -r name pid unit addrs
+                    [ "${unit}" != - ] || unit=""
+                    say "cause: mariadb.service is ${state} because port 3306 is taken: $(describe "${name}" "${pid}" "${unit}" "${addrs}"); $(advice "${name}" "${unit}")"
+                }
+                return 0
+            fi
+            last="$(journalctl -u mariadb.service -b --no-pager -o cat -n 300 2>/dev/null |
+                grep -F '[ERROR]' | tail -n 1 | sed 's/^[0-9-]* *[0-9:]* *[0-9]* *//' | cut -c1-200)"
+            say "cause: mariadb.service is ${state}${last:+ (its last error: ${last})}; see: sudo journalctl -u mariadb -n 50"
+            return 0 ;;
+        activating)
+            say "cause: mariadb.service was still starting; when 'systemctl is-active mariadb' says active, finish the install"
+            return 0 ;;
+    esac
+    if ! command -v mariadb >/dev/null 2>&1; then
+        say "cause: the mariadb client is not installed (sudo apt install mariadb-client)"
+        return 0
+    fi
+    err="$(timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' 2>&1 >/dev/null)"
+    rc=$?
+    first="$(printf '%s\n' "${err}" | awk 'NF { print; exit }' | cut -c1-200)"
+    if [ "${rc}" = 0 ]; then
+        say "cause: MariaDB answers root over the unix socket now; it was not ready while the package was configured"
+    elif [ "${rc}" = 124 ]; then
+        say "cause: MariaDB did not answer root within 10 seconds (still recovering, or overloaded); see: sudo journalctl -u mariadb -n 50"
+    else
+        case "${err}" in
+            *"account is locked"*)
+                # A locked root cannot log in to unlock itself, by password or
+                # by socket: only the grant-table reset recovers it.
+                say "cause: MariaDB is running, but its root@localhost account is locked (${first}), and a locked root cannot log in to unlock itself; reset it as described under 'MariaDB root access' in /usr/share/doc/carlos-emr/README.Debian (a restart with --skip-grant-tables)" ;;
+            *"ERROR 1045"*"using password: NO"*)
+                # 1045 without a password offered: the account wants one. The
+                # unix_socket plugin, which is how CARLOS administers MariaDB,
+                # would have let the system root user in.
+                say "cause: MariaDB is running, but its root@localhost account was given a password before CARLOS was installed and refuses the system root user over the unix socket, which is how CARLOS administers the database; put root back to the distribution default (socket login, no root password) as described under 'MariaDB root access' in /usr/share/doc/carlos-emr/README.Debian" ;;
+            *"ERROR 1045"*"using password: YES"*)
+                # A password was sent although CARLOS passes none: a client
+                # option file (/root/.my.cnf, or a [client] section under
+                # /etc/mysql) supplies one, and root has no socket login to
+                # fall back on. Adding socket login fixes it; the option file
+                # then no longer matters.
+                say "cause: MariaDB is running, but root@localhost has no unix-socket login, and a MariaDB client option file (/root/.my.cnf, or a [client] section under /etc/mysql) sends a password it refuses (${first}); put root back to the distribution default (socket login, no root password) and delete that stored password, as described under 'MariaDB root access' in /usr/share/doc/carlos-emr/README.Debian" ;;
+            *"Access denied"*)
+                say "cause: MariaDB is running but refuses the system root user over the unix socket (${first}); CARLOS administers the database as root@localhost through unix_socket, see 'MariaDB root access' in /usr/share/doc/carlos-emr/README.Debian" ;;
+            *"ERROR 2002"* | *"Can't connect to local server through socket"*)
+                holders="$(colliding 127.0.0.1 3306 2>/dev/null | awk '$4 != "mariadb.service"' | grouped)" || holders=""
+                if [ -n "${holders}" ]; then
+                    printf '%s\n' "${holders}" | {
+                        read -r name pid unit addrs
+                        [ "${unit}" != - ] || unit=""
+                        say "cause: MariaDB is not answering on its unix socket, and port 3306 is taken: $(describe "${name}" "${pid}" "${unit}" "${addrs}"); $(advice "${name}" "${unit}")"
+                    }
+                else
+                    say "cause: MariaDB is not answering on its unix socket (${first:-ERROR 2002}); check 'systemctl status mariadb' and any 'socket =' setting under /etc/mysql"
+                fi ;;
+            *)
+                say "cause: MariaDB refused root: ${first:-exit status ${rc}}" ;;
+        esac
+    fi
+    return 0
+}
+
+case "${1:-}" in
+    front-door)
+        shift
+        front_door "$@"
+        exit $? ;;
+    mariadb)
+        [ $# = 1 ] || usage
+        mariadb_cause
+        exit $? ;;
+    *)
+        usage ;;
+esac
