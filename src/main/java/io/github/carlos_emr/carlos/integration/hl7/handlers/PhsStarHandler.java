@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.integration.hl7.model.PatientId;
 import io.github.carlos_emr.carlos.integration.hl7.model.StaffId;
+import io.github.carlos_emr.carlos.utility.Hl7XmlMessageValidator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -727,7 +728,11 @@ public class PhsStarHandler extends BasePhsStarHandler {
     public void init(String hl7Body) throws HL7Exception {
         Parser p = new GenericParser();
         p.setValidationContext(new NoValidation());
-        msg = p.parse(hl7Body.replaceAll("\n", "\r\n"));
+        String message = hl7Body.replaceAll("\n", "\r\n");
+        // GenericParser also reads HL7 v2 XML. Refuse a DOCTYPE before HAPI sees it: HAPI 2.x no
+        // longer loads external entities or DTDs, but it still expands internal entities.
+        Hl7XmlMessageValidator.requireNoDocumentType(p, message);
+        msg = p.parse(message);
 
         t = new Terser(msg);
         String msgType = t.get("/MSH-9-1");

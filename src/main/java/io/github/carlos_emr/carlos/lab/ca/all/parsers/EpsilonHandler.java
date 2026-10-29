@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import ca.uhn.hl7v2.HL7Exception;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Hl7Utils;
 import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.model.v23.group.ORU_R01_ORDER_OBSERVATION;
 import ca.uhn.hl7v2.model.v23.group.ORU_R01_RESPONSE;
@@ -248,7 +249,8 @@ public class EpsilonHandler extends DefaultGenericHandler {
         try {
             return msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR()
                     .getPriority().getValue();
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            Hl7Utils.rethrowUnlessHl7AccessFailure(e);
             return ("");
         }
     }
