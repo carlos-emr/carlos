@@ -3703,3 +3703,40 @@ page put back byte for byte:
   ended the attribute, and `<` or `&` did not come back as typed (CodeRabbit).
 - A configured PRI default billed privately even when the PRI form was not installed and another form was chosen in
   its place (CodeRabbit). The private billing type now follows the chosen form.
+
+### Shared date formatters (2026-10-29, issue #5301)
+
+The Population Report, `DateTimeFormatUtils`, Prevention's immunization expiry date and the FHIR
+CommunicationRequest upload handler now format with immutable `DateTimeFormatter`s instead of
+request-shared `SimpleDateFormat`s. `admin-caisi-population-report` gained a step: sixteen concurrent
+requests for the report all show the same `dd/MM/yyyy` date and short Canadian time, within the hour
+before MariaDB's `NOW()`. The packaged service keeps the JVM and MariaDB in the clinic's zone, so a
+report rendered in another zone is hours off and fails.
+
+The 2026.09.0~snapshot27 `carlos-emr` package was built from the `release/2026.08` fix branch at
+`6dc91cdd` inside an Ubuntu 26.04 container with `dpkg-buildpackage -us -uc -b` (`CARLOS_WAR` from the
+same commit, lintian clean). `carlos-emr-drugref` came from an earlier build of the same branch at its
+pinned ref, and carlos-ctl 1.2.1 from its release asset. The packages were installed fresh with
+`scripts/deb-docker-validation.sh up` and the Ontario demo dataset (`carlos-ctl check` clean, `:443`).
+
+| Run | Result |
+|---|---|
+| The smoke tier, `demographic-add`, `lab-upload`, the 22 prevention and immunization checks and the two `admin-caisi-*` entries (default profile, `Etc/UTC`) | 34 **PASS**, 2 FAIL, 2 SKIP (below) |
+| `CARLOS_TZ=America/Toronto` (`carlos-ctl init-config`, `db-apply-settings`), `caisi=on` with `ModuleNames=Caisi`: `admin-caisi-population-report` and `admin-caisi-activity-report`, twice | **PASS**, all steps |
+| server-log audit | **PASS**, no unexplained signature |
+
+- `tickler-crud` fails intermittently on "[tickler-list] xhr request failed (net::ERR_ABORTED)". With the four
+  pre-fix classes compiled from the base commit and swapped into the install, it failed the same way in 3 of
+  4 runs. No tickler code uses the changed classes.
+- `prevention-partial-date` fails at "changing only the comment of a year-only prevention saves it and keeps
+  the date year-only", as its manifest notes record (pending finding 302, #4814).
+- The two `admin-caisi-*` entries skip on the default profile (`caisi=off`).
+- The shipped `#ModuleNames=Caisi,HRM` sample does not start: `applicationContextHRM.xml` no longer exists.
+  Use `ModuleNames=Caisi`.
+- With `caisi=on` the patient search goes to `PMmodule/ClientSearch2`, which answers 403 to the test login,
+  so the prevention checks run with `caisi=off`.
+
+**Negative control.** A `DateTimeFormatUtils` that formats in UTC was swapped into the Toronto install. The
+new step then **FAIL**s: "The report shows 29/10/2026 5:02 a.m., -240 minutes from the clinic's time
+29/10/2026 01:02". The race itself is reproduced by the unit tests (eight threads, distinct synthetic dates),
+not by this check: every request formats the same cached instant.
