@@ -27,10 +27,10 @@
 
 package io.github.carlos_emr.carlos.commn.web;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -58,7 +58,8 @@ public class PopulationReport2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private static final DateFormat DATE_FORMAT = new SimpleDateFormat("dd/MM/yyyy");
+    // Immutable, so every request can format the cached figures' date with it at once (issue #5301).
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/uuuu", Locale.ROOT);
 
     // Forwards
     private static final String REPORT = "report";
