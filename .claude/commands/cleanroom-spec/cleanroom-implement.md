@@ -46,9 +46,14 @@ export). Do not continue "carefully" in the original repository instead.
 - Any other file inside the export: callers, base classes, entities, schema, configuration,
   existing tests
 - Your general knowledge of Java, the frameworks and the domain
+- Build tooling: the installed JDK and Maven, and Maven's local cache of third-party jars
+  (`~/.m2/repository`). Keep every build output (compiled classes, test reports, scratch
+  files) inside the export, for example under `target/`
 
 **Not allowed, even once:**
-- Anything outside the export directory, including other checkouts of this project
+- Any other path outside the export directory, including other checkouts of this project
+- CARLOS's own artifacts in the Maven cache (`~/.m2/repository/io/github/carlos_emr/**`) or a
+  built WAR or `target/` from another checkout: they are compiled copies of the original
 - Web search, web fetch, or downloading code or documents (upstream OSCAR copies of the
   original are published online)
 - Downloading tools or runtimes outside the project's own build. If the build needs something

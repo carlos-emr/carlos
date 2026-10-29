@@ -24,8 +24,8 @@
 
 Reads one or more session transcripts (JSONL) and lists every tool call that reached
 outside the clean export: a path in the original repository, a web search or fetch,
-a git history command, a network download, or a built-in file tool aimed outside the
-export. It also reports a session whose working directory was not the export, since
+a git command that reaches another repository, a download, or a built-in file tool aimed
+outside the export. It also reports a session whose working directory was not the export, since
 relative paths there resolve somewhere else. Used by /cleanroom-spec:cleanroom-audit.
 
 Usage:
@@ -46,10 +46,13 @@ WEB_TOOLS = {"WebFetch", "WebSearch"}
 FILE_TOOLS = {"Read": "file_path", "Write": "file_path", "Edit": "file_path",
               "MultiEdit": "file_path", "NotebookEdit": "notebook_path",
               "Glob": "path", "Grep": "path"}
-# History or remote access that could surface the original file's text.
+# Git commands that bring in another repository, and downloads. Git commands on the
+# export's own one-commit history are harmless; git on the original repository is caught
+# by the path and working-directory checks.
 RISKY_SHELL = re.compile(
-    r"\bgit\s+(?:-C\s+\S+\s+)?(?:log|show|blame|diff|cat-file|checkout|restore|reflog|fetch|clone|pull|archive)\b"
-    r"|\b(?:curl|wget)\b"
+    r"\bgit\s+(?:-C\s+\S+\s+)?(?:clone|fetch|pull|submodule|remote\s+(?:add|set-url))\b"
+    r"|\bgit\s+--git-dir\b"
+    r"|\b(?:curl|wget|scp|rsync)\b"
 )
 
 
@@ -110,7 +113,7 @@ def main():
             elif repo in outside:
                 findings.append((transcript, name, "touched the original repository", text))
             elif name == "Bash" and RISKY_SHELL.search(data.get("command", "")):
-                findings.append((transcript, name, "git history or network command", text))
+                findings.append((transcript, name, "other repository or download", text))
             elif name in FILE_TOOLS and outside_export(data.get(FILE_TOOLS[name]), export):
                 findings.append((transcript, name, "file access outside the export", text))
         # Relative paths resolve against the working directory, so a session that ran
