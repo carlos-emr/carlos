@@ -28,6 +28,14 @@ New DAOs serve import bookkeeping and reviewed data-model extensions, including 
 
 These boundaries require the final real-database transaction, rollback, callback, reader and installed-command tests. Focused component results alone do not establish release acceptance.
 
+## Coded clinical meanings
+
+Recognizing an ASCII vocabulary token uses ASCII case folding. Clinical text, original XML, logical corrections and source-field values retain their Unicode content. Unicode lookalikes or case expansions must not turn an unrecognized value into a native clinical assertion.
+
+`CdsLaboratoryMeaning` owns the shared native-inbox and message-adapter recognition of `F`/`Final` and `I`. Their ASCII case variants retain the existing Final/Pending behavior. Other statuses, including dotted/dotless-I lookalikes, remain literal source statuses and do not acquire a final count or a fabricated Pending label. Abnormal-flag handling keeps its existing independent vocabulary.
+
+Spoken-language lookup applies ASCII case folding to the lookup key only, then uses the existing CARLOS language dictionary. Its effective entries and duplicate-key behavior remain unchanged. Values such as `ıta`, `ßa` and `ſlo` cannot expand into recognized ISO keys. An unrecognized value keeps the existing `CDS_SPOKEN_LANGUAGE_SOURCE_ONLY` warning and complete source representation; no new language or field-length rule is inferred.
+
 ## Temporal meaning
 
 `CdsTemporal` interprets the actual YearOnly, YearMonth, FullDate and FullDateTime branches strictly. Year/month values retain their interval and original precision; optional absence remains unknown. Storage anchors are synthetic and require the existing `partial_date` YYYY/YYYY-MM metadata in the same unit. No UNKNOWN tag is introduced. Exact January 1 remains exact unless explicit partial metadata says otherwise.
@@ -168,7 +176,7 @@ Event, received and sent temporal values remain independent. Native timestamp de
 
 ## Frozen preparation and resume semantics
 
-The ruleset digest hashes actual deployed importer/native class bytes, nested helper classes and finite mapping resources, including the pinned schemas, laboratory routing descriptor and canonical spoken-language table. It also hashes the actual local JAR bytes of the XML parser, Jackson modules, HL7 parser/model, ORM/JPA, Spring transaction/ORM/JDBC and relevant framework helpers, SQL parser, connection pool, JDBC driver and conversion helpers. Version labels alone are insufficient evidence. Filesystem locations, filenames, modification times, source patient files and credentials do not enter the digest.
+The ruleset digest hashes actual deployed importer/native class bytes, nested helper classes and finite mapping resources, including the pinned schemas, laboratory routing descriptor and canonical spoken-language table. It also hashes the actual local JAR bytes of the XML parser, Jackson modules, HL7 parser/model, ORM/JPA, Spring transaction/ORM/JDBC and relevant framework helpers, SQL parser, connection pool, JDBC driver, Guava ASCII code helpers and conversion helpers. Version labels alone are insufficient evidence. Filesystem locations, filenames, modification times, source patient files and credentials do not enter the digest.
 
 The actual Java module image (bounded to 512 MiB), Java/VM identity, default general/format/display locales, default time zone and the complete bounded public zone rules/version set are also included. A single reusable 64 KiB buffer hashes artifact bytes. A complete success is cached once per class loader; an operational calculation failure remains a coded retryable failure and does not poison static class initialization. Cached use verifies that process locale/time-zone defaults remain unchanged and periodically verifies the actual rule set.
 

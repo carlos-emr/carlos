@@ -121,7 +121,7 @@ public class CdsLaboratoryMessageParser extends CMLHandler {
     @Override public String getOBXResultStatus(int i,int j) {
         String raw=obx(i,j,11,1);
         if(CdsLaboratoryMeaning.isFinal(raw)) return "Final";
-        return "I".equalsIgnoreCase(raw)?"Pending":raw;
+        return CdsLaboratoryMeaning.isPending(raw)?"Pending":raw;
     }
     @Override public String getOBXResult(int i,int j) { return obx(i,j,5,1); }
     @Override public String getOBXName(int i,int j) { return obx(i,j,3,2); }

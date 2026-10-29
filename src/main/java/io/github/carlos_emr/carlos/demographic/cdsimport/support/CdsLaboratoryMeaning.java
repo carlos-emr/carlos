@@ -21,15 +21,17 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.support;
 
+import com.google.common.base.Ascii;
 import java.util.Set;
 
-/** Explicit known laboratory meanings shared by the native inbox and CDS message adapter. */
+/** Known ASCII laboratory status spellings shared by the native inbox and CDS message adapter. */
 public final class CdsLaboratoryMeaning {
     private static final Set<String> ABNORMAL=Set.of("L", "LL", "H", "HH", "A", "AA");
     private CdsLaboratoryMeaning() { }
     public static boolean isFinal(String status) {
-        return "F".equalsIgnoreCase(status) || "Final".equalsIgnoreCase(status);
+        return status!=null && (Ascii.equalsIgnoreCase("F", status) || Ascii.equalsIgnoreCase("Final", status));
     }
+    public static boolean isPending(String status) { return status!=null && Ascii.equalsIgnoreCase("I", status); }
     public static boolean isAbnormal(String flag) { return ABNORMAL.contains(flag==null?"":flag); }
     public static String inboxAbnormal(String flag) {
         return "N".equals(flag)?"N":isAbnormal(flag)?"A":"";

@@ -28,12 +28,61 @@ import java.time.Duration;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsJdbcAdmissionGuardUnitTest {
+    @ParameterizedTest
+    @ValueSource(strings={"SELECT VERſION()","SELECT weeK('2026-10-29') FROM cds_import_run"})
+    void shouldRefuseUnicodeLookalikeFunctions_afterTheSqlParserAcceptsTheirOriginalSpelling(String sql) throws Exception {
+        var parsed=CCJSqlParserUtil.parseStatements(sql).getStatements();
+        assertThat(parsed).hasSize(1);
+        var expression=((net.sf.jsqlparser.statement.select.Select)parsed.getFirst())
+                .getPlainSelect().getSelectItems().getFirst().getExpression();
+        assertThat(expression).isInstanceOf(net.sf.jsqlparser.expression.Function.class);
+        assertThat(((net.sf.jsqlparser.expression.Function)expression).getName()).containsAnyOf("ſ","K");
+        assertThatThrownBy(()->CdsJdbcAdmissionGuard.clinical(sql)).isInstanceOf(SQLException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"SELECT * FROM cds_import_checKpoint","SELECT * FROM `cds_import_checKpoint`"})
+    void shouldKeepUnicodeLookalikeTablesClinical_afterTheSqlParserAcceptsTheirOriginalSpelling(String sql) throws Exception {
+        var parsed=CCJSqlParserUtil.parseStatements(sql).getStatements();
+        assertThat(parsed).hasSize(1);
+        assertThat(((net.sf.jsqlparser.statement.select.Select)parsed.getFirst()).getPlainSelect().getFromItem().toString())
+                .contains("cds_import_checKpoint");
+        assertThat(CdsJdbcAdmissionGuard.clinical(sql)).isTrue();
+    }
+
+    @Test
+    void shouldPreserveAsciiBuiltinAndTableCaseRecognition_withoutPromotingUnknownAsciiNames() throws Exception {
+        for(String sql:new String[]{"select version()","SELECT VERSION()","select connection_id()",
+                "SELECT WeEk('2026-10-29') FROM CDS_IMPORT_CHECKPOINT",
+                "select upper(source_namespace) from cDs_ImPoRt_RuN"})
+            assertThat(CdsJdbcAdmissionGuard.clinical(sql)).as(sql).isFalse();
+        assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_import_checkpoint_extra")).isTrue();
+        assertThatThrownBy(()->CdsJdbcAdmissionGuard.clinical("select unknown_ascii_function() from cds_import_run"))
+                .isInstanceOf(SQLException.class);
+    }
+
+    @Test
+    void shouldPreserveUnicodeSqlValuesAndIdentifiers_withoutChangingTheExecutedStatement() throws Exception {
+        String sql="select upper(source_namespace) from cds_import_run where source_namespace='ı K café 漢字 🩺'";
+        assertThat(CCJSqlParserUtil.parseStatements(sql).getStatements()).hasSize(1);
+        assertThat(CdsJdbcAdmissionGuard.clinical(sql)).isFalse();
+        String clinical="select * from `患者` where `名字`='Éloïse'";
+        assertThat(CCJSqlParserUtil.parseStatements(clinical).getStatements()).hasSize(1);
+        assertThat(CdsJdbcAdmissionGuard.clinical(clinical)).isTrue();
+        Connection connection=mock(Connection.class);Statement statement=mock(Statement.class);
+        when(connection.createStatement()).thenReturn(statement);
+        CdsJdbcAdmissionGuard.wrap(connection,null,()->false).createStatement().execute(sql);
+        verify(statement).execute(sql);
+    }
+
     @Test
     void shouldPreserveDescribeMetadataReads_whenAsciiWhitespaceVaries() throws Exception {
         for (String keyword : new String[] {"DESCRIBE", "desc"}) {

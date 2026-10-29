@@ -29,6 +29,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -82,6 +84,25 @@ class CdsRuntimeIdentityUnitTest {
                                         new ClassLoader(null) {},
                                         new byte[65536]))
                 .hasMessageContaining("IMPORT_RULESET_RUNTIME_UNAVAILABLE");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"com/google/common/base/Ascii.class","com/google/common/base/CharMatcher.class"})
+    @ResourceLock("java.util.TimeZone")
+    @ResourceLock("java.util.Locale")
+    void shouldRefuseRuntimeIdentity_whenAnActualAsciiNormalizationDependencyIsUnavailable(String hiddenResource) {
+        ClassLoader deployed=CdsRuntimeIdentity.class.getClassLoader();
+        assertThat(deployed.getResource(hiddenResource)).isNotNull();
+        var hiddenRequests=new AtomicInteger();
+        ClassLoader unavailable=new ClassLoader(deployed) {
+            @Override public java.net.URL getResource(String name) {
+                if (hiddenResource.equals(name)) {hiddenRequests.incrementAndGet();return null;}
+                return super.getResource(name);
+            }
+        };
+        assertThatThrownBy(()->CdsRuntimeIdentity.addTo(CdsImportKeys.digest(),unavailable,new byte[65536]))
+                .isInstanceOf(CdsImportException.class).hasMessage("IMPORT_RULESET_RUNTIME_UNAVAILABLE");
+        assertThat(hiddenRequests).hasValue(1);
     }
 
     @Test

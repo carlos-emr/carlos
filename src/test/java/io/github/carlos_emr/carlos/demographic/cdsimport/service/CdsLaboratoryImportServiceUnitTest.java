@@ -29,12 +29,15 @@ import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.CdsLaboratoryResult;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsLaboratoryNativeDto;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.CdsLaboratoryMessageParser;
 import java.nio.file.Path;
 import java.util.Map;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.*;
 
 @Tag("unit")
@@ -116,6 +119,65 @@ class CdsLaboratoryImportServiceUnitTest {
         parser.init(CdsLaboratoryImportService.message(typed,patient(),CdsTemporal.parse(null,null,"2024-03-01",null,"CollectionDateTime")));
         assertThat(parser.getOBXResultStatus(0,0)).isEqualTo(" unknown ");
         assertThat(parser.getOBXAbnormalFlag(0,0)).isEqualTo("not classified"); assertThat(parser.isOBXAbnormal(0,0)).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"Fınal","Fİnal","ı","İ","unknown","Final "," f "})
+    void shouldPreserveUnclassifiedStatusAcrossSourceNativeAndInbox_withoutUnicodeCasePromotion(String status) throws Exception {
+        var fields=new CdsFieldParser();
+        var preparation=org.mockito.Mockito.mock(CdsNativePreparationService.class);
+        var service=new CdsLaboratoryImportService(fields,new CdsClinicalNormalizationService(fields),preparation,null,
+                null,null,null,null,null);
+        var source=CdsClinicalFixture.record(directory,"LaboratoryResults",Map.of(
+                "LaboratoryName","Synthetic lab","TestResultStatus",status,
+                "ResultNormalAbnormalFlag/resultNormalAbnormalFlagAsPlainText","N"));
+        byte[] originalFields=java.nio.file.Files.readAllBytes(source.fieldsFile());
+        byte[] originalValues=java.nio.file.Files.readAllBytes(source.valuesFile());
+        service.prepare("run",1L,"unit",source,null,null,null);
+        var capture=org.mockito.ArgumentCaptor.forClass(Object.class);
+        org.mockito.Mockito.verify(preparation).store(org.mockito.ArgumentMatchers.eq("run"),org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq("unit"),org.mockito.ArgumentMatchers.eq(source.effectiveSha256()),
+                org.mockito.ArgumentMatchers.isNull(),capture.capture());
+        var prepared=(CdsLaboratoryNativeDto)capture.getValue();
+        assertThat(prepared.values()).containsEntry("TestResultStatus",status);
+        var stored=write(prepared.values(),prepared.collection(),prepared.requisition());
+        var typed=(CdsLaboratoryResult)stored.stream().filter(CdsLaboratoryResult.class::isInstance).findFirst().orElseThrow();
+        var info=(io.github.carlos_emr.carlos.commn.model.Hl7TextInfo)stored.stream()
+                .filter(io.github.carlos_emr.carlos.commn.model.Hl7TextInfo.class::isInstance).findFirst().orElseThrow();
+        assertThat(typed.getResultStatus()).isEqualTo(status);
+        assertThat(info.getReportStatus()).isEqualTo(status);
+        assertThat(info.getFinalResultCount()).isZero();
+        var parser=new CdsLaboratoryMessageParser();
+        parser.init(CdsLaboratoryImportService.message(typed,patient(),prepared.collection()));
+        assertThat(parser.getOBXResultStatus(0,0)).isEqualTo(status);
+        assertThat(parser.getOBXFinalResultCount()).isZero();
+        assertThat(fields.firstText(source,"TestResultStatus",20)).isEqualTo(status);
+        assertThat(java.nio.file.Files.readAllBytes(source.fieldsFile())).isEqualTo(originalFields);
+        assertThat(java.nio.file.Files.readAllBytes(source.valuesFile())).isEqualTo(originalValues);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"F","f","Final","final","fInAl"})
+    void shouldRecognizeAsciiFinalStatuses_withoutChangingTheStoredSourceStatus(String status) throws Exception {
+        var stored=write(Map.of("LaboratoryName","Synthetic lab","TestResultStatus",status),
+                CdsTemporal.parse(null,null,null,null,"CollectionDateTime"),CdsTemporal.parse(null,null,null,null,"LabRequisitionDateTime"));
+        var typed=(CdsLaboratoryResult)stored.stream().filter(CdsLaboratoryResult.class::isInstance).findFirst().orElseThrow();
+        var info=(io.github.carlos_emr.carlos.commn.model.Hl7TextInfo)stored.stream()
+                .filter(io.github.carlos_emr.carlos.commn.model.Hl7TextInfo.class::isInstance).findFirst().orElseThrow();
+        assertThat(typed.getResultStatus()).isEqualTo(status);assertThat(info.getReportStatus()).isEqualTo(status);
+        assertThat(info.getFinalResultCount()).isEqualTo(1);
+        var parser=new CdsLaboratoryMessageParser();
+        parser.init(CdsLaboratoryImportService.message(typed,patient(),CdsTemporal.parse(null,null,null,null,"CollectionDateTime")));
+        assertThat(parser.getOBXResultStatus(0,0)).isEqualTo("Final");assertThat(parser.getOBXFinalResultCount()).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"I","i"})
+    void shouldRecognizeAsciiPendingStatuses_withoutDeclaringThemFinal(String status) throws Exception {
+        var result=result();result.setResultStatus(status);
+        var parser=new CdsLaboratoryMessageParser();
+        parser.init(CdsLaboratoryImportService.message(result,patient(),CdsTemporal.parse(null,null,null,null,"CollectionDateTime")));
+        assertThat(parser.getOBXResultStatus(0,0)).isEqualTo("Pending");assertThat(parser.getOBXFinalResultCount()).isZero();
     }
 
     @Test

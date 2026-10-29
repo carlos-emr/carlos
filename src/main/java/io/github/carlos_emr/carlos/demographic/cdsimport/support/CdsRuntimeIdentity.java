@@ -72,7 +72,9 @@ final class CdsRuntimeIdentity {
             org.apache.commons.pool2.impl.GenericObjectPool.class,
             com.mysql.cj.jdbc.Driver.class,
             org.apache.commons.lang3.StringUtils.class,
-            org.apache.commons.io.FilenameUtils.class
+            org.apache.commons.io.FilenameUtils.class,
+            com.google.common.base.Ascii.class,
+            com.google.common.base.CharMatcher.class
         };
     }
 

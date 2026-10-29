@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.support;
 
+import com.google.common.base.Ascii;
+import com.google.common.base.CharMatcher;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportUnitService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState.Lease;
 import java.lang.reflect.InvocationHandler;
@@ -37,7 +39,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -463,12 +464,12 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
     private record SqlShape(boolean clinical, boolean readOnly, boolean importMutation) { }
     private SqlShape shape(String sql) throws SQLException {
         // A pre-maintenance metadata guard must not reinterpret or restrict ordinary legacy SQL.
-        if (state==null && !sql.toLowerCase(Locale.ROOT).contains("cds_import_")) return new SqlShape(false, false, false);
+        if (state==null && !Ascii.toLowerCase(sql).contains("cds_import_")) return new SqlShape(false, false, false);
         return classify(sql);
     }
     private static boolean importTable(net.sf.jsqlparser.schema.Table table) {
         if (table==null) return false;
-        String name=table.getName().replace("`", "").replace("\"", "").toLowerCase(Locale.ROOT);
+        String name=Ascii.toLowerCase(table.getName().replace("`", "").replace("\"", ""));
         return name.startsWith("cds_import_");
     }
     private static SqlShape classify(String sql) throws SQLException {
@@ -487,7 +488,7 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
         } catch (JSQLParserException | RuntimeException unsupported) {
             throw refused("SQL cannot be admitted safely by the CDS maintenance guard");
         }
-        String upper = normalized.toUpperCase(Locale.ROOT);
+        String upper = Ascii.toUpperCase(normalized);
         if (upper.matches("SELECT\\s+(?:1|VERSION\\(\\)|DATABASE\\(\\)|CURRENT_USER\\(\\)|CONNECTION_ID\\(\\)|@@[A-Z0-9_.,@ ]+)")) return new SqlShape(false, true, false);
         // Consume the prefix once; a failed multiline suffix must not backtrack through every space.
         if (upper.matches("(?:DESCRIBE|DESC)\\s++.*")) return new SqlShape(false, true, false);
@@ -513,8 +514,10 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
                     return super.visit(select, context);
                 }
                 @Override public <S> Void visit(Function function, S context) {
-                    String name = function.getName().toLowerCase(Locale.ROOT);
-                    if (function.getMultipartName() == null || function.getMultipartName().size() != 1
+                    String name = Ascii.toLowerCase(function.getName());
+                    // The shared reporting helper folds Unicode; verify the name before calling it.
+                    if (!CharMatcher.ascii().matchesAllOf(name)
+                            || function.getMultipartName() == null || function.getMultipartName().size() != 1
                             || !(io.github.carlos_emr.carlos.report.data.QueryByExampleSqlValidator.isKnownReadOnlyBuiltin(name)
                                 || Set.of("last_insert_id", "uuid", "uuid_short", "connection_id", "database", "version",
                                     "current_user", "get_lock", "release_lock", "is_used_lock", "is_free_lock").contains(name))) {
@@ -528,7 +531,7 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
             if (inspector.unsupported) throw refused("Stored or unsupported SQL functions require a reviewed maintenance adapter");
             if (tables.isEmpty()) return new SqlShape(true, read, importMutation);
             for (String table : tables) {
-                String full = table.replace("`", "").replace("\"", "").toLowerCase(Locale.ROOT);
+                String full = Ascii.toLowerCase(table.replace("`", "").replace("\"", ""));
                 if (read && full.startsWith("information_schema.")
                         && SCHEMA_METADATA.contains(full.substring("information_schema.".length()))) continue;
                 String name = full.substring(full.lastIndexOf('.') + 1);

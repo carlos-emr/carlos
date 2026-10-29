@@ -50,6 +50,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -1115,6 +1117,36 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         assertThat(details.diagnostics())
                 .extracting(CdsClinicalDiagnosticDto::code)
                 .contains("CDS_SPOKEN_LANGUAGE_NORMALIZED");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ıta", "ßa", "ſlo", "ZZZ"})
+    void shouldKeepUnrecognizedLanguageCodesInCompleteSource_withoutUnicodeCasePromotion(String language)
+            throws Exception {
+        var source = parse("", "<PreferredSpokenLanguage>" + language + "</PreferredSpokenLanguage>");
+        Path xml = temporary.resolve("source-" + sequence.get() + ".xml");
+        byte[] originalXml = Files.readAllBytes(xml), originalValues = Files.readAllBytes(source.valuesFile());
+        demographics.prepare("run", 1, "unit", source, command);
+        var details = captured(CdsDemographicNativeDto.class).details();
+        assertThat(details.spokenLanguage()).isNull();
+        assertThat(details.diagnostics()).extracting(CdsClinicalDiagnosticDto::code)
+                .containsExactly("CDS_SPOKEN_LANGUAGE_SOURCE_ONLY");
+        assertThat(fields.firstText(source, "PreferredSpokenLanguage", 25)).isEqualTo(language);
+        assertThat(Files.readAllBytes(xml)).isEqualTo(originalXml);
+        assertThat(Files.readAllBytes(source.valuesFile())).isEqualTo(originalValues);
+        assertThat(Files.readString(xml)).contains("<PreferredSpokenLanguage>" + language + "</PreferredSpokenLanguage>");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"eng", "ENG", "eNg"})
+    void shouldKeepAsciiLanguageLookupCaseInsensitive_withoutChangingSource(String language) throws Exception {
+        var source = parse("", "<PreferredSpokenLanguage>" + language + "</PreferredSpokenLanguage>");
+        demographics.prepare("run", 1, "unit", source, command);
+        var details = captured(CdsDemographicNativeDto.class).details();
+        assertThat(details.spokenLanguage()).isEqualTo("English");
+        assertThat(details.diagnostics()).extracting(CdsClinicalDiagnosticDto::code)
+                .containsExactly("CDS_SPOKEN_LANGUAGE_NORMALIZED");
+        assertThat(fields.firstText(source, "PreferredSpokenLanguage", 25)).isEqualTo(language);
     }
 
     @Test

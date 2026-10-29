@@ -40,6 +40,8 @@ ledger and source-derived login tables have an exact SQL allowlist. Joins/subque
 tables still require admission. Vendor unwrap, multiple SQL statements, callable routines,
 unreviewed functions and implicit-commit SQL are refused while the guard is installed.
 
+SQL keyword and allowlist-token classification folds ASCII letters only. The classifier must not turn a Unicode lookalike into `VERSION`, a known built-in function, or an allowlisted ledger table. Function names pass an explicit ASCII boundary before the shared reporting helper, whose own case conversion would otherwise reintroduce the ambiguity. This restriction applies to recognized security tokens: Unicode values and ordinary Unicode identifiers still go through the existing complete-statement parser and admission rules. The original SQL is executed unchanged after admission; it is never rewritten into the classification spelling.
+
 `Owner.close()` stops new unit admission, drains old units and releases the advisory connection.
 It retains durable maintenance by default, including after failure or process/connection loss.
 Only an explicit `allowReopen()` after successful clinical reconciliation and backlog/care-owner

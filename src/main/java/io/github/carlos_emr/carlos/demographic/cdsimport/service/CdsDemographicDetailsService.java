@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import com.google.common.base.Ascii;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
@@ -157,7 +158,7 @@ public class CdsDemographicDetailsService {
         if (spoken != null) {
             language =
                     SpokenLangProperties.getInstance()
-                            .getLangByCode(spoken.toUpperCase(java.util.Locale.ROOT));
+                            .getLangByCode(Ascii.toUpperCase(spoken));
             if (language == null || language.isEmpty()) {
                 language = null;
                 notice.accept(
