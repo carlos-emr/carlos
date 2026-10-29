@@ -19,7 +19,7 @@
 - Logging: `private static final Logger logger = MiscUtils.getLogger();`. Never log a path, file name, URL, HTML or exception message from the engine; log exception **class names** only. Use `LogSafe.sanitize` for the one file name `ConvertToEdoc` already logs.
 - Path containment checks use `PathValidationUtils.validateExistingPath(File, File)` (throws `SecurityException`), looping over the allowed directories.
 - Case-insensitive comparisons use `toLowerCase(Locale.ROOT)`; each such site carries `@SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "...")` plus an adjacent `//` comment with the same reason (CLAUDE.md, static analysis).
-- Tests: JUnit 5, AssertJ, names `should<Action>_<context>()` with exactly one underscore; module tests tagged `@Tag("unit") @Tag("htmlpdf")` and named `*UnitTest`; log assertions only through `io.github.carlos_emr.carlos.test.logging.LogCapture` (`LogCapture.forLogger(Class)` / `forLogger(String)`, `messages()`, `events()`, try-with-resources). Fixtures use FAKE- names only.
+- Tests: JUnit 5, AssertJ, names `should<Action>_<context>()` with exactly one underscore; module tests tagged `@Tag("unit") @Tag("htmlpdf")` and named `*UnitTest`; the one exception is `HtmlPdfMemoryUnitTest`, tagged only `@Tag("slow") @Tag("htmlpdf")` (so it runs with `-Dgroups=htmlpdf` or `-Dgroups=slow`, not in `make install --run-unit-tests`; the pom has no `excludedGroups`); log assertions only through `io.github.carlos_emr.carlos.test.logging.LogCapture` (`LogCapture.forLogger(Class)` / `forLogger(String)`, `messages()`, `events()`, try-with-resources). Fixtures use FAKE- names only.
 - Constants, not settings: no new `carlos.properties` keys. Limits are `static final` fields in the class named in "Shared interfaces", each with a one-line comment giving the measured reason from the spec.
 - Run a single test class with `mvn -q test -Dtest=<ClassName>`; the module suite with `mvn -q test -Dgroups=htmlpdf`. If Maven Central answers HTTP 429 from the sandbox, add a mirror in `~/.m2/settings.xml` for `central` pointing at `https://maven-central.storage-download.googleapis.com/maven2` (verified reachable).
 - Commits: Conventional Commits; end every message with the two lines below; never add `Signed-off-by` (a maintainer confirms DCO).
@@ -47,6 +47,9 @@ Inputs the spec implies but its test list does not exercise, most likely to bite
 - **HRM fixture:** the demo HRM report (`.devcontainer/db/db_data/hrm/demo-hrm-diagnostic-imaging.xml`) is a `.txt` report and never reaches the HTML engine, so the HTML HRM fixtures are synthetic; one wraps the demo report's text in typical hospital HTML.
 - **Integration test context:** `src/test/resources/test-context-full.xml` scans only `@Repository`; Task 19 adds `<context:component-scan base-package="io.github.carlos_emr.carlos.documentManager.htmlpdf"/>` so `Doc2PDFIntegrationTest` finds the service.
 - **HRM temp file:** `HRMPDFCreator.printPdf` deletes the temporary PDF after copying it (today it is left for the 24-hour purge).
+- **Signatures:** the spec's outline shows `finish(document, mode, degradations)` and `prepare(dom, request, mode, imageMemory, degradations)`; this plan's `finish` also takes the `BundledFontSet` (the fallback-font step needs it) and `prepare` takes the base and allowed directories instead of the request (the service substitutes its private base directory). The spec's `HtmlPdfRenderServiceUnitTest` is split into `HtmlPdfRenderServiceUnitTest` (ladder, logging, limits; Task 15) and `HtmlPdfFixturesUnitTest` (fixture assertions; Task 17); the latter is what `check-report-fonts.sh` lists.
+- **Log levels on the boundary type:** `HtmlPdfRenderDegradation.logLevel()` returns `org.apache.logging.log4j.Level`, so the `dto` package depends on Log4j (already a CARLOS-wide dependency). Accepted: the alternative, a module severity enum mapped again in the service, adds a type for no caller.
+- **SVG parsing is a new XML entry point:** the spec's "zero requests" XXE measurement covered Flying Saucer's own parser only, so the SVG cleaner uses a hardened `DocumentBuilderFactory` (Task 14) and the SSRF test gains external-entity vectors (Tasks 14, 17).
 
 ## Shared interfaces
 
@@ -95,6 +98,9 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
 }
 public final class BundledFontSet {                // immutable, shared across renders
     public enum Face { SANS_REGULAR, SANS_BOLD, CJK, SYMBOL }
+    // Loads a BaseFont per path (IDENTITY_H, embedded) for coverage; CJK and SYMBOL may be null or fail to load → unavailable;
+    // a SANS face that is null or fails to load throws PDFGenerationException.
+    public static BundledFontSet load(Path sansRegular, Path sansBold, Path cjk, Path symbol) throws PDFGenerationException;
     public static final String FAMILY_SANS = "CARLOS Sans", FAMILY_CJK = "CARLOS CJK", FAMILY_SYMBOL = "CARLOS Symbol";
     public boolean isAvailable(Face face);
     public boolean canDraw(Face face, int codePoint);
@@ -249,7 +255,7 @@ class HtmlPdfDependenciesUnitTest {
 @Test void shouldRejectBaseOutsideAllowed_forConstructor()      // base = other temp dir → IAE
 @Test void shouldAcceptNullBase_forMissingWebappRoot()          // baseDirectory() is null, no exception
 @Test void shouldCopyAllowedDirectories_forDefensiveCopy()      // mutate source ArrayList after construction; allowedDirectories() unchanged and unmodifiable
-@Test void shouldOmitHtmlAndPaths_fromToString()                // html "FAKE-Patient <b>x</b>", base "/tmp/x/FAKE-dir" → toString contains "source=FORM", "htmlLength=", not "FAKE-"
+@Test void shouldOmitHtmlAndPaths_fromToString()                // html "FAKE-Patient <b>x</b>", allowed [tmp], base tmp.resolve("FAKE-dir") (created) → toString contains "source=FORM", "htmlLength=", not "FAKE-"
 // HtmlPdfRenderResultUnitTest
 @Test void shouldCopyBytes_onConstructionAndAccess()            // mutate input array and returned array; pdf() unchanged
 @Test void shouldCompareContents_forEquality()                  // two results with equal bytes and sets are equal, same hashCode
@@ -272,8 +278,8 @@ class HtmlPdfDependenciesUnitTest {
 
 **Files:**
 - Create: `htmlpdf/engine/package-info.java`, `htmlpdf/engine/ImageHeader.java`, `htmlpdf/engine/ImageDecoding.java`
-- Create fixture: `src/test/resources/htmlpdf/images/exif-orientation-6.jpg` (8 × 4 px, generated once with `python3 -c "from PIL import Image; im=Image.new('RGB',(8,4),'red'); ex=im.getexif(); ex[0x0112]=6; im.save('src/test/resources/htmlpdf/images/exif-orientation-6.jpg', exif=ex)"`)
-- Test: `htmlpdf/engine/ImageDecodingUnitTest.java`; test helper `htmlpdf/engine/PngHeaders.java` (test scope: `static byte[] declaring(int width, int height)` writes the PNG signature, a valid IHDR with CRC and IEND, no IDAT; reused by Tasks 4 and 13)
+- Create fixtures (generated once with PIL and committed; no test generates them at run time, because `imageio-webp` is read-only and CI has no PIL): `src/test/resources/htmlpdf/images/exif-orientation-6.jpg` (8 × 4 px: `python3 -c "from PIL import Image; im=Image.new('RGB',(8,4),'red'); ex=im.getexif(); ex[0x0112]=6; im.save('src/test/resources/htmlpdf/images/exif-orientation-6.jpg', exif=ex)"`), `images/opaque-4x4.webp` and `images/alpha-4x4.webp` (`Image.new('RGB',(4,4),'red').save(..., 'WEBP')` and `Image.new('RGBA',(4,4),(255,0,0,128)).save(..., 'WEBP', lossless=True)`)
+- Test: `htmlpdf/engine/ImageDecodingUnitTest.java`; test helper `htmlpdf/engine/PngHeaders.java` (test scope, `public final class` so the `service` test package can use it: `public static byte[] declaring(int width, int height)` writes the PNG signature, a valid IHDR with CRC and IEND, no IDAT; reused by Tasks 4 and 13)
 
 **Interfaces:**
 - Produces: `ImageHeader`, `ImageDecoding` as in "Shared interfaces".
@@ -286,7 +292,7 @@ class HtmlPdfDependenciesUnitTest {
     assertThat(ImageDecoding.readHeader(png)).hasValueSatisfying(h -> assertThat(h.pixels()).isEqualTo(400_000_000L));
 }
 @Test void shouldReturnEmpty_forUnknownOrCorruptHeader()        // "HEIC"-like ftyp bytes and random bytes → Optional.empty()
-@Test void shouldRecogniseWebp_forHeader()                       // write a 4×4 WebP via PIL in @BeforeAll into @TempDir; formatName "webp"
+@Test void shouldRecogniseWebp_forHeader()                       // fixture images/opaque-4x4.webp; formatName "webp"
 @Test void shouldPickSmallestSubsampling_toFitLimit()            // 6600×10200, 25_000_000 → 2; 4000×3000, 25_000_000 → 1; 20000×20000, 4_000_000 → 10
 @Test void shouldReadSubsampledFromStream_forLargePng() throws IOException // generated 4000×3000 PNG, subsampling 2 → 2000×1500
 @Test void shouldReadExifOrientation_forRotatedJpeg()            // fixture → 6; a JPEG without EXIF → 1; a PNG → 1
@@ -359,7 +365,7 @@ class HtmlPdfDependenciesUnitTest {
 
 ```java
 // BundledFontFileServiceUnitTest (@TempDir root)
-@Test void shouldNameDirectory_fromBundleHash()            // dir name matches "carlos-pdf-fonts-[0-9a-f]{12}", same across two services
+@Test void shouldNameDirectory_fromBundleHash()            // dir name matches "carlos-pdf-fonts-[0-9a-f]{12}", same across two services, directly under root (never under root/carlos-temp)
 @Test void shouldTouchNoFile_whenConstructed()             // root empty after new BundledFontFileService(root, getClass().getClassLoader())
 @Test void shouldRestoreFile_deletedAfterFirstUse()        // fontSet(); delete DejaVuSans.ttf; fontSet() → file back, new set instance
 @Test void shouldRewriteFile_whenSameSizeContentAltered()  // flip one byte; restart service; fontSet() → SHA-256 matches classpath
@@ -373,8 +379,10 @@ class HtmlPdfDependenciesUnitTest {
 @Test void shouldSlantRegularFace_forItalicText()          // same font as regular; glyph widths equal
 @Test void shouldRaiseTinyText_toMinimumSize()             // 8px → 10px (7.5 pt without zoom)
 @Test void shouldUseFallbackFamilies_whenRequested()       // font-family:'CARLOS CJK' → WenQuanYi; 'CARLOS Symbol' → Symbola
-// BundledFontSetUnitTest
+// BundledFontSetUnitTest (fonts extracted to @TempDir from the classpath)
 @Test void shouldReportCoverage_forBundledFaces()          // canDraw(SANS_REGULAR,'é') true; ('中') false; (CJK,'中') true; (SYMBOL, 0x1D11E) true
+@Test void shouldMarkFallbackUnavailable_whenPathNull()    // load(sans, sansBold, null, symbol): isAvailable(CJK) false
+@Test void shouldThrow_whenSansFaceMissing()               // load(missingPath, sansBold, null, null) → PDFGenerationException
 ```
 
 - [ ] **Step 2: Run; expect failure**.
@@ -475,7 +483,7 @@ void shouldPrintCheckedMark_forAnyTypeCase(String type) {
 @Test void shouldWrapCjkRun_inCjkSpan()        // "FAKE 中文 x" → one span style="font-family:'CARLOS CJK'; font-style:normal" containing "中文"
 @Test void shouldUseSymbola_forMusicalSymbol() // "𝄞" → 'CARLOS Symbol'
 @Test void shouldReplaceUndrawable_withReplacementCharacter() // U+0A15 (Gurmukhi) → "�", DEBUG logs count only
-@Test void shouldReportMissingFallback_whenCjkUnavailable()   // BundledFontSet test double with CJK unavailable → "�" and FALLBACK_FONT_UNAVAILABLE
+@Test void shouldReportMissingFallback_whenCjkUnavailable()   // BundledFontSet.load(sans, sansBold, null, symbol) → CJK text becomes "�" and FALLBACK_FONT_UNAVAILABLE
 @Test void shouldProduceIdenticalSpans_acrossRuns()
 ```
 
@@ -543,7 +551,7 @@ void shouldPrintCheckedMark_forAnyTypeCase(String type) {
 ### Task 12: Layout, Letter placement and output checks
 
 **Files:**
-- Create: `htmlpdf/service/PageZoomCalculator.java`, `PageGeometry.java`, `PrintLayoutService.java`, `RenderedPdfValidator.java`, `HtmlPdfRenderException.java`
+- Create: `htmlpdf/service/PageZoomCalculator.java`, `PageGeometry.java`, `PrintLayoutService.java` (`@Service`), `RenderedPdfValidator.java` (`@Component`), `HtmlPdfRenderException.java`
 - Test: `PageZoomCalculatorUnitTest.java`, `PrintLayoutServiceUnitTest.java`, `RenderedPdfValidatorUnitTest.java`
 
 **Interfaces:**
@@ -554,10 +562,10 @@ void shouldPrintCheckedMark_forAnyTypeCase(String type) {
 
 ```java
 @Test void shouldKeepDefaultZoom_forNarrowPages()          // zoomFor(765.5f) == 0.8f
-@Test void shouldFitLetterWidth_forWidePages()             // for W in {850*0.6f... use pt widths from pass 1}: g.widthPt() * g.zoom() == 612 ± 0.01
+@Test void shouldComputeZoom_forWidePassOneWidths()        // pass-1 widths in pt: 850 px fits (content area 694.13 pt = 925 px) → zoomFor(765f) == 0.8f; 1000 px → W = 820.87f → pass2Geometry zoom 0.7404 ± 0.0005; 1400 px → W = 1120.87f → 0.5289 ± 0.0005; in each case widthPt * zoom == 612 ± 0.01 and marginPt * zoom == 28.3465 ± 0.01
 @Test void shouldPlaceOnLetter_withTenMillimetreMargins()  // 400/850/1000/1400 px fixtures → every page 612×792; leftmost glyph x and top glyph y = 28 ± 1 pt (PDFTextStripper positions)
 @Test void shouldUsePassOne_whenPassTwoFails()             // rendererFactory returns a real renderer first, then one whose layout() throws → output valid, MARGINS_REDUCED added
-@Test void shouldWarnWithZoomOnly_whenZoomBelowPointFour() // LogCapture message contains "0.3" and no path
+@Test void shouldWarnWithZoomOnly_whenZoomBelowPointFour() // LogCapture.forLogger(PrintLayoutService.class) (the service logs; the calculator is static and silent): message contains "0.3" and no path
 @Test void shouldRenderIdentically_underUkAndCountrylessLocales()
 @Test void shouldFlattenAcroForm_beforePlacement()
 @Test void shouldRejectNonLetterPage_inValidator()         // and not-a-PDF, zero pages, AcroForm present, valid PDF → valid
@@ -612,11 +620,12 @@ void shouldPrintCheckedMark_forAnyTypeCase(String type) {
 @Test void shouldKeepJpegBytes_forAsIsJpeg()                // file referenced by the rewritten src has identical bytes
 @Test void shouldDeleteImageDirectory_whenLaterStepThrows() // try-with-resources then throw; directory gone
 @Test void shouldStripSvgImportsAndStylesheetInstructions_fromCleanedSvg()  // "@import 'x.css'", "@import url(y)", "<?xml-stylesheet href='z'?>" all absent from the written SVG
+@Test void shouldNotResolveEntities_whenCleaningSvg()        // SVG with an external DTD and an external general entity pointing at a local ServerSocket URL and at file:///etc/passwd → boxed or cleaned, zero connections, no "root:" in any output
 @Test void shouldLogReasonWithoutPath_forBoxedImage()
 ```
 
 - [ ] **Step 2: Run; expect failure**.
-- [ ] **Step 3: Implement** spec §Images rules 3, 6, 7 and the box: OpenPDF `Image.getInstance(bytes)` check for `AS_IS` (failure → convert); conversions via `ImageDecoding.readSubsampled` + `applyOrientation`, JPEG 0.9 for JPEG/WebP without alpha, else PNG; SVG cleaning with a namespace-aware DOM (remove non-fragment/non-`data:` references, `url()` values, `@import` rules, processing instructions); rewrite `src` to `Path.toUri()`; set `width`/`height` to the original CSS px when downscaled and absent; boxes with `PrintMessages.imageUnavailable()`, sized from attributes or inline style; degradations `IMAGE_DOWNSCALED`, `IMAGE_CONVERTED`, `SVG_REFERENCES_REMOVED`, `IMAGE_UNAVAILABLE`, and `IMAGES_OMITTED_FOR_MEMORY` when boxes come from a missing slot.
+- [ ] **Step 3: Implement** spec §Images rules 3, 6, 7 and the box: OpenPDF `Image.getInstance(bytes)` check for `AS_IS` (failure → convert); conversions via `ImageDecoding.readSubsampled` + `applyOrientation`, JPEG 0.9 for JPEG/WebP without alpha, else PNG; SVG cleaning with a namespace-aware DOM from a hardened `DocumentBuilderFactory` (`FEATURE_SECURE_PROCESSING` on; `http://xml.org/sax/features/external-general-entities`, `external-parameter-entities` and `http://apache.org/xml/features/nonvalidating/load-external-dtd` off; `XMLConstants.ACCESS_EXTERNAL_DTD` and `ACCESS_EXTERNAL_SCHEMA` set to `""`; `setXIncludeAware(false)`, `setExpandEntityReferences(false)`); remove non-fragment/non-`data:` references, `url()` values, `@import` rules, processing instructions; an SVG that cannot be parsed under these settings is unusable (the box); rewrite `src` to `Path.toUri()`; set `width`/`height` to the original CSS px when downscaled and absent; boxes with `PrintMessages.imageUnavailable()`, sized from attributes or inline style; degradations `IMAGE_DOWNSCALED`, `IMAGE_CONVERTED`, `SVG_REFERENCES_REMOVED`, `IMAGE_UNAVAILABLE`, and `IMAGES_OMITTED_FOR_MEMORY` when boxes come from a missing slot.
 - [ ] **Step 4: Run; expect PASS** — `mvn -q test -Dtest='PrintImageService*UnitTest'`.
 - [ ] **Step 5: Commit** — `feat(htmlpdf): prepare images (convert, downscale, clean SVG, box)`.
 
@@ -644,6 +653,7 @@ void shouldPrintCheckedMark_forAnyTypeCase(String type) {
 @Test void shouldIgnoreDataUriPayloads_forSizeLimit()      // Review Focus 4: 1000-char limit; small HTML plus 5000-char data: URI → NORMAL
 @Test void shouldPrintNormally_withXmlInvalidCharacters()  // Review Focus 1: "FAKE\u0001 value" → no SAFE_MODE/TEXT_ONLY
 @Test void shouldFailAtOnce_forWhitespaceOnlyHtml()
+@Test void shouldFailAtOnce_whenDejaVuCannotLoad()         // BundledFontFileService mock throwing PDFGenerationException → render throws it; layout spy never called
 @Test void shouldPrintBlankPage_forMarkupWithoutContent()
 // HtmlPdfRenderServiceSlotUnitTest (slotWait = 200 ms)
 @Test void shouldSplitQuarterOfHeap_betweenTwoSlots()       // production constructor: slot share == Runtime.maxMemory() / 4 / 2
@@ -652,6 +662,7 @@ void shouldPrintCheckedMark_forAnyTypeCase(String type) {
 @Test void shouldReturnSlot_whenAttemptThrows()
 @Test void shouldRestoreInterruptFlag_whenWaitInterrupted()
 @Test void shouldServeEarlierWaiterFirst_forFairness()
+// Slot tests coordinate threads with CountDownLatch/CyclicBarrier, never Thread.sleep.
 ```
 
 - [ ] **Step 2: Run; expect failure**.
@@ -671,7 +682,7 @@ void shouldPrintCheckedMark_forAnyTypeCase(String type) {
 // HtmlPdfArchitectureUnitTest — model on billings/ca/on/assembler/OntarioAssemblerArchitectureUnitTest (Files.walk + readAllLines)
 @Test void shouldKeepDtoAndEngineIndependent_ofModule()     // no import of htmlpdf.service/support/engine from dto; none of service/support from engine
 @Test void shouldKeepSupportFree_ofService()
-@Test void shouldImportNoServletStrutsDaoOrFacade_inModule() // patterns: jakarta.servlet, org.apache.struts2, .dao., Manager;, ConvertToEdoc, Doc2PDF
+@Test void shouldImportNoServletStrutsDaoOrFacade_inModule() // on `import` lines only: jakarta.servlet, org.apache.struts2, .dao., Manager;, ConvertToEdoc, Doc2PDF
 @Test void shouldUseNoWildcardImports_inModule()
 @Test void shouldExposeOnlyRenderService_publiclyInService() // only HtmlPdfRenderService.java declares "public class"
 // HtmlPdfSpringWiringUnitTest
@@ -697,11 +708,11 @@ void shouldPrintCheckedMark_forAnyTypeCase(String type) {
 **Files:**
 - Create fixtures under `src/test/resources/htmlpdf/` per spec §Testing "Fixtures": `annual/female.html`, `annual/male.html` (+ copies of `src/main/webapp/form/annualStyle.css` and the `print.css` they link, with `href`s made relative), `forms/all-controls.html`, `hrm/demo-text-as-html.html`, `hrm/table-heavy.html`, `hrm/inline-styles.html`, `hrm/images.html` (+ small images; large ones generated at run time), `email/body.html`, `messenger/letter.html`, `geometry/*.html`, `scripts/*.html`, `edge/*.html`.
 - Create: `scripts/htmlpdf/capture-annual-fixtures.js` (Playwright, devcontainer only)
-- Test: `htmlpdf/HtmlPdfFixturesUnitTest.java` (the fixture half of spec row `HtmlPdfRenderServiceUnitTest`), `HtmlPdfFormsUnitTest.java`, `HtmlPdfSsrfUnitTest.java`, `HtmlPdfConcurrencyUnitTest.java`, `HtmlPdfMemoryUnitTest.java` (`@Tag("slow")`) with its test-scope `main` class `HtmlPdfMemoryProbe.java`
+- Test: `htmlpdf/HtmlPdfFixturesUnitTest.java` (the fixture half of spec row `HtmlPdfRenderServiceUnitTest`), `HtmlPdfFormsUnitTest.java`, `HtmlPdfSsrfUnitTest.java`, `HtmlPdfConcurrencyUnitTest.java`, `HtmlPdfMemoryUnitTest.java` (`@Tag("slow") @Tag("htmlpdf")`, not `unit`) with its test-scope `main` class `HtmlPdfMemoryProbe.java`
 - Modify: `scripts/check-report-fonts.sh:35` (append `HtmlPdfFixturesUnitTest,HtmlPdfFormsUnitTest,PrintLayoutServiceUnitTest`)
 
 - [ ] **Step 1: Capture the Annual fixtures.** In the devcontainer: `scripts/htmlpdf/capture-annual-fixtures.js` logs in as `carlosdoc`, opens a FAKE- demo patient's eChart, opens **Forms → Annual** (female and male), ticks at least ten boxes, types two-line textareas, saves, reopens the saved form (so `checked` and values are server-rendered attributes), and writes `page.content()`. Rewrite stylesheet `href`s to the relative copies. Confirm no non-FAKE name appears (`grep -i` against the demo patient list).
-- [ ] **Step 2: Write the remaining fixtures** by hand as listed (FAKE- names only; the HRM image fixture includes file, `data:`, remote, repeated `src`, `.bmp`, WBMP, corrupt header, corrupt body, WebP with/without alpha, HEIC bytes, a PDF, SVG with outside references).
+- [ ] **Step 2: Write the remaining fixtures** by hand as listed (FAKE- names only; the HRM image fixture includes file, `data:`, remote, repeated `src`, `.bmp`, WBMP, corrupt header, corrupt body, the two committed WebP fixtures from Task 3, HEIC bytes, a PDF, SVG with outside references).
 - [ ] **Step 3: Write the failing tests** — spec §Testing rows `HtmlPdfRenderServiceUnitTest` (fixture assertions), `HtmlPdfFormsUnitTest`, `HtmlPdfSsrfUnitTest`, `HtmlPdfConcurrencyUnitTest`, `HtmlPdfMemoryUnitTest`. Required assertions include:
 
 ```java
@@ -712,9 +723,9 @@ void shouldRenderRealDocument_withoutWarnOrErrorDegradation(String fixture) {
     assertThat(r.degradations()).allMatch(d -> d.logLevel() == Level.INFO);
 }
 @Test void shouldNeverPrintHiddenFieldNames_onAnnualForm() // "demographic_no", "provider_no", "formCreated", "form_class", "form_link" absent from PDFBox text
-@Test void shouldMakeNoRequest_forHostileHtmlInEveryMode() // local ServerSocket accept count 0; forced SAFE and TEXT_ONLY via spies
+@Test void shouldMakeNoRequest_forHostileHtmlInEveryMode() // every vector in the spec's HtmlPdfSsrfUnitTest row, plus an SVG file and an inline <svg> with an external DTD and external entities; local ServerSocket accept count 0; /etc/passwd content absent; forced SAFE and TEXT_ONLY via spies
 ```
-  `HtmlPdfMemoryUnitTest` starts a child JVM: `new ProcessBuilder(javaBin, "-Xmx256m", "-XX:+ExitOnOutOfMemoryError", "-cp", System.getProperty("java.class.path"), HtmlPdfMemoryProbe.class.getName(), tempDir)`, where the probe (test scope) generates the scaled images, runs the scenarios on 4 threads and exits 0 only if every document is produced; the test asserts exit code 0 within 5 minutes.
+  `HtmlPdfMemoryUnitTest` starts a child JVM: `new ProcessBuilder(javaBin, "-Xmx256m", "-XX:+ExitOnOutOfMemoryError", "-cp", System.getProperty("surefire.test.class.path", System.getProperty("java.class.path")), HtmlPdfMemoryProbe.class.getName(), tempDir)`, where the probe (test scope) generates the scaled images, runs the scenarios on 4 threads and exits 0 only if every document is produced; the test asserts exit code 0 within 5 minutes.
 - [ ] **Step 4: Run; expect failures, fix only inside the module** (a fixture that degrades means a module bug or a rule gap; change the module, never the expectation, and record any genuine Flying Saucer limit in the PR).
 - [ ] **Step 5: Run; expect PASS** — `mvn -q test -Dgroups=htmlpdf` and `REPORT_FONT_TESTS=HtmlPdfFixturesUnitTest,HtmlPdfFormsUnitTest,PrintLayoutServiceUnitTest bash scripts/check-report-fonts.sh`.
 - [ ] **Step 6: Commit** — `test(htmlpdf): document fixtures and end-to-end, SSRF, concurrency and memory tests`.
@@ -751,11 +762,11 @@ void shouldRenderRealDocument_withoutWarnOrErrorDegradation(String fixture) {
 - Modify: `htmlpdf/engine/LocalOnlyUserAgent.java` — delete the deprecated `createRestrictedRenderer()` and its implicit roots
 - Delete: `documentManager/ReplacedElementFactoryImpl.java`
 - Modify: `src/test/resources/test-context-full.xml` (after the `@Repository` scan at 544–546: `<context:component-scan base-package="io.github.carlos_emr.carlos.documentManager.htmlpdf"/>`)
-- Test: `ConvertToEdocUnitTest.java` (remove the `--` test at 93, already moved in Task 6), new `ConvertToEdocRenderUnitTest.java`, `Doc2PDFIntegrationTest.java`
+- Test: `ConvertToEdocUnitTest.java` (remove the `--` test at 93, already moved in Task 6), new `ConvertToEdocRenderUnitTest.java`, new `ConvertToEdocRenderIntegrationTest.java` (`@Tag("integration")`), `Doc2PDFIntegrationTest.java`
 
 **Interfaces:**
 - Consumes: `HtmlPdfRenderService` via `SpringUtils.getBean(HtmlPdfRenderService.class)` at call time.
-- Produces: `private static Path execute(String html, String filename, HtmlPdfRenderSource source)`; package-private `static HtmlPdfRenderRequest buildRenderRequest(String tidiedHtml, HtmlPdfRenderSource source)`; package-private `static Path webappRoot()` (realPath, else `SpringUtils.getBean(ServletContext.class).getRealPath("/")`, else `null`; sets `realPath` when it was null).
+- Produces: `private static Path execute(String html, String filename, HtmlPdfRenderSource source)` (`saveAsTempPDF(String, String)`, which has no production caller and is deleted in PR 2, passes `FORM`); package-private `static HtmlPdfRenderRequest buildRenderRequest(String tidiedHtml, HtmlPdfRenderSource source)`; package-private `static Path webappRoot()` (realPath, else `SpringUtils.getBean(ServletContext.class).getRealPath("/")`, else `null`; sets `realPath` when it was null).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -769,6 +780,8 @@ void shouldRenderRealDocument_withoutWarnOrErrorDegradation(String fixture) {
 @Test void shouldReturnNull_forBlankHtml()                          // "   " → null, no exception escapes (tidyDocument now inside the try)
 @Test void shouldReturnNull_whenTempSaveFails()                     // NioFileManager throws IOException → null, no retry (verify called once)
 @Test void shouldUseServiceAsFallback_whenWkhtmltopdfFails()        // mockConstruction(InternalEDocConverter) throws → service.render called once with source FORM
+// ConvertToEdocRenderIntegrationTest (extends CarlosTestBase, real HtmlPdfRenderService from test-context-full.xml, mockConstruction(InternalEDocConverter) throwing)
+@Test void shouldLoadWebappResources_whenWorkingDirectoryIsElsewhere() // webapp root in a @TempDir with a linked stylesheet (a distinctive font size), a CSS url() background image and a pdfMediaStylesheet hidden input; user.dir is never under the root → PDF text present at that font size (PDFBox TextPosition), no IMAGE_UNAVAILABLE
 // Doc2PDFIntegrationTest: existing tests keep passing through the real service; add
 @Test void shouldReturnNull_whenRenderFails()                       // whitespace-only docText → parseString2Bin returns null
 ```
@@ -846,7 +859,7 @@ Start after PR 1 merges: `git fetch origin release/2026.08 && git checkout -b cl
 - Delete: `documentManager/InternalEDocConverter.java`, `documentManager/EDocConverterInterface.java`
 - Modify: `managers/EformDataManager.java:57` + `EformDataManagerImpl.java:147-171` (delete `saveEformDataAsEDoc`), `managers/FormsManager.java:74` + `FormsManagerImpl.java:215-235` (delete `saveFormDataAsEDoc`; 238–241 is the next method's JavaDoc, keep it)
 - Modify: `hospitalReportManager/HRMPDFCreator.java:122-127` (JavaDoc: one engine)
-- Test: delete `FormsManagerUnitTest` `@Nested SaveFormDataAsEDocSecurity` (308–323); rewrite `ConvertToEdocIntegrationTest` (the `MockedStatic`/`MockedConstruction` block at 86–104 → `saveAsTempPDF(EFormData)` through the real service, no `MockedConstruction`; keep the `from(eForm, pdfPath)` case at 105–107)
+- Test: delete `FormsManagerUnitTest` `@Nested SaveFormDataAsEDocSecurity` (~308–323); rewrite `ConvertToEdocIntegrationTest` (the `MockedStatic`/`MockedConstruction` block at 86–104 → `saveAsTempPDF(EFormData)` through the real service, no `MockedConstruction`; keep the `from(eForm, pdfPath)` case at 105–107)
 
 - [ ] **Step 1: Update the tests first** (integration test asserts the PDF text through PDFBox and `moduleId`/page count as today) and run them → compile failures expected where methods are deleted only after Step 2.
 - [ ] **Step 2: Delete and simplify** as listed; `grep -rn "InternalEDocConverter\|EDocConverterInterface\|saveEformDataAsEDoc\|saveFormDataAsEDoc\|wkhtmltopdf" src/main src/test` → no matches except historical docs.
