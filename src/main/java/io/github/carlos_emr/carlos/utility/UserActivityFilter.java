@@ -38,6 +38,7 @@ import org.apache.logging.log4j.Logger;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.sec.LoginFilter;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
@@ -54,8 +55,11 @@ import jakarta.servlet.http.HttpSession;
  * alive.
  *
  * <p>Requests that are not the user's own do not count as activity: any request carrying
- * {@code autoRefresh=true} (pages that refresh themselves must add it), the session heartbeat
- * ({@code /status/SessionHeartbeat}) and the CSRFGuard script servlet.</p>
+ * {@code autoRefresh=true} (pages that refresh themselves must add it), every path LoginFilter
+ * exempts from its own inactivity timer ({@link LoginFilter#isExemptFromInactivityTimer}: the
+ * heartbeat, the tab-alert and message polls, the schedule's self-refresh, static assets, the
+ * login and logout pages) and the CSRFGuard script servlet. The timer starts at the session's
+ * first authenticated request of any kind, so a session that only ever polls still times out.</p>
  *
  * <p>Contract, kept by the {@code web.xml} mapping and this class (issue #5305):</p>
  * <ul>
@@ -100,9 +104,9 @@ public final class UserActivityFilter implements Filter {
             Set.of("/logout", "/logoutPage", "/index", "/loginfailed");
 
     /**
-     * Context-relative paths whose requests are never the user's own: the heartbeat poll and the
-     * CSRFGuard script servlet (mapped at {@code /csrfguard}; {@code /JavaScriptServlet} is its
-     * pre-4.x name).
+     * Context-relative paths whose requests are never the user's own, beyond LoginFilter's
+     * timer-exempt list: the CSRFGuard script servlet (mapped at {@code /csrfguard};
+     * {@code /JavaScriptServlet} is its pre-4.x name). The heartbeat is listed in both.
      */
     private static final Set<String> NON_USER_ACTIVITY_PATHS =
             Set.of("/status/SessionHeartbeat", "/csrfguard", "/JavaScriptServlet");
@@ -148,11 +152,26 @@ public final class UserActivityFilter implements Filter {
             return;
         }
 
-        if (isUserRequest(httpRequest, path)) {
-            // nosemgrep: tainted-session-from-http-request -- now is System.currentTimeMillis(), a server-generated timestamp
-            session.setAttribute(LAST_USER_ACTIVITY, now);
+        // The first authenticated request starts the timer whatever it is; after that only the
+        // user's own requests move it.
+        if (!(lastActivity instanceof Long) || isUserRequest(httpRequest, path)) {
+            recordActivity(session, now);
         }
         chain.doFilter(request, response);
+    }
+
+    /**
+     * Stores {@code now} unless a concurrent request of the same session already stored a later
+     * time, so an older request finishing last cannot move the timer backwards.
+     */
+    private static void recordActivity(HttpSession session, long now) {
+        synchronized (session) {
+            Object current = session.getAttribute(LAST_USER_ACTIVITY);
+            if (!(current instanceof Long last) || last < now) {
+                // nosemgrep: tainted-session-from-http-request -- now is System.currentTimeMillis(), a server-generated timestamp
+                session.setAttribute(LAST_USER_ACTIVITY, now);
+            }
+        }
     }
 
     /**
@@ -181,7 +200,8 @@ public final class UserActivityFilter implements Filter {
 
     private static void auditInactivityOnce(HttpSession session, String providerNo, String remoteAddr) {
         // Check-and-mark under the session's lock so two requests arriving together (a click and a
-        // heartbeat) write one row. Reached only on the inactive path; nothing else is held here.
+        // heartbeat) write one row. Tomcat hands every request of a session the same facade object
+        // (StandardSession caches it), so the facade is a per-session lock; nothing else is held.
         synchronized (session) {
             if (session.getAttribute(INACTIVITY_LOGOUT_AUDITED) != null) {
                 return;
@@ -193,7 +213,8 @@ public final class UserActivityFilter implements Filter {
     }
 
     private static boolean isUserRequest(HttpServletRequest httpRequest, String path) {
-        if (NON_USER_ACTIVITY_PATHS.contains(path)) {
+        if (NON_USER_ACTIVITY_PATHS.contains(path)
+                || LoginFilter.isExemptFromInactivityTimer(httpRequest.getRequestURI(), httpRequest.getContextPath())) {
             return false;
         }
         return !Boolean.parseBoolean(httpRequest.getParameter("autoRefresh"));

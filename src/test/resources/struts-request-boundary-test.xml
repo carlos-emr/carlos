@@ -27,8 +27,8 @@
   Struts configuration for RequestBoundaryFilterOrderIntegrationTest (issue #5305). The test loads
   only struts-default.xml and this file. Constants mirror the production struts.xml where they
   decide whether Struts handles a request: extensionless actions, and servlet/JSP paths excluded.
-  The logout routes keep their production names so the UserActivityFilter exemptions are
-  exercised on the real paths.
+  The logout, heartbeat and tab-alert routes keep their production names so the
+  UserActivityFilter and LoginFilter exemptions are exercised on the real paths.
 -->
 <struts>
     <constant name="struts.devMode" value="false"/>
@@ -53,6 +53,8 @@
         <action name="boundary/transaction"
                 class="io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest$TransactionalAction"/>
         <action name="boundary/activity"
+                class="io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest$ActivityAction"/>
+        <action name="provider/ViewTabAlertsRefresh"
                 class="io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest$ActivityAction"/>
         <action name="status/SessionHeartbeat"
                 class="io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest$ActivityAction"/>

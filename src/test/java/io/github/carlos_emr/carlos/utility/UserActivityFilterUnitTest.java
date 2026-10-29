@@ -72,7 +72,7 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should not create a session for an anonymous request")
     void shouldNotCreateSession_whenRequestIsAnonymous() throws Exception {
-        MockHttpServletRequest request = request("/provider/providercontrol");
+        MockHttpServletRequest request = request("/tickler/ticklerMain");
         MockFilterChain chain = new MockFilterChain();
 
         filter.doFilter(request, new MockHttpServletResponse(), chain);
@@ -105,7 +105,7 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
     void shouldIgnoreSession_whenUserAttributeIsBlank() throws Exception {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute("user", "  ");
-        MockHttpServletRequest request = request("/provider/providercontrol", session);
+        MockHttpServletRequest request = request("/tickler/ticklerMain", session);
 
         filter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
 
@@ -116,7 +116,7 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
     @DisplayName("should record activity for an authenticated user's own request")
     void shouldRecordActivity_whenAuthenticatedUserRequests() throws Exception {
         MockHttpSession session = authenticatedSession();
-        MockHttpServletRequest request = request("/provider/providercontrol", session);
+        MockHttpServletRequest request = request("/tickler/ticklerMain", session);
         MockFilterChain chain = new MockFilterChain();
         long before = System.currentTimeMillis();
 
@@ -133,7 +133,7 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
         MockHttpSession session = authenticatedSession();
         long recent = System.currentTimeMillis() - 60_000L;
         session.setAttribute(UserActivityFilter.LAST_USER_ACTIVITY, recent);
-        MockHttpServletRequest request = request("/provider/ViewTabAlertsRefresh", session);
+        MockHttpServletRequest request = request("/tickler/ticklerMain", session);
         request.setParameter("autoRefresh", "true");
         MockFilterChain chain = new MockFilterChain();
 
@@ -144,8 +144,10 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {"/status/SessionHeartbeat", "/csrfguard", "/JavaScriptServlet"})
-    @DisplayName("should not count heartbeat or CSRF script requests as activity")
+    @ValueSource(strings = {"/status/SessionHeartbeat", "/csrfguard", "/JavaScriptServlet",
+            "/provider/ViewTabAlertsRefresh", "/provider/providercontrol", "/SystemMessage", "/FacilityMessage",
+            "/library/jquery/jquery-3.7.1.min.js"})
+    @DisplayName("should not count polls, LoginFilter's timer-exempt paths or CSRF script requests as activity")
     void shouldNotRecordActivity_forBackgroundPaths(String path) throws Exception {
         MockHttpSession session = authenticatedSession();
         long recent = System.currentTimeMillis() - 60_000L;
@@ -160,11 +162,38 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should start the timer on the first authenticated request, even a background poll")
+    void shouldStartTimer_whenFirstAuthenticatedRequestIsBackgroundPoll() throws Exception {
+        MockHttpSession session = authenticatedSession();
+        MockHttpServletRequest heartbeat = request("/status/SessionHeartbeat", session);
+        heartbeat.setParameter("autoRefresh", "true");
+        long before = System.currentTimeMillis();
+
+        filter.doFilter(heartbeat, new MockHttpServletResponse(), new MockFilterChain());
+
+        assertThat((Long) session.getAttribute(UserActivityFilter.LAST_USER_ACTIVITY))
+                .as("a session that only ever polls must still time out")
+                .isBetween(before, System.currentTimeMillis());
+    }
+
+    @Test
+    @DisplayName("should never move the activity time backwards")
+    void shouldKeepNewestActivity_whenOlderRequestFinishesLast() throws Exception {
+        MockHttpSession session = authenticatedSession();
+        long newer = System.currentTimeMillis() + 60_000L;
+        session.setAttribute(UserActivityFilter.LAST_USER_ACTIVITY, newer);
+
+        filter.doFilter(request("/tickler/ticklerMain", session), new MockHttpServletResponse(), new MockFilterChain());
+
+        assertThat(session.getAttribute(UserActivityFilter.LAST_USER_ACTIVITY)).isEqualTo(newer);
+    }
+
+    @Test
     @DisplayName("should redirect an inactive session to the logout page before the chain runs")
     void shouldRedirectToLogoutPage_whenSessionIsInactive() throws Exception {
         MockHttpSession session = authenticatedSession();
         session.setAttribute(UserActivityFilter.LAST_USER_ACTIVITY, System.currentTimeMillis() - STALE);
-        MockHttpServletRequest request = request("/provider/providercontrol", session);
+        MockHttpServletRequest request = request("/tickler/ticklerMain", session);
         request.setRemoteAddr("192.0.2.10");
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
@@ -222,7 +251,7 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
         MockHttpSession session = authenticatedSession();
         session.setMaxInactiveInterval(maxInactiveInterval);
         session.setAttribute(UserActivityFilter.LAST_USER_ACTIVITY, System.currentTimeMillis() - STALE);
-        MockHttpServletRequest request = request("/provider/providercontrol", session);
+        MockHttpServletRequest request = request("/tickler/ticklerMain", session);
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
@@ -237,7 +266,7 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
     void shouldContinueChain_whenSessionIsWithinTimeout() throws Exception {
         MockHttpSession session = authenticatedSession();
         session.setAttribute(UserActivityFilter.LAST_USER_ACTIVITY, System.currentTimeMillis() - 60_000L);
-        MockHttpServletRequest request = request("/provider/providercontrol", session);
+        MockHttpServletRequest request = request("/tickler/ticklerMain", session);
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
@@ -255,7 +284,7 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
         session.setMaxInactiveInterval(TWO_HOURS);
         session.setAttribute("user", "123456");
         session.setAttribute(UserActivityFilter.LAST_USER_ACTIVITY, System.currentTimeMillis() - STALE);
-        MockHttpServletRequest request = request("/provider/providercontrol", session);
+        MockHttpServletRequest request = request("/tickler/ticklerMain", session);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, new MockFilterChain());
@@ -269,7 +298,7 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
     @DisplayName("should pass a chain failure through unchanged")
     void shouldPropagateChainFailure_whenDownstreamThrows() {
         MockHttpSession session = authenticatedSession();
-        MockHttpServletRequest request = request("/provider/providercontrol", session);
+        MockHttpServletRequest request = request("/tickler/ticklerMain", session);
         ServletException failure = new ServletException("downstream");
         FilterChain chain = (req, res) -> {
             throw failure;

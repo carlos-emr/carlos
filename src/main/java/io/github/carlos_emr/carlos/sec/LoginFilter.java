@@ -532,6 +532,26 @@ public class LoginFilter implements Filter {
      *         path boundaries, false otherwise
      */
     boolean inListOfExemptions(String requestURI, String contextPath, String[] EXEMPT_URLS) {
+        return matchesExemption(requestURI, contextPath, EXEMPT_URLS);
+    }
+
+    /**
+     * Reports whether requests to {@code requestURI} must not count as the user's own activity:
+     * the paths in {@link #EXEMPT_URLS_FOR_REQUEST_TIMEOUT} (background polls such as the tab
+     * alerts and the heartbeat, the schedule's self-refresh, static assets and the login and
+     * logout pages). {@code UserActivityFilter} uses the same list, so the two inactivity timers
+     * agree on what is a user request (issue #5305).
+     *
+     * @param requestURI the full request URI, including the context path
+     * @param contextPath the servlet context path
+     * @return {@code true} when the URI is exempt from the inactivity timer
+     */
+    public static boolean isExemptFromInactivityTimer(String requestURI, String contextPath) {
+        return requestURI != null && matchesExemption(requestURI, contextPath == null ? "" : contextPath,
+                EXEMPT_URLS_FOR_REQUEST_TIMEOUT);
+    }
+
+    private static boolean matchesExemption(String requestURI, String contextPath, String[] EXEMPT_URLS) {
         requestURI = normalizeUri(requestURI);
 
         // Treat context root (e.g. /carlos/) as equivalent to /index (welcome file)

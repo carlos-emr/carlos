@@ -339,22 +339,28 @@ public class RequestBoundaryFilterOrderIntegrationTest {
         }
 
         @Test
-        @DisplayName("should count a Struts action as activity, but not autoRefresh or heartbeat polls")
+        @DisplayName("should start the timer on the first request, then count only the user's own Struts requests")
         void shouldRecordActivity_onlyForUserStrutsRequests() throws Exception {
             HttpClient client = newClient();
             assertThat(get(client, PRODUCTION + "/servlet/boundary-session?user=999998").body()).isEqualTo("created");
-            assertThat(readLastActivity(client)).isEqualTo("none");
+            long beforeFirst = System.currentTimeMillis();
+            long started = Long.parseLong(readLastActivity(client));
+            assertThat(started).as("the first authenticated request, a poll here, starts the timer")
+                    .isGreaterThanOrEqualTo(beforeFirst);
 
+            Thread.sleep(20);
             long before = System.currentTimeMillis();
             assertThat(get(client, PRODUCTION + "/boundary/activity").statusCode()).isEqualTo(200);
             long recorded = Long.parseLong(readLastActivity(client));
-            assertThat(recorded).isGreaterThanOrEqualTo(before);
+            assertThat(recorded).isGreaterThanOrEqualTo(before).isGreaterThan(started);
 
             assertThat(get(client, PRODUCTION + "/boundary/activity?autoRefresh=true").statusCode()).isEqualTo(200);
             assertThat(get(client, PRODUCTION + "/status/SessionHeartbeat?autoRefresh=true").statusCode()).isEqualTo(200);
             assertThat(get(client, PRODUCTION + "/status/SessionHeartbeat").statusCode()).isEqualTo(200);
+            assertThat(get(client, PRODUCTION + "/provider/ViewTabAlertsRefresh").statusCode())
+                    .as("a poll LoginFilter exempts from its timer").isEqualTo(200);
             assertThat(Long.parseLong(readLastActivity(client))).isEqualTo(recorded);
-            assertThat(Probe.actionRuns.get()).isEqualTo(4);
+            assertThat(Probe.actionRuns.get()).isEqualTo(5);
         }
 
         @Test
