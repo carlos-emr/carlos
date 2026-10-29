@@ -18,9 +18,10 @@ and a library that shades its own copy of the classes. It fails when:
   * no jar, or more than one jar or WEB-INF/classes, defines a class in
     org.apache.commons.logging (multi-release META-INF/versions/N/ copies
     included);
-  * the one definer is not WEB-INF/lib/commons-logging-<version>.jar, or is
+  * the one definer is not WEB-INF/lib/commons-logging-<version>.jar, is
     one without Log4jApiLogFactory (commons-logging before 1.3 cannot bind
-    to the Log4j API, so JCL would not reach Log4j 2);
+    to the Log4j API, so JCL would not reach Log4j 2), or carries its own
+    versioned copy of a JCL class;
   * anything carries META-INF/services/org.apache.commons.logging.LogFactory
     or commons-logging.properties (versioned copies included), which would
     override LogFactory discovery.
@@ -127,6 +128,14 @@ def violations(sources):
                 f"{source} defines org.apache.commons.logging classes; only "
                 "WEB-INF/lib/commons-logging-<version>.jar may")
         else:
+            # A versioned copy inside the approved jar is still a second definition:
+            # on a Multi-Release jar a new enough JVM loads it instead of the base
+            # class. commons-logging itself versions only module-info.class.
+            for entry in sorted(sources[source][0]):
+                if MULTI_RELEASE.match(entry):
+                    problems.append(
+                        f"{source} carries {entry}, a versioned copy of a Commons "
+                        "Logging class")
             # Base entries only: a copy under META-INF/versions/N is not loaded by a
             # JVM older than N or from a jar without Multi-Release: true, so it
             # cannot stand in for the class itself.

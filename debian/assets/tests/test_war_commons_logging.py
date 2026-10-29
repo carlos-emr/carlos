@@ -36,11 +36,14 @@ SERVICE = "META-INF/services/org.apache.commons.logging.LogFactory"
 LOG4J_API_FACTORY = "org/apache/commons/logging/impl/Log4jApiLogFactory.class"
 
 
-def jar_bytes(entries):
+def jar_bytes(entries, *, multi_release=False):
     """A jar holding each named entry (value: bytes, or None for a stub)."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as jar:
-        jar.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n")
+        manifest = "Manifest-Version: 1.0\n"
+        if multi_release:
+            manifest += "Multi-Release: true\n"
+        jar.writestr("META-INF/MANIFEST.MF", manifest)
         for name, data in entries.items():
             jar.writestr(name, data if data is not None else b"\xca\xfe\xba\xbe")
     return buf.getvalue()
@@ -222,6 +225,27 @@ class CheckWarCommonsLoggingTest(unittest.TestCase):
             "WEB-INF/lib/commons-logging-1.2.jar": jar_bytes(classes),
         }))
         self.assert_refused(result, f"WEB-INF/lib/commons-logging-1.2.jar has no {LOG4J_API_FACTORY}")
+
+    def test_refuses_versioned_class_in_commons_logging_jar(self):
+        # On a Multi-Release jar a new enough JVM loads the versioned copy instead
+        # of the base class, so the approved jar may not carry one either.
+        classes = {name: None for name in JCL_CLASSES}
+        versioned = "META-INF/versions/11/org/apache/commons/logging/Log.class"
+        classes[versioned] = None
+        result = self.run_check(self.war({
+            "WEB-INF/lib/commons-logging-1.4.0.jar": jar_bytes(classes, multi_release=True),
+        }))
+        self.assert_refused(
+            result, f"WEB-INF/lib/commons-logging-1.4.0.jar carries {versioned}")
+
+    def test_accepts_versioned_module_info_in_commons_logging_jar(self):
+        # The real commons-logging 1.4.0 jar is Multi-Release only for module-info.
+        classes = {name: None for name in JCL_CLASSES}
+        classes["META-INF/versions/9/module-info.class"] = None
+        result = self.run_check(self.war({
+            "WEB-INF/lib/commons-logging-1.4.0.jar": jar_bytes(classes, multi_release=True),
+        }))
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_refuses_versioned_discovery_override(self):
         # A multi-release jar serves META-INF/versions/N/commons-logging.properties
