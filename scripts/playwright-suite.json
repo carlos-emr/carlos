@@ -6123,6 +6123,19 @@
       "fixtures": "Owned FAKE- provider (sites copied from the operator), owned patients, batch-billing queue rows, an RA with an owned radetail row and the clipboard notes; all rows and files removed."
     },
     {
+      "name": "billing-on-batch-percentage-limit",
+      "script": "scripts/billing-on-batch-percentage-limit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "fixtures": "Owned FAKE- provider (sites copied from the operator), owned patients, two FAKE- percentage fee rows with unused codes, their limit rows (one keyed by a fee-row id) and two batch-billing queue rows; all rows removed."
+    },
+    {
       "name": "billing-on-admin-config",
       "script": "scripts/billing-on-admin-config-playwright-checks.js",
       "tiers": [
