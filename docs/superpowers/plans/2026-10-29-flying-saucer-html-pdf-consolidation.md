@@ -456,7 +456,7 @@ void shouldPrintCheckedMark_forAnyTypeCase(String type) {
 ```
 
 - [ ] **Step 2: Run; expect failure**.
-- [ ] **Step 3: Implement** per spec §Right-to-left text: ICU4J `ArabicShaping(LETTERS_SHAPE | TEXT_DIRECTION_LOGICAL)` then `Bidi` with the paragraph level from the nearest `dir` or `Bidi.LEVEL_DEFAULT_LTR`, `writeReordered(Bidi.DO_MIRRORING)`, per text node; `text-align: right` added to the nearest block ancestor with `dir="rtl"` and no `text-align`.
+- [ ] **Step 3: Implement** per spec §Right-to-left text: ICU4J `ArabicShaping(LETTERS_SHAPE | TEXT_DIRECTION_LOGICAL)` (`shape` throws the checked `ArabicShapingException`; catch it and keep that node's original text) then `Bidi` with the paragraph level from the nearest `dir` or `Bidi.LEVEL_DEFAULT_LTR`, `writeReordered(Bidi.DO_MIRRORING)`, per text node; `text-align: right` added to the nearest block ancestor with `dir="rtl"` and no `text-align`.
 - [ ] **Step 4: Run; expect PASS**.
 - [ ] **Step 5: Commit** — `feat(htmlpdf): best-effort right-to-left shaping and reordering`.
 
@@ -780,7 +780,7 @@ void shouldRenderRealDocument_withoutWarnOrErrorDegradation(String fixture) {
 ### Task 20: Caller error paths (HRM, email)
 
 **Files:**
-- Modify: `hospitalReportManager/HRMPDFCreator.java` — `printPdf()` (128; HTML branch 177–183; JavaDoc 122–127 left for PR 2)
+- Modify: `hospitalReportManager/HRMPDFCreator.java` — `printPdf()` (128; HTML branch 178–183; JavaDoc 122–127 left for PR 2)
 - Modify: `hospitalReportManager/HRMUtil.java` — `renderHRM` (361–375)
 - Modify: `hospitalReportManager/PrintHRMReport2Action.java` — catch at 133
 - Modify: `managers/EmailManager.java` — `createMessageAttachment` (510–519)
@@ -844,9 +844,9 @@ Start after PR 1 merges: `git fetch origin release/2026.08 && git checkout -b cl
 **Files:**
 - Modify: `documentManager/ConvertToEdoc.java` — `renderPDF` calls `renderWithService` only; delete `from(EFormData)` (127), `from(FormTransportContainer)` (199) and its JavaDoc example, `saveAsTempPDF(String, String)` (251), `DEFAULT_WKHTMLTOPDF_COMMAND`/`ARGS` (113–114), the wkhtmltopdf comments and JavaDoc (83–84, 383); class JavaDoc describes the single engine
 - Delete: `documentManager/InternalEDocConverter.java`, `documentManager/EDocConverterInterface.java`
-- Modify: `managers/EformDataManager.java:57` + `EformDataManagerImpl.java:147-171` (delete `saveEformDataAsEDoc`), `managers/FormsManager.java:74` + `FormsManagerImpl.java:215-241` (delete `saveFormDataAsEDoc`)
+- Modify: `managers/EformDataManager.java:57` + `EformDataManagerImpl.java:147-171` (delete `saveEformDataAsEDoc`), `managers/FormsManager.java:74` + `FormsManagerImpl.java:215-235` (delete `saveFormDataAsEDoc`; 238–241 is the next method's JavaDoc, keep it)
 - Modify: `hospitalReportManager/HRMPDFCreator.java:122-127` (JavaDoc: one engine)
-- Test: delete `FormsManagerUnitTest` `@Nested SaveFormDataAsEDocSecurity` (308–323); rewrite `ConvertToEdocIntegrationTest` (87–105 → `saveAsTempPDF(EFormData)` through the real service, no `MockedConstruction`; keep the `from(eForm, pdfPath)` case)
+- Test: delete `FormsManagerUnitTest` `@Nested SaveFormDataAsEDocSecurity` (308–323); rewrite `ConvertToEdocIntegrationTest` (the `MockedStatic`/`MockedConstruction` block at 86–104 → `saveAsTempPDF(EFormData)` through the real service, no `MockedConstruction`; keep the `from(eForm, pdfPath)` case at 105–107)
 
 - [ ] **Step 1: Update the tests first** (integration test asserts the PDF text through PDFBox and `moduleId`/page count as today) and run them → compile failures expected where methods are deleted only after Step 2.
 - [ ] **Step 2: Delete and simplify** as listed; `grep -rn "InternalEDocConverter\|EDocConverterInterface\|saveEformDataAsEDoc\|saveFormDataAsEDoc\|wkhtmltopdf" src/main src/test` → no matches except historical docs.
