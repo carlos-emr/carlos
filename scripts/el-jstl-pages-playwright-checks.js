@@ -24,8 +24,9 @@
  *      exactly, and inject no markup. (No literal ${...} is sent: the packaged WAF rightly
  *      refuses one in a parameter, CRS rule 932130.)
  *
- * Every page must answer 200, render no error page, contain no unevaluated `${...}` and no
- * `???key???` from a missing <fmt:message> key, and raise no strict-page browser problem.
+ * Every page must answer 200, render no error page, leave no `${...}` or `#{...}` in its markup
+ * (text and attributes, hidden ones included) or EL source in its scripts, show no `???key???`
+ * from a missing <fmt:message> key, and raise no strict-page browser problem.
  *
  * READ-ONLY: nothing is submitted, seeded or cleaned up.
  *
@@ -52,10 +53,30 @@ const UNEVALUATED_TEXT = /\$\{|#\{|\?\?\?[\w.-]+\?\?\?/;
 const KEYWORD = 'EL "6" O\'Brien & Sons <Ltd> A/B';
 const CONTACT_TYPE = 'type "1" & \'x\' <y>';
 
-/** Whether a response body still carries EL source, ignoring the values this check sends. */
+/** The text around a match, for a failure message. */
+function excerpt(text, index) {
+  return text.slice(Math.max(0, index - 40), index + 60).replace(/\s+/g, ' ');
+}
+
+/** EL source anywhere in a response body, scripts included, by the names CARLOS pages use. */
 function unevaluatedSource(body) {
   const match = UNEVALUATED_SOURCE.exec(body);
-  return match ? body.slice(Math.max(0, match.index - 40), match.index + 60).replace(/\s+/g, ' ') : null;
+  return match ? excerpt(body, match.index) : null;
+}
+
+/**
+ * Any `${` or `#{` left in the markup: text and attribute values, hidden ones included, whatever
+ * the expression names. Comments, <script> and <style> blocks and inline on* handlers are set
+ * aside first, because JavaScript template literals legitimately use `${`; EL left in those is
+ * what unevaluatedSource looks for.
+ */
+function unevaluatedMarkup(body) {
+  const markup = body
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
+    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, ' ');
+  const match = /\$\{|#\{/.exec(markup);
+  return match ? excerpt(markup, match.index) : null;
 }
 
 /** The checks every page gets: 200, no error page, no EL or fmt source left in it. */
@@ -63,7 +84,8 @@ async function assertRendered(page, response, label) {
   assert(response, `${label} did not load`);
   assert(response.status() === 200, `${label} answered HTTP ${response.status()}`);
   const text = await assertNotErrorPage(page, label);
-  const leaked = unevaluatedSource(await response.text());
+  const body = await response.text();
+  const leaked = unevaluatedSource(body) || unevaluatedMarkup(body);
   assert(!leaked, `${label} contains unevaluated EL source: "${leaked}"`);
   const visible = UNEVALUATED_TEXT.exec(text);
   assert(!visible, `${label} shows unevaluated text "${visible && visible[0]}"`);
@@ -86,19 +108,38 @@ function jsLiteral(literal) {
 async function checkAdministration(schedule, context, recorder, contextPath) {
   const opener = schedule.locator('#admin-panel, #admin2').first();
   assert(await opener.count() > 0, 'The schedule offers no Administration control');
-  const { page } = await clickOpensPopupOrNavigates(schedule, opener,
-    { context, label: 'administration', recorder, timeout: TIMEOUT });
-  await page.waitForLoadState('load', { timeout: TIMEOUT });
-  const text = await assertNotErrorPage(page, 'Administration');
-  const visible = UNEVALUATED_TEXT.exec(text);
-  assert(!visible, `Administration shows unevaluated text "${visible && visible[0]}"`);
+  // The panel may open as a popup or in place, so keep every top-level document response and
+  // take the one that loaded the panel once the click has settled.
+  const documents = [];
+  const keep = candidate => {
+    const request = candidate.request();
+    if (request.resourceType() === 'document' && request.isNavigationRequest()) documents.push(candidate);
+  };
+  context.on('response', keep);
+  let opened;
+  try {
+    opened = await clickOpensPopupOrNavigates(schedule, opener,
+      { context, label: 'administration', recorder, timeout: TIMEOUT });
+    await opened.page.waitForLoadState('load', { timeout: TIMEOUT });
+  } finally {
+    context.off('response', keep);
+  }
+  const { page } = opened;
+  const response = documents.filter(candidate => {
+    try {
+      return candidate.frame() === page.mainFrame() && (candidate.status() < 300 || candidate.status() >= 400);
+    } catch {
+      return false;
+    }
+  }).pop();
+  await assertRendered(page, response, 'Administration');
   const targets = await page.locator('a.xlink[rel]').evaluateAll(links => links.map(link => link.getAttribute('rel')));
   assert(targets.length >= 20, `Administration lists only ${targets.length} menu links`);
   const unresolved = targets.filter(target => !target.startsWith(`${contextPath}/`) || target.includes('${'));
   assert(unresolved.length === 0,
     `Administration menu links whose \${ctx} was not resolved to ${contextPath}: ${unresolved.slice(0, 5).join(', ')}`);
   console.log(`  Administration: ${targets.length} menu links resolve under ${contextPath}`);
-  return page;
+  return opened;
 }
 
 async function checkDiseaseRegistry(admin) {
@@ -206,9 +247,9 @@ async function main() {
   try {
     const context = await newContext(browser, config);
     const schedule = await login(context, config, recorder);
-    const admin = await checkAdministration(schedule, context, recorder, contextPath);
+    const { page: admin, isPopup } = await checkAdministration(schedule, context, recorder, contextPath);
     await checkDiseaseRegistry(admin);
-    await admin.close();
+    if (isPopup) await admin.close();
     await checkFacilityManager(context, recorder, config, contextPath);
     await checkElFunctions(context, recorder, config);
     assertStrictPage(recorder);
@@ -219,4 +260,4 @@ async function main() {
 }
 
 if (require.main === module) runCheck({ name: 'el-jstl-pages', run: main });
-module.exports = { main, unevaluatedSource, jsLiteral, KEYWORD, CONTACT_TYPE };
+module.exports = { main, unevaluatedSource, unevaluatedMarkup, jsLiteral, KEYWORD, CONTACT_TYPE };

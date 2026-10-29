@@ -7,7 +7,9 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { unevaluatedSource, jsLiteral, KEYWORD, CONTACT_TYPE } = require('./el-jstl-pages-playwright-checks');
+const {
+  unevaluatedSource, unevaluatedMarkup, jsLiteral, KEYWORD, CONTACT_TYPE,
+} = require('./el-jstl-pages-playwright-checks');
 
 test('JSP EL source that reached the browser is reported with its context', () => {
   for (const body of [
@@ -31,6 +33,32 @@ test('JavaScript template literals and evaluated pages are not reported', () => 
   ]) {
     assert.equal(unevaluatedSource(body), null, body);
   }
+});
+
+test('any expression left in markup is reported, whatever it names and wherever it hides', () => {
+  for (const body of [
+    '<a href="/carlos/FacilityManager?method=edit&id=1" title="${facility.name}">Edit</a>',
+    '<input type="hidden" name="contactType" value="${carlos:forHtmlAttribute(param.contactType)}">',
+    '<td style="display:none">${program.numOfMembers}</td>',
+    '<option value="${codingSys}">icd9</option>',
+    '<span data-value="#{bean.deferred}"></span>',
+    '<textarea name="note">${note.text}</textarea>',
+  ]) {
+    assert.ok(unevaluatedMarkup(body), `not reported: ${body}`);
+  }
+  assert.match(unevaluatedMarkup('<p>ok</p><a title="${facility.name}">x</a>'), /title="\$\{facility\.name\}"/);
+});
+
+test('template literals in scripts, styles, comments and inline handlers are not markup', () => {
+  const body = [
+    '<script>const url = `${base}/x`;</script>',
+    '<SCRIPT type="module">render(`#{id}`)</SCRIPT>',
+    '<style>.a::after { content: "${x}"; }</style>',
+    '<!-- legacy: <a href="${facility.id}"> -->',
+    '<button onclick="go(`${ctx}/a`)" ONMOUSEOVER=\'tip(`${n}`)\'>Go</button>',
+    '<a href="/carlos/report/DxresearchReport" title="Disease Registry">Disease Registry</a>',
+  ].join('\n');
+  assert.equal(unevaluatedMarkup(body), null);
 });
 
 test('a carlos:forJavaScript literal decodes to the exact value the check sent', () => {
