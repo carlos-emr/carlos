@@ -34,8 +34,9 @@ the text looks like HL7 v2 XML, and the pipe parser otherwise.
 **How untrusted input reaches `PhsStarHandler`.** The `PHS` lab type is chosen by the lab upload
 route:
 
-- *Manual upload* (`InsideLabUpload2Action`): any user holding `_lab` write privilege picks the lab
-  type in the upload form (`type=PHS`) and supplies the file.
+- *Manual upload* (`InsideLabUpload2Action`): any user holding `_lab` write privilege can post
+  `type=PHS` with a file. The upload popup does not list PHS, and its free-text "Other" box is not
+  submitted, but the action takes any registered handler name from the `type` parameter.
 - *Signed lab interface* (`LabUpload2Action`): the type comes from the registered upload key, so
   only a sender holding a key configured as `PHS` reaches it.
 

@@ -27,8 +27,9 @@
  *
  * HAPI HL7 v2 1.0.1 loaded external entities and external DTDs when it parsed HL7 v2 XML. The only
  * code that hands uploaded text to HAPI's XML parser is the PHS/STAR handler, reached from the HL7
- * Lab Upload popup with the lab type PHS. Each synthetic message below is HL7 v2 XML that declares a
- * DOCTYPE which points at a loopback HTTP listener this script starts, or that expands an internal
+ * Lab Upload popup with the lab type PHS (the popup does not list PHS; the script adds the option to the
+ * page, which is the same request an authenticated `_lab` writer can post directly). Each synthetic
+ * message below is HL7 v2 XML that declares a DOCTYPE which points at a loopback HTTP listener this script starts, or that expands an internal
  * entity exponentially. For each one:
  *
  *   1. the HL7 Lab Upload popup does not report "Uploaded successfully";
@@ -130,6 +131,14 @@ async function uploadAs(s, type, filePath, fileName) {
   try {
     await popup.locator('#uploadForm').waitFor({ state: 'visible', timeout: 20000 });
     await popup.locator('#importFiles').setInputFiles(filePath);
+    // The popup lists a fixed set of lab types and PHS is not one of them, but InsideLabUpload2Action
+    // accepts any registered handler name in `type`, so an authenticated `_lab` writer can post it.
+    // Offer the option in the page so the real form, token and multipart upload carry the request.
+    await popup.locator('#type').evaluate((select, value) => {
+      if (![...select.options].some((option) => option.value === value)) {
+        select.add(new Option(value, value));
+      }
+    }, type);
     await popup.locator('#type').selectOption(type);
     const [response] = await Promise.all([
       popup.waitForResponse((r) => r.request().method() === 'POST'
