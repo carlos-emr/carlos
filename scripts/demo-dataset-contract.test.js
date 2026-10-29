@@ -318,8 +318,24 @@ function reappliedSecurityMigrations() {
     reapplied = names.map((name, i) => {
       const candidates = ['common', 'on'].map((location) => path.join(MIGRATION_DIR, location, name)).filter((file) => fs.existsSync(file));
       assert.equal(candidates.length, 1, `reapply_security_migrations.sh named ${name}, found in ${candidates.length} of common/ and on/`);
-      assert.equal(fs.readFileSync(path.join(captured, streams[i]), 'utf8'), fs.readFileSync(candidates[0], 'utf8'),
-        `reapply_security_migrations.sh fed mariadb something other than ${name}`);
+      const stream = fs.readFileSync(path.join(captured, streams[i]), 'utf8');
+      const migration = fs.readFileSync(candidates[0], 'utf8');
+      if (stream !== migration) {
+        // The two myCarlos migrations (V1.0.81, V1.0.82) refuse tables that already exist, so the
+        // script replays only their closing security seed: the file's non-blank lines from the first
+        // `INSERT INTO secObjectName` on (#5292). Accept exactly that, and only when it grants what the
+        // whole file grants, so replaying the file below stands for what mariadb was given.
+        const lines = migration.split('\n');
+        const start = lines.findIndex((line) => line.startsWith('INSERT INTO secObjectName '));
+        const seed = start < 0 ? null : `${lines.slice(start).filter((line) => line.trim()).join('\n')}\n`;
+        const grants = (sql) => {
+          const table = new Map();
+          applyPrivilegeStatements(table, sql, name);
+          return JSON.stringify([...table].sort());
+        };
+        assert.ok(stream === seed && grants(stream) === grants(migration),
+          `reapply_security_migrations.sh fed mariadb something other than ${name} or its security seed`);
+      }
       return candidates[0];
     });
     return reapplied;
