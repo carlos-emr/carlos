@@ -146,8 +146,13 @@ async function main() {
     h.assert(fs.existsSync(outsideFile), 'The outside PDF vanished; the probes must not touch it');
     return { valid: valid.status, probes: results };
   } finally {
-    await browser.close();
-    cleanup();
+    // Remove the planted files even if closing the browser (or its logout) rejects; a close
+    // error still propagates after the cleanup.
+    try {
+      await browser.close();
+    } finally {
+      cleanup();
+    }
   }
 }
 
