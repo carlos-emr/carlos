@@ -125,6 +125,10 @@ override_dh_auto_build:
 	$(CURDIR)/debian/build-flyway-runner.sh $(BUILDDIR)/carlos.war $(BUILDDIR)
 	# Bind the supplied/built WAR to the committed physical schema contract.
 	python3 scripts/schema-contract.py --verify-files --verify-war $(BUILDDIR)/carlos.war
+	# Exactly one Commons Logging implementation in the WAR (#5413). Maven bans
+	# the known duplicates; this also covers a prebuilt CARLOS_WAR and any
+	# library that shades its own copy of org.apache.commons.logging.
+	python3 $(CURDIR)/debian/check-war-commons-logging.py $(BUILDDIR)/carlos.war
 	python3 scripts/test-o19-input-lifecycle.py
 ifeq ($(SKIP_DRUGREF),)
 	set -e; \
