@@ -451,6 +451,85 @@ log:
   A document that is only restricted (it opens without a password but limits
   printing or editing) is signed normally.
 
+### Clinic signing key: create, rotate, revoke
+
+The signing key is the clinic's identity in myCarlos (carlos-emr/carlos#4691).
+myCarlos remembers the key a clinic signed with, by its key ID (`kid`). It
+shows a PDF as verified only when it comes from that key. Handle the key the way
+you would a TLS private key.
+
+**Create.** Use an ECDSA P-256 key in a PKCS#12 file that only the Tomcat user
+can read. A self-signed certificate is enough for myCarlos; a certificate from a
+recognised authority also removes the "unknown signer" warning in PDF readers.
+
+```
+keytool -genkeypair -alias carlos-pdf-signing -keyalg EC -groupname secp256r1 \
+  -sigalg SHA256withECDSA -validity 1825 \
+  -dname "CN=<Clinic name> document signing, O=<Clinic name>" \
+  -storetype PKCS12 -keystore /etc/carlos-emr/pdf-signing.p12
+chown tomcat:tomcat /etc/carlos-emr/pdf-signing.p12 && chmod 600 /etc/carlos-emr/pdf-signing.p12
+```
+
+Then set the `pdf.signing.*` properties above, restart, and send a test message
+with no patient information in it. Note the certificate's expiry date. The key
+ID shows in the audit entry of each signed document (below). To compute it from
+the certificate:
+
+```
+keytool -exportcert -rfc -alias carlos-pdf-signing -keystore /etc/carlos-emr/pdf-signing.p12 \
+  | openssl x509 -pubkey -noout | openssl pkey -pubin -outform DER \
+  | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '='
+```
+
+**Rotate** before the certificate expires, or whenever the key should change:
+1. Create a new keystore as above, at a new path.
+2. Keep the old keystore file. It is not used for signing any more, but keep it
+   offline until the portal hands out key replacements (below).
+3. Point `pdf.signing.keystore.path` (and the passwords and alias) at the new
+   file, restart, and send a test message.
+
+PDFs already sent stay valid: each carries the certificate it was signed with.
+New PDFs carry the new key ID.
+
+**Revoke** when the private key may have been exposed:
+1. Stop signing with it at once: switch to a new key as in **Rotate**, or set
+   `pdf.signing.enabled=false` until one is ready.
+2. Record the old key ID and the time it stopped being trusted, and tell your
+   CARLOS support contact.
+3. Use the audit entries to list the documents signed with that key.
+4. Treat any document signed with it after the exposure as untrusted.
+
+Rotating or revoking does not yet reach a myCarlos link by itself:
+- **What has landed:** with Send to myCarlos on, CARLOS publishes the clinic's
+  provisioned public-key catalogue to the patient portal
+  (`PortalMyCarlosKeyPublicationService`).
+- **Still open:** myCarlos does not yet take a replaced key up for an existing
+  link, and replacements signed by the old key and revocations are not sent yet
+  (carlos-emr/carlos-portal#41). Until then, documents signed with a new key show
+  in myCarlos as signed, but not verified, for patients whose link pinned the
+  old key.
+
+`pdf.signing.document_id.secret` is not part of the signing key. Rotating the key
+does not change it, and it must never change.
+
+**Audit.** With signing on, every signed attachment adds an
+`EmailManager.signAttachment` entry to the audit log. The entry is filed under
+the patient's chart number and holds:
+- the email log ID;
+- the record the PDF came from (its source and record ID);
+- the signing key ID;
+- the embedded document ID and version, if the PDF carries a manifest;
+- whether the PDF was password-protected.
+
+The indexed `log.contentId` holds the email log ID. The complete tracing fields
+are stored in `log.data`, so they are not cut off by `contentId`'s 80-character limit.
+Like other audit entries, it is written in the background: if it cannot be
+stored, that is logged and the send still goes out.
+
+There are no names and no document content. The document ID cannot be turned
+back into a record on its own, so the audit entry is how a document ID that
+myCarlos shows is traced back to its record.
+
 ## Running More Than One Application Server
 
 The supported install is one application server
