@@ -91,6 +91,13 @@ enough that the build was retried until its cache was complete. Results:
   byte, and B's refused send stayed in ERROR without a call as A.
 - Consultation responses have no clinician page in this release (finding 325): the journey check
   receives the specialist's reply as a chart document attached to the referral and says so in a NOTE.
+- Regression pass on the fixed packages with `--residue-audit`: every other consultation check (and
+  `surface-audit:consultations-surface`), `document-viewer-fax`, `eform-toolbar-fax-recipient`,
+  `fax-configure` and `admin-lookup-lists`, 56 passed. `admin-lookup-lists` failed at its GET-mutator step,
+  as its manifest note says it does on `release/2026.08`, and `echart-navbar-modules` failed on its
+  catalogued "Forms" link; that check fails the same way with the unfixed `carlos-emr` package
+  reinstalled, so neither failure comes from this change. The audit's `property` and `quickListUser`
+  rows came from other checks: the new checks run alone under `--residue-audit` report no residue.
 
 `allergy-injected-form-csrf-playwright-checks.js` (issues #3355 and #3488) was
 added on 2026-10-08. It was run against 2026.09.0~snapshot26 packages built from the
