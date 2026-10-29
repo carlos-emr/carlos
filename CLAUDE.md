@@ -108,6 +108,19 @@
 - `bash scripts/check-report-fonts.sh` re-runs the report tests under other host fonts in fresh
   JVMs. See `docs/pdf-font-policy.md`.
 
+## HL7 v2 Parsing (HAPI)
+
+- HAPI HL7 v2 is 2.6.0 (#5414). Create pipe parsers and new HL7 messages only through
+  `commn.hl7.v2.Hl7Parsers` (`newPipeParser`, `newEncodingPipeParser`, `forBuilding`). They keep
+  HAPI 1.0.1's trimming, escaping and absence of format checks, which lab display, the
+  prescription QR code and the ADT export depend on.
+- HL7 that may be XML goes through `UntrustedHl7MessageParser` or `HardenedHl7XmlParser`, which
+  refuse any DOCTYPE and fail closed. Never HAPI's `GenericParser`, `DefaultXMLParser`, `XMLUtils`
+  or pre-parser; `Hl7ParserBoundaryGuardUnitTest` fails the build otherwise.
+- `LabHandlerHl7ParsingSnapshotUnitTest` and `Hl7MessageEncodingSnapshotUnitTest` pin what every
+  lab handler extracts and what CARLOS encodes. Re-record with `-Dcarlos.hl7.snapshot.update=true`
+  only after reviewing each changed line. See `docs/hl7-v2-parsing-security.md`.
+
 ## Debian Packaging and carlos-ctl
 
 The single-host deployment is three Debian packages (plus a transitional one):

@@ -39,9 +39,8 @@
  * when the server shares this process's network namespace (BASE_URL on loopback: the devcontainer,
  * and the deb validation container, which runs checks inside the container with host networking).
  * For any other target set LAB_XXE_OBSERVER_HOST to an address of this machine the server can
- * reach; without it a non-loopback BASE_URL is skipped rather than passed. The check was proven
- * against a package built with HAPI 1.0.1, where step 2 fails on the first payload with the
- * observer's request log.
+ * reach; without it a non-loopback BASE_URL is skipped rather than passed. Against a package
+ * built with HAPI 1.0.1, step 2 fails.
  *
  * FIXTURE SAFETY: every upload is named lab-xxe-probe-<stamp>-<n>.<ext>; cleanup removes this
  * run's fileUploadCheck rows by that stamp, pass or fail. Archived copies under DOCUMENT_DIR are
