@@ -304,6 +304,7 @@ public class CustomFilterDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /** Persists a filter with the given number of fresh creator and assignee providers. */
     private CustomFilter persistFilter(String name, String owner, String programId, int providers, int assignees) {
         CustomFilter filter = new CustomFilter();
         filter.setName(name);
@@ -322,6 +323,7 @@ public class CustomFilterDaoIntegrationTest extends CarlosTestBase {
         return filter;
     }
 
+    /** Persists a provider with a number no other provider in this test uses. */
     private Provider persistProvider() {
         Provider provider = new Provider();
         provider.setProviderNo(String.valueOf(nextProviderNo++));

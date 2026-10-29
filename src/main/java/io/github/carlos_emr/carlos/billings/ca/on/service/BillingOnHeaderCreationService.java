@@ -287,6 +287,11 @@ public class BillingOnHeaderCreationService {
                 .orElse(null);
     }
 
+    /**
+     * Parses one bound of a configured percentage limit.
+     *
+     * @throws BillingValidationException naming the code when the bound is blank or not a number
+     */
     private static BigDecimal limitAmount(String raw, String bound, String serviceCode) {
         try {
             return BillingMoney.amount(raw);

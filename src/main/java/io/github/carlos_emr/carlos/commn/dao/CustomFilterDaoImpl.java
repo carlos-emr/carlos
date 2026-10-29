@@ -163,16 +163,21 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
         }
     }
 
+    /** A query over {@link #DETAIL_FETCH} with the given {@code where} / {@code order by} tail. */
     private TypedQuery<CustomFilter> withDetail(String whereAndOrder) {
         return entityManager.createQuery(DETAIL_FETCH + whereAndOrder, CustomFilter.class);
     }
 
+    /**
+     * The first filter the query returns, or {@code null}. Callers narrow the query to one
+     * filter id; setMaxResults is not used because it would cut the joined rows, not filters.
+     */
     private static CustomFilter firstOrNull(TypedQuery<CustomFilter> query) {
-        // No setMaxResults: limiting a collection fetch would cut the joined rows, not filters.
         List<CustomFilter> results = query.getResultList();
         return results.isEmpty() ? null : results.get(0);
     }
 
+    /** Loads both provider sets of a filter the EntityManager returned; {@code null} passes through. */
     private static CustomFilter initializeDetail(CustomFilter filter) {
         if (filter != null) {
             Hibernate.initialize(filter.getProviders());
