@@ -108,6 +108,18 @@
 - `bash scripts/check-report-fonts.sh` re-runs the report tests under other host fonts in fresh
   JVMs. See `docs/pdf-font-policy.md`.
 
+## Generic DAO Paging Order
+
+- `AbstractDaoImpl.findAll(offset, limit)` always orders by the entity identifier, read from the
+  JPA metamodel (composite `@EmbeddedId`/`@IdClass` keys expand to every component, by attribute
+  name), so offset pages never overlap or skip on an unchanged table (#5308). Never page with
+  `setFirstResult`/`setMaxResults` over a query without a unique `ORDER BY`: MariaDB returns
+  unordered rows in whatever index order it scans. A DAO needing a business order overrides
+  `getFindAllDomainOrder(alias)`; the identifier is still appended as the tie-breaker, and
+  `getIdentifierOrder(alias)` gives the same tie-breaker to a DAO's own paged queries.
+- Ordering is not a snapshot: see `AbstractDao#findAll` and
+  `docs/architecture/dao-findall-ordering.md` for concurrent inserts/deletes.
+
 ## Debian Packaging and carlos-ctl
 
 The single-host deployment is three Debian packages (plus a transitional one):
