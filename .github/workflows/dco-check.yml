@@ -595,9 +595,16 @@ jobs:
               if [ -s /tmp/exempt_commits.txt ]; then
                 echo ""
                 echo "These commits were checked and are exempt; they need no sign-off and no manual confirmation (verified GitHub-generated merge commits or permitted bot accounts):"
+                # Cap the list so many exemptions can never push the comment past
+                # GitHub's body limit and silence the failure guidance; the full
+                # list is in the workflow log.
                 while IFS= read -r entry; do
                   echo "- \`$entry\`"
-                done < /tmp/exempt_commits.txt
+                done < <(head -n 20 /tmp/exempt_commits.txt)
+                exempt_total=$(wc -l < /tmp/exempt_commits.txt)
+                if [ "$exempt_total" -gt 20 ]; then
+                  echo "- ...and $((exempt_total - 20)) more exempt commit(s); see the workflow log"
+                fi
               fi
               echo ""
               echo "### Preferred fix"

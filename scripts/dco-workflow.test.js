@@ -299,6 +299,25 @@ test('the failure comment lists only the real gap and names exemptions as needin
   assert.equal(JSON.parse(bodies.find(body => body.includes('"context"'))).state, 'failure');
 });
 
+test('the failure comment caps a long exempt list so the guidance still fits in a comment', t => {
+  const commits = [...Array.from({ length: 300 }, (_, i) =>
+    githubMerge(i + 1, "Merge branch 'develop' into " + 'long-topic-name-'.repeat(15) + i)), unsignedCommit(400)];
+  const verify = exercise(t, commits);
+  assert.match(verify.output, /commits_missing=true/);
+  const report = runStep(t, reporter, {
+    '/tmp/missing_commits.txt': verify.missing, '/tmp/exempt_commits.txt': verify.exempt },
+    { HEAD_SHA: sha(400), EVENT_NAME: 'pull_request_target', MANUAL_CONFIRMED: 'false',
+      CONFIRMING_USER: '', CONFIRMING_PERMISSION: '', CONFIRMING_ROLE: '', CONFIRMING_AT: '',
+      STALE_CONFIRMATION_FOUND: 'false', DCO_TRUNCATED: 'false', CONFIRMATION_PHRASE: 'Confirming DCO sign off for all commits' });
+  assert.equal(report.status, 1, report.stderr);
+  const text = JSON.parse(report.writes.map(entry => entry.body).find(body => body.includes('dco-check-failed'))).body;
+  assert(text.length < 65536, 'comment body exceeds GitHub limit: ' + text.length);
+  assert.equal((text.match(/^- `github-merge /gm) || []).length, 20);
+  assert.match(text, /and 280 more exempt commit\(s\)/);
+  assert.match(text, /forgot to sign 400/);
+  assert.match(text, /Manual confirmation fallback/);
+});
+
 test('an all-exempt PR never produces a failure comment or a manual-confirmation request', t => {
   const verify = exercise(t, [githubMerge(1, "Merge branch 'develop' into topic")]);
   assert.match(verify.output, /commits_missing=false/);

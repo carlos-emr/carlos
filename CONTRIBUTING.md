@@ -96,8 +96,10 @@ group makes the manual confirmation below relevant.
 
 #### Manual DCO Confirmation (Alternate)
 
-This is a fallback for commits that genuinely lack a sign-off and cannot be amended; it is
-not how GitHub-generated merge commits are handled (see above). If you cannot amend your
+This is a fallback for commits that genuinely lack a sign-off and cannot be amended, and for
+a PR whose complete commit history the check cannot retrieve from the GitHub API (it then
+reports that it could not verify the history instead of listing missing commits). It is not
+how GitHub-generated merge commits are handled (see above). If you cannot amend your
 commits (e.g., force-push is not possible), an authorized user
 with `write` or higher repository permission can retroactively confirm DCO sign-off after
 reviewing the connected history. The comment must contain the exact phrase followed by
