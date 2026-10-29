@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.CdsImportRun;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import org.springframework.stereotype.Repository;
@@ -46,6 +47,18 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun> {
                     r.createdAt,r.updatedAt,r.reportGeneration,r.reportLocation,r.reportDigest,r.snapshotLocation)
                 from CdsImportRun r where r.id=:run
                 """, CdsImportJobBindingDto.class)
+                .setParameter("run", runId).setMaxResults(1)
+                .setHint("jakarta.persistence.query.timeout", 120_000).getResultList();
+        return rows.isEmpty()?null:rows.getFirst();
+    }
+    /** Fixed run-row facts only; no patient, unit or diagnostic aggregates precede report I/O. */
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+    public CdsImportReportEntryDto readReportEntry(String runId) {
+        var rows=entityManager.createQuery("""
+                select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto(
+                    r.reportState,r.discoveryComplete,r.dryRun,r.executionDigest is not null,r.snapshotLocation)
+                from CdsImportRun r where r.id=:run
+                """, CdsImportReportEntryDto.class)
                 .setParameter("run", runId).setMaxResults(1)
                 .setHint("jakarta.persistence.query.timeout", 120_000).getResultList();
         return rows.isEmpty()?null:rows.getFirst();

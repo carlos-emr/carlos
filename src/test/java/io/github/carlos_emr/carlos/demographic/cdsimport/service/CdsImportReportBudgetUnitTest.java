@@ -102,7 +102,7 @@ class CdsImportReportBudgetUnitTest {
 
     @Test void budgetExpiryAfterReceiptCreationStillRefusesTheFinalSelection() throws Exception {
         Fixture f=new Fixture(); AtomicLong summaries=new AtomicLong();
-        when(f.ledger.summary(f.run)).thenAnswer(call-> {if (summaries.incrementAndGet()==2)f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100)); return f.summary(); });
+        when(f.ledger.summary(f.run)).thenAnswer(call-> {if (summaries.incrementAndGet()==1)f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100)); return f.summary(); });
         assertTimeoutFailure(f);
         assertEquals("FAILED", f.reportState.get());
         try (var paths=Files.walk(f.jobRoot)){assertTrue(paths.anyMatch(p-> p.getFileName().toString().equals("completion.json")), "Unselected receipt is retained evidence, not delivery"); }
@@ -128,7 +128,7 @@ class CdsImportReportBudgetUnitTest {
 
     @Test void shouldPreserveEveryReportRow_whenSealedOrUnsealedPagesReachShortTails() throws Exception {
         for (boolean sealed:new boolean[]{false, true}) {
-            Fixture f=new Fixture();
+            Fixture f=new Fixture(); f.sealedInventory.set(sealed);
             when(f.ledger.summary(f.run)).thenAnswer(call-> {
                 var value=new java.util.LinkedHashMap<>(f.summary()); value.put("inventoryState", sealed?"SEALED":"UNSEALED"); return value;
             });
@@ -140,7 +140,9 @@ class CdsImportReportBudgetUnitTest {
             f.results.generate(f.run, 1);
             verify(f.ledger, times(sealed?1:2)).patients(eq(f.run), anyString(), eq(100));
             verify(f.ledger, times(sealed?3:6)).units(eq(f.run), anyString(), anyString(), eq(100));
-            verify(f.ledger, times(2)).summary(f.run); // Current completion projection still follows cleanup.
+            verify(f.ledger).reportEntry(f.run);
+            verify(f.ledger).summary(f.run); // Current completion projection still follows cleanup.
+            verify(f.ledger, never()).snapshotLocation(f.run);
             assertEquals(3, Files.readAllLines(f.selected.get().getParent().resolve("units.jsonl")).size());
             assertEquals(3, Files.readAllLines(f.selected.get().getParent().resolve("ImportEventLog.jsonl")).size());
         }
@@ -215,6 +217,40 @@ class CdsImportReportBudgetUnitTest {
         assertEquals(f.summary().get("cleanComplete"), receipt.path("cleanComplete").asBoolean());
     }
 
+    @Test void shouldUsePostProbeGeneration_whenEntryFactsWereReadBeforeTheProbe() throws Exception {
+        Fixture f=new Fixture(); AtomicLong statusCalls=new AtomicLong();
+        var fresh=new CdsImportJobDto(f.run, "operator", "provider", "source", "pcon-2024-02", "COMPLETE",
+                "a".repeat(64), "b".repeat(64), "c".repeat(64), "a".repeat(64), 3, 0, 1, false,
+                Instant.EPOCH, Instant.EPOCH, 9, null, null);
+        when(f.job.reportGeneration()).thenReturn(0L);
+        when(f.ledger.status(f.run)).thenAnswer(call-> {
+            if (statusCalls.incrementAndGet()==1) { f.generation.set(9); return f.job; }
+            return f.job;
+        });
+        when(f.ledger.jobBinding(f.run)).thenAnswer(call-> {
+            assertTrue(statusCalls.get()>0, "The fresh metadata read follows the first epoch probe");
+            return new CdsImportJobBindingDto(fresh, f.jobRoot.resolve("job.json").toString());
+        });
+        f.results.generate(f.run, 1);
+        verify(f.selection).select(eq(f.run), eq(1L), eq(9L), anyString(), anyString(), anyString());
+        assertEquals(10, f.generation.get());
+        verify(f.ledger).jobBinding(f.run); // Fresh manifest/generation read after the initial epoch probe.
+    }
+
+    @Test void shouldRetainUnselectedReports_whenGenerationChangesBeforeSelection() throws Exception {
+        Fixture f=new Fixture();
+        when(f.selection.select(eq(f.run), eq(1L), anyLong(), anyString(), anyString(), anyString()))
+                .thenThrow(new CdsImportException("REPORT_GENERATION_CONFLICT"));
+        assertEquals("REPORT_GENERATION_CONFLICT", assertThrows(CdsImportException.class,
+                ()->f.results.generate(f.run, 1)).getCode());
+        assertNull(f.selected.get()); assertEquals(0, f.generation.get());
+        assertEquals("FAILED", f.reportState.get());
+        try (var paths=Files.walk(f.jobRoot)) {
+            assertTrue(paths.anyMatch(path->path.getFileName().toString().equals("completion.json")));
+        }
+        verify(f.ledger, never()).finish(anyString(), anyLong());
+    }
+
     private static void assertTimeoutFailure(Fixture f) throws Exception {
         assertEquals("IMPORT_REPORT_GENERATION_TIMEOUT", assertThrows(CdsImportException.class, ()-> f.results.generate(f.run, 1)).getCode());
         verify(f.selection, never()).select(anyString(), anyLong(), anyLong(), anyString(), anyString(), anyString());
@@ -223,7 +259,7 @@ class CdsImportReportBudgetUnitTest {
         final String run=UUID.randomUUID().toString(); final AtomicLong clock=new AtomicLong(), rowMillis=new AtomicLong();
         final AtomicReference<String> reportState=new AtomicReference<>("PENDING"), cleanupState=new AtomicReference<>("PENDING"); final AtomicReference<Path> selected=new AtomicReference<>();
         final AtomicReference<String> state=new AtomicReference<>("COMPLETE");
-        final AtomicBoolean dryRun=new AtomicBoolean(), resumeRequested=new AtomicBoolean(), maintenanceReleasePending=new AtomicBoolean();
+        final AtomicBoolean dryRun=new AtomicBoolean(), resumeRequested=new AtomicBoolean(), maintenanceReleasePending=new AtomicBoolean(), sealedInventory=new AtomicBoolean();
         final AtomicLong generation=new AtomicLong();
         final CdsImportLedgerService ledger=mock(CdsImportLedgerService.class); final CdsImportReportService selection=mock(CdsImportReportService.class);
         final CdsImportConfigurationService configuration=mock(CdsImportConfigurationService.class); final CdsImportCleanupService cleanup=mock(CdsImportCleanupService.class);
@@ -237,6 +273,9 @@ class CdsImportReportBudgetUnitTest {
             Path request=Files.writeString(jobRoot.resolve("job.json"), "{}");
             var limits=mock(CdsInputLimitsDto.class); when(limits.maxDurationMillis()).thenReturn(100L); when(configuration.limits()).thenReturn(limits); when(configuration.stagingRoot()).thenReturn(staging);
             when(ledger.snapshotLocation(run)).thenReturn(request.toString()); when(ledger.status(run)).thenReturn(job); when(job.ownerEpoch()).thenReturn(1L); when(job.state()).thenAnswer(call-> state.get());
+            when(ledger.reportEntry(run)).thenAnswer(call->new CdsImportReportEntryDto(
+                    "DELIVERED".equals(reportState.get()), true, dryRun.get(), sealedInventory.get(), request.toString()));
+            when(ledger.jobBinding(run)).thenAnswer(call->new CdsImportJobBindingDto(job, request.toString()));
             when(job.sourceDigest()).thenReturn("a".repeat(64)); when(job.manifestDigest()).thenReturn("a".repeat(64)); when(job.createdAt()).thenReturn(Instant.EPOCH);
             when(job.reportGeneration()).thenAnswer(call-> generation.get());
             when(ledger.summary(run)).thenAnswer(call-> summary());

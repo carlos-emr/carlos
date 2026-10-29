@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportEventDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
 import java.security.MessageDigest;
@@ -749,6 +750,15 @@ public class CdsImportLedgerService {
         CdsImportJobBindingDto binding=runs.readJobBinding(runId);
         if (binding==null) throw new CdsImportException("RUN_NOT_FOUND");
         return binding;
+    }
+
+    /** Entry-only report facts; no persistence scope or transaction may span report file I/O. */
+    CdsImportReportEntryDto reportEntry(String runId) {
+        requireNoTransaction();
+        CdsImportKeys.required(runId, "run id", 36);
+        CdsImportReportEntryDto entry=runs.readReportEntry(runId);
+        if (entry==null) throw new CdsImportException("RUN_NOT_FOUND");
+        return entry;
     }
 
     CdsImportJobBindingDto jobBindingInReadTransaction(String runId) {

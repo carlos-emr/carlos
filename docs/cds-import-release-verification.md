@@ -167,11 +167,20 @@ boundaries; no timer blindly retries clinical work.
 ## Release admission
 
 The compatible host command is carlos-ctl 1.3.0, source
-`7a93c482224f7bb8319002492d0bae9ab4d72c97`. The application dependency floor and
+`eb69a9c92d798ad6da211290bcf474f4d27a9e6d`. The application dependency floor and
 release pin require it. The development package is 1.3.0~dev1; publishing the
 compatible 1.3.0 release asset remains a maintainer prerequisite after merge.
 The container companion is `ed907600768ccfec3f5b07a92a2b5243aaaaa632`,
 version 2.0.0-beta3. No release tag is created by this work.
+
+The CLI tests inspect the actual application's one-live-Consent capability.
+Only a wholly absent feature permits the 52 dependent cases to skip explicitly;
+partial, malformed or statically indeterminate declarations fail the contract.
+Aliases, rebinding and indirect mutation must not hide feature evidence. The
+Ontario and BC normal/resume refusal tests remain active. This release's app
+lacks that separate main-branch feature, so full OSCAR19 migration is refused
+before persistent writes; successful CDS qualification does not establish full
+OSCAR19 migration support.
 
 Mutation admission remains default-off. Before enabling a deployment, follow the
 [operator guide](cds-import-operator-guide.md),

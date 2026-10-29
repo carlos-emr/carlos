@@ -128,7 +128,7 @@ class CdsImportReportControlUnitTest {
             var receipt=new ObjectMapper().readTree(f.selected.get().getParent().resolve("completion.json").toFile());
             assertThat(receipt.path("clinicalComplete").asBoolean()).isEqualTo(!cancelled);
             assertThat(receipt.path("state").asText()).isEqualTo(cancelled?"CANCELLED_BEFORE_WRITE":"COMPLETE");
-            verify(f.ledger,times(1)).status(f.run);verify(f.ledger,never()).finish(anyString(),anyLong());
+            verify(f.ledger).jobBinding(f.run);verify(f.ledger,never()).status(f.run);verify(f.ledger,never()).finish(anyString(),anyLong());
             assertThat(mockingDetails(owner).getInvocations().stream().filter(i->i.getMethod().getName().equals("control")).count()).isBetween(3L,5L);
         }
     }
@@ -176,7 +176,7 @@ class CdsImportReportControlUnitTest {
         assertThatThrownBy(()->f.results.generate(f.run,1,owner)).hasMessage("IMPORT_COORDINATOR_LOST");
         assertThat(f.reportState.get()).isEqualTo("FAILED");assertThat(f.job.state()).isEqualTo("COMPLETE");
         verify(f.selection,never()).select(anyString(),anyLong(),anyLong(),anyString(),anyString(),anyString());
-        verify(f.ledger,times(1)).status(f.run); // No mid-generation legacy retry hides the lost owner.
+        verify(f.ledger).jobBinding(f.run);verify(f.ledger,never()).status(f.run); // No mid-generation legacy retry hides the lost owner.
     }
 
     @Test void aHealthyButUnreadableControlRemainsAVisibleFailure_andPreservesPriorReportBytes(

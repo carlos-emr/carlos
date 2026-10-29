@@ -215,6 +215,36 @@ class CdsImportLedgerControlUnitTest {
             verifyNoInteractions(runs,manager);
         } finally {TransactionSynchronizationManager.setActualTransactionActive(false);}
     }
+    @Test void shouldReadOnlyEntryFacts_withoutTransactionOrAggregateQueries() {
+        var expected=new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto(
+                true, false, true, false, "/opaque/private-job-document");
+        when(runs.readReportEntry("run")).thenAnswer(call-> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse(); return expected;
+        });
+        assertThat(ledger.reportEntry("run")).isEqualTo(expected);
+        assertThat(expected.toString()).isEqualTo("CdsImportReportEntryDto[protected]");
+        verify(runs).readReportEntry("run"); verify(runs, never()).get(anyString());
+        verifyNoInteractions(manager, patients, unitRows, diagnosticRows);
+    }
+    @Test void shouldRequireExactDeliveryAcknowledgement_independentOfDatabaseCollation() {
+        for (String state:java.util.Arrays.asList(null,"","delivered","Delivered","DELIVERED "," DELIVERED","FAILED"))
+            assertThat(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto(
+                    state, true, false, true, "/opaque/private-job").reportsDelivered()).as("state=%s",state).isFalse();
+        assertThat(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto(
+                "DELIVERED", true, false, true, "/opaque/private-job").reportsDelivered()).isTrue();
+    }
+    @Test void shouldRejectInvalidMissingOrAmbientEntryReads_beforeReportFileAccess() {
+        for (String invalid:java.util.Arrays.asList(null,""," ","x".repeat(37)))
+            assertThatThrownBy(()->ledger.reportEntry(invalid)).isInstanceOf(IllegalArgumentException.class).hasMessage("Invalid run id");
+        verifyNoInteractions(runs, manager);
+        assertThatThrownBy(()->ledger.reportEntry("missing")).isInstanceOf(CdsImportException.class).hasMessage("RUN_NOT_FOUND");
+        verify(runs).readReportEntry("missing");
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            assertThatThrownBy(()->ledger.reportEntry(null)).isInstanceOf(CdsImportException.class).hasMessage("AMBIENT_TRANSACTION_REFUSED");
+            verifyNoMoreInteractions(runs); verifyNoInteractions(manager);
+        } finally {TransactionSynchronizationManager.setActualTransactionActive(false);}
+    }
     @Test void shouldMatchAllBindingScalars_whenRealHqlReadsSealedAndUnsealedRows() {
         var factory=new org.hibernate.cfg.Configuration().addAnnotatedClass(CdsImportRun.class)
                 .setProperty("jakarta.persistence.jdbc.url","jdbc:h2:mem:job-binding-"+java.util.UUID.randomUUID()+";MODE=MySQL")
@@ -230,8 +260,11 @@ class CdsImportLedgerControlUnitTest {
                 persisted.setRulesetDigest("c".repeat(64));persisted.setSnapshotLocation("/opaque/protected-job");
                 persisted.setExpectedPatients(13);persisted.setExpectedUnits(17);persisted.setOwnerEpoch(7);persisted.setCancelRequested(sealed);
                 persisted.setCreatedAt(Instant.parse("2026-01-15T12:00:00Z"));persisted.setUpdatedAt(Instant.parse("2026-01-15T12:01:00Z"));
+                persisted.setReportState(sealed?"DELIVERED":"PENDING");
                 if(sealed) {persisted.setManifestDigest("d".repeat(64));persisted.setReportGeneration(19);
-                    persisted.setReportLocation("/opaque/reports");persisted.setReportDigest("e".repeat(64));}
+                    persisted.setReportLocation("/opaque/reports");persisted.setReportDigest("e".repeat(64));
+                    persisted.setExecutionDigest("f".repeat(64));persisted.setReportState("DELIVERED");
+                    persisted.setDiscoveryComplete(true);persisted.setDryRun(true);}
                 actual.getTransaction().begin();actual.persist(persisted);actual.getTransaction().commit();actual.clear();
                 factory.getStatistics().clear();
                 var binding=dao.readJobBinding(persisted.getId());
@@ -241,8 +274,25 @@ class CdsImportLedgerControlUnitTest {
                 assertThat(actual.getTransaction().isActive()).isFalse();
                 assertThat(factory.getStatistics().getPrepareStatementCount()).isEqualTo(1);
                 assertThat(factory.getStatistics().getEntityLoadCount()).isZero();
+                factory.getStatistics().clear();
+                var entry=dao.readReportEntry(persisted.getId());
+                assertThat(entry).isEqualTo(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto(
+                        sealed, sealed, sealed, sealed, persisted.getSnapshotLocation()));
+                assertThat(entry.toString()).isEqualTo("CdsImportReportEntryDto[protected]");
+                assertThat(actual.getTransaction().isActive()).isFalse();
+                assertThat(factory.getStatistics().getPrepareStatementCount()).isEqualTo(1);
+                assertThat(factory.getStatistics().getEntityLoadCount()).isZero();
+                for (String reportState:List.of("delivered", "DELIVERED ", "DELIVERED")) {
+                    actual.getTransaction().begin();
+                    actual.createQuery("update CdsImportRun r set r.reportState=:state where r.id=:id")
+                            .setParameter("state", reportState).setParameter("id", persisted.getId()).executeUpdate();
+                    actual.getTransaction().commit(); actual.clear();
+                    assertThat(dao.readReportEntry(persisted.getId()).reportsDelivered())
+                            .as("Fresh scalar delivery check for %s", reportState).isEqualTo("DELIVERED".equals(reportState));
+                }
             }
             assertThat(dao.readJobBinding(java.util.UUID.randomUUID().toString())).isNull();
+            assertThat(dao.readReportEntry(java.util.UUID.randomUUID().toString())).isNull();
         }
     }
     @ParameterizedTest @ValueSource(ints={0,1,199,200,201,400})

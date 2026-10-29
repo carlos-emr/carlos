@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.commn.dao.CdsImportRunDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportUnitDao;
 import io.github.carlos_emr.carlos.commn.model.CdsImportRun;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
 import io.github.carlos_emr.carlos.demographic.cdsimport.cli.CdsCliSpringConfiguration;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
@@ -366,7 +367,10 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
                         return probe.observe(super.getConnection(username, password));
                     }
                 });
-                factory.setManagedTypes(PersistenceManagedTypes.of(CdsImportRun.class.getName()));
+                factory.setManagedTypes(PersistenceManagedTypes.of(CdsImportRun.class.getName(),
+                        io.github.carlos_emr.carlos.commn.model.CdsImportPatient.class.getName(),
+                        io.github.carlos_emr.carlos.commn.model.CdsImportUnit.class.getName(),
+                        io.github.carlos_emr.carlos.commn.model.CdsImportDiagnostic.class.getName()));
                 factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
                 var settings=new HashMap<String, Object>();
                 settings.put("hibernate.hbm2ddl.auto", "none");
@@ -443,6 +447,93 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
             System.out.println("CDS_BINDING_PREFETCH_SQL rawNewBefore="+prefetchedBefore+" rawNewAfter="+prefetchedAfter
                     +" rawLegacyBefore="+legacyBefore+" rawLegacyAfter="+legacyAfter
                     +" rawNew="+prefetchedQuestions+" rawLegacy="+legacyQuestions+" calls=12");
+
+            probe.expectedActualTransaction=true;
+            CdsImportReportEntryDto entryExpected=transaction.execute(status-> {
+                var row=dao.get(run);
+                return new CdsImportReportEntryDto("DELIVERED".equals(row.getReportState()), row.isDiscoveryComplete(),
+                        row.isDryRun(), row.getExecutionDigest()!=null, row.getSnapshotLocation());
+            });
+            probe.expectedActualTransaction=false;
+            statistics.clear(); probe.statements=0; probe.jdbcExecutions=0;
+            long entryBefore=questions();
+            for (int index=0; index<12; index++) {
+                assertThat(ledger.reportEntry(run)).isEqualTo(entryExpected);
+                assertBindingResourcesRetired(factory, probe);
+                assertThat(Files.readString(metadata)).isEqualTo("private bounded metadata fixture");
+            }
+            long entryAfter=questions();
+            assertThat(probe.statements).isEqualTo(12);
+            assertThat(probe.jdbcExecutions).isEqualTo(12);
+            assertThat(statistics.getPrepareStatementCount()).isEqualTo(12);
+            assertThat(statistics.getEntityLoadCount()).isZero();
+            assertThat(statistics.getTransactionCount()).isZero();
+            assertThat(entryAfter-entryBefore).as("Report entry uses the already proven scalar binding path")
+                    .isEqualTo(prefetchedQuestions);
+            assertThat(entryExpected.toString()).isEqualTo("CdsImportReportEntryDto[protected]");
+
+            // Compare the actual replaced entry-summary/path calls, including raw
+            // session and transaction statements. The later fresh job-binding read
+            // is covered independently above; no owner probe or observer is subtracted.
+            probe.expectedActualTransaction=true;
+            statistics.clear(); probe.statements=0;
+            long entryLegacyBefore=questions();
+            for (int index=0; index<12; index++) {
+                var previous=ledger.summary(run);
+                var legacyEntry=new CdsImportReportEntryDto(Boolean.TRUE.equals(previous.get("reportsDelivered")),
+                        Boolean.TRUE.equals(previous.get("discoveryComplete")), Boolean.TRUE.equals(previous.get("dryRun")),
+                        "SEALED".equals(previous.get("inventoryState")), ledger.snapshotLocation(run));
+                assertThat(legacyEntry).isEqualTo(entryExpected);
+                assertBindingResourcesRetired(factory, probe);
+            }
+            long entryLegacyAfter=questions();
+            assertThat(statistics.getPrepareStatementCount()).isEqualTo(60);
+            assertThat(statistics.getEntityLoadCount()).isEqualTo(24);
+            assertThat(statistics.getTransactionCount()).isEqualTo(24);
+            assertThat(entryLegacyAfter-entryLegacyBefore-(entryAfter-entryBefore))
+                    .as("At least four unused SELECTs removed per entry; raw transaction/session savings also remain visible")
+                    .isGreaterThanOrEqualTo(48);
+
+            // The projection is fresh on each invocation; none of these flags authorizes
+            // later completion, and an earlier immutable value cannot change in place.
+            probe.expectedActualTransaction=false;
+            update("UPDATE cds_import_run SET report_state='DELIVERED',discovery_complete=1,dry_run=1,execution_digest=? WHERE id=?",
+                    "b".repeat(64), run);
+            var changed=ledger.reportEntry(run);
+            assertThat(changed).isEqualTo(new CdsImportReportEntryDto(true, true, true, true, entryExpected.documentLocation()));
+            assertThat(entryExpected).isEqualTo(new CdsImportReportEntryDto(false, false, false, false, "/opaque/control-probe"));
+            assertBindingResourcesRetired(factory, probe);
+            for (String reportState:java.util.List.of("delivered", "DELIVERED ")) {
+                update("UPDATE cds_import_run SET report_state=?,discovery_complete=1,dry_run=0,execution_digest=NULL WHERE id=?",
+                        reportState, run);
+                assertThat(ledger.reportEntry(run)).isEqualTo(new CdsImportReportEntryDto(false, true, false, false, entryExpected.documentLocation()));
+                assertBindingResourcesRetired(factory, probe);
+            }
+            update("UPDATE cds_import_run SET report_state='FAILED',discovery_complete=0,dry_run=1,execution_digest=NULL,manifest_digest=? WHERE id=?",
+                    "c".repeat(64), run);
+            assertThat(ledger.reportEntry(run)).isEqualTo(new CdsImportReportEntryDto(false, false, true, false, entryExpected.documentLocation()));
+            assertBindingResourcesRetired(factory, probe);
+            update("UPDATE cds_import_run SET report_generation=9,report_location='/opaque/later-report',report_digest=? WHERE id=?",
+                    "d".repeat(64), run);
+            var freshBinding=ledger.jobBinding(run);
+            assertThat(freshBinding.job().reportGeneration()).isEqualTo(9);
+            assertBindingResourcesRetired(factory, probe);
+            probe.expectedActualTransaction=true;
+            var freshExpected=transaction.execute(status->CdsImportLedgerService.dto(dao.get(run)));
+            assertThat(freshBinding.job()).isEqualTo(freshExpected);
+            assertBindingResourcesRetired(factory, probe);
+            probe.expectedActualTransaction=false;
+            assertThatThrownBy(()->ledger.reportEntry(alternate)).isInstanceOf(CdsImportException.class).hasMessage("RUN_NOT_FOUND");
+            assertBindingResourcesRetired(factory, probe);
+            int entryObserved=probe.statements;
+            transaction.executeWithoutResult(status-> {
+                assertThatThrownBy(()->ledger.reportEntry(run)).isInstanceOf(CdsImportException.class).hasMessage("AMBIENT_TRANSACTION_REFUSED");
+                assertThat(probe.statements).isEqualTo(entryObserved);
+            });
+            System.out.println("CDS_REPORT_ENTRY_SQL rawBefore="+entryBefore+" rawAfter="+entryAfter
+                    +" raw="+(entryAfter-entryBefore)+" rawLegacyBefore="+entryLegacyBefore
+                    +" rawLegacyAfter="+entryLegacyAfter+" rawLegacy="+(entryLegacyAfter-entryLegacyBefore)
+                    +" calls=12 entities=0 transactions=0");
 
             probe.expectedActualTransaction=false;
             update("UPDATE cds_import_run SET cancel_requested=1 WHERE id=?", run);

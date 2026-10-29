@@ -86,8 +86,8 @@ public class CdsImportResultService {
         boolean reportSelected=false, priorDelivered=false;
         try {
         long started=nanoTime.getAsLong(), maximumMillis=configuration.limits().maxDurationMillis();
-        Map<String, Object> entrySummary=ledger.summary(runId);
-        priorDelivered=Boolean.TRUE.equals(entrySummary.get("reportsDelivered"));
+        var entryFacts=ledger.reportEntry(runId);
+        priorDelivered=entryFacts.reportsDelivered();
         Runnable reportBudget=() -> {
             if (java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(nanoTime.getAsLong()-started)>=maximumMillis)
                 throw new CdsImportException("IMPORT_REPORT_GENERATION_TIMEOUT");
@@ -99,8 +99,10 @@ public class CdsImportResultService {
         };
         reportProbe.run();
         try (shared; var control=shared==null ? fields.control(reportProbe) : fields.controlEveryCheckpoint(reportProbe)) {
-        CdsImportJobDto before=ledger.status(runId);
-        Path job=jobRoot(runId);
+        CdsImportJobDto before=ledger.jobBinding(runId).job();
+        // The private job location is assigned only at acceptance. Mutable report
+        // generation and manifest facts still come from the fresh binding above.
+        Path job=CdsPaths.within(Path.of(entryFacts.documentLocation()), configuration.stagingRoot()).getParent();
         Path directory=CdsPaths.privateDirectory(job.resolve("reports-"+epoch+"-"+UUID.randomUUID()), job);
         Path ownership=directory.resolve("owner.json");
         try (OutputStream output=output(ownership, directory)) { line(output, Map.of("protocol", 1, "runId", runId, "ownerEpoch", epoch, "directory", directory.getFileName().toString())); }
@@ -110,9 +112,9 @@ public class CdsImportResultService {
         manifest.put("createdAt", Instant.now().toString()); manifest.put("sourceDigest", before.sourceDigest());
         manifest.put("manifestDigest", before.manifestDigest());
         Map<String, Object> files=new LinkedHashMap<>();
-        boolean inventoryComplete=Boolean.TRUE.equals(entrySummary.get("discoveryComplete"));
-        boolean preview=Boolean.TRUE.equals(entrySummary.get("dryRun"));
-        boolean sealedInventory="SEALED".equals(entrySummary.get("inventoryState"));
+        boolean inventoryComplete=entryFacts.discoveryComplete();
+        boolean preview=entryFacts.dryRun();
+        boolean sealedInventory=entryFacts.sealedInventory();
         io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportCleanupDto cleanupResult;
             Path event=directory.resolve("ImportEventLog.jsonl"), error=directory.resolve("ImportErrorLog.jsonl"), unitsFile=directory.resolve("units.jsonl");
             try (OutputStream events=output(event, directory); OutputStream errors=output(error, directory); OutputStream unitRows=output(unitsFile, directory)) {
