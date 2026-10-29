@@ -112,7 +112,9 @@ Depends:
 # never created and Query by Example stays closed.
 # 1.2.1 for complete input sets, schema-contract enforcement and loss checks
 # required by this release's OSCAR 19 migration policy.
- carlos-ctl (>= 1.2.1),
+# 1.2.2 for finish-install's port 80/443 and MariaDB root repair, which calls
+# carlos-emr-host-conflicts from this package (#5440).
+ carlos-ctl (>= 1.2.2),
  debconf (>= 0.5) | debconf-2.0,
 # --- eForm renderer (vendored Chromium under /usr/lib/carlos-emr/chromium) ---
 # Chromium's direct DT_NEEDED set, minus what the Essential/base system already
