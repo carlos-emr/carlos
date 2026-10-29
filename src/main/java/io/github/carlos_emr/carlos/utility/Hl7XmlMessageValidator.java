@@ -34,6 +34,7 @@ import org.xml.sax.helpers.DefaultHandler;
 
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.parser.Parser;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Refuses HL7 v2 XML messages that carry a document type declaration, before HAPI parses them.
@@ -77,6 +78,8 @@ public final class Hl7XmlMessageValidator {
      * @param message the raw message text
      * @throws HL7Exception if the message is XML and is malformed or has a {@code DOCTYPE}
      */
+    // FindSecBugs XXE_SAXPARSER: the parser comes from XmlUtils, which rejects any DOCTYPE and disables external entities.
+    @SuppressFBWarnings(value = "XXE_SAXPARSER", justification = "SAXParser is created by XmlUtils.createSecureSAXParserFactory(), which rejects DOCTYPE declarations and disables external entities")
     public static void requireNoDocumentType(Parser parser, String message) throws HL7Exception {
         if (message == null || !XML_ENCODING.equals(parser.getEncoding(message))) {
             return;
