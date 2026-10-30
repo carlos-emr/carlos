@@ -326,8 +326,11 @@ checks parity); the French, Spanish, Polish and Brazilian Portuguese values carr
 - **Form controls print what a person typed, never what the page hid.** Hidden inputs, submit and
   image buttons, `<button>` and file inputs are removed; a password prints eight bullets whatever its
   length; a `<select>` prints the chosen option's text, a multi-select the chosen options joined by
-  commas; `<progress>` and `<meter>` print as `30/100` and `0.6`; a `<textarea>` keeps its line
-  breaks. Replacements grow to fit, so a value is never clipped.
+  commas; `<progress>` and `<meter>` print as bars, a grey track filled to the value (a progress is
+  10em wide and blue, a meter 5em and green, amber or red by its `low`, `high` and `optimum`, as in
+  Chromium; a progress with no value is the track alone; a bar has no text, so the plain-text last
+  resort leaves it out as it leaves out an image); a `<textarea>` keeps its line breaks.
+  Replacements grow to fit, so a value is never clipped.
 - **Logs carry class names, counts and mode names.** No path, URL, file name, HTML or exception
   message from the engine is logged. `HtmlPdfRenderRequest.toString()` prints the source, the HTML's
   length and the number of allowed directories, and `HtmlPdfRenderResult.toString()` the size and the
@@ -424,6 +427,8 @@ every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on
   DejaVu Sans. Copying or searching shaped Arabic out of the PDF yields presentation forms in visual
   order; the printed page is right.
 - **Long right-to-left passages** that wrap print their lines in reverse order (the note says so).
+- **Progress and meter bars** fill from the left even in right-to-left text, where a browser fills from the right;
+  the filled share is right.
 - **Stylesheet-defined `position: fixed`** still repeats on every page; an inline one is rewritten.
 - **A table with both `<thead>` and row spans** prints its header once.
 - **Top margins at the start of a page** are dropped only for the body and its direct first child (as

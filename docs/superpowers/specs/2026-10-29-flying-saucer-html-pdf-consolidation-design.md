@@ -785,8 +785,8 @@ text, so right-to-left shaping and the fallback-font step apply to it.
 | `<button>` | removed |
 | `<select>` | `<span>` (kind `select`) with the text of the `<option>` that has `selected`; for `multiple`, all selected options joined with ", "; if none is selected, the first option (single) or nothing (multiple); options inside `<optgroup>` count |
 | `<textarea>` | `<div>` (kind `textarea`) containing the text, newlines preserved |
-| `<progress>` | `<span>` (kind `text`) containing `value/max` (`max` defaults to 1); nothing when `value` is absent (indeterminate) |
-| `<meter>` | `<span>` (kind `text`) containing `value` |
+| `<progress>` | `<span>` (kind `progress`) holding a bar: a track filled to `value/max` of its width (`max` defaults to 1), the track alone when `value` is absent (indeterminate); first built as `value/max` text |
+| `<meter>` | `<span>` (kind `meter`) holding a bar filled to `(value - min) / (max - min)`, green, amber or red by `low`, `high` and `optimum` as Chromium does; first built as the `value` text |
 
 `checked` and `selected` follow HTML boolean-attribute rules: present means on, whatever
 the value (so `checked="false"` is checked, as in browsers and wkhtmltopdf).
@@ -1380,7 +1380,7 @@ List these in PR 1:
   - long values wrap instead of being clipped; long unbroken words and URLs in body text
     wrap;
   - passwords print as eight bullets; multi-selects print the chosen options as text;
-    textareas lose their scrollbars; `<progress>`/`<meter>` print as text instead of bars;
+    textareas lose their scrollbars;
   - checkbox and radio marks are DejaVu glyphs (about 7.8 pt) rather than drawn 10 pt
     boxes;
   - author CSS that targets `input`/`select`/`textarea` element types (for example

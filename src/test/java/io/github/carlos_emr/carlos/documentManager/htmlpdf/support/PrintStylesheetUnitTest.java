@@ -64,6 +64,13 @@ class PrintStylesheetUnitTest {
                 "white-space: pre-wrap; word-wrap: break-word }",
                 ".carlos-pdf-textarea { border: 1px solid #000; padding: 1px 2px; white-space: pre-wrap;",
                 ".carlos-pdf-checkbox, .carlos-pdf-radio { font-size: 13px }",
+                ".carlos-pdf-progress, .carlos-pdf-meter { height: 1em; border: 1px solid #777;",
+                ".carlos-pdf-progress { width: 10em }",
+                ".carlos-pdf-meter { width: 5em }",
+                ".carlos-pdf-gauge-fill { display: block; height: 100%; background-color: #2f6fbf }",
+                ".carlos-pdf-gauge-optimum { background-color: #3f9d3f }",
+                ".carlos-pdf-gauge-suboptimal { background-color: #e3b100 }",
+                ".carlos-pdf-gauge-poor { background-color: #c53030 }",
                 ".carlos-pdf-image-unavailable { display: inline-block; border: 1px dashed #000;",
                 "white-space: nowrap; overflow: hidden }",
                 ".carlos-pdf-note { border: 1px solid #000; padding: 4px; margin: 0 0 6px 0; font-size: 8pt }");
@@ -79,7 +86,7 @@ class PrintStylesheetUnitTest {
                 new StringReader(PrintStylesheet.css()));
 
         assertThat(errors).isEmpty();
-        assertThat(stylesheet.getContents()).hasSize(13);
+        assertThat(stylesheet.getContents()).hasSize(20);
     }
 
     @Test
