@@ -150,7 +150,7 @@ public final class TestImages {
         Graphics2D graphics = image.createGraphics();
         try {
             int horizon = (int) (height * 0.62);
-            graphics.setPaint(new GradientPaint(0, 0, new Color(110, 180, 245), 0, horizon, new Color(205, 230, 255)));
+            graphics.setPaint(new GradientPaint(0, 0, new Color(110, 180, 245), 0, (float) horizon, new Color(205, 230, 255)));
             graphics.fillRect(0, 0, width, horizon);
             graphics.setColor(new Color(60, 150, 60));
             graphics.fillRect(0, horizon, width, height - horizon);

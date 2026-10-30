@@ -35,6 +35,8 @@ import java.awt.Font;
 import java.awt.font.FontRenderContext;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,6 +49,8 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 @Tag("htmlpdf")
 @DisplayName("ImageBox Unit Tests")
 class ImageBoxUnitTest {
+
+    private static final Pattern FONT_SIZE = Pattern.compile("font-size: ([0-9.]+)px");
 
     /** The width and height declarations of a box's style, without those that fit its label to it. */
     private static String size(Element box) {
@@ -113,8 +117,10 @@ class ImageBoxUnitTest {
     void shouldFitLabelInBox_byTheWidthsOfTheBundledFont(int width, int height) throws Exception {
         Element box = ImageBox.replacing(img("src=\"x.png\" width=\"" + width + "\" height=\"" + height + "\""));
         String style = box.attr("style");
-        double size = style.contains("font-size")
-                ? Double.parseDouble(style.replaceAll(".*font-size: ([0-9.]+)px.*", "$1")) : ImageBox.LABEL_PIXELS;
+        Matcher fontSize = FONT_SIZE.matcher(style);
+        boolean sized = style.contains("font-size");
+        assertThat(fontSize.find()).as("a font size in pixels in %s", style).isEqualTo(sized);
+        double size = sized ? Double.parseDouble(fontSize.group(1)) : ImageBox.LABEL_PIXELS;
         boolean wrapped = style.contains("white-space: normal");
         Font font;
         try (InputStream in = TestFonts.class.getClassLoader().getResourceAsStream(TestFonts.SANS_REGULAR)) {

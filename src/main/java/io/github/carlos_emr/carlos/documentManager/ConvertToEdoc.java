@@ -106,7 +106,7 @@ public final class ConvertToEdoc {
      * and SVG after removing its outside references. WebP and HEIC stay out on purpose: the service does not
      * decode them, so they print as the "[image unavailable]" box whether or not they are listed here.
      */
-    private enum FileType {pdf, css, jpeg, png, gif, js, jpg, bmp, wbmp, tif, tiff, svg}
+    private enum FileType {PDF, CSS, JPEG, PNG, GIF, JS, JPG, BMP, WBMP, TIF, TIFF, SVG}
 
     public static final String CUSTOM_STYLESHEET_ID = "pdfMediaStylesheet";
     private static final String OSCAR_IMAGE_PATH_TOKEN = "${oscar_image_path}";

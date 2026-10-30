@@ -56,6 +56,9 @@ public final class ImageBox {
     /** The class that styles the box. */
     public static final String CLASS = "carlos-pdf-image-unavailable";
 
+    private static final String WIDTH = "width";
+    private static final String HEIGHT = "height";
+
     /** The largest width or height, in CSS pixels, a box takes: about the width of a printed page's content. */
     static final int MAX_PIXELS = 900;
 
@@ -90,10 +93,10 @@ public final class ImageBox {
         Element box = new Element("span");
         box.addClass(CLASS);
         StringBuilder style = new StringBuilder();
-        Optional<String> width = sizeOf(original, "width");
-        Optional<String> height = sizeOf(original, "height");
-        append(style, "width", width);
-        append(style, "height", height);
+        Optional<String> width = sizeOf(original, WIDTH);
+        Optional<String> height = sizeOf(original, HEIGHT);
+        append(style, WIDTH, width);
+        append(style, HEIGHT, height);
         String label = PrintMessages.imageUnavailable();
         fitLabel(style, label, pixels(width), pixels(height));
         if (!style.isEmpty()) {
@@ -143,7 +146,7 @@ public final class ImageBox {
     public static boolean declaresSize(Element element) {
         Objects.requireNonNull(element, "element");
         String style = element.attr("style");
-        return element.hasAttr("width") || element.hasAttr("height")
+        return element.hasAttr(WIDTH) || element.hasAttr(HEIGHT)
                 || InlineStyle.setsWidth(style) || InlineStyle.setsHeight(style);
     }
 

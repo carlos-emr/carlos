@@ -108,6 +108,10 @@ public final class PrintFormControls {
     /** U+2022 BULLET, eight of which stand for a password of any length. */
     static final String PASSWORD_MASK = new String(Character.toChars(0x2022)).repeat(8);
 
+    /** The two bars, as the element they replace and as the kind a replacement carries. */
+    private static final String PROGRESS = "progress";
+    private static final String METER = "meter";
+
     /** The part of a progress or meter track that is filled; a meter's fill also carries one of the three colour classes. */
     static final String GAUGE_FILL = "carlos-pdf-gauge-fill";
     static final String GAUGE_OPTIMUM = "carlos-pdf-gauge-optimum";
@@ -199,8 +203,8 @@ public final class PrintFormControls {
                 case "button" -> control.remove();
                 case "select" -> replace(control, "span", "select", "select", selectedOptionsText(control), null);
                 case "textarea" -> replaceTextarea(control);
-                case "progress" -> replaceProgress(control);
-                case "meter" -> replaceMeter(control);
+                case PROGRESS -> replaceProgress(control);
+                case METER -> replaceMeter(control);
                 default -> { }
             }
         }
@@ -291,12 +295,12 @@ public final class PrintFormControls {
     private static void replaceProgress(Element progress) {
         OptionalDouble value = number(progress, "value");
         if (value.isEmpty()) {
-            replaceGauge(progress, "progress", null, null);
+            replaceGauge(progress, PROGRESS, null, null);
             return;
         }
         double max = number(progress, "max").orElse(1);
         // value / max is never NaN: both are finite and max is positive; it may be infinite, which clamps to 1.
-        replaceGauge(progress, "progress", clamp(value.getAsDouble() / (max > 0 ? max : 1), 0, 1), null);
+        replaceGauge(progress, PROGRESS, Math.clamp(value.getAsDouble() / (max > 0 ? max : 1), 0, 1), null);
     }
 
     /**
@@ -306,14 +310,15 @@ public final class PrintFormControls {
     private static void replaceMeter(Element meter) {
         double min = number(meter, "min").orElse(0);
         double max = Math.max(min, number(meter, "max").orElse(1));
-        double value = clamp(number(meter, "value").orElse(0), min, max);
-        double low = clamp(number(meter, "low").orElse(min), min, max);
-        double high = clamp(number(meter, "high").orElse(max), low, max);
-        double optimum = clamp(number(meter, "optimum").orElse(min + (max - min) / 2), min, max);
+        // Math.clamp refuses bounds out of order or NaN: min <= max holds above, low lies within them, and number() is finite.
+        double value = Math.clamp(number(meter, "value").orElse(0), min, max);
+        double low = Math.clamp(number(meter, "low").orElse(min), min, max);
+        double high = Math.clamp(number(meter, "high").orElse(max), low, max);
+        double optimum = Math.clamp(number(meter, "optimum").orElse(min + (max - min) / 2), min, max);
         double span = max - min;
         // A range wider than a double can hold, or none at all, has no position to show (as in Chromium).
         double fraction = span > 0 && Double.isFinite(span) ? (value - min) / span : 0;
-        replaceGauge(meter, "meter", fraction, meterLevel(value, low, high, optimum));
+        replaceGauge(meter, METER, fraction, meterLevel(value, low, high, optimum));
     }
 
     /**
@@ -344,10 +349,6 @@ public final class PrintFormControls {
         }
         double number = Double.parseDouble(text);
         return Double.isFinite(number) ? OptionalDouble.of(number) : OptionalDouble.empty();
-    }
-
-    private static double clamp(double value, double low, double high) {
-        return Math.max(low, Math.min(high, value));
     }
 
     /**

@@ -222,8 +222,10 @@ class HtmlPdfFormsUnitTest {
         /** The width of the fill and the track colour after it, past at most two pixels where the two blend. */
         int trackWidth(BufferedImage page) {
             int x = start + length;
-            for (int blended = 0; blended < 2 && x < page.getWidth() && !near(page.getRGB(x, row), TRACK); blended++) {
+            int blended = 0;
+            while (blended < 2 && x < page.getWidth() && !near(page.getRGB(x, row), TRACK)) {
                 x++;
+                blended++;
             }
             while (x < page.getWidth() && near(page.getRGB(x, row), TRACK)) {
                 x++;
