@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.documentManager.htmlpdf.support;
 
+import java.util.Optional;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -41,6 +43,7 @@ final class InlineStyle {
     private static final Pattern LIST_STYLE = Pattern.compile("(?i)(?<![\\w-])list-style(-type)?\\s*:");
 
     private static final Pattern TEXT_ALIGN = Pattern.compile("(?i)(?<![\\w-])text-align\\s*:");
+    private static final Pattern IMPORTANT = Pattern.compile("(?i)\\s*!important\\s*$");
     private static final Pattern WIDTH = Pattern.compile("(?i)(?<![\\w-])width\\s*:");
     private static final Pattern HEIGHT = Pattern.compile("(?i)(?<![\\w-])height\\s*:");
 
@@ -85,6 +88,22 @@ final class InlineStyle {
      */
     static boolean setsHeight(String style) {
         return HEIGHT.matcher(style).find();
+    }
+
+    /**
+     * The value of the last declaration of a property in an inline style.
+     *
+     * @param style an inline style
+     * @param property the property name, lower case ({@code width}); {@code min-width} is not {@code width}
+     * @return the value without a trailing {@code !important}, or empty when the property is not set
+     */
+    static Optional<String> valueOf(String style, String property) {
+        Matcher matcher = Pattern.compile("(?i)(?<![\\w-])" + Pattern.quote(property) + "\\s*:\\s*([^;]*)").matcher(style);
+        String found = null;
+        while (matcher.find()) {
+            found = IMPORTANT.matcher(matcher.group(1)).replaceAll("").strip();
+        }
+        return found == null || found.isEmpty() ? Optional.empty() : Optional.of(found);
     }
 
     /**

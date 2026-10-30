@@ -95,6 +95,17 @@ class InlineStyleUnitTest {
     }
 
     @Test
+    @DisplayName("should read the last value of a property, without !important")
+    void shouldReadValue_ofProperty() {
+        assertThat(InlineStyle.valueOf("width: 10px", "width")).hasValue("10px");
+        assertThat(InlineStyle.valueOf("color: red; WIDTH : 10px !important ; height: 2px", "width")).hasValue("10px");
+        assertThat(InlineStyle.valueOf("width: 1px; width: 2px", "width")).hasValue("2px");
+        assertThat(InlineStyle.valueOf("min-width: 10px; line-height: 3", "width")).isEmpty();
+        assertThat(InlineStyle.valueOf("width: ", "width")).isEmpty();
+        assertThat(InlineStyle.valueOf("", "width")).isEmpty();
+    }
+
+    @Test
     @DisplayName("should append a declaration after the existing ones")
     void shouldAppendDeclaration_afterExistingStyle() {
         assertThat(InlineStyle.append("", "a: 1")).isEqualTo("a: 1");

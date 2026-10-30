@@ -869,8 +869,10 @@ rules 6 and 7):
    `ImageIO` cannot decode it, it is unusable.
 7. **Rewrite.** A usable `<img>` gets its `src` set to the checked or converted file's
    `Path.toUri()` (encoded, so paths with spaces or accents load, *tested*); `data:` sources
-   are kept. If the image was downscaled and the element has no `width`/`height`, they are
-   set to the original pixel size in CSS px, so the printed size does not change.
+   are kept. If the image was downscaled and the element has no `width`/`height` (attribute
+   or inline style), they are set to the original pixel size in CSS px (the upright size, for
+   an image that is also turned a quarter), so the printed size does not change. An image
+   that was only converted keeps the size of its file, which is its original's.
 
 An unusable `<img>` is replaced by
 `<span class="carlos-pdf-image-unavailable">[image unavailable]</span>` (text from
@@ -884,11 +886,16 @@ The attempt's image directory is a private temporary directory owned by
 background images, which are not in the plan because they can come from stylesheets and
 cannot show a box): the override handles `data:` and `file:` sources, refuses files over
 128 MB (above the largest converted output, a 25-megapixel PNG of noise at under 100 MB) and
-reads the header before any decoding. A JPEG background loads as is; another background
-over 4 megapixels is decoded with subsampling to fit 4 megapixels (at most 64 MB each)
-instead of being dropped; a header over 250 megapixels, or any exception while loading,
-returns an empty image resource (Flying Saucer draws nothing for it), with a WARN without
-the path. Otherwise it delegates to `super.getImageResource(uri)`, keeping Flying Saucer's
+reads the header before any decoding. A JPEG loads as is; any other image over
+`ImageDecoding.MAX_DECODED_PIXELS` (25 megapixels) is decoded with subsampling to fit and
+keeps its printed size, instead of being dropped. The agent cannot tell a CSS background
+from an `<img>`, so its cap is the same absolute cap the planning applies, not a lower one
+(a lower cap would quietly shrink an image the planning had approved). A header over 250
+megapixels, a PDF, a format outside the vetted list (WebP, HEIC), or any exception while
+loading returns an empty image resource (Flying Saucer draws nothing for it), with a WARN
+without the path. SVG is passed to Flying Saucer as it is: the planning cleans the SVG files
+it places for `<img>` elements, and an SVG that a stylesheet refers to is not cleaned (a known
+limitation). Otherwise it delegates to `super.getImageResource(uri)`, keeping Flying Saucer's
 resolution scaling. No form JSP in the repository uses a CSS background image (checked),
 so this matters mainly for HRM and email HTML.
 

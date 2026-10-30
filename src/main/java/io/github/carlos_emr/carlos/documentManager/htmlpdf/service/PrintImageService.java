@@ -21,13 +21,27 @@
  */
 package io.github.carlos_emr.carlos.documentManager.htmlpdf.service;
 
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderDegradation;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.AllowedDirectories;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.DataUris;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.ImageDecoding;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.ImageHeader;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.ImageBox;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.SvgReferences;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,18 +54,21 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
  * Decides what to do with every image of a document, and then does it (step j of the render
  * pipeline): an {@code <img>} is used, converted, cleaned or replaced by a box, always within the
- * memory the render is given for images. This class holds the <em>planning</em>.
+ * memory the render is given for images. {@link #prepare} does both in turn; {@link #plan} is the
+ * <em>planning</em> half and {@link #apply} the half that writes files and rewrites the document.
  *
  * <p>{@link #plan} reads the document in order, rules 1 to 5 of the spec's image section, and writes
  * nothing:</p>
@@ -79,10 +96,20 @@ import java.util.Set;
  * Printed sizes are kept. With no memory share at all (no render slot) every raster image is a box. The
  * plan depends only on the document and the numbers it is given.</p>
  *
+ * <p>{@link #apply} carries the plan out (rules 6 and 7, and the cleaning of SVG): an image used as it
+ * is keeps its bytes and gets the encoded file URI as its source; one that must be converted or cleaned is
+ * written into the attempt's private directory (a JPEG again as a JPEG, anything else as a PNG) and the
+ * element points at that file, with the original size set when it was reduced and declares none; an unusable
+ * one becomes a box. A file is read again here only through {@link #readAtMost}, because it may have
+ * changed since the plan was made, and an image that cannot be used at this point is boxed rather than
+ * failing the attempt.</p>
+ *
  * @since 2026-10-29
  */
 @Service
 class PrintImageService {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     /** The largest file used without conversion: it is held in memory up to four times (renderer, layout PDF, page import, final PDF). */
     static final long AS_IS_MAX_FILE_BYTES = 32L << 20;
@@ -128,6 +155,45 @@ class PrintImageService {
     static final String REASON_SVG_TOO_LARGE = "SVG too large";
     static final String REASON_UNSUPPORTED_FORMAT = "unsupported image format";
     static final String REASON_TOO_MANY_PIXELS = "header declares too many pixels";
+
+    /** Where each attempt's private image directory is made. */
+    private final Path tempRoot;
+
+    /** Production wiring: the JVM's temporary directory. */
+    @Autowired
+    PrintImageService() {
+        this(Path.of(System.getProperty("java.io.tmpdir")));
+    }
+
+    /**
+     * For tests: a chosen directory for the attempt's image directory.
+     *
+     * @param tempRoot where {@code carlos-pdf-images-*} directories are created
+     */
+    PrintImageService(Path tempRoot) {
+        this.tempRoot = Objects.requireNonNull(tempRoot, "tempRoot");
+    }
+
+    /**
+     * Step j: plans the images and carries the plan out (text-only mode has none).
+     *
+     * @param document the document after the other document rules; its images are rewritten or boxed
+     * @param baseDirectory the directory relative sources resolve against
+     * @param allowedDirectories the directories a source file may be in
+     * @param mode the rung of the ladder; {@code TEXT_ONLY} has no images
+     * @param imageMemoryBytes the render's memory share for images; 0 without a render slot
+     * @param degradations the attempt's degradations, added to as images are converted or boxed
+     * @return the files written; close it when the attempt is over
+     * @throws IOException if the attempt's image directory cannot be made
+     */
+    PreparedPrintImages prepare(Document document, Path baseDirectory, List<Path> allowedDirectories, PrintMode mode,
+            long imageMemoryBytes, Set<HtmlPdfRenderDegradation> degradations) throws IOException {
+        Objects.requireNonNull(mode, "mode");
+        if (mode == PrintMode.TEXT_ONLY) {
+            return PreparedPrintImages.none();
+        }
+        return apply(document, plan(document, baseDirectory, allowedDirectories, imageMemoryBytes), degradations);
+    }
 
     /**
      * Plans the images of a document without writing a file.
@@ -353,7 +419,313 @@ class PrintImageService {
         return new ImagePlan(images, total);
     }
 
+    // ---- applying the plan ------------------------------------------------------------------
+
+    /**
+     * Carries a plan out: writes the converted and cleaned images into a private directory, rewrites
+     * each {@code <img>} to its final source, boxes what is unusable, and cleans inline SVG in place.
+     * An image that turns out not to be usable at this point (it cannot be decoded, an SVG does not
+     * parse) becomes a box like any other; nothing here fails the attempt except being unable to make
+     * the directory.
+     *
+     * @param document the document the plan was made for
+     * @param plan the plan
+     * @param degradations the attempt's degradations, added to as images are converted or boxed
+     * @return the files written; the directory is deleted if this throws
+     * @throws IOException if the attempt's image directory cannot be made
+     */
+    PreparedPrintImages apply(Document document, ImagePlan plan, Set<HtmlPdfRenderDegradation> degradations)
+            throws IOException {
+        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(plan, "plan");
+        Objects.requireNonNull(degradations, "degradations");
+        Workspace workspace = new Workspace();
+        try {
+            Applier applier = new Applier(workspace, degradations);
+            for (PlannedImage image : plan.images()) {
+                applier.apply(image);
+            }
+            if (applier.omittedForMemory) {
+                degradations.add(HtmlPdfRenderDegradation.IMAGES_OMITTED_FOR_MEMORY);
+            }
+            return workspace.hand();
+        } catch (Throwable failure) {
+            workspace.discard();
+            throw failure;
+        }
+    }
+
+    /** The attempt's image directory, made when the first file is written. */
+    private final class Workspace {
+        private Path directory;
+        private int counter;
+
+        Path newFile(String suffix) throws IOException {
+            if (directory == null) {
+                directory = Files.createTempDirectory(tempRoot, "carlos-pdf-images-");
+            }
+            return directory.resolve("image-" + (++counter) + suffix);
+        }
+
+        PreparedPrintImages hand() {
+            return PreparedPrintImages.of(directory);
+        }
+
+        void discard() {
+            PreparedPrintImages.deleteRecursively(directory);
+        }
+    }
+
+    /** The outcome of a conversion or cleaning, shared by every element that uses the same source. */
+    private record Written(Path file, boolean downscaled, int uprightWidth, int uprightHeight, boolean removedReferences) {
+    }
+
+    /** Carries out the planned decisions one element at a time. */
+    private final class Applier {
+        private final Workspace workspace;
+        private final Set<HtmlPdfRenderDegradation> degradations;
+        private final Map<String, Optional<Written>> written = new HashMap<>();
+        private final Map<String, Boolean> embeddable = new HashMap<>();
+        boolean omittedForMemory;
+
+        Applier(Workspace workspace, Set<HtmlPdfRenderDegradation> degradations) {
+            this.workspace = workspace;
+            this.degradations = degradations;
+        }
+
+        void apply(PlannedImage image) throws IOException {
+            Element element = image.element();
+            switch (image.outcome()) {
+                case BOX -> box(image, image.reason());
+                case AS_IS -> asIs(image);
+                case CONVERT -> use(image, convertOnce(image, image.subsampling()));
+                case CLEAN_SVG -> cleanSvg(image);
+            }
+            if (element.ownerDocument() != null && element.hasAttr("srcset")) {
+                // Flying Saucer does not read srcset; it never reaches a request, but it has no use either.
+                element.removeAttr("srcset");
+            }
+        }
+
+        // -- as is ---------------------------------------------------------------------------
+
+        private void asIs(PlannedImage image) throws IOException {
+            Boolean ok = embeddable.get(image.key());
+            if (ok == null) {
+                ok = canEmbed(bytesOf(image));
+                embeddable.put(image.key(), ok);
+            }
+            if (!ok) {
+                use(image, convertOnce(image, image.subsampling()));
+                return;
+            }
+            if (image.file() != null) {
+                image.element().attr("src", image.file().toUri().toString());
+            }
+        }
+
+        /** Whether OpenPDF can embed the image: the call Flying Saucer makes (for a JPEG it reads only the header). */
+        private boolean canEmbed(byte[] bytes) {
+            if (bytes == null) {
+                return false;
+            }
+            try {
+                org.openpdf.text.Image.getInstance(bytes);
+                return true;
+            } catch (Exception | LinkageError e) {
+                return false;
+            }
+        }
+
+        // -- converted -----------------------------------------------------------------------
+
+        private Optional<Written> convertOnce(PlannedImage image, int subsampling) throws IOException {
+            Optional<Written> existing = written.get(image.key());
+            if (existing != null) {
+                return existing;
+            }
+            Optional<Written> result = convert(image, subsampling);
+            written.put(image.key(), result);
+            return result;
+        }
+
+        private Optional<Written> convert(PlannedImage image, int subsampling) throws IOException {
+            BufferedImage decoded;
+            try {
+                decoded = image.file() != null ? ImageDecoding.readSubsampled(image.file(), subsampling)
+                        : ImageDecoding.readSubsampled(dataOf(image), subsampling);
+            } catch (IOException | RuntimeException e) {
+                logger.warn("An image could not be decoded and is left out ({})", e.getClass().getSimpleName());
+                return Optional.empty();
+            }
+            BufferedImage upright = ImageDecoding.applyOrientation(decoded, image.orientation());
+            boolean jpeg = image.header().isJpeg();
+            Path target = workspace.newFile(jpeg ? ".jpg" : ".png");
+            try {
+                if (jpeg) {
+                    writeJpegOrPng(upright, target);
+                } else {
+                    writePng(upright, target);
+                }
+            } catch (IOException | RuntimeException e) {
+                logger.warn("A converted image could not be written and is left out ({})", e.getClass().getSimpleName());
+                Files.deleteIfExists(target);
+                return Optional.empty();
+            }
+            boolean turned = image.orientation() >= 5 && image.orientation() <= 8;
+            ImageHeader header = image.header();
+            return Optional.of(new Written(target, subsampling > 1, turned ? header.height() : header.width(),
+                    turned ? header.width() : header.height(), false));
+        }
+
+        // -- SVG -----------------------------------------------------------------------------
+
+        private void cleanSvg(PlannedImage image) throws IOException {
+            if (image.file() == null && image.data() == null) {
+                if (SvgReferences.clean(image.element())) {
+                    degradations.add(HtmlPdfRenderDegradation.SVG_REFERENCES_REMOVED);
+                }
+                return;
+            }
+            Optional<Written> result = written.get(image.key());
+            if (result == null) {
+                result = writeCleanedSvg(image);
+                written.put(image.key(), result);
+            }
+            use(image, result);
+        }
+
+        private Optional<Written> writeCleanedSvg(PlannedImage image) throws IOException {
+            byte[] svg = image.file() != null ? readAtMost(image.file(), MAX_SVG_BYTES) : image.data();
+            if (svg == null) {
+                return Optional.empty();
+            }
+            Optional<SvgReferences.Cleaned> cleaned = SvgReferences.clean(svg);
+            if (cleaned.isEmpty()) {
+                logger.warn("An SVG image could not be parsed safely and is left out");
+                return Optional.empty();
+            }
+            Path target = workspace.newFile(".svg");
+            try {
+                Files.write(target, cleaned.get().svg());
+            } catch (IOException | RuntimeException e) {
+                Files.deleteIfExists(target);
+                return Optional.empty();
+            }
+            return Optional.of(new Written(target, false, 0, 0, cleaned.get().removedReferences()));
+        }
+
+        // -- rewriting the element -----------------------------------------------------------
+
+        /** Points the element at what was written, or boxes it if nothing could be. */
+        private void use(PlannedImage image, Optional<Written> result) {
+            Element element = image.element();
+            if (result.isEmpty()) {
+                box(image, REASON_UNREADABLE);
+                return;
+            }
+            Written output = result.get();
+            element.attr("src", output.file().toUri().toString());
+            if (image.outcome() == ImageOutcome.CLEAN_SVG) {
+                if (output.removedReferences()) {
+                    degradations.add(HtmlPdfRenderDegradation.SVG_REFERENCES_REMOVED);
+                }
+                return;
+            }
+            degradations.add(output.downscaled() ? HtmlPdfRenderDegradation.IMAGE_DOWNSCALED
+                    : HtmlPdfRenderDegradation.IMAGE_CONVERTED);
+            if (output.downscaled() && !ImageBox.declaresSize(element)) {
+                // The printed size is the original's, not the smaller file's.
+                element.attr("width", Integer.toString(output.uprightWidth()));
+                element.attr("height", Integer.toString(output.uprightHeight()));
+            }
+        }
+
+        private void box(PlannedImage image, String reason) {
+            image.element().replaceWith(ImageBox.replacing(image.element()));
+            if (ImagePlan.REASON_NO_SLOT.equals(reason)) {
+                omittedForMemory = true;
+            } else {
+                degradations.add(HtmlPdfRenderDegradation.IMAGE_UNAVAILABLE);
+                logger.warn("An image is shown as a box ({})", reason);
+            }
+        }
+
+        /** The image as bytes, or {@code null} if it can no longer be read (the file changed after the plan was made). */
+        private byte[] bytesOf(PlannedImage image) {
+            if (image.file() != null) {
+                return readAtMost(image.file(), AS_IS_MAX_FILE_BYTES);
+            }
+            return dataOf(image);
+        }
+
+        /** The decoded payload: kept in the plan if it had to be, else decoded again from the element. */
+        private byte[] dataOf(PlannedImage image) {
+            if (image.data() != null) {
+                return image.data();
+            }
+            return DataUris.decodeBase64(image.element().attr("src").strip(), MAX_DATA_URI_BYTES).orElse(null);
+        }
+    }
+
+    private static void writeJpegOrPng(BufferedImage image, Path target) throws IOException {
+        try {
+            writeJpeg(image, target);
+        } catch (IOException | RuntimeException e) {
+            // A color model the JPEG writer refuses; a lossless copy keeps the picture.
+            writePng(image, target);
+        }
+    }
+
+    private static void writeJpeg(BufferedImage image, Path target) throws IOException {
+        BufferedImage rgb = image;
+        if (image.getColorModel().hasAlpha()) {
+            rgb = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+            Graphics2D graphics = rgb.createGraphics();
+            try {
+                graphics.setColor(java.awt.Color.WHITE);
+                graphics.fillRect(0, 0, rgb.getWidth(), rgb.getHeight());
+                graphics.drawImage(image, 0, 0, null);
+            } finally {
+                graphics.dispose();
+            }
+        }
+        ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+        try (ImageOutputStream out = ImageIO.createImageOutputStream(target.toFile())) {
+            ImageWriteParam parameters = writer.getDefaultWriteParam();
+            parameters.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            parameters.setCompressionQuality(JPEG_QUALITY);
+            writer.setOutput(out);
+            writer.write(null, new IIOImage(rgb, null, null), parameters);
+        } finally {
+            writer.dispose();
+        }
+    }
+
+    private static void writePng(BufferedImage image, Path target) throws IOException {
+        if (!ImageIO.write(image, "png", target.toFile())) {
+            throw new IOException("no PNG writer for this image");
+        }
+    }
+
     // ---- helpers ----------------------------------------------------------------------------
+
+    /**
+     * Reads a file the plan found to be within a size limit, without trusting that it still is: the
+     * file may have been replaced since the plan was made.
+     *
+     * @param file the file
+     * @param limit the most bytes accepted
+     * @return the bytes, or {@code null} if the file cannot be read or is larger than the limit
+     */
+    static byte[] readAtMost(Path file, long limit) {
+        try (InputStream in = Files.newInputStream(file)) {
+            byte[] bytes = in.readNBytes((int) Math.min(limit + 1, Integer.MAX_VALUE - 8));
+            return bytes.length > limit ? null : bytes;
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+    }
 
     /** The base directory as a URI that ends in a slash, so a relative reference resolves inside it. */
     private static URI directoryUri(Path baseDirectory) {

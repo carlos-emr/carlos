@@ -35,8 +35,8 @@ import java.util.Objects;
  * <p>When normal rendering fails (an exception in layout, a page that cannot be placed, an output
  * that does not validate), the pipeline retries once with the author's presentation removed: every
  * {@code <style>} element, every {@code <link rel="stylesheet">}, every {@code style} attribute, and
- * every inline {@code <svg>}, which is replaced by the placeholder box the pipeline uses for an image
- * that cannot be shown. The text, tables, form-control replacements and plain {@code <img>} elements
+ * every inline {@code <svg>}, which is replaced by the placeholder box ({@link ImageBox}) the pipeline
+ * uses for an image that cannot be shown, the size of the graphic. The text, tables, form-control replacements and plain {@code <img>} elements
  * stay, so the record is complete even if less pretty. The document note says so.</p>
  *
  * <p>This runs first, before the other document rules, so the {@code style} attributes those rules
@@ -46,9 +46,6 @@ import java.util.Objects;
  * @since 2026-10-29
  */
 public final class SafeModeMarkup {
-
-    /** The class of the box that stands for an image that cannot be shown (see {@code PrintStylesheet}). */
-    public static final String IMAGE_UNAVAILABLE_CLASS = "carlos-pdf-image-unavailable";
 
     private SafeModeMarkup() {
     }
@@ -72,10 +69,7 @@ public final class SafeModeMarkup {
             if (svg.ownerDocument() == null) {
                 continue;
             }
-            Element box = new Element("span");
-            box.addClass(IMAGE_UNAVAILABLE_CLASS);
-            box.appendText(PrintMessages.imageUnavailable());
-            svg.replaceWith(box);
+            svg.replaceWith(ImageBox.replacing(svg));
         }
     }
 
