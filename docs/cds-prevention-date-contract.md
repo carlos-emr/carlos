@@ -22,17 +22,24 @@ spelling, offset and provenance remain the importer's separate responsibility. B
 are ISO calendar strings, never exact administration timestamps. An unsupported stored
 format refuses representation and requires review rather than reverting to a full date.
 
+Precision representation and legacy reader admission are separate. The importer writes
+the `preventionsExt` key `cdsDatePrecision` for each imported immunization. Only rows
+with that provenance marker are subject to the new exact-date admission rule. Native
+records without the marker retain their established anchor dates in legacy REST/SOAP,
+reports, exports and Drools calculations, including native year-only history. The
+additive precision representation still describes the recorded metadata for either kind.
+
 ## Implemented read boundaries
 
 - REST `/preventions/active?demographicNo=…` and `/preventions/immunizations/{demographicNo}`
   retain their Date field and existing exact-date behavior. If any returned record has
-  partial or unknown timing, the entire operation returns HTTP 409 with an upgrade path.
+  imported partial or unknown timing, the entire operation returns HTTP 409 with an upgrade path.
 - Additive REST `/preventions/active/precision?demographicNo=…` and
   `/preventions/immunizations/{demographicNo}/precision` retain every record. Their
   `preventionDateInfo` contains the precision, original native value and inclusive
   interval. `preventionDate` is populated only for a genuine exact date; partial and
   unknown records have a null Date plus explicit date information.
-- SOAP `PreventionWs` operations retain their Date-only public type. A partial or unknown
+- SOAP `PreventionWs` operations retain their Date-only public type. An imported partial or unknown
   date produces an explicit SOAP fault requiring a precision-aware representation. No
   affected record is silently omitted and no anchor is serialized. SOAP-only clients
   need a reviewed upgrade before using affected operations; the precision-aware REST
@@ -41,18 +48,19 @@ format refuses representation and requires review rather than reverting to a ful
   precision endpoint location.
 - `PreventionListItemDTO` projection includes the latest native partial-date format,
   without loading the eager extensions collection. `getPreventionDateInfo()` represents
-  every record. Date-only access to partial/unknown data refuses explicitly.
+  every record. Date-only access to imported partial/unknown data refuses explicitly;
+  native Date access keeps the stored value.
 - `PreventionData` list and record maps retain partial text and explicit `Unknown`, add
-  `prevention_date_info`, and expose `prevention_date_asDate` only for full dates. Age at
-  an uncertain event is `Unknown`. The prevention print loader consumes these display
+  `prevention_date_info` and `cds_imported`, and expose `prevention_date_asDate` for native
+  rows and imported full dates. Age at an uncertain imported event is `Unknown`. The prevention print loader consumes these display
   fields. Exact-date map behavior is preserved.
 - `PreventionItem` requires native date precision when constructed from an entity. If
-  any history date is uncertain, the existing Date-only Drools rule entry point adds a
+  any imported history date is uncertain, the existing Date-only Drools rule entry point adds a
   review warning and does not evaluate due/dose rules. All source history items remain
   in the fact. Last-dose date and age/elapsed calculations cannot select an anchor as
   the latest event, including overlapping year/month intervals. No vaccine threshold
   or interval-based validity policy is introduced by this change.
-- Date-only latest-record and type/date-range DAO operations refuse uncertain history
+- Date-only latest-record and type/date-range DAO operations refuse uncertain imported history
   before selecting by anchors. The range operation is deliberately conservative across
   its active type scope: an unresolved date can affect membership in the requested range.
   It requires review rather than quietly losing undated records in the SQL filter.
@@ -65,25 +73,25 @@ review state without choosing a synthetic latest event. Flowsheet screen/print r
 latest-only limits retain uncertain records for review. BC forms preserve the partial label;
 Rh injection gestational age stays explicitly unknown when timing is not known.
 
-`PreventionReadSafetyService` and the legacy `PreventionData` boundary refuse Date-only
-SQL decisions before a filter or aggregate can lose uncertain records. The scalar query
-checks null dates and the latest partial metadata, including merged charts. Structural SQL
-table inspection handles quoted/qualified references and nested queries. A supported
-population query is refused when any active prevention timing is uncertain; known patient
-AP lookups use patient scope. A legacy dialect that might read prevention history but cannot
-be structurally interpreted requires review instead of running unguarded.
+`PreventionReadSafetyService` and the legacy `PreventionData` boundary guard patient-scoped
+Date-only SQL decisions against uncertain imported records. The scalar query checks the
+import marker, null dates and the latest partial metadata, including merged charts.
+Population reports, dashboard SQL and interactive unscoped eForm queries do not inspect
+or refuse unrelated patient charts. Structural table inspection handles supported
+quoted/qualified references and nested queries. Unsupported installed SQL dialects stay
+with their original SQL execution boundary; classifier failure logs a debug diagnostic
+without the query text and does not refuse the query.
 
-Guarded readers include the native prevention report families; the newer report builder;
-ClinicalReports SQL numerator and denominator; dashboard indicator/drilldown/export SQL;
-SQL report templates; Query by Example; eForm AP rendering, interactive lookups and generated
-PDF lookups; FHIR immunization API assembly; the intake prevention projection; and legacy
-CDS export when prevention categories are selected. Report/HTTP paths expose review state or
-an explicit refusal, and do not publish fabricated counts, omitted history or a partial
-export package. Existing native full-date formatting and Date API shapes remain in place.
+Patient-scoped guarded readers include the native prevention report families, the newer
+report builder, ClinicalReports SQL numerators, scoped eForm AP and generated PDF lookups,
+FHIR immunization assembly, the intake prevention projection and legacy CDS export when
+prevention categories are selected. Population denominators, dashboard SQL, report templates
+and Query by Example retain their existing authorized SQL execution without a whole-database
+date gate. Imported patient paths expose review state or an explicit refusal; native partial
+history keeps its established Date API shapes and display labels.
 
-The SQL-engine guards cover the bundled prevention indicators, ClinicalReports.xml and
-apconfig.xml without editing their clinical thresholds. They also guard installed SQL that
-names the native prevention table. Full installed runtime inventory remains an activation
+Patient-scoped SQL guards preserve the bundled definitions' clinical thresholds. They
+also guard supported installed SQL that names the native prevention table. Full installed runtime inventory remains an activation
 gate: views, stored functions, custom plugins, direct database access and arbitrary new
 readers can hide dependencies from SQL table inspection. They require a verified supported
 consumer catalogue and deployment barrier before new import admission is enabled; this

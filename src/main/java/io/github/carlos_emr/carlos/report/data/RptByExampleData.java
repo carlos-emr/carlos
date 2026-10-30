@@ -138,9 +138,6 @@ public class RptByExampleData {
         ExecutionProgress progress = new ExecutionProgress();
         try {
             LegacyJdbcQuery.TrustedSql trustedSql = queryValidator.validate(sql, properties);
-            if (io.github.carlos_emr.carlos.prevention.PreventionReadSafetyService.readsPreventions(trustedSql.sql())) {
-                io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(null);
-            }
             RptResultStruct.StructuredResult structured = executeWithConnection(trustedSql, properties, progress);
             outcome = "success";
             return new QueryResult(structured.html(), structured.rowCount(), structured.truncated(),

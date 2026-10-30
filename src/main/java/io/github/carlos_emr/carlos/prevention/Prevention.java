@@ -159,7 +159,7 @@ public class Prevention {
     public boolean isDateReviewRequired() {
         for (Object value : preventionTypes.values()) {
             for (Object item : (Vector) value) {
-                if (!((PreventionItem) item).getPerformedDate().isExact()) return true;
+                if (((PreventionItem) item).requiresDateReview()) return true;
             }
         }
         return false;
@@ -169,7 +169,7 @@ public class Prevention {
         Vector items = (Vector) preventionTypes.get(preventionType);
         if (items != null) {
             for (Object item : items) {
-                if (!((PreventionItem) item).getPerformedDate().isExact()) return true;
+                if (((PreventionItem) item).requiresDateReview()) return true;
             }
         }
         return false;
@@ -183,7 +183,7 @@ public class Prevention {
         for (Object key : preventionTypes.keySet()) {
             Vector items = (Vector) preventionTypes.get(key);
             for (Object item : items) {
-                if (!((PreventionItem) item).getPerformedDate().isExact()) {
+                if (((PreventionItem) item).requiresDateReview()) {
                     addWarning((String) key, "Prevention timing is partial or unknown; review history before applying due or dose rules.");
                     break;
                 }
@@ -257,7 +257,7 @@ public class Prevention {
         if (vec != null) {
             for (Object item : vec) {
                 // A synthetic anchor cannot establish which event happened last.
-                if (!((PreventionItem) item).getPerformedDate().isExact()) return null;
+                if (((PreventionItem) item).requiresDateReview()) return null;
             }
             PreventionItem p = (PreventionItem) vec.get(vec.size() - 1);  // Get date from return object
             lastDate = p.getDatePreformed();
@@ -374,7 +374,7 @@ public class Prevention {
         Vector vec = (Vector) preventionTypes.get(preventionType);
         if (vec != null && !vec.isEmpty()) {
             for (Object item : vec) {
-                if (!((PreventionItem) item).getPerformedDate().isExact()) return -1;
+                if (((PreventionItem) item).requiresDateReview()) return -1;
             }
             PreventionItem p = (PreventionItem) vec.get(vec.size() - 1);
             status = p.getRefusedStatus();

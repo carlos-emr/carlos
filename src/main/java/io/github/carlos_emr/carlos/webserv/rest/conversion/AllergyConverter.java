@@ -61,14 +61,12 @@ public class AllergyConverter extends AbstractConverter<Allergy, AllergyTo1> {
     public AllergyTo1 getAsTransferObject(LoggedInInfo loggedInInfo, Allergy d) throws ConversionException {
         // Null optional dates carry no storage anchor. Existing null-only callers need
         // no container lookup just to preserve their established null representation.
-        CdsTemporalReadService reader = d.getStartDate() == null && d.getEntryDate() == null
+        // Authorized endpoints enforce imported-category completeness before
+        // conversion. Legacy native allergies retain their existing date payload.
+        CdsTemporalReadService reader = !precisionAware || d.getStartDate() == null && d.getEntryDate() == null
                 ? dates : dates == null ? SpringUtils.getBean(CdsTemporalReadService.class) : dates;
-        var start = reader == null ? CdsTemporalNativeDateDto.from(null, null) : reader.allergyStart(d);
-        var recorded = reader == null ? CdsTemporalNativeDateDto.from(null, null) : reader.allergyRecorded(d);
-        if (!precisionAware) {
-            start.requireDateOnlySafe();
-            recorded.requireDateOnlySafe();
-        }
+        var start = !precisionAware || reader == null ? CdsTemporalNativeDateDto.from(null, null) : reader.allergyStart(d);
+        var recorded = !precisionAware || reader == null ? CdsTemporalNativeDateDto.from(null, null) : reader.allergyRecorded(d);
         AllergyTo1 t = new AllergyTo1();
         t.setReactionType(d.getReactionType());
         t.setNonDrug(d.isNonDrug());

@@ -169,7 +169,7 @@ public final class PreventionTransfer {
     public static PreventionTransfer toTransfer(Prevention prevention, List<PreventionExt> preventionExts,
             PreventionDateDTO date) {
         if (prevention == null) return (null);
-        date.requireExact();
+        if (prevention.isCdsImported()) date.requireExact();
 
         PreventionTransfer preventionTransfer = new PreventionTransfer();
 

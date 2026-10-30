@@ -102,8 +102,24 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
     }
 
     @Test
+    void shouldKeepLegacyAnchorPayload_forNativeYearOnlyPrevention() {
+        Prevention record = new Prevention();
+        record.setDemographicId(123);
+        org.springframework.test.util.ReflectionTestUtils.setField(record, "id", 41);
+        record.setPreventionType("Td");
+        record.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
+        when(partialDateDao.getFormat(4, 41, 7)).thenReturn("YYYY");
+        when(preventionManager.getPrevention(any(LoggedInInfo.class), eq(41))).thenReturn(record);
+        var result = createClient(PreventionPort.class).getPrevention(41);
+        assertThat(result.getPreventionDate()).isEqualTo(java.sql.Date.valueOf("2019-01-01"));
+        assertThat(result.getPreventionType()).isEqualTo("Td");
+        assertThat(result.getDemographicId()).isEqualTo(123);
+    }
+
+    @Test
     void shouldRefuseDateOnlyResponse_whenHistoryHasPartialTiming() {
         Prevention record = new Prevention();
+        markImported(record);
             record.setDemographicId(123);
         org.springframework.test.util.ReflectionTestUtils.setField(record, "id", 41);
         record.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
@@ -115,10 +131,18 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
 
     @Test
     void shouldRefuseListOperation_whenHistoryContainsUndatedRecords() {
+        Prevention record = new Prevention();
+        markImported(record);
         when(preventionManager.getUpdatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
-                .thenReturn(List.of(new Prevention()));
+                .thenReturn(List.of(record));
         assertThatThrownBy(() -> createClient(PreventionPort.class).getPreventionsUpdatedAfterDate(new Date(), 10))
                 .hasMessageContaining("precision-aware");
+    }
+
+    private static void markImported(Prevention prevention) {
+        var provenance = new io.github.carlos_emr.carlos.commn.model.PreventionExt();
+        provenance.setKeyval("cdsDatePrecision");
+        prevention.addPreventionExt(provenance);
     }
 
     /** Tests for the getPrevention SOAP operation. */

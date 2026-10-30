@@ -31,13 +31,31 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class PreventionReadSafetyServiceUnitTest {
     @Test
-    void shouldRefuseBeforeDateAggregation_whenPopulationHasUncertainTiming() {
+    void shouldPermitInstalledFluBonusQueries_whenTheirLegacyDialectIsUnsupported() throws Exception {
+        try (var source = getClass().getResourceAsStream("/indicatorXMLTemplates/flu_immunization_bonus.xml")) {
+            assertThat(source).isNotNull();
+            var document = javax.xml.parsers.DocumentBuilderFactory.newDefaultInstance().newDocumentBuilder().parse(source);
+            int checked = 0;
+            for (String element : new String[] {"query", "patientQuery"}) {
+                var queries = document.getElementsByTagName(element);
+                for (int i = 0; i < queries.getLength(); i++) {
+                    String sql = queries.item(i).getTextContent();
+                    assertThatCode(() -> PreventionReadSafetyService.readsPreventions(sql)).doesNotThrowAnyException();
+                    checked++;
+                }
+            }
+            assertThat(checked).isEqualTo(2);
+        }
+    }
+
+    @Test
+    void shouldPermitPopulationAggregation_withoutInspectingUnrelatedPatients() {
         PreventionDao dao = mock(PreventionDao.class);
-        when(dao.hasUncertainPreventionDates(null)).thenReturn(true);
         var safety = new PreventionReadSafetyService(dao);
-        assertThatThrownBy(() -> safety.requireSafeSql(
+        assertThatCode(() -> safety.requireSafeSql(
                 "select max(p.prevention_date) from preventions p where p.prevention_date > '2019-05-01'", null))
-                .isInstanceOf(PreventionDatePrecisionException.class);
+                .doesNotThrowAnyException();
+        verifyNoInteractions(dao);
     }
 
     @Test
@@ -59,9 +77,8 @@ class PreventionReadSafetyServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseUnsupportedDialect_whenPreventionReferenceCannotBeReviewed() {
-        assertThatThrownBy(() -> PreventionReadSafetyService.readsPreventions("select !!! from preventions"))
-                .isInstanceOf(PreventionDatePrecisionException.class);
+    void shouldPreserveLegacySqlExecution_whenClassifierDoesNotSupportTheDialect() {
+        assertThat(PreventionReadSafetyService.readsPreventions("select !!! from preventions")).isFalse();
     }
 
     @Test

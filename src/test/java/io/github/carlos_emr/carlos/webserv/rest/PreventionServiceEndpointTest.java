@@ -81,8 +81,29 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
     }
 
     @Test
+    void shouldKeepLegacyAnchorPayload_forNativeYearOnlyPrevention() {
+        Prevention record = partialRecord();
+        when(mockPreventionManager.getPreventionsByDemographicNo(any(LoggedInInfo.class), eq(123)))
+                .thenReturn(List.of(record));
+        Response response = request().path("/preventions/active").query("demographicNo", 123).get();
+        assertThat(response.getStatus()).isEqualTo(200);
+        var expected = new io.github.carlos_emr.carlos.webserv.rest.to.model.PreventionTo1();
+        expected.setId(41);
+        expected.setPreventionType("Td");
+        expected.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
+        // Expected legacy fields/anchor follow the converter at merge-base aaaf4444.
+        var actual = (com.fasterxml.jackson.databind.node.ObjectNode) responseJson(response).at("/preventions/0");
+        var golden = (com.fasterxml.jackson.databind.node.ObjectNode) createTestObjectMapper().valueToTree(expected);
+        // Both versions create this transfer timestamp at construction, independently of the clinical date.
+        actual.remove("creationDate");
+        golden.remove("creationDate");
+        assertThat(actual).isEqualTo(golden);
+    }
+
+    @Test
     void shouldRefuseLegacyDateOnlyResponse_forExistingPartialHistory() {
         Prevention record = partialRecord();
+        markImported(record);
         when(mockPreventionManager.getPreventionsByDemographicNo(any(LoggedInInfo.class), eq(123)))
                 .thenReturn(List.of(record));
         Response response = request().path("/preventions/active").query("demographicNo", 123).get();
@@ -110,10 +131,18 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
 
     @Test
     void shouldRefuseLegacyResponse_forUndatedHistory() {
+        Prevention record = new Prevention();
+        markImported(record);
         when(mockPreventionManager.getImmunizationsByDemographic(any(LoggedInInfo.class), eq(123)))
-                .thenReturn(List.of(new Prevention()));
+                .thenReturn(List.of(record));
         Response response = request().path("/preventions/immunizations/123").get();
         assertThat(response.getStatus()).isEqualTo(409);
+    }
+
+    private static void markImported(Prevention prevention) {
+        var provenance = new io.github.carlos_emr.carlos.commn.model.PreventionExt();
+        provenance.setKeyval("cdsDatePrecision");
+        prevention.addPreventionExt(provenance);
     }
 
     private Prevention partialRecord() {

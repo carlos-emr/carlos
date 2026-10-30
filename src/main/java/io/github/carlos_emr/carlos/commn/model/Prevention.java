@@ -260,6 +260,13 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
         return this.preventionExts;
     }
 
+    /** The importer's explicit precision marker distinguishes imported history from native rows. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean isCdsImported() {
+        return preventionExts != null && preventionExts.stream()
+                .anyMatch(property -> "cdsDatePrecision".equals(property.getkeyval()));
+    }
+
     public void setPreventionExts(List<PreventionExt> preventionExts) {
         this.preventionExts = preventionExts;
     }

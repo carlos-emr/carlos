@@ -70,15 +70,16 @@ public class PreventionData {
                 : partialDateDao.getFormat(PartialDate.PREVENTION, prevention.getId(), PartialDate.PREVENTION_PREVENTIONDATE));
     }
 
-    /** Legacy authorized report/eForm boundary; null patient scopes a population report. */
+    /** Legacy authorized patient boundary; population SQL does not gate unrelated charts. */
     public static void requireExactDates(Integer demographicNo) {
-        if (preventionDao.hasUncertainPreventionDates(demographicNo)) throw new PreventionDatePrecisionException();
+        if (demographicNo != null && preventionDao.hasUncertainPreventionDates(demographicNo)) throw new PreventionDatePrecisionException();
     }
 
     /** Date-only callers must opt into refusal before parsing the list's display text. */
     public static void requireExactDateMaps(List<Map<String, Object>> rows) {
         for (Map<String, Object> row : rows) {
-            if (row.get("prevention_date_info") instanceof PreventionDateDTO date) date.requireExact();
+            if (Boolean.TRUE.equals(row.get("cds_imported"))
+                    && row.get("prevention_date_info") instanceof PreventionDateDTO date) date.requireExact();
         }
     }
 
@@ -317,7 +318,7 @@ public class PreventionData {
         List<Prevention> preventions = preventionDao.findByTypeAndDate(injectionType, startDate, endDate);
         for (Prevention prevention : preventions) {
 
-            dateOf(prevention).requireExact();
+            if (prevention.isCdsImported()) dateOf(prevention).requireExact();
 
             List<PreventionExt> preventionExts = preventionExtDao.findByPreventionIdAndKey(prevention.getId(), keyVal);
             try {
@@ -354,10 +355,10 @@ public class PreventionData {
         return preventionDao.findByTypeAndDemoNo(preventionType, demographicId);
     }
 
-    /** Legacy clinical calculations require proven exact timing before any sorting/filtering. */
+    /** Legacy clinical calculations require exact imported timing and preserve native Date semantics. */
     public static List<Prevention> getExactPrevention(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
         List<Prevention> records = getPrevention(loggedInInfo, preventionType, demographicId);
-        for (Prevention record : records) dateOf(record).requireExact();
+        for (Prevention record : records) if (record.isCdsImported()) dateOf(record).requireExact();
         return records;
     }
 
@@ -421,7 +422,7 @@ public class PreventionData {
 
 
                 PreventionDateDTO date = dateOf(prevention);
-                Date pDate = date.isExact() ? prevention.getPreventionDate() : null;
+                Date pDate = !prevention.isCdsImported() || date.isExact() ? prevention.getPreventionDate() : null;
                 String d1 = date.isExact() ? UtilDateUtilities.DateToString(pDate, "yyyy-MM-dd HH:mm")
                         : date.getOriginalValue() == null ? "Unknown" : date.getOriginalValue();
                 String d2 = date.getOriginalValue() == null ? "Unknown" : date.getOriginalValue();
@@ -431,6 +432,7 @@ public class PreventionData {
                 h.put("prevention_date_asDate", pDate);
                 h.put("prevention_date_no_time", blankIfNull(d2));
                 h.put("prevention_date_info", date);
+                h.put("cds_imported", prevention.isCdsImported());
 
                 h.put("comments", "");
                 String age = date.isExact() ? "N/A" : "Unknown";
@@ -489,8 +491,7 @@ public class PreventionData {
 
     public static class PreventionsComparator implements Comparator<Map<String, Object>> {
         public int compare(Map<String, Object> o1, Map<String, Object> o2) {
-            if (o1.get("prevention_date_info") instanceof PreventionDateDTO date) date.requireExact();
-            if (o2.get("prevention_date_info") instanceof PreventionDateDTO date) date.requireExact();
+            requireExactDateMaps(List.of(o1, o2));
             Comparable date1 = (Comparable) o1.get("prevention_date_asDate");
             Comparable date2 = (Comparable) o2.get("prevention_date_asDate");
 
@@ -566,8 +567,9 @@ public class PreventionData {
                 addToHashIfNotNull(h, "providerName", providerName);
                 addToHashIfNotNull(h, "creationDate", UtilDateUtilities.DateToString(prevention.getCreationDate(), "yyyy-MM-dd"));
                 addToHashIfNotNull(h, "preventionDate", preventionDate);
-                addToHashIfNotNull(h, "prevention_date_asDate", date.isExact() ? prevention.getPreventionDate() : null);
+                addToHashIfNotNull(h, "prevention_date_asDate", !prevention.isCdsImported() || date.isExact() ? prevention.getPreventionDate() : null);
                 h.put("prevention_date_info", date);
+                h.put("cds_imported", prevention.isCdsImported());
                 addToHashIfNotNull(h, "preventionType", prevention.getPreventionType());
                 addToHashIfNotNull(h, "deleted", prevention.isDeleted() ? "1" : "0");
                 addToHashIfNotNull(h, "refused", prevention.isRefused() ? "1" : prevention.isIneligible() ? "2" : prevention.isCompletedExternally() ? "3" : "0");

@@ -63,6 +63,8 @@ class AllergyWsEndpointTest extends CarlosSoapTestBase {
 
     @Mock
     private AllergyManager allergyManager;
+    @Mock
+    private io.github.carlos_emr.carlos.commn.dao.PartialDateDao partialDates;
 
     @Mock
     private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
@@ -94,7 +96,24 @@ class AllergyWsEndpointTest extends CarlosSoapTestBase {
     @BeforeEach
     void setUpMocks() {
         registerMock(AllergyManager.class, allergyManager);
+        registerMock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService.class,
+                new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService(partialDates));
         injectDependency(ws, "allergyManager", allergyManager);
+    }
+
+    @Test
+    void shouldKeepLegacyAnchorPayload_forNativePartialDateAllergy() {
+        Allergy source = new Allergy();
+        source.setId(42);
+        source.setDemographicNo(123);
+        source.setDescription("Synthetic allergy");
+        source.setStartDate(java.sql.Date.valueOf("2020-01-01"));
+        when(partialDates.getFormat(1, 42, 1)).thenReturn("YYYY");
+        when(allergyManager.getAllergy(any(LoggedInInfo.class), eq(42))).thenReturn(source);
+        AllergyTransfer result = createClient(AllergyWs.class).getAllergy(42);
+        assertThat(result.getStartDate()).isEqualTo(java.sql.Date.valueOf("2020-01-01"));
+        assertThat(result.getDescription()).isEqualTo("Synthetic allergy");
+        org.mockito.Mockito.verify(projections).requireSoapSupported(123, java.util.Set.of("AllergiesAndAdverseReactions"));
     }
 
     /** Tests for the getAllergy SOAP operation. */

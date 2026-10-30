@@ -63,8 +63,8 @@ public interface PreventionDao extends AbstractDao<Prevention> {
 
     List<Prevention> findUniqueByDemographicId(Integer demographicId);
 
-    /** True if a non-deleted row has unknown timing or nonempty latest native precision metadata.
-     * A null demographic scopes a population report across all patients. */
+    /** True if this patient's non-deleted imported history has uncertain timing.
+     * A null demographic returns false; population SQL never gates unrelated charts. */
     boolean hasUncertainPreventionDates(Integer demographicId);
 
     List<Integer> findNewPreventionsSinceDemoKey(String keyName);

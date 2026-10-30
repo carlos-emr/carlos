@@ -131,6 +131,7 @@ public class OscarFhirResourceManager {
     }
 
     private static void requireExactImmunizationDate(Prevention prevention) {
+        if (!prevention.isCdsImported()) return;
         try {
             SpringUtils.getBean(io.github.carlos_emr.carlos.prevention.PreventionDateService.class)
                     .getDate(prevention).requireExact();

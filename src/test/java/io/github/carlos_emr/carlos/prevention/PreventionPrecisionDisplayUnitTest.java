@@ -81,6 +81,36 @@ class PreventionPrecisionDisplayUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepNativeAnchorAndClinicalCalculations_forYearOnlyHistory() {
+        var nativeRecord = record(41, "2019-01-01");
+        nativeRecord.getPreventionExts().clear();
+        when(preventions.findByTypeAndDemoNo("Td", 7)).thenReturn(List.of(nativeRecord));
+        when(dates.getFormat(4, 41, 7)).thenReturn("YYYY");
+        var rows = PreventionData.listForCheckedPatient("Td", 7, Date.valueOf("2000-01-01"));
+        assertThat(rows).singleElement().satisfies(row -> {
+            assertThat(row).containsEntry("prevention_date", "2019")
+                    .containsEntry("prevention_date_asDate", Date.valueOf("2019-01-01"));
+            assertThat(row.get("age")).isNotEqualTo("Unknown");
+        });
+        assertThatCode(() -> PreventionData.requireExactDateMaps(rows)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldExecuteInteractiveAutofill_withoutAWholeDatabaseDateGate() throws Exception {
+        var query = new io.github.carlos_emr.carlos.report.data.ParameterizedSql(
+                "select prevention_date as last_date from preventions", List.of());
+        var rows = mock(java.sql.ResultSet.class);
+        when(rows.next()).thenReturn(true, false);
+        when(rows.getString("last_date")).thenReturn("2019-01-01");
+        try (var jdbc = mockStatic(io.github.carlos_emr.carlos.db.LegacyJdbcQuery.class)) {
+            jdbc.when(() -> io.github.carlos_emr.carlos.db.LegacyJdbcQuery.getPreparedResultSet(query)).thenReturn(rows);
+            assertThat(io.github.carlos_emr.carlos.eform.EFormUtil.getValues(List.of("last_date"), query))
+                    .containsExactly("2019-01-01");
+            verifyNoInteractions(preventions);
+        }
+    }
+
+    @Test
     void shouldRefuseAutofillBeforeExecutingSql_whenPatientTimingIsUncertain() {
         when(preventions.hasUncertainPreventionDates(7)).thenReturn(true);
         var query = new io.github.carlos_emr.carlos.report.data.ParameterizedSql(
@@ -108,6 +138,9 @@ class PreventionPrecisionDisplayUnitTest extends CarlosUnitTestBase {
         record.setDemographicId(7);
         record.setPreventionType("Td");
         record.setPreventionDate(date == null ? null : Date.valueOf(date));
+        var provenance = new io.github.carlos_emr.carlos.commn.model.PreventionExt();
+        provenance.setKeyval("cdsDatePrecision");
+        record.addPreventionExt(provenance);
         return record;
     }
 }

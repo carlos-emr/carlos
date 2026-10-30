@@ -31,6 +31,25 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("unit")
 class PreventionPrecisionRulesUnitTest {
     @Test
+    void shouldEvaluateDrools_forNativeYearOnlyPrevention() throws Exception {
+        var record = new io.github.carlos_emr.carlos.commn.model.Prevention();
+        record.setPreventionType("Td");
+        record.setPreventionDate(Date.valueOf("2019-01-01"));
+        var history = new Prevention("F", Date.valueOf("2000-01-01"));
+        history.addPreventionItem(new PreventionItem(record, PreventionDateDTO.from(record.getPreventionDate(), "YYYY")));
+        var base = org.mockito.Mockito.mock(org.kie.api.KieBase.class);
+        var session = org.mockito.Mockito.mock(org.kie.api.runtime.KieSession.class);
+        org.mockito.Mockito.when(base.newKieSession()).thenReturn(session);
+        var rules = new PreventionDSImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(rules, "kieBase", base);
+        rules.getMessages(history);
+        org.mockito.Mockito.verify(session).fireAllRules();
+        org.mockito.Mockito.verify(session).dispose();
+        assertThat(history.getLastPreventionDate("Td")).isEqualTo(Date.valueOf("2019-01-01"));
+        assertThat(history.isDateReviewRequired()).isFalse();
+    }
+
+    @Test
     void shouldRequireReview_whenHistoricalIntervalsOverlap() throws Exception {
         var history = new Prevention("F", Date.valueOf("2000-01-01"));
         history.addPreventionItem(item("2019-01-01", "YYYY"));
@@ -72,6 +91,9 @@ class PreventionPrecisionRulesUnitTest {
 
     private static PreventionItem item(String day, String format) {
         var record = new io.github.carlos_emr.carlos.commn.model.Prevention();
+        var provenance = new io.github.carlos_emr.carlos.commn.model.PreventionExt();
+        provenance.setKeyval("cdsDatePrecision");
+        record.addPreventionExt(provenance);
         record.setPreventionType("Td");
         record.setPreventionDate(day == null ? null : Date.valueOf(day));
         return new PreventionItem(record, PreventionDateDTO.from(record.getPreventionDate(), format));

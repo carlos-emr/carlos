@@ -46,6 +46,7 @@ public class PreventionItem {
     String name = null;
     Date datePreformed = null;
     private PreventionDateDTO performedDate;
+    private boolean cdsImported;
     Date nextDate = null;
     String never = null;
     boolean refused;
@@ -86,7 +87,8 @@ public class PreventionItem {
     public PreventionItem(Prevention pp, PreventionDateDTO performedDate) {
         this.name = pp.getPreventionType();
         this.performedDate = java.util.Objects.requireNonNull(performedDate);
-        this.datePreformed = performedDate.isExact() ? pp.getPreventionDate() : null;
+        this.cdsImported = pp.isCdsImported();
+        this.datePreformed = !cdsImported || performedDate.isExact() ? pp.getPreventionDate() : null;
         this.never = ConversionUtils.toBoolString(pp.isNever());
         this.nextDate = pp.getNextDate();
         this.refused = pp.isRefused();
@@ -130,6 +132,10 @@ public class PreventionItem {
 
     public PreventionDateDTO getPerformedDate() {
         return performedDate == null ? PreventionDateDTO.from(datePreformed, null) : performedDate;
+    }
+
+    public boolean requiresDateReview() {
+        return cdsImported && !getPerformedDate().isExact();
     }
 
     /**

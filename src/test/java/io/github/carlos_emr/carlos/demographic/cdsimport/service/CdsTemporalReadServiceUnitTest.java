@@ -126,18 +126,17 @@ class CdsTemporalReadServiceUnitTest {
         assertEquals("2020", restored.getAllergies().getFirst().getStartDateInfo().getValue());
         verify(manager).getActiveAllergies(info, 1);
     }
-    @Test void shouldRefusePartialInLegacyAllergyRestAndSoap_whileKeepingExistingExactDateShape() {
+    @Test void shouldKeepNativePartialAllergyAnchors_inLegacyRestAndSoapTransfers() throws Exception {
         PartialDateDao dao = mock(PartialDateDao.class);
         when(dao.getFormat(PartialDate.ALLERGIES, 7, PartialDate.ALLERGIES_STARTDATE)).thenReturn(PartialDate.YEARMONTH);
         CdsTemporalReadService dates = new CdsTemporalReadService(dao);
         Allergy source = new Allergy(); source.setId(7); source.setDemographicNo(1); source.setStartDate(Date.valueOf("2020-01-01"));
-        assertThrows(CdsTemporalPrecisionException.class,
-                () -> new AllergyConverter(dates, false).getAsTransferObject(null, source));
+        assertEquals(source.getStartDate(), new AllergyConverter(dates, false).getAsTransferObject(null, source).getStartDate());
         assertEquals(409, new CdsTemporalPrecisionExceptionMapper()
                 .toResponse(new CdsTemporalPrecisionException()).getStatus());
         try (var spring = mockStatic(SpringUtils.class)) {
             spring.when(() -> SpringUtils.getBean(CdsTemporalReadService.class)).thenReturn(dates);
-            assertThrows(CdsTemporalPrecisionException.class, () -> AllergyTransfer.toTransfer(source));
+            assertEquals(source.getStartDate(), AllergyTransfer.toTransfer(source).getStartDate());
             when(dao.getFormat(PartialDate.ALLERGIES, 7, PartialDate.ALLERGIES_STARTDATE)).thenReturn(null);
             assertEquals(source.getStartDate(), AllergyTransfer.toTransfer(source).getStartDate());
         }

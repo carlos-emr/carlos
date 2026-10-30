@@ -191,13 +191,6 @@ public class SQLReporter implements Reporter {
      * @return {@code String[2]} where {@code [0]} is the HTML result and {@code [1]} is the CSV
      */
     private String[] executeQuery(ParameterizedSql query, boolean showSqlOnEmpty) {
-        try {
-            if (io.github.carlos_emr.carlos.prevention.PreventionReadSafetyService.readsPreventions(query.getSql())) {
-                io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(null);
-            }
-        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {
-            return new String[]{"Prevention timing requires review before this report can run.", ""};
-        }
         String rsHtml = "An SQL query error has occured ";
         String csv = "";
         try (StringWriter swr = new StringWriter();

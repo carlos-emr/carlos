@@ -25,14 +25,10 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
- * Modifications made by CARLOS Contributors in 2026: refuse unsupported native date precision.
+ * Modifications made by CARLOS Contributors in 2026: preserve legacy native allergy date payloads.
  */
 
 package io.github.carlos_emr.carlos.webserv.transfer_objects;
-
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -216,11 +212,7 @@ public final class AllergyTransfer {
     public static AllergyTransfer toTransfer(Allergy allergy) {
         if (allergy == null) return (null);
 
-        if (allergy.getStartDate() != null || allergy.getEntryDate() != null) {
-            var dates = SpringUtils.getBean(CdsTemporalReadService.class);
-            dates.allergyStart(allergy).requireDateOnlySafe();
-            dates.allergyRecorded(allergy).requireDateOnlySafe();
-        }
+        // AllergyWs checks imported-category completeness before this native transfer.
         AllergyTransfer allergyTransfer = new AllergyTransfer();
         allergyTransfer.setReactionType(allergy.getReactionType());
         allergyTransfer.setNonDrug(allergy.isNonDrug());

@@ -35,6 +35,11 @@ They do not disable ordinary chart editing/viewing simply because source fields 
 
 The demographic optional-includes path applies the same category contract as the dedicated endpoints. Before any patient or provenance read, every requested clinical category requires its patient-scoped read permission: `_allergy`, `_measurement`, `_rx`, or `_casemgmt.notes` for CPP notes, followed by the patient-record restriction check. A denial returns the same empty HTTP 403 for native and imported records. CPP notes cover PersonalHistory, FamilyHistory, PastHealth, RiskFactors and AlertsAndSpecialNeeds; the pre-existing exclusion of ProblemList concerns and non-CPP ClinicalNotes remains intact. Unrequested categories, contacts and basic demographics keep their existing behavior. This closes the alternate native-only measurement/Date projection without introducing a new DTO or disclosure role.
 
+Native allergy rows retain their legacy date payloads, including stored partial-date
+anchors. Imported allergy disclosure is guarded at each authorized REST/SOAP entry point
+before conversion, using the imported category's source provenance. The shared native
+converters do not treat ordinary native partial dates as evidence of a CDS import.
+
 Installed portals, additional SOAP/third-party integrations, arbitrary custom reports, direct SQL, bulk
 extracts, alternate PDF renderers, and cached/indexed copies need runtime catalogue verification.
 Maintenance and held charts are independently blocked by the physical SQL/HTTP gate; this

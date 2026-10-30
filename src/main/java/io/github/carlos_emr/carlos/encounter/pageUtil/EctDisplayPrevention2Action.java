@@ -242,7 +242,7 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
     }
 
     static boolean hasUncertainTiming(List<Map<String, Object>> records) {
-        return records.stream().anyMatch(row -> row.get("prevention_date_info")
+        return records.stream().anyMatch(row -> Boolean.TRUE.equals(row.get("cds_imported")) && row.get("prevention_date_info")
                 instanceof io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO date && !date.isExact());
     }
 

@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
  * optimized for JPQL constructor expression projection. Eliminates the EAGER-loaded
  * PreventionExt collection that is fetched on every Prevention entity load.
  * Partial/unknown dates are available through {@link #getPreventionDateInfo()}; the
- * legacy Date getter explicitly refuses an affected record instead of exposing its anchor.
+ * legacy Date getter refuses uncertain imported records and preserves native Date payloads.
  *
  * <p>Omits: entire {@code preventionExts} EAGER collection (lot number, route,
  * dose, site, comments), {@code snomedId}, transient {@code preventionExtendedProperties}.</p>
@@ -48,6 +48,7 @@ public class PreventionListItemDTO implements Serializable {
     private String preventionType;
     private Date preventionDate;
     private String preventionDateFormat;
+    private boolean cdsImported;
     private Date creationDate;
     private String providerNo;
     private String creatorProviderNo;
@@ -59,6 +60,15 @@ public class PreventionListItemDTO implements Serializable {
 
     /** Default constructor for serialization/framework binding. */
     public PreventionListItemDTO() {
+    }
+
+    /** Preserves the existing constructor for callers projecting native rows. */
+    public PreventionListItemDTO(Integer id, Integer demographicNo, String preventionType,
+                                 Date preventionDate, Date creationDate, String providerNo,
+                                 String creatorProviderNo, char deleted, char refused, char never,
+                                 Date nextDate, Date lastUpdateDate, String preventionDateFormat) {
+        this(id, demographicNo, preventionType, preventionDate, creationDate, providerNo,
+                creatorProviderNo, deleted, refused, never, nextDate, lastUpdateDate, preventionDateFormat, false);
     }
 
     /**
@@ -77,16 +87,18 @@ public class PreventionListItemDTO implements Serializable {
      * @param nextDate Date the next scheduled date
      * @param lastUpdateDate Date the last update timestamp
      * @param preventionDateFormat String the latest native partial_date tag, or null for a full date
+     * @param cdsImported boolean whether this row has the importer's explicit precision marker
      */
     public PreventionListItemDTO(Integer id, Integer demographicNo, String preventionType,
                                  Date preventionDate, Date creationDate, String providerNo,
                                  String creatorProviderNo, char deleted, char refused, char never,
-                                 Date nextDate, Date lastUpdateDate, String preventionDateFormat) {
+                                 Date nextDate, Date lastUpdateDate, String preventionDateFormat, boolean cdsImported) {
         this.id = id;
         this.demographicNo = demographicNo;
         this.preventionType = preventionType;
         this.preventionDate = preventionDate;
         this.preventionDateFormat = preventionDateFormat;
+        this.cdsImported = cdsImported;
         this.creationDate = creationDate;
         this.providerNo = providerNo;
         this.creatorProviderNo = creatorProviderNo;
@@ -120,7 +132,7 @@ public class PreventionListItemDTO implements Serializable {
                 p.isDeleted() ? '1' : '0',
                 refused,
                 p.isNever() ? '1' : '0',
-                p.getNextDate(), p.getLastUpdateDate(), preventionDateFormat
+                p.getNextDate(), p.getLastUpdateDate(), preventionDateFormat, p.isCdsImported()
         );
     }
 
@@ -139,8 +151,8 @@ public class PreventionListItemDTO implements Serializable {
     public void setDemographicNo(Integer demographicNo) { this.demographicNo = demographicNo; }
     public String getPreventionType() { return preventionType; }
     public void setPreventionType(String preventionType) { this.preventionType = preventionType; }
-    /** Date-only access explicitly refuses partial/unknown history rather than leaking an anchor. */
-    public Date getPreventionDate() { getPreventionDateInfo().requireExact(); return preventionDate; }
+    /** Imported uncertainty is refused; native rows retain their established Date-only representation. */
+    public Date getPreventionDate() { if (cdsImported) getPreventionDateInfo().requireExact(); return preventionDate; }
     public PreventionDateDTO getPreventionDateInfo() { return PreventionDateDTO.from(preventionDate, preventionDateFormat); }
     public void setPreventionDate(Date preventionDate) { this.preventionDate = preventionDate; }
     public Date getCreationDate() { return creationDate; }

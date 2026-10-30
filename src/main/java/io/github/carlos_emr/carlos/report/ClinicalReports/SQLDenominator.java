@@ -71,9 +71,6 @@ public class SQLDenominator implements Denominator {
     }
 
     public List getDenominatorList() {
-        if (io.github.carlos_emr.carlos.prevention.PreventionReadSafetyService.readsPreventions(sql)) {
-            io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(null);
-        }
         ArrayList list = new ArrayList();
         try {
 

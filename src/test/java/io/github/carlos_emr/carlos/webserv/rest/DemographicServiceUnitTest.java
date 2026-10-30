@@ -330,6 +330,26 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldKeepNativePartialAllergyAnchor_inDemographicIncludes() throws Exception {
+            authorizeRecord();
+            authorizeCategories("allergies");
+            var source = new io.github.carlos_emr.carlos.commn.model.Allergy();
+            source.setId(73);
+            source.setDemographicNo(42);
+            source.setStartDate(java.sql.Date.valueOf("2020-01-01"));
+            source.setStartDateFormat("YYYY");
+            var partialDates = mock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class);
+            registerMock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService.class,
+                    new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService(partialDates));
+            when(allergies.getActiveAllergies(loggedInInfo, 42)).thenReturn(List.of(source));
+            var result = service.getDemographicData(42, List.of("allergies"));
+            assertThat(result.getAllergies()).singleElement()
+                    .satisfies(row -> assertThat(row.getStartDate()).isEqualTo(java.sql.Date.valueOf("2020-01-01")));
+            verify(records).hasSourceFields(42, Set.of("AllergiesAndAdverseReactions"));
+            verifyNoInteractions(partialDates);
+        }
+
+        @Test
         void shouldRetainValuesAndNumericDateWire_forOrdinaryNativeIncludes() throws Exception {
             authorizeRecord();
             authorizeCategories("allergies", "measurements", "notes", "medications");

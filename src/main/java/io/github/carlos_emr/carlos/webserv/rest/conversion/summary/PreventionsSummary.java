@@ -85,7 +85,7 @@ public class PreventionsSummary implements Summary {
         // This summary's public Date field has no precision protocol. Refuse the operation
         // with an upgrade path; returning only exact rows would silently omit clinical history.
         try {
-            for (Prevention prevention : preventions) dateService.getDate(prevention).requireExact();
+            for (Prevention prevention : preventions) if (prevention.isCdsImported()) dateService.getDate(prevention).requireExact();
         } catch (PreventionDatePrecisionException unsafe) {
             throw new WebApplicationException(Response.status(Response.Status.CONFLICT)
                     .type(MediaType.TEXT_PLAIN_TYPE)

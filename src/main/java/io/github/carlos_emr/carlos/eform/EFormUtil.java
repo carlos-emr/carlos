@@ -1491,7 +1491,6 @@ public class EFormUtil {
     }
 
     private static ResultSet getSQL(ParameterizedSql sql) {
-        requirePreventionDateSafety(sql, null);
         ResultSet rs = null;
         try {
             EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
@@ -1505,7 +1504,7 @@ public class EFormUtil {
     }
 
     private static void requirePreventionDateSafety(ParameterizedSql sql, Integer demographicNo) {
-        if (io.github.carlos_emr.carlos.prevention.PreventionReadSafetyService.readsPreventions(sql.getSql())) {
+        if (demographicNo != null && io.github.carlos_emr.carlos.prevention.PreventionReadSafetyService.readsPreventions(sql.getSql())) {
             io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(demographicNo);
         }
     }

@@ -47,8 +47,8 @@ import io.github.carlos_emr.carlos.prevention.PreventionDateService;
 import org.springframework.stereotype.Component;
 
 /**
- * Legacy Date-only SOAP reads. Partial or unknown native dates explicitly fault the operation;
- * clients must upgrade to a precision-aware representation rather than receive storage anchors.
+ * Legacy Date-only SOAP reads. Uncertain imported dates fault the operation;
+ * native records retain their established Date payloads.
  */
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component

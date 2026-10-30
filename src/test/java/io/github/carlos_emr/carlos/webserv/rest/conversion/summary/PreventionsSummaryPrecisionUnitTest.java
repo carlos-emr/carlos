@@ -43,6 +43,9 @@ class PreventionsSummaryPrecisionUnitTest {
         PartialDateDao dates = mock(PartialDateDao.class);
         LoggedInInfo actor = new LoggedInInfo();
         Prevention prevention = new Prevention();
+        var provenance = new io.github.carlos_emr.carlos.commn.model.PreventionExt();
+        provenance.setKeyval("cdsDatePrecision");
+        prevention.addPreventionExt(provenance);
         ReflectionTestUtils.setField(prevention, "id", 41);
         prevention.setPreventionDate(Date.valueOf("2019-01-01"));
         when(manager.getPreventionsByDemographicNo(actor, 7)).thenReturn(List.of(prevention));

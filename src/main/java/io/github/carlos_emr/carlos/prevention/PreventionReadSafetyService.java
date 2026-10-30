@@ -38,9 +38,9 @@ public class PreventionReadSafetyService {
         this.preventions = preventions;
     }
 
-    /** Call after patient authorization. Null patient scopes a population report. */
+    /** Call after patient authorization. Population SQL does not gate unrelated patient charts. */
     public void requireExactDates(Integer demographicNo) {
-        if (preventions.hasUncertainPreventionDates(demographicNo)) throw new PreventionDatePrecisionException();
+        if (demographicNo != null && preventions.hasUncertainPreventionDates(demographicNo)) throw new PreventionDatePrecisionException();
     }
 
     /** Native or installed SQL definitions get no implicit precision waiver. */
@@ -60,8 +60,10 @@ public class PreventionReadSafetyService {
             }
             return false;
         } catch (JSQLParserException | RuntimeException unsupported) {
-            // A legacy dialect that might reference prevention history cannot bypass the guard.
-            throw new PreventionDatePrecisionException("Prevention SQL requires a supported precision-aware query or review");
+            // Installed legacy dialects are still executed by their original SQL boundary.
+            // Never turn a classifier limitation into a whole-application refusal.
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().debug("Prevention SQL classification unavailable");
+            return false;
         }
     }
 }

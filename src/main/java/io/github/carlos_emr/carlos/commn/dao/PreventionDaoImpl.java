@@ -42,8 +42,10 @@ import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionExcepti
 
 public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements PreventionDao {
 
-    private enum DateScope { TYPE, PATIENT, ALL }
+    private enum DateScope { TYPE, PATIENT }
     private static final String UNCERTAIN_DATE_CONDITION = """
+            AND EXISTS (SELECT provenance.id FROM PreventionExt provenance
+                        WHERE provenance.preventionId = p.id AND provenance.keyval = 'cdsDatePrecision')
             AND (p.preventionDate IS NULL OR EXISTS (
                 SELECT pd.id FROM PartialDate pd
                 WHERE pd.tableName = 4 AND pd.fieldName = 7 AND pd.tableId = p.id
@@ -243,7 +245,7 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
 
     @Override
     public boolean hasUncertainPreventionDates(Integer demographicId) {
-        return hasUncertainDates(demographicId == null ? DateScope.ALL : DateScope.PATIENT, demographicId);
+        return demographicId != null && hasUncertainDates(DateScope.PATIENT, demographicId);
     }
 
     private boolean hasUncertainDates(DateScope scope, Object value) {
@@ -252,9 +254,8 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
                     + "WHERE p.preventionType = ?1 AND p.deleted = '0' AND p.refused = '0' " + UNCERTAIN_DATE_CONDITION);
             case PATIENT -> entityManager.createQuery("SELECT p.id FROM Prevention p "
                     + "WHERE p.demographicId = ?1 AND p.deleted = '0' " + UNCERTAIN_DATE_CONDITION);
-            case ALL -> entityManager.createQuery("SELECT p.id FROM Prevention p WHERE p.deleted = '0' " + UNCERTAIN_DATE_CONDITION);
         };
-        if (scope != DateScope.ALL) uncertain.setParameter(1, value);
+        uncertain.setParameter(1, value);
         uncertain.setMaxResults(1);
         return !uncertain.getResultList().isEmpty();
     }
@@ -290,7 +291,9 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
                      WHERE pd.tableName = 4 AND pd.fieldName = 7 AND pd.tableId = p.id
                      AND pd.id = (SELECT MAX(latest.id) FROM PartialDate latest
                                   WHERE latest.tableName = 4 AND latest.fieldName = 7
-                                  AND latest.tableId = p.id)))
+                                  AND latest.tableId = p.id)),
+                    EXISTS (SELECT provenance.id FROM PreventionExt provenance
+                            WHERE provenance.preventionId = p.id AND provenance.keyval = 'cdsDatePrecision'))
                 FROM Prevention p
                 WHERE p.demographicId = :demoId
                 ORDER BY p.preventionDate DESC

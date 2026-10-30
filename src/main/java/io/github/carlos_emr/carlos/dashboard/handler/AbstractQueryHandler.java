@@ -86,10 +86,6 @@ public abstract class AbstractQueryHandler extends AbstractJpaDao {
 
     protected List<?> execute(String query) {
 
-        if (io.github.carlos_emr.carlos.prevention.PreventionReadSafetyService.readsPreventions(query)) {
-            io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(null);
-        }
-
         setResultList(null);
 
         try {
