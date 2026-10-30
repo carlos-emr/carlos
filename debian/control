@@ -72,13 +72,6 @@ Depends:
  modsecurity-crs,
  openssl,
  ca-certificates,
-# libXrender.so.1 is a link-time dependency of the wkhtmltopdf native library
-# bundled in the WAR (ultrabuk-htmltopdf-java), which renders encounter forms,
-# HRM documents, form faxes and encrypted-email PDFs. Nothing else in this
-# dependency set pulls libXrender in on a server install, so without it every
-# one of those renders died with UnsatisfiedLinkError at request time while the
-# rest of the application looked healthy.
- libxrender1,
  restic,
  adduser,
 # deb-systemd-invoke, used by the maintainer scripts so that policy-rc.d is

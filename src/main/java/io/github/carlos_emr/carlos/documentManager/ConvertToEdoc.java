@@ -1053,15 +1053,14 @@ public final class ConvertToEdoc {
         /*
          * Use the w3c Document output to interpret the external image
          * and css links into absolute links that can be
-         * read by the HTMLtoPDF parser.
+         * read by the HTML-to-PDF service.
          */
         translateResourcePaths(document);
         addCss(document);
 
         /*
-         * Convert edited Document object back to String
-         * Mostly because the htmltopdf tools require String input
-         * for some strange reason.
+         * Convert edited Document object back to String,
+         * which is the input the HTML-to-PDF service takes.
          */
         return documentToString(document);
     }

@@ -32,9 +32,9 @@ CARLOS EMR previously used **5+ overlapping PDF libraries** for PDF creation, fo
 | PDFBox | `org.apache.pdfbox:pdfbox` | 2.0.35 | Apache 2.0 | Merge, split, encrypt (11 files) | **KEEP** |
 | Flying Saucer | `org.xhtmlrenderer:flying-saucer-pdf` | 10.0.7 | LGPL | XHTML→PDF (4 files) | **DONE** |
 | OpenRTF | `com.github.librepdf:openrtf` | 3.0.0 | LGPL | RTF export (1 file) | **DONE** |
-| ultrabuk-htmltopdf | `com.github.openosp:ultrabuk-htmltopdf-java` | 1.0.11 | — | wkhtmltopdf wrapper (1 file) | **KEEP (defer)** |
+| ~~ultrabuk-htmltopdf~~ | ~~`com.github.openosp:ultrabuk-htmltopdf-java`~~ | ~~1.0.11~~ | — | ~~wkhtmltopdf wrapper (1 file)~~ | **REMOVED** (HTML→PDF is `HtmlPdfRenderService`; see [html-pdf-rendering.md](html-pdf-rendering.md)) |
 | OpenPDF | `com.github.librepdf:openpdf` | 3.0.2 | LGPL | PDF creation (45 files, `org.openpdf.*`) | **DONE** |
-| OpenPDF HTML | `com.github.librepdf.openpdf:openpdf-html` | 3.0.2 | LGPL | Flying Saucer XhtmlRenderer integration and HTML schema resources | **ADDED** |
+| ~~OpenPDF HTML~~ | ~~`com.github.librepdf.openpdf:openpdf-html`~~ | ~~3.0.2~~ | LGPL | ~~Flying Saucer XhtmlRenderer integration and HTML schema resources~~ | **REMOVED** (nothing imported it; `flying-saucer-pdf` 10.7.0 brings what the module uses) |
 | TwelveMonkeys ImageIO TIFF | `com.twelvemonkeys.imageio:imageio-tiff` | 3.13.0 | BSD | Multi-page TIFF handling (replaces OpenPDF 3.0's removed TiffImage codec) | **ADDED** |
 
 ### Files by Library Usage
@@ -113,14 +113,14 @@ Cross-cutting utilities used by Groups A-C.
 | File | Feature | Action |
 |------|---------|--------|
 | `util/Doc2PDF.java` | @Deprecated HTML→PDF via Flying Saucer (was XMLWorker) | **DONE** |
-| `documentManager/ConvertToEdoc.java` | HTML→PDF via ultrabuk+Flying Saucer fallback | **DONE** (SSRF hardened with LocalOnlyUserAgent; imports migrated to org.openpdf) |
+| `documentManager/ConvertToEdoc.java` | HTML→PDF through `HtmlPdfRenderService` (Flying Saucer, the one engine) | **DONE** (SSRF hardened with `LocalOnlyUserAgent`; wkhtmltopdf removed) |
 
 #### Group F: Flying Saucer (already on OpenPDF)
 
 | File | Feature | Action |
 |------|---------|--------|
-| `documentManager/ReplacedElementFactoryImpl.java` | Flying Saucer image handling (`org.openpdf`) | **DONE** |
-| `documentManager/LocalOnlyUserAgent.java` | SSRF-safe `ITextUserAgent` subclass | **NEW** |
+| ~~`documentManager/ReplacedElementFactoryImpl.java`~~ | ~~Flying Saucer image handling (`org.openpdf`)~~ | **REMOVED** (replaced by the image step of `documentManager/htmlpdf`) |
+| `documentManager/htmlpdf/engine/LocalOnlyUserAgent.java` | SSRF-safe `ITextUserAgent` subclass | **NEW** |
 
 ---
 
@@ -141,7 +141,7 @@ a gap for CSS `@import url()` and inline `style` attribute `url()` references �
 
 #### Fix: `LocalOnlyUserAgent`
 
-**File**: `documentManager/LocalOnlyUserAgent.java`
+**File**: `documentManager/htmlpdf/engine/LocalOnlyUserAgent.java`
 
 A restricted `ITextUserAgent` subclass that overrides `resolveAndOpenStream(String uri)` — the
 single chokepoint through which **all** Flying Saucer resource loading flows (`getCSSResource()`,
@@ -543,7 +543,7 @@ Uses `org.openpdf.text.rtf.RtfWriter2` from OpenRTF 3.0.0. After migration, LabP
 ## Out of Scope (Future Work)
 
 1. ~~**Doc2PDF iText 5 migration**~~ — **DONE** (migrated from XMLWorkerHelper to Flying Saucer ITextRenderer, iText 5 dependencies removed from pom.xml)
-2. **ultrabuk-htmltopdf-java removal** — Replace wkhtmltopdf wrapper with Flying Saucer as primary HTML→PDF, remove JitPack repo dependency (separate PR)
+2. ~~**ultrabuk-htmltopdf-java removal**~~ — **DONE** (wkhtmltopdf, its JNA wrapper, `openpdf-html` and `libxrender1` removed; Flying Saucer is the one HTML→PDF engine, see [html-pdf-rendering.md](html-pdf-rendering.md))
 3. **PDFBox 2.x → 3.x upgrade** — PDFBox 3.0 is available with significant API changes (separate initiative)
 4. ~~**Flying Saucer 9.x → 10.x upgrade**~~ — **DONE** (upgraded to 10.0.7 in PR #536)
 5. ~~**OpenPDF 2.x → 3.x upgrade**~~ — **DONE** (upgraded to 3.0.2 with `org.openpdf.*` namespace in PR #536)
