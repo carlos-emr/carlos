@@ -918,10 +918,11 @@ from an `<img>`, so its cap is the same absolute cap the planning applies, not a
 (a lower cap would quietly shrink an image the planning had approved). A header over 250
 megapixels, a PDF, a format outside the vetted list (WebP, HEIC), or any exception while
 loading returns an empty image resource (Flying Saucer draws nothing for it), with a WARN
-without the path. SVG is passed to Flying Saucer as it is: the planning cleans the SVG files
-it places for `<img>` elements; an SVG that a stylesheet refers to is not cleaned, and cannot reach a
-file (Flying Saucer gives Batik no document URL, so Batik refuses all but `data:` resources; a test pins
-it). Otherwise it delegates to `super.getImageResource(uri)`, keeping Flying Saucer's
+without the path. SVG is passed to Flying Saucer cleaned: the planning cleans the SVG files
+it places for `<img>` elements, and the agent passes every local SVG stream, a stylesheet's background
+included, through the cleaner the service installed with `setSvgCleaner` (16 MB at most; refused when no
+cleaner was installed). Flying Saucer gives Batik no document URL, so Batik would refuse all but `data:`
+resources anyway; a test pins the outcome. Otherwise it delegates to `super.getImageResource(uri)`, keeping Flying Saucer's
 resolution scaling. No form JSP in the repository uses a CSS background image (checked),
 so this matters mainly for HRM and email HTML.
 
@@ -1437,14 +1438,16 @@ List these in PR 1:
   the styles, but cannot know what a class hides (`form/print.css` hides `.hidePrint`, `.head`,
   `.header` and `.LeftTable` for print, and 96 form JSPs use them). In normal mode Flying
   Saucer applies the print rules itself.
-- **The `hidden` attribute in normal mode:** Flying Saucer's default style sheet has no
-  `[hidden] { display: none }`, and a form-control replacement drops the attribute, so
-  `<input type="text" hidden value="...">` prints its value in a box. wkhtmltopdf's old WebKit did the
-  same; a browser hides it. A hidden input (`type="hidden"`) never prints.
-- **An SVG named by a style sheet** (a CSS `background`) is not cleaned of outside references. Its
-  references cannot be followed to a file: Flying Saucer gives Batik no document URL, so Batik refuses
-  everything but `data:` URIs, and a nested `data:` document can load only `data:` URIs (measured with six
-  spellings of a `file:` URI and an absolute and a relative path; `HtmlPdfSsrfUnitTest` pins it).
+- **The `hidden` attribute** removes the element and everything in it in every mode: Flying Saucer's
+  default style sheet has no `[hidden] { display: none }`, and a form-control replacement drops the
+  attribute, so `<input type="text" hidden value="...">` would print its value in a box. The `html` and
+  `body` elements are exempt, so a page that is hidden until a script runs still prints. A hidden input
+  (`type="hidden"`) never prints.
+- **An SVG named by a style sheet** (a CSS `background`) goes through the same cleaner as every other SVG
+  before Batik reads it. Even without it nothing could be followed to a file: Flying Saucer gives Batik no
+  document URL, so Batik refuses everything but `data:` URIs, and a nested `data:` document can load only
+  `data:` URIs (measured with six spellings of a `file:` URI and an absolute and a relative path;
+  `HtmlPdfSsrfUnitTest` pins the outcome).
   A non-vector SVG (a gradient, pattern, filter, mask or translucency) is rasterised once for every
   `SvgImage` Flying Saucer makes, so fifty `<img>` elements of the same gradient icon are fifty small
   bitmaps (about 40 ms each); one SVG tiled or drawn on several pages is one bitmap.
