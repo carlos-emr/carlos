@@ -35,6 +35,8 @@
  *       lacks;</li>
  *   <li>{@code PrintStylesheet}: the style sheet injected into every document, and the
  *       {@code @page} rule of the second layout pass;</li>
+ *   <li>{@code LegacyBodyMargins}: the body's {@code leftmargin} and {@code topmargin} attributes,
+ *       which WebKit read and Flying Saucer ignores, as a rule for that style sheet;</li>
  *   <li>{@code PrintMessages}: the document notes and the box label printed into a document, read
  *       from the {@code oscarResources} bundle.</li>
  * </ul>
@@ -53,8 +55,8 @@
  * <h2>Rules</h2>
  *
  * <ul>
- *   <li>A rule changes the Jsoup {@code Document} it is given and nothing else ({@code PrintStylesheet}
- *       and {@code PrintMessages} return text). There is no file, network or clock access beyond
+ *   <li>A rule changes the Jsoup {@code Document} it is given and nothing else ({@code PrintStylesheet},
+ *       {@code PrintMessages} and {@code LegacyBodyMargins} return text). There is no file, network or clock access beyond
  *       reading the English message bundle from the class path, and no mutable static state, so the
  *       rules are safe to call from concurrent renders on different documents.</li>
  *   <li>The same document always gives the same result, whatever the server's locale, time zone or

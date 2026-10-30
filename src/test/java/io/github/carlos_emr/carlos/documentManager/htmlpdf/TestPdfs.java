@@ -91,6 +91,32 @@ public final class TestPdfs {
         return maxX < 0 ? null : new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
     }
 
+    /**
+     * The bounding box, in points from the top left, of everything on a rendered page that is not
+     * (nearly) white: ink, borders and the grey of a background alike.
+     *
+     * @return the box, or {@code null} if the page is blank
+     */
+    public static Rectangle inkBounds(BufferedImage image) {
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = -1;
+        int maxY = -1;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                int rgb = image.getRGB(x, y);
+                int darkest = Math.min((rgb >> 16) & 0xFF, Math.min((rgb >> 8) & 0xFF, rgb & 0xFF));
+                if (darkest < 235) {
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                }
+            }
+        }
+        return maxX < 0 ? null : new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
+    }
+
     /** The page sizes, as {width, height} in points, in page order. */
     public static List<float[]> pageSizes(byte[] pdf) throws IOException {
         List<float[]> sizes = new ArrayList<>();

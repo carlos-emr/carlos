@@ -46,7 +46,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -186,6 +185,19 @@ class HtmlPdfFixturesUnitTest {
 
         // Vertical strips of letters ("S m o k i n g") were the symptom of a table squeezed to one-character columns.
         assertThat(text).contains("Smoking:", "Alcohol:", "Head & Neck:", "Dental Hygiene:");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({"annual/female.html", "annual/male.html"})
+    @DisplayName("should start the Annual form at the 10 mm margin, as wkhtmltopdf did: its body says leftmargin=0 and topmargin=0")
+    void shouldStartAnnualFormAtMargin(String fixture) throws Exception {
+        Rectangle ink = TestPdfs.inkBounds(TestPdfs.image(render(fixture).pdf(), 1));
+
+        // Without the legacy body margin attributes the form started at 32.8 pt, the 8 px default body margin further in.
+        assertThat((double) ink.x).isCloseTo(28.35, within(1.0));
+        assertThat((double) ink.y).isCloseTo(28.35, within(1.5));
+        // And, with the same margin on the right, it ends where the printable area does.
+        assertThat((double) (ink.x + ink.width)).isCloseTo(612 - 28.35, within(1.5));
     }
 
     // ---- scripts and fonts ------------------------------------------------------------------
@@ -362,29 +374,7 @@ class HtmlPdfFixturesUnitTest {
     @Test
     @DisplayName("should draw the images it can, convert what OpenPDF cannot embed, and box the rest with the reason logged once")
     void shouldPrintImagesReport() throws Exception {
-        TestImages.write(webRoot, "photo.jpg", TestImages.jpeg(320, 180, false));
-        TestImages.write(webRoot, "scan.png", TestImages.png(800, 600));
-        TestImages.write(webRoot, "logo.png", TestImages.png(40, 40));
-        TestImages.write(webRoot, "picture.bmp", TestImages.bmp(40, 40));
-        TestImages.write(webRoot, "pixel.wbmp", TestImages.wbmp(16, 16));
-        TestImages.write(webRoot, "spinner.gif", TestImages.gif(24, 24));
-        byte[] png = TestImages.png(30, 30);
-        byte[] corruptHeader = png.clone();
-        Arrays.fill(corruptHeader, 0, 16, (byte) 0x7F);
-        TestImages.write(webRoot, "corrupt-header.png", corruptHeader);
-        TestImages.write(webRoot, "corrupt-body.png", Arrays.copyOf(png, png.length / 2));
-        byte[] jpeg = TestImages.jpeg(120, 80, false);
-        TestImages.write(webRoot, "truncated.jpg", TestImages.withOrientation(Arrays.copyOf(jpeg, jpeg.length - 80), 6));
-        try (var webp = HtmlPdfFixturesUnitTest.class.getClassLoader().getResourceAsStream("htmlpdf/images/opaque-4x4.webp");
-                var phone = HtmlPdfFixturesUnitTest.class.getClassLoader().getResourceAsStream("htmlpdf/images/exif-orientation-6.jpg")) {
-            TestImages.write(webRoot, "opaque.webp", webp.readAllBytes());
-            TestImages.write(webRoot, "phone.jpg", phone.readAllBytes());
-        }
-        TestImages.write(webRoot, "photo.heic", TestImages.heic());
-        TestImages.write(webRoot, "attachment.pdf", TestImages.pdf());
-        TestImages.write(webRoot, "outside.svg", TestImages.svgWithOutsideReference());
-        String dataUri = "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(TestImages.png(20, 20));
-        String html = HtmlPdfFixtures.html("hrm/images.html").replace("@DATA_URI_PNG@", dataUri);
+        String html = HtmlPdfFixtures.imagesReport(webRoot);
 
         HtmlPdfRenderResult result = SERVICE.render(HtmlPdfFixtures.request(html, webRoot));
 

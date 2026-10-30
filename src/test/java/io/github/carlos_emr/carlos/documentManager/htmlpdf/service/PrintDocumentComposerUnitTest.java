@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderDegr
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontResolver;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.LocalOnlyUserAgent;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.PrintStylesheet;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.contentstream.operator.Operator;
 import org.apache.pdfbox.cos.COSNumber;
@@ -251,6 +252,47 @@ class PrintDocumentComposerUnitTest {
         assertThat(first.id()).isEqualTo("carlos-pdf-defaults");
         assertThat(first.data()).startsWith("@page { size: 765pt 990pt !important; margin: 35.4331pt !important }");
         assertThat(document.head().children().stream().map(Element::normalName).toList()).containsExactly("style", "title", "style");
+    }
+
+    @Test
+    @DisplayName("should follow the defaults with a rule for the body's legacy margin attributes, ahead of the author's styles")
+    void shouldAddBodyMarginRule_afterTheDefaults() {
+        Document document = composer.prepare("<html><head><title>T</title><style>body { margin: 20px }</style></head>"
+                + "<body topmargin=\"0\" leftmargin=\"0\" rightmargin=\"0\"><p>x</p></body></html>", PrintMode.NORMAL, degradations());
+
+        composer.finish(document, PrintMode.NORMAL, fonts, degradations());
+
+        Element defaults = document.head().child(0);
+        assertThat(defaults.id()).isEqualTo("carlos-pdf-defaults");
+        assertThat(defaults.data()).isEqualTo(PrintStylesheet.css()
+                + "body { margin-left: 0px; margin-right: 0px; margin-top: 0px; margin-bottom: 0px; }\n");
+        assertThat(document.head().children().stream().map(Element::normalName).toList()).containsExactly("style", "title", "style");
+    }
+
+    @Test
+    @DisplayName("should keep the legacy body margins in safe mode, which removes only styles, and leave them out of text-only mode")
+    void shouldAddBodyMarginRule_inSafeModeButNotInTextOnlyMode() {
+        String html = "<html><head><title>T</title></head><body leftmargin=\"2\"><p>x</p></body></html>";
+        String rule = "body { margin-left: 2px; margin-right: 2px; }\n";
+
+        Document safe = composer.prepare(html, PrintMode.SAFE, degradations());
+        composer.finish(safe, PrintMode.SAFE, fonts, degradations());
+        Document textOnly = composer.prepare(html, PrintMode.TEXT_ONLY, degradations());
+        composer.finish(textOnly, PrintMode.TEXT_ONLY, fonts, degradations());
+
+        assertThat(safe.head().child(0).data()).endsWith(rule);
+        assertThat(textOnly.head().child(0).data()).isEqualTo(PrintStylesheet.css());
+    }
+
+    @Test
+    @DisplayName("should add nothing to the defaults when the body has no margin attributes")
+    void shouldAddNoBodyMarginRule_whenBodyHasNoMarginAttributes() {
+        Document document = composer.prepare("<html><head><title>T</title></head><body bgcolor=\"#eeeeee\"><p>x</p></body></html>",
+                PrintMode.NORMAL, degradations());
+
+        composer.finish(document, PrintMode.NORMAL, fonts, degradations());
+
+        assertThat(document.head().child(0).data()).isEqualTo(PrintStylesheet.css());
     }
 
     @Test

@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.documentManager.htmlpdf.service;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderDegradation;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.FallbackFontRuns;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.LegacyBodyMargins;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.PlainTextDocument;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.PrintFormControls;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.PrintMessages;
@@ -62,7 +63,9 @@ import java.util.Set;
  *   <li>Image handling (step j), by {@code PrintImageService}, runs between the two methods because
  *       it is the only step with side effects.</li>
  *   <li>{@link #finish}: k. the {@code carlos-pdf-defaults} style sheet as the first child of
- *       {@code <head>} and the document note as the first child of {@code <body>}; l. fallback
+ *       {@code <head>} (with the body's legacy {@code leftmargin} and {@code topmargin} attributes as
+ *       a rule, see {@code LegacyBodyMargins}) and the document note as the first child of
+ *       {@code <body>}; l. fallback
  *       fonts, after the note and the boxes so their text is covered too; m. serialisation.</li>
  * </ol>
  *
@@ -145,12 +148,16 @@ class PrintDocumentComposer {
 
     /**
      * The defaults go first so that author rules of equal specificity still win; the {@code @page}
-     * rule wins anyway because it is {@code !important}.
+     * rule wins anyway because it is {@code !important}. The body's legacy margin attributes
+     * ({@code leftmargin} and the like) follow them in the same sheet, as WebKit's presentational hints
+     * did: they lose to the author's rules, not to ours.
      */
     private static void insertDefaultStyles(Document document) {
         Element style = new Element("style");
         style.attr("id", DEFAULTS_STYLE_ID);
-        style.appendChild(new DataNode(PrintStylesheet.css()));
+        style.appendChild(new DataNode(LegacyBodyMargins.rule(document)
+                .map(rule -> PrintStylesheet.css() + rule + "\n")
+                .orElseGet(PrintStylesheet::css)));
         headOf(document).prependChild(style);
     }
 

@@ -34,6 +34,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -82,6 +84,41 @@ public final class HtmlPdfFixtures {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /**
+     * The HRM report with every kind of image ({@code hrm/images.html}): writes the image files it names
+     * into the web root and returns its HTML with the inline data URI filled in.
+     *
+     * @param webRoot the web root the images are written to
+     * @return the report's HTML
+     */
+    public static String imagesReport(Path webRoot) {
+        TestImages.write(webRoot, "photo.jpg", TestImages.jpeg(320, 180, false));
+        TestImages.write(webRoot, "scan.png", TestImages.png(800, 600));
+        TestImages.write(webRoot, "logo.png", TestImages.png(40, 40));
+        TestImages.write(webRoot, "picture.bmp", TestImages.bmp(40, 40));
+        TestImages.write(webRoot, "pixel.wbmp", TestImages.wbmp(16, 16));
+        TestImages.write(webRoot, "spinner.gif", TestImages.gif(24, 24));
+        byte[] png = TestImages.png(30, 30);
+        byte[] corruptHeader = png.clone();
+        Arrays.fill(corruptHeader, 0, 16, (byte) 0x7F);
+        TestImages.write(webRoot, "corrupt-header.png", corruptHeader);
+        TestImages.write(webRoot, "corrupt-body.png", Arrays.copyOf(png, png.length / 2));
+        byte[] jpeg = TestImages.jpeg(120, 80, false);
+        TestImages.write(webRoot, "truncated.jpg", TestImages.withOrientation(Arrays.copyOf(jpeg, jpeg.length - 80), 6));
+        try (InputStream webp = HtmlPdfFixtures.class.getClassLoader().getResourceAsStream("htmlpdf/images/opaque-4x4.webp");
+                InputStream phone = HtmlPdfFixtures.class.getClassLoader().getResourceAsStream("htmlpdf/images/exif-orientation-6.jpg")) {
+            TestImages.write(webRoot, "opaque.webp", webp.readAllBytes());
+            TestImages.write(webRoot, "phone.jpg", phone.readAllBytes());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        TestImages.write(webRoot, "photo.heic", TestImages.heic());
+        TestImages.write(webRoot, "attachment.pdf", TestImages.pdf());
+        TestImages.write(webRoot, "outside.svg", TestImages.svgWithOutsideReference());
+        String dataUri = "data:image/png;base64," + Base64.getEncoder().encodeToString(TestImages.png(20, 20));
+        return html("hrm/images.html").replace("@DATA_URI_PNG@", dataUri);
     }
 
     /**
