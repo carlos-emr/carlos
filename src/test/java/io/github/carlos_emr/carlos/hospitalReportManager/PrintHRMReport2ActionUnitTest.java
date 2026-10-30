@@ -63,6 +63,7 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import org.apache.logging.log4j.Level;
 import org.apache.struts2.ActionSupport;
@@ -311,6 +312,28 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getErrorMessage()).isEqualTo("Unable to generate HRM PDF");
+        }
+    }
+
+    @Test
+    @DisplayName("should send the existing error response when an HRM report cannot be converted to PDF")
+    void shouldSendExistingError_whenPrintPdfThrowsPdfGenerationException() throws Exception {
+        stageSingleHrmReport();
+        try (MockedConstruction<HRMPDFCreator> ignored = mockConstruction(HRMPDFCreator.class,
+                (creator, context) -> doThrow(new PDFGenerationException("HTML HRM report could not be converted to PDF"))
+                        .when(creator).printPdf());
+                MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+
+            String result = new PrintHRMReport2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getErrorMessage()).isEqualTo("Unable to generate HRM PDF");
+            concatPdfMock.verifyNoInteractions();
+        }
+
+        try (Stream<Path> files = Files.list(tempDir)) {
+            assertThat(files.toList()).as("the temporary file of the failed report is deleted").isEmpty();
         }
     }
 

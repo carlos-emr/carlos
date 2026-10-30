@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -130,7 +131,7 @@ public class PrintHRMReport2Action extends ActionSupport {
 
         } catch (SecurityException e) {
             throw e;
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException | PDFGenerationException | RuntimeException e) {
             if (response.isCommitted()) {
                 // Once PDF bytes are committed, a follow-up error page would corrupt the stream;
                 // log the partial-response condition and let the direct-response action end.
