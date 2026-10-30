@@ -31,6 +31,12 @@ import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.Schema;
 import javax.xml.validation.ValidatorHandler;
 import org.apache.xerces.jaxp.validation.XMLSchemaFactory;
+import org.apache.xerces.impl.xs.SchemaGrammar;
+import org.apache.xerces.jaxp.validation.XSGrammarPoolContainer;
+import org.apache.xerces.xni.grammars.Grammar;
+import org.apache.xerces.xni.grammars.XMLGrammarDescription;
+import org.apache.xerces.xni.grammars.XSGrammar;
+import org.apache.xerces.xs.XSModel;
 import org.w3c.dom.ls.LSException;
 import org.w3c.dom.ls.LSInput;
 import org.w3c.dom.ls.LSResourceResolver;
@@ -56,13 +62,41 @@ public final class CdsSchemaValidator {
     public static ValidatorHandler newValidator() {
         ValidatorHandler handler = Compiled.SCHEMA.newValidatorHandler();
         handler.setResourceResolver(RESOLVER);
-        try {handler.setFeature("http://apache.org/xml/features/validation/schema/element-default", true); }
+        try {
+            handler.setFeature("http://apache.org/xml/features/validation/schema/element-default", true);
+            // Xerces' PSVI ancestor contexts retain every formatted error until
+            // the document ends. Types come from this same compiled grammar;
+            // diagnostics still stream through the unchanged ErrorHandler.
+            handler.setFeature("http://apache.org/xml/features/validation/schema/augment-psvi", false);
+        }
         catch (SAXException unavailable) {throw new IllegalStateException("CDS_SCHEMA_DEFAULTS_UNAVAILABLE"); }
         return handler;
     }
 
+    static CdsSchemaTypeCursor newTypeCursor() { return new CdsSchemaTypeCursor(Compiled.MODEL); }
+
     private static final class Compiled {
         private static final Schema SCHEMA = compile();
+        private static final XSModel MODEL = model();
+
+        private static XSModel model() {
+            if (!(SCHEMA instanceof XSGrammarPoolContainer container)) {
+                throw new IllegalStateException("CDS_PINNED_SCHEMA_TYPES_UNAVAILABLE");
+            }
+            Grammar[] compiled = container.getGrammarPool().retrieveInitialGrammarSet(XMLGrammarDescription.XML_SCHEMA);
+            if (compiled.length == 0) throw new IllegalStateException("CDS_PINNED_SCHEMA_TYPES_UNAVAILABLE");
+            XSGrammar[] grammars = new XSGrammar[compiled.length + 1];
+            for (int i = 0; i < compiled.length; i++) {
+                if (!(compiled[i] instanceof XSGrammar grammar)) {
+                    throw new IllegalStateException("CDS_PINNED_SCHEMA_TYPES_UNAVAILABLE");
+                }
+                grammars[i] = grammar;
+            }
+            // These implicit xsi:* declarations are the same pinned Xerces
+            // built-ins used by validation, including schemaLocation's list type.
+            grammars[compiled.length] = SchemaGrammar.SG_XSI;
+            return grammars[0].toXSModel(grammars);
+        }
     }
 
     private static Schema compile() {

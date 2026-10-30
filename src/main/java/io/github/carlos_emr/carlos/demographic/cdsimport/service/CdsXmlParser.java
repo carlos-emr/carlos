@@ -58,7 +58,6 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.SAXParserFactory;
-import javax.xml.validation.TypeInfoProvider;
 import javax.xml.validation.ValidatorHandler;
 import org.apache.xerces.jaxp.SAXParserFactoryImpl;
 import org.apache.xerces.xs.XSConstants;
@@ -183,7 +182,8 @@ public class CdsXmlParser {
     }
 
     static XMLReader xmlReader() throws javax.xml.parsers.ParserConfigurationException, SAXException {
-        // Pinned Xerces bounds schema-error pressure; its JAXP DTD-access property is unavailable.
+        // Pinned Xerces uses the PSVI-free handler and same-grammar type cursor below.
+        // Its JAXP DTD-access property is unavailable.
         // Audit: throw-only resolver returns no InputSource and performs no I/O; DTD/entity controls remain fail-closed.
         SAXParserFactory factory = new SAXParserFactoryImpl();
         factory.setNamespaceAware(true);
@@ -213,7 +213,7 @@ public class CdsXmlParser {
         private final Runnable checkpoint;
         private final Consumer<CdsRecordDto> consumer;
         private final ValidatorHandler validator;
-        private final TypeInfoProvider types;
+        private final CdsSchemaTypeCursor types;
         private final CountedOutput fieldOutput;
         private final ValueOutput valueOutput;
         private final Writer valueWriter;
@@ -241,6 +241,8 @@ public class CdsXmlParser {
         private long patients;
         private long schemaErrors;
         private long schemaWarnings;
+        private long identityCharacters;
+        private long identityValues;
         private boolean rootSeen;
         private long nextDiskCheck;
         private long nextCancellationCheck;
@@ -266,17 +268,18 @@ public class CdsXmlParser {
             this.fieldOutput=fieldOutput; this.valueOutput=valueOutput; this.valueWriter=valueWriter;
             this.manifestOutput=manifestOutput; this.diagnosticOutput=diagnosticOutput;
             validator = CdsSchemaValidator.newValidator();
-            types = validator.getTypeInfoProvider();
+            types = CdsSchemaValidator.newTypeCursor();
             validator.setContentHandler(new DefaultHandler() {
                 @Override public void startElement(String uri, String local, String qualified, Attributes attrs)
                         throws SAXException {
                     Frame frame = stack.peek();
-                    frame.configure(types.getElementTypeInfo());
+                    frame.configure(types.elementType());
                     if (frame.correction!=null && (frame.mode==Mode.BINARY || frame.mode==Mode.COMPLEX)) {
                         throw new SAXException(CdsPaths.failure("CDS_CORRECTION_TARGET_NOT_SCALAR"));
                     }
                     for (int i = 0; i < attrs.getLength(); i++) {
-                        frame.attributeTypes.put(attrs.getURI(i) + "\u0000" + attrs.getLocalName(i), types.getAttributeTypeInfo(i));
+                        frame.attributeTypes.put(attrs.getURI(i) + "\u0000" + attrs.getLocalName(i),
+                                types.attributeType(attrs.getURI(i), attrs.getLocalName(i)));
                     }
                 }
                 @Override public void characters(char[] chars, int offset, int length) throws SAXException {
@@ -309,6 +312,7 @@ public class CdsXmlParser {
                 if (prefix.length() > limits.maxXmlNameCharacters() || uri.length() > limits.maxNamespaceUriCharacters()) fail("CDS_XML_NAMESPACE_RESOURCE_LIMIT");
                 prefixes.add(prefix); namespaceUris.add(uri);
                 if (prefixes.size() > limits.maxNamespaceAliases() || namespaceUris.size() > limits.maxNamespaceAliases()) fail("CDS_XML_NAMESPACE_RESOURCE_LIMIT");
+                types.prefix(prefix, uri);
                 validator.startPrefixMapping(prefix, uri);
             } catch (IOException failure) { throw protectedFailure(failure); }
         }
@@ -361,6 +365,16 @@ public class CdsXmlParser {
                         ((AttributesImpl) validatedAttrs).setValue(i, CdsFieldParser.replacementLexical(change, corrections));
                     }
                 }
+                types.start(uri, local, validatedAttrs);
+                for (int i = 0; i < validatedAttrs.getLength(); i++) {
+                    TypeInfo attributeType = types.attributeType(validatedAttrs.getURI(i), validatedAttrs.getLocalName(i));
+                    if (CdsSchemaTypeCursor.identity(attributeType)) {
+                        Frame identityAttribute = new Frame("", "", "");
+                        identityAttribute.identity = true;
+                        char[] lexical = validatedAttrs.getValue(i).toCharArray();
+                        identity(identityAttribute, lexical, 0, lexical.length);
+                    }
+                }
                 validator.startElement(uri, local, qualified, validatedAttrs);
                 if (section != null) {
                     for (int i = 0; i < attrs.getLength(); i++) {
@@ -386,7 +400,10 @@ public class CdsXmlParser {
                     frame.base64(chars, offset, length, valueOutput, limits.maxBinaryBytes());
                 } else {
                     if (section != null && !frame.child && frame.mode != Mode.COMPLEX) valueWriter.write(chars, offset, length);
-                    if (frame.correction==null) frame.validate(chars, offset, length, validator, limits.maxBoundedScalarCharacters());
+                    if (frame.correction==null) {
+                        identity(frame, chars, offset, length);
+                        frame.validate(chars, offset, length, validator, limits.maxBoundedScalarCharacters());
+                    }
                 }
             } catch (IOException failed) { throw protectedFailure(failed); }
         }
@@ -405,6 +422,7 @@ public class CdsXmlParser {
                         CdsFieldParser.verifyCorrection(frame.correction, original);
                         String replacement=CdsFieldParser.replacementLexical(frame.correction, corrections);
                         char[] chars=replacement.toCharArray();
+                        identity(frame, chars, 0, chars.length);
                         frame.validate(chars, 0, chars.length, validator, limits.maxBoundedScalarCharacters());
                     }
                     frame.finishScalar(validator);
@@ -434,6 +452,7 @@ public class CdsXmlParser {
                     records++; consumer.accept(record); section = null; recordDigest = null;
                 }
                 stack.pop();
+                types.end();
             } catch (IOException failed) { throw protectedFailure(failed); }
         }
 
@@ -482,6 +501,17 @@ public class CdsXmlParser {
                     .put("detailPreviewLimited", failure.getMessage() != null && failure.getMessage().length() > 4096);
             try { diagnosticOutput.write(JSON.writeValueAsBytes(row)); diagnosticOutput.write('\n'); }
             catch (IOException unwritable) { throw new SAXException(CdsPaths.failure("CDS_DIAGNOSTIC_WRITE_FAILED")); }
+        }
+
+        private void identity(Frame frame, char[] chars, int offset, int length) throws IOException {
+            if (!frame.identity) return;
+            for (int i = 0; i < length; i++) {
+                boolean token = !Frame.xmlSpace(chars[offset + i]);
+                if (token && !frame.identityToken) identityValues++;
+                frame.identityToken = token;
+                if (++identityCharacters > limits.maxSchemaIdentityCharacters()
+                        || identityValues > limits.maxSchemaIdentityValues()) fail("CDS_XML_IDENTITY_RESOURCE_LIMIT");
+            }
         }
 
         private void check() throws IOException {
@@ -566,6 +596,8 @@ public class CdsXmlParser {
         private final Map<String, Long> children = new HashMap<>();
         private final Map<String, TypeInfo> attributeTypes = new HashMap<>();
         private boolean child;
+        private boolean identity;
+        private boolean identityToken;
         private TypeInfo type;
         private JsonNode correction;
         private String completedDigest;
@@ -593,18 +625,21 @@ public class CdsXmlParser {
 
         void configure(TypeInfo info) {
             type = info; whitespace = whitespace(info);
+            identity = CdsSchemaTypeCursor.identity(info);
             if (!(info instanceof XSSimpleTypeDefinition simple)) { mode = Mode.COMPLEX; return; }
             mode = Mode.BOUNDED;
             short relevant = (short) (simple.getDefinedFacets() & ~XSSimpleTypeDefinition.FACET_WHITESPACE);
-            if (simple.getVariety() == XSSimpleTypeDefinition.VARIETY_ATOMIC && relevant == 0) {
-                if (simple.getPrimitiveType().getBuiltInKind() == XSConstants.STRING_DT) mode = Mode.TEXT;
+            if (simple.getVariety() == XSSimpleTypeDefinition.VARIETY_ATOMIC
+                    && simple.getPrimitiveType() != null && relevant == 0) {
+                if (plainString(simple)) mode = Mode.TEXT;
                 if (simple.getBuiltInKind() == XSConstants.BASE64BINARY_DT) { mode = Mode.BINARY; binaryBuffer = new byte[8192]; }
                 if (simple.getBuiltInKind() == XSConstants.DECIMAL_DT) mode = Mode.DECIMAL;
             }
             short lengthFacets = XSSimpleTypeDefinition.FACET_LENGTH | XSSimpleTypeDefinition.FACET_MINLENGTH
                     | XSSimpleTypeDefinition.FACET_MAXLENGTH;
             if (simple.getVariety() == XSSimpleTypeDefinition.VARIETY_ATOMIC
-                    && simple.getPrimitiveType().getBuiltInKind() == XSConstants.STRING_DT
+                    && simple.getPrimitiveType() != null
+                    && plainString(simple)
                     && relevant != 0 && (relevant & ~lengthFacets) == 0) {
                 // Xerces2.12 counts UTF16 units for string-length facets. XML Schema counts
                 // Unicode characters. Only pure length/whitespace restrictions can use this
@@ -615,6 +650,13 @@ public class CdsXmlParser {
                     && Set.of("integer", "nonNegativeInteger", "positiveInteger").contains(simple.getName())) {
                 mode = Mode.INTEGER;
             }
+        }
+
+        private static boolean plainString(XSSimpleTypeDefinition type) {
+            // NCName/ID/IDREF and other intrinsic string-derived types still
+            // require their real lexical values and document identity checks.
+            short kind = type.getBuiltInKind();
+            return kind == XSConstants.STRING_DT || kind == XSConstants.NORMALIZEDSTRING_DT || kind == XSConstants.TOKEN_DT;
         }
 
         static String whitespace(TypeInfo info) {

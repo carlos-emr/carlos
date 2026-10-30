@@ -283,7 +283,7 @@ require recreating only a disposable database, never repairing checksums.
 The `CDS import native contracts` workflow compiles the actual application and test classes, then
 runs `scripts/ci/run-cds-native-tier.py`. The harness creates a uniquely owned internal-network
 MariaDB server with checked tmpfs storage and bootstraps two empty schemas through the complete
-common/Ontario Flyway chain. A separate workflow step runs five fresh 64MiB parser probes.
+common/Ontario Flyway chain. A separate workflow step runs eight fresh 64MiB parser probes.
 The [required native-suite manifest](../scripts/ci/run-cds-native-tier.py) includes demographic and document ORM
 callbacks alongside maintenance, coordinator binding prefetch, identity, clinical capacity,
 appointments, history visibility, HRM admission, review acceptance, ledger recovery and target
@@ -394,3 +394,11 @@ rows, routed them through default report-only execution and verified no native-u
 work occurred. The receipt suite also checked every allowlisted physical key and actual admission
 row mutation; the Unicode provider lookup executed against a real Latin1 directory with the
 freshly compiled production DAO. These were included in the 47-case, zero-skip result.
+
+### Bounded schema diagnostics and dynamic type state
+
+A later constrained CI run reproduced heap exhaustion in the pinned Xerces validator's document-wide PSVI error contexts. The application already streamed its diagnostic JSONL, but Xerces also retained every formatted error until the ancestor elements closed. The importer now disables that duplicate augmentation and obtains type metadata from the same compiled, hash-pinned schema through `CdsSchemaTypeCursor`. Implicit `xsi:*` metadata uses the pinned validator's built-in schema-instance declarations. Full XSD validation and default emission remain with `ValidatorHandler`.
+
+The cursor follows local/anonymous declarations in the parent's content model and namespace scopes. A recognized `xsi:type` guides streaming even when the validator rejects its derivation or surrounding element, preventing malformed numeric or binary input from selecting an unbounded validation path. Intrinsic string types retain their actual lexical checks. Dynamic XML identity types have independent aggregate token/character guards before validator retention; crossing a guard preserves source, reports an explicit resource failure and leaves the parse unsealed.
+
+The separate performance class retains all five original 64 MiB modes and adds mixed diagnostics/large payloads, malformed dynamic types, and excessive ID/IDREF state. The diagnostic fixture keeps category order valid and checks every expected occurrence and both error rows for each of 120,000 invalid Severity values, including the final occurrence. Golden metadata comparisons use Xerces PSVI independently across six complete fixtures and dynamic/attribute contexts. Duplicate IDs, unresolved references, intrinsic lexical checks, fixed defaults and separate identity token/character limits remain covered. These focused checks supplement the complete native CI and deployed web/CLI release gates.

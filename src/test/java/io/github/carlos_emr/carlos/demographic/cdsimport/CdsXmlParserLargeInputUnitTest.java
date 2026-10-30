@@ -59,6 +59,21 @@ class CdsXmlParserLargeInputUnitTest {
     }
 
     @Test
+    void shouldKeepTypedPayloadsBounded_afterManySchemaErrors() throws Exception {
+        probe("diagnostics-payload", "BOUNDED_DIAGNOSTIC_PAYLOAD_OK");
+    }
+
+    @Test
+    void shouldBoundMalformedDynamicTypes_whenTheirPayloadExceedsHeap() throws Exception {
+        probe("malformed-types", "BOUNDED_MALFORMED_TYPES_OK");
+    }
+
+    @Test
+    void shouldRefuseExcessiveSchemaIdentityState_withoutDisablingIdentityValidation() throws Exception {
+        probe("identities", "BOUNDED_IDENTITIES_OK");
+    }
+
+    @Test
     void shouldBuildOneBoundedDescriptorIndex_whenOneRecordHasOverAMillionResidualFields()
             throws Exception {
         probe("index", "BOUNDED_INDEX_OK");
@@ -96,6 +111,7 @@ class CdsXmlParserLargeInputUnitTest {
                         .start();
         if (!child.waitFor(180, TimeUnit.SECONDS)) {
             child.destroyForcibly();
+            if (!child.waitFor(10, TimeUnit.SECONDS)) fail("Bounded parser probe could not be reaped after its deadline");
             fail("Bounded parser probe exceeded its deadline");
         }
         String evidence;
@@ -113,7 +129,19 @@ class CdsXmlParserLargeInputUnitTest {
             Path source = directory.resolve("large.xml");
             String fixture = CdsXmlParserUnitTest.fixture();
             if (args.length > 1 && args[1].equals("diagnostics")) {
-                diagnostics(directory, source, fixture);
+                diagnostics(directory, source, fixture, false);
+                return;
+            }
+            if (args.length > 1 && args[1].equals("diagnostics-payload")) {
+                diagnostics(directory, source, fixture, true);
+                return;
+            }
+            if (args.length > 1 && args[1].equals("malformed-types")) {
+                malformedTypes(directory, source, fixture);
+                return;
+            }
+            if (args.length > 1 && args[1].equals("identities")) {
+                identities(directory, source, fixture);
                 return;
             }
             if (args.length > 1 && args[1].equals("index")) {
@@ -322,7 +350,7 @@ class CdsXmlParserLargeInputUnitTest {
             }
         }
 
-        private static void diagnostics(Path directory, Path source, String fixture)
+        private static void diagnostics(Path directory, Path source, String fixture, boolean payload)
                 throws Exception {
             String allergy =
                     fixture.substring(
@@ -330,9 +358,22 @@ class CdsXmlParserLargeInputUnitTest {
                                     fixture.indexOf("</AllergiesAndAdverseReactions>")
                                             + "</AllergiesAndAdverseReactions>".length())
                             .replace("<Severity>MO</Severity>", "<Severity>INVALID</Severity>");
+            int repetitions = payload ? 4096 : 120_000;
+            int afterAllergy = fixture.indexOf("</AllergiesAndAdverseReactions>") + "</AllergiesAndAdverseReactions>".length();
             try (BufferedWriter xml = Files.newBufferedWriter(source, StandardCharsets.UTF_8)) {
-                xml.write(fixture.substring(0, fixture.indexOf("</PatientRecord>")));
-                for (int i = 0; i < 120_000; i++) xml.write(allergy);
+                // Keep category order valid so every repeated invalid Severity
+                // exercises its real enumeration rather than a skipped subtree.
+                xml.write(fixture.substring(0, afterAllergy));
+                for (int i = 0; i < repetitions; i++) xml.write(allergy);
+                xml.write(fixture.substring(afterAllergy, fixture.indexOf("</PatientRecord>")));
+                if (payload) {
+                    xml.write("<Reports><Format>Binary</Format><Content><cdsd:Media>");
+                    block(xml, "QUJD", 1536);
+                    xml.write("</cdsd:Media></Content><Class>Medical Records Report</Class></Reports>");
+                    xml.write("<Reports><Format>Text</Format><Content><cdsd:TextContent>");
+                    block(xml, "x", 1152);
+                    xml.write("</cdsd:TextContent></Content><Class>Medical Records Report</Class></Reports>");
+                }
                 xml.write("</PatientRecord></OmdCds>");
             }
             try {
@@ -347,15 +388,107 @@ class CdsXmlParserLargeInputUnitTest {
             } catch (CdsInputException invalid) {
                 if (!invalid.code().equals("CDS_XML_SCHEMA_INVALID")) throw invalid;
             }
-            long bytes = Files.size(directory.resolve("spool/validation-errors.jsonl"));
+            Path spool = directory.resolve("spool");
+            long bytes = Files.size(spool.resolve("validation-errors.jsonl"));
+            verifyDiagnostics(spool, repetitions);
             long heap = Runtime.getRuntime().maxMemory();
             if (heap > (80L << 20)
-                    || bytes <= heap
+                    || (!payload && bytes <= heap)
+                    || (payload && Files.size(spool.resolve("values.bin")) < (144L << 20))
                     || Files.exists(directory.resolve("spool/parse.seal"))) {
                 throw new AssertionError(
                         "Diagnostic stress did not exceed bounded heap safely: " + bytes);
             }
-            System.out.println("BOUNDED_DIAGNOSTICS_OK bytes=" + bytes + " heap=" + heap);
+            System.out.println((payload ? "BOUNDED_DIAGNOSTIC_PAYLOAD_OK" : "BOUNDED_DIAGNOSTICS_OK")
+                    + " bytes=" + bytes + " diagnostics=" + 2L * repetitions + " heap=" + heap);
+        }
+
+        private static void verifyDiagnostics(Path spool, int repetitions) throws Exception {
+            var json = new com.fasterxml.jackson.databind.ObjectMapper();
+            long count = 0;
+            try (var reader = Files.newBufferedReader(spool.resolve("validation-errors.jsonl"), StandardCharsets.UTF_8)) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.length() > 16_384) throw new AssertionError("Unbounded diagnostic row");
+                    var row = json.readTree(line);
+                    long occurrence = 2 + count / 2;
+                    String expected = "/OmdCds[1]/PatientRecord[1]/AllergiesAndAdverseReactions[" + occurrence + "]/Severity[1]";
+                    if (!row.path("code").asText().equals("CDS_XML_SCHEMA_INVALID")
+                            || !row.path("sourceXPath").asText().equals(expected)) {
+                        throw new AssertionError("Missing, duplicated or reordered diagnostic at " + count);
+                    }
+                    count++;
+                }
+            }
+            if (count != 2L * repetitions) throw new AssertionError("Incomplete diagnostics: " + count);
+        }
+
+        private static void block(BufferedWriter xml, String unit, int blocks) throws IOException {
+            String value = unit.repeat(65536 / unit.length());
+            for (int i = 0; i < blocks; i++) xml.write(value);
+        }
+
+        private static void malformedTypes(Path directory, Path source, String fixture) throws Exception {
+            int begin = fixture.indexOf("<ClinicalNotes>"), end = fixture.indexOf("</ClinicalNotes>") + "</ClinicalNotes>".length();
+            for (String kind : new String[] {"integer-declared", "integer-unknown", "base64Binary"}) {
+                Path spool = directory.resolve("malformed-" + kind);
+                try (BufferedWriter xml = Files.newBufferedWriter(source, StandardCharsets.UTF_8)) {
+                    xml.write(fixture.substring(0, begin));
+                    xml.write("<ClinicalNotes xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xs='http://www.w3.org/2001/XMLSchema'"
+                            + (kind.equals("integer-declared") ? " xsi:type='xs:integer'>" : ">"));
+                    if (kind.startsWith("integer")) {
+                        if (kind.equals("integer-unknown")) xml.write("<unexpected xsi:type='xs:integer'>");
+                        block(xml, "1", 1152);
+                        if (kind.equals("integer-unknown")) xml.write("</unexpected>");
+                    } else {
+                        xml.write("<unexpected xsi:type='xs:base64Binary'>");
+                        block(xml, "QUJD", 1536);
+                        xml.write("</unexpected>");
+                    }
+                    xml.write("</ClinicalNotes>");
+                    xml.write(fixture.substring(end));
+                }
+                try {
+                    new CdsXmlParser().parse(source, spool, CdsInputLimitsDto.defaults(), () -> false, record -> {});
+                    throw new AssertionError("Malformed dynamic type sealed");
+                } catch (CdsInputException invalid) {
+                    if (!invalid.code().equals("CDS_XML_SCHEMA_INVALID")) throw invalid;
+                }
+                if (Files.exists(spool.resolve("parse.seal")) || Files.size(source) <= Runtime.getRuntime().maxMemory()) {
+                    throw new AssertionError("Dynamic-type probe did not preserve an unsealed source larger than heap");
+                }
+            }
+            System.out.println("BOUNDED_MALFORMED_TYPES_OK");
+        }
+
+        private static void identities(Path directory, Path source, String fixture) throws Exception {
+            for (String type : new String[] {"ID", "IDREF"}) {
+                Path spool = directory.resolve("identities-" + type);
+                try (BufferedWriter xml = Files.newBufferedWriter(source, StandardCharsets.UTF_8)) {
+                    int insertion = fixture.indexOf("<ClinicalNotes>");
+                    if (insertion < 0 || insertion != fixture.lastIndexOf("<ClinicalNotes>")) {
+                        throw new AssertionError("Missing or ambiguous fixture insertion marker");
+                    }
+                    xml.write(fixture.substring(0, insertion));
+                    for (int i = 0; i < 600_000; i++) {
+                        xml.write("<MedicationsAndTreatments><ResidualInfo><cdsd:DataElement><cdsd:Name>identity</cdsd:Name>"
+                                + "<cdsd:DataType>string</cdsd:DataType><cdsd:Content xmlns:xs='http://www.w3.org/2001/XMLSchema'"
+                                + " xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:type='xs:" + type + "'>item_" + i
+                                + "</cdsd:Content></cdsd:DataElement></ResidualInfo><DrugName>identity</DrugName></MedicationsAndTreatments>");
+                    }
+                    xml.write(fixture.substring(insertion));
+                }
+                try {
+                    new CdsXmlParser().parse(source, spool, CdsInputLimitsDto.defaults(), () -> false, record -> {});
+                    throw new AssertionError("Unbounded identity table accepted");
+                } catch (CdsInputException bounded) {
+                    if (!bounded.code().equals("CDS_XML_IDENTITY_RESOURCE_LIMIT")) throw bounded;
+                }
+                if (Files.exists(spool.resolve("parse.seal")) || Files.size(source) <= Runtime.getRuntime().maxMemory()) {
+                    throw new AssertionError("Identity probe did not preserve an unsealed source larger than heap");
+                }
+            }
+            System.out.println("BOUNDED_IDENTITIES_OK");
         }
     }
 }

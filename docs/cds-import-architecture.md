@@ -43,6 +43,7 @@ The module lives under `io.github.carlos_emr.carlos.demographic.cdsimport`.
 | `CdsImportJobService` | Durable accepted request, source identity and immutable job document | Sole locked acceptance claim/acknowledgment path |
 | `CdsUploadService` | Transfer receipts, chunk verification, quota and upload lifecycle | Byte transfer outside database transactions; short durable state transitions |
 | `CdsImportPlanningService` | Source discovery, validation, identities, dependencies and expected work | Stream/spool; freeze the workset before clinical writes |
+| `CdsXmlParser`, `CdsSchemaValidator`, `CdsSchemaTypeCursor` | Stream source values and diagnostics while validating the pinned wire contract | One compiled schema; type metadata follows its local declarations and namespace context; no occurrence-sized validation cache |
 | `CdsNativePreparationService` and category preparation | Hash-bound native candidates and private prepared values | File I/O and semantic decisions outside the clinical write transaction |
 | `CdsImportExecutionService` | Bounded execution, receipt verification, interruption recovery and finalization | Explicit physical ownership and epoch |
 | `CdsImportUnitService` | Own one clinical transaction | Native rows, references, receipt, strict event and checkpoint commit together |
@@ -116,6 +117,7 @@ Some reads deliberately use bounded current projections because ordinary APIs ca
 | Area | Mechanism |
 | --- | --- |
 | XML and binary payloads | Streaming parser/validation and bounded Base64/file buffers; private disk spools instead of a whole-document object graph |
+| Schema diagnostics and types | Stream every diagnostic; disable Xerces' duplicate PSVI error accumulation and obtain types from the same compiled grammar with a depth-bounded cursor |
 | Planning and grouping | Bounded pages and disk-backed occurrence/work metadata; complete sealed inventory |
 | ORM | Short unit transactions and explicit lifecycle boundaries; no batch-sized retained entity graph |
 | Native narratives | Bounded native projections with visible lossless source access when a target cannot carry the full value |
@@ -130,6 +132,10 @@ Some reads deliberately use bounded current projections because ordinary APIs ca
 Physical I/O controls check local interruption and stage/attempt budgets on bounded reads. Fresh physical ownership/control probes remain bounded in time and are forced at critical boundaries. Query optimization must preserve these checks, current permissions and all receipt hashes.
 
 The [resource verification contract](cds-import-performance.md) defines the measured heap, RSS, cgroup, SQL, time and storage gates. A heap flag alone does not establish total memory use, and a CI throughput observation does not predict upload time or every production workload.
+
+`CdsSchemaTypeCursor` reads the exact compiled OntarioMD grammar and the pinned validator's implicit XML Schema Instance declarations. Child type lookup uses the parent's compiled content model, including local and anonymous declarations, choices, sequences and inherited attribute uses. Namespace scopes resolve dynamic `xsi:type` values. Recognized dynamic types also guide streaming when the validator reports an invalid derivation or undeclared element; this prevents malformed input from selecting a buffering path. The validator continues to decide all structural, value, derivation and identity constraints and emit schema defaults. Only a complete valid pass can publish `parse.seal`.
+
+The cursor caches schema declarations rather than input occurrences. XML depth, names and namespace diversity retain their existing admission limits. Xerces PSVI augmentation is disabled because its ancestor error contexts otherwise retain every formatted diagnostic until document end. The protected JSONL stream remains complete; binary decoding, lexical checks, exact source custody and scalar witnesses retain their existing responsibilities. Intrinsic string-derived types such as `NCName`, `ID` and `IDREF` receive their real lexical values for validation. Document-wide identity state has separate token and aggregate-character guards; see the operator guide for refusal and recovery behavior.
 
 ## Security and presentation
 

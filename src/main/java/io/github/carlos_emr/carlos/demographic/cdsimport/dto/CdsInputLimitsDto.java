@@ -57,4 +57,10 @@ public record CdsInputLimitsDto(long maxSourceBytes, long maxExpandedBytes, long
         return new CdsInputLimitsDto(64L << 30, 512L << 30, 2_000_000, 256, 65536,
                 64L << 30, 512L << 20, 24L * 60 * 60 * 1000, 8192, 200);
     }
+
+    /** XSD identity tables retain values across the document, including dynamic xsi:type values. */
+    public int maxSchemaIdentityValues() { return 16_384; }
+
+    /** Aggregate lexical UTF16 units admitted before the validator can retain identity values. */
+    public int maxSchemaIdentityCharacters() { return 1 << 20; }
 }
