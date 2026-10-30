@@ -617,8 +617,15 @@ structure).
      (`PrintStylesheet`, see "Injected stylesheet") as its **first** child, so author rules
      of equal specificity still win, while its `@page` rule wins anyway because it is
      `!important` (*tested*: with the defaults first, an author A4-landscape `@page` lost
-     and an author class font size won); prepend the document note, if any (see
-     "Resilience"), as the first child of `<body>`;
+     and an author class font size won); the same sheet ends with the rule for the body's
+     legacy margin attributes, if it has any (`LegacyBodyMargins`: WebKit read
+     `<body leftmargin="0" topmargin="0">`, which most legacy forms begin with, as the body's
+     margins (`leftmargin` and `marginwidth` for both sides, `topmargin` and `marginheight` for
+     top and bottom; `rightmargin` and `bottommargin` were never read; the last attribute wins)
+     and Flying Saucer ignores it, so without the rule the Annual forms started 4.4 pt further in
+     than wkhtmltopdf's output, the 8 px default body margin; *measured* in the PR 1
+     comparison); prepend the document note, if any (see "Resilience"), as the first child of
+     `<body>`;
    - l. `FallbackFontRuns` (see "Fonts"), after the note and the boxes so their text is
      covered too;
    - m. serialise with XML syntax, XHTML escaping, UTF-8 and pretty-printing off. A
@@ -674,10 +681,17 @@ than timing it out:
   (`CARLOS_JAVA_XMX`). Each document's images are planned to fit its slot's share (see
   "Images"), so the reductions depend only on the document and the heap size, never on
   load, and output stays deterministic.
-- **Document size.** HTML larger than a limit (measured in PR 1 and set so that the
-  slowest normal-mode layout of a reference server stays under 30 s; the 2000-row table
-  fixture is the reference) goes straight to `TEXT_ONLY`. `data:` URI payloads do not
-  count towards it.
+- **Document size.** HTML larger than a limit goes straight to `TEXT_ONLY`; `data:` URI
+  payloads do not count towards it. Measured in PR 1 (`HtmlPdfComparisonMain size-limit`,
+  a four-column table of 77 characters a row, 4 cores of a 2.1 GHz Xeon, 2 GB heap): a
+  normal-mode layout takes 0.6 s at 153,000 characters (the 2000-row reference fixture),
+  7.9 s at 1.0 million, 15.6 s at 1.5 million, 26.9 s at 2.0 million and 31.7 s at 2.2 million
+  (text-only: 0.8 s at 1.0 million). The limit is **1,000,000 characters**: 30 s alone would
+  allow 2 million, but then the worst case of the ladder (10 s wait + normal + safe + text-only)
+  is 66 s, over the 60 s budget below; at 1 million it is 27 s. The time grows with the
+  square of the number of rows (Flying Saucer 10.7.0 walks the siblings of a block while it
+  collapses margins, found by profiling), so a document of very short rows reaches the same
+  time with fewer characters; a row or tag count would bound it better and is a follow-up.
 - **Performance budget**, checked in PR 1 against the wkhtmltopdf baseline: warm renders
   of the real form fixtures under 2 s at the 95th percentile; the worst case, with a 10 s
   slot wait and all three attempts, under 60 s.
@@ -1417,6 +1431,10 @@ List these in PR 1:
 - **Stylesheet-defined `position: fixed`** (as opposed to inline) still repeats on every
   page; inline is rewritten.
 - **Tables with both `<thead>` and row spans** print their header once.
+- **Layout time is quadratic in the number of rows.** The size limit is in characters, so a
+  document of very short rows (about 19 characters a row) can still take minutes to lay out
+  below it (*measured*: 20,000 rows of 77 characters took 15.6 s, 40,000 took 66 s). Layout
+  cannot be interrupted; the render still holds one of two slots and one request thread.
 
 ## Delivery
 
@@ -1502,6 +1520,9 @@ Rules from `docs/release-process.md` and `CLAUDE.md`:
 - The OSCAR 19 import map keeps `WKHTMLTOPDF_*` as `deploy-owned` until carlos-ctl's test
   changes in its own repository.
 - HRM charset detection for non-UTF-8 reports.
+- Bound layout time by the number of tags or table rows (counted while reading the string)
+  as well as by its length: Flying Saucer's margin collapsing makes a long table quadratic, so
+  length is only a proxy.
 - Indic and Thai text: neither Java engine shapes these scripts. A route that sends
   documents containing them to the existing Chromium renderer (scripts off, network
   blocked), with a Noto font package for those scripts added to the Debian dependencies,

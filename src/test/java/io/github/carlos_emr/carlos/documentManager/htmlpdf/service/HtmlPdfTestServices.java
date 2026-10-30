@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.documentManager.htmlpdf.service;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.TestFonts;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet;
 
+import java.nio.file.Path;
+
 /**
  * Test helper: a real {@link HtmlPdfRenderService} over the real collaborators, for tests in other
  * packages (the legacy facades' tests) that cannot name the package-private service classes it is built
@@ -45,6 +47,21 @@ public final class HtmlPdfTestServices {
     public static HtmlPdfRenderService newService() {
         return new HtmlPdfRenderService(new PrintDocumentComposer(), new PrintImageService(), new PrintLayoutService(),
                 new RenderedPdfValidator(), sharedFontFiles());
+    }
+
+    /**
+     * Builds a render service that sends HTML longer than a given number of characters straight to
+     * {@code TEXT_ONLY}, with everything else as in production. The size-limit measurement of
+     * {@code HtmlPdfComparisonMain} raises it to see how long a normal-mode layout takes.
+     *
+     * @param textOnlyHtmlChars the longest HTML, in characters, that is laid out as authored
+     * @return the service
+     */
+    public static HtmlPdfRenderService newService(int textOnlyHtmlChars) {
+        return new HtmlPdfRenderService(new PrintDocumentComposer(), new PrintImageService(), new PrintLayoutService(),
+                new RenderedPdfValidator(), sharedFontFiles(), HtmlPdfRenderService.SLOT_WAIT,
+                Runtime.getRuntime().maxMemory() / HtmlPdfRenderService.HEAP_DIVISOR_FOR_IMAGES / HtmlPdfRenderService.RENDER_SLOTS,
+                textOnlyHtmlChars, Path.of(System.getProperty("java.io.tmpdir")));
     }
 
     /**
