@@ -2278,6 +2278,21 @@
       "timeoutSec": 300
     },
     {
+      "name": "request-boundary-filters",
+      "script": "scripts/request-boundary-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The workflow's owned synthetic patient only; opening the legacy Annual form without saving writes no form row.",
+      "notes": "Issue #5305: anonymous requests to a public action, the heartbeat and a static asset mint no JSESSIONID; a signed-in heartbeat answers JSON with and without autoRefresh; repeated legacy-form loads (Struts action then JSP over legacy JDBC) leave the CARLOS MariaDB connection count where it was; Logout passes /logoutPage and POST /logout once each. Reads information_schema.PROCESSLIST, so MYSQL_USER needs PROCESS (root in the deb runbook)."
+    },
+    {
       "name": "master-record-tabs",
       "script": "scripts/master-record-tabs-playwright-checks.js",
       "tiers": [
@@ -5071,6 +5086,24 @@
       "notes": "Fails at its last step on 2026.08: lookupListManagerAction accepts GET for its mutating methods."
     },
     {
+      "name": "reference-data-cache",
+      "script": "scripts/reference-data-cache-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "appointment_status",
+        "LookupListItem"
+      ],
+      "fixtures": "Snapshots one clinic-wide appointment_status row (an editable active custom status a-f), changes its label, colour and active flag through the status editor and edits it back, and adds then removes one marker-labelled LookupListItem on the clinic-wide reasonCode list through Manage Lookup Lists, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A failed run first repairs both through the same UI (best effort, so the caches are evicted) and then restores the status snapshot and deletes the owned item by SQL, asserting both. Nothing is booked."
+    },
+    {
       "name": "admin-update-demographic-provider",
       "script": "scripts/admin-update-demographic-provider-playwright-checks.js",
       "tiers": [
@@ -6120,6 +6153,19 @@
       ],
       "notes": "Fails on 2026.08: Billing Reconciliation ▸ Report posts a runtime-built form without a CSRF token (403), so the billing clipboard is unreachable.",
       "fixtures": "Owned FAKE- provider (sites copied from the operator), owned patients, batch-billing queue rows, an RA with an owned radetail row and the clipboard notes; all rows and files removed."
+    },
+    {
+      "name": "billing-on-batch-percentage-limit",
+      "script": "scripts/billing-on-batch-percentage-limit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "fixtures": "Owned FAKE- provider (sites copied from the operator), owned patients, two FAKE- percentage fee rows with unused codes, their limit rows (one keyed by a fee-row id) and two batch-billing queue rows; all rows removed."
     },
     {
       "name": "billing-on-admin-config",
@@ -8884,8 +8930,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "Owned FAKE-PW patient; one CPP note per box (Medical History, Ongoing Concerns, Reminders, Family History, Other Meds, Risk Factors) created through the chart '+' dialogs; all notes, issue links, ext rows, casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. Needs pdftotext.",
-      "notes": "Passes on 2026.08. Observation only: 'Print all notes' re-lists every CPP item (including one flagged Hide in CPP) as an ordinary note on page 2 of the print; the CPP-section print itself honours Hide in CPP and Archive."
+      "fixtures": "Owned FAKE-PW patient; one CPP note per box (Medical History, Ongoing Concerns, Reminders, Family History, Other Meds, Risk Factors) created through the chart '+' dialogs, plus the revisions an edit, Hide in CPP and Archive save; all notes, issue links, ext rows, hash_audit signatures and casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. Needs pdftotext.",
+      "notes": "Failed on 2026.08 beta1/beta2 (#5365): a new item stored an empty-valued extension row for every field it hid or left blank; a blank now adds no row and only clears a key the revision already holds. An edit, Hide in CPP and Archive each save a new revision (#4641), which the check follows by uuid. Observation only: 'Print all notes' re-lists every CPP item (including one flagged Hide in CPP) as an ordinary note on page 2 of the print; the CPP-section print itself honours Hide in CPP and Archive."
     },
     {
       "name": "gap-clinical-chart-print-scope",
@@ -9468,6 +9514,179 @@
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient, made 70 by SQL so the flu reminder applies; its preventions and their ext rows are removed in cleanup.",
       "notes": "A vaccine given elsewhere. Steps: Inf saved as Completed externally with an outside provider's name is stored as given elsewhere (refused=3) by that provider; the list shows it without the refused or ineligible colour, and the reopened form shows the status and the name; it counts as done, so the patient's \"Needs Flu Shot\" reminder goes away."
+    },
+    {
+      "name": "prevention-h1n1-chronic-condition",
+      "script": "scripts/prevention-h1n1-chronic-condition-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup.",
+      "notes": "Issue #5279 section 1. H1N1 Chronic Condition: a new record opens at No and offers No, Yes and nine categories; each category is stored as its exact value, reopens selected and stays on the archived record when changed; returning to No stores false. All mismatches are reported together."
+    },
+    {
+      "name": "prevention-h1n1-pregnancy-remote",
+      "script": "scripts/prevention-h1n1-pregnancy-remote-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup.",
+      "notes": "Issue #5279 section 2. H1N1 Pregnant and Remote Setting, alone, together and cleared: ticked boxes store true, clear boxes store no row (no stale value), the archived record keeps its own boxes, and the record reopens with the same boxes."
+    },
+    {
+      "name": "prevention-h1n1-healthcare-worker",
+      "script": "scripts/prevention-h1n1-healthcare-worker-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup.",
+      "notes": "Issue #5279 section 3. H1N1 Health Care Worker: No, Yes and the eight categories (acute care, laboratory, pharmacy and the rest) are each stored exactly, reopen selected and stay on the archived record when changed between categories; returning to No stores false."
+    },
+    {
+      "name": "prevention-h1n1-first-responder",
+      "script": "scripts/prevention-h1n1-first-responder-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient and one legacy H1N1 record seeded by SQL; its preventions and their preventionsExt rows are removed in cleanup.",
+      "notes": "Issue #5279 section 4. H1N1 Household Contact, First Responder Police and Fire alone, together and cleared, without changing the pregnancy, chronic-condition and healthcare-worker values; LAST, a record with the legacy single firstresponder value reopens with both boxes ticked and saving stores both."
+    },
+    {
+      "name": "prevention-h1n1-dose-flags",
+      "script": "scripts/prevention-h1n1-dose-flags-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup.",
+      "notes": "Issue #5279 section 5. H1N1 First Dose and Second Dose are independent boxes: each alone, both together and cleared are stored exactly with no stale value; no next date or added record is created (CARLOS has no automated vaccine series)."
+    },
+    {
+      "name": "prevention-screening-result-other",
+      "script": "scripts/prevention-screening-result-other-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup. Reads the printout with Poppler pdftotext (SKIP without it).",
+      "notes": "Issue #5279 section 6. FOBT Result Other with an explanation: stored, listed on the Other colour, reopened with its summary and printed as Result: other (explanation); a save refused for an empty date posts nothing and keeps the entries; Other with no explanation is stored and prints (no reason submitted); amending to Abnormal keeps Other on the archived record."
+    },
+    {
+      "name": "prevention-dose-route-amendment",
+      "script": "scripts/prevention-dose-route-amendment-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup. SKIP when cvc.url replaces the brand picker, or without Poppler pdftotext.",
+      "notes": "Issue #5279 section 7. A Tdap recorded through the brand picker (ADACEL 0.5 mL IM) is amended to 1 vial SC: the replacement stores them and keeps the vaccine, DIN, manufacturer, lot, site and comment, the original is archived unchanged, and the reopened form, summary and printout show the new dose. LAST, a dose saved without a unit must reopen with that dose and survive an unchanged save. Fails at that last step while finding 322 (#5431) stands; every earlier step passes.",
+      "expectedFailure": {
+        "finding": 322,
+        "step": "a dose saved with no unit reopens with that dose and survives an unchanged save"
+      }
+    },
+    {
+      "name": "prevention-brand-picker-units-routes",
+      "script": "scripts/prevention-brand-picker-units-routes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; read-only: each Add Prevention popup is read and closed, nothing is saved. SKIP when cvc.url replaces the brand picker.",
+      "notes": "Found while covering issue #5279 section 7. For one brand per distinct dose unit and route in prevention/vaccine-brands.json, the Add Prevention form opened from the brand picker must show the catalogue's own unit and route (any letter case), never a blank box or another value; every difference is reported together. Fails at its one step while finding 323 (#5432) stands; standard route codes (SQ as SC, Intranasal as IN, Intradermal as ID) are accepted.",
+      "expectedFailure": {
+        "finding": 323,
+        "step": "every dose unit and route the catalogue prefills is shown by the Add Prevention form as given"
+      }
+    },
+    {
+      "name": "prevention-cvc-lot-expiry",
+      "script": "scripts/prevention-cvc-lot-expiry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient and its recorded catalogue Tdap; a synthetic CVC brand (not a generic), its medication and two dated lots. Cleanup removes the catalogue rows, the patient's preventions and their ext rows, and asserts none remain.",
+      "notes": "Issue #5279 section 8. A catalogue vaccination's dated lots: choosing a lot fills its expiry date, which is stored and reopens; changing lot replaces the date (the archived record keeps the first); when a refreshed catalogue no longer lists the recorded lot, the lot and its expiry date are kept through a save. prevention-brand-picker keeps the undated-lot cases."
+    },
+    {
+      "name": "prevention-reminder-eligibility-matrix",
+      "script": "scripts/prevention-reminder-eligibility-matrix-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient, whose sex and birth date are set per row; its preventions and their ext rows are cleared between cases and removed in cleanup.",
+      "notes": "Issue #5279 section 9. Expectations come from prevention.drl's documentation (scripts/lib/prevention-eligibility-rules.js, kept matched by its node test). Seven age/sex rules on both sides of every documented boundary for women and men, then history cases: FIT overdue and its amended date, FIT completed externally, colonoscopy superseding FIT, ineligible mammogram and HPV-CERVIX, mammogram coming due versus overdue after an amended date, LDCT for a current smoker withdrawn by amending to non-smoker, and AAA and BMD cleared by new records. SKIP when ResourceStorage holds active custom rules."
+    },
+    {
+      "name": "prevention-recall-completed-intervention",
+      "script": "scripts/prevention-recall-completed-intervention-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient and a FAKE- control patient, each with a 2023-06-01 mammogram seeded by SQL, and one saved patient query naming both. Cleanup removes the query, both patients' preventions and the control patient, and asserts none remain.",
+      "notes": "Issue #5279 section 10. Mammogram recall as of 2026-06-30: both patients Overdue; a mammogram entered on the patient's Preventions page makes the rerun report Pending, its result amended to Normal Up to date, and its date corrected to 2024-01-15 due; the untreated control stays Overdue on every run."
     },
     {
       "name": "demographic-address-phone-history",

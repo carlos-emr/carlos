@@ -449,6 +449,32 @@ for a rate-limited egress, `login_lock=true`, the extra directory exports) and p
 results are in
 [release-2026.08-workflow-coverage-expansion.md](release-2026.08-workflow-coverage-expansion.md).
 
+`reference-data-cache-playwright-checks.js` (issue #5304) was added on 2026-10-29. That change
+moved the appointment-status, measurement-type and lookup-list caches onto copy-on-read. The check
+was run against 2026.09.0~snapshot27 packages built in an Ubuntu 26.04 container from the
+`release/2026.08` fix branch (prebuilt WAR through `CARLOS_WAR`, DrugRef from its pinned ref,
+carlos-ctl 1.2.1 from its tag). Two DrugRef dependencies that Maven could not fetch through the
+egress proxy were seeded into `debian/build/m2` before a `dpkg-buildpackage -nc` rebuild. The
+packages were installed fresh with `scripts/deb-docker-validation.sh up` and the demo dataset
+(`carlos-ctl check` clean, `:443`). Results:
+
+- The check **PASS**es 6/6. A status label, colour and Disable/Enable saved in the status editor,
+  and a reasonCode item added and removed through Manage Lookup Lists, each reach the
+  add-appointment form on its next load. Repeated loads agree with each other and with the
+  database.
+- Two mutations of the new copy factories, swapped into the installed webapp, make it **FAIL**.
+  A lookup-list copy that drops its items fails at the first step (the form offers no reason
+  codes). A status copy that drops its colour fails at the status-editor step.
+- `appointment-status-editing`, `schedule-admin-settings`, `measurement-type-group-admin` (with
+  `MEASUREMENT_CSS_UPLOAD_DIR` set to the server's styles directory), `measurement-group-entry`,
+  `measurement-history`, `measurement-validation`, `cdm-measurement-report`, `flowsheet-admin`,
+  `demographic-edit-update`, `consultation-appointment-time` and the smoke tier also pass.
+  `tickler-crud` passed on a re-run after one aborted list request.
+- `admin-lookup-lists` still fails only at its pinned last step (GET reaches the mutator), and
+  `gap-provider-schedule-reason-privacy` only at the tooltip disclosure (finding L329). The
+  residue audit was clean. The server-log audit's one unexplained signature is Tomcat's own
+  record of the `flowsheet-admin` missing-flowsheet NPE it already lists as known.
+
 ## Scope
 
 This validation answers one question:

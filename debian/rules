@@ -131,6 +131,10 @@ override_dh_auto_build:
 	# a copy is used only for a class the container lacks; otherwise it only
 	# misleads what runs beside Tomcat, such as the Flyway runner's class path.
 	python3 scripts/check-war-container-apis.py $(BUILDDIR)/carlos.war
+	# Exactly one Commons Logging implementation in the WAR (#5413). Maven bans
+	# the known duplicates; this also covers a prebuilt CARLOS_WAR and any
+	# library that shades its own copy of org.apache.commons.logging.
+	python3 $(CURDIR)/debian/check-war-commons-logging.py $(BUILDDIR)/carlos.war
 	python3 scripts/test-o19-input-lifecycle.py
 ifeq ($(SKIP_DRUGREF),)
 	set -e; \

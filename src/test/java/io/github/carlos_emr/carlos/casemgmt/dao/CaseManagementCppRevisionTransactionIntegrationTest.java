@@ -239,6 +239,68 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         });
     }
 
+    /** Whitespace-only text is no value: it clears a held key to empty rather than storing the spaces. */
+    @Test
+    void shouldClearHeldKeyToEmpty_whenSubmittedValueIsWhitespaceOnly() {
+        Fixture fixture = tx.execute(status -> fixture(true));
+        tx.executeWithoutResult(status -> {
+            CaseManagementNoteExt historical = extension(CaseManagementNoteExt.TREATMENT, "Held treatment", null);
+            historical.setNoteId(fixture.originalId());
+            extensions.save(historical);
+        });
+
+        CaseManagementNote saved = service(extensions).saveCppNoteRevision(draft(fixture), "Doctor", "",
+                Map.of(), List.of(extension(CaseManagementNoteExt.TREATMENT, " \t ", null))).note();
+
+        tx.executeWithoutResult(status -> {
+            assertThat(extensions.getExtByNote(saved.getId()))
+                    .filteredOn(e -> CaseManagementNoteExt.TREATMENT.equals(e.getKeyVal()))
+                    .singleElement().satisfies(e -> {
+                        assertThat(e.getValue()).isEmpty();
+                        assertThat(e.getDateValue()).isNull();
+                    });
+            assertThat(extensions.getExtByNote(fixture.originalId()))
+                    .filteredOn(e -> CaseManagementNoteExt.TREATMENT.equals(e.getKeyVal()))
+                    .singleElement().extracting(CaseManagementNoteExt::getValue).isEqualTo("Held treatment");
+        });
+    }
+
+    /**
+     * The chart editor posts every extension input, including the ones the box hides and the ones
+     * left empty. A blank value for a key the revision does not hold must not become an empty row
+     * (#5365); only an existing key is cleared by a blank (see the test above). A full-precision
+     * date carries the empty string as its precision marker and is still stored.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldStoreNoRowForBlankField_whenRevisionHoldsNoValueForKey(boolean existingNote) {
+        Fixture fixture = tx.execute(status -> fixture(existingNote));
+
+        CaseManagementNote saved = service(extensions).saveCppNoteRevision(draft(fixture), "Doctor", "", Map.of(),
+                List.of(extension(CaseManagementNoteExt.TREATMENT, "PW rest", null),
+                        extension(CaseManagementNoteExt.AGEATONSET, "", null),
+                        extension(CaseManagementNoteExt.RELATIONSHIP, "   ", null),
+                        extension(CaseManagementNoteExt.LIFESTAGE, null, null),
+                        extension(CaseManagementNoteExt.STARTDATE, "", java.sql.Date.valueOf("2018-03-04")))).note();
+
+        tx.executeWithoutResult(status -> {
+            List<CaseManagementNoteExt> current = extensions.getExtByNote(saved.getId());
+            List<String> expectedKeys = new ArrayList<>(List.of(CaseManagementNoteExt.TREATMENT, CaseManagementNoteExt.STARTDATE));
+            if (existingNote) expectedKeys.addAll(List.of("startDate", "startDate", "unsubmitted"));
+            assertThat(current).extracting(CaseManagementNoteExt::getKeyVal)
+                    .as("blank fields the revision did not hold add no rows")
+                    .containsExactlyInAnyOrderElementsOf(expectedKeys);
+            assertThat(current).filteredOn(e -> CaseManagementNoteExt.TREATMENT.equals(e.getKeyVal()))
+                    .singleElement().satisfies(e -> assertThat(e.getValue()).isEqualTo("PW rest"));
+            assertThat(current).filteredOn(e -> CaseManagementNoteExt.STARTDATE.equals(e.getKeyVal()))
+                    .singleElement().satisfies(e -> {
+                        assertThat(e.getValue()).isEmpty();
+                        assertThat(e.getDateValue()).isEqualTo(java.sql.Date.valueOf("2018-03-04"));
+                    });
+            if (existingNote) assertHistoricalRows(fixture.originalId(), saved, "keep", "2002", "2001");
+        });
+    }
+
     @Test
     void shouldRejectStaleJsonRevision_beforePersistingPendingIssue() {
         Fixture fixture = tx.execute(status -> fixture(true));
