@@ -37,6 +37,7 @@ import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -52,6 +53,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -95,11 +97,10 @@ import java.util.regex.Pattern;
  * cap the image planning applies, not a lower one: a lower cap would quietly shrink images the
  * planning has already approved. SVG is passed to Flying Saucer as it is, but for its size, which is
  * taken in pixels like a raster image's (see {@link #getImageResource}); the planning cleans the
- * SVG files it places in {@code <img>}. An SVG referenced from a stylesheet is not cleaned, and cannot
- * be used to reach a file: Flying Saucer gives Batik the bytes of an SVG image with no document URL, so
- * Batik refuses every resource the SVG names except a {@code data:} URI, and a {@code data:} document
- * inside it can load nothing but {@code data:} URIs. That is the libraries' behaviour, not this agent's;
- * {@code HtmlPdfSsrfUnitTest} pins it, so an upgrade that loses it fails the build. The bitmap that
+ * SVG files it places in {@code <img>}. Local SVG streams, including stylesheet backgrounds, also pass
+ * through the service-supplied sanitizer before Flying Saucer reads them. This enforces reference and
+ * nested-image bounds independently of Batik's resource policy. SVG streams are limited to 16 MB and
+ * refused if no sanitizer was supplied. {@code HtmlPdfSsrfUnitTest} pins the end-to-end policy. The bitmap that
  * Flying Saucer makes of an SVG it cannot draw as vectors is made once and bounded by the renderer's
  * {@link BoundedOutputDevice}.</p>
  *
@@ -126,6 +127,9 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
      */
     static final long MAX_FILE_BYTES = 128L << 20;
 
+    /** SVGs are parsed into a DOM, so they have the same smaller bound as the image planner. */
+    static final int MAX_SVG_BYTES = 16 << 20;
+
     /**
      * The URI Flying Saucer loads its built-in stylesheet from, found the way Flying Saucer finds it
      * (its configured path, resolved with the class loader of its namespace handler), or
@@ -147,6 +151,11 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
     /** The directories {@code file:} URIs may point into: nothing else is implied. */
     private final List<Path> allowedDirectories;
 
+    /** Supplied by the service tier; without a sanitizer SVG resources fail closed. */
+    private UnaryOperator<byte[]> svgCleaner = bytes -> null;
+
+    private int leftOutImages;
+
     /**
      * The pictures reduced to fit, by the URI they were asked for. Flying Saucer caches what it loads itself, but
      * not what this agent decides: a background that fills a page is asked for once by every element that paints
@@ -167,6 +176,21 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
         super(outputDevice, dotsPerPixel);
         this.dotsPerPixel = dotsPerPixel;
         this.allowedDirectories = List.copyOf(Objects.requireNonNull(allowedDirectories, "allowedDirectories"));
+    }
+
+    /**
+     * Installs the service tier's SVG sanitizer before layout. The callback returns cleaned bytes, or
+     * {@code null} to refuse the SVG; it never opens resources. This keeps document rules out of the engine.
+     *
+     * @param cleaner the sanitizer for local SVG streams, including stylesheet backgrounds
+     */
+    public void setSvgCleaner(UnaryOperator<byte[]> cleaner) {
+        svgCleaner = Objects.requireNonNull(cleaner, "cleaner");
+    }
+
+    /** {@return the number of image loads that were refused or failed} */
+    public int leftOutImages() {
+        return leftOutImages;
     }
 
     // ---- streams ----------------------------------------------------------------------------
@@ -245,6 +269,24 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
                         describeForLog(uri));
                 return null;
             }
+            if (lower.startsWith("file:")) {
+                try {
+                    Path file = Path.of(new URI(uri));
+                    if (looksLikeSvg(file) && ImageDecoding.readHeader(file).isEmpty()) {
+                        try (InputStream stream = Files.newInputStream(file)) {
+                            byte[] bytes = stream.readNBytes(MAX_SVG_BYTES + 1);
+                            if (bytes.length > MAX_SVG_BYTES) {
+                                return null;
+                            }
+                            byte[] cleaned = svgCleaner.apply(bytes);
+                            return cleaned == null ? null : new ByteArrayInputStream(cleaned);
+                        }
+                    }
+                } catch (URISyntaxException | RuntimeException e) {
+                    // Invalid local resources fail closed without disclosing their URI or content.
+                    return null;
+                }
+            }
         }
         return super.openStream(uri);
     }
@@ -309,8 +351,15 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
             ImageResource decided = uriStr.toLowerCase(Locale.ROOT).startsWith("data:")
                     ? vetImageBytes(uriStr, decodeDataUri(uriStr), null)
                     : vetImageFile(uriStr);
-            return inOutputUnits(decided != null ? decided : super.getImageResource(uriStr));
+            // Flying Saucer recognises only a lower-case data: scheme; URI schemes are case-insensitive.
+            String loadUri = DataUris.isDataUri(uriStr) ? "data:" + uriStr.substring(5) : uriStr;
+            ImageResource resource = inOutputUnits(decided != null ? decided : super.getImageResource(loadUri));
+            if (resource.getImage() == null) {
+                leftOutImages++;
+            }
+            return resource;
         } catch (IOException | RuntimeException e) {
+            leftOutImages++;
             logger.warn("An image could not be loaded and is left out of the PDF ({})", e.getClass().getSimpleName());
             return new ImageResource(uriStr, null);
         }

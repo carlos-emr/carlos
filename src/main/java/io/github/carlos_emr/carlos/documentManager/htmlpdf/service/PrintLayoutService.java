@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontRes
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.LocalOnlyUserAgent;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.PrintStylesheet;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.SvgReferences;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.openpdf.text.Document;
@@ -154,6 +155,14 @@ class PrintLayoutService {
         try {
             ITextRenderer renderer = rendererFactory.apply(allowedDirectories, new BundledFontResolver(fonts));
             SharedContext context = renderer.getSharedContext();
+            if (context.getUserAgentCallback() instanceof LocalOnlyUserAgent agent) {
+                agent.setSvgCleaner(bytes -> SvgReferences.clean(bytes).map(cleaned -> {
+                    if (cleaned.removedReferences()) {
+                        degradations.add(HtmlPdfRenderDegradation.SVG_REFERENCES_REMOVED);
+                    }
+                    return cleaned.svg();
+                }).orElse(null));
+            }
             context.setPrint(true);
             context.setInteractive(false);
             context.getTextRenderer().setSmoothingThreshold(0);
@@ -163,6 +172,9 @@ class PrintLayoutService {
             ByteArrayOutputStream out = new ByteArrayOutputStream(64 * 1024);
             renderer.createPDF(out, true);
             if (renderer.getOutputDevice() instanceof BoundedOutputDevice device && device.leftOutImages() > 0) {
+                degradations.add(HtmlPdfRenderDegradation.IMAGE_UNAVAILABLE);
+            }
+            if (context.getUserAgentCallback() instanceof LocalOnlyUserAgent agent && agent.leftOutImages() > 0) {
                 degradations.add(HtmlPdfRenderDegradation.IMAGE_UNAVAILABLE);
             }
             return out.toByteArray();

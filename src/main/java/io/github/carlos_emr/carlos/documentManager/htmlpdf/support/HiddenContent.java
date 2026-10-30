@@ -28,9 +28,11 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Removes the elements an author hid, for the rungs of the render ladder that drop the author's styles.
+ * Removes markup-hidden elements in every mode, and inline-style-hidden elements on the simplified rungs.
  *
- * <p>In normal mode Flying Saucer honours {@code style="display: none"} and the print style sheets of a page,
+ * <p>Markup-hidden elements are removed before form-control replacement, since Flying Saucer's default
+ * stylesheet does not implement the HTML {@code hidden} attribute. In normal mode Flying Saucer honours
+ * {@code style="display: none"} and the print style sheets of a page,
  * so what was hidden stays hidden. Safe mode strips every {@code style} attribute and style sheet, and
  * text-only mode keeps the text of everything, so the hidden parts of the document (a form's duplicate
  * for the screen, a banner, a scratch value) would print on a page the author never meant them to be
@@ -47,6 +49,21 @@ import java.util.Optional;
 public final class HiddenContent {
 
     private HiddenContent() {
+    }
+
+    /**
+     * Removes markup-hidden content in every render mode, before form controls lose their attributes.
+     * The HTML boolean attribute hides an element even when its value is {@code false}.
+     *
+     * @param document the document to change
+     */
+    public static void removeMarkupHidden(Document document) {
+        Objects.requireNonNull(document, "document");
+        for (Element element : document.select("[hidden]")) {
+            if (!isHtmlOrBody(element)) {
+                element.remove();
+            }
+        }
     }
 
     /**

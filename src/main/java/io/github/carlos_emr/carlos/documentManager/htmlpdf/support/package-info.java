@@ -44,7 +44,8 @@
  *   <li>{@code SafeModeMarkup} and {@code PlainTextDocument}: what safe mode (no author styles, no
  *       inline graphics) and text-only mode (the text in reading order) make of a document;</li>
  *   <li>{@code HiddenContent}: the elements the markup hid ({@code hidden}, {@code display: none},
- *       {@code visibility: hidden}), removed before safe and text-only mode drop the styles that hide them;</li>
+ *       {@code visibility: hidden}); markup-hidden elements are removed in every mode, inline styles
+ *       before safe and text-only mode drop the styles that hide them;</li>
  *   <li>{@code EngineExtensions}: Flying Saucer's own {@code -fs-} CSS properties, removed from the
  *       CSS a document brings (a span property would otherwise reach the layout unclamped);</li>
  *   <li>{@code ImageBox}, {@code SvgReferences} and {@code SvgViewBox}: the "[image unavailable]" box, the

@@ -260,9 +260,7 @@ class HtmlPdfSsrfUnitTest {
             "nested-svg-absolute-path", "absolute-file", "relative-path", "use-of-external-svg"})
     @DisplayName("should draw nothing from outside the allowed directories through an SVG that a style sheet names")
     void shouldNotDrawOutsideFile_throughSvgBackground(String reference) throws Exception {
-        // A background is not planned like an <img>, so its SVG reaches the user agent as the file it is, uncleaned.
-        // Batik, which has no document URL for it, refuses everything it names but data: URIs; the test pins that
-        // the file is not read, so that a library upgrade that loses the rule fails the build.
+        // A background bypasses <img> planning, so the user agent must sanitize it before Batik sees it.
         Path webRoot = Files.createDirectories(directory.resolve("web"));
         Path secretDirectory = Files.createDirectories(directory.resolve("secret"));
         Path secretImage = TestImages.write(secretDirectory, "secret.png", TestImages.png(20, 20));
@@ -351,16 +349,38 @@ class HtmlPdfSsrfUnitTest {
     }
 
     @Test
-    @DisplayName("should draw a picture in a data: URI nested in an SVG that a style sheet names, which is what makes the tests above able to fail")
+    @DisplayName("should still draw a bounded raster data URI inside an SVG background")
     void shouldDrawRasterDataUri_nestedInSvgBackground() throws Exception {
         Path webRoot = Files.createDirectories(directory.resolve("web"));
         String picture = "data:image/png;base64," + Base64.getEncoder().encodeToString(TestImages.png(20, 20));
         Files.writeString(webRoot.resolve("bg.svg"), "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink'"
-                + " width='40' height='40'>" + nestedSvgUses(picture) + "</svg>", StandardCharsets.UTF_8);
+                + " width='40' height='40'><image xlink:href='" + picture + "' width='30' height='30'/></svg>", StandardCharsets.UTF_8);
 
         HtmlPdfRenderResult result = service(PrintModeLimits.NO_LIMIT).render(backgroundPage(webRoot));
 
         assertThat(TestPdfs.imageDraws(result.pdf())).as("images drawn").isPositive();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"nested-svg", "oversized-raster"})
+    @DisplayName("should apply nested-image bounds to SVG backgrounds before Batik reads them")
+    void shouldCleanSvgBackground_beforeDecodingNestedImages(String vector) throws Exception {
+        Path webRoot = Files.createDirectories(directory.resolve("web"));
+        String picture = "data:image/png;base64," + Base64.getEncoder().encodeToString(
+                TestImages.png(vector.equals("oversized-raster") ? 2001 : 20,
+                        vector.equals("oversized-raster") ? 2000 : 20));
+        String drawing = vector.equals("nested-svg") ? nestedSvgUses(picture)
+                : "<image xlink:href='" + picture + "' width='30' height='30'/>";
+        Files.writeString(webRoot.resolve("bg.svg"),
+                "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink'"
+                        + " width='40' height='40'>" + drawing + "</svg>", StandardCharsets.UTF_8);
+
+        HtmlPdfRenderResult result = service(PrintModeLimits.NO_LIMIT).render(backgroundPage(webRoot));
+
+        assertThat(TestPdfs.imageDraws(result.pdf())).as("unbounded nested pictures").isZero();
+        assertThat(result.degradations()).contains(HtmlPdfRenderDegradation.SVG_REFERENCES_REMOVED)
+                .doesNotContain(HtmlPdfRenderDegradation.SAFE_MODE, HtmlPdfRenderDegradation.TEXT_ONLY);
+        assertThat(String.join("\n", TestPdfs.pageTexts(result.pdf()))).contains("FAKE-visible text");
     }
 
     /** The SVG of {@link #nestedSvgUri} used as a fragment and drawn as an image, in one SVG. */
