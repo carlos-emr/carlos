@@ -40,6 +40,7 @@ final class InlineStyle {
     /** An inline {@code list-style-type} or {@code list-style}, either of which wins over {@code <ol type>}. */
     private static final Pattern LIST_STYLE = Pattern.compile("(?i)(?<![\\w-])list-style(-type)?\\s*:");
 
+    private static final Pattern TEXT_ALIGN = Pattern.compile("(?i)(?<![\\w-])text-align\\s*:");
     private static final Pattern WIDTH = Pattern.compile("(?i)(?<![\\w-])width\\s*:");
     private static final Pattern HEIGHT = Pattern.compile("(?i)(?<![\\w-])height\\s*:");
 
@@ -60,6 +61,14 @@ final class InlineStyle {
      */
     static boolean setsListStyle(String style) {
         return LIST_STYLE.matcher(style).find();
+    }
+
+    /**
+     * @param style an inline style
+     * @return whether it sets {@code text-align}
+     */
+    static boolean setsTextAlign(String style) {
+        return TEXT_ALIGN.matcher(style).find();
     }
 
     /**

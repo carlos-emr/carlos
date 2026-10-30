@@ -66,6 +66,16 @@ class InlineStyleUnitTest {
     }
 
     @Test
+    @DisplayName("should find text-align and not look-alikes")
+    void shouldFindTextAlign_whenStyleSetsIt() {
+        assertThat(InlineStyle.setsTextAlign("text-align: right")).isTrue();
+        assertThat(InlineStyle.setsTextAlign("color: red; TEXT-ALIGN :center")).isTrue();
+        assertThat(InlineStyle.setsTextAlign("text-align-last: right")).isFalse();
+        assertThat(InlineStyle.setsTextAlign("vertical-align: top")).isFalse();
+        assertThat(InlineStyle.setsTextAlign("")).isFalse();
+    }
+
+    @Test
     @DisplayName("should find list-style and list-style-type, and not look-alikes")
     void shouldFindListStyle_whenStyleSetsIt() {
         assertThat(InlineStyle.setsListStyle("list-style-type: square")).isTrue();
