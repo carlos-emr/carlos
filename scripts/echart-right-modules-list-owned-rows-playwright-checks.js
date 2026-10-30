@@ -68,8 +68,10 @@ async function steps(s, { second, dxDescription, allergy, drugName }) {
     await row.waitFor({ state: 'attached' });
     h.assert((await row.innerText()).trim() === dxDescription, 'The diagnosis row does not show the description');
     // The full title is the description and the start date (EctDisplayDx2Action).
-    h.assert(new RegExp(`^${dxDescription.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\d{4}-\\d{2}-\\d{2}$`).test(await row.getAttribute('title') || ''),
-      `The diagnosis row's full title is not the description and date: ${await row.getAttribute('title')}`);
+    const fullTitle = await row.getAttribute('title') || '';
+    const titlePrefix = `${dxDescription} `;
+    h.assert(fullTitle.startsWith(titlePrefix) && /^\d{4}-\d{2}-\d{2}$/.test(fullTitle.slice(titlePrefix.length)),
+      `The diagnosis row's full title is not the description and date: ${fullTitle}`);
     const shown = await dx.shown();
     h.assert(shown === '1', `The Dx Registry module counts ${shown} rows instead of the one owned diagnosis`);
   });
