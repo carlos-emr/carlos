@@ -67,6 +67,10 @@ final class CdsSchemaTypeCursor {
                 && "anyType".equals(parent.getName());
         XSElementDeclaration declaration = stack.isEmpty() || any
                 ? model.getElementDeclaration(local, namespace) : children(parent).get(name);
+        // After an invalid placement, Xerces still tries the global declaration.
+        // Follow that type for bounded value handling without replacing a local
+        // declaration; the validator continues to reject the invalid structure.
+        if (declaration == null) declaration = model.getElementDeclaration(local, namespace);
         XSTypeDefinition type = declaration == null ? (any ? parent : null) : declaration.getTypeDefinition();
         String selected = attributes.getValue(XMLConstants.W3C_XML_SCHEMA_INSTANCE_NS_URI, "type");
         if (selected != null) {

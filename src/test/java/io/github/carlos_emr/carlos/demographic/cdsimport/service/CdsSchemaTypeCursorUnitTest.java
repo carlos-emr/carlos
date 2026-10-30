@@ -91,6 +91,18 @@ class CdsSchemaTypeCursorUnitTest {
     }
 
     @Test
+    void shouldMatchPsviTypes_whenMisplacedGlobalReportsHaveNoTypeOverride() throws Exception {
+        String reports = "<Reports><Format>Binary</Format><Content><cdsd:Media>QUJD</cdsd:Media></Content>"
+                + "<Class>Medical Records Report</Class></Reports>"
+                + "<Reports><Format>Text</Format><Content><cdsd:TextContent>misplaced text</cdsd:TextContent></Content>"
+                + "<Class>Medical Records Report</Class></Reports>";
+        String xml = resource("/demographic/cds-import-summary.xml")
+                .replace("<ClinicalNotes>", "<ClinicalNotes>" + reports);
+        assertMetadata(xml, false);
+        assertEquals("CDS_XML_SCHEMA_INVALID", assertThrows(CdsInputException.class, () -> parse(xml)).code());
+    }
+
+    @Test
     void shouldBoundAggregateIdentityCharacters_evenWhenEveryValueAndTokenCountFits() throws Exception {
         StringBuilder records = new StringBuilder();
         String large = "x".repeat(60_000);

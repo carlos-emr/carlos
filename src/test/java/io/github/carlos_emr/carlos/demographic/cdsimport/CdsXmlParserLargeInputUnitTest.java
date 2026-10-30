@@ -69,6 +69,11 @@ class CdsXmlParserLargeInputUnitTest {
     }
 
     @Test
+    void shouldBoundMisplacedGlobalReports_withoutExplicitTypeOverrides() throws Exception {
+        probe("misplaced-reports", "BOUNDED_MISPLACED_REPORTS_OK");
+    }
+
+    @Test
     void shouldRefuseExcessiveSchemaIdentityState_withoutDisablingIdentityValidation() throws Exception {
         probe("identities", "BOUNDED_IDENTITIES_OK");
     }
@@ -138,6 +143,10 @@ class CdsXmlParserLargeInputUnitTest {
             }
             if (args.length > 1 && args[1].equals("malformed-types")) {
                 malformedTypes(directory, source, fixture);
+                return;
+            }
+            if (args.length > 1 && args[1].equals("misplaced-reports")) {
+                misplacedReports(directory, source, fixture);
                 return;
             }
             if (args.length > 1 && args[1].equals("identities")) {
@@ -421,6 +430,45 @@ class CdsXmlParserLargeInputUnitTest {
                 }
             }
             if (count != 2L * repetitions) throw new AssertionError("Incomplete diagnostics: " + count);
+        }
+
+        private static void misplacedReports(Path directory, Path source, String fixture) throws Exception {
+            int content = fixture.indexOf("<ClinicalNotes>") + "<ClinicalNotes>".length();
+            try (BufferedWriter xml = Files.newBufferedWriter(source, StandardCharsets.UTF_8)) {
+                xml.write(fixture.substring(0, content));
+                xml.write("<Reports><Format>Binary</Format><Content><cdsd:Media>");
+                block(xml, "QUJD", 2048);
+                xml.write("</cdsd:Media></Content><Class>Medical Records Report</Class></Reports>");
+                xml.write("<Reports><Format>Text</Format><Content><cdsd:TextContent>");
+                block(xml, "x", 1536);
+                xml.write("</cdsd:TextContent></Content><Class>Medical Records Report</Class></Reports>");
+                xml.write(fixture.substring(content));
+            }
+            byte[] original = sourceDigest(source);
+            Path spool = directory.resolve("spool");
+            try {
+                new CdsXmlParser().parse(source, spool, CdsInputLimitsDto.defaults(), () -> false, record -> {});
+                throw new AssertionError("Misplaced global reports unexpectedly sealed");
+            } catch (CdsInputException invalid) {
+                if (!invalid.code().equals("CDS_XML_SCHEMA_INVALID")) throw invalid;
+            }
+            long heap = Runtime.getRuntime().maxMemory();
+            if (Files.exists(spool.resolve("parse.seal"))
+                    || Files.size(source) <= heap
+                    || Files.size(spool.resolve("validation-errors.jsonl")) == 0
+                    || Files.size(spool.resolve("values.bin")) < (192L << 20)
+                    || !java.util.Arrays.equals(original, sourceDigest(source))) {
+                throw new AssertionError("Misplaced report refusal lost bounded decoding, diagnostics or original source");
+            }
+            System.out.println("BOUNDED_MISPLACED_REPORTS_OK sourceBytes=" + Files.size(source) + " heap=" + heap);
+        }
+
+        private static byte[] sourceDigest(Path source) throws Exception {
+            var digest = java.security.MessageDigest.getInstance("SHA-256");
+            try (var input = new java.security.DigestInputStream(Files.newInputStream(source), digest)) {
+                input.transferTo(java.io.OutputStream.nullOutputStream());
+            }
+            return digest.digest();
         }
 
         private static void block(BufferedWriter xml, String unit, int blocks) throws IOException {
