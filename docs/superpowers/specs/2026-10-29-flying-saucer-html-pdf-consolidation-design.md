@@ -599,6 +599,9 @@ structure).
      breaks row-span heights, *tested*);
    - h. `RtlTextShaping` (see "Right-to-left text");
    - i. add `alt=""` to `<img>` without one;
+   - n. mark with `class="carlos-pdf-wrap"` the block or table cell around every word of 40
+     characters or more (`XhtmlCleanup.markLongWords`; it runs after step i in every mode,
+     on the plain text document too; see "Injected stylesheet");
    - j. images: `PrintImageService` (see "Images"), the only step with side effects before
      layout (temporary files). In `TEXT_ONLY` mode there are no images and `prepare`
      returns an empty holder with no directory;
@@ -991,7 +994,7 @@ fixture of up to 3 pages; a 2000-row table at 41–42 pages against 43.
 html { line-height: 1.164 }                     /* WebKit "normal" for DejaVu Sans */
 html, body { margin-top: 0 !important }          /* WebKit drops the top margin at the page start */
 body > *:first-child { margin-top: 0 !important }
-body { word-wrap: break-word }                  /* long URLs/values wrap instead of forcing shrink */
+.carlos-pdf-wrap { word-wrap: break-word }       /* a block with a very long word (step n): wrap, not shrink */
 table.carlos-pdf-paginate { -fs-table-paginate: paginate }  /* repeat thead (step g) */
 .carlos-pdf-control { display: inline-block; vertical-align: baseline; font-size: 10pt;
   text-align: left; text-indent: 0; text-transform: none; letter-spacing: normal;
@@ -1008,8 +1011,15 @@ table.carlos-pdf-paginate { -fs-table-paginate: paginate }  /* repeat thead (ste
 
 Flying Saucer 10.7.0 ignores `overflow-wrap`; it supports `word-wrap: break-word`. Without
 it, one 600-character URL shrank a whole document to zoom 0.145 (*tested*; with it, 0.8).
-A box narrower than its text keeps its size and shows "[image un…" rather than breaking
-mid-word (*tested*).
+The property is **not** set on the whole body, as the first design had it: Flying Saucer then
+takes the minimum width of every table cell to be one character, and the label columns of an
+ordinary form collapsed into vertical strips of letters ("S m o k i n g") in the Annual
+form's lifestyle block (found by rendering the Annual fixture and looking at it; the same
+page with `body { word-wrap: normal }` lays out as in a browser). Step n (`markLongWords`)
+therefore gives `class="carlos-pdf-wrap"` to the block or table cell around each word of 40
+characters or more (a URL, a hash, an identifier; at 10 pt 40 characters are about 330 px,
+which fits an ordinary column) and only that class breaks words. A box narrower than its
+text keeps its size and shows "[image un…" rather than breaking mid-word (*tested*).
 
 ### Fonts (`BundledFontResolver`, `FallbackFontRuns`, `BundledFontFileService`)
 

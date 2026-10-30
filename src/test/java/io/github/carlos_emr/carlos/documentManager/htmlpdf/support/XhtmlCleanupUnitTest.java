@@ -43,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 /**
  * Unit tests for {@link XhtmlCleanup}: one group per rule of the render pipeline's steps a, b, d to
- * g, i and m. Characters a source file should not contain (controls, noncharacters, lone
+ * g, i, n and m. Characters a source file should not contain (controls, noncharacters, lone
  * surrogates, soft hyphens) are written as numeric code points.
  */
 @Tag("unit")
@@ -556,6 +556,108 @@ class XhtmlCleanupUnitTest {
             assertThat(document.getElementById("a").hasAttr("alt")).isTrue();
             assertThat(document.getElementById("b").attr("alt")).isEmpty();
             assertThat(document.getElementById("c").attr("alt")).isEqualTo("A chart");
+        }
+    }
+
+    // ---- step n -----------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("markLongWords")
+    class LongWords {
+
+        private final String longWord = "x".repeat(XhtmlCleanup.LONG_WORD_CHARS);
+
+        @Test
+        @DisplayName("should mark the block that holds a word of 40 characters or more, and nothing for a shorter one")
+        void shouldMarkBlock_whenWordIsLong() {
+            Document document = parse("<p id=\"long\">see " + longWord + " here</p><p id=\"short\">" + longWord.substring(1) + "</p>");
+
+            XhtmlCleanup.markLongWords(document);
+
+            assertThat(document.getElementById("long").hasClass("carlos-pdf-wrap")).isTrue();
+            assertThat(document.getElementById("short").hasClass("carlos-pdf-wrap")).isFalse();
+            assertThat(XhtmlCleanup.WRAP_CLASS).isEqualTo("carlos-pdf-wrap");
+        }
+
+        @Test
+        @DisplayName("should count a run of characters without white space, and start again after any white space")
+        void shouldCountRuns_betweenWhiteSpace() {
+            Document document = parse("<p id=\"a\">" + "x".repeat(25) + " " + "y".repeat(25) + "</p>"
+                    + "<p id=\"b\">" + "x".repeat(25) + "\n" + "y".repeat(25) + "</p>"
+                    + "<p id=\"c\">" + "x".repeat(25) + "\t" + "y".repeat(25) + "</p>"
+                    + "<p id=\"d\">" + "x".repeat(25) + "&nbsp;" + "y".repeat(25) + "</p>");
+
+            XhtmlCleanup.markLongWords(document);
+
+            assertThat(document.getElementById("a").hasClass("carlos-pdf-wrap")).isFalse();
+            assertThat(document.getElementById("b").hasClass("carlos-pdf-wrap")).isFalse();
+            assertThat(document.getElementById("c").hasClass("carlos-pdf-wrap")).isFalse();
+            // A no-break space does not allow a line break, so the run is 51 characters long.
+            assertThat(document.getElementById("d").hasClass("carlos-pdf-wrap")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should mark the table cell, not the link, when the long word is the text of a link in a cell")
+        void shouldMarkEnclosingBlock_forWordInInlineElements() {
+            Document document = parse("<table><tr><td id=\"cell\"><a id=\"link\" href=\"x\"><b id=\"bold\">" + longWord
+                    + "</b></a></td><td id=\"other\">short</td></tr></table>");
+
+            XhtmlCleanup.markLongWords(document);
+
+            assertThat(document.getElementById("cell").hasClass("carlos-pdf-wrap")).isTrue();
+            assertThat(document.getElementById("link").hasClass("carlos-pdf-wrap")).isFalse();
+            assertThat(document.getElementById("bold").hasClass("carlos-pdf-wrap")).isFalse();
+            assertThat(document.getElementById("other").hasClass("carlos-pdf-wrap")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should mark the nearest block and keep other classes and attributes of it")
+        void shouldAddClass_toExistingClasses() {
+            Document document = parse("<div id=\"d\" class=\"note big\" style=\"color: red\"><span>" + longWord + "</span></div>");
+
+            XhtmlCleanup.markLongWords(document);
+
+            assertThat(document.getElementById("d").classNames()).containsExactlyInAnyOrder("note", "big", "carlos-pdf-wrap");
+            assertThat(document.getElementById("d").attr("style")).isEqualTo("color: red");
+        }
+
+        @Test
+        @DisplayName("should mark the body for a long word that sits directly in it")
+        void shouldMarkBody_forLooseText() {
+            Document document = parse("<html><body>" + longWord + "</body></html>");
+
+            XhtmlCleanup.markLongWords(document);
+
+            assertThat(document.body().hasClass("carlos-pdf-wrap")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should leave the head, style sheets, titles, scripts and printed form controls alone")
+        void shouldIgnore_headStyleTitleAndControls() {
+            Document document = parse("<html><head><title>" + longWord + "</title><style>.a { content: \"" + longWord
+                    + "\" }</style></head><body><span id=\"control\" class=\"carlos-pdf-control carlos-pdf-text\">" + longWord
+                    + "</span><p id=\"p\">fine</p></body></html>");
+
+            XhtmlCleanup.markLongWords(document);
+
+            assertThat(document.select(".carlos-pdf-wrap")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should mark every block that has a long word, and each only once")
+        void shouldMarkEachBlock_once() {
+            Document document = parse("<p id=\"a\">" + longWord + " " + longWord + "</p><p id=\"b\">" + longWord + "</p><p id=\"c\">ok</p>");
+
+            XhtmlCleanup.markLongWords(document);
+
+            assertThat(document.select(".carlos-pdf-wrap").eachAttr("id")).containsExactly("a", "b");
+            assertThat(document.getElementById("a").classNames()).containsExactly("carlos-pdf-wrap");
+        }
+
+        @Test
+        @DisplayName("should reject a null document")
+        void shouldRejectNull_whenDocumentMissing() {
+            assertThatNullPointerException().isThrownBy(() -> XhtmlCleanup.markLongWords(null));
         }
     }
 

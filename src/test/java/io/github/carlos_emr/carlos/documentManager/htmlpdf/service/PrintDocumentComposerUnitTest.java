@@ -130,6 +130,23 @@ class PrintDocumentComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should mark the block that holds a very long word, in every mode and so in the plain text too")
+    void shouldMarkLongWords_inEveryMode() {
+        String word = "u".repeat(60);
+        for (PrintMode mode : PrintMode.values()) {
+            Document document = prepared("<table><tr><td id=\"long\">" + word + "</td><td id=\"short\">short</td></tr></table>"
+                    + "<p>fine</p>", mode);
+
+            assertThat(document.select(".carlos-pdf-wrap").text()).as(mode.name()).contains(word);
+            assertThat(document.select(".carlos-pdf-wrap").text()).as(mode.name()).doesNotContain("fine");
+        }
+        Document normal = prepared("<table><tr><td id=\"long\">" + word + "</td><td id=\"short\">short</td></tr></table>",
+                PrintMode.NORMAL);
+        assertThat(normal.getElementById("long").hasClass("carlos-pdf-wrap")).isTrue();
+        assertThat(normal.getElementById("short").hasClass("carlos-pdf-wrap")).isFalse();
+    }
+
+    @Test
     @DisplayName("should apply every document rule in normal mode and keep the author's styles")
     void shouldApplyEveryRule_inNormalMode() {
         Document document = composer.prepare("<html><head><title>T</title><style>p { color: red }</style>"

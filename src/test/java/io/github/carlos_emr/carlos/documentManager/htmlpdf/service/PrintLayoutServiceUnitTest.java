@@ -174,6 +174,37 @@ class PrintLayoutServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should keep a table cell's label on one line instead of squeezing its column to one letter")
+    void shouldKeepLabelColumns_atTheirNaturalWidth() throws Exception {
+        // The shape of the Annual form's lifestyle block: a narrow cell holding a table of labels and
+        // fixed-width fields. With word-wrap on the whole body Flying Saucer takes every cell's
+        // minimum width to be one character and prints the labels as vertical strips of letters.
+        String html = "<html><head><style>body { margin: 0 }</style></head><body>"
+                + "<table width=\"100%\"><tr><td style=\"width: 25%\"><table><tr><td>Smoking:</td>"
+                + "<td><input type=\"text\" style=\"width: 230px\" value=\"never\"></td></tr>"
+                + "<tr><td>Alcohol:</td><td><input type=\"text\" style=\"width: 230px\" value=\"weekly\"></td></tr></table></td>"
+                + "<td>Screening</td></tr></table></body></html>";
+
+        byte[] pdf = render(html);
+
+        String text = TestPdfs.pageTexts(pdf).get(0);
+        assertThat(text).contains("Smoking:").contains("Alcohol:").contains("Screening");
+        assertThat(TestPdfs.pageSizes(pdf)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("should keep the default zoom when the very long word is in a table cell, and break it there")
+    void shouldKeepDefaultZoom_forLongUrlInTableCell() throws Exception {
+        String html = "<html><head><style>body { margin: 0 }</style></head><body><table width=\"100%\"><tr>"
+                + "<td>label</td><td><a href=\"x\">https://example.invalid/" + "a".repeat(600) + "</a></td></tr></table></body></html>";
+
+        byte[] pdf = render(html);
+
+        assertThat(TestPdfs.zoomOf(pdf)).isCloseTo(0.8f, within(0.001f));
+        assertThat(TestPdfs.pageTexts(pdf).get(0)).contains("label").contains("aaaaaaaaaaaaaaaa");
+    }
+
+    @Test
     @DisplayName("should print 8 px text at 6 points: the 10 px minimum, scaled by the default zoom")
     void shouldPrintTinyText_atSixPoints() throws Exception {
         byte[] pdf = render("<html><body><p style=\"font-size: 8px\">tiny text</p></body></html>");

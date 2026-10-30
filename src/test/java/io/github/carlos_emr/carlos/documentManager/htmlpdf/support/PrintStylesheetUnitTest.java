@@ -56,7 +56,7 @@ class PrintStylesheetUnitTest {
                 "html { line-height: 1.164 }",
                 "html, body { margin-top: 0 !important }",
                 "body > *:first-child { margin-top: 0 !important }",
-                "body { word-wrap: break-word }",
+                ".carlos-pdf-wrap { word-wrap: break-word }",
                 "table.carlos-pdf-paginate { -fs-table-paginate: paginate }",
                 ".carlos-pdf-control { display: inline-block; vertical-align: baseline; font-size: 10pt;",
                 ".carlos-pdf-text, .carlos-pdf-password, .carlos-pdf-select { border: 1px solid #000;",

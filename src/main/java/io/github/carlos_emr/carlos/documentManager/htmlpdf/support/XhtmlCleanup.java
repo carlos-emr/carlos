@@ -35,10 +35,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * The rules that turn an HTML document into valid, printable XHTML for Flying Saucer (steps a, b,
- * d to g, i and m of the render pipeline). Each rule is a static method that changes the Jsoup
+ * d to g, i, n and m of the render pipeline). Each rule is a static method that changes the Jsoup
  * {@link Document} it is given; the composer applies them in pipeline order.
  *
  * <p>Flying Saucer reads the document as XML with a namespace-aware parser, so one construct that
@@ -384,6 +385,82 @@ public final class XhtmlCleanup {
     public static void addMissingAltText(Document document) {
         Objects.requireNonNull(document, "document");
         document.select("img:not([alt])").attr("alt", "");
+    }
+
+    // ---- n. long words ----------------------------------------------------------------------
+
+    /**
+     * The class the injected style sheet gives {@code word-wrap: break-word}: a block (or table
+     * cell) that holds a word too long to be sure of fitting a line.
+     */
+    public static final String WRAP_CLASS = "carlos-pdf-wrap";
+
+    /**
+     * A word (a run of characters without white space) of this many characters or more is breakable
+     * in print: a URL, a hash or an identifier can be wider than the table column it sits in. At 10 pt
+     * 40 characters are about 330 px, which fits an ordinary column, so prose and form labels are
+     * left alone.
+     */
+    static final int LONG_WORD_CHARS = 40;
+
+    /** Elements that sit in a line; a long word in one of them is made breakable on the block around it. */
+    private static final Set<String> INLINE_TAGS = Set.of("a", "abbr", "acronym", "b", "bdi", "bdo", "big", "cite", "code",
+            "data", "del", "dfn", "em", "font", "i", "ins", "kbd", "label", "mark", "q", "s", "samp", "small", "span",
+            "strike", "strong", "sub", "sup", "time", "tt", "u", "var");
+
+    /**
+     * Marks, with {@link #WRAP_CLASS}, the block or table cell around every word of
+     * {@link #LONG_WORD_CHARS} characters or more (step n), so that only those blocks break a word
+     * that does not fit. Flying Saucer lets a one-line URL of 600 characters widen the page, and the
+     * whole document is then shrunk to fit (zoom 0.145 instead of 0.8); {@code word-wrap:
+     * break-word} on the block prevents that. It is not set on the whole body because Flying Saucer
+     * then takes every table cell's minimum width to be one character and squeezes the label columns
+     * of an ordinary form into vertical strips of letters (seen on the Annual form).
+     *
+     * <p>Text in the head, in a style sheet, and in the printed form controls (which wrap their own
+     * values) is left alone.</p>
+     *
+     * @param document the document to mark
+     */
+    public static void markLongWords(Document document) {
+        Objects.requireNonNull(document, "document");
+        document.traverse((node, depth) -> {
+            if (node instanceof TextNode text && node.parent() instanceof Element parent && hasLongWord(text.getWholeText())
+                    && !isInHeadOrControl(parent)) {
+                blockAround(parent).addClass(WRAP_CLASS);
+            }
+        });
+    }
+
+    private static boolean hasLongWord(String text) {
+        int run = 0;
+        for (int i = 0; i < text.length(); i++) {
+            if (Character.isWhitespace(text.charAt(i))) {
+                run = 0;
+            } else if (++run >= LONG_WORD_CHARS) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isInHeadOrControl(Element element) {
+        for (Element current = element; current != null; current = current.parent()) {
+            String name = current.normalName();
+            if (name.equals("head") || name.equals("style") || name.equals("title") || name.equals("script")
+                    || current.hasClass("carlos-pdf-control")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Element blockAround(Element element) {
+        Element block = element;
+        while (INLINE_TAGS.contains(block.normalName()) && block.parent() != null) {
+            block = block.parent();
+        }
+        return block;
     }
 
     // ---- m. serialisation -------------------------------------------------------------------

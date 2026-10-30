@@ -40,9 +40,13 @@ import java.math.RoundingMode;
  *   <li>{@code line-height: 1.164}, WebKit's {@code normal} for DejaVu Sans, which Flying Saucer
  *       would otherwise compute differently;</li>
  *   <li>no top margin at the start of the page, as WebKit drops it;</li>
- *   <li>{@code word-wrap: break-word} on the body: one 600-character URL or value otherwise forces
+ *   <li>{@code word-wrap: break-word} on {@code .carlos-pdf-wrap}, the class step n gives to a block
+ *       that holds a word of 40 characters or more: one 600-character URL or value otherwise forces
  *       the whole document to be shrunk to fit (zoom 0.145 instead of 0.8). Flying Saucer 10.7.0
- *       ignores {@code overflow-wrap} but supports {@code word-wrap};</li>
+ *       ignores {@code overflow-wrap} but supports {@code word-wrap}. The property is not set on the
+ *       whole body: Flying Saucer then takes the minimum width of every table cell to be one
+ *       character, and the label columns of an ordinary form (the Annual form's lifestyle block)
+ *       collapse into vertical strips of letters;</li>
  *   <li>{@code -fs-table-paginate} for the tables step g marks, which repeats their headers;</li>
  *   <li>the printed form controls ({@code carlos-pdf-control}, see {@code PrintFormControls}):
  *       bordered boxes that grow to fit their content, keep their line breaks and wrap long values;</li>
@@ -64,7 +68,7 @@ public final class PrintStylesheet {
             html { line-height: 1.164 }                     /* WebKit "normal" for DejaVu Sans */
             html, body { margin-top: 0 !important }          /* WebKit drops the top margin at the page start */
             body > *:first-child { margin-top: 0 !important }
-            body { word-wrap: break-word }                  /* long URLs/values wrap instead of forcing shrink */
+            .carlos-pdf-wrap { word-wrap: break-word }       /* a block with a very long word (step n): wrap, not shrink */
             table.carlos-pdf-paginate { -fs-table-paginate: paginate }  /* repeat thead (step g) */
             .carlos-pdf-control { display: inline-block; vertical-align: baseline; font-size: 10pt;
               text-align: left; text-indent: 0; text-transform: none; letter-spacing: normal;
