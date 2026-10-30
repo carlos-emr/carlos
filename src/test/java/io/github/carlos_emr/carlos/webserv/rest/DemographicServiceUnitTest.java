@@ -115,7 +115,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         loggedInInfo = new LoggedInInfo();
-        service = new DemographicService() {
+        service = new DemographicService(mock(CdsLegacyProjectionService.class)) {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return loggedInInfo;

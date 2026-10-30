@@ -122,7 +122,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected Object getServiceBean() {
-        DemographicService service = new DemographicService();
+        DemographicService service = new DemographicService(new CdsLegacyProjectionService(mockProjectionRecords));
         injectDependency(service, "demographicManager", mockDemographicManager);
         injectDependency(service, "contactDao", mockContactDao);
         injectDependency(service, "allergyManager", mockAllergyManager);
@@ -135,7 +135,6 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         injectDependency(service, "secUserRoleDao", mockSecUserRoleDao);
         injectDependency(service, "specialistDao", mockSpecialistDao);
         injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
-        injectDependency(service, "projections", new CdsLegacyProjectionService(mockProjectionRecords));
         return service;
     }
 

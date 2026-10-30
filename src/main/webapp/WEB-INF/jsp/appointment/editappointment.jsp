@@ -1153,7 +1153,7 @@
 
                             if (bMultisites) { %>
 				        <label for="location" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
-				        <select tabindex="4" name="location" id="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+				        <select name="location" id="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                             <%
                                 StringBuilder sb = new StringBuilder();
                                 for (Site s : sites) {
@@ -1189,7 +1189,7 @@
                         </select>
                         <% } else { %>
 		        <label for="locationText" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
-		        <input type="text" class="form-control" name="location" id="locationText" tabindex="4"
+		        <input type="text" class="form-control" name="location" id="locationText"
                        value="<carlos:encode value='<%= bFirstDisp?appt.getLocation():(request.getParameter("location") != null ? request.getParameter("location") : "") %>' context="htmlAttribute"/>" >
                         <% } %>
                         <% } %>

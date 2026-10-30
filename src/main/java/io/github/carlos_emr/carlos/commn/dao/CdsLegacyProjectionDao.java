@@ -28,9 +28,15 @@ import org.springframework.stereotype.Repository;
 /** Existence-only checks: legacy projection admission never loads protected source values. */
 @Repository
 public class CdsLegacyProjectionDao extends AbstractDaoImpl<CdsImportField> {
+    // These values are Flyway versions bound to a version column, never network addresses.
+    @SuppressWarnings("java:S1313")
+    private static final String SOURCE_FIELD_MIGRATION_VERSION = "1.0.59.8";
+    @SuppressWarnings("java:S1313")
+    private static final String LABORATORY_MIGRATION_VERSION = "1.0.59.10";
+
     public CdsLegacyProjectionDao() { super(CdsImportField.class); }
     public boolean hasSourceFields(int patient, Set<String> categories) {
-        if (!representationTableAvailable("cds_import_field", "1.0.59.8")) return false;
+        if (!representationTableAvailable("cds_import_field", SOURCE_FIELD_MIGRATION_VERSION)) return false;
         var query=categories.isEmpty()
                 ? entityManager.createQuery("select f.id from CdsImportField f where f.demographicNo=:patient", String.class)
                 : entityManager.createQuery("select f.id from CdsImportField f where f.demographicNo=:patient and f.category in :categories", String.class);
@@ -39,12 +45,12 @@ public class CdsLegacyProjectionDao extends AbstractDaoImpl<CdsImportField> {
         return !query.getResultList().isEmpty();
     }
     public boolean hasTypedLaboratoryResults(int patient) {
-        if (!representationTableAvailable("cds_laboratory_result", "1.0.59.10")) return false;
+        if (!representationTableAvailable("cds_laboratory_result", LABORATORY_MIGRATION_VERSION)) return false;
         return !entityManager.createQuery("select l.id from CdsLaboratoryResult l where l.demographicNo=:patient", String.class)
                 .setParameter("patient", patient).setMaxResults(1).getResultList().isEmpty();
     }
     public boolean hasAnySourceFields(Set<String> categories) {
-        if (!representationTableAvailable("cds_import_field", "1.0.59.8")) return false;
+        if (!representationTableAvailable("cds_import_field", SOURCE_FIELD_MIGRATION_VERSION)) return false;
         return !entityManager.createQuery("select f.id from CdsImportField f where f.category in :categories", String.class)
                 .setParameter("categories", categories).setMaxResults(1).getResultList().isEmpty();
     }

@@ -198,9 +198,12 @@ public class DemographicService extends AbstractServiceImpl {
     @Autowired
     private SecurityInfoManager securityInfoManager;
 
-    @Autowired
     private CdsLegacyProjectionService projections;
 
+    @Autowired
+    public DemographicService(CdsLegacyProjectionService projections) {
+        this.projections = java.util.Objects.requireNonNull(projections);
+    }
 
     private DemographicConverter demoConverter = new DemographicConverter();
     private DemographicContactFewConverter demoContactFewConverter = new DemographicContactFewConverter();

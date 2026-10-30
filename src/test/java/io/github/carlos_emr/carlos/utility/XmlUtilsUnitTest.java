@@ -40,7 +40,6 @@ import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Set;
@@ -67,6 +66,12 @@ class XmlUtilsUnitTest {
                         .isEqualTo(DocumentBuilderFactory.newDefaultInstance().getClass()),
                 () -> assertThat(XmlUtils.createSecureSAXParserFactory().getClass())
                         .isEqualTo(javax.xml.parsers.SAXParserFactory.newDefaultInstance().getClass()));
+    }
+
+    @Test
+    void shouldRejectMissingXmlText_beforeAttemptingDocumentParsing() {
+        assertThatThrownBy(() -> XmlUtils.toDocument((String) null))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     private Document createTestDocument() throws Exception {
